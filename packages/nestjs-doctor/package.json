@@ -37,6 +37,15 @@
   ],
   "author": "RoloBits",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RoloBits/nestjs-doctor.git",
+    "directory": "packages/nestjs-doctor"
+  },
+  "homepage": "https://github.com/RoloBits/nestjs-doctor#readme",
+  "bugs": {
+    "url": "https://github.com/RoloBits/nestjs-doctor/issues"
+  },
   "devDependencies": {
     "tsdown": "^0.20.3",
     "vitest": "^3.0.0"

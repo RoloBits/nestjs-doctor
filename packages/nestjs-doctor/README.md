@@ -24,6 +24,12 @@
 npx nestjs-doctor@latest .
 ```
 
+For file paths and line numbers:
+
+```bash
+npx nestjs-doctor@latest . --verbose
+```
+
 No config, no plugins, no setup.
 
 ```
