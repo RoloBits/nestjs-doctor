@@ -1,7 +1,8 @@
-import { Controller, Get, Param } from "@nestjs/common";
+import { Controller, Get, Param, UseGuards } from "@nestjs/common";
 import type { UsersService } from "./users.service";
 
 @Controller("users")
+@UseGuards()
 export class UsersController {
 	constructor(private readonly usersService: UsersService) {}
 

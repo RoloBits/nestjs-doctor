@@ -29,3 +29,15 @@ export interface DiagnoseResult {
 	score: Score;
 	summary: DiagnoseSummary;
 }
+
+export interface SubProjectResult {
+	name: string;
+	result: DiagnoseResult;
+}
+
+export interface MonorepoResult {
+	combined: DiagnoseResult;
+	elapsedMs: number;
+	isMonorepo: boolean;
+	subProjects: SubProjectResult[];
+}

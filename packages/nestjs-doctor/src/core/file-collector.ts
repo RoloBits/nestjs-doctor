@@ -1,6 +1,8 @@
+import { join } from "node:path";
 import { glob } from "tinyglobby";
 import type { NestjsDoctorConfig } from "../types/config.js";
 import { DEFAULT_CONFIG } from "../types/config.js";
+import type { MonorepoInfo } from "./project-detector.js";
 
 export async function collectFiles(
 	targetPath: string,
@@ -16,4 +18,20 @@ export async function collectFiles(
 	});
 
 	return files.sort();
+}
+
+export async function collectMonorepoFiles(
+	targetPath: string,
+	monorepo: MonorepoInfo,
+	config: NestjsDoctorConfig = {}
+): Promise<Map<string, string[]>> {
+	const result = new Map<string, string[]>();
+
+	for (const [name, root] of monorepo.projects) {
+		const projectPath = join(targetPath, root);
+		const files = await collectFiles(projectPath, config);
+		result.set(name, files);
+	}
+
+	return result;
 }

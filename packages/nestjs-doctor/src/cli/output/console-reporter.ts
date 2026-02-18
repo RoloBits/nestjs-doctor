@@ -1,5 +1,5 @@
 import type { Diagnostic } from "../../types/diagnostic.js";
-import type { DiagnoseResult } from "../../types/result.js";
+import type { DiagnoseResult, MonorepoResult } from "../../types/result.js";
 import { highlighter } from "./highlighter.js";
 import { logger } from "./logger.js";
 
@@ -339,4 +339,45 @@ export function printConsoleReport(
 		logger.dim("  Run with --verbose for file paths and line numbers");
 		logger.break();
 	}
+}
+
+export function printMonorepoReport(
+	monorepoResult: MonorepoResult,
+	verbose: boolean
+): void {
+	// Print combined report first
+	printConsoleReport(monorepoResult.combined, verbose);
+
+	// Then print per-project summaries
+	logger.log("  Sub-project breakdown:");
+	logger.break();
+
+	for (const subProject of monorepoResult.subProjects) {
+		const { name, result } = subProject;
+		const scoreText = colorizeByScore(
+			String(result.score.value),
+			result.score.value
+		);
+		const parts = [
+			`${highlighter.info(name)}: ${scoreText}/100`,
+			`${result.project.fileCount} files`,
+		];
+
+		if (result.summary.errors > 0) {
+			parts.push(highlighter.error(`${result.summary.errors} errors`));
+		}
+		if (result.summary.warnings > 0) {
+			parts.push(highlighter.warn(`${result.summary.warnings} warnings`));
+		}
+		if (result.summary.info > 0) {
+			parts.push(`${result.summary.info} info`);
+		}
+		if (result.diagnostics.length === 0) {
+			parts.push(highlighter.success("clean"));
+		}
+
+		logger.log(`    ${parts.join("  |  ")}`);
+	}
+
+	logger.break();
 }

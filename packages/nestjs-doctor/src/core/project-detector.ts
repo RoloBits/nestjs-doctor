@@ -8,6 +8,54 @@ interface PackageJson {
 	name?: string;
 }
 
+interface NestCliProject {
+	compilerOptions?: Record<string, unknown>;
+	entryFile?: string;
+	root?: string;
+	sourceRoot?: string;
+	type?: string;
+}
+
+interface NestCliJson {
+	monorepo?: boolean;
+	projects?: Record<string, NestCliProject>;
+	root?: string;
+	sourceRoot?: string;
+}
+
+export interface MonorepoInfo {
+	projects: Map<string, string>; // name -> root path (relative)
+}
+
+export async function detectMonorepo(
+	targetPath: string
+): Promise<MonorepoInfo | null> {
+	const cliPath = join(targetPath, "nest-cli.json");
+
+	try {
+		const raw = await readFile(cliPath, "utf-8");
+		const config = JSON.parse(raw) as NestCliJson;
+
+		if (!(config.monorepo && config.projects)) {
+			return null;
+		}
+
+		const projects = new Map<string, string>();
+		for (const [name, project] of Object.entries(config.projects)) {
+			const root = project.root ?? name;
+			projects.set(name, root);
+		}
+
+		if (projects.size === 0) {
+			return null;
+		}
+
+		return { projects };
+	} catch {
+		return null;
+	}
+}
+
 export async function detectProject(targetPath: string): Promise<ProjectInfo> {
 	const pkgPath = join(targetPath, "package.json");
 	let pkg: PackageJson = {};

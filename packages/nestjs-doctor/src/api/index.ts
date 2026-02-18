@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { scan } from "../core/scanner.js";
+import { scan, scanMonorepo } from "../core/scanner.js";
 
 // biome-ignore lint/performance/noBarrelFile: this is the public API surface
 export { getRules } from "../rules/index.js";
@@ -16,8 +16,10 @@ export type { Category, Diagnostic, Severity } from "../types/diagnostic.js";
 export type {
 	DiagnoseResult,
 	DiagnoseSummary,
+	MonorepoResult,
 	ProjectInfo,
 	Score,
+	SubProjectResult,
 } from "../types/result.js";
 
 export async function diagnose(
@@ -26,4 +28,12 @@ export async function diagnose(
 ) {
 	const targetPath = resolve(path);
 	return await scan(targetPath, options);
+}
+
+export async function diagnoseMonorepo(
+	path: string,
+	options: { config?: string } = {}
+) {
+	const targetPath = resolve(path);
+	return await scanMonorepo(targetPath, options);
 }

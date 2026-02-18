@@ -1,8 +1,12 @@
 import { resolve } from "node:path";
 import { defineCommand, runMain } from "citty";
-import { scan } from "../core/scanner.js";
+import { detectMonorepo } from "../core/project-detector.js";
+import { scan, scanMonorepo } from "../core/scanner.js";
 import { flags } from "./flags.js";
-import { printConsoleReport } from "./output/console-reporter.js";
+import {
+	printConsoleReport,
+	printMonorepoReport,
+} from "./output/console-reporter.js";
 import { highlighter } from "./output/highlighter.js";
 import { printJsonReport } from "./output/json-reporter.js";
 import { spinner } from "./output/spinner.js";
@@ -27,6 +31,46 @@ const main = defineCommand({
 		const targetPath = resolve(args.path ?? ".");
 		const isSilent = args.score || args.json;
 
+		// Auto-detect monorepo
+		const monorepo = await detectMonorepo(targetPath);
+
+		if (monorepo) {
+			const scanSpinner = isSilent
+				? null
+				: spinner(
+						`Scanning monorepo (${monorepo.projects.size} projects)...`
+					).start();
+
+			const result = await scanMonorepo(targetPath, {
+				config: args.config,
+			});
+
+			if (scanSpinner) {
+				const projectNames = result.subProjects.map((sp) => sp.name).join(", ");
+				scanSpinner.succeed(
+					`Scanned ${highlighter.info(String(result.combined.project.fileCount))} files across ${highlighter.info(String(result.subProjects.length))} projects (${projectNames})`
+				);
+			}
+
+			if (args.score) {
+				console.log(result.combined.score.value);
+				return;
+			}
+
+			if (args.json) {
+				printJsonReport(result.combined);
+				return;
+			}
+
+			printMonorepoReport(result, args.verbose ?? false);
+
+			if (result.combined.summary.errors > 0) {
+				process.exit(1);
+			}
+			return;
+		}
+
+		// Standard single-project scan
 		const scanSpinner = isSilent ? null : spinner("Scanning...").start();
 
 		const result = await scan(targetPath, {

@@ -1,0 +1,16 @@
+{
+  "monorepo": true,
+  "root": "apps/api",
+  "projects": {
+    "api": {
+      "type": "application",
+      "root": "apps/api",
+      "sourceRoot": "apps/api/src"
+    },
+    "admin": {
+      "type": "application",
+      "root": "apps/admin",
+      "sourceRoot": "apps/admin/src"
+    }
+  }
+}

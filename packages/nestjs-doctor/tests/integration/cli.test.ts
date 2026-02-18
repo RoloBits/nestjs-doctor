@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { scan } from "../../src/core/scanner.js";
+import { scan, scanMonorepo } from "../../src/core/scanner.js";
 
 const FIXTURES = resolve(import.meta.dirname, "../fixtures");
 
@@ -94,5 +94,36 @@ describe("scanner integration", () => {
 
 		// Should detect 3 modules: AppModule, UsersModule, OrdersModule
 		expect(result.project.moduleCount).toBe(3);
+	});
+
+	it("scans monorepo with multiple sub-projects", async () => {
+		const result = await scanMonorepo(resolve(FIXTURES, "monorepo-app"));
+
+		expect(result.isMonorepo).toBe(true);
+		expect(result.subProjects.length).toBe(2);
+
+		const projectNames = result.subProjects.map((sp) => sp.name).sort();
+		expect(projectNames).toEqual(["admin", "api"]);
+
+		// Each sub-project should have scanned files
+		for (const sp of result.subProjects) {
+			expect(sp.result.project.fileCount).toBeGreaterThan(0);
+		}
+
+		// Combined result should aggregate
+		expect(result.combined.project.fileCount).toBe(
+			result.subProjects.reduce(
+				(sum, sp) => sum + sp.result.project.fileCount,
+				0
+			)
+		);
+	});
+
+	it("falls back to single scan for non-monorepo", async () => {
+		const result = await scanMonorepo(resolve(FIXTURES, "basic-app/src"));
+
+		expect(result.isMonorepo).toBe(false);
+		expect(result.subProjects.length).toBe(1);
+		expect(result.subProjects[0].name).toBe("default");
 	});
 });
