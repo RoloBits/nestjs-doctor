@@ -1,0 +1,42 @@
+# NestJS Doctor
+
+Diagnose NestJS codebase health. Scans for security, performance, correctness, and architecture issues, then outputs a 0-100 score with actionable diagnostics.
+
+## Usage
+
+Run this at your project root:
+
+```bash
+npx -y nestjs-doctor@latest .
+```
+
+Use `--verbose` to see affected files and line numbers:
+
+```bash
+npx -y nestjs-doctor@latest . --verbose
+```
+
+Use `--score` to output only the numeric score:
+
+```bash
+npx -y nestjs-doctor@latest . --score
+```
+
+Use `--json` for machine-readable output:
+
+```bash
+npx -y nestjs-doctor@latest . --json
+```
+
+## Options
+
+```
+Usage: nestjs-doctor [directory] [options]
+
+Options:
+  --verbose       Show file paths and line numbers per diagnostic
+  --score         Output only the numeric score (for CI)
+  --json          JSON output (for tooling)
+  --config <p>    Path to config file
+  -h, --help      Show help
+```

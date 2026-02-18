@@ -1,56 +1,25 @@
 {
-  "name": "nestjs-doctor",
-  "version": "0.1.0",
-  "description": "Diagnostic CLI tool that scans NestJS codebases and produces a health score with actionable diagnostics",
-  "type": "module",
-  "bin": {
-    "nestjs-doctor": "./dist/cli/index.js"
-  },
-  "exports": {
-    ".": {
-      "import": "./dist/api/index.js",
-      "require": "./dist/api/index.cjs"
-    },
-    "./api": {
-      "import": "./dist/api/index.js",
-      "require": "./dist/api/index.cjs"
-    }
-  },
-  "files": [
-    "dist"
-  ],
+  "name": "nestjs-doctor-monorepo",
+  "private": true,
+  "packageManager": "pnpm@10.2.0",
   "scripts": {
-    "build": "tsdown",
-    "dev": "tsdown --watch",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "lint": "biome check .",
-    "lint:fix": "biome check --write .",
-    "format": "biome format --write .",
-    "typecheck": "tsc --noEmit"
+    "dev": "pnpm --filter nestjs-doctor run dev",
+    "build": "pnpm --filter nestjs-doctor run build",
+    "test": "pnpm --filter nestjs-doctor run test",
+    "check": "ultracite check",
+    "fix": "ultracite fix",
+    "typecheck": "pnpm --filter nestjs-doctor run typecheck",
+    "build:website": "pnpm --filter website run build",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "pnpm build && changeset publish",
+    "prepare": "husky"
   },
-  "keywords": [
-    "nestjs",
-    "diagnostic",
-    "lint",
-    "health-check",
-    "architecture",
-    "security",
-    "best-practices"
-  ],
-  "author": "RoloBits",
-  "license": "MIT",
   "devDependencies": {
-    "@biomejs/biome": "^1.9.0",
-    "tsdown": "^0.9.0",
+    "@biomejs/biome": "2.4.0",
+    "@changesets/cli": "^2.27.0",
+    "husky": "9.1.7",
     "typescript": "^5.7.0",
-    "vitest": "^3.0.0"
-  },
-  "dependencies": {
-    "citty": "^0.1.6",
-    "clipboardy": "^4.0.0",
-    "picocolors": "^1.1.0",
-    "tinyglobby": "^0.2.0",
-    "ts-morph": "^25.0.0"
+    "ultracite": "7.2.3"
   }
 }

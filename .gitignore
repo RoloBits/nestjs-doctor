@@ -5,3 +5,6 @@ dist/
 coverage/
 .env
 .env.*
+.next/
+out/
+.claude
