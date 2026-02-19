@@ -5,8 +5,8 @@ import { resolveProviders } from "../../../src/engine/type-resolver.js";
 import { noBlockingConstructor } from "../../../src/rules/performance/no-blocking-constructor.js";
 import { noDynamicRequire } from "../../../src/rules/performance/no-dynamic-require.js";
 import { noOrphanModules } from "../../../src/rules/performance/no-orphan-modules.js";
+import { noRequestScopeAbuse } from "../../../src/rules/performance/no-request-scope-abuse.js";
 import { noSyncIo } from "../../../src/rules/performance/no-sync-io.js";
-import { noUnnecessaryAsync } from "../../../src/rules/performance/no-unnecessary-async.js";
 import { noUnusedModuleExports } from "../../../src/rules/performance/no-unused-module-exports.js";
 import { noUnusedProviders } from "../../../src/rules/performance/no-unused-providers.js";
 import type { ProjectRule, Rule } from "../../../src/rules/types.js";
@@ -100,37 +100,6 @@ describe("no-sync-io", () => {
 			`
       import { readFile } from 'fs/promises';
       const data = await readFile('file.txt');
-    `
-		);
-		expect(diags).toHaveLength(0);
-	});
-});
-
-describe("no-unnecessary-async", () => {
-	it("flags async method without await", () => {
-		const diags = runRule(
-			noUnnecessaryAsync,
-			`
-      export class MyService {
-        async getStuff() {
-          return 42;
-        }
-      }
-    `
-		);
-		expect(diags).toHaveLength(1);
-		expect(diags[0].message).toContain("getStuff");
-	});
-
-	it("allows async method with await", () => {
-		const diags = runRule(
-			noUnnecessaryAsync,
-			`
-      export class MyService {
-        async getStuff() {
-          return await fetchData();
-        }
-      }
     `
 		);
 		expect(diags).toHaveLength(0);
@@ -386,6 +355,51 @@ describe("no-orphan-modules", () => {
         export class UsersModule {}
       `,
 		});
+		expect(diags).toHaveLength(0);
+	});
+});
+
+describe("no-request-scope-abuse", () => {
+	it("flags Scope.REQUEST usage", () => {
+		const diags = runRule(
+			noRequestScopeAbuse,
+			`
+      import { Injectable, Scope } from '@nestjs/common';
+      @Injectable({ scope: Scope.REQUEST })
+      export class RequestScopedService {
+        doStuff() {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("Scope.REQUEST");
+	});
+
+	it("allows Scope.DEFAULT", () => {
+		const diags = runRule(
+			noRequestScopeAbuse,
+			`
+      import { Injectable, Scope } from '@nestjs/common';
+      @Injectable({ scope: Scope.DEFAULT })
+      export class DefaultScopedService {
+        doStuff() {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("allows Scope.TRANSIENT", () => {
+		const diags = runRule(
+			noRequestScopeAbuse,
+			`
+      import { Injectable, Scope } from '@nestjs/common';
+      @Injectable({ scope: Scope.TRANSIENT })
+      export class TransientService {
+        doStuff() {}
+      }
+    `
+		);
 		expect(diags).toHaveLength(0);
 	});
 });

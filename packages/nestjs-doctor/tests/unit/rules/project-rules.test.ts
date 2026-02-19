@@ -3,8 +3,6 @@ import { describe, expect, it } from "vitest";
 import { buildModuleGraph } from "../../../src/engine/module-graph.js";
 import { resolveProviders } from "../../../src/engine/type-resolver.js";
 import { noCircularModuleDeps } from "../../../src/rules/architecture/no-circular-module-deps.js";
-import { noGodService } from "../../../src/rules/architecture/no-god-service.js";
-import { requireFeatureModules } from "../../../src/rules/architecture/require-feature-modules.js";
 import type { ProjectRule } from "../../../src/rules/types.js";
 import type { NestjsDoctorConfig } from "../../../src/types/config.js";
 import type { Diagnostic } from "../../../src/types/diagnostic.js";
@@ -79,97 +77,6 @@ describe("no-circular-module-deps", () => {
         import { Module } from '@nestjs/common';
         @Module({})
         export class UsersModule {}
-      `,
-		});
-		expect(diags).toHaveLength(0);
-	});
-});
-
-describe("no-god-service", () => {
-	it("flags services with too many public methods", () => {
-		const methods = Array.from(
-			{ length: 12 },
-			(_, i) => `method${i}() { return ${i}; }`
-		).join("\n          ");
-
-		const diags = runProjectRule(noGodService, {
-			"big.service.ts": `
-        import { Injectable } from '@nestjs/common';
-        @Injectable()
-        export class BigService {
-          ${methods}
-        }
-      `,
-		});
-		expect(diags.length).toBeGreaterThan(0);
-		expect(diags[0].message).toContain("12 public methods");
-	});
-
-	it("flags services with too many dependencies", () => {
-		const params = Array.from(
-			{ length: 10 },
-			(_, i) => `private readonly dep${i}: any`
-		).join(",\n            ");
-
-		const diags = runProjectRule(noGodService, {
-			"big.service.ts": `
-        import { Injectable } from '@nestjs/common';
-        @Injectable()
-        export class BigService {
-          constructor(
-            ${params}
-          ) {}
-        }
-      `,
-		});
-		expect(diags.length).toBeGreaterThan(0);
-		expect(diags[0].message).toContain("10 dependencies");
-	});
-
-	it("allows services within limits", () => {
-		const diags = runProjectRule(noGodService, {
-			"small.service.ts": `
-        import { Injectable } from '@nestjs/common';
-        @Injectable()
-        export class SmallService {
-          constructor(private readonly dep: any) {}
-          doStuff() {}
-        }
-      `,
-		});
-		expect(diags).toHaveLength(0);
-	});
-});
-
-describe("require-feature-modules", () => {
-	it("flags AppModule with too many direct providers", () => {
-		const providers = Array.from({ length: 7 }, (_, i) => `Service${i}`).join(
-			", "
-		);
-
-		const diags = runProjectRule(requireFeatureModules, {
-			"app.module.ts": `
-        import { Module } from '@nestjs/common';
-        @Module({
-          imports: [UsersModule],
-          providers: [${providers}],
-        })
-        export class AppModule {}
-      `,
-		});
-		expect(diags.length).toBeGreaterThan(0);
-		expect(diags[0].message).toContain("7 providers");
-	});
-
-	it("does not flag AppModule with mostly feature module imports", () => {
-		const diags = runProjectRule(requireFeatureModules, {
-			"app.module.ts": `
-        import { Module } from '@nestjs/common';
-        @Module({
-          imports: [UsersModule, OrdersModule, AuthModule, MailModule],
-          providers: [AppService],
-        })
-        export class AppModule {}
       `,
 		});
 		expect(diags).toHaveLength(0);

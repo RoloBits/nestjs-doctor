@@ -6,6 +6,7 @@ import { noAsyncWithoutAwait } from "../../../src/rules/correctness/no-async-wit
 import { noDuplicateModuleMetadata } from "../../../src/rules/correctness/no-duplicate-module-metadata.js";
 import { noDuplicateRoutes } from "../../../src/rules/correctness/no-duplicate-routes.js";
 import { noEmptyHandlers } from "../../../src/rules/correctness/no-empty-handlers.js";
+import { noFireAndForgetAsync } from "../../../src/rules/correctness/no-fire-and-forget-async.js";
 import { noMissingFilterCatch } from "../../../src/rules/correctness/no-missing-filter-catch.js";
 import { noMissingGuardMethod } from "../../../src/rules/correctness/no-missing-guard-method.js";
 import { noMissingInjectable } from "../../../src/rules/correctness/no-missing-injectable.js";
@@ -835,6 +836,106 @@ describe("require-inject-decorator", () => {
       @Injectable()
       export class MyService {
         constructor(@Inject('TOKEN') dep) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+});
+
+describe("no-fire-and-forget-async", () => {
+	it("flags unawaited async-like calls in service methods", () => {
+		const diags = runRule(
+			noFireAndForgetAsync,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class OrdersService {
+        processOrder() {
+          this.emailService.sendConfirmation();
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("sendConfirmation");
+	});
+
+	it("allows awaited calls", () => {
+		const diags = runRule(
+			noFireAndForgetAsync,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class OrdersService {
+        async processOrder() {
+          await this.emailService.sendConfirmation();
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("allows void-prefixed calls (intentional fire-and-forget)", () => {
+		const diags = runRule(
+			noFireAndForgetAsync,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class OrdersService {
+        processOrder() {
+          void this.emailService.sendConfirmation();
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("skips HTTP handler methods", () => {
+		const diags = runRule(
+			noFireAndForgetAsync,
+			`
+      import { Controller, Post } from '@nestjs/common';
+      @Controller('orders')
+      export class OrdersController {
+        @Post()
+        create() {
+          this.ordersService.save();
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag non-async-named method calls", () => {
+		const diags = runRule(
+			noFireAndForgetAsync,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class OrdersService {
+        processOrder() {
+          this.logger.log('processing');
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag calls assigned to a variable", () => {
+		const diags = runRule(
+			noFireAndForgetAsync,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class OrdersService {
+        processOrder() {
+          const result = this.repo.save(order);
+        }
       }
     `
 		);
