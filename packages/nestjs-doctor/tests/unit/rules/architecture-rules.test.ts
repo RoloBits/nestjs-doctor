@@ -221,6 +221,116 @@ describe("no-manual-instantiation", () => {
 		);
 		expect(diags).toHaveLength(0);
 	});
+
+	it("does not flag Pipe in decorator argument", () => {
+		const diags = runRule(
+			noManualInstantiation,
+			`
+      import { Controller, UsePipes, Query } from '@nestjs/common';
+      @Controller('users')
+      export class UsersController {
+        @UsePipes(new ValidationPipe({ transform: true }))
+        findAll(@Query(new QueryParamsPipe()) query: any) {
+          return [];
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag Guard in @UseGuards decorator", () => {
+		const diags = runRule(
+			noManualInstantiation,
+			`
+      import { Controller, UseGuards } from '@nestjs/common';
+      @Controller('users')
+      @UseGuards(new AuthGuard('jwt'))
+      export class UsersController {}
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag Filter in @UseFilters decorator", () => {
+		const diags = runRule(
+			noManualInstantiation,
+			`
+      import { Controller, UseFilters } from '@nestjs/common';
+      @Controller('users')
+      @UseFilters(new HttpExceptionFilter())
+      export class UsersController {}
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag Interceptor in @UseInterceptors decorator", () => {
+		const diags = runRule(
+			noManualInstantiation,
+			`
+      import { Controller, UseInterceptors } from '@nestjs/common';
+      @Controller('users')
+      @UseInterceptors(new LoggingInterceptor())
+      export class UsersController {}
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag Pipe at top-level scope", () => {
+		const diags = runRule(
+			noManualInstantiation,
+			`
+      export const GlobalValidationPipe = new ValidationPipe({
+        whitelist: true,
+        transform: true,
+      });
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("flags Pipe inside a method body", () => {
+		const diags = runRule(
+			noManualInstantiation,
+			`
+      class SomeService {
+        doStuff() {
+          const pipe = new ValidationPipe();
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("ValidationPipe");
+	});
+
+	it("flags Guard inside a constructor body", () => {
+		const diags = runRule(
+			noManualInstantiation,
+			`
+      class SomeService {
+        constructor() {
+          this.guard = new AuthGuard();
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("AuthGuard");
+	});
+
+	it("still flags Service/Repository regardless of context", () => {
+		const diags = runRule(
+			noManualInstantiation,
+			`
+      export const svc = new UserService();
+      const repo = new UsersRepository();
+    `
+		);
+		expect(diags).toHaveLength(2);
+	});
 });
 
 describe("prefer-constructor-injection", () => {
