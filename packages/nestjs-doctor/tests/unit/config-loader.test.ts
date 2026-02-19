@@ -50,7 +50,7 @@ describe("loadConfig", () => {
 				path.join(configDirectory, ".nestjs-doctor.json"),
 				JSON.stringify({
 					rules: {
-						"architecture/no-god-module": false,
+						"architecture/no-god-service": false,
 					},
 				})
 			);
@@ -59,7 +59,7 @@ describe("loadConfig", () => {
 		it("loads config from .nestjs-doctor.json", async () => {
 			const config = await loadConfig(configDirectory);
 			expect(config.rules).toEqual({
-				"architecture/no-god-module": false,
+				"architecture/no-god-service": false,
 			});
 		});
 	});
@@ -239,7 +239,7 @@ describe("loadConfig", () => {
 						"architecture/prefer-interface-injection": false,
 					},
 					thresholds: {
-						godModuleProviders: 15,
+						godServiceMethods: 15,
 					},
 				})
 			);
@@ -255,7 +255,7 @@ describe("loadConfig", () => {
 				"architecture/prefer-interface-injection": false,
 			});
 			expect(config.thresholds).toEqual({
-				godModuleProviders: 15,
+				godServiceMethods: 15,
 			});
 		});
 	});

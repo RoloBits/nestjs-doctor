@@ -53,6 +53,13 @@ export const noUnusedModuleExports: ProjectRule = {
 					}
 				}
 
+				// If the importing module re-exports this module, all exports are "used"
+				if (importer.exports.includes(mod.name)) {
+					for (const exp of mod.exports) {
+						usedProviders.add(exp);
+					}
+				}
+
 				// Check controllers too
 				for (const controllerName of importer.controllers) {
 					for (const filePath of context.files) {
@@ -69,7 +76,10 @@ export const noUnusedModuleExports: ProjectRule = {
 								continue;
 							}
 							for (const param of ctor.getParameters()) {
-								const typeText = param.getType().getText();
+								const typeNode = param.getTypeNode();
+								const typeText = typeNode
+									? typeNode.getText()
+									: param.getType().getText();
 								const simpleName =
 									typeText.split(".").pop()?.split("<")[0] ?? typeText;
 								usedProviders.add(simpleName);
@@ -80,6 +90,10 @@ export const noUnusedModuleExports: ProjectRule = {
 			}
 
 			for (const exportedName of mod.exports) {
+				// Skip module re-exports (e.g. CoreModule exports SharedModule)
+				if (context.moduleGraph.modules.has(exportedName)) {
+					continue;
+				}
 				if (!usedProviders.has(exportedName)) {
 					context.report({
 						filePath: mod.filePath,

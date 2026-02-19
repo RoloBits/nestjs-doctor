@@ -1,7 +1,6 @@
 import { noBarrelExportInternals } from "./architecture/no-barrel-export-internals.js";
 import { noBusinessLogicInControllers } from "./architecture/no-business-logic-in-controllers.js";
 import { noCircularModuleDeps } from "./architecture/no-circular-module-deps.js";
-import { noGodModule } from "./architecture/no-god-module.js";
 import { noGodService } from "./architecture/no-god-service.js";
 import { noManualInstantiation } from "./architecture/no-manual-instantiation.js";
 import { noOrmInControllers } from "./architecture/no-orm-in-controllers.js";
@@ -27,14 +26,11 @@ import { requireInjectDecorator } from "./correctness/require-inject-decorator.j
 import { requireLifecycleInterface } from "./correctness/require-lifecycle-interface.js";
 import { noBlockingConstructor } from "./performance/no-blocking-constructor.js";
 import { noDynamicRequire } from "./performance/no-dynamic-require.js";
-import { noLoggingInLoops } from "./performance/no-logging-in-loops.js";
 import { noOrphanModules } from "./performance/no-orphan-modules.js";
-import { noQueryInLoop } from "./performance/no-query-in-loop.js";
 import { noSyncIo } from "./performance/no-sync-io.js";
 import { noUnnecessaryAsync } from "./performance/no-unnecessary-async.js";
 import { noUnusedModuleExports } from "./performance/no-unused-module-exports.js";
 import { noUnusedProviders } from "./performance/no-unused-providers.js";
-import { preferPagination } from "./performance/prefer-pagination.js";
 import { noCsrfDisabled } from "./security/no-csrf-disabled.js";
 import { noDangerousRedirects } from "./security/no-dangerous-redirects.js";
 import { noEval } from "./security/no-eval.js";
@@ -60,7 +56,6 @@ export const allRules: AnyRule[] = [
 
 	// Architecture — project-scoped
 	noCircularModuleDeps,
-	noGodModule,
 	noGodService,
 	requireFeatureModules,
 
@@ -95,11 +90,8 @@ export const allRules: AnyRule[] = [
 
 	// Performance — file-scoped
 	noSyncIo,
-	noQueryInLoop,
-	noLoggingInLoops,
 	noUnnecessaryAsync,
 	noBlockingConstructor,
-	preferPagination,
 	noDynamicRequire,
 
 	// Performance — project-scoped

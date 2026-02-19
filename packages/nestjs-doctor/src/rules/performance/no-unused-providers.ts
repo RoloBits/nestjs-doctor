@@ -44,7 +44,10 @@ export const noUnusedProviders: ProjectRule = {
 					continue;
 				}
 				for (const param of ctor.getParameters()) {
-					const typeText = param.getType().getText();
+					const typeNode = param.getTypeNode();
+					const typeText = typeNode
+						? typeNode.getText()
+						: param.getType().getText();
 					const simpleName =
 						typeText.split(".").pop()?.split("<")[0] ?? typeText;
 					allDependencies.add(simpleName);
