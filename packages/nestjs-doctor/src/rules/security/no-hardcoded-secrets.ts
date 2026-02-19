@@ -2,7 +2,7 @@ import { SyntaxKind } from "ts-morph";
 import type { Rule } from "../types.js";
 
 const SECRET_PATTERNS = [
-	{ pattern: /^[A-Za-z0-9+/]{40,}={0,2}$/, name: "Base64 key" },
+	{ pattern: /^(?=.*\d)[A-Za-z0-9+/]{40,}={0,2}$/, name: "Base64 key" },
 	{ pattern: /^sk[-_][a-zA-Z0-9]{20,}$/, name: "Secret key" },
 	{ pattern: /^pk[-_][a-zA-Z0-9]{20,}$/, name: "Public key (in source)" },
 	{
@@ -43,13 +43,29 @@ const PLACEHOLDER_VALUES = new Set([
 	"password",
 ]);
 
+const DOT_SEPARATED_CONSTANT =
+	/^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/;
+
 function isSuspiciousValue(value: string): boolean {
-	return (
-		value.length >= 8 &&
-		!value.includes("${") &&
-		!value.startsWith("process.env") &&
-		!PLACEHOLDER_VALUES.has(value)
-	);
+	if (value.length < 8) {
+		return false;
+	}
+	if (value.includes("${")) {
+		return false;
+	}
+	if (value.startsWith("process.env")) {
+		return false;
+	}
+	if (PLACEHOLDER_VALUES.has(value)) {
+		return false;
+	}
+	if (value.includes(" ")) {
+		return false;
+	}
+	if (DOT_SEPARATED_CONSTANT.test(value)) {
+		return false;
+	}
+	return true;
 }
 
 function hasSuspiciousName(name: string): boolean {

@@ -19,6 +19,9 @@ export const noMissingGuardMethod: Rule = {
 			if (!hasDecorator(cls, "Injectable")) {
 				continue;
 			}
+			if (cls.getExtends()) {
+				continue;
+			}
 
 			const hasCanActivate = cls
 				.getMethods()

@@ -19,6 +19,9 @@ export const noMissingInterceptorMethod: Rule = {
 			if (!hasDecorator(cls, "Injectable")) {
 				continue;
 			}
+			if (cls.getExtends()) {
+				continue;
+			}
 
 			const hasIntercept = cls
 				.getMethods()

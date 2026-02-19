@@ -16,6 +16,9 @@ export const noMissingFilterCatch: Rule = {
 			if (!hasDecorator(cls, "Catch")) {
 				continue;
 			}
+			if (cls.getExtends()) {
+				continue;
+			}
 
 			const hasCatchMethod = cls
 				.getMethods()

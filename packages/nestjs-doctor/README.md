@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  47 built-in rules across <b>security</b>, <b>performance</b>, <b>correctness</b>, and <b>architecture</b>. Outputs a <b>0-100 score</b> with actionable diagnostics. Zero config. Monorepo support. Built to catch the anti-patterns that AI-generated code loves to introduce.
+  45 built-in rules across <b>security</b>, <b>performance</b>, <b>correctness</b>, and <b>architecture</b>. Outputs a <b>0-100 score</b> with actionable diagnostics. Zero config. Monorepo support. Built to catch the anti-patterns that AI-generated code loves to introduce.
 </p>
 
 ---
@@ -166,7 +166,7 @@ Or use a `"nestjs-doctor"` key in `package.json`.
 | Key | Type | Description |
 |-----|------|-------------|
 | `include` | `string[]` | Glob patterns to scan (default: `["**/*.ts"]`) |
-| `exclude` | `string[]` | Glob patterns to skip (default includes `node_modules`, `dist`, test files) |
+| `exclude` | `string[]` | Glob patterns to skip (default includes `node_modules`, `dist`, `build`, `coverage`, `*.spec.ts`, `*.test.ts`, `*.e2e-spec.ts`, `*.e2e-test.ts`, `*.d.ts`, `test/`, `tests/`, `__tests__/`, `__mocks__/`, `__fixtures__/`) |
 | `minScore` | `number` | Minimum passing score (0-100). Exits with code 1 if below threshold |
 | `ignore.rules` | `string[]` | Rule IDs to suppress |
 | `ignore.files` | `string[]` | Glob patterns for files whose diagnostics are hidden |
@@ -234,15 +234,13 @@ mono.combined;      // Merged DiagnoseResult
 
 ---
 
-## Rules (47)
+## Rules (45)
 
-### Security (11)
+### Security (9)
 
 | Rule | Severity | What it catches |
 |------|----------|-----------------|
 | `no-hardcoded-secrets` | error | API keys, tokens, passwords in source code |
-| `no-wildcard-cors` | error | CORS with `origin: '*'` or `origin: true` |
-| `no-unsafe-raw-query` | error | Template literal interpolation in raw SQL |
 | `no-eval` | error | `eval()` or `new Function()` usage |
 | `no-csrf-disabled` | error | Explicitly disabling CSRF protection |
 | `no-dangerous-redirects` | error | Redirects with user-controlled input |
@@ -257,7 +255,7 @@ mono.combined;      // Merged DiagnoseResult
 | Rule | Severity | What it catches |
 |------|----------|-----------------|
 | `no-missing-injectable` | error | Provider in module missing `@Injectable()` |
-| `no-duplicate-routes` | error | Same method + path twice in a controller |
+| `no-duplicate-routes` | error | Same method + path + version twice in a controller |
 | `no-missing-guard-method` | error | Guard class missing `canActivate()` |
 | `no-missing-pipe-method` | error | Pipe class missing `transform()` |
 | `no-missing-filter-catch` | error | `@Catch()` class missing `catch()` |
