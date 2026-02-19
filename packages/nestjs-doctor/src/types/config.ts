@@ -15,6 +15,7 @@ export interface NestjsDoctorConfig {
 	exclude?: string[];
 	ignore?: NestjsDoctorIgnoreConfig;
 	include?: string[];
+	minScore?: number;
 	rules?: Record<string, RuleOverride | boolean>;
 	thresholds?: {
 		godModuleProviders?: number;

@@ -16,6 +16,11 @@ export const flags = {
 		description: "JSON output",
 		default: false,
 	},
+	"min-score": {
+		type: "string",
+		description:
+			"Minimum passing score (0-100). Exits with code 1 if below threshold",
+	},
 	config: {
 		type: "string",
 		description: "Config file path",

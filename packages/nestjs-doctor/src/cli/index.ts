@@ -1,15 +1,22 @@
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { defineCommand, runMain } from "citty";
+import { loadConfig } from "../core/config-loader.js";
 import { detectMonorepo } from "../core/project-detector.js";
 import { scan, scanMonorepo } from "../core/scanner.js";
 import { flags } from "./flags.js";
+import {
+	checkMinScore,
+	resolveMinScore,
+	validateMinScoreArg,
+} from "./min-score.js";
 import {
 	printConsoleReport,
 	printMonorepoReport,
 } from "./output/console-reporter.js";
 import { highlighter } from "./output/highlighter.js";
 import { printJsonReport } from "./output/json-reporter.js";
+import { logger } from "./output/logger.js";
 import { spinner } from "./output/spinner.js";
 
 const require = createRequire(import.meta.url);
@@ -35,6 +42,16 @@ const main = defineCommand({
 		const targetPath = resolve(args.path ?? ".");
 		const isSilent = args.score || args.json;
 
+		// Validate --min-score early
+		const rawMinScore = args["min-score"];
+		if (rawMinScore !== undefined) {
+			const validationError = validateMinScoreArg(rawMinScore);
+			if (validationError) {
+				logger.error(validationError);
+				process.exit(2);
+			}
+		}
+
 		// Auto-detect monorepo
 		const monorepo = await detectMonorepo(targetPath);
 
@@ -56,17 +73,36 @@ const main = defineCommand({
 				);
 			}
 
+			const monorepoConfig = await loadConfig(targetPath, args.config);
+			const monorepoMinScore = resolveMinScore(
+				rawMinScore,
+				monorepoConfig.minScore
+			);
+
 			if (args.score) {
 				console.log(result.combined.score.value);
+				if (!checkMinScore(result.combined.score.value, monorepoMinScore)) {
+					process.exit(1);
+				}
 				return;
 			}
 
 			if (args.json) {
 				printJsonReport(result.combined);
+				if (!checkMinScore(result.combined.score.value, monorepoMinScore)) {
+					process.exit(1);
+				}
 				return;
 			}
 
 			printMonorepoReport(result, args.verbose ?? false);
+
+			if (!checkMinScore(result.combined.score.value, monorepoMinScore)) {
+				logger.error(
+					`Score ${result.combined.score.value} is below the minimum threshold of ${monorepoMinScore}.`
+				);
+				process.exit(1);
+			}
 
 			if (result.combined.summary.errors > 0) {
 				process.exit(1);
@@ -95,17 +131,33 @@ const main = defineCommand({
 			scanSpinner.succeed(detailParts.join(" | "));
 		}
 
+		const config = await loadConfig(targetPath, args.config);
+		const minScore = resolveMinScore(rawMinScore, config.minScore);
+
 		if (args.score) {
 			console.log(result.score.value);
+			if (!checkMinScore(result.score.value, minScore)) {
+				process.exit(1);
+			}
 			return;
 		}
 
 		if (args.json) {
 			printJsonReport(result);
+			if (!checkMinScore(result.score.value, minScore)) {
+				process.exit(1);
+			}
 			return;
 		}
 
 		printConsoleReport(result, args.verbose ?? false);
+
+		if (!checkMinScore(result.score.value, minScore)) {
+			logger.error(
+				`Score ${result.score.value} is below the minimum threshold of ${minScore}.`
+			);
+			process.exit(1);
+		}
 
 		// Exit with error code if there are errors (for CI)
 		if (result.summary.errors > 0) {

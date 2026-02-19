@@ -64,15 +64,29 @@ No config, no plugins, no setup.
 
 ## CI
 
-Exit code `1` when errors are found. Use `--score` for threshold checks:
+Install as a devDependency for deterministic, cacheable CI runs:
 
 ```bash
-SCORE=$(npx nestjs-doctor@latest . --score)
-if [ "$SCORE" -lt 75 ]; then
-  echo "Health score $SCORE is below threshold (75)"
-  exit 1
-fi
+pnpm add -D nestjs-doctor
 ```
+
+Then use `--min-score` to enforce a minimum health score:
+
+```bash
+npx nestjs-doctor . --min-score 75
+```
+
+Or add it as a script in `package.json`:
+
+```json
+{
+  "scripts": {
+    "health": "nestjs-doctor . --min-score 75"
+  }
+}
+```
+
+Exit codes: `1` when the score is below threshold or errors are found, `2` for invalid input. Works with all output modes (`--score`, `--json`, default).
 
 ```
 Usage: nestjs-doctor [directory] [options]
@@ -80,6 +94,7 @@ Usage: nestjs-doctor [directory] [options]
   --verbose       Show file paths and line numbers per diagnostic
   --score         Output only the numeric score (for CI)
   --json          JSON output (for tooling)
+  --min-score <n> Minimum passing score (0-100). Exits with code 1 if below threshold
   --config <p>    Path to config file
   -h, --help      Show help
 ```
@@ -92,6 +107,7 @@ Optional. Create `nestjs-doctor.config.json` in your project root:
 
 ```json
 {
+  "minScore": 75,
   "ignore": {
     "rules": ["architecture/no-orm-in-services"],
     "files": ["src/generated/**"]
@@ -117,6 +133,7 @@ Or use a `"nestjs-doctor"` key in `package.json`.
 |-----|------|-------------|
 | `include` | `string[]` | Glob patterns to scan (default: `["**/*.ts"]`) |
 | `exclude` | `string[]` | Glob patterns to skip (default includes `node_modules`, `dist`, test files) |
+| `minScore` | `number` | Minimum passing score (0-100). Exits with code 1 if below threshold |
 | `ignore.rules` | `string[]` | Rule IDs to suppress |
 | `ignore.files` | `string[]` | Glob patterns for files whose diagnostics are hidden |
 | `rules` | `Record<string, boolean>` | Enable/disable individual rules |

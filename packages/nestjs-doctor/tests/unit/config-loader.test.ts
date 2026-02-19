@@ -162,6 +162,63 @@ describe("loadConfig", () => {
 		});
 	});
 
+	describe("minScore from nestjs-doctor.config.json", () => {
+		let minScoreDirectory: string;
+
+		beforeAll(() => {
+			minScoreDirectory = path.join(tempRootDirectory, "with-min-score");
+			fs.mkdirSync(minScoreDirectory, { recursive: true });
+			fs.writeFileSync(
+				path.join(minScoreDirectory, "nestjs-doctor.config.json"),
+				JSON.stringify({
+					minScore: 80,
+				})
+			);
+		});
+
+		it("loads minScore from config file", async () => {
+			const config = await loadConfig(minScoreDirectory);
+			expect(config.minScore).toBe(80);
+		});
+	});
+
+	describe("minScore from package.json", () => {
+		let pkgMinScoreDirectory: string;
+
+		beforeAll(() => {
+			pkgMinScoreDirectory = path.join(tempRootDirectory, "with-pkg-min-score");
+			fs.mkdirSync(pkgMinScoreDirectory, { recursive: true });
+			fs.writeFileSync(
+				path.join(pkgMinScoreDirectory, "package.json"),
+				JSON.stringify({
+					name: "test-min-score",
+					"nestjs-doctor": {
+						minScore: 70,
+					},
+				})
+			);
+		});
+
+		it("loads minScore from package.json", async () => {
+			const config = await loadConfig(pkgMinScoreDirectory);
+			expect(config.minScore).toBe(70);
+		});
+	});
+
+	describe("minScore undefined when not configured", () => {
+		let noMinScoreDirectory: string;
+
+		beforeAll(() => {
+			noMinScoreDirectory = path.join(tempRootDirectory, "no-min-score");
+			fs.mkdirSync(noMinScoreDirectory, { recursive: true });
+		});
+
+		it("returns undefined minScore when not in config", async () => {
+			const config = await loadConfig(noMinScoreDirectory);
+			expect(config.minScore).toBeUndefined();
+		});
+	});
+
 	describe("ignore config alongside other options", () => {
 		let optionsDirectory: string;
 
