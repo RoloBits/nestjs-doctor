@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { defineCommand, runMain } from "citty";
 import { detectMonorepo } from "../core/project-detector.js";
@@ -11,10 +12,13 @@ import { highlighter } from "./output/highlighter.js";
 import { printJsonReport } from "./output/json-reporter.js";
 import { spinner } from "./output/spinner.js";
 
+const require = createRequire(import.meta.url);
+const { version } = require("../../package.json") as { version: string };
+
 const main = defineCommand({
 	meta: {
 		name: "nestjs-doctor",
-		version: "0.1.0",
+		version,
 		description:
 			"Diagnostic CLI tool that scans NestJS codebases and produces a health score",
 	},

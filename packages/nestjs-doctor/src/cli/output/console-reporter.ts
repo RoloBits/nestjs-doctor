@@ -335,6 +335,16 @@ export function printConsoleReport(
 	// Diagnostics
 	printDiagnostics(diagnostics, verbose);
 
+	if (verbose && result.ruleErrors.length > 0) {
+		logger.warn(
+			`  ${result.ruleErrors.length} rule(s) failed during execution:`
+		);
+		for (const re of result.ruleErrors) {
+			logger.dim(`    ${re.ruleId}: ${re.error}`);
+		}
+		logger.break();
+	}
+
 	if (!verbose) {
 		logger.dim("  Run with --verbose for file paths and line numbers");
 		logger.break();

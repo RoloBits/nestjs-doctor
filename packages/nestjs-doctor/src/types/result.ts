@@ -22,10 +22,16 @@ export interface DiagnoseSummary {
 	warnings: number;
 }
 
+export interface RuleErrorInfo {
+	error: string;
+	ruleId: string;
+}
+
 export interface DiagnoseResult {
 	diagnostics: Diagnostic[];
 	elapsedMs: number;
 	project: ProjectInfo;
+	ruleErrors: RuleErrorInfo[];
 	score: Score;
 	summary: DiagnoseSummary;
 }

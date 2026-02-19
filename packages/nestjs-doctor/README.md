@@ -259,9 +259,9 @@ mono.combined;      // Merged DiagnoseResult
 ```bash
 git clone https://github.com/RoloBits/nestjs-doctor.git
 cd nestjs-doctor
-npm install
-npm run build
-npm test
+pnpm install
+pnpm run build
+pnpm test
 ```
 
 ### Adding a rule

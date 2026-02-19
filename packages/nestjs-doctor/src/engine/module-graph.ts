@@ -20,6 +20,7 @@ export interface ModuleNode {
 export interface ModuleGraph {
 	edges: Map<string, Set<string>>;
 	modules: Map<string, ModuleNode>;
+	providerToModule: Map<string, ModuleNode>;
 }
 
 export function buildModuleGraph(
@@ -80,7 +81,15 @@ export function buildModuleGraph(
 		edges.set(name, importSet);
 	}
 
-	return { modules, edges };
+	// Build inverse index: provider name → module
+	const providerToModule = new Map<string, ModuleNode>();
+	for (const mod of modules.values()) {
+		for (const provider of mod.providers) {
+			providerToModule.set(provider, mod);
+		}
+	}
+
+	return { modules, edges, providerToModule };
 }
 
 function extractArrayPropertyNames(
@@ -160,10 +169,5 @@ export function findProviderModule(
 	graph: ModuleGraph,
 	providerName: string
 ): ModuleNode | undefined {
-	for (const mod of graph.modules.values()) {
-		if (mod.providers.includes(providerName)) {
-			return mod;
-		}
-	}
-	return undefined;
+	return graph.providerToModule.get(providerName);
 }

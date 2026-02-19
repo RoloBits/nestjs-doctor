@@ -12,12 +12,20 @@ import type {
 	DiagnoseResult,
 	DiagnoseSummary,
 	MonorepoResult,
+	RuleErrorInfo,
 	SubProjectResult,
 } from "../types/result.js";
 import { loadConfig } from "./config-loader.js";
 import { collectFiles, collectMonorepoFiles } from "./file-collector.js";
 import { filterIgnoredDiagnostics } from "./filter-diagnostics.js";
 import { detectMonorepo, detectProject } from "./project-detector.js";
+
+function formatRuleError(error: unknown): string {
+	if (error instanceof Error) {
+		return error.message;
+	}
+	return String(error);
+}
 
 export async function scan(
 	targetPath: string,
@@ -28,27 +36,38 @@ export async function scan(
 	const config = await loadConfig(targetPath, options.config);
 	const project = await detectProject(targetPath);
 	const files = await collectFiles(targetPath, config);
-
-	project.fileCount = files.length;
-
 	const astProject = createAstParser(files);
 	const moduleGraph = buildModuleGraph(astProject, files);
 	const providers = resolveProviders(astProject, files);
 	const rules = filterRules(config);
-	const rawDiagnostics = runRules(astProject, files, rules, {
-		moduleGraph,
-		providers,
-		config,
-	});
+	const { diagnostics: rawDiagnostics, errors } = runRules(
+		astProject,
+		files,
+		rules,
+		{ moduleGraph, providers, config }
+	);
 	const diagnostics = filterIgnoredDiagnostics(rawDiagnostics, config);
-
-	project.moduleCount = moduleGraph.modules.size;
 
 	const score = calculateScore(diagnostics, files.length);
 	const summary = buildSummary(diagnostics);
+	const ruleErrors: RuleErrorInfo[] = errors.map((e) => ({
+		ruleId: e.ruleId,
+		error: formatRuleError(e.error),
+	}));
 	const elapsedMs = performance.now() - startTime;
 
-	return { score, diagnostics, project, summary, elapsedMs };
+	return {
+		score,
+		diagnostics,
+		project: {
+			...project,
+			fileCount: files.length,
+			moduleCount: moduleGraph.modules.size,
+		},
+		summary,
+		ruleErrors,
+		elapsedMs,
+	};
 }
 
 function filterRules(config: NestjsDoctorConfig) {
@@ -88,15 +107,16 @@ export async function scanMonorepo(
 		};
 	}
 
-	const config = await loadConfig(targetPath, options.config);
+	const rootConfig = await loadConfig(targetPath, options.config);
 	const filesByProject = await collectMonorepoFiles(
 		targetPath,
 		monorepo,
-		config
+		rootConfig
 	);
 
 	const subProjects: SubProjectResult[] = [];
 	const allDiagnostics: Diagnostic[] = [];
+	const allRuleErrors: RuleErrorInfo[] = [];
 	let totalFiles = 0;
 
 	for (const [name, files] of filesByProject) {
@@ -106,34 +126,45 @@ export async function scanMonorepo(
 
 		const projectPath = join(targetPath, monorepo.projects.get(name)!);
 		const project = await detectProject(projectPath);
-		project.fileCount = files.length;
+
+		// Load per-project config if available, falling back to root config
+		const projectConfig = await loadConfigWithFallback(projectPath, rootConfig);
 
 		const astProject = createAstParser(files);
 		const moduleGraph = buildModuleGraph(astProject, files);
 		const providers = resolveProviders(astProject, files);
-		const rules = filterRules(config);
-		const rawDiagnostics = runRules(astProject, files, rules, {
-			moduleGraph,
-			providers,
-			config,
-		});
-		const diagnostics = filterIgnoredDiagnostics(rawDiagnostics, config);
-
-		project.moduleCount = moduleGraph.modules.size;
+		const rules = filterRules(projectConfig);
+		const { diagnostics: rawDiagnostics, errors } = runRules(
+			astProject,
+			files,
+			rules,
+			{ moduleGraph, providers, config: projectConfig }
+		);
+		const diagnostics = filterIgnoredDiagnostics(rawDiagnostics, projectConfig);
 
 		const score = calculateScore(diagnostics, files.length);
 		const summary = buildSummary(diagnostics);
+		const ruleErrors: RuleErrorInfo[] = errors.map((e) => ({
+			ruleId: e.ruleId,
+			error: formatRuleError(e.error),
+		}));
 
 		const result: DiagnoseResult = {
 			score,
 			diagnostics,
-			project,
+			project: {
+				...project,
+				fileCount: files.length,
+				moduleCount: moduleGraph.modules.size,
+			},
 			summary,
+			ruleErrors,
 			elapsedMs: 0,
 		};
 
 		subProjects.push({ name, result });
 		allDiagnostics.push(...diagnostics);
+		allRuleErrors.push(...ruleErrors);
 		totalFiles += files.length;
 	}
 
@@ -156,6 +187,7 @@ export async function scanMonorepo(
 			),
 		},
 		summary: combinedSummary,
+		ruleErrors: allRuleErrors,
 		elapsedMs,
 	};
 
@@ -167,22 +199,42 @@ export async function scanMonorepo(
 	};
 }
 
-function buildSummary(
-	diagnostics: DiagnoseResult["diagnostics"]
-): DiagnoseSummary {
-	return {
-		total: diagnostics.length,
-		errors: diagnostics.filter((d) => d.severity === "error").length,
-		warnings: diagnostics.filter((d) => d.severity === "warning").length,
-		info: diagnostics.filter((d) => d.severity === "info").length,
+async function loadConfigWithFallback(
+	projectPath: string,
+	fallback: NestjsDoctorConfig
+): Promise<NestjsDoctorConfig> {
+	try {
+		return await loadConfig(projectPath);
+	} catch {
+		return fallback;
+	}
+}
+
+function buildSummary(diagnostics: Diagnostic[]): DiagnoseSummary {
+	const summary: DiagnoseSummary = {
+		total: 0,
+		errors: 0,
+		warnings: 0,
+		info: 0,
 		byCategory: {
-			security: diagnostics.filter((d) => d.category === "security").length,
-			performance: diagnostics.filter((d) => d.category === "performance")
-				.length,
-			correctness: diagnostics.filter((d) => d.category === "correctness")
-				.length,
-			architecture: diagnostics.filter((d) => d.category === "architecture")
-				.length,
+			security: 0,
+			performance: 0,
+			correctness: 0,
+			architecture: 0,
 		},
 	};
+
+	for (const d of diagnostics) {
+		summary.total++;
+		if (d.severity === "error") {
+			summary.errors++;
+		} else if (d.severity === "warning") {
+			summary.warnings++;
+		} else {
+			summary.info++;
+		}
+		summary.byCategory[d.category]++;
+	}
+
+	return summary;
 }
