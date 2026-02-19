@@ -58,6 +58,8 @@ For each diagnostic to fix:
 #### Security
 
 - **no-hardcoded-secrets**: Extract the secret value to an environment variable. Import `ConfigService`, inject it, and use `this.configService.get('ENV_VAR_NAME')`. Add the env var name to `.env.example` if it exists.
+- **no-wildcard-cors**: Replace `origin: '*'` or `origin: true` with an explicit allowlist array or `configService.get('CORS_ORIGINS').split(',')`.
+- **no-unsafe-raw-query**: Replace template literal interpolation in raw SQL with parameterized queries. Use `$1, $2` placeholders (Postgres) or `?` (MySQL) and pass values as the second argument.
 - **no-eval**: Remove `eval()` or `new Function()`. Replace with safe alternatives: `JSON.parse()` for JSON, a proper expression parser for dynamic evaluation, or refactor to avoid dynamic code execution entirely.
 - **no-csrf-disabled**: Remove the code that explicitly disables CSRF protection, or add a comment explaining why it's intentionally disabled with a `// nestjs-doctor-ignore` comment.
 - **no-dangerous-redirects**: Validate redirect URLs against an allowlist of trusted domains. Never pass user input directly to `res.redirect()`.
