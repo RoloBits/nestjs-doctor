@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.1.5
+
+### Patch Changes
+
+- Fix apex domain by updating CNAME to nestjs.doctor for proper GitHub Pages SSL certificate provisioning
+
 ## 0.1.4
 
 ### Patch Changes
