@@ -18,8 +18,6 @@ export interface NestjsDoctorConfig {
 	minScore?: number;
 	rules?: Record<string, RuleOverride | boolean>;
 	thresholds?: {
-		godModuleProviders?: number;
-		godModuleImports?: number;
 		godServiceMethods?: number;
 		godServiceDeps?: number;
 	};

@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  46 built-in rules across <b>security</b>, <b>performance</b>, <b>correctness</b>, and <b>architecture</b>. Outputs a <b>0-100 score</b> with actionable diagnostics. Zero config. Monorepo support. Built to catch the anti-patterns that AI-generated code loves to introduce.
+  42 built-in rules across <b>security</b>, <b>performance</b>, <b>correctness</b>, and <b>architecture</b>. Outputs a <b>0-100 score</b> with actionable diagnostics. Zero config. Monorepo support. Built to catch the anti-patterns that AI-generated code loves to introduce.
 </p>
 
 ---
@@ -153,8 +153,6 @@ Optional. Create `nestjs-doctor.config.json` in your project root:
     "performance": false
   },
   "thresholds": {
-    "godModuleProviders": 15,
-    "godModuleImports": 20,
     "godServiceMethods": 12,
     "godServiceDeps": 10
   }
@@ -172,7 +170,7 @@ Or use a `"nestjs-doctor"` key in `package.json`.
 | `ignore.files` | `string[]` | Glob patterns for files whose diagnostics are hidden |
 | `rules` | `Record<string, boolean>` | Enable/disable individual rules |
 | `categories` | `Record<string, boolean>` | Enable/disable entire categories |
-| `thresholds` | `object` | Customize limits for god-module / god-service rules |
+| `thresholds` | `object` | Customize limits for god-service rules |
 
 ---
 
@@ -234,7 +232,7 @@ mono.combined;      // Merged DiagnoseResult
 
 ---
 
-## Rules (46)
+## Rules (42)
 
 ### Security (9)
 
@@ -269,7 +267,7 @@ mono.combined;      // Merged DiagnoseResult
 | `no-duplicate-module-metadata` | warning | Duplicate entries in `@Module()` arrays |
 | `no-missing-module-decorator` | warning | Class named `*Module` without `@Module()` |
 
-### Architecture (13)
+### Architecture (12)
 
 | Rule | Severity | What it catches |
 |------|----------|-----------------|
@@ -279,7 +277,6 @@ mono.combined;      // Merged DiagnoseResult
 | `no-circular-module-deps` | error | Cycles in `@Module()` import graph |
 | `no-manual-instantiation` | error | `new SomeService()` for injectable classes |
 | `no-orm-in-services` | warning | Services using ORM directly (should use repositories) |
-| `no-god-module` | warning | >10 providers or >15 imports |
 | `no-god-service` | warning | >10 public methods or >8 dependencies |
 | `require-feature-modules` | warning | AppModule declaring too many providers directly |
 | `prefer-constructor-injection` | warning | `@Inject()` property injection |
@@ -287,18 +284,15 @@ mono.combined;      // Merged DiagnoseResult
 | `prefer-interface-injection` | info | Concrete service-to-service injection |
 | `no-barrel-export-internals` | info | Re-exporting repositories from barrel files |
 
-### Performance (10)
+### Performance (7)
 
 | Rule | Severity | What it catches |
 |------|----------|-----------------|
 | `no-sync-io` | warning | `readFileSync`, `writeFileSync`, etc. |
-| `no-query-in-loop` | warning | `await` inside loops (N+1 pattern) |
 | `no-blocking-constructor` | warning | Loops/await in Injectable/Controller constructors |
 | `no-dynamic-require` | warning | `require()` with non-literal argument |
 | `no-unused-providers` | warning | Provider never injected anywhere |
-| `no-logging-in-loops` | info | `console.*` / `this.logger.*` in loops |
 | `no-unnecessary-async` | info | Async method with no `await` |
-| `prefer-pagination` | info | `findMany()` / `find()` without pagination args |
 | `no-unused-module-exports` | info | Module exports unused by importers |
 | `no-orphan-modules` | info | Module never imported by any other module |
 

@@ -5,7 +5,7 @@ import type { Diagnostic } from "../../src/types/diagnostic.js";
 
 const createDiagnostic = (overrides: Partial<Diagnostic> = {}): Diagnostic => ({
 	filePath: "src/app.service.ts",
-	rule: "architecture/no-god-module",
+	rule: "architecture/no-god-service",
 	severity: "warning",
 	message: "test message",
 	help: "test help",
@@ -24,14 +24,14 @@ describe("filterIgnoredDiagnostics", () => {
 
 	it("filters diagnostics matching ignored rules", () => {
 		const diagnostics = [
-			createDiagnostic({ rule: "architecture/no-god-module" }),
+			createDiagnostic({ rule: "architecture/no-god-service" }),
 			createDiagnostic({ rule: "architecture/no-orm-in-services" }),
 			createDiagnostic({ rule: "security/no-hardcoded-secrets" }),
 		];
 		const config: NestjsDoctorConfig = {
 			ignore: {
 				rules: [
-					"architecture/no-god-module",
+					"architecture/no-god-service",
 					"architecture/no-orm-in-services",
 				],
 			},
@@ -62,7 +62,7 @@ describe("filterIgnoredDiagnostics", () => {
 	it("filters by both rules and files together", () => {
 		const diagnostics = [
 			createDiagnostic({
-				rule: "architecture/no-god-module",
+				rule: "architecture/no-god-service",
 				filePath: "src/app.module.ts",
 			}),
 			createDiagnostic({
@@ -76,7 +76,7 @@ describe("filterIgnoredDiagnostics", () => {
 		];
 		const config: NestjsDoctorConfig = {
 			ignore: {
-				rules: ["architecture/no-god-module"],
+				rules: ["architecture/no-god-service"],
 				files: ["src/generated/**"],
 			},
 		};
@@ -88,7 +88,7 @@ describe("filterIgnoredDiagnostics", () => {
 
 	it("keeps all diagnostics when no rules or files match", () => {
 		const diagnostics = [
-			createDiagnostic({ rule: "architecture/no-god-module" }),
+			createDiagnostic({ rule: "architecture/no-god-service" }),
 			createDiagnostic({ rule: "security/no-hardcoded-secrets" }),
 		];
 		const config: NestjsDoctorConfig = {

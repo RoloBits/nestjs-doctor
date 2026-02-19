@@ -49,6 +49,26 @@ describe("type-resolver", () => {
 		expect(providers.size).toBe(0);
 	});
 
+	it("resolves typed constructor dependencies from type annotations", () => {
+		const { project, paths } = createProject({
+			"app.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class AppService {
+          constructor(
+            private readonly usersService: UsersService,
+            private readonly ordersService: OrdersService,
+          ) {}
+        }
+      `,
+		});
+
+		const providers = resolveProviders(project, paths);
+		const appService = providers.get("AppService");
+		expect(appService).toBeDefined();
+		expect(appService?.dependencies).toEqual(["UsersService", "OrdersService"]);
+	});
+
 	it("counts public methods correctly", () => {
 		const { project, paths } = createProject({
 			"service.ts": `

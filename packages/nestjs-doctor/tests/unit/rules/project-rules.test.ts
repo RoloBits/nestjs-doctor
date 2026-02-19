@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { buildModuleGraph } from "../../../src/engine/module-graph.js";
 import { resolveProviders } from "../../../src/engine/type-resolver.js";
 import { noCircularModuleDeps } from "../../../src/rules/architecture/no-circular-module-deps.js";
-import { noGodModule } from "../../../src/rules/architecture/no-god-module.js";
 import { noGodService } from "../../../src/rules/architecture/no-god-service.js";
 import { requireFeatureModules } from "../../../src/rules/architecture/require-feature-modules.js";
 import type { ProjectRule } from "../../../src/rules/types.js";
@@ -80,50 +79,6 @@ describe("no-circular-module-deps", () => {
         import { Module } from '@nestjs/common';
         @Module({})
         export class UsersModule {}
-      `,
-		});
-		expect(diags).toHaveLength(0);
-	});
-});
-
-describe("no-god-module", () => {
-	it("flags modules with too many providers", () => {
-		const providers = Array.from({ length: 12 }, (_, i) => `Service${i}`).join(
-			", "
-		);
-
-		const diags = runProjectRule(noGodModule, {
-			"app.module.ts": `
-        import { Module } from '@nestjs/common';
-        @Module({ providers: [${providers}] })
-        export class AppModule {}
-      `,
-		});
-		expect(diags.length).toBeGreaterThan(0);
-		expect(diags[0].message).toContain("12 providers");
-	});
-
-	it("respects custom thresholds", () => {
-		const diags = runProjectRule(
-			noGodModule,
-			{
-				"app.module.ts": `
-          import { Module } from '@nestjs/common';
-          @Module({ providers: [A, B, C] })
-          export class AppModule {}
-        `,
-			},
-			{ thresholds: { godModuleProviders: 2 } }
-		);
-		expect(diags.length).toBeGreaterThan(0);
-	});
-
-	it("allows modules within limits", () => {
-		const diags = runProjectRule(noGodModule, {
-			"app.module.ts": `
-        import { Module } from '@nestjs/common';
-        @Module({ providers: [A, B, C] })
-        export class AppModule {}
       `,
 		});
 		expect(diags).toHaveLength(0);

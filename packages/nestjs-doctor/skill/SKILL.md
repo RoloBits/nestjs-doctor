@@ -92,7 +92,6 @@ For each diagnostic to fix:
 - **no-circular-module-deps**: Break the circular dependency. Extract shared functionality into a separate module, use `forwardRef(() => Module)`, or restructure the module boundaries.
 - **no-manual-instantiation**: Replace `new SomeService()` with constructor injection. Add the service to the module's providers and inject it via the constructor.
 - **no-orm-in-services**: Consider introducing a repository layer. Create a repository class that wraps ORM operations, and inject the repository into the service instead of the ORM directly.
-- **no-god-module**: Split the module into smaller, focused feature modules. Group related providers together and create dedicated modules for each feature area.
 - **no-god-service**: Split the service into smaller, focused services. Extract groups of related methods into separate service classes.
 - **require-feature-modules**: Move providers out of AppModule into dedicated feature modules. Create feature modules and register providers there instead.
 - **prefer-constructor-injection**: Replace `@Inject()` property injection with constructor injection. Move the dependency to a constructor parameter.
@@ -103,13 +102,10 @@ For each diagnostic to fix:
 #### Performance
 
 - **no-sync-io**: Replace synchronous I/O (`readFileSync`, `writeFileSync`, etc.) with async equivalents (`readFile`, `writeFile` from `fs/promises`).
-- **no-query-in-loop**: Replace the N+1 query pattern. Use batch queries, `Promise.all()`, or eager loading/joins to fetch all related data in a single query.
 - **no-blocking-constructor**: Move async operations and loops out of the constructor into `onModuleInit()` lifecycle hook. Implement `OnModuleInit` interface.
 - **no-dynamic-require**: Replace `require(variable)` with a static import or a switch/map pattern that uses static `require()` calls.
 - **no-unused-providers**: Remove the unused provider from the module's providers array, or start using it. If it's intended for external consumers, add it to the module's exports.
-- **no-logging-in-loops**: Move logging outside the loop, log a summary after the loop completes, or use conditional logging (e.g., log every Nth iteration).
 - **no-unnecessary-async**: Remove the `async` keyword since the function contains no `await` expressions. If it returns a Promise, return it directly without `async`.
-- **prefer-pagination**: Add pagination parameters (`skip`/`take`, `limit`/`offset`, or cursor-based) to `findMany()`/`find()` calls to avoid loading unbounded result sets.
 - **no-unused-module-exports**: Remove the unused export from the module's exports array, or start importing the module where the exported provider is needed.
 - **no-orphan-modules**: Import this module in another module that needs it, or remove it if it's truly unused. If it's the root module, this can be ignored.
 

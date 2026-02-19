@@ -36,7 +36,10 @@ export function resolveProviders(
 			const ctor = cls.getConstructors()[0];
 			const dependencies = ctor
 				? ctor.getParameters().map((p) => {
-						const typeText = p.getType().getText();
+						const typeNode = p.getTypeNode();
+						const typeText = typeNode
+							? typeNode.getText()
+							: p.getType().getText();
 						return extractSimpleTypeName(typeText);
 					})
 				: [];
