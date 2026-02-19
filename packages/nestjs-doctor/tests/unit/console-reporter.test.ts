@@ -52,6 +52,7 @@ function makeResult(overrides: Partial<DiagnoseResult> = {}): DiagnoseResult {
 				performance: 0,
 			},
 		},
+		ruleErrors: [],
 		elapsedMs: 1200,
 		...overrides,
 	};

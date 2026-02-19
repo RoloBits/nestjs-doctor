@@ -37,6 +37,25 @@ const VARIABLE_NAME_PATTERNS = [
 	/client[_-]?secret/i,
 ];
 
+const PLACEHOLDER_VALUES = new Set([
+	"your-secret-here",
+	"changeme",
+	"password",
+]);
+
+function isSuspiciousValue(value: string): boolean {
+	return (
+		value.length >= 8 &&
+		!value.includes("${") &&
+		!value.startsWith("process.env") &&
+		!PLACEHOLDER_VALUES.has(value)
+	);
+}
+
+function hasSuspiciousName(name: string): boolean {
+	return VARIABLE_NAME_PATTERNS.some((p) => p.test(name));
+}
+
 export const noHardcodedSecrets: Rule = {
 	meta: {
 		id: "security/no-hardcoded-secrets",
@@ -78,7 +97,7 @@ export const noHardcodedSecrets: Rule = {
 			}
 		}
 
-		// Check variable assignments with suspicious names
+		// Check variable declarations and property assignments with suspicious names
 		const variableDeclarations = context.sourceFile.getDescendantsOfKind(
 			SyntaxKind.VariableDeclaration
 		);
@@ -86,29 +105,16 @@ export const noHardcodedSecrets: Rule = {
 		for (const decl of variableDeclarations) {
 			const name = decl.getName();
 			const initializer = decl.getInitializer();
-			if (!initializer) {
+			if (!initializer || initializer.getKind() !== SyntaxKind.StringLiteral) {
 				continue;
 			}
 
-			if (initializer.getKind() !== SyntaxKind.StringLiteral) {
+			if (!hasSuspiciousName(name)) {
 				continue;
 			}
 
-			const isSuspiciousName = VARIABLE_NAME_PATTERNS.some((p) => p.test(name));
-			if (!isSuspiciousName) {
-				continue;
-			}
-
-			const value = initializer.getText().slice(1, -1); // Remove quotes
-			// Flag if the value looks like an actual secret (not a placeholder)
-			if (
-				value.length >= 8 &&
-				!value.includes("${") &&
-				!value.startsWith("process.env") &&
-				value !== "your-secret-here" &&
-				value !== "changeme" &&
-				value !== "password"
-			) {
+			const value = initializer.getText().slice(1, -1);
+			if (isSuspiciousValue(value)) {
 				context.report({
 					filePath: context.filePath,
 					message: `Variable '${name}' appears to contain a hardcoded secret.`,
@@ -119,7 +125,6 @@ export const noHardcodedSecrets: Rule = {
 			}
 		}
 
-		// Check property assignments in objects
 		const propertyAssignments = context.sourceFile.getDescendantsOfKind(
 			SyntaxKind.PropertyAssignment
 		);
@@ -127,25 +132,16 @@ export const noHardcodedSecrets: Rule = {
 		for (const prop of propertyAssignments) {
 			const name = prop.getName();
 			const initializer = prop.getInitializer();
-			if (!initializer) {
+			if (!initializer || initializer.getKind() !== SyntaxKind.StringLiteral) {
 				continue;
 			}
 
-			if (initializer.getKind() !== SyntaxKind.StringLiteral) {
-				continue;
-			}
-
-			const isSuspiciousName = VARIABLE_NAME_PATTERNS.some((p) => p.test(name));
-			if (!isSuspiciousName) {
+			if (!hasSuspiciousName(name)) {
 				continue;
 			}
 
 			const value = initializer.getText().slice(1, -1);
-			if (
-				value.length >= 8 &&
-				!value.includes("${") &&
-				!value.startsWith("process.env")
-			) {
+			if (isSuspiciousValue(value)) {
 				context.report({
 					filePath: context.filePath,
 					message: `Property '${name}' appears to contain a hardcoded secret.`,

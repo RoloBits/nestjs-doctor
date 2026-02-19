@@ -12,6 +12,16 @@ import type { Diagnostic } from "../types/diagnostic.js";
 import type { ModuleGraph } from "./module-graph.js";
 import type { ProviderInfo } from "./type-resolver.js";
 
+export interface RuleError {
+	error: unknown;
+	ruleId: string;
+}
+
+export interface RunRulesResult {
+	diagnostics: Diagnostic[];
+	errors: RuleError[];
+}
+
 export interface RunRulesOptions {
 	config: NestjsDoctorConfig;
 	moduleGraph: ModuleGraph;
@@ -23,8 +33,9 @@ export function runRules(
 	files: string[],
 	rules: AnyRule[],
 	options: RunRulesOptions
-): Diagnostic[] {
+): RunRulesResult {
 	const diagnostics: Diagnostic[] = [];
+	const errors: RuleError[] = [];
 
 	const fileRules: Rule[] = [];
 	const projectRules: ProjectRule[] = [];
@@ -60,8 +71,8 @@ export function runRules(
 
 			try {
 				rule.check(context);
-			} catch {
-				// Rule failed — skip silently
+			} catch (error) {
+				errors.push({ ruleId: rule.meta.id, error });
 			}
 		}
 	}
@@ -86,10 +97,10 @@ export function runRules(
 
 		try {
 			rule.check(context);
-		} catch {
-			// Rule failed — skip silently
+		} catch (error) {
+			errors.push({ ruleId: rule.meta.id, error });
 		}
 	}
 
-	return diagnostics;
+	return { diagnostics, errors };
 }

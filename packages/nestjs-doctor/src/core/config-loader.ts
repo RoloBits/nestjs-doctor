@@ -41,6 +41,16 @@ async function readConfigFile(path: string): Promise<NestjsDoctorConfig> {
 	return mergeConfig(parsed);
 }
 
+/**
+ * Merges user config with defaults.
+ *
+ * Merge semantics:
+ * - `include`: user replaces defaults entirely (user likely wants a specific scope)
+ * - `exclude`: user values are appended to defaults (additive, keeps safe defaults)
+ * - `ignore.rules`: user replaces defaults (no default ignored rules)
+ * - `ignore.files`: user replaces defaults (no default ignored files)
+ * - `rules`, `categories`, `thresholds`: shallow-merged with user taking precedence
+ */
 function mergeConfig(userConfig: NestjsDoctorConfig): NestjsDoctorConfig {
 	return {
 		...DEFAULT_CONFIG,
