@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.1.4
+
+### Patch Changes
+
+- Fix custom domain by using www.nestjs.doctor in CNAME for proper GitHub Pages redirect
+
 ## 0.1.3
 
 ### Patch Changes
