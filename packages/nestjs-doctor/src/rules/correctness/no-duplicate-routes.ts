@@ -18,7 +18,7 @@ export const noDuplicateRoutes: Rule = {
 		category: "correctness",
 		severity: "error",
 		description:
-			"Same HTTP method + route path should not appear twice in a single controller",
+			"Same HTTP method + route path + version should not appear twice in a single controller",
 		help: "Remove or rename one of the duplicate route handlers.",
 	},
 
@@ -39,7 +39,11 @@ export const noDuplicateRoutes: Rule = {
 
 					const args = decorator.getArguments();
 					const path = args.length > 0 ? args[0].getText() : '""';
-					const routeKey = `${decoratorName}:${path}`;
+					const versionDecorator = method.getDecorator("Version");
+					const version = versionDecorator
+						? (versionDecorator.getArguments()[0]?.getText() ?? "")
+						: "";
+					const routeKey = `${decoratorName}:${path}:${version}`;
 
 					const existing = routeMap.get(routeKey);
 					if (existing) {

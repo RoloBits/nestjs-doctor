@@ -19,6 +19,9 @@ export const noMissingPipeMethod: Rule = {
 			if (!hasDecorator(cls, "Injectable")) {
 				continue;
 			}
+			if (cls.getExtends()) {
+				continue;
+			}
 
 			const hasTransform = cls
 				.getMethods()

@@ -76,4 +76,40 @@ describe("no-hardcoded-secrets", () => {
     `);
 		expect(diags.length).toBeGreaterThan(0);
 	});
+
+	it("flags real base64 strings containing digits", () => {
+		const diags = runRule(`
+      const data = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop1234';
+    `);
+		expect(diags.length).toBeGreaterThan(0);
+	});
+
+	it("does not flag long camelCase identifier strings as base64", () => {
+		const diags = runRule(`
+      const config = {
+        id: 'rentalRestrictionAgreementCoapplicantDoc',
+      };
+    `);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag human-readable text with suspicious property names", () => {
+		const diags = runRule(`
+      export const ActivityLogEvents = {
+        PASSWORD_CHANGED: 'Password changed',
+        USER_CREATED: 'User created',
+      };
+    `);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag dot-separated error codes with suspicious property names", () => {
+		const diags = runRule(`
+      export const AuthErrorCodes = {
+        WEAK_PASSWORD: 'AUTH.WEAK_PASSWORD',
+        AUTH0_UPDATE_FAILED: 'AUTH.UPDATE_FAILED',
+      } as const;
+    `);
+		expect(diags).toHaveLength(0);
+	});
 });

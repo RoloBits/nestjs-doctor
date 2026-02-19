@@ -35,6 +35,12 @@ export const DEFAULT_CONFIG: NestjsDoctorConfig = {
 		"**/*.spec.ts",
 		"**/*.test.ts",
 		"**/*.e2e-spec.ts",
+		"**/*.e2e-test.ts",
 		"**/*.d.ts",
+		"**/test/**",
+		"**/tests/**",
+		"**/__tests__/**",
+		"**/__mocks__/**",
+		"**/__fixtures__/**",
 	],
 };

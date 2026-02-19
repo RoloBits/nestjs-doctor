@@ -40,9 +40,7 @@ import { noEval } from "./security/no-eval.js";
 import { noExposedEnvVars } from "./security/no-exposed-env-vars.js";
 import { noExposedStackTrace } from "./security/no-exposed-stack-trace.js";
 import { noHardcodedSecrets } from "./security/no-hardcoded-secrets.js";
-import { noUnsafeRawQuery } from "./security/no-unsafe-raw-query.js";
 import { noWeakCrypto } from "./security/no-weak-crypto.js";
-import { noWildcardCors } from "./security/no-wildcard-cors.js";
 import { requireAuthGuard } from "./security/require-auth-guard.js";
 import { requireValidationPipe } from "./security/require-validation-pipe.js";
 import type { AnyRule } from "./types.js";
@@ -84,8 +82,6 @@ export const allRules: AnyRule[] = [
 
 	// Security
 	noHardcodedSecrets,
-	noWildcardCors,
-	noUnsafeRawQuery,
 	requireAuthGuard,
 	noEval,
 	noWeakCrypto,

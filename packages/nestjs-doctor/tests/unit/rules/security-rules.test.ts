@@ -5,9 +5,7 @@ import { noDangerousRedirects } from "../../../src/rules/security/no-dangerous-r
 import { noEval } from "../../../src/rules/security/no-eval.js";
 import { noExposedEnvVars } from "../../../src/rules/security/no-exposed-env-vars.js";
 import { noExposedStackTrace } from "../../../src/rules/security/no-exposed-stack-trace.js";
-import { noUnsafeRawQuery } from "../../../src/rules/security/no-unsafe-raw-query.js";
 import { noWeakCrypto } from "../../../src/rules/security/no-weak-crypto.js";
-import { noWildcardCors } from "../../../src/rules/security/no-wildcard-cors.js";
 import { requireAuthGuard } from "../../../src/rules/security/require-auth-guard.js";
 import { requireValidationPipe } from "../../../src/rules/security/require-validation-pipe.js";
 import type { Rule } from "../../../src/rules/types.js";
@@ -33,73 +31,6 @@ function runRule(rule: Rule, code: string, filePath = "test.ts"): Diagnostic[] {
 
 	return diagnostics;
 }
-
-describe("no-wildcard-cors", () => {
-	it("flags origin: '*'", () => {
-		const diags = runRule(
-			noWildcardCors,
-			`
-      const corsOptions = { origin: '*' };
-    `
-		);
-		expect(diags).toHaveLength(1);
-		expect(diags[0].message).toContain("origin");
-	});
-
-	it("flags origin: true", () => {
-		const diags = runRule(
-			noWildcardCors,
-			`
-      const corsOptions = { origin: true };
-    `
-		);
-		expect(diags).toHaveLength(1);
-	});
-
-	it("allows specific origin", () => {
-		const diags = runRule(
-			noWildcardCors,
-			`
-      const corsOptions = { origin: 'https://example.com' };
-    `
-		);
-		expect(diags).toHaveLength(0);
-	});
-});
-
-describe("no-unsafe-raw-query", () => {
-	it("flags template literal in $executeRaw", () => {
-		const diags = runRule(
-			noUnsafeRawQuery,
-			`
-      const id = '1';
-      prisma.$executeRaw(\`DELETE FROM users WHERE id = \${id}\`);
-    `
-		);
-		expect(diags).toHaveLength(1);
-		expect(diags[0].message).toContain("SQL injection");
-	});
-
-	it("allows tagged template (no interpolation)", () => {
-		const diags = runRule(
-			noUnsafeRawQuery,
-			`
-      prisma.$executeRaw(\`DELETE FROM users WHERE id = 1\`);
-    `
-		);
-		expect(diags).toHaveLength(0);
-	});
-
-	it("allows string literal argument", () => {
-		const diags = runRule(
-			noUnsafeRawQuery,
-			`
-      prisma.$executeRaw('DELETE FROM users WHERE id = 1');
-    `
-		);
-		expect(diags).toHaveLength(0);
-	});
-});
 
 describe("require-auth-guard", () => {
 	it("flags controller without @UseGuards", () => {

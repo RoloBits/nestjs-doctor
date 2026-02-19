@@ -260,6 +260,81 @@ describe("no-duplicate-routes", () => {
 		);
 		expect(diags).toHaveLength(0);
 	});
+
+	it("allows same route with different @Version decorators", () => {
+		const diags = runRule(
+			noDuplicateRoutes,
+			`
+      import { Controller, Get, Version } from '@nestjs/common';
+      @Controller('apps')
+      export class AppsController {
+        @Get(':appNumber')
+        @Version('1')
+        findV1() { return {}; }
+        @Get(':appNumber')
+        @Version('2')
+        findV2() { return {}; }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("flags duplicate routes with the same @Version", () => {
+		const diags = runRule(
+			noDuplicateRoutes,
+			`
+      import { Controller, Get, Version } from '@nestjs/common';
+      @Controller('users')
+      export class UsersController {
+        @Get(':id')
+        @Version('1')
+        findOne() { return {}; }
+        @Get(':id')
+        @Version('1')
+        findOneDuplicate() { return {}; }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+	});
+
+	it("allows same route when one is versioned and one is not", () => {
+		const diags = runRule(
+			noDuplicateRoutes,
+			`
+      import { Controller, Get, Version } from '@nestjs/common';
+      @Controller('users')
+      export class UsersController {
+        @Get(':id')
+        findOne() { return {}; }
+        @Get(':id')
+        @Version('2')
+        findOneV2() { return {}; }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("allows same route with array version vs single version", () => {
+		const diags = runRule(
+			noDuplicateRoutes,
+			`
+      import { Controller, Get, Version } from '@nestjs/common';
+      @Controller('users')
+      export class UsersController {
+        @Get(':id')
+        @Version(['1', '2'])
+        findOneV1V2() { return {}; }
+        @Get(':id')
+        @Version('3')
+        findOneV3() { return {}; }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
 });
 
 describe("no-missing-guard-method", () => {
@@ -274,6 +349,19 @@ describe("no-missing-guard-method", () => {
 		);
 		expect(diags).toHaveLength(1);
 		expect(diags[0].message).toContain("canActivate");
+	});
+
+	it("skips guard extending a base class", () => {
+		const diags = runRule(
+			noMissingGuardMethod,
+			`
+      import { Injectable } from '@nestjs/common';
+      import { AuthGuard } from '@nestjs/passport';
+      @Injectable()
+      export class AuthorizationGuard extends AuthGuard(['jwt']) {}
+    `
+		);
+		expect(diags).toHaveLength(0);
 	});
 
 	it("allows guard with canActivate", () => {
@@ -305,6 +393,18 @@ describe("no-missing-pipe-method", () => {
 		expect(diags[0].message).toContain("transform");
 	});
 
+	it("skips pipe extending a base class", () => {
+		const diags = runRule(
+			noMissingPipeMethod,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class CustomPipe extends BasePipe {}
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
 	it("allows pipe with transform", () => {
 		const diags = runRule(
 			noMissingPipeMethod,
@@ -334,6 +434,19 @@ describe("no-missing-filter-catch", () => {
 		expect(diags[0].message).toContain("catch");
 	});
 
+	it("skips filter extending a base class", () => {
+		const diags = runRule(
+			noMissingFilterCatch,
+			`
+      import { Catch } from '@nestjs/common';
+      import { BaseExceptionFilter } from '@nestjs/core';
+      @Catch()
+      export class CustomFilter extends BaseExceptionFilter {}
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
 	it("allows @Catch with catch method", () => {
 		const diags = runRule(
 			noMissingFilterCatch,
@@ -361,6 +474,18 @@ describe("no-missing-interceptor-method", () => {
 		);
 		expect(diags).toHaveLength(1);
 		expect(diags[0].message).toContain("intercept");
+	});
+
+	it("skips interceptor extending a base class", () => {
+		const diags = runRule(
+			noMissingInterceptorMethod,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class CustomInterceptor extends BaseInterceptor {}
+    `
+		);
+		expect(diags).toHaveLength(0);
 	});
 
 	it("allows interceptor with intercept", () => {
