@@ -39,6 +39,13 @@ describe("file-collector", () => {
 			"**/__tests__/**",
 			"**/__mocks__/**",
 			"**/__fixtures__/**",
+			"**/mock/**",
+			"**/mocks/**",
+			"**/*.mock.ts",
+			"**/seeder/**",
+			"**/seeders/**",
+			"**/*.seed.ts",
+			"**/*.seeder.ts",
 		];
 		for (const pattern of expectedPatterns) {
 			expect(exclude).toContain(pattern);
