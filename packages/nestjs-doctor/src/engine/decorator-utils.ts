@@ -1,4 +1,15 @@
-import type { ClassDeclaration, Decorator } from "ts-morph";
+import type { ClassDeclaration, Decorator, MethodDeclaration } from "ts-morph";
+
+export const HTTP_DECORATORS = new Set([
+	"Get",
+	"Post",
+	"Put",
+	"Patch",
+	"Delete",
+	"Head",
+	"Options",
+	"All",
+]);
 
 export type NestClassType =
 	| "controller"
@@ -55,6 +66,10 @@ export function isService(cls: ClassDeclaration): boolean {
 
 export function isModule(cls: ClassDeclaration): boolean {
 	return hasDecorator(cls, "Module");
+}
+
+export function isHttpHandler(method: MethodDeclaration): boolean {
+	return method.getDecorators().some((d) => HTTP_DECORATORS.has(d.getName()));
 }
 
 export function getConstructorParams(

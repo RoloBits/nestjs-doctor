@@ -1,16 +1,5 @@
-import { isController } from "../../engine/decorator-utils.js";
+import { HTTP_DECORATORS, isController } from "../../engine/decorator-utils.js";
 import type { Rule } from "../types.js";
-
-const HTTP_DECORATORS = new Set([
-	"Get",
-	"Post",
-	"Put",
-	"Delete",
-	"Patch",
-	"All",
-	"Head",
-	"Options",
-]);
 
 export const noEmptyHandlers: Rule = {
 	meta: {

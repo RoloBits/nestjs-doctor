@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  42 built-in rules across <b>security</b>, <b>performance</b>, <b>correctness</b>, and <b>architecture</b>. Outputs a <b>0-100 score</b> with actionable diagnostics. Zero config. Monorepo support. Built to catch the anti-patterns that AI-generated code loves to introduce.
+  42 built-in rules across <b>security</b>, <b>performance</b>, <b>correctness</b>, and <b>architecture</b>. Outputs a <b>0–100 score</b> with actionable diagnostics. Zero config. Monorepo support. Built to catch the anti-patterns that AI-generated code loves to introduce.
 </p>
 
 ---
@@ -67,7 +67,7 @@ No config, no plugins, no setup.
 Install as a devDependency for deterministic, cacheable CI runs:
 
 ```bash
-pnpm add -D nestjs-doctor
+npm install -D nestjs-doctor
 ```
 
 Then use `--min-score` to enforce a minimum health score:
@@ -111,7 +111,7 @@ nestjs-doctor ships with a [Claude Code skill](https://docs.anthropic.com/en/doc
 If you haven't already, install as a devDependency:
 
 ```bash
-pnpm add -D nestjs-doctor
+npm install -D nestjs-doctor
 ```
 
 Then scaffold the skill:
@@ -151,10 +151,6 @@ Optional. Create `nestjs-doctor.config.json` in your project root:
   },
   "categories": {
     "performance": false
-  },
-  "thresholds": {
-    "godServiceMethods": 12,
-    "godServiceDeps": 10
   }
 }
 ```
@@ -170,7 +166,6 @@ Or use a `"nestjs-doctor"` key in `package.json`.
 | `ignore.files` | `string[]` | Glob patterns for files whose diagnostics are hidden |
 | `rules` | `Record<string, boolean>` | Enable/disable individual rules |
 | `categories` | `Record<string, boolean>` | Enable/disable entire categories |
-| `thresholds` | `object` | Customize limits for god-service rules |
 
 ---
 
@@ -242,13 +237,13 @@ mono.combined;      // Merged DiagnoseResult
 | `no-eval` | error | `eval()` or `new Function()` usage |
 | `no-csrf-disabled` | error | Explicitly disabling CSRF protection |
 | `no-dangerous-redirects` | error | Redirects with user-controlled input |
+| `no-synchronize-in-production` | error | `synchronize: true` in TypeORM config — can drop columns/tables |
 | `no-weak-crypto` | warning | `createHash('md5')` or `createHash('sha1')` |
 | `no-exposed-env-vars` | warning | Direct `process.env` in Injectable/Controller |
-| `require-validation-pipe` | warning | `@Body()` param without validation pipe |
 | `no-exposed-stack-trace` | warning | `error.stack` exposed in responses |
-| `require-auth-guard` | info | Controller without `@UseGuards()` |
+| `no-raw-entity-in-response` | warning | Returning ORM entities directly from controllers — leaks internal fields |
 
-### Correctness (14)
+### Correctness (15)
 
 | Rule | Severity | What it catches |
 |------|----------|-----------------|
@@ -266,8 +261,9 @@ mono.combined;      // Merged DiagnoseResult
 | `prefer-await-in-handlers` | warning | Async HTTP handler missing await — risks broken exception filters and lost stack traces |
 | `no-duplicate-module-metadata` | warning | Duplicate entries in `@Module()` arrays |
 | `no-missing-module-decorator` | warning | Class named `*Module` without `@Module()` |
+| `no-fire-and-forget-async` | warning | Async call without `await` in non-handler methods — unhandled rejections |
 
-### Architecture (12)
+### Architecture (11)
 
 | Rule | Severity | What it catches |
 |------|----------|-----------------|
@@ -277,8 +273,7 @@ mono.combined;      // Merged DiagnoseResult
 | `no-circular-module-deps` | error | Cycles in `@Module()` import graph |
 | `no-manual-instantiation` | error | `new SomeService()` for injectable classes |
 | `no-orm-in-services` | warning | Services using ORM directly (should use repositories) |
-| `no-god-service` | warning | >10 public methods or >8 dependencies |
-| `require-feature-modules` | warning | AppModule declaring too many providers directly |
+| `no-service-locator` | warning | `ModuleRef.get()`/`resolve()` hides dependencies — use constructor injection |
 | `prefer-constructor-injection` | warning | `@Inject()` property injection |
 | `require-module-boundaries` | info | Deep imports into other modules' internals |
 | `prefer-interface-injection` | info | Concrete service-to-service injection |
@@ -292,7 +287,7 @@ mono.combined;      // Merged DiagnoseResult
 | `no-blocking-constructor` | warning | Loops/await in Injectable/Controller constructors |
 | `no-dynamic-require` | warning | `require()` with non-literal argument |
 | `no-unused-providers` | warning | Provider never injected anywhere |
-| `no-unnecessary-async` | info | Async method with no `await` |
+| `no-request-scope-abuse` | warning | `Scope.REQUEST` creates new instance per request — performance impact |
 | `no-unused-module-exports` | info | Module exports unused by importers |
 | `no-orphan-modules` | info | Module never imported by any other module |
 

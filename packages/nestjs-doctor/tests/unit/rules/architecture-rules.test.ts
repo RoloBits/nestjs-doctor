@@ -5,6 +5,7 @@ import { noBusinessLogicInControllers } from "../../../src/rules/architecture/no
 import { noManualInstantiation } from "../../../src/rules/architecture/no-manual-instantiation.js";
 import { noOrmInControllers } from "../../../src/rules/architecture/no-orm-in-controllers.js";
 import { noOrmInServices } from "../../../src/rules/architecture/no-orm-in-services.js";
+import { noServiceLocator } from "../../../src/rules/architecture/no-service-locator.js";
 import { preferConstructorInjection } from "../../../src/rules/architecture/prefer-constructor-injection.js";
 import { preferInterfaceInjection } from "../../../src/rules/architecture/prefer-interface-injection.js";
 import { requireModuleBoundaries } from "../../../src/rules/architecture/require-module-boundaries.js";
@@ -451,5 +452,73 @@ describe("no-barrel-export-internals", () => {
 			"src/users/module.ts"
 		);
 		expect(diags).toHaveLength(0);
+	});
+});
+
+describe("no-service-locator", () => {
+	it("flags this.moduleRef.get()", () => {
+		const diags = runRule(
+			noServiceLocator,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class MyService {
+        constructor(private readonly moduleRef: ModuleRef) {}
+        getService() {
+          return this.moduleRef.get(OtherService);
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("Service locator");
+	});
+
+	it("flags this.moduleRef.resolve()", () => {
+		const diags = runRule(
+			noServiceLocator,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class MyService {
+        constructor(private readonly moduleRef: ModuleRef) {}
+        async getService() {
+          return await this.moduleRef.resolve(OtherService);
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("Service locator");
+	});
+
+	it("does not flag regular method calls", () => {
+		const diags = runRule(
+			noServiceLocator,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class MyService {
+        constructor(private readonly configService: ConfigService) {}
+        getValue() {
+          return this.configService.get('KEY');
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("flags bare moduleRef.get() without this", () => {
+		const diags = runRule(
+			noServiceLocator,
+			`
+      async function bootstrap(moduleRef: any) {
+        const svc = moduleRef.get(AppService);
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("moduleRef.get()");
 	});
 });

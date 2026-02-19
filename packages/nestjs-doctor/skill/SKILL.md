@@ -63,9 +63,9 @@ For each diagnostic to fix:
 - **no-dangerous-redirects**: Validate redirect URLs against an allowlist of trusted domains. Never pass user input directly to `res.redirect()`.
 - **no-weak-crypto**: Replace `createHash('md5')` or `createHash('sha1')` with `createHash('sha256')` or stronger.
 - **no-exposed-env-vars**: Replace direct `process.env.X` access with `ConfigService`. Inject `ConfigService` and use `this.configService.get('X')` or `this.configService.getOrThrow('X')`.
-- **require-validation-pipe**: Add a validation pipe. Either add `@UsePipes(new ValidationPipe())` to the handler/controller, or use a global validation pipe in `main.ts`, or add a DTO class with `class-validator` decorators.
 - **no-exposed-stack-trace**: Remove `error.stack` from response objects. Log the stack trace server-side with `this.logger.error(error.stack)` and return a generic error message to the client.
-- **require-auth-guard**: Add `@UseGuards(AuthGuard)` to the controller class or individual routes. If intentionally public, add a comment explaining why.
+- **no-synchronize-in-production**: Set `synchronize: false` in TypeORM config. Use migrations (`typeorm migration:generate` and `typeorm migration:run`) for production schema changes. If needed only for development, guard with `synchronize: process.env.NODE_ENV !== 'production'`.
+- **no-raw-entity-in-response**: Create a DTO class for the response and map entity fields to it. Alternatively, use `class-transformer`'s `@Exclude()` decorator on sensitive entity fields and `@SerializeOptions()` on the controller. Never return raw ORM entities from controller methods.
 
 #### Correctness
 
@@ -83,6 +83,7 @@ For each diagnostic to fix:
 - **prefer-await-in-handlers**: Add await before the service call in the handler (e.g., return await this.service.findAll()). Using await ensures NestJS exception filters trigger correctly and stack traces point to the handler.
 - **no-duplicate-module-metadata**: Remove duplicate entries from `@Module()` arrays (providers, controllers, imports, exports).
 - **no-missing-module-decorator**: Add `@Module({})` decorator to the class. Import it from `@nestjs/common`.
+- **no-fire-and-forget-async**: Add `await` before the async call to properly handle rejections. If fire-and-forget is intentional, prefix with `void` and add a `.catch()` handler: `void this.service.sendEmail().catch(err => this.logger.error(err))`.
 
 #### Architecture
 
@@ -91,9 +92,8 @@ For each diagnostic to fix:
 - **no-orm-in-controllers**: Remove PrismaService/EntityManager/DataSource injection from the controller. Create or use an existing service that wraps the ORM operations.
 - **no-circular-module-deps**: Break the circular dependency. Extract shared functionality into a separate module, use `forwardRef(() => Module)`, or restructure the module boundaries.
 - **no-manual-instantiation**: Replace `new SomeService()` with constructor injection. Add the service to the module's providers and inject it via the constructor.
+- **no-service-locator**: Replace `this.moduleRef.get(SomeService)` with constructor injection: add `private readonly someService: SomeService` to the constructor. If the service is truly dynamic or lazily resolved, document the reason with a comment.
 - **no-orm-in-services**: Consider introducing a repository layer. Create a repository class that wraps ORM operations, and inject the repository into the service instead of the ORM directly.
-- **no-god-service**: Split the service into smaller, focused services. Extract groups of related methods into separate service classes.
-- **require-feature-modules**: Move providers out of AppModule into dedicated feature modules. Create feature modules and register providers there instead.
 - **prefer-constructor-injection**: Replace `@Inject()` property injection with constructor injection. Move the dependency to a constructor parameter.
 - **require-module-boundaries**: Replace deep imports (`import { X } from '../other-module/services/x.service'`) with imports through the module's public API (barrel file / index.ts).
 - **prefer-interface-injection**: Consider creating an interface/abstract class for the dependency and injecting that instead of the concrete implementation.
@@ -105,7 +105,7 @@ For each diagnostic to fix:
 - **no-blocking-constructor**: Move async operations and loops out of the constructor into `onModuleInit()` lifecycle hook. Implement `OnModuleInit` interface.
 - **no-dynamic-require**: Replace `require(variable)` with a static import or a switch/map pattern that uses static `require()` calls.
 - **no-unused-providers**: Remove the unused provider from the module's providers array, or start using it. If it's intended for external consumers, add it to the module's exports.
-- **no-unnecessary-async**: Remove the `async` keyword since the function contains no `await` expressions. If it returns a Promise, return it directly without `async`.
+- **no-request-scope-abuse**: Remove `Scope.REQUEST` unless the provider genuinely needs per-request state (e.g., request-scoped context like `REQUEST` object). Use `Scope.DEFAULT` (singleton) or `Scope.TRANSIENT` instead. Remember that request scope propagates to all dependents.
 - **no-unused-module-exports**: Remove the unused export from the module's exports array, or start importing the module where the exported provider is needed.
 - **no-orphan-modules**: Import this module in another module that needs it, or remove it if it's truly unused. If it's the root module, this can be ignored.
 

@@ -17,10 +17,6 @@ export interface NestjsDoctorConfig {
 	include?: string[];
 	minScore?: number;
 	rules?: Record<string, RuleOverride | boolean>;
-	thresholds?: {
-		godServiceMethods?: number;
-		godServiceDeps?: number;
-	};
 }
 
 export const DEFAULT_CONFIG: NestjsDoctorConfig = {

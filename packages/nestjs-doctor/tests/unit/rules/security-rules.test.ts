@@ -5,9 +5,9 @@ import { noDangerousRedirects } from "../../../src/rules/security/no-dangerous-r
 import { noEval } from "../../../src/rules/security/no-eval.js";
 import { noExposedEnvVars } from "../../../src/rules/security/no-exposed-env-vars.js";
 import { noExposedStackTrace } from "../../../src/rules/security/no-exposed-stack-trace.js";
+import { noRawEntityInResponse } from "../../../src/rules/security/no-raw-entity-in-response.js";
+import { noSynchronizeInProduction } from "../../../src/rules/security/no-synchronize-in-production.js";
 import { noWeakCrypto } from "../../../src/rules/security/no-weak-crypto.js";
-import { requireAuthGuard } from "../../../src/rules/security/require-auth-guard.js";
-import { requireValidationPipe } from "../../../src/rules/security/require-validation-pipe.js";
 import type { Rule } from "../../../src/rules/types.js";
 import type { Diagnostic } from "../../../src/types/diagnostic.js";
 
@@ -31,56 +31,6 @@ function runRule(rule: Rule, code: string, filePath = "test.ts"): Diagnostic[] {
 
 	return diagnostics;
 }
-
-describe("require-auth-guard", () => {
-	it("flags controller without @UseGuards", () => {
-		const diags = runRule(
-			requireAuthGuard,
-			`
-      import { Controller, Get } from '@nestjs/common';
-      @Controller('users')
-      export class UsersController {
-        @Get()
-        findAll() { return []; }
-      }
-    `
-		);
-		expect(diags).toHaveLength(1);
-		expect(diags[0].message).toContain("UseGuards");
-	});
-
-	it("allows controller with class-level guard", () => {
-		const diags = runRule(
-			requireAuthGuard,
-			`
-      import { Controller, Get, UseGuards } from '@nestjs/common';
-      @Controller('users')
-      @UseGuards(AuthGuard)
-      export class UsersController {
-        @Get()
-        findAll() { return []; }
-      }
-    `
-		);
-		expect(diags).toHaveLength(0);
-	});
-
-	it("allows controller with method-level guard", () => {
-		const diags = runRule(
-			requireAuthGuard,
-			`
-      import { Controller, Get, UseGuards } from '@nestjs/common';
-      @Controller('users')
-      export class UsersController {
-        @Get()
-        @UseGuards(AuthGuard)
-        findAll() { return []; }
-      }
-    `
-		);
-		expect(diags).toHaveLength(0);
-	});
-});
 
 describe("no-eval", () => {
 	it("flags eval()", () => {
@@ -178,56 +128,6 @@ describe("no-exposed-env-vars", () => {
         getPort() {
           return process.env.PORT;
         }
-      }
-    `
-		);
-		expect(diags).toHaveLength(0);
-	});
-});
-
-describe("require-validation-pipe", () => {
-	it("flags handler with @Body but no pipe", () => {
-		const diags = runRule(
-			requireValidationPipe,
-			`
-      import { Controller, Post, Body } from '@nestjs/common';
-      @Controller('users')
-      export class UsersController {
-        @Post()
-        create(@Body() dto: any) { return dto; }
-      }
-    `
-		);
-		expect(diags).toHaveLength(1);
-		expect(diags[0].message).toContain("validation pipe");
-	});
-
-	it("allows handler with @UsePipes on method", () => {
-		const diags = runRule(
-			requireValidationPipe,
-			`
-      import { Controller, Post, Body, UsePipes } from '@nestjs/common';
-      @Controller('users')
-      export class UsersController {
-        @Post()
-        @UsePipes(ValidationPipe)
-        create(@Body() dto: any) { return dto; }
-      }
-    `
-		);
-		expect(diags).toHaveLength(0);
-	});
-
-	it("allows handler with @UsePipes on class", () => {
-		const diags = runRule(
-			requireValidationPipe,
-			`
-      import { Controller, Post, Body, UsePipes } from '@nestjs/common';
-      @Controller('users')
-      @UsePipes(ValidationPipe)
-      export class UsersController {
-        @Post()
-        create(@Body() dto: any) { return dto; }
       }
     `
 		);
@@ -339,6 +239,115 @@ describe("no-dangerous-redirects", () => {
         callback(@Res() res: any) {
           res.redirect('/dashboard');
         }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+});
+
+describe("no-synchronize-in-production", () => {
+	it("flags synchronize: true", () => {
+		const diags = runRule(
+			noSynchronizeInProduction,
+			`
+      const config = {
+        type: 'postgres',
+        synchronize: true,
+      };
+    `
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("synchronize");
+	});
+
+	it("allows synchronize: false", () => {
+		const diags = runRule(
+			noSynchronizeInProduction,
+			`
+      const config = {
+        type: 'postgres',
+        synchronize: false,
+      };
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("allows synchronize with env check", () => {
+		const diags = runRule(
+			noSynchronizeInProduction,
+			`
+      const config = {
+        type: 'postgres',
+        synchronize: process.env.NODE_ENV !== 'production',
+      };
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+});
+
+describe("no-raw-entity-in-response", () => {
+	it("flags controller returning entity type", () => {
+		const diags = runRule(
+			noRawEntityInResponse,
+			`
+      import { Controller, Get } from '@nestjs/common';
+      class UserEntity { id: number; password: string; }
+      @Controller('users')
+      export class UsersController {
+        @Get()
+        findAll(): UserEntity[] { return []; }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("raw entity");
+	});
+
+	it("allows controller returning DTO type", () => {
+		const diags = runRule(
+			noRawEntityInResponse,
+			`
+      import { Controller, Get } from '@nestjs/common';
+      class UserDto { id: number; name: string; }
+      @Controller('users')
+      export class UsersController {
+        @Get()
+        findAll(): UserDto[] { return []; }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("flags Promise<UserEntity> return type", () => {
+		const diags = runRule(
+			noRawEntityInResponse,
+			`
+      import { Controller, Get } from '@nestjs/common';
+      class UserEntity { id: number; password: string; }
+      @Controller('users')
+      export class UsersController {
+        @Get(':id')
+        async findOne(): Promise<UserEntity> { return new UserEntity(); }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("raw entity");
+	});
+
+	it("does not flag non-controller classes", () => {
+		const diags = runRule(
+			noRawEntityInResponse,
+			`
+      import { Injectable } from '@nestjs/common';
+      class UserEntity { id: number; }
+      @Injectable()
+      export class UsersService {
+        findAll(): UserEntity[] { return []; }
       }
     `
 		);

@@ -49,7 +49,7 @@ async function readConfigFile(path: string): Promise<NestjsDoctorConfig> {
  * - `exclude`: user values are appended to defaults (additive, keeps safe defaults)
  * - `ignore.rules`: user replaces defaults (no default ignored rules)
  * - `ignore.files`: user replaces defaults (no default ignored files)
- * - `rules`, `categories`, `thresholds`: shallow-merged with user taking precedence
+ * - `rules`, `categories`: shallow-merged with user taking precedence
  */
 function mergeConfig(userConfig: NestjsDoctorConfig): NestjsDoctorConfig {
 	return {
