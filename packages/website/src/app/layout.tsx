@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 		card: "summary_large_image",
 		images: [TWITTER_IMAGE_PATH],
 	},
-	icons: { icon: "/nestjs-doctor/favicon.svg" },
+	icons: { icon: "/favicon.svg" },
 };
 
 export default function RootLayout({
