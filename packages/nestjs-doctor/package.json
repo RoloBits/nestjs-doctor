@@ -17,7 +17,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "skill"
   ],
   "scripts": {
     "build": "tsdown",

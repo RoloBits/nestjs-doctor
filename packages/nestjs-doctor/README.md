@@ -96,8 +96,42 @@ Usage: nestjs-doctor [directory] [options]
   --json          JSON output (for tooling)
   --min-score <n> Minimum passing score (0-100). Exits with code 1 if below threshold
   --config <p>    Path to config file
+  --init          Set up the /nestjs-doctor Claude Code skill
   -h, --help      Show help
 ```
+
+---
+
+## Claude Code
+
+nestjs-doctor ships with a [Claude Code skill](https://docs.anthropic.com/en/docs/claude-code/skills) that scans your codebase and fixes issues interactively.
+
+### Setup
+
+If you haven't already, install as a devDependency:
+
+```bash
+pnpm add -D nestjs-doctor
+```
+
+Then scaffold the skill:
+
+```bash
+npx nestjs-doctor --init
+```
+
+This creates `.claude/skills/nestjs-doctor/SKILL.md` in your project. Commit it so every contributor gets the skill automatically.
+
+### Usage
+
+In Claude Code, type:
+
+```
+/nestjs-doctor
+/nestjs-doctor src/
+```
+
+Claude will scan your codebase, present a prioritized health report, and offer to fix every issue found.
 
 ---
 

@@ -25,4 +25,9 @@ export const flags = {
 		type: "string",
 		description: "Config file path",
 	},
+	init: {
+		type: "boolean",
+		description: "Set up the /nestjs-doctor Claude Code skill in your project",
+		default: false,
+	},
 } satisfies ArgsDef;

@@ -5,6 +5,7 @@ import { loadConfig } from "../core/config-loader.js";
 import { detectMonorepo } from "../core/project-detector.js";
 import { scan, scanMonorepo } from "../core/scanner.js";
 import { flags } from "./flags.js";
+import { initSkill } from "./init-skill.js";
 import {
 	checkMinScore,
 	resolveMinScore,
@@ -40,6 +41,12 @@ const main = defineCommand({
 	},
 	async run({ args }) {
 		const targetPath = resolve(args.path ?? ".");
+
+		if (args.init) {
+			await initSkill(targetPath);
+			return;
+		}
+
 		const isSilent = args.score || args.json;
 
 		// Validate --min-score early
