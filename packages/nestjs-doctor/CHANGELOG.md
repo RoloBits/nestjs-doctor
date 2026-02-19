@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.1.3
+
+### Patch Changes
+
+- Fix nestjs.doctor website blank page by removing basePath, fixing favicon path, and adding CNAME file for custom domain
+
 ## 0.1.2
 
 ### Patch Changes
