@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.1.2
+
+### Patch Changes
+
+- a150d79: Improve performance with optimized scanner, better rule runner error handling, API validation, and typed error results
+
 ## 0.1.1
 
 ### Patch Changes
