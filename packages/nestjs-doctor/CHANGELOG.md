@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.3.0
+
+### Minor Changes
+
+- 3a21971: Add `/nestjs-doctor` Claude Code skill. Run `npx nestjs-doctor --init` to set it up, then use `/nestjs-doctor` in Claude Code to scan and fix NestJS health issues interactively.
+
 ## 0.2.0
 
 ### Minor Changes
