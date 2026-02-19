@@ -1,6 +1,6 @@
 {
   "name": "nestjs-doctor",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Diagnostic CLI tool that scans NestJS codebases and produces a health score with actionable diagnostics",
   "type": "module",
   "bin": {
