@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  45 built-in rules across <b>security</b>, <b>performance</b>, <b>correctness</b>, and <b>architecture</b>. Outputs a <b>0-100 score</b> with actionable diagnostics. Zero config. Monorepo support. Built to catch the anti-patterns that AI-generated code loves to introduce.
+  46 built-in rules across <b>security</b>, <b>performance</b>, <b>correctness</b>, and <b>architecture</b>. Outputs a <b>0-100 score</b> with actionable diagnostics. Zero config. Monorepo support. Built to catch the anti-patterns that AI-generated code loves to introduce.
 </p>
 
 ---
@@ -166,7 +166,7 @@ Or use a `"nestjs-doctor"` key in `package.json`.
 | Key | Type | Description |
 |-----|------|-------------|
 | `include` | `string[]` | Glob patterns to scan (default: `["**/*.ts"]`) |
-| `exclude` | `string[]` | Glob patterns to skip (default includes `node_modules`, `dist`, `build`, `coverage`, `*.spec.ts`, `*.test.ts`, `*.e2e-spec.ts`, `*.e2e-test.ts`, `*.d.ts`, `test/`, `tests/`, `__tests__/`, `__mocks__/`, `__fixtures__/`) |
+| `exclude` | `string[]` | Glob patterns to skip (default includes `node_modules`, `dist`, `build`, `coverage`, `*.spec.ts`, `*.test.ts`, `*.e2e-spec.ts`, `*.e2e-test.ts`, `*.d.ts`, `test/`, `tests/`, `__tests__/`, `__mocks__/`, `__fixtures__/`, `mock/`, `mocks/`, `*.mock.ts`, `seeder/`, `seeders/`, `*.seed.ts`, `*.seeder.ts`) |
 | `minScore` | `number` | Minimum passing score (0-100). Exits with code 1 if below threshold |
 | `ignore.rules` | `string[]` | Rule IDs to suppress |
 | `ignore.files` | `string[]` | Glob patterns for files whose diagnostics are hidden |
@@ -234,7 +234,7 @@ mono.combined;      // Merged DiagnoseResult
 
 ---
 
-## Rules (45)
+## Rules (46)
 
 ### Security (9)
 
@@ -250,7 +250,7 @@ mono.combined;      // Merged DiagnoseResult
 | `no-exposed-stack-trace` | warning | `error.stack` exposed in responses |
 | `require-auth-guard` | info | Controller without `@UseGuards()` |
 
-### Correctness (13)
+### Correctness (14)
 
 | Rule | Severity | What it catches |
 |------|----------|-----------------|
@@ -264,7 +264,8 @@ mono.combined;      // Merged DiagnoseResult
 | `prefer-readonly-injection` | warning | Constructor DI params missing `readonly` |
 | `require-lifecycle-interface` | warning | Lifecycle method without corresponding interface |
 | `no-empty-handlers` | warning | HTTP handler with empty body |
-| `no-async-without-await` | warning | Async function/method with no `await` |
+| `no-async-without-await` | warning | Async function/method with no `await` or redundant `async` on `new Promise()` return |
+| `prefer-await-in-handlers` | warning | Async HTTP handler missing await — risks broken exception filters and lost stack traces |
 | `no-duplicate-module-metadata` | warning | Duplicate entries in `@Module()` arrays |
 | `no-missing-module-decorator` | warning | Class named `*Module` without `@Module()` |
 

@@ -42,5 +42,12 @@ export const DEFAULT_CONFIG: NestjsDoctorConfig = {
 		"**/__tests__/**",
 		"**/__mocks__/**",
 		"**/__fixtures__/**",
+		"**/mock/**",
+		"**/mocks/**",
+		"**/*.mock.ts",
+		"**/seeder/**",
+		"**/seeders/**",
+		"**/*.seed.ts",
+		"**/*.seeder.ts",
 	],
 };

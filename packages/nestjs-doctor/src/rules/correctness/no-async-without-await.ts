@@ -1,5 +1,33 @@
-import { SyntaxKind } from "ts-morph";
+import { type Node, SyntaxKind } from "ts-morph";
+import { isController } from "../../engine/decorator-utils.js";
 import type { Rule } from "../types.js";
+
+const HTTP_DECORATORS = new Set([
+	"Get",
+	"Post",
+	"Put",
+	"Delete",
+	"Patch",
+	"All",
+	"Head",
+	"Options",
+]);
+
+function returnsNewPromise(body: Node): boolean {
+	const returnStatements = body.getDescendantsOfKind(
+		SyntaxKind.ReturnStatement
+	);
+	return returnStatements.some((ret) => {
+		const expr = ret.getExpression();
+		if (!expr || expr.getKind() !== SyntaxKind.NewExpression) {
+			return false;
+		}
+		return (
+			expr.asKindOrThrow(SyntaxKind.NewExpression).getExpression().getText() ===
+			"Promise"
+		);
+	});
+}
 
 export const noAsyncWithoutAwait: Rule = {
 	meta: {
@@ -17,6 +45,16 @@ export const noAsyncWithoutAwait: Rule = {
 			for (const method of cls.getMethods()) {
 				if (!method.isAsync()) {
 					continue;
+				}
+
+				// Skip controller HTTP handlers — covered by prefer-await-in-handlers
+				if (isController(cls)) {
+					const hasHttpDecorator = method
+						.getDecorators()
+						.some((d) => HTTP_DECORATORS.has(d.getName()));
+					if (hasHttpDecorator) {
+						continue;
+					}
 				}
 
 				const body = method.getBody();
@@ -45,13 +83,24 @@ export const noAsyncWithoutAwait: Rule = {
 				});
 
 				if (directAwaits.length === 0) {
-					context.report({
-						filePath: context.filePath,
-						message: `Async method '${method.getName()}()' has no await expression.`,
-						help: this.meta.help,
-						line: method.getStartLineNumber(),
-						column: 1,
-					});
+					const name = method.getName();
+					if (returnsNewPromise(body)) {
+						context.report({
+							filePath: context.filePath,
+							message: `Async method '${name}()' returns a Promise directly — remove the async keyword.`,
+							help: "The async keyword is unnecessary when you are already constructing a Promise manually. Remove async to avoid double-wrapping.",
+							line: method.getStartLineNumber(),
+							column: 1,
+						});
+					} else {
+						context.report({
+							filePath: context.filePath,
+							message: `Async method '${name}()' has no await expression.`,
+							help: this.meta.help,
+							line: method.getStartLineNumber(),
+							column: 1,
+						});
+					}
 				}
 			}
 		}
@@ -87,13 +136,24 @@ export const noAsyncWithoutAwait: Rule = {
 			});
 
 			if (directAwaits.length === 0) {
-				context.report({
-					filePath: context.filePath,
-					message: `Async function '${fn.getName() ?? "anonymous"}()' has no await expression.`,
-					help: this.meta.help,
-					line: fn.getStartLineNumber(),
-					column: 1,
-				});
+				const name = fn.getName() ?? "anonymous";
+				if (returnsNewPromise(body)) {
+					context.report({
+						filePath: context.filePath,
+						message: `Async function '${name}()' returns a Promise directly — remove the async keyword.`,
+						help: "The async keyword is unnecessary when you are already constructing a Promise manually. Remove async to avoid double-wrapping.",
+						line: fn.getStartLineNumber(),
+						column: 1,
+					});
+				} else {
+					context.report({
+						filePath: context.filePath,
+						message: `Async function '${name}()' has no await expression.`,
+						help: this.meta.help,
+						line: fn.getStartLineNumber(),
+						column: 1,
+					});
+				}
 			}
 		}
 	},
