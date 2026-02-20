@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.4.3
+
+### Patch Changes
+
+- 36a3eb6: Use shared `isHttpHandler()` helper in new rules and tighten entity suffix matching to avoid false positives on types like `EntityManager`
+
 ## 0.4.2
 
 ### Patch Changes
