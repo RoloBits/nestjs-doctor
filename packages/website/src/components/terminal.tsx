@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronRight, Copy, RotateCcw } from "lucide-react";
+import { Check, ChevronRight, Copy } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 const COPIED_RESET_DELAY_MS = 2000;
@@ -25,7 +25,14 @@ const TOTAL_ERROR_COUNT = 21;
 const AFFECTED_FILE_COUNT = 12;
 const ELAPSED_TIME = "1.8s";
 
-const ANIMATION_COMPLETED_KEY = "nestjs-doctor-animation-completed";
+const CLAUDE_PROMPT_DELAY_MS = 800;
+const CLAUDE_YES_DELAY_MS = 600;
+const CLAUDE_POST_YES_DELAY_MS = 800;
+const SKILL_FIX_MIN_DELAY_MS = 150;
+const SKILL_FIX_MAX_DELAY_MS = 250;
+const SKILL_POST_FIX_DELAY_MS = 600;
+const FIXED_SCORE = 92;
+
 const COMMAND = "npx -y nestjs-doctor@latest .";
 const GITHUB_URL = "https://github.com/RoloBits/nestjs-doctor";
 const GITHUB_ICON_PATH =
@@ -52,9 +59,9 @@ const DIAGNOSTICS: Diagnostic[] = [
 		],
 	},
 	{
-		message: "Module has 18 providers, exceeds max:10",
+		message: "TypeORM 'synchronize: true' risks data loss in production",
 		count: 1,
-		files: [{ path: "src/app.module.ts", lines: [8] }],
+		files: [{ path: "src/config/database.config.ts", lines: [18] }],
 	},
 	{
 		message: "Circular dependency detected",
@@ -65,7 +72,7 @@ const DIAGNOSTICS: Diagnostic[] = [
 		],
 	},
 	{
-		message: "Hardcoded JWT token",
+		message: "Hardcoded JWT secret",
 		count: 1,
 		files: [{ path: "src/auth/auth.service.ts", lines: [34] }],
 	},
@@ -146,7 +153,9 @@ const NestBranding = ({ score }: { score: number }) => {
 
 	return (
 		<div>
-			<pre className={`${colorClass} leading-tight`}>
+			<pre
+				className={`${colorClass} leading-tight transition-colors duration-500`}
+			>
 				{`  ${BOX_TOP}\n  \u2502 ${eyes} \u2502\n  \u2502 ${mouth} \u2502\n  ${BOX_BOTTOM}`}
 			</pre>
 		</div>
@@ -172,9 +181,13 @@ const ScoreGauge = ({ score }: { score: number }) => {
 	return (
 		<div className="pl-2">
 			<div>
-				<span className={colorClass}>{score}</span>
+				<span className={`${colorClass} transition-colors duration-500`}>
+					{score}
+				</span>
 				{` / ${PERFECT_SCORE}  `}
-				<span className={colorClass}>{getScoreLabel(score)}</span>
+				<span className={`${colorClass} transition-colors duration-500`}>
+					{getScoreLabel(score)}
+				</span>
 			</div>
 			<div className="my-1 text-xs sm:text-sm">
 				<span className="sm:hidden">
@@ -212,15 +225,31 @@ const CopyCommand = () => {
 	);
 };
 
-const DiagnosticItem = ({ diagnostic }: { diagnostic: Diagnostic }) => {
+const DiagnosticItem = ({
+	diagnostic,
+	isFixed,
+}: {
+	diagnostic: Diagnostic;
+	isFixed: boolean;
+}) => {
 	const [isOpen, setIsOpen] = useState(false);
+	const icon = isFixed ? "\u2713" : "\u2717";
+	const iconColor = isFixed ? "text-green-400" : "text-red-400";
+	const textClass = isFixed
+		? "line-through text-neutral-500 transition-all duration-300"
+		: "transition-all duration-300";
 
 	return (
 		<div className="mb-1">
 			<div className="sm:hidden">
-				<span className="text-red-400"> \u2717</span>
-				{` ${diagnostic.message} `}
-				<span className="text-neutral-500">({diagnostic.count})</span>
+				<span className={`${iconColor} transition-colors duration-300`}>
+					{" "}
+					{icon}
+				</span>
+				<span className={textClass}>
+					{` ${diagnostic.message} `}
+					<span className="text-neutral-500">({diagnostic.count})</span>
+				</span>
 			</div>
 			<div className="hidden sm:block">
 				<button
@@ -233,9 +262,13 @@ const DiagnosticItem = ({ diagnostic }: { diagnostic: Diagnostic }) => {
 						size={16}
 					/>
 					<span>
-						<span className="text-red-400">\u2717</span>
-						{` ${diagnostic.message} `}
-						<span className="text-neutral-500">({diagnostic.count})</span>
+						<span className={`${iconColor} transition-colors duration-300`}>
+							{icon}
+						</span>
+						<span className={textClass}>
+							{` ${diagnostic.message} `}
+							<span className="text-neutral-500">({diagnostic.count})</span>
+						</span>
 					</span>
 				</button>
 				<div
@@ -262,60 +295,39 @@ const DiagnosticItem = ({ diagnostic }: { diagnostic: Diagnostic }) => {
 };
 
 interface AnimationState {
+	fixedDiagnosticCount: number;
+	fixedScore: number | null;
 	isTyping: boolean;
 	score: number | null;
+	showClaudePrompt: boolean;
+	showClaudeYes: boolean;
 	showHeader: boolean;
 	showSeparator: boolean;
 	showSummary: boolean;
+	skillStep: number;
 	typedCommand: string;
 	visibleDiagnosticCount: number;
 }
 
 const INITIAL_STATE: AnimationState = {
-	typedCommand: "",
+	fixedDiagnosticCount: 0,
+	fixedScore: null,
 	isTyping: true,
-	showHeader: false,
-	visibleDiagnosticCount: 0,
-	showSeparator: false,
 	score: null,
+	showClaudePrompt: false,
+	showClaudeYes: false,
+	showHeader: false,
+	showSeparator: false,
 	showSummary: false,
-};
-
-const COMPLETED_STATE: AnimationState = {
-	typedCommand: COMMAND,
-	isTyping: false,
-	showHeader: true,
-	visibleDiagnosticCount: DIAGNOSTICS.length,
-	showSeparator: true,
-	score: TARGET_SCORE,
-	showSummary: true,
-};
-
-const didAnimationComplete = () => {
-	try {
-		return localStorage.getItem(ANIMATION_COMPLETED_KEY) === "true";
-	} catch {
-		return false;
-	}
-};
-
-const markAnimationCompleted = () => {
-	try {
-		localStorage.setItem(ANIMATION_COMPLETED_KEY, "true");
-	} catch {
-		// localStorage may be unavailable in SSR or private browsing
-	}
+	skillStep: 0,
+	typedCommand: "",
+	visibleDiagnosticCount: 0,
 };
 
 const Terminal = () => {
 	const [state, setState] = useState<AnimationState>(INITIAL_STATE);
 
 	useEffect(() => {
-		if (didAnimationComplete()) {
-			setState(COMPLETED_STATE);
-			return;
-		}
-
 		let cancelled = false;
 
 		const update = (patch: Partial<AnimationState>) => {
@@ -375,7 +387,51 @@ const Terminal = () => {
 				return;
 			}
 			update({ showSummary: true });
-			markAnimationCompleted();
+
+			// Claude prompt phase
+			await sleep(CLAUDE_PROMPT_DELAY_MS);
+			if (cancelled) {
+				return;
+			}
+			update({ showClaudePrompt: true });
+			await sleep(CLAUDE_YES_DELAY_MS);
+			if (cancelled) {
+				return;
+			}
+			update({ showClaudeYes: true });
+			await sleep(CLAUDE_POST_YES_DELAY_MS);
+
+			for (let index = 0; index < DIAGNOSTICS.length; index++) {
+				if (cancelled) {
+					return;
+				}
+				update({ fixedDiagnosticCount: index + 1 });
+				const jitteredDelay =
+					SKILL_FIX_MIN_DELAY_MS +
+					Math.random() * (SKILL_FIX_MAX_DELAY_MS - SKILL_FIX_MIN_DELAY_MS);
+				await sleep(jitteredDelay);
+			}
+
+			// Animate score from TARGET_SCORE to FIXED_SCORE in-place
+			await sleep(SKILL_POST_FIX_DELAY_MS);
+			for (let frame = 0; frame <= SCORE_FRAME_COUNT; frame++) {
+				if (cancelled) {
+					return;
+				}
+				const progress = easeOutCubic(frame / SCORE_FRAME_COUNT);
+				const animatedScore = Math.round(
+					TARGET_SCORE + progress * (FIXED_SCORE - TARGET_SCORE)
+				);
+				update({ fixedScore: animatedScore });
+				await sleep(SCORE_FRAME_DELAY_MS);
+			}
+
+			// Show final state
+			await sleep(POST_SCORE_DELAY_MS);
+			if (cancelled) {
+				return;
+			}
+			update({ skillStep: 4 });
 		};
 
 		run();
@@ -384,12 +440,14 @@ const Terminal = () => {
 		};
 	}, []);
 
+	const displayScore = state.fixedScore ?? state.score;
+
 	return (
 		<div className="mx-auto min-h-screen w-full max-w-3xl bg-[#0a0a0a] p-6 pb-32 font-mono text-base text-neutral-300 leading-relaxed sm:p-8 sm:pb-40 sm:text-lg">
 			<div>
 				<span className="text-neutral-500">$ </span>
 				<span>{state.typedCommand}</span>
-				{state.isTyping && <span>\u258B</span>}
+				{state.isTyping && <span>{"\u258B"}</span>}
 			</div>
 
 			{state.showHeader && (
@@ -407,17 +465,23 @@ const Terminal = () => {
 				{DIAGNOSTICS.slice(
 					0,
 					Math.min(state.visibleDiagnosticCount, DIAGNOSTIC_COUNT_MOBILE)
-				).map((diagnostic) => (
+				).map((diagnostic, index) => (
 					<FadeIn key={diagnostic.message}>
-						<DiagnosticItem diagnostic={diagnostic} />
+						<DiagnosticItem
+							diagnostic={diagnostic}
+							isFixed={index < state.fixedDiagnosticCount}
+						/>
 					</FadeIn>
 				))}
 			</div>
 			<div className="hidden sm:block">
 				{DIAGNOSTICS.slice(0, state.visibleDiagnosticCount).map(
-					(diagnostic) => (
+					(diagnostic, index) => (
 						<FadeIn key={diagnostic.message}>
-							<DiagnosticItem diagnostic={diagnostic} />
+							<DiagnosticItem
+								diagnostic={diagnostic}
+								isFixed={index < state.fixedDiagnosticCount}
+							/>
 						</FadeIn>
 					)
 				)}
@@ -425,11 +489,11 @@ const Terminal = () => {
 
 			{state.showSeparator && <Spacer />}
 
-			{state.score !== null && (
+			{displayScore !== null && (
 				<FadeIn>
-					<NestBranding score={state.score} />
+					<NestBranding score={displayScore} />
 					<Spacer />
-					<ScoreGauge score={state.score} />
+					<ScoreGauge score={displayScore} />
 				</FadeIn>
 			)}
 
@@ -437,11 +501,38 @@ const Terminal = () => {
 				<FadeIn>
 					<Spacer />
 					<div>
-						<span className="text-red-400">{TOTAL_ERROR_COUNT} errors</span>
+						{state.skillStep >= 4 ? (
+							<span className="text-green-400">0 errors</span>
+						) : (
+							<span className="text-red-400">{TOTAL_ERROR_COUNT} errors</span>
+						)}
 						<span className="text-neutral-500">
 							{`  across ${AFFECTED_FILE_COUNT} files  in ${ELAPSED_TIME}`}
 						</span>
 					</div>
+				</FadeIn>
+			)}
+
+			{state.showClaudePrompt && (
+				<FadeIn>
+					<Spacer />
+					<div>
+						<span className="text-purple-400">{"claude >"}</span>
+						{" Fix these errors?"}
+					</div>
+					{state.showClaudeYes && (
+						<FadeIn>
+							<div className="mt-1">
+								<span className="text-purple-400">{">"}</span>
+								{" Yes"}
+							</div>
+						</FadeIn>
+					)}
+				</FadeIn>
+			)}
+
+			{state.skillStep >= 4 && (
+				<FadeIn>
 					<Spacer />
 					<div className="text-neutral-500">
 						Run it on your codebase to find issues like these:
@@ -474,26 +565,6 @@ const Terminal = () => {
 						</a>
 					</div>
 				</FadeIn>
-			)}
-
-			{state.showSummary && (
-				<div className="mt-8">
-					<button
-						className="inline-flex items-center gap-1.5 text-neutral-600 text-xs transition-colors hover:text-neutral-400"
-						onClick={() => {
-							try {
-								localStorage.removeItem(ANIMATION_COMPLETED_KEY);
-							} catch {
-								// localStorage may be unavailable
-							}
-							location.reload();
-						}}
-						type="button"
-					>
-						<RotateCcw size={12} />
-						Restart demo
-					</button>
-				</div>
 			)}
 		</div>
 	);
