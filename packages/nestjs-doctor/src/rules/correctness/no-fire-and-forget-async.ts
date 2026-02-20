@@ -1,5 +1,5 @@
 import { SyntaxKind } from "ts-morph";
-import { HTTP_DECORATORS } from "../../engine/decorator-utils.js";
+import { isHttpHandler } from "../../engine/decorator-utils.js";
 import type { Rule } from "../types.js";
 
 const ASYNC_PREFIXES = new Set([
@@ -35,10 +35,7 @@ export const noFireAndForgetAsync: Rule = {
 		for (const cls of context.sourceFile.getClasses()) {
 			for (const method of cls.getMethods()) {
 				// Skip HTTP handler methods — they have different semantics
-				const isEndpoint = method
-					.getDecorators()
-					.some((d) => HTTP_DECORATORS.has(d.getName()));
-				if (isEndpoint) {
+				if (isHttpHandler(method)) {
 					continue;
 				}
 

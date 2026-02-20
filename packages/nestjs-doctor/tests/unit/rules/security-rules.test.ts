@@ -339,6 +339,21 @@ describe("no-raw-entity-in-response", () => {
 		expect(diags[0].message).toContain("raw entity");
 	});
 
+	it("does not flag EntityManager or EntityMetadata return types", () => {
+		const diags = runRule(
+			noRawEntityInResponse,
+			`
+      import { Controller, Get } from '@nestjs/common';
+      @Controller('admin')
+      export class AdminController {
+        @Get()
+        getManager(): EntityManager { return null as any; }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
 	it("does not flag non-controller classes", () => {
 		const diags = runRule(
 			noRawEntityInResponse,

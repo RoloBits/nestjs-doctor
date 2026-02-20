@@ -1,7 +1,10 @@
-import { HTTP_DECORATORS, isController } from "../../engine/decorator-utils.js";
+import { isController, isHttpHandler } from "../../engine/decorator-utils.js";
 import type { Rule } from "../types.js";
 
 const ENTITY_SUFFIXES = ["Entity", "Model"];
+const ENTITY_PATTERN = new RegExp(
+	`(?:^|[^a-zA-Z])\\w*(?:${ENTITY_SUFFIXES.join("|")})(?:[^a-zA-Z]|$)`
+);
 
 export const noRawEntityInResponse: Rule = {
 	meta: {
@@ -20,31 +23,25 @@ export const noRawEntityInResponse: Rule = {
 			}
 
 			for (const method of cls.getMethods()) {
-				const isEndpoint = method
-					.getDecorators()
-					.some((d) => HTTP_DECORATORS.has(d.getName()));
-				if (!isEndpoint) {
+				if (!isHttpHandler(method)) {
 					continue;
 				}
 
 				const returnType = method.getReturnType().getText();
 
-				for (const suffix of ENTITY_SUFFIXES) {
-					if (
-						returnType.includes(suffix) &&
-						!returnType.includes("DTO") &&
-						!returnType.includes("Dto") &&
-						!returnType.includes("Response")
-					) {
-						context.report({
-							filePath: context.filePath,
-							message: `Controller method '${method.getName()}' returns a raw entity type. This may leak internal fields.`,
-							help: this.meta.help,
-							line: method.getStartLineNumber(),
-							column: 1,
-						});
-						break;
-					}
+				if (
+					ENTITY_PATTERN.test(returnType) &&
+					!returnType.includes("DTO") &&
+					!returnType.includes("Dto") &&
+					!returnType.includes("Response")
+				) {
+					context.report({
+						filePath: context.filePath,
+						message: `Controller method '${method.getName()}' returns a raw entity type. This may leak internal fields.`,
+						help: this.meta.help,
+						line: method.getStartLineNumber(),
+						column: 1,
+					});
 				}
 			}
 		}
