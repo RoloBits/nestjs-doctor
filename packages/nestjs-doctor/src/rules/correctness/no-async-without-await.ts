@@ -1,5 +1,9 @@
 import { type Node, SyntaxKind } from "ts-morph";
-import { HTTP_DECORATORS, isController } from "../../engine/decorator-utils.js";
+import {
+	isController,
+	isFrameworkHandler,
+	isHttpHandler,
+} from "../../engine/decorator-utils.js";
 import type { Rule } from "../types.js";
 
 function returnsNewPromise(body: Node): boolean {
@@ -36,14 +40,14 @@ export const noAsyncWithoutAwait: Rule = {
 					continue;
 				}
 
-				// Skip controller HTTP handlers — covered by prefer-await-in-handlers
-				if (isController(cls)) {
-					const hasHttpDecorator = method
-						.getDecorators()
-						.some((d) => HTTP_DECORATORS.has(d.getName()));
-					if (hasHttpDecorator) {
-						continue;
-					}
+				// Skip controller HTTP handlers — NestJS resolves returned Promises automatically; async without await is valid
+				if (isController(cls) && isHttpHandler(method)) {
+					continue;
+				}
+
+				// Skip framework handler decorators (ts-rest, gRPC) where async is conventional
+				if (isFrameworkHandler(method)) {
+					continue;
 				}
 
 				const body = method.getBody();
