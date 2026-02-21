@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.4.4
+
+### Patch Changes
+
+- 18924e9: Remove `prefer-await-in-handlers` rule (async without await is valid in NestJS handlers), add framework handler exemptions (ts-rest, gRPC) to `no-async-without-await`, and reduce false positives in `no-hardcoded-secrets` for Base64 pagination cursors
+
 ## 0.4.3
 
 ### Patch Changes
