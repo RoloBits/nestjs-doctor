@@ -5,6 +5,7 @@ import {
 	getConstructorParams,
 	hasDecorator,
 	isController,
+	isFrameworkHandler,
 	isModule,
 	isService,
 } from "../../src/engine/decorator-utils.js";
@@ -13,6 +14,11 @@ function createClass(code: string) {
 	const project = new Project({ useInMemoryFileSystem: true });
 	const file = project.createSourceFile("test.ts", code);
 	return file.getClasses()[0];
+}
+
+function createMethod(code: string) {
+	const cls = createClass(code);
+	return cls.getMethods()[0];
 }
 
 describe("decorator-utils", () => {
@@ -63,6 +69,45 @@ describe("decorator-utils", () => {
     `);
 		expect(hasDecorator(cls, "MyDecorator")).toBe(true);
 		expect(hasDecorator(cls, "Other")).toBe(false);
+	});
+
+	it("detects @TsRestHandler as framework handler", () => {
+		const method = createMethod(`
+      class AppController {
+        @TsRestHandler(contract)
+        async handler() {}
+      }
+    `);
+		expect(isFrameworkHandler(method)).toBe(true);
+	});
+
+	it("detects @GrpcMethod as framework handler", () => {
+		const method = createMethod(`
+      class HeroController {
+        @GrpcMethod('HeroService', 'FindOne')
+        async findOne() {}
+      }
+    `);
+		expect(isFrameworkHandler(method)).toBe(true);
+	});
+
+	it("detects @GrpcStreamMethod as framework handler", () => {
+		const method = createMethod(`
+      class HeroController {
+        @GrpcStreamMethod('HeroService', 'FindMany')
+        async findMany() {}
+      }
+    `);
+		expect(isFrameworkHandler(method)).toBe(true);
+	});
+
+	it("returns false for non-framework-handler methods", () => {
+		const method = createMethod(`
+      class MyService {
+        doStuff() {}
+      }
+    `);
+		expect(isFrameworkHandler(method)).toBe(false);
 	});
 
 	it("extracts constructor params", () => {

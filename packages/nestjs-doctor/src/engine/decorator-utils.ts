@@ -72,6 +72,18 @@ export function isHttpHandler(method: MethodDeclaration): boolean {
 	return method.getDecorators().some((d) => HTTP_DECORATORS.has(d.getName()));
 }
 
+export const FRAMEWORK_HANDLER_DECORATORS = new Set([
+	"TsRestHandler",
+	"GrpcMethod",
+	"GrpcStreamMethod",
+]);
+
+export function isFrameworkHandler(method: MethodDeclaration): boolean {
+	return method
+		.getDecorators()
+		.some((d) => FRAMEWORK_HANDLER_DECORATORS.has(d.getName()));
+}
+
 export function getConstructorParams(
 	cls: ClassDeclaration
 ): { name: string; type: string; isReadonly: boolean }[] {

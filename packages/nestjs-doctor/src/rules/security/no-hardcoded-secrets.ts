@@ -1,4 +1,4 @@
-import { SyntaxKind } from "ts-morph";
+import { type Node, SyntaxKind } from "ts-morph";
 import type { Rule } from "../types.js";
 
 const SECRET_PATTERNS = [
@@ -46,6 +46,22 @@ const PLACEHOLDER_VALUES = new Set([
 const DOT_SEPARATED_CONSTANT =
 	/^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/;
 
+const PAGINATION_PROPERTY_NAMES = new Set([
+	"cursor",
+	"nextCursor",
+	"prevCursor",
+	"previousCursor",
+	"startCursor",
+	"endCursor",
+	"pageToken",
+	"nextPageToken",
+	"continuationToken",
+	"continuation",
+	"nextPage",
+	"afterCursor",
+	"beforeCursor",
+]);
+
 function isSuspiciousValue(value: string): boolean {
 	if (value.length < 8) {
 		return false;
@@ -70,6 +86,32 @@ function isSuspiciousValue(value: string): boolean {
 
 function hasSuspiciousName(name: string): boolean {
 	return VARIABLE_NAME_PATTERNS.some((p) => p.test(name));
+}
+
+function isStructuredBase64(value: string): boolean {
+	try {
+		const decoded = Buffer.from(value, "base64").toString("utf-8");
+		JSON.parse(decoded);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+function isPaginationContext(literal: Node): boolean {
+	const parent = literal.getParent();
+	if (!parent) {
+		return false;
+	}
+	const pa = parent.asKind(SyntaxKind.PropertyAssignment);
+	if (pa) {
+		return PAGINATION_PROPERTY_NAMES.has(pa.getName());
+	}
+	const vd = parent.asKind(SyntaxKind.VariableDeclaration);
+	if (vd) {
+		return PAGINATION_PROPERTY_NAMES.has(vd.getName());
+	}
+	return false;
 }
 
 export const noHardcodedSecrets: Rule = {
@@ -101,6 +143,14 @@ export const noHardcodedSecrets: Rule = {
 
 			for (const { pattern, name } of SECRET_PATTERNS) {
 				if (pattern.test(value)) {
+					// Skip Base64 strings that decode to structured data (e.g., pagination cursors)
+					if (
+						name === "Base64 key" &&
+						(isStructuredBase64(value) || isPaginationContext(literal))
+					) {
+						break;
+					}
+
 					context.report({
 						filePath: context.filePath,
 						message: `Possible hardcoded ${name} detected.`,

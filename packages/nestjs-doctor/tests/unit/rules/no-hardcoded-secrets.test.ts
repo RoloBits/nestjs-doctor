@@ -112,4 +112,39 @@ describe("no-hardcoded-secrets", () => {
     `);
 		expect(diags).toHaveLength(0);
 	});
+
+	it("does not flag Base64-encoded JSON pagination cursors", () => {
+		const diags = runRule(`
+      const page = {
+        cursor: 'eyJpZCI6IjQ2MDJCNjI5LTg3N0QtNEVCNC1CQzhELTREM0NGNzkzQkM2NSJ9',
+        size: 10,
+      };
+    `);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag Base64 strings in pagination property names", () => {
+		const diags = runRule(`
+      const nextPageToken = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop1234';
+    `);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag Base64-encoded JSON in non-pagination property", () => {
+		const diags = runRule(`
+      const config = {
+        payload: 'eyJpZCI6IjQ2MDJCNjI5LTg3N0QtNEVCNC1CQzhELTREM0NGNzkzQkM2NSJ9',
+      };
+    `);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("still flags real Base64 secrets not in pagination context", () => {
+		const diags = runRule(`
+      const config = {
+        apiCredential: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop1234',
+      };
+    `);
+		expect(diags.length).toBeGreaterThan(0);
+	});
 });

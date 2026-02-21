@@ -20,7 +20,6 @@ import { noMissingInjectable } from "./correctness/no-missing-injectable.js";
 import { noMissingInterceptorMethod } from "./correctness/no-missing-interceptor-method.js";
 import { noMissingModuleDecorator } from "./correctness/no-missing-module-decorator.js";
 import { noMissingPipeMethod } from "./correctness/no-missing-pipe-method.js";
-import { preferAwaitInHandlers } from "./correctness/prefer-await-in-handlers.js";
 import { preferReadonlyInjection } from "./correctness/prefer-readonly-injection.js";
 import { requireInjectDecorator } from "./correctness/require-inject-decorator.js";
 import { requireLifecycleInterface } from "./correctness/require-lifecycle-interface.js";
@@ -68,7 +67,6 @@ export const allRules: AnyRule[] = [
 	noMissingFilterCatch,
 	noMissingInterceptorMethod,
 	noAsyncWithoutAwait,
-	preferAwaitInHandlers,
 	noDuplicateModuleMetadata,
 	noMissingModuleDecorator,
 	requireInjectDecorator,

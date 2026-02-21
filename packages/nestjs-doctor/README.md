@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  42 built-in rules across <b>security</b>, <b>performance</b>, <b>correctness</b>, and <b>architecture</b>. Outputs a <b>0–100 score</b> with actionable diagnostics. Zero config. Monorepo support. Built to catch the anti-patterns that AI-generated code loves to introduce.
+  41 built-in rules across <b>security</b>, <b>performance</b>, <b>correctness</b>, and <b>architecture</b>. Outputs a <b>0–100 score</b> with actionable diagnostics. Zero config. Monorepo support. Built to catch the anti-patterns that AI-generated code loves to introduce.
 </p>
 
 ---
@@ -227,7 +227,7 @@ mono.combined;      // Merged DiagnoseResult
 
 ---
 
-## Rules (42)
+## Rules (41)
 
 ### Security (9)
 
@@ -243,7 +243,7 @@ mono.combined;      // Merged DiagnoseResult
 | `no-exposed-stack-trace` | warning | `error.stack` exposed in responses |
 | `no-raw-entity-in-response` | warning | Returning ORM entities directly from controllers — leaks internal fields |
 
-### Correctness (15)
+### Correctness (14)
 
 | Rule | Severity | What it catches |
 |------|----------|-----------------|
@@ -257,8 +257,7 @@ mono.combined;      // Merged DiagnoseResult
 | `prefer-readonly-injection` | warning | Constructor DI params missing `readonly` |
 | `require-lifecycle-interface` | warning | Lifecycle method without corresponding interface |
 | `no-empty-handlers` | warning | HTTP handler with empty body |
-| `no-async-without-await` | warning | Async function/method with no `await` or redundant `async` on `new Promise()` return |
-| `prefer-await-in-handlers` | warning | Async HTTP handler missing await — risks broken exception filters and lost stack traces |
+| `no-async-without-await` | warning | Async function/method with no `await` — remove `async` or add an `await` expression |
 | `no-duplicate-module-metadata` | warning | Duplicate entries in `@Module()` arrays |
 | `no-missing-module-decorator` | warning | Class named `*Module` without `@Module()` |
 | `no-fire-and-forget-async` | warning | Async call without `await` in non-handler methods — unhandled rejections |

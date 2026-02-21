@@ -82,7 +82,6 @@ For each diagnostic to fix:
 - **require-lifecycle-interface**: Add the corresponding interface to the class implements clause. E.g., if using `onModuleInit()`, add `implements OnModuleInit`.
 - **no-empty-handlers**: Add implementation to the empty HTTP handler. If it's a placeholder, add a `throw new NotImplementedException()`.
 - **no-async-without-await**: Either add an `await` expression, remove the `async` keyword, or if it intentionally returns a Promise, remove `async` and return the promise directly.
-- **prefer-await-in-handlers**: Add await before the service call in the handler (e.g., return await this.service.findAll()). Using await ensures NestJS exception filters trigger correctly and stack traces point to the handler.
 - **no-duplicate-module-metadata**: Remove duplicate entries from `@Module()` arrays (providers, controllers, imports, exports).
 - **no-missing-module-decorator**: Add `@Module({})` decorator to the class. Import it from `@nestjs/common`.
 

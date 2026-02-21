@@ -13,7 +13,6 @@ import { noMissingInjectable } from "../../../src/rules/correctness/no-missing-i
 import { noMissingInterceptorMethod } from "../../../src/rules/correctness/no-missing-interceptor-method.js";
 import { noMissingModuleDecorator } from "../../../src/rules/correctness/no-missing-module-decorator.js";
 import { noMissingPipeMethod } from "../../../src/rules/correctness/no-missing-pipe-method.js";
-import { preferAwaitInHandlers } from "../../../src/rules/correctness/prefer-await-in-handlers.js";
 import { requireInjectDecorator } from "../../../src/rules/correctness/require-inject-decorator.js";
 import { requireLifecycleInterface } from "../../../src/rules/correctness/require-lifecycle-interface.js";
 import type { ProjectRule, Rule } from "../../../src/rules/types.js";
@@ -632,54 +631,17 @@ describe("no-async-without-await", () => {
 		expect(diags).toHaveLength(1);
 		expect(diags[0].message).toContain("helperMethod");
 	});
-});
 
-describe("prefer-await-in-handlers", () => {
-	it("flags async handler without await", () => {
+	it("does not flag methods with @TsRestHandler decorator", () => {
 		const diags = runRule(
-			preferAwaitInHandlers,
-			`
-      import { Controller, Get } from '@nestjs/common';
-      @Controller('users')
-      export class UsersController {
-        @Get()
-        async findAll() {
-          return this.usersService.findAll();
-        }
-      }
-    `
-		);
-		expect(diags).toHaveLength(1);
-		expect(diags[0].message).toContain("Async handler");
-		expect(diags[0].message).toContain("findAll");
-	});
-
-	it("allows async handler with await", () => {
-		const diags = runRule(
-			preferAwaitInHandlers,
-			`
-      import { Controller, Get } from '@nestjs/common';
-      @Controller('users')
-      export class UsersController {
-        @Get()
-        async findAll() {
-          return await this.usersService.findAll();
-        }
-      }
-    `
-		);
-		expect(diags).toHaveLength(0);
-	});
-
-	it("does not flag non-handler methods in controllers", () => {
-		const diags = runRule(
-			preferAwaitInHandlers,
+			noAsyncWithoutAwait,
 			`
       import { Controller } from '@nestjs/common';
-      @Controller('users')
-      export class UsersController {
-        async helperMethod() {
-          return 42;
+      @Controller()
+      export class AppController {
+        @TsRestHandler(contract)
+        async handler() {
+          return tsRestHandler(contract, {});
         }
       }
     `
@@ -687,15 +649,16 @@ describe("prefer-await-in-handlers", () => {
 		expect(diags).toHaveLength(0);
 	});
 
-	it("does not flag methods in non-controller classes", () => {
+	it("does not flag methods with @GrpcMethod decorator", () => {
 		const diags = runRule(
-			preferAwaitInHandlers,
+			noAsyncWithoutAwait,
 			`
-      import { Injectable } from '@nestjs/common';
-      @Injectable()
-      export class UsersService {
-        async findAll() {
-          return [];
+      import { Controller } from '@nestjs/common';
+      @Controller()
+      export class HeroController {
+        @GrpcMethod('HeroService', 'FindOne')
+        async findOne(data: { id: number }) {
+          return { id: 1, name: 'Hero' };
         }
       }
     `
@@ -703,24 +666,21 @@ describe("prefer-await-in-handlers", () => {
 		expect(diags).toHaveLength(0);
 	});
 
-	it("shows specific message when handler returns new Promise", () => {
+	it("does not flag methods with @GrpcStreamMethod decorator", () => {
 		const diags = runRule(
-			preferAwaitInHandlers,
+			noAsyncWithoutAwait,
 			`
-      import { Controller, Post } from '@nestjs/common';
-      @Controller('users')
-      export class UsersController {
-        @Post()
-        async create() {
-          return new Promise((resolve) => {
-            resolve(true);
-          });
+      import { Controller } from '@nestjs/common';
+      @Controller()
+      export class HeroController {
+        @GrpcStreamMethod('HeroService', 'FindMany')
+        async findMany() {
+          return new Subject();
         }
       }
     `
 		);
-		expect(diags).toHaveLength(1);
-		expect(diags[0].message).toContain("returns a Promise directly");
+		expect(diags).toHaveLength(0);
 	});
 });
 
