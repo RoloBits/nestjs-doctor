@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.4.5
+
+### Patch Changes
+
+- 7147ae6: Add concrete provider-level suggestions to `no-circular-module-deps` and interactive module graph via `--graph` flag
+
 ## 0.4.4
 
 ### Patch Changes
