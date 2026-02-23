@@ -1,0 +1,124 @@
+# Output
+
+**Source:** `src/cli/output/console-reporter.ts`, `src/cli/output/json-reporter.ts`, `src/cli/output/graph-reporter.ts`
+
+## What
+
+Renders the final scan results in the requested format.
+
+## Why
+
+Different use cases need different formats. Humans want the visual console report. CI pipelines want `--score` or `--json`. Tooling integrations want structured JSON they can parse.
+
+## Input
+
+```typescript
+interface DiagnoseResult {
+  score: Score
+  diagnostics: Diagnostic[]
+  project: ProjectInfo
+  summary: DiagnoseSummary
+  ruleErrors: RuleErrorInfo[]
+  elapsedMs: number
+}
+
+interface DiagnoseSummary {
+  total: number
+  errors: number
+  warnings: number
+  info: number
+  byCategory: Record<Category, number>
+}
+```
+
+## Output Formats
+
+### Console Report (default)
+
+The visual report includes:
+
+- ASCII art NestJS bird (happy, neutral, or sad based on score)
+- Score display: `82 / 100  ★★★★☆  Good`
+- Score bar visualization
+- Summary: error/warning/info counts, file count, elapsed time
+- Project info: name, NestJS version, ORM, module count
+- Diagnostics grouped by rule, sorted by severity
+- With `--verbose`: file paths and line numbers per diagnostic
+
+Color coding:
+- Green: score >= 75
+- Yellow: score >= 50
+- Red: score &lt; 50
+
+### JSON (`--json`)
+
+Full `DiagnoseResult` as pretty-printed JSON to stdout:
+
+```bash
+npx nestjs-doctor . --json
+```
+
+Useful for piping into other tools:
+
+```bash
+npx nestjs-doctor . --json | jq '.diagnostics[] | select(.severity == "error")'
+```
+
+### Score Only (`--score`)
+
+Just the numeric score:
+
+```bash
+npx nestjs-doctor . --score
+# Output: 82
+```
+
+Useful for CI scripts that need to capture the score:
+
+```bash
+SCORE=$(npx nestjs-doctor . --score)
+```
+
+### Monorepo Report
+
+In monorepo mode, the console report shows:
+
+1. Combined score and diagnostics (same as single project)
+2. Per-project breakdown table:
+
+```
+  Project     Score    Files   Errors  Warnings  Info
+  api         85/100   42      1       3         0
+  admin       78/100   31      2       2         1
+  shared      95/100   18      0       1         0
+```
+
+### Module Graph (`--graph`)
+
+Generates a self-contained HTML file with an interactive visualization:
+
+```bash
+npx nestjs-doctor . --graph
+```
+
+The graph includes:
+
+- **Physics-based layout** — modules as draggable nodes, edges as directed arrows
+- **Color coding** — green for root modules, red for circular dependency participants
+- **Detail panel** — click any module to see its providers, controllers, imports, exports
+- **Circular dependency recommendations** — concrete suggestions naming which providers to extract
+- **Focus mode** — isolate a module and its direct connections
+
+Output: `nestjs-doctor-graph.html` in the project root, auto-opened in the default browser.
+
+![Module Graph](/module-graph.png)
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Score is at or above threshold (or no threshold set) |
+| `1` | Score is below `--min-score` threshold, or errors were found |
+| `2` | Invalid input (bad path, invalid flags) |
+
+All output formats respect exit codes. The `--min-score` check happens after output, so you always see the report even when the exit code is 1.

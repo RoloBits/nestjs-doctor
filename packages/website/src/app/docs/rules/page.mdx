@@ -1,0 +1,159 @@
+# Rules Overview
+
+nestjs-doctor ships with 41 built-in rules across four categories.
+
+## Categories
+
+| Category | Rules | Focus |
+|----------|-------|-------|
+| [Security](/docs/rules/security) | 9 | Secrets, injection, CSRF, stack traces |
+| [Correctness](/docs/rules/correctness) | 14 | Missing decorators, duplicate routes, async issues |
+| [Architecture](/docs/rules/architecture) | 11 | Layer violations, circular deps, DI patterns |
+| [Performance](/docs/rules/performance) | 7 | Sync I/O, blocking constructors, dead code |
+
+## Rule Scopes
+
+Rules have one of two scopes:
+
+- **File-scoped** (default) — runs once per source file. Gets a `RuleContext` with the file's AST.
+- **Project-scoped** (`scope: "project"`) — runs once for the entire project. Gets a `ProjectRuleContext` with the full module graph and provider map.
+
+## Rule Structure
+
+Every rule has a `meta` object and a `check` function:
+
+```typescript
+import type { Rule } from "../types.js";
+
+export const myRule: Rule = {
+  meta: {
+    id: "category/my-rule",          // unique ID
+    category: "correctness",         // security | correctness | architecture | performance
+    severity: "warning",             // error | warning | info
+    description: "What this rule detects",
+    help: "How to fix it",
+  },
+
+  check(context) {
+    // Inspect context.sourceFile using ts-morph API
+    // Call context.report() to emit a diagnostic
+  },
+}
+```
+
+## Writing a New Rule
+
+### 1. Create the rule file
+
+Create `src/rules/<category>/my-rule.ts`:
+
+```typescript
+import type { Rule } from "../types.js";
+import { SyntaxKind } from "ts-morph";
+
+export const noFoo: Rule = {
+  meta: {
+    id: "correctness/no-foo",
+    category: "correctness",
+    severity: "warning",
+    description: "Detects usage of foo()",
+    help: "Replace foo() with bar().",
+  },
+
+  check(context) {
+    const calls = context.sourceFile.getDescendantsOfKind(
+      SyntaxKind.CallExpression
+    );
+
+    for (const call of calls) {
+      if (call.getExpression().getText() === "foo") {
+        context.report({
+          filePath: context.filePath,
+          message: "Usage of foo() detected.",
+          help: this.meta.help,
+          line: call.getStartLineNumber(),
+          column: 1,
+        });
+      }
+    }
+  },
+};
+```
+
+### 2. Register it
+
+Add the import and reference in `src/rules/index.ts`:
+
+```typescript
+import { noFoo } from "./correctness/no-foo.js";
+
+export const allRules: AnyRule[] = [
+  // ... existing rules
+  noFoo,
+];
+```
+
+### 3. Add tests
+
+Create `tests/unit/rules/correctness/no-foo.test.ts`.
+
+### Project-Scoped Rules
+
+For rules that need the full module graph or provider map:
+
+```typescript
+import type { ProjectRule } from "../types.js";
+
+export const noOrphanServices: ProjectRule = {
+  meta: {
+    id: "architecture/no-orphan-services",
+    category: "architecture",
+    severity: "info",
+    description: "Services not registered in any module",
+    help: "Add the service to a module's providers array.",
+    scope: "project",  // This makes it project-scoped
+  },
+
+  check(context) {
+    // context.moduleGraph — full module dependency graph
+    // context.providers — Map<string, ProviderInfo>
+    // context.project — ts-morph Project
+    // context.files — all file paths
+    // context.config — user config
+  },
+};
+```
+
+## Context API
+
+### RuleContext (file-scoped)
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `sourceFile` | `SourceFile` | ts-morph SourceFile for the current file |
+| `filePath` | `string` | Absolute path to the current file |
+| `report()` | `(diagnostic) => void` | Emit a diagnostic |
+
+### ProjectRuleContext (project-scoped)
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `project` | `Project` | ts-morph Project with all source files |
+| `files` | `string[]` | All file paths being scanned |
+| `moduleGraph` | `ModuleGraph` | Module dependency graph |
+| `providers` | `Map<string, ProviderInfo>` | All `@Injectable()` classes |
+| `config` | `NestjsDoctorConfig` | User configuration |
+| `report()` | `(diagnostic) => void` | Emit a diagnostic |
+
+### report() Fields
+
+```typescript
+context.report({
+  filePath: string,    // which file the issue is in
+  message: string,     // what's wrong
+  help: string,        // how to fix it
+  line: number,        // line number (1-based)
+  column: number,      // column number (1-based)
+});
+// rule, category, severity are auto-filled from meta
+```

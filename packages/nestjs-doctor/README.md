@@ -10,6 +10,7 @@
   <a href="https://npmjs.com/package/nestjs-doctor"><img src="https://img.shields.io/npm/v/nestjs-doctor?style=flat&colorA=18181b&colorB=18181b" alt="version"></a>
   <a href="https://npmjs.com/package/nestjs-doctor"><img src="https://img.shields.io/npm/dt/nestjs-doctor?style=flat&colorA=18181b&colorB=18181b" alt="downloads"></a>
   <a href="https://github.com/RoloBits/nestjs-doctor/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/nestjs-doctor?style=flat&colorA=18181b&colorB=18181b" alt="license"></a>
+  <a href="https://nestjs.doctor/docs"><img src="https://img.shields.io/badge/docs-website-18181b?style=flat&colorA=18181b&colorB=18181b" alt="docs"></a>
 </p>
 
 <p align="center">
@@ -62,6 +63,19 @@ No config, no plugins, no setup.
 
 ---
 
+## Module Graph
+
+Visualize your module dependency graph:
+
+```bash
+npx nestjs-doctor@latest . --graph
+```
+
+Opens a self-contained HTML file with an interactive, physics-based graph of your NestJS modules. Click any module to inspect its providers, controllers, imports, and exports.
+
+![Module Graph](https://nestjs-doctor.rolobits.com/module-graph.png)
+
+---
 ## CI
 
 Install as a devDependency for deterministic, cacheable CI runs:
@@ -94,6 +108,7 @@ Usage: nestjs-doctor [directory] [options]
   --verbose       Show file paths and line numbers per diagnostic
   --score         Output only the numeric score (for CI)
   --json          JSON output (for tooling)
+  --graph         Generate an interactive module graph (HTML)
   --min-score <n> Minimum passing score (0-100). Exits with code 1 if below threshold
   --config <p>    Path to config file
   --init          Set up the /nestjs-doctor Claude Code skill
@@ -269,7 +284,7 @@ mono.combined;      // Merged DiagnoseResult
 | `no-business-logic-in-controllers` | error | Loops, branches, data transforms in HTTP handlers |
 | `no-repository-in-controllers` | error | Repository injection in controllers |
 | `no-orm-in-controllers` | error | PrismaService / EntityManager / DataSource in controllers |
-| `no-circular-module-deps` | error | Cycles in `@Module()` import graph |
+| `no-circular-module-deps` | error | Cycles in `@Module()` import graph — names the providers to extract |
 | `no-manual-instantiation` | error | `new SomeService()` for injectable classes |
 | `no-orm-in-services` | warning | Services using ORM directly (should use repositories) |
 | `no-service-locator` | warning | `ModuleRef.get()`/`resolve()` hides dependencies — use constructor injection |
@@ -301,6 +316,10 @@ pnpm install
 pnpm run build
 pnpm test
 ```
+
+### Architecture
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for a detailed walkthrough of the pipeline — from CLI invocation through config loading, AST parsing, rule execution, scoring, and output.
 
 ### Adding a rule
 

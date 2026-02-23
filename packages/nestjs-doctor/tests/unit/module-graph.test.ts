@@ -4,6 +4,7 @@ import {
 	buildModuleGraph,
 	findCircularDeps,
 	findProviderModule,
+	mergeModuleGraphs,
 } from "../../src/engine/module-graph.js";
 
 function createProject(files: Record<string, string>) {
@@ -130,6 +131,61 @@ describe("module-graph", () => {
 		const graph = buildModuleGraph(project, paths);
 		const mod = findProviderModule(graph, "UsersService");
 		expect(mod?.name).toBe("UsersModule");
+	});
+
+	it("merges graphs with prefixed module names", () => {
+		const { project: p1, paths: paths1 } = createProject({
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ imports: [UsersModule], providers: [AppService] })
+        export class AppModule {}
+      `,
+			"users.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ providers: [UsersService], exports: [UsersService] })
+        export class UsersModule {}
+      `,
+		});
+
+		const { project: p2, paths: paths2 } = createProject({
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ providers: [AdminService] })
+        export class AppModule {}
+      `,
+		});
+
+		const graph1 = buildModuleGraph(p1, paths1);
+		const graph2 = buildModuleGraph(p2, paths2);
+
+		const graphs = new Map([
+			["api", graph1],
+			["admin", graph2],
+		]);
+		const merged = mergeModuleGraphs(graphs);
+
+		// Modules are prefixed
+		expect(merged.modules.size).toBe(3);
+		expect(merged.modules.has("api/AppModule")).toBe(true);
+		expect(merged.modules.has("api/UsersModule")).toBe(true);
+		expect(merged.modules.has("admin/AppModule")).toBe(true);
+
+		// Imports are remapped
+		const apiApp = merged.modules.get("api/AppModule")!;
+		expect(apiApp.imports).toContain("api/UsersModule");
+
+		// Exports keep non-module names unprefixed (UsersService is a provider, not a module)
+		const apiUsers = merged.modules.get("api/UsersModule")!;
+		expect(apiUsers.exports).toContain("UsersService");
+
+		// Edges are prefixed
+		expect(merged.edges.get("api/AppModule")?.has("api/UsersModule")).toBe(
+			true
+		);
+
+		// providerToModule references the same object as modules map
+		const providerModule = merged.providerToModule.get("api/AppService");
+		expect(providerModule).toBe(merged.modules.get("api/AppModule"));
 	});
 
 	it("handles forwardRef in imports", () => {

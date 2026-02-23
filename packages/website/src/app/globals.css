@@ -3,6 +3,8 @@
 @theme {
 	--font-mono: var(--font-mono), ui-monospace, monospace;
 	--animate-fade-in: fade-in 200ms ease-out both;
+	--color-nest-red: #ea2845;
+	--color-nest-red-light: #f25672;
 }
 
 @keyframes fade-in {
@@ -23,4 +25,17 @@ html {
 
 body {
 	height: 100%;
+}
+
+/* Docs sidebar scrollbar */
+.docs-sidebar {
+	scrollbar-color: #333 transparent;
+	scrollbar-width: thin;
+}
+
+/* Docs code block syntax */
+.docs-content pre code {
+	font-size: 0.875rem;
+	line-height: 1.7;
+	color: #e2e8f0;
 }

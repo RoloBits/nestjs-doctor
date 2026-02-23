@@ -25,6 +25,11 @@ export const flags = {
 		type: "string",
 		description: "Config file path",
 	},
+	graph: {
+		type: "boolean",
+		description: "Generate an interactive module graph (HTML)",
+		default: false,
+	},
 	init: {
 		type: "boolean",
 		description: "Set up the /nestjs-doctor Claude Code skill in your project",

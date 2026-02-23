@@ -1,0 +1,338 @@
+import { CodeGroup } from "@/components/docs/code-group";
+
+# Architecture Rules
+
+11 rules that enforce clean layering, dependency injection patterns, and module boundaries.
+
+| Rule | Severity | What it catches |
+|------|----------|-----------------|
+| `no-business-logic-in-controllers` | error | Loops, branches, data transforms in HTTP handlers |
+| `no-repository-in-controllers` | error | Repository injection in controllers |
+| `no-orm-in-controllers` | error | PrismaService / EntityManager / DataSource in controllers |
+| `no-circular-module-deps` | error | Cycles in `@Module()` import graph — names the providers to extract |
+| `no-manual-instantiation` | error | `new SomeService()` for injectable classes |
+| `no-orm-in-services` | warning | Services using ORM directly (should use repositories) |
+| `no-service-locator` | warning | `ModuleRef.get()`/`resolve()` usage |
+| `prefer-constructor-injection` | warning | `@Inject()` property injection |
+| `require-module-boundaries` | info | Deep imports into other modules' internals |
+| `prefer-interface-injection` | info | Concrete service-to-service injection |
+| `no-barrel-export-internals` | info | Re-exporting repositories from barrel files |
+
+---
+
+## no-business-logic-in-controllers
+
+Detects loops, conditional branches, and data transformations inside HTTP handler methods.
+
+**Why:** Controllers should be thin — they receive a request, delegate to a service, and return the response. Business logic in controllers can't be reused, is harder to test, and violates the single responsibility principle.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Controller('orders')
+export class OrderController {
+  @Post()
+  create(@Body() dto: CreateOrderDto) {
+    const items = [];
+    for (const item of dto.items) {  // Logic in controller
+      if (item.quantity > 0) {
+        items.push({ ...item, total: item.price * item.quantity });
+      }
+    }
+    return this.orderRepo.save({ items });
+  }
+}
+```
+```typescript
+@Controller('orders')
+export class OrderController {
+  @Post()
+  create(@Body() dto: CreateOrderDto) {
+    return this.orderService.create(dto);
+  }
+}
+```
+</CodeGroup>
+
+---
+
+## no-repository-in-controllers
+
+Detects direct repository injection in controller constructors.
+
+**Why:** Controllers should depend on services, not repositories. Direct repository access bypasses business logic validation and creates tight coupling to the data layer.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Controller('users')
+export class UserController {
+  constructor(
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
+  ) {}
+}
+```
+```typescript
+@Controller('users')
+export class UserController {
+  constructor(private readonly userService: UserService) {}
+}
+```
+</CodeGroup>
+
+---
+
+## no-orm-in-controllers
+
+Detects ORM types (`PrismaService`, `EntityManager`, `DataSource`, etc.) injected directly in controllers.
+
+**Why:** Same principle as `no-repository-in-controllers` but for other ORM access patterns. Controllers should go through a service layer.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Controller('users')
+export class UserController {
+  constructor(private readonly prisma: PrismaService) {}
+
+  @Get()
+  findAll() {
+    return this.prisma.user.findMany();
+  }
+}
+```
+```typescript
+@Controller('users')
+export class UserController {
+  constructor(private readonly userService: UserService) {}
+
+  @Get()
+  findAll() {
+    return this.userService.findAll();
+  }
+}
+```
+</CodeGroup>
+
+---
+
+## no-circular-module-deps
+
+**Scope:** Project
+
+Detects cycles in the `@Module()` import graph and names the specific providers causing each edge.
+
+**Why:** Circular module dependencies make the dependency graph unpredictable, cause initialization ordering issues, and make the codebase harder to reason about.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+// user.module.ts
+@Module({ imports: [OrderModule] })
+export class UserModule {}
+
+// order.module.ts
+@Module({ imports: [UserModule] })  // Circular!
+export class OrderModule {}
+```
+```typescript
+// shared.module.ts — extract shared logic
+@Module({ providers: [SharedService], exports: [SharedService] })
+export class SharedModule {}
+
+// user.module.ts
+@Module({ imports: [SharedModule] })
+export class UserModule {}
+
+// order.module.ts
+@Module({ imports: [SharedModule] })
+export class OrderModule {}
+```
+</CodeGroup>
+
+### Smart suggestions
+
+Instead of a generic "use forwardRef" message, this rule traces provider-level dependencies to identify *why* each module edge exists. It then suggests which specific providers to extract into a shared module to break the cycle at the weakest edge.
+
+**Example output:**
+
+```
+AuthModule → UserModule: AuthService (in AuthModule) injects UserService (from UserModule)
+UserModule → OrderModule: UserNotifier (in UserModule) injects OrderService (from OrderModule)
+Consider extracting AuthService into a shared module — it would break the weakest edge (1 dependency).
+```
+
+The rule uses `traceProviderEdges` to walk each module's providers and controllers, checking which constructor parameters resolve to providers from the target module. The edge with the fewest provider dependencies is flagged as the best candidate for extraction.
+
+---
+
+## no-manual-instantiation
+
+Detects `new SomeService()` for classes that should be injected via NestJS DI.
+
+**Why:** Manually instantiating injectable classes bypasses the DI container, so constructor dependencies aren't resolved. It also breaks scoping and lifecycle hooks.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Injectable()
+export class OrderService {
+  processOrder() {
+    const validator = new OrderValidator();  // Manual instantiation!
+    validator.validate(order);
+  }
+}
+```
+```typescript
+@Injectable()
+export class OrderService {
+  constructor(private readonly validator: OrderValidator) {}
+
+  processOrder() {
+    this.validator.validate(order);
+  }
+}
+```
+</CodeGroup>
+
+---
+
+## no-orm-in-services
+
+Detects services using ORM types directly instead of through a repository layer.
+
+**Why:** When services depend on ORM types directly, switching ORMs or data sources requires changing every service. A repository layer provides a clean abstraction boundary.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Injectable()
+export class UserService {
+  constructor(private readonly prisma: PrismaService) {}
+}
+```
+```typescript
+@Injectable()
+export class UserService {
+  constructor(private readonly userRepo: UserRepository) {}
+}
+```
+</CodeGroup>
+
+---
+
+## no-service-locator
+
+Detects `ModuleRef.get()` or `ModuleRef.resolve()` calls that dynamically look up providers.
+
+**Why:** The service locator pattern hides dependencies — you can't see what a class depends on by looking at its constructor. Use constructor injection instead.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Injectable()
+export class TaskService {
+  constructor(private readonly moduleRef: ModuleRef) {}
+
+  async run() {
+    const service = this.moduleRef.get(SomeService);
+    service.doWork();
+  }
+}
+```
+```typescript
+@Injectable()
+export class TaskService {
+  constructor(private readonly someService: SomeService) {}
+
+  async run() {
+    this.someService.doWork();
+  }
+}
+```
+</CodeGroup>
+
+---
+
+## prefer-constructor-injection
+
+Detects `@Inject()` used on class properties instead of constructor parameters.
+
+**Why:** Constructor injection makes dependencies explicit and immutable. Property injection hides dependencies and allows them to be `undefined` before initialization.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Injectable()
+export class UserService {
+  @Inject()
+  private configService: ConfigService;
+}
+```
+```typescript
+@Injectable()
+export class UserService {
+  constructor(private readonly configService: ConfigService) {}
+}
+```
+</CodeGroup>
+
+---
+
+## require-module-boundaries
+
+Detects deep imports that reach into another module's internal files.
+
+**Why:** Importing from `../other-module/services/internal.service` creates tight coupling to the other module's structure. Import from the module's public API (barrel file) instead.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+// In user module:
+import { OrderValidator } from '../order/validators/order.validator';
+```
+```typescript
+// In user module:
+import { OrderValidator } from '../order';
+// Or better: inject via DI through the module system
+```
+</CodeGroup>
+
+---
+
+## prefer-interface-injection
+
+Detects concrete service-to-service injection where an interface/abstract class could be used.
+
+**Why:** Depending on abstractions instead of concrete classes makes code more testable and allows swapping implementations without changing consumers.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Injectable()
+export class OrderService {
+  constructor(private readonly mailer: MailService) {}
+}
+```
+```typescript
+@Injectable()
+export class OrderService {
+  constructor(
+    @Inject('IMailService')
+    private readonly mailer: IMailService,
+  ) {}
+}
+```
+</CodeGroup>
+
+---
+
+## no-barrel-export-internals
+
+Detects barrel files (index.ts) that re-export internal implementation details like repositories.
+
+**Why:** Barrel files define a module's public API. Re-exporting repositories or internal services encourages consumers to bypass the service layer.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+// user/index.ts
+export { UserService } from './user.service';
+export { UserRepository } from './user.repository';  // Internal!
+```
+```typescript
+// user/index.ts
+export { UserService } from './user.service';
+// UserRepository stays internal to the module
+```
+</CodeGroup>

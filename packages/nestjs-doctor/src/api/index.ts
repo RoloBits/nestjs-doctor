@@ -67,7 +67,8 @@ export async function diagnose(
 	options: { config?: string } = {}
 ) {
 	const targetPath = validatePath(path);
-	return await scan(targetPath, options);
+	const { result } = await scan(targetPath, options);
+	return result;
 }
 
 /**
@@ -86,5 +87,6 @@ export async function diagnoseMonorepo(
 	options: { config?: string } = {}
 ) {
 	const targetPath = validatePath(path);
-	return await scanMonorepo(targetPath, options);
+	const { result } = await scanMonorepo(targetPath, options);
+	return result;
 }

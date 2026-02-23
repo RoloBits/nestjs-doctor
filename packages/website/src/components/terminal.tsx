@@ -542,6 +542,28 @@ const Terminal = () => {
 						<CopyCommand />
 						<a
 							className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap border border-white/20 bg-white px-3 py-1.5 text-black transition-all hover:bg-white/90 active:scale-[0.98]"
+							href="/docs"
+						>
+							<svg
+								aria-label="Docs"
+								fill="none"
+								height="18"
+								role="img"
+								stroke="currentColor"
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								strokeWidth="2"
+								viewBox="0 0 24 24"
+								width="18"
+							>
+								<title>Docs</title>
+								<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+								<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+							</svg>
+							Docs
+						</a>
+						<a
+							className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap border border-white/20 bg-white px-3 py-1.5 text-black transition-all hover:bg-white/90 active:scale-[0.98]"
 							href={GITHUB_URL}
 							rel="noreferrer"
 							target="_blank"

@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
 import { createAstParser } from "../engine/ast-parser.js";
-import { buildModuleGraph } from "../engine/module-graph.js";
+import { buildModuleGraph, type ModuleGraph } from "../engine/module-graph.js";
 import { runRules } from "../engine/rule-runner.js";
 import { resolveProviders } from "../engine/type-resolver.js";
 import { allRules } from "../rules/index.js";
@@ -27,10 +27,20 @@ function formatRuleError(error: unknown): string {
 	return String(error);
 }
 
+export interface ScanResult {
+	moduleGraph: ModuleGraph;
+	result: DiagnoseResult;
+}
+
+export interface MonorepoScanResult {
+	moduleGraphs: Map<string, ModuleGraph>;
+	result: MonorepoResult;
+}
+
 export async function scan(
 	targetPath: string,
 	options: { config?: string } = {}
-): Promise<DiagnoseResult> {
+): Promise<ScanResult> {
 	const startTime = performance.now();
 
 	const config = await loadConfig(targetPath, options.config);
@@ -56,7 +66,7 @@ export async function scan(
 	}));
 	const elapsedMs = performance.now() - startTime;
 
-	return {
+	const result: DiagnoseResult = {
 		score,
 		diagnostics,
 		project: {
@@ -68,6 +78,8 @@ export async function scan(
 		ruleErrors,
 		elapsedMs,
 	};
+
+	return { result, moduleGraph };
 }
 
 function filterRules(config: NestjsDoctorConfig) {
@@ -92,18 +104,22 @@ function filterRules(config: NestjsDoctorConfig) {
 export async function scanMonorepo(
 	targetPath: string,
 	options: { config?: string } = {}
-): Promise<MonorepoResult> {
+): Promise<MonorepoScanResult> {
 	const startTime = performance.now();
 	const monorepo = await detectMonorepo(targetPath);
 
 	if (!monorepo) {
-		// Not a monorepo — scan as single project and wrap result
-		const result = await scan(targetPath, options);
+		const { result, moduleGraph } = await scan(targetPath, options);
+		const moduleGraphs = new Map<string, ModuleGraph>();
+		moduleGraphs.set("default", moduleGraph);
 		return {
-			isMonorepo: false,
-			subProjects: [{ name: "default", result }],
-			combined: result,
-			elapsedMs: result.elapsedMs,
+			moduleGraphs,
+			result: {
+				isMonorepo: false,
+				subProjects: [{ name: "default", result }],
+				combined: result,
+				elapsedMs: result.elapsedMs,
+			},
 		};
 	}
 
@@ -117,6 +133,7 @@ export async function scanMonorepo(
 	const subProjects: SubProjectResult[] = [];
 	const allDiagnostics: Diagnostic[] = [];
 	const allRuleErrors: RuleErrorInfo[] = [];
+	const moduleGraphs = new Map<string, ModuleGraph>();
 	let totalFiles = 0;
 
 	for (const [name, files] of filesByProject) {
@@ -163,6 +180,7 @@ export async function scanMonorepo(
 		};
 
 		subProjects.push({ name, result });
+		moduleGraphs.set(name, moduleGraph);
 		allDiagnostics.push(...diagnostics);
 		allRuleErrors.push(...ruleErrors);
 		totalFiles += files.length;
@@ -192,10 +210,13 @@ export async function scanMonorepo(
 	};
 
 	return {
-		isMonorepo: true,
-		subProjects,
-		combined,
-		elapsedMs,
+		moduleGraphs,
+		result: {
+			isMonorepo: true,
+			subProjects,
+			combined,
+			elapsedMs,
+		},
 	};
 }
 

@@ -1,0 +1,89 @@
+# Scoring
+
+**Source:** `src/scorer/index.ts`, `src/scorer/weights.ts`, `src/scorer/labels.ts`
+
+## What
+
+Converts filtered diagnostics into a 0-100 health score with a quality label.
+
+## Why
+
+A single number makes it easy to track progress over time, set CI thresholds with `--min-score`, and compare projects. The weighted formula ensures security errors impact the score more than info-level performance hints.
+
+## Input
+
+```typescript
+diagnostics: Diagnostic[]    // filtered diagnostics
+fileCount: number            // total files scanned
+```
+
+## Output
+
+```typescript
+interface Score {
+  value: number    // 0-100, clamped
+  label: string    // "Excellent" | "Good" | "Fair" | "Poor" | "Critical"
+}
+```
+
+## Formula
+
+```
+penalty per diagnostic = SEVERITY_WEIGHT × CATEGORY_MULTIPLIER
+total penalty = sum of all diagnostic penalties
+score = 100 − (totalPenalty / fileCount) × PENALTY_SCALE
+```
+
+The score is clamped to the 0-100 range.
+
+### Severity Weights
+
+| Severity | Weight |
+|----------|--------|
+| error | 3.0 |
+| warning | 1.5 |
+| info | 0.5 |
+
+### Category Multipliers
+
+| Category | Multiplier | Rationale |
+|----------|------------|-----------|
+| security | 1.5x | Security issues are the most impactful |
+| correctness | 1.3x | Bugs that cause runtime errors |
+| architecture | 1.0x | Structural issues that grow over time |
+| performance | 0.8x | Important but less critical than correctness |
+
+### Penalty Scale
+
+`PENALTY_SCALE = 10` — a calibration constant. Combined with severity weights and category multipliers, it produces intuitive scores:
+
+| Scenario | Score |
+|----------|-------|
+| 1 security error per 10 files | ~95 (Excellent) |
+| 1 error per 3 files | ~85 (Good) |
+| 1 error per file | ~55 (Fair) |
+| 2 errors per file | ~10 (Critical) |
+
+### Normalization
+
+Score is divided by `fileCount` so projects of different sizes are comparable. A 500-file project with 10 errors scores the same as a 50-file project with 1 error (same density).
+
+## Labels
+
+| Score | Label |
+|-------|-------|
+| 90-100 | Excellent |
+| 75-89 | Good |
+| 50-74 | Fair |
+| 25-49 | Poor |
+| 0-24 | Critical |
+
+## Monorepo Scoring
+
+In a monorepo, each sub-project gets its own score. The combined score is calculated from the merged diagnostics of all sub-projects divided by the total file count across all projects.
+
+## Debugging Tips
+
+- If the score seems too low, check for high-severity rules producing many diagnostics. A single security error per file adds `3.0 × 1.5 = 4.5` penalty points.
+- The score is normalized by file count. Adding more files (without new issues) will improve the score.
+- Use `--json` to see the full diagnostic list and understand exactly what's contributing to the penalty.

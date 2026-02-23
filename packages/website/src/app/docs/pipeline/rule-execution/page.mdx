@@ -1,0 +1,116 @@
+# Rule Execution
+
+**Source:** `src/engine/rule-runner.ts`
+
+## What
+
+Runs all enabled rules against the project AST and collects diagnostics.
+
+## Why
+
+This is the core analysis step. Rules inspect the AST and project structure to find anti-patterns, producing diagnostics that describe what's wrong and how to fix it.
+
+## Input
+
+```typescript
+project: Project                          // AST from the parsing step
+files: string[]                           // file paths
+rules: AnyRule[]                          // enabled rules (after config filtering)
+options: {
+  config: NestjsDoctorConfig
+  moduleGraph: ModuleGraph
+  providers: Map<string, ProviderInfo>
+}
+```
+
+## Output
+
+```typescript
+interface RunRulesResult {
+  diagnostics: Diagnostic[]    // all issues found
+  errors: RuleError[]          // rules that threw exceptions
+}
+
+interface Diagnostic {
+  rule: string          // e.g. "security/no-eval"
+  category: Category    // "security" | "performance" | "correctness" | "architecture"
+  severity: Severity    // "error" | "warning" | "info"
+  filePath: string
+  line: number
+  column: number
+  message: string       // what's wrong
+  help: string          // how to fix it
+}
+```
+
+## How It Works
+
+### Rule Categories
+
+Rules are separated into two types by their `meta.scope`:
+
+**File-scoped rules** (default) run once per source file:
+
+```
+For each file:
+  sourceFile = project.getSourceFile(file)
+  For each file-scoped rule:
+    context = { sourceFile, filePath, report() }
+    rule.check(context)
+```
+
+**Project-scoped rules** (`scope: "project"`) run once for the entire project:
+
+```
+For each project-scoped rule:
+  context = { project, files, moduleGraph, providers, config, report() }
+  rule.check(context)
+```
+
+### The `report()` Callback
+
+Rules call `context.report()` to emit diagnostics. The runner auto-fills `rule`, `category`, and `severity` from the rule's metadata:
+
+```typescript
+// Inside a rule's check() method:
+context.report({
+  filePath: context.filePath,
+  message: "Usage of eval() is a security risk.",
+  help: "Refactor to avoid eval().",
+  line: node.getStartLineNumber(),
+  column: 1,
+})
+// Runner adds: rule, category, severity from this.meta
+```
+
+### Error Handling
+
+Each rule call is wrapped in a try-catch. If a rule throws an exception, it's recorded as a `RuleError` and the pipeline continues. A failing rule never crashes the scan.
+
+```typescript
+interface RuleError {
+  ruleId: string
+  error: unknown
+}
+```
+
+Rule errors are displayed at the bottom of the console report.
+
+### Rule Filtering
+
+Before execution, the scanner filters rules based on config:
+
+1. Check `config.rules[ruleId]` — `false` disables the rule
+2. Check `config.categories[category]` — `false` disables all rules in that category
+3. If not explicitly disabled, the rule runs
+
+## Writing a Rule
+
+See the [Rules Overview](/docs/rules) for how to write and register new rules.
+
+## Debugging Tips
+
+- If a rule isn't running, check that it's not disabled in config (`rules` or `categories`).
+- If a rule is producing unexpected results, use the [TypeScript AST Viewer](https://ts-ast-viewer.com) to inspect the AST structure of the code being analyzed.
+- Rule errors appear at the bottom of the console report. Check `ruleErrors` in the JSON output for details.
+- The `report()` callback is the only way to emit diagnostics. If a rule doesn't call `report()`, no diagnostics are produced.

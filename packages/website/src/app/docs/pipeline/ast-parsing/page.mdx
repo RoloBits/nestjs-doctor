@@ -1,0 +1,54 @@
+# AST Parsing
+
+**Source:** `src/engine/ast-parser.ts`
+
+## What
+
+Creates a [ts-morph](https://ts-morph.com) `Project` instance and loads all collected files into it for TypeScript AST analysis.
+
+## Why
+
+Every subsequent step — module graph building, provider resolution, and rule execution — needs to inspect the TypeScript AST (Abstract Syntax Tree). A single shared `Project` instance avoids re-parsing files across stages.
+
+## Input
+
+```typescript
+files: string[]    // absolute file paths from the file collection step
+```
+
+## Output
+
+```typescript
+Project    // ts-morph Project with all source files loaded
+```
+
+## How It Works
+
+```typescript
+const project = new Project({
+  compilerOptions: {
+    strict: true,
+    target: ScriptTarget.ESNext,
+    module: ModuleKind.ESNext,
+    skipFileDependencyResolution: true,
+  },
+  skipAddingFilesFromTsConfig: true,
+})
+
+for (const file of files) {
+  project.addSourceFileAtPath(file)
+}
+```
+
+Key configuration choices:
+
+- **`skipFileDependencyResolution: true`** — only analyzes the files you explicitly provide. Does not chase `import` statements into `node_modules` or other directories. This keeps the analysis fast and scoped.
+- **`skipAddingFilesFromTsConfig: true`** — ignores the project's `tsconfig.json` file list. The [file collector](/docs/pipeline/file-collection) already determined which files to include.
+- **`strict: true`** — enables strict type checking for accurate type information.
+- **ESNext target** — uses the latest language features to avoid downlevel transform artifacts in the AST.
+
+## Debugging Tips
+
+- If a rule can't find expected AST nodes, the file might not have been added to the project. Check the [file collection](/docs/pipeline/file-collection) step.
+- ts-morph wraps the TypeScript compiler API. You can use the [TypeScript AST Viewer](https://ts-ast-viewer.com) to explore what the AST looks like for a given code snippet.
+- The `Project` object is passed by reference to all subsequent stages. No files are re-parsed.

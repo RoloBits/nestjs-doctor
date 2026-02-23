@@ -29,7 +29,12 @@ export default function RootLayout({
 }>) {
 	return (
 		<html lang="en">
-			<body className={`${ibmPlexMono.variable} antialiased`}>{children}</body>
+			<body
+				className={`${ibmPlexMono.variable} antialiased`}
+				suppressHydrationWarning
+			>
+				{children}
+			</body>
 		</html>
 	);
 }

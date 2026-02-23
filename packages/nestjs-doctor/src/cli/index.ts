@@ -1,9 +1,12 @@
+import { exec } from "node:child_process";
+import { writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { defineCommand, runMain } from "citty";
 import { loadConfig } from "../core/config-loader.js";
 import { detectMonorepo } from "../core/project-detector.js";
 import { scan, scanMonorepo } from "../core/scanner.js";
+import { mergeModuleGraphs } from "../engine/module-graph.js";
 import { flags } from "./flags.js";
 import { initSkill } from "./init-skill.js";
 import {
@@ -15,6 +18,7 @@ import {
 	printConsoleReport,
 	printMonorepoReport,
 } from "./output/console-reporter.js";
+import { generateGraphHtml } from "./output/graph-reporter.js";
 import { highlighter } from "./output/highlighter.js";
 import { printJsonReport } from "./output/json-reporter.js";
 import { logger } from "./output/logger.js";
@@ -47,6 +51,49 @@ const main = defineCommand({
 			return;
 		}
 
+		if (args.graph) {
+			const monorepo = await detectMonorepo(targetPath);
+
+			let html: string;
+			if (monorepo) {
+				const graphSpinner = spinner(
+					"Scanning monorepo module graph..."
+				).start();
+				const { result: monorepoResult, moduleGraphs } = await scanMonorepo(
+					targetPath,
+					{ config: args.config }
+				);
+				const merged = mergeModuleGraphs(moduleGraphs);
+				const projects = [...moduleGraphs.keys()];
+				graphSpinner.succeed(
+					`Found ${highlighter.info(String(merged.modules.size))} modules across ${highlighter.info(String(moduleGraphs.size))} projects`
+				);
+				html = generateGraphHtml(merged, monorepoResult.combined, { projects });
+			} else {
+				const graphSpinner = spinner("Scanning module graph...").start();
+				const { result, moduleGraph } = await scan(targetPath, {
+					config: args.config,
+				});
+				graphSpinner.succeed(
+					`Found ${highlighter.info(String(moduleGraph.modules.size))} modules, ${highlighter.info(String(moduleGraph.edges.size))} edges`
+				);
+				html = generateGraphHtml(moduleGraph, result);
+			}
+
+			const outPath = join(targetPath, "nestjs-doctor-graph.html");
+			await writeFile(outPath, html, "utf-8");
+			logger.info(`Graph written to ${highlighter.info(outPath)}`);
+
+			let openCmd = "xdg-open";
+			if (process.platform === "darwin") {
+				openCmd = "open";
+			} else if (process.platform === "win32") {
+				openCmd = "start";
+			}
+			exec(`${openCmd} "${outPath}"`);
+			return;
+		}
+
 		const isSilent = args.score || args.json;
 
 		// Validate --min-score early
@@ -69,7 +116,7 @@ const main = defineCommand({
 						`Scanning monorepo (${monorepo.projects.size} projects)...`
 					).start();
 
-			const result = await scanMonorepo(targetPath, {
+			const { result } = await scanMonorepo(targetPath, {
 				config: args.config,
 			});
 
@@ -120,7 +167,7 @@ const main = defineCommand({
 		// Standard single-project scan
 		const scanSpinner = isSilent ? null : spinner("Scanning...").start();
 
-		const result = await scan(targetPath, {
+		const { result } = await scan(targetPath, {
 			config: args.config,
 		});
 

@@ -1,0 +1,72 @@
+# Diagnostic Filtering
+
+**Source:** `src/core/filter-diagnostics.ts`
+
+## What
+
+Removes diagnostics that match the user's ignore configuration after all rules have run.
+
+## Why
+
+Users may want to suppress known issues or exclude generated files from results without disabling the rule entirely. For example, you might want `no-orm-in-services` to run everywhere except in your legacy module.
+
+## Input
+
+```typescript
+diagnostics: Diagnostic[]          // all diagnostics from rule execution
+config: NestjsDoctorConfig         // contains ignore.rules and ignore.files
+```
+
+## Output
+
+```typescript
+Diagnostic[]    // filtered array (subset of input)
+```
+
+## How It Works
+
+Two filtering mechanisms:
+
+### Rule Ignoring
+
+`ignore.rules` contains rule IDs to suppress:
+
+```json
+{
+  "ignore": {
+    "rules": ["architecture/no-orm-in-services"]
+  }
+}
+```
+
+Exact match against the diagnostic's `rule` field. All diagnostics from that rule are removed.
+
+### File Ignoring
+
+`ignore.files` contains glob patterns for files whose diagnostics should be hidden:
+
+```json
+{
+  "ignore": {
+    "files": ["src/generated/**", "src/legacy/**"]
+  }
+}
+```
+
+File paths are normalized to forward slashes before matching, so patterns work across platforms.
+
+### Performance
+
+If no ignore config is set (the default), the filter returns the original array immediately without iterating.
+
+## Difference from `rules` Config
+
+- **`config.rules`** disables a rule entirely — it never runs
+- **`config.ignore.rules`** lets the rule run but hides its output
+
+This distinction matters for project-scoped rules that cross-reference data. For example, `no-missing-injectable` checks providers against the module graph. Disabling it with `config.rules` means it won't run at all. Ignoring it with `config.ignore.rules` means it runs (maintaining data consistency) but its diagnostics are hidden.
+
+## Debugging Tips
+
+- If diagnostics are disappearing unexpectedly, check `ignore.rules` and `ignore.files` in your config.
+- File patterns use glob syntax via [`picomatch`](https://github.com/micromatch/picomatch). Double-star `**` matches any depth.
