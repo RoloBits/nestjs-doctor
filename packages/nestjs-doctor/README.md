@@ -33,33 +33,7 @@ npx nestjs-doctor@latest . --verbose
 
 No config, no plugins, no setup.
 
-```
-  ┌──────────────────────────────────────────────────────────┐
-  │ ┌───────┐                                                │
-  │ │ ◠ ◠ ◠ │  NestJS Doctor                                 │
-  │ │ ╰───╯ │                                                 │
-  │ └───────┘                                                 │
-  │                                                           │
-  │ 82 / 100  ★★★★☆  Good                                    │
-  │                                                           │
-  │ █████████████████████████████████████████░░░░░░░░░░░░░   │
-  │                                                           │
-  │ ✗ 2 errors  ⚠ 5 warnings  across 12/127 files  in 1.2s  │
-  └──────────────────────────────────────────────────────────┘
-
-  Project: my-api | NestJS 10.0.0 | prisma | 14 modules
-
-  ✗ Controller injects ORM type 'PrismaService' directly (2)
-    Inject a service that wraps the ORM instead.
-
-  ✗ Possible hardcoded Secret key detected
-    Move secrets to environment variables and access them via ConfigService.
-
-  ⚠ Constructor parameter should be readonly (5)
-    Add the 'readonly' modifier to the constructor parameter.
-
-  Run with --verbose for file paths and line numbers
-```
+![CLI Output](https://nestjs.doctor/cli-output.png)
 
 ---
 
@@ -73,7 +47,7 @@ npx nestjs-doctor@latest . --graph
 
 Opens a self-contained HTML file with an interactive, physics-based graph of your NestJS modules. Click any module to inspect its providers, controllers, imports, and exports.
 
-![Module Graph](https://nestjs-doctor.rolobits.com/module-graph.png)
+![Module Graph](https://nestjs.doctor/module-graph.png)
 
 ---
 ## CI
