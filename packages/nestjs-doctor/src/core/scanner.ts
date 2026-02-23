@@ -56,7 +56,11 @@ export async function scan(
 		rules,
 		{ moduleGraph, providers, config }
 	);
-	const diagnostics = filterIgnoredDiagnostics(rawDiagnostics, config);
+	const diagnostics = filterIgnoredDiagnostics(
+		rawDiagnostics,
+		config,
+		targetPath
+	);
 
 	const score = calculateScore(diagnostics, files.length);
 	const summary = buildSummary(diagnostics);
@@ -157,7 +161,11 @@ export async function scanMonorepo(
 			rules,
 			{ moduleGraph, providers, config: projectConfig }
 		);
-		const diagnostics = filterIgnoredDiagnostics(rawDiagnostics, projectConfig);
+		const diagnostics = filterIgnoredDiagnostics(
+			rawDiagnostics,
+			projectConfig,
+			projectPath
+		);
 
 		const score = calculateScore(diagnostics, files.length);
 		const summary = buildSummary(diagnostics);

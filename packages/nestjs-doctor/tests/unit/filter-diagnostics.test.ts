@@ -3,8 +3,10 @@ import { filterIgnoredDiagnostics } from "../../src/core/filter-diagnostics.js";
 import type { NestjsDoctorConfig } from "../../src/types/config.js";
 import type { Diagnostic } from "../../src/types/diagnostic.js";
 
+const TARGET_PATH = "/Users/test/project";
+
 const createDiagnostic = (overrides: Partial<Diagnostic> = {}): Diagnostic => ({
-	filePath: "src/app.service.ts",
+	filePath: `${TARGET_PATH}/src/app.service.ts`,
 	rule: "architecture/no-business-logic-in-controllers",
 	severity: "warning",
 	message: "test message",
@@ -19,7 +21,9 @@ describe("filterIgnoredDiagnostics", () => {
 	it("returns all diagnostics when config has no ignore config", () => {
 		const diagnostics = [createDiagnostic()];
 		const config: NestjsDoctorConfig = {};
-		expect(filterIgnoredDiagnostics(diagnostics, config)).toEqual(diagnostics);
+		expect(filterIgnoredDiagnostics(diagnostics, config, TARGET_PATH)).toEqual(
+			diagnostics
+		);
 	});
 
 	it("filters diagnostics matching ignored rules", () => {
@@ -39,16 +43,20 @@ describe("filterIgnoredDiagnostics", () => {
 			},
 		};
 
-		const filtered = filterIgnoredDiagnostics(diagnostics, config);
+		const filtered = filterIgnoredDiagnostics(diagnostics, config, TARGET_PATH);
 		expect(filtered).toHaveLength(1);
 		expect(filtered[0].rule).toBe("security/no-hardcoded-secrets");
 	});
 
-	it("filters diagnostics matching ignored file patterns", () => {
+	it("filters diagnostics matching ignored file patterns with absolute paths", () => {
 		const diagnostics = [
-			createDiagnostic({ filePath: "src/generated/types.ts" }),
-			createDiagnostic({ filePath: "src/generated/api/client.ts" }),
-			createDiagnostic({ filePath: "src/modules/users/users.service.ts" }),
+			createDiagnostic({ filePath: `${TARGET_PATH}/src/generated/types.ts` }),
+			createDiagnostic({
+				filePath: `${TARGET_PATH}/src/generated/api/client.ts`,
+			}),
+			createDiagnostic({
+				filePath: `${TARGET_PATH}/src/modules/users/users.service.ts`,
+			}),
 		];
 		const config: NestjsDoctorConfig = {
 			ignore: {
@@ -56,24 +64,26 @@ describe("filterIgnoredDiagnostics", () => {
 			},
 		};
 
-		const filtered = filterIgnoredDiagnostics(diagnostics, config);
+		const filtered = filterIgnoredDiagnostics(diagnostics, config, TARGET_PATH);
 		expect(filtered).toHaveLength(1);
-		expect(filtered[0].filePath).toBe("src/modules/users/users.service.ts");
+		expect(filtered[0].filePath).toBe(
+			`${TARGET_PATH}/src/modules/users/users.service.ts`
+		);
 	});
 
 	it("filters by both rules and files together", () => {
 		const diagnostics = [
 			createDiagnostic({
 				rule: "architecture/no-business-logic-in-controllers",
-				filePath: "src/app.module.ts",
+				filePath: `${TARGET_PATH}/src/app.module.ts`,
 			}),
 			createDiagnostic({
 				rule: "security/no-hardcoded-secrets",
-				filePath: "src/generated/config.ts",
+				filePath: `${TARGET_PATH}/src/generated/config.ts`,
 			}),
 			createDiagnostic({
 				rule: "correctness/prefer-readonly-injection",
-				filePath: "src/modules/users/users.service.ts",
+				filePath: `${TARGET_PATH}/src/modules/users/users.service.ts`,
 			}),
 		];
 		const config: NestjsDoctorConfig = {
@@ -83,7 +93,7 @@ describe("filterIgnoredDiagnostics", () => {
 			},
 		};
 
-		const filtered = filterIgnoredDiagnostics(diagnostics, config);
+		const filtered = filterIgnoredDiagnostics(diagnostics, config, TARGET_PATH);
 		expect(filtered).toHaveLength(1);
 		expect(filtered[0].rule).toBe("correctness/prefer-readonly-injection");
 	});
@@ -102,7 +112,36 @@ describe("filterIgnoredDiagnostics", () => {
 			},
 		};
 
-		const filtered = filterIgnoredDiagnostics(diagnostics, config);
+		const filtered = filterIgnoredDiagnostics(diagnostics, config, TARGET_PATH);
 		expect(filtered).toHaveLength(2);
+	});
+
+	it("filters absolute paths with nested ignore patterns like src/database/migrations/**", () => {
+		const diagnostics = [
+			createDiagnostic({
+				filePath: `${TARGET_PATH}/src/database/migrations/001-init.ts`,
+			}),
+			createDiagnostic({
+				filePath: `${TARGET_PATH}/src/database/migrations/002-add-users.ts`,
+			}),
+			createDiagnostic({
+				filePath: `${TARGET_PATH}/src/database/entities/user.entity.ts`,
+			}),
+			createDiagnostic({
+				filePath: `${TARGET_PATH}/src/app.service.ts`,
+			}),
+		];
+		const config: NestjsDoctorConfig = {
+			ignore: {
+				files: ["src/database/migrations/**"],
+			},
+		};
+
+		const filtered = filterIgnoredDiagnostics(diagnostics, config, TARGET_PATH);
+		expect(filtered).toHaveLength(2);
+		expect(filtered.map((d) => d.filePath)).toEqual([
+			`${TARGET_PATH}/src/database/entities/user.entity.ts`,
+			`${TARGET_PATH}/src/app.service.ts`,
+		]);
 	});
 });
