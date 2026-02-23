@@ -1,0 +1,77 @@
+# Provider Resolution
+
+**Source:** `src/engine/type-resolver.ts`
+
+## What
+
+Extracts dependency information from all `@Injectable()` classes — their constructor dependencies, public method count, and file location.
+
+## Why
+
+Rules like `no-unused-providers`, `no-missing-injectable`, and `no-business-logic-in-controllers` need to know which providers exist, what they depend on, and how many methods they expose.
+
+## Input
+
+```typescript
+project: Project     // ts-morph AST project
+files: string[]      // file paths to scan
+```
+
+## Output
+
+```typescript
+Map<string, ProviderInfo>
+
+interface ProviderInfo {
+  name: string                    // class name
+  filePath: string
+  classDeclaration: ClassDeclaration
+  dependencies: string[]          // constructor parameter type names
+  publicMethodCount: number
+}
+```
+
+## How It Works
+
+For each file, finds all classes decorated with `@Injectable()`:
+
+1. **Extract constructor parameters** — each parameter's type becomes a dependency name
+2. **Normalize type names** using `extractSimpleTypeName()`:
+   - `import("@prisma/client").PrismaService` → `PrismaService`
+   - `Repository<User>` → `Repository`
+   - `ConfigService` → `ConfigService`
+3. **Count public methods** — methods with no access modifier or explicit `public`
+
+### Example
+
+Given this class:
+
+```typescript
+@Injectable()
+export class UserService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
+
+  async findAll() { /* ... */ }
+  async findById(id: string) { /* ... */ }
+  private validate(user: User) { /* ... */ }
+}
+```
+
+The resolver produces:
+
+```typescript
+{
+  name: "UserService",
+  filePath: "/src/user/user.service.ts",
+  dependencies: ["PrismaService", "ConfigService"],
+  publicMethodCount: 2,  // findAll + findById (validate is private)
+}
+```
+
+## Debugging Tips
+
+- Only classes with `@Injectable()` are resolved. Controllers (which use `@Controller()`) are not included in the providers map — they're handled separately during rule execution.
+- If a dependency name looks wrong (e.g., includes import paths), check the type annotation on the constructor parameter.

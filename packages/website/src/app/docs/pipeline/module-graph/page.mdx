@@ -1,0 +1,84 @@
+# Module Graph
+
+**Source:** `src/engine/module-graph.ts`
+
+## What
+
+Builds a directed dependency graph of NestJS `@Module()` classes and their relationships.
+
+## Why
+
+Project-scoped rules need to understand module relationships. Circular dependency detection, unused export analysis, orphan module identification, and cross-module boundary violations all require a graph representation of the module system.
+
+## Input
+
+```typescript
+project: Project     // ts-morph AST project
+files: string[]      // file paths to scan
+```
+
+## Output
+
+```typescript
+interface ModuleGraph {
+  modules: Map<string, ModuleNode>          // module name → node
+  edges: Map<string, Set<string>>           // module → set of imported modules
+  providerToModule: Map<string, ModuleNode> // provider name → owning module
+}
+
+interface ModuleNode {
+  name: string                    // class name
+  filePath: string
+  classDeclaration: ClassDeclaration
+  imports: string[]               // from @Module({ imports: [...] })
+  exports: string[]               // from @Module({ exports: [...] })
+  providers: string[]             // from @Module({ providers: [...] })
+  controllers: string[]           // from @Module({ controllers: [...] })
+}
+```
+
+## How It Works
+
+### Two-Pass Algorithm
+
+**Pass 1 — Module Collection:**
+
+Scans every file for classes decorated with `@Module()`. For each module:
+- Extracts the decorator argument (the metadata object)
+- Parses `imports`, `exports`, `providers`, and `controllers` arrays
+- Creates a `ModuleNode`
+
+**Pass 2 — Edge Building:**
+
+For each module's `imports` array, creates directed edges in the graph. Also builds the `providerToModule` reverse index mapping each provider name back to its containing module.
+
+### Special Syntax Handling
+
+The parser handles NestJS-specific patterns:
+
+- **`forwardRef(() => SomeModule)`** — extracts `SomeModule` from the arrow function body
+- **Spread syntax `...someArray`** — extracts the variable name
+- **Direct class references** — `SomeModule` is used as-is
+
+### Circular Dependency Detection
+
+`findCircularDeps()` uses DFS (depth-first search) with a recursion stack to detect cycles:
+
+```typescript
+function findCircularDeps(graph: ModuleGraph): string[][] {
+  // Returns array of cycles, each cycle is an array of module names
+  // e.g., [["ModuleA", "ModuleB", "ModuleA"]]
+}
+```
+
+### Helper Functions
+
+- `getModuleByClassName(graph, name)` — find a module by its class name
+- `findProviderModule(graph, providerName)` — find which module owns a provider
+- `traceProviderEdges(fromModule, toModule, providers, providerToModule, project, files)` — find which providers/controllers in one module depend on providers in another module. Returns `ProviderEdge[]` with `{ consumer, dependency }`. Used by `no-circular-module-deps` to generate concrete fix suggestions.
+
+## Debugging Tips
+
+- If a module isn't appearing in the graph, check that it has the `@Module()` decorator and is in a file included by the [file collector](/docs/pipeline/file-collection).
+- Circular dependency detection works on the `imports` graph. Additionally, `traceProviderEdges` traces provider-level dependencies across module boundaries, enabling concrete suggestions about which providers to extract to break a cycle.
+- The `providerToModule` index is built from `@Module({ providers: [...] })`. If a provider isn't listed in any module's providers array, it won't appear in this index.

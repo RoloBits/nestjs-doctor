@@ -4,6 +4,7 @@ import type {
 	Project,
 } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
+import type { ProviderInfo } from "./type-resolver.js";
 
 const FORWARD_REF_REGEX = /=>\s*(\w+)/;
 
@@ -123,6 +124,50 @@ function extractArrayPropertyNames(
 	});
 }
 
+export function mergeModuleGraphs(
+	graphs: Map<string, ModuleGraph>
+): ModuleGraph {
+	const modules = new Map<string, ModuleNode>();
+	const edges = new Map<string, Set<string>>();
+	const providerToModule = new Map<string, ModuleNode>();
+
+	for (const [projectName, graph] of graphs) {
+		for (const [name, node] of graph.modules) {
+			const prefixed = `${projectName}/${name}`;
+			const mergedNode: ModuleNode = {
+				...node,
+				name: prefixed,
+				imports: node.imports.map((imp) =>
+					graph.modules.has(imp) ? `${projectName}/${imp}` : imp
+				),
+				exports: node.exports.map((exp) =>
+					graph.modules.has(exp) ? `${projectName}/${exp}` : exp
+				),
+			};
+			modules.set(prefixed, mergedNode);
+		}
+
+		for (const [name, targets] of graph.edges) {
+			const prefixedFrom = `${projectName}/${name}`;
+			const prefixedTargets = new Set<string>();
+			for (const target of targets) {
+				prefixedTargets.add(`${projectName}/${target}`);
+			}
+			edges.set(prefixedFrom, prefixedTargets);
+		}
+
+		for (const [provider, node] of graph.providerToModule) {
+			const prefixedModuleName = `${projectName}/${node.name}`;
+			const existingNode = modules.get(prefixedModuleName);
+			if (existingNode) {
+				providerToModule.set(`${projectName}/${provider}`, existingNode);
+			}
+		}
+	}
+
+	return { modules, edges, providerToModule };
+}
+
 export function findCircularDeps(graph: ModuleGraph): string[][] {
 	const cycles: string[][] = [];
 	const visited = new Set<string>();
@@ -170,4 +215,67 @@ export function findProviderModule(
 	providerName: string
 ): ModuleNode | undefined {
 	return graph.providerToModule.get(providerName);
+}
+
+export interface ProviderEdge {
+	consumer: string;
+	dependency: string;
+}
+
+export function traceProviderEdges(
+	fromModule: ModuleNode,
+	toModule: ModuleNode,
+	providers: Map<string, ProviderInfo>,
+	providerToModule: Map<string, ModuleNode>,
+	project: Project,
+	files: string[]
+): ProviderEdge[] {
+	const edges: ProviderEdge[] = [];
+
+	// Check providers in fromModule that depend on providers in toModule
+	for (const providerName of fromModule.providers) {
+		const provider = providers.get(providerName);
+		if (!provider) {
+			continue;
+		}
+		for (const dep of provider.dependencies) {
+			const depModule = providerToModule.get(dep);
+			if (depModule && depModule.name === toModule.name) {
+				edges.push({ consumer: providerName, dependency: dep });
+			}
+		}
+	}
+
+	// Check controllers in fromModule that depend on providers in toModule
+	for (const controllerName of fromModule.controllers) {
+		for (const filePath of files) {
+			const sourceFile = project.getSourceFile(filePath);
+			if (!sourceFile) {
+				continue;
+			}
+			for (const cls of sourceFile.getClasses()) {
+				if (cls.getName() !== controllerName) {
+					continue;
+				}
+				const ctor = cls.getConstructors()[0];
+				if (!ctor) {
+					continue;
+				}
+				for (const param of ctor.getParameters()) {
+					const typeNode = param.getTypeNode();
+					const typeText = typeNode
+						? typeNode.getText()
+						: param.getType().getText();
+					const simpleName =
+						typeText.split(".").pop()?.split("<")[0] ?? typeText;
+					const depModule = providerToModule.get(simpleName);
+					if (depModule && depModule.name === toModule.name) {
+						edges.push({ consumer: controllerName, dependency: simpleName });
+					}
+				}
+			}
+		}
+	}
+
+	return edges;
 }

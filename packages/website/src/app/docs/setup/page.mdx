@@ -1,0 +1,132 @@
+# Setup
+
+## Quick Start
+
+Run directly with npx:
+
+```bash
+npx nestjs-doctor@latest .
+```
+
+For file paths and line numbers:
+
+```bash
+npx nestjs-doctor@latest . --verbose
+```
+
+No config, no plugins, no setup required.
+
+## Installation
+
+Install as a dev dependency for deterministic, cacheable CI runs:
+
+```bash
+npm install -D nestjs-doctor
+```
+
+## CLI Usage
+
+```
+Usage: nestjs-doctor [directory] [options]
+
+  --verbose       Show file paths and line numbers per diagnostic
+  --score         Output only the numeric score (for CI)
+  --json          JSON output (for tooling)
+  --graph         Generate an interactive module graph (HTML)
+  --min-score <n> Minimum passing score (0-100). Exits with code 1 if below
+  --config <p>    Path to config file
+  --init          Set up the /nestjs-doctor Claude Code skill
+  -h, --help      Show help
+```
+
+## CI Integration
+
+Use `--min-score` to enforce a minimum health score in your CI pipeline:
+
+```bash
+npx nestjs-doctor . --min-score 75
+```
+
+Or add it as a script in `package.json`:
+
+```json
+{
+  "scripts": {
+    "health": "nestjs-doctor . --min-score 75"
+  }
+}
+```
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Score is at or above threshold |
+| `1` | Score is below threshold, or errors were found |
+| `2` | Invalid input (bad path, invalid flags) |
+
+All output modes (`--score`, `--json`, default) respect exit codes.
+
+## Module Graph
+
+Visualize your module dependency graph as an interactive HTML page:
+
+```bash
+npx nestjs-doctor . --graph
+```
+
+The generated page includes:
+
+- **Physics-based layout** — modules as draggable nodes, edges as directed arrows
+- **Color coding** — green for root modules, red for circular dependency participants
+- **Detail panel** — click any module to see its providers, controllers, imports, exports
+- **Circular dependency recommendations** — concrete suggestions naming which providers to extract
+- **Focus mode** — isolate a module and its direct connections
+
+Output: `nestjs-doctor-graph.html` in the project root, auto-opened in the default browser.
+
+![Module Graph](/module-graph.png)
+
+## Claude Code Skill
+
+nestjs-doctor ships with a [Claude Code skill](https://docs.anthropic.com/en/docs/claude-code/skills) that scans your codebase and fixes issues interactively.
+
+### Setup
+
+```bash
+npm install -D nestjs-doctor
+npx nestjs-doctor --init
+```
+
+This creates `.claude/skills/nestjs-doctor/SKILL.md` in your project. Commit it so every contributor gets the skill automatically.
+
+### Usage
+
+In Claude Code, type:
+
+```
+/nestjs-doctor
+/nestjs-doctor src/
+```
+
+Claude will scan your codebase, present a prioritized health report, and offer to fix every issue found.
+
+## Node.js API
+
+You can also use nestjs-doctor programmatically:
+
+```typescript
+import { diagnose, diagnoseMonorepo } from "nestjs-doctor";
+
+const result = await diagnose("./my-nestjs-app");
+result.score;       // { value: 82, label: "Good" }
+result.diagnostics; // Diagnostic[]
+result.summary;     // { total, errors, warnings, info, byCategory }
+
+const mono = await diagnoseMonorepo("./my-monorepo");
+mono.isMonorepo;    // true
+mono.subProjects;   // [{ name: "api", result }, ...]
+mono.combined;      // Merged DiagnoseResult
+```
+
+See the [pipeline overview](/docs/pipeline) for details on the `DiagnoseResult` structure.

@@ -1,0 +1,116 @@
+# Configuration
+
+Configuration is optional. nestjs-doctor works out of the box with sensible defaults.
+
+## Config File
+
+Create `nestjs-doctor.config.json` in your project root:
+
+```json
+{
+  "minScore": 75,
+  "ignore": {
+    "rules": ["architecture/no-orm-in-services"],
+    "files": ["src/generated/**"]
+  },
+  "rules": {
+    "architecture/prefer-interface-injection": false
+  },
+  "categories": {
+    "performance": false
+  }
+}
+```
+
+Or use a `"nestjs-doctor"` key in `package.json`:
+
+```json
+{
+  "nestjs-doctor": {
+    "minScore": 75,
+    "rules": {
+      "architecture/prefer-interface-injection": false
+    }
+  }
+}
+```
+
+## Config Resolution
+
+The config loader searches for configuration in this order:
+
+1. Explicit path via `--config` flag
+2. `nestjs-doctor.config.json` in the project root
+3. `.nestjs-doctor.json` in the project root
+4. `"nestjs-doctor"` key in `package.json`
+5. Built-in defaults
+
+The first match wins. See [Config Loading](/docs/pipeline/config-loading) for implementation details.
+
+## Options
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `include` | `string[]` | Glob patterns to scan (default: `["**/*.ts"]`) |
+| `exclude` | `string[]` | Glob patterns to skip (additive with defaults) |
+| `minScore` | `number` | Minimum passing score (0-100) |
+| `ignore.rules` | `string[]` | Rule IDs to suppress |
+| `ignore.files` | `string[]` | Glob patterns for files whose diagnostics are hidden |
+| `rules` | `Record<string, boolean>` | Enable/disable individual rules |
+| `categories` | `Record<string, boolean>` | Enable/disable entire categories |
+
+## Default Excludes
+
+These patterns are always excluded (your `exclude` config is additive):
+
+- `node_modules/**`, `dist/**`, `build/**`, `coverage/**`
+- `**/*.spec.ts`, `**/*.test.ts`, `**/*.e2e-spec.ts`, `**/*.e2e-test.ts`
+- `**/*.d.ts`
+- `**/test/**`, `**/tests/**`, `**/__tests__/**`
+- `**/__mocks__/**`, `**/__fixtures__/**`, `**/mock/**`, `**/mocks/**`, `**/*.mock.ts`
+- `**/seeder/**`, `**/seeders/**`, `**/*.seed.ts`, `**/*.seeder.ts`
+
+## Include vs Exclude Behavior
+
+- **`exclude`** patterns are **additive** to defaults. Your patterns are appended, so safety exclusions like `node_modules` are never accidentally removed.
+- **`include`** patterns **replace** defaults entirely. If you set `include`, only those patterns are scanned.
+
+## Monorepo Support
+
+Monorepo mode is auto-detected from `nest-cli.json`:
+
+```json
+{
+  "monorepo": true,
+  "projects": {
+    "api": { "root": "apps/api" },
+    "admin": { "root": "apps/admin" },
+    "shared": { "root": "libs/shared" }
+  }
+}
+```
+
+Each sub-project is scanned independently. Per-project config files are supported — place a `nestjs-doctor.config.json` inside a sub-project's root to override the root config for that project.
+
+The report shows a combined score plus a per-project breakdown.
+
+## Scoring
+
+Scores are weighted by severity and category, normalized by file count:
+
+| Severity | Weight | | Category | Multiplier |
+|----------|--------|-|----------|------------|
+| error | 3.0 | | security | 1.5x |
+| warning | 1.5 | | correctness | 1.3x |
+| info | 0.5 | | architecture | 1.0x |
+| | | | performance | 0.8x |
+
+| Score | Label |
+|-------|-------|
+| 90-100 | Excellent |
+| 75-89 | Good |
+| 50-74 | Fair |
+| 25-49 | Poor |
+| 0-24 | Critical |
+
+See [Scoring](/docs/pipeline/scoring) for the full formula and calibration details.

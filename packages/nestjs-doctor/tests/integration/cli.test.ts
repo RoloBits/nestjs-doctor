@@ -6,7 +6,7 @@ const FIXTURES = resolve(import.meta.dirname, "../fixtures");
 
 describe("scanner integration", () => {
 	it("produces a clean result for basic-app", async () => {
-		const result = await scan(resolve(FIXTURES, "basic-app/src"));
+		const { result } = await scan(resolve(FIXTURES, "basic-app/src"));
 
 		expect(result.score.value).toBeGreaterThanOrEqual(90);
 		expect(result.score.label).toBe("Excellent");
@@ -15,7 +15,7 @@ describe("scanner integration", () => {
 	});
 
 	it("detects violations in bad-practices fixture", async () => {
-		const result = await scan(resolve(FIXTURES, "bad-practices/src"));
+		const { result } = await scan(resolve(FIXTURES, "bad-practices/src"));
 
 		expect(result.diagnostics.length).toBeGreaterThan(0);
 		expect(result.score.value).toBeLessThan(100);
@@ -40,7 +40,7 @@ describe("scanner integration", () => {
 	});
 
 	it("returns valid summary structure", async () => {
-		const result = await scan(resolve(FIXTURES, "bad-practices/src"));
+		const { result } = await scan(resolve(FIXTURES, "bad-practices/src"));
 
 		expect(result.summary).toHaveProperty("total");
 		expect(result.summary).toHaveProperty("errors");
@@ -53,14 +53,14 @@ describe("scanner integration", () => {
 	});
 
 	it("returns valid project info", async () => {
-		const result = await scan(resolve(FIXTURES, "bad-practices/src"));
+		const { result } = await scan(resolve(FIXTURES, "bad-practices/src"));
 
 		expect(result.project).toHaveProperty("fileCount");
 		expect(result.project.fileCount).toBeGreaterThan(0);
 	});
 
 	it("detects architecture violations in bad-architecture fixture", async () => {
-		const result = await scan(resolve(FIXTURES, "bad-architecture/src"));
+		const { result } = await scan(resolve(FIXTURES, "bad-architecture/src"));
 
 		expect(result.diagnostics.length).toBeGreaterThan(0);
 
@@ -90,14 +90,14 @@ describe("scanner integration", () => {
 	});
 
 	it("counts modules correctly via module graph", async () => {
-		const result = await scan(resolve(FIXTURES, "bad-architecture/src"));
+		const { result } = await scan(resolve(FIXTURES, "bad-architecture/src"));
 
 		// Should detect 3 modules: AppModule, UsersModule, OrdersModule
 		expect(result.project.moduleCount).toBe(3);
 	});
 
 	it("scans monorepo with multiple sub-projects", async () => {
-		const result = await scanMonorepo(resolve(FIXTURES, "monorepo-app"));
+		const { result } = await scanMonorepo(resolve(FIXTURES, "monorepo-app"));
 
 		expect(result.isMonorepo).toBe(true);
 		expect(result.subProjects.length).toBe(2);
@@ -120,7 +120,7 @@ describe("scanner integration", () => {
 	});
 
 	it("falls back to single scan for non-monorepo", async () => {
-		const result = await scanMonorepo(resolve(FIXTURES, "basic-app/src"));
+		const { result } = await scanMonorepo(resolve(FIXTURES, "basic-app/src"));
 
 		expect(result.isMonorepo).toBe(false);
 		expect(result.subProjects.length).toBe(1);

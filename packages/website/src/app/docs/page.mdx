@@ -1,0 +1,43 @@
+# What is nestjs-doctor?
+
+nestjs-doctor is a diagnostic CLI tool that scans NestJS codebases and produces a health score with actionable diagnostics. It analyzes your TypeScript AST to find anti-patterns across four categories:
+
+- **Security** — hardcoded secrets, eval usage, CSRF disabled, exposed stack traces
+- **Correctness** — missing decorators, duplicate routes, async without await
+- **Architecture** — ORM in controllers, circular module dependencies, manual instantiation
+- **Performance** — sync I/O, blocking constructors, unused providers
+
+```bash
+npx nestjs-doctor@latest .
+```
+
+```
+  ┌────────────────────────────────────────────────────────┐
+  │ ┌───────┐                                               │
+  │ │ ◠ ◠ ◠ │  NestJS Doctor                                │
+  │ │ ╰───╯ │                                                │
+  │ └───────┘                                                │
+  │                                                          │
+  │ 82 / 100  ★★★★☆  Good                                   │
+  │                                                          │
+  │ █████████████████████████████████████████░░░░░░░░░░░░░  │
+  │                                                          │
+  │ ✗ 2 errors  ⚠ 5 warnings  across 12/127 files  in 1.2s │
+  └────────────────────────────────────────────────────────┘
+```
+
+## How It Works
+
+The [pipeline](/docs/pipeline) reads your source files, builds a module dependency graph, runs 41 rules against the AST, and produces a weighted health score. See the [pipeline overview](/docs/pipeline) for the full architecture.
+
+## Module Graph
+
+Visualize your module dependency graph:
+
+```bash
+npx nestjs-doctor@latest . --graph
+```
+
+Generates a self-contained HTML file with an interactive, physics-based graph of your NestJS modules. Click any module to inspect its providers, controllers, imports, and exports. Circular dependencies are highlighted in red with concrete fix suggestions.
+
+![Module Graph](/module-graph.png)

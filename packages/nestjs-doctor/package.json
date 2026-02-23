@@ -8,12 +8,24 @@
   },
   "exports": {
     ".": {
-      "import": "./dist/api/index.mjs",
-      "require": "./dist/api/index.cjs"
+      "import": {
+        "types": "./dist/api/index.d.mts",
+        "default": "./dist/api/index.mjs"
+      },
+      "require": {
+        "types": "./dist/api/index.d.cts",
+        "default": "./dist/api/index.cjs"
+      }
     },
     "./api": {
-      "import": "./dist/api/index.mjs",
-      "require": "./dist/api/index.cjs"
+      "import": {
+        "types": "./dist/api/index.d.mts",
+        "default": "./dist/api/index.mjs"
+      },
+      "require": {
+        "types": "./dist/api/index.d.cts",
+        "default": "./dist/api/index.cjs"
+      }
     }
   },
   "files": [

@@ -1,0 +1,45 @@
+import { PipelineFlow } from "@/components/docs/pipeline-flow";
+
+# Pipeline Overview
+
+How nestjs-doctor works from CLI invocation to final output.
+
+## Flow
+
+<PipelineFlow />
+
+## Directory Map
+
+| Directory | Responsibility |
+|-----------|---------------|
+| `src/cli/` | CLI flags, entry point, output formatters |
+| `src/core/` | Config loading, file collection, project detection, diagnostic filtering |
+| `src/engine/` | AST parsing, module graph, provider resolution, rule execution |
+| `src/rules/` | All 41 rules organized by category (`security/`, `correctness/`, `architecture/`, `performance/`) |
+| `src/scorer/` | Score calculation, severity weights, score labels |
+| `src/types/` | Shared type definitions (`Diagnostic`, `Config`, `Result`, errors) |
+
+## Steps
+
+The pipeline has 10 stages. In a monorepo, stages 2-9 run once per sub-project.
+
+| # | Stage | Source | Scope |
+|---|-------|--------|-------|
+| 1 | [Config Loading](/docs/pipeline/config-loading) | `src/core/config-loader.ts` | Once |
+| 2 | [Project Detection](/docs/pipeline/project-detection) | `src/core/project-detector.ts` | Per project |
+| 3 | [File Collection](/docs/pipeline/file-collection) | `src/core/file-collector.ts` | Per project |
+| 4 | [AST Parsing](/docs/pipeline/ast-parsing) | `src/engine/ast-parser.ts` | Per project |
+| 5 | [Module Graph](/docs/pipeline/module-graph) | `src/engine/module-graph.ts` | Per project |
+| 6 | [Provider Resolution](/docs/pipeline/provider-resolution) | `src/engine/type-resolver.ts` | Per project |
+| 7 | [Rule Execution](/docs/pipeline/rule-execution) | `src/engine/rule-runner.ts` | Per project |
+| 8 | [Diagnostic Filtering](/docs/pipeline/diagnostic-filtering) | `src/core/filter-diagnostics.ts` | Per project |
+| 9 | [Scoring](/docs/pipeline/scoring) | `src/scorer/index.ts` | Per project + combined |
+| 10 | [Output](/docs/pipeline/output) | `src/cli/output/` | Once |
+
+## Orchestrator
+
+The `scan()` and `scanMonorepo()` functions in `src/core/scanner.ts` wire these stages together. The CLI calls one of these, and the Node.js API (`diagnose()`, `diagnoseMonorepo()`) wraps them with path validation.
+
+## Module Graph Visualization
+
+Run `npx nestjs-doctor . --graph` to generate an interactive HTML visualization of the module dependency graph. The output is a self-contained `nestjs-doctor-graph.html` file that auto-opens in your browser. Modules appear as nodes, imports as directed edges, and circular dependencies are highlighted in red.

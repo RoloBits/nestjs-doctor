@@ -1,0 +1,394 @@
+import { CodeGroup } from "@/components/docs/code-group";
+
+# Correctness Rules
+
+14 rules that detect bugs, missing decorators, and runtime errors.
+
+| Rule | Severity | What it catches |
+|------|----------|-----------------|
+| `no-missing-injectable` | error | Provider in module missing `@Injectable()` |
+| `no-duplicate-routes` | error | Same method + path twice in a controller |
+| `no-missing-guard-method` | error | Guard class missing `canActivate()` |
+| `no-missing-pipe-method` | error | Pipe class missing `transform()` |
+| `no-missing-filter-catch` | error | `@Catch()` class missing `catch()` |
+| `no-missing-interceptor-method` | error | Interceptor missing `intercept()` |
+| `require-inject-decorator` | error | Untyped constructor param without `@Inject()` |
+| `prefer-readonly-injection` | warning | Constructor DI params missing `readonly` |
+| `require-lifecycle-interface` | warning | Lifecycle method without interface |
+| `no-empty-handlers` | warning | HTTP handler with empty body |
+| `no-async-without-await` | warning | Async function with no `await` |
+| `no-duplicate-module-metadata` | warning | Duplicate entries in `@Module()` arrays |
+| `no-missing-module-decorator` | warning | Class named `*Module` without `@Module()` |
+| `no-fire-and-forget-async` | warning | Async call without `await` in non-handler methods |
+
+---
+
+## no-missing-injectable
+
+**Scope:** Project
+
+Detects classes listed in a module's `providers` array that are missing the `@Injectable()` decorator.
+
+**Why:** Without `@Injectable()`, NestJS can't resolve the class's constructor dependencies, causing runtime errors.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+// user.service.ts
+export class UserService {  // Missing @Injectable()
+  constructor(private readonly db: DatabaseService) {}
+}
+
+// user.module.ts
+@Module({ providers: [UserService] })
+export class UserModule {}
+```
+```typescript
+@Injectable()
+export class UserService {
+  constructor(private readonly db: DatabaseService) {}
+}
+```
+</CodeGroup>
+
+---
+
+## no-duplicate-routes
+
+Detects two handlers with the same HTTP method, path, and version in a single controller.
+
+**Why:** Duplicate routes cause unpredictable behavior — only one handler will execute, silently shadowing the other.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Controller('users')
+export class UserController {
+  @Get(':id')
+  findOne(@Param('id') id: string) { /* ... */ }
+
+  @Get(':id')  // Duplicate!
+  getUser(@Param('id') id: string) { /* ... */ }
+}
+```
+```typescript
+@Controller('users')
+export class UserController {
+  @Get(':id')
+  findOne(@Param('id') id: string) { /* ... */ }
+
+  @Get(':id/profile')
+  getProfile(@Param('id') id: string) { /* ... */ }
+}
+```
+</CodeGroup>
+
+---
+
+## no-missing-guard-method
+
+Detects guard classes (using `@Injectable()` or implementing `CanActivate`) that are missing the `canActivate()` method.
+
+**Why:** A guard without `canActivate()` will cause a runtime error when NestJS tries to invoke it.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Injectable()
+export class AuthGuard implements CanActivate {
+  // Missing canActivate()!
+}
+```
+```typescript
+@Injectable()
+export class AuthGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    return this.validateRequest(context);
+  }
+}
+```
+</CodeGroup>
+
+---
+
+## no-missing-pipe-method
+
+Detects pipe classes missing the `transform()` method.
+
+**Why:** Pipes must implement `transform()` or NestJS will throw at runtime.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Injectable()
+export class ParseIntPipe implements PipeTransform {
+  // Missing transform()!
+}
+```
+```typescript
+@Injectable()
+export class ParseIntPipe implements PipeTransform {
+  transform(value: string): number {
+    return parseInt(value, 10);
+  }
+}
+```
+</CodeGroup>
+
+---
+
+## no-missing-filter-catch
+
+Detects exception filter classes (decorated with `@Catch()`) missing the `catch()` method.
+
+**Why:** Filters must implement `catch()` or NestJS will throw at runtime.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Catch(HttpException)
+export class HttpFilter implements ExceptionFilter {
+  // Missing catch()!
+}
+```
+```typescript
+@Catch(HttpException)
+export class HttpFilter implements ExceptionFilter {
+  catch(exception: HttpException, host: ArgumentsHost) {
+    const response = host.switchToHttp().getResponse();
+    response.status(exception.getStatus()).json({ error: exception.message });
+  }
+}
+```
+</CodeGroup>
+
+---
+
+## no-missing-interceptor-method
+
+Detects interceptor classes missing the `intercept()` method.
+
+**Why:** Interceptors must implement `intercept()` or NestJS will throw at runtime.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Injectable()
+export class LoggingInterceptor implements NestInterceptor {
+  // Missing intercept()!
+}
+```
+```typescript
+@Injectable()
+export class LoggingInterceptor implements NestInterceptor {
+  intercept(context: ExecutionContext, next: CallHandler) {
+    console.log('Before...');
+    return next.handle();
+  }
+}
+```
+</CodeGroup>
+
+---
+
+## require-inject-decorator
+
+Detects constructor parameters without a type annotation that are also missing `@Inject()`.
+
+**Why:** Without a type or `@Inject()`, NestJS can't resolve the dependency. This causes a runtime error.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Injectable()
+export class UserService {
+  constructor(private readonly connection) {} // No type, no @Inject()
+}
+```
+```typescript
+@Injectable()
+export class UserService {
+  constructor(
+    @Inject('DATABASE_CONNECTION')
+    private readonly connection: Connection,
+  ) {}
+}
+```
+</CodeGroup>
+
+---
+
+## prefer-readonly-injection
+
+Detects constructor DI parameters missing the `readonly` modifier.
+
+**Why:** Injected dependencies should not be reassigned. `readonly` prevents accidental mutation and signals intent.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Injectable()
+export class UserService {
+  constructor(private db: DatabaseService) {}
+}
+```
+```typescript
+@Injectable()
+export class UserService {
+  constructor(private readonly db: DatabaseService) {}
+}
+```
+</CodeGroup>
+
+---
+
+## require-lifecycle-interface
+
+Detects lifecycle methods (`onModuleInit`, `onModuleDestroy`, etc.) without the corresponding interface.
+
+**Why:** Without the interface, TypeScript won't catch typos in the method name, and the intent is unclear to readers.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Injectable()
+export class AppService {
+  onModuleInit() {  // No OnModuleInit interface
+    // ...
+  }
+}
+```
+```typescript
+@Injectable()
+export class AppService implements OnModuleInit {
+  onModuleInit() {
+    // ...
+  }
+}
+```
+</CodeGroup>
+
+---
+
+## no-empty-handlers
+
+Detects HTTP handler methods with empty bodies.
+
+**Why:** An empty handler returns `undefined`, which NestJS serializes as an empty response. This is almost always a mistake — either the handler is unfinished or should return something.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Controller('users')
+export class UserController {
+  @Get()
+  findAll() {}  // Empty body
+}
+```
+```typescript
+@Controller('users')
+export class UserController {
+  @Get()
+  findAll() {
+    return this.userService.findAll();
+  }
+}
+```
+</CodeGroup>
+
+---
+
+## no-async-without-await
+
+Detects async functions or methods that never use `await`.
+
+**Why:** An async function without `await` creates an unnecessary promise wrapper. Either remove `async` or add the missing `await`.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Injectable()
+export class UserService {
+  async findAll() {
+    return this.users;  // No await needed
+  }
+}
+```
+```typescript
+@Injectable()
+export class UserService {
+  findAll() {
+    return this.users;
+  }
+
+  // Or, if async is needed:
+  async findById(id: string) {
+    return await this.db.user.findUnique({ where: { id } });
+  }
+}
+```
+</CodeGroup>
+
+---
+
+## no-duplicate-module-metadata
+
+Detects duplicate entries in `@Module()` metadata arrays (`imports`, `providers`, `controllers`, `exports`).
+
+**Why:** Duplicate entries are redundant and suggest a copy-paste error. NestJS ignores duplicates, but they add confusion.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Module({
+  providers: [UserService, AuthService, UserService],  // Duplicate!
+})
+export class UserModule {}
+```
+```typescript
+@Module({
+  providers: [UserService, AuthService],
+})
+export class UserModule {}
+```
+</CodeGroup>
+
+---
+
+## no-missing-module-decorator
+
+Detects classes named `*Module` that are missing the `@Module()` decorator.
+
+**Why:** A class following the module naming convention without `@Module()` is likely missing the decorator, which means NestJS won't register it.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+export class UserModule {  // Missing @Module()
+  // ...
+}
+```
+```typescript
+@Module({
+  controllers: [UserController],
+  providers: [UserService],
+})
+export class UserModule {}
+```
+</CodeGroup>
+
+---
+
+## no-fire-and-forget-async
+
+Detects async function calls without `await` in non-handler methods (services, etc.).
+
+**Why:** Calling an async function without `await` creates a floating promise. If it rejects, the error is silently swallowed, leading to data loss or inconsistent state.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Injectable()
+export class OrderService {
+  complete(orderId: string) {
+    this.notificationService.sendEmail(orderId);  // No await!
+    this.analyticsService.track('order_completed');  // No await!
+  }
+}
+```
+```typescript
+@Injectable()
+export class OrderService {
+  async complete(orderId: string) {
+    await this.notificationService.sendEmail(orderId);
+    await this.analyticsService.track('order_completed');
+  }
+}
+```
+</CodeGroup>

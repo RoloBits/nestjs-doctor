@@ -1,0 +1,49 @@
+# File Collection
+
+**Source:** `src/core/file-collector.ts`
+
+## What
+
+Globs the project directory for TypeScript files matching include/exclude patterns from the config.
+
+## Why
+
+Only user source files should be analyzed. Test files, generated code, declaration files, and dependencies are excluded to avoid false positives and keep scans fast.
+
+## Input
+
+```typescript
+targetPath: string              // directory to glob
+config: NestjsDoctorConfig      // include/exclude patterns
+```
+
+## Output
+
+```typescript
+string[]    // sorted array of absolute file paths
+```
+
+For monorepos:
+
+```typescript
+Map<string, string[]>    // project name → sorted file paths
+```
+
+## How It Works
+
+Uses [`tinyglobby`](https://github.com/SuperchupuDev/tinyglobby) to match files:
+
+1. Reads `config.include` patterns (default: `["**/*.ts"]`)
+2. Reads `config.exclude` patterns (default + user additions)
+3. Runs the glob from `targetPath`
+4. Returns results sorted alphabetically for deterministic output
+
+For monorepos, `collectMonorepoFiles` calls `collectFiles` once per sub-project using each project's root path.
+
+## Debugging Tips
+
+- If files are missing from the scan, check:
+  - Does the file match an `include` pattern?
+  - Does the file match an `exclude` pattern? (remember, defaults exclude test files, mocks, seeders)
+- Run with `--verbose` to see which files were scanned (the file count is shown in the report).
+- The glob is relative to the target path. Absolute patterns won't work.

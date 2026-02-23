@@ -1,0 +1,217 @@
+import { CodeGroup } from "@/components/docs/code-group";
+
+# Performance Rules
+
+7 rules that detect performance anti-patterns and dead code.
+
+| Rule | Severity | What it catches |
+|------|----------|-----------------|
+| `no-sync-io` | warning | `readFileSync`, `writeFileSync`, etc. |
+| `no-blocking-constructor` | warning | Loops/await in Injectable/Controller constructors |
+| `no-dynamic-require` | warning | `require()` with non-literal argument |
+| `no-unused-providers` | warning | Provider never injected anywhere |
+| `no-request-scope-abuse` | warning | `Scope.REQUEST` on frequently used providers |
+| `no-unused-module-exports` | info | Module exports unused by importers |
+| `no-orphan-modules` | info | Module never imported by any other module |
+
+---
+
+## no-sync-io
+
+Detects synchronous file system calls like `readFileSync`, `writeFileSync`, `existsSync`, etc.
+
+**Why:** Sync I/O blocks the Node.js event loop. In a server context, this means no other requests can be processed while the file operation completes. Use async alternatives.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Injectable()
+export class ConfigService {
+  loadConfig() {
+    const data = readFileSync('config.json', 'utf-8');
+    return JSON.parse(data);
+  }
+}
+```
+```typescript
+@Injectable()
+export class ConfigService {
+  async loadConfig() {
+    const data = await readFile('config.json', 'utf-8');
+    return JSON.parse(data);
+  }
+}
+```
+</CodeGroup>
+
+---
+
+## no-blocking-constructor
+
+Detects loops or `await` expressions inside Injectable/Controller constructors.
+
+**Why:** Constructors run during module initialization. Blocking operations (loops over large datasets, async calls) delay application startup and can cause timeouts.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Injectable()
+export class CacheService {
+  constructor() {
+    // Blocks startup
+    for (let i = 0; i < 10000; i++) {
+      this.cache.set(i, computeExpensiveValue(i));
+    }
+  }
+}
+```
+```typescript
+@Injectable()
+export class CacheService implements OnModuleInit {
+  async onModuleInit() {
+    // Runs after construction, non-blocking
+    await this.warmCache();
+  }
+}
+```
+</CodeGroup>
+
+---
+
+## no-dynamic-require
+
+Detects `require()` calls with non-literal (dynamic) arguments.
+
+**Why:** Dynamic requires prevent bundlers from analyzing dependencies, can load unexpected modules, and are a potential security risk if the argument comes from user input.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Injectable()
+export class PluginLoader {
+  load(name: string) {
+    return require(`./plugins/${name}`);
+  }
+}
+```
+```typescript
+@Injectable()
+export class PluginLoader {
+  private readonly plugins = new Map<string, Plugin>();
+
+  register(name: string, plugin: Plugin) {
+    this.plugins.set(name, plugin);
+  }
+
+  load(name: string) {
+    return this.plugins.get(name);
+  }
+}
+```
+</CodeGroup>
+
+---
+
+## no-unused-providers
+
+**Scope:** Project
+
+Detects `@Injectable()` providers that are never injected by any other provider or controller.
+
+**Why:** Unused providers are dead code. They increase module initialization time, add confusion, and should be removed.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+// Never injected anywhere
+@Injectable()
+export class LegacyService {
+  doOldStuff() { /* ... */ }
+}
+
+@Module({ providers: [LegacyService, UserService] })
+export class UserModule {}
+```
+```typescript
+// Remove unused provider
+@Module({ providers: [UserService] })
+export class UserModule {}
+```
+</CodeGroup>
+
+**Note:** This rule skips infrastructure classes (Guards, Interceptors, Filters, Middleware, Strategies) since they may be used declaratively via decorators rather than injected.
+
+---
+
+## no-request-scope-abuse
+
+Detects providers using `Scope.REQUEST` which creates a new instance per HTTP request.
+
+**Why:** Request-scoped providers disable singleton optimization. Every provider in the dependency chain also becomes request-scoped, causing significant overhead on high-traffic endpoints.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Injectable({ scope: Scope.REQUEST })
+export class UserService {
+  // New instance created for EVERY request
+}
+```
+```typescript
+@Injectable()  // Default singleton scope
+export class UserService {
+  // Single instance shared across all requests
+}
+```
+</CodeGroup>
+
+---
+
+## no-unused-module-exports
+
+**Scope:** Project
+
+Detects modules that export providers which are never imported by any other module.
+
+**Why:** Unused exports suggest the module boundary isn't being used as intended. Either the export is dead code or the consuming module is missing the import.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Module({
+  providers: [SharedService],
+  exports: [SharedService],  // No other module imports SharedModule
+})
+export class SharedModule {}
+```
+```typescript
+// Either remove the export:
+@Module({ providers: [SharedService] })
+export class SharedModule {}
+
+// Or import SharedModule where it's needed:
+@Module({ imports: [SharedModule] })
+export class UserModule {}
+```
+</CodeGroup>
+
+---
+
+## no-orphan-modules
+
+**Scope:** Project
+
+Detects modules that are never imported by any other module.
+
+**Why:** An orphan module (other than the root `AppModule`) is likely dead code or a module that was accidentally disconnected from the module tree.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+// analytics.module.ts — never imported anywhere
+@Module({
+  providers: [AnalyticsService],
+})
+export class AnalyticsModule {}
+```
+```typescript
+// Import it in the parent module:
+@Module({
+  imports: [AnalyticsModule],
+})
+export class AppModule {}
+```
+</CodeGroup>

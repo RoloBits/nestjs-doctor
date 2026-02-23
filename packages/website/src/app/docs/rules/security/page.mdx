@@ -1,0 +1,245 @@
+import { CodeGroup } from "@/components/docs/code-group";
+
+# Security Rules
+
+9 rules that detect security vulnerabilities and unsafe patterns.
+
+| Rule | Severity | What it catches |
+|------|----------|-----------------|
+| `no-hardcoded-secrets` | error | API keys, tokens, passwords in source code |
+| `no-eval` | error | `eval()` or `new Function()` usage |
+| `no-csrf-disabled` | error | Explicitly disabling CSRF protection |
+| `no-dangerous-redirects` | error | Redirects with user-controlled input |
+| `no-synchronize-in-production` | error | `synchronize: true` in TypeORM config |
+| `no-weak-crypto` | warning | `createHash('md5')` or `createHash('sha1')` |
+| `no-exposed-env-vars` | warning | Direct `process.env` in Injectable/Controller |
+| `no-exposed-stack-trace` | warning | `error.stack` exposed in responses |
+| `no-raw-entity-in-response` | warning | Returning ORM entities directly from controllers |
+
+---
+
+## no-hardcoded-secrets
+
+Detects API keys, tokens, passwords, and other secrets hardcoded in source code.
+
+**Why:** Secrets in source code end up in version control, CI logs, and npm packages. Use environment variables instead.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Injectable()
+export class AuthService {
+  private readonly apiKey = 'sk-1234567890abcdef';
+  private readonly dbPassword = 'super_secret_password';
+}
+```
+```typescript
+@Injectable()
+export class AuthService {
+  constructor(private readonly config: ConfigService) {}
+
+  getApiKey() {
+    return this.config.get('API_KEY');
+  }
+}
+```
+</CodeGroup>
+
+---
+
+## no-eval
+
+Detects `eval()` and `new Function()` usage which can execute arbitrary code.
+
+**Why:** Both `eval()` and `new Function()` can execute arbitrary strings as code, enabling code injection attacks.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Injectable()
+export class CalcService {
+  evaluate(expression: string) {
+    return eval(expression);
+  }
+}
+```
+```typescript
+@Injectable()
+export class CalcService {
+  evaluate(expression: string) {
+    return JSON.parse(expression);
+  }
+}
+```
+</CodeGroup>
+
+---
+
+## no-csrf-disabled
+
+Detects explicitly disabled CSRF protection.
+
+**Why:** CSRF protection prevents cross-site request forgery attacks. Disabling it exposes your API to unauthorized actions from other sites.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+app.use(csurf({ cookie: false }));
+// or
+const csrfOptions = { csrf: false };
+```
+```typescript
+app.use(csurf({ cookie: true }));
+```
+</CodeGroup>
+
+---
+
+## no-dangerous-redirects
+
+Detects redirects that use user-controlled input without validation.
+
+**Why:** Open redirects allow attackers to redirect users to malicious sites using your domain as a trusted intermediary.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Get('redirect')
+redirect(@Query('url') url: string, @Res() res: Response) {
+  res.redirect(url);
+}
+```
+```typescript
+@Get('redirect')
+redirect(@Query('url') url: string, @Res() res: Response) {
+  const allowed = ['https://example.com', 'https://app.example.com'];
+  if (allowed.includes(url)) {
+    res.redirect(url);
+  }
+}
+```
+</CodeGroup>
+
+---
+
+## no-synchronize-in-production
+
+Detects `synchronize: true` in TypeORM configuration.
+
+**Why:** `synchronize: true` auto-alters database schema to match entities on every app start. This can drop columns and tables in production, causing data loss.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+TypeOrmModule.forRoot({
+  type: 'postgres',
+  synchronize: true,
+})
+```
+```typescript
+TypeOrmModule.forRoot({
+  type: 'postgres',
+  synchronize: false,
+  // Use migrations instead
+})
+```
+</CodeGroup>
+
+---
+
+## no-weak-crypto
+
+Detects usage of weak hashing algorithms (MD5, SHA-1).
+
+**Why:** MD5 and SHA-1 are cryptographically broken. Use SHA-256 or stronger for any security-sensitive hashing.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+import { createHash } from 'crypto';
+const hash = createHash('md5').update(data).digest('hex');
+```
+```typescript
+import { createHash } from 'crypto';
+const hash = createHash('sha256').update(data).digest('hex');
+```
+</CodeGroup>
+
+---
+
+## no-exposed-env-vars
+
+Detects direct `process.env` access in Injectable or Controller classes.
+
+**Why:** Direct `process.env` access scatters configuration across the codebase, makes testing harder, and bypasses NestJS's `ConfigService` validation.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Injectable()
+export class MailService {
+  private readonly apiKey = process.env.MAIL_API_KEY;
+}
+```
+```typescript
+@Injectable()
+export class MailService {
+  constructor(private readonly config: ConfigService) {}
+
+  getApiKey() {
+    return this.config.get('MAIL_API_KEY');
+  }
+}
+```
+</CodeGroup>
+
+---
+
+## no-exposed-stack-trace
+
+Detects `error.stack` being exposed in HTTP responses.
+
+**Why:** Stack traces reveal internal file paths, dependency versions, and code structure to attackers.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Catch()
+export class AllExceptionsFilter implements ExceptionFilter {
+  catch(exception: Error, host: ArgumentsHost) {
+    response.json({ message: exception.message, stack: exception.stack });
+  }
+}
+```
+```typescript
+@Catch()
+export class AllExceptionsFilter implements ExceptionFilter {
+  catch(exception: Error, host: ArgumentsHost) {
+    this.logger.error(exception.stack);
+    response.json({ message: 'Internal server error' });
+  }
+}
+```
+</CodeGroup>
+
+---
+
+## no-raw-entity-in-response
+
+Detects returning ORM entities directly from controller methods.
+
+**Why:** ORM entities may contain internal fields (passwords, soft-delete flags, relation metadata) that shouldn't be exposed. Use DTOs to control the response shape.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Controller('users')
+export class UserController {
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.userRepo.findOne(id); // Returns raw entity
+  }
+}
+```
+```typescript
+@Controller('users')
+export class UserController {
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    const user = await this.userService.findOne(id);
+    return new UserResponseDto(user); // Controlled shape
+  }
+}
+```
+</CodeGroup>

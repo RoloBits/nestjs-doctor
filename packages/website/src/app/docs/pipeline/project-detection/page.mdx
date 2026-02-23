@@ -1,0 +1,91 @@
+# Project Detection
+
+**Source:** `src/core/project-detector.ts`
+
+## What
+
+Detects whether the target is a monorepo or single project, and extracts project metadata (NestJS version, ORM, HTTP framework).
+
+## Why
+
+- **Monorepo detection** happens early so the pipeline knows whether to loop over sub-projects or scan once.
+- **Project metadata** is displayed in the report and used by ORM-specific rules like `no-orm-in-controllers` and `no-raw-entity-in-response`.
+
+## Monorepo Detection
+
+### Input
+
+```typescript
+targetPath: string    // root directory to check
+```
+
+### Output
+
+```typescript
+interface MonorepoInfo {
+  projects: Map<string, string>   // project name → relative root path
+}
+// Returns null if not a monorepo
+```
+
+### How It Works
+
+Reads `nest-cli.json` and checks for:
+- `monorepo: true`
+- A `projects` map with at least one entry
+
+```json
+{
+  "monorepo": true,
+  "projects": {
+    "api": { "root": "apps/api" },
+    "admin": { "root": "apps/admin" }
+  }
+}
+```
+
+If detected, the pipeline runs stages 2-9 independently for each sub-project, then aggregates results into a combined score.
+
+## Single Project Detection
+
+### Input
+
+```typescript
+targetPath: string    // project root directory
+```
+
+### Output
+
+```typescript
+interface ProjectInfo {
+  name: string                       // from package.json name, or "unknown"
+  nestVersion: string | null         // e.g. "10.0.0" (semver operators stripped)
+  orm: string | null                 // detected ORM
+  framework: "express" | "fastify" | null
+  moduleCount: number                // 0 initially, updated by scanner
+  fileCount: number                  // 0 initially, updated by scanner
+}
+```
+
+### How It Works
+
+Reads `package.json` and inspects `dependencies` + `devDependencies`:
+
+**ORM detection** (first match wins):
+1. `prisma` or `@prisma/client` → `"prisma"`
+2. `typeorm` → `"typeorm"`
+3. `@mikro-orm/core` → `"mikro-orm"`
+4. `sequelize` or `sequelize-typescript` → `"sequelize"`
+5. `mongoose` or `@nestjs/mongoose` → `"mongoose"`
+6. `drizzle-orm` → `"drizzle"`
+
+**Framework detection:**
+- `@nestjs/platform-fastify` → `"fastify"`
+- `@nestjs/platform-express` or `@nestjs/core` → `"express"`
+
+**NestJS version** is extracted from `@nestjs/core` with semver operators (`^`, `~`, `>=`) stripped.
+
+## Debugging Tips
+
+- If the ORM shows as `null`, check that the ORM package is in `dependencies` or `devDependencies` in the project's `package.json`.
+- Monorepo detection only works with `nest-cli.json`. Nx, Turborepo, or pnpm workspaces without a Nest CLI config are treated as single projects.

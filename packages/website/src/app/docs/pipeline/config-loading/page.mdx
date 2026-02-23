@@ -1,0 +1,77 @@
+# Config Loading
+
+**Source:** `src/core/config-loader.ts`
+
+## What
+
+Resolves and merges user configuration with built-in defaults.
+
+## Why
+
+Users need to customize which files to scan, which rules to enable/disable, and which diagnostics to ignore. The config loader provides a fallback chain so nestjs-doctor works out of the box but is fully customizable.
+
+## Input
+
+```typescript
+targetPath: string      // project root directory
+configPath?: string     // explicit config file path (from --config flag)
+```
+
+## Output
+
+```typescript
+interface NestjsDoctorConfig {
+  include: string[]                                // glob patterns to scan
+  exclude: string[]                                // glob patterns to skip
+  minScore?: number                                // CI threshold (0-100)
+  rules?: Record<string, RuleOverride | boolean>   // per-rule overrides
+  categories?: Partial<Record<Category, boolean>>  // enable/disable categories
+  ignore?: {
+    rules?: string[]     // rule IDs to suppress
+    files?: string[]     // file patterns to ignore
+  }
+}
+```
+
+## How It Works
+
+### Resolution Order
+
+The loader tries these locations in order and uses the first match:
+
+1. **Explicit path** — if `--config path/to/config.json` was passed
+2. **`nestjs-doctor.config.json`** — in the project root
+3. **`.nestjs-doctor.json`** — dotfile variant
+4. **`package.json`** — the `"nestjs-doctor"` key
+5. **Built-in defaults** — if nothing else is found
+
+### Merge Strategy
+
+User config is merged with `DEFAULT_CONFIG`:
+
+```typescript
+const DEFAULT_CONFIG = {
+  include: ["**/*.ts"],
+  exclude: [
+    "node_modules/**", "dist/**", "build/**", "coverage/**",
+    "**/*.spec.ts", "**/*.test.ts", "**/*.e2e-spec.ts", "**/*.e2e-test.ts",
+    "**/*.d.ts", "**/test/**", "**/tests/**", "**/__tests__/**",
+    "**/__mocks__/**", "**/__fixtures__/**", "**/mock/**", "**/mocks/**",
+    "**/*.mock.ts", "**/seeder/**", "**/seeders/**",
+    "**/*.seed.ts", "**/*.seeder.ts",
+  ],
+}
+```
+
+Key merge behaviors:
+
+- **`exclude`** is **additive** — your patterns are appended to the defaults, so safety exclusions like `node_modules` are never accidentally removed
+- **`include`** **replaces** the default entirely — if you set it, only your patterns are used
+- **`rules`** and **`categories`** are shallow-merged
+- **`ignore`** replaces the default (empty) ignore config
+
+## Debugging Tips
+
+- If a file isn't being scanned, check if it matches an exclude pattern. The default excludes are extensive (test files, mocks, seeders, declaration files).
+- If a rule isn't running, check both `rules` (individual toggle) and `categories` (category-level toggle) in config.
+- Use `--config` to point to a specific config file and bypass the search chain.
