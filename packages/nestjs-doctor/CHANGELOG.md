@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.4.6
+
+### Patch Changes
+
+- c5330b3: Fix `ignore.files` config option not working when diagnostic paths are absolute
+
 ## 0.4.5
 
 ### Patch Changes
