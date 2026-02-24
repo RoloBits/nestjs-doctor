@@ -52,6 +52,21 @@ describe("scanner integration", () => {
 		);
 	});
 
+	it("summary counts match actual diagnostics array", async () => {
+		const { result } = await scan(resolve(FIXTURES, "bad-practices/src"));
+
+		expect(result.summary.total).toBe(result.diagnostics.length);
+
+		const countByCategory: Record<string, number> = {};
+		for (const d of result.diagnostics) {
+			countByCategory[d.category] = (countByCategory[d.category] || 0) + 1;
+		}
+
+		for (const [cat, count] of Object.entries(result.summary.byCategory)) {
+			expect(count).toBe(countByCategory[cat] || 0);
+		}
+	});
+
 	it("returns valid project info", async () => {
 		const { result } = await scan(resolve(FIXTURES, "bad-practices/src"));
 

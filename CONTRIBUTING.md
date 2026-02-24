@@ -37,7 +37,7 @@ packages/
       cli/         # CLI entry point (citty)
       core/        # Scanner pipeline
       engine/      # AST parsing, module graph, rule runner
-      rules/       # All 41 built-in rules, organized by category
+      rules/       # All 40 built-in rules, organized by category
       scorer/      # Scoring algorithm
       types/       # Shared types (Diagnostic, Config, etc.)
     tests/

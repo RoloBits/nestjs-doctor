@@ -95,7 +95,6 @@ For each diagnostic to fix:
 - **no-orm-in-services**: Consider introducing a repository layer. Create a repository class that wraps ORM operations, and inject the repository into the service instead of the ORM directly.
 - **prefer-constructor-injection**: Replace `@Inject()` property injection with constructor injection. Move the dependency to a constructor parameter.
 - **require-module-boundaries**: Replace deep imports (`import { X } from '../other-module/services/x.service'`) with imports through the module's public API (barrel file / index.ts).
-- **prefer-interface-injection**: Consider creating an interface/abstract class for the dependency and injecting that instead of the concrete implementation.
 - **no-barrel-export-internals**: Remove repository re-exports from barrel files. Repositories should only be accessible within their own module.
 
 #### Performance

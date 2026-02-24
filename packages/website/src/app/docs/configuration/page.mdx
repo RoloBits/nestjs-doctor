@@ -14,7 +14,7 @@ Create `nestjs-doctor.config.json` in your project root:
     "files": ["src/generated/**"]
   },
   "rules": {
-    "architecture/prefer-interface-injection": false
+    "architecture/no-barrel-export-internals": false
   },
   "categories": {
     "performance": false
@@ -29,7 +29,7 @@ Or use a `"nestjs-doctor"` key in `package.json`:
   "nestjs-doctor": {
     "minScore": 75,
     "rules": {
-      "architecture/prefer-interface-injection": false
+      "architecture/no-barrel-export-internals": false
     }
   }
 }

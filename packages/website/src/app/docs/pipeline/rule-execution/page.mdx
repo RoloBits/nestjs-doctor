@@ -40,6 +40,12 @@ interface Diagnostic {
   column: number
   message: string       // what's wrong
   help: string          // how to fix it
+  sourceLines?: SourceLine[]  // source context around the issue (file-scoped rules only)
+}
+
+interface SourceLine {
+  line: number    // 1-based line number
+  text: string    // line content
 }
 ```
 

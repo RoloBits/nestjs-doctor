@@ -236,7 +236,7 @@ describe("loadConfig", () => {
 						files: ["src/generated/**"],
 					},
 					rules: {
-						"architecture/prefer-interface-injection": false,
+						"architecture/no-barrel-export-internals": false,
 					},
 				})
 			);
@@ -249,7 +249,7 @@ describe("loadConfig", () => {
 				files: ["src/generated/**"],
 			});
 			expect(config.rules).toEqual({
-				"architecture/prefer-interface-injection": false,
+				"architecture/no-barrel-export-internals": false,
 			});
 		});
 	});
