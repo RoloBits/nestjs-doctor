@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.4.8
+
+### Patch Changes
+
+- 6b03f87: Add interactive HTML graph dashboard with findings viewer, code examples, and physics-based module graph. Include source code context lines in diagnostics. Remove prefer-interface-injection rule. Refactor graph-reporter into modular files. Update documentation.
+
 ## 0.4.7
 
 ### Patch Changes
