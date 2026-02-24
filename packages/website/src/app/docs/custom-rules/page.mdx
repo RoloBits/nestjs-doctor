@@ -1,0 +1,128 @@
+# Custom Rules
+
+Extend the built-in rule set with project-specific checks. Custom rules let you encode domain conventions, enforce team standards, or flag patterns unique to your codebase — anything the built-in rules don't cover.
+
+## Setup
+
+1. Create a directory for your rules (e.g. `rules/` at your project root).
+2. Set `customRulesDir` in your config file:
+
+```json
+{
+  "customRulesDir": "./rules"
+}
+```
+
+3. Add `.ts` files to that directory — each file should export a rule object.
+
+Only `.ts` files are loaded. Subdirectories are ignored.
+
+## Rule Shape
+
+Every custom rule must export an object with two properties: `meta` (a descriptor) and `check` (the inspection function).
+
+```typescript
+import type { RuleContext } from "nestjs-doctor";
+
+export const myRule = {
+  meta: {
+    id: "my-rule-id",
+    category: "correctness",
+    severity: "warning",
+    description: "Short explanation of what this rule checks",
+    help: "Actionable advice on how to fix a violation.",
+  },
+  check(context: RuleContext) {
+    // inspect context.sourceFile, call context.report() for each violation
+  },
+};
+```
+
+### `meta` Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `id` | `string` | Yes | Unique identifier for the rule |
+| `category` | `string` | Yes | One of `"security"`, `"performance"`, `"correctness"`, `"architecture"` |
+| `severity` | `string` | Yes | One of `"error"`, `"warning"`, `"info"` |
+| `description` | `string` | Yes | Short summary shown in the report |
+| `help` | `string` | Yes | Fix guidance shown alongside diagnostics |
+| `scope` | `string` | No | `"file"` (default) or `"project"` |
+
+### `check` Function
+
+The `check` function receives a `RuleContext` object with:
+
+- **`sourceFile`** — the ts-morph `SourceFile` AST node for the current file
+- **`filePath`** — the absolute path to the file being inspected
+- **`report(diagnostic)`** — call this to emit a diagnostic with `message`, `file`, and `line`
+
+For project-scoped rules (`scope: "project"`), the context includes the full project information instead of a single file.
+
+## Example
+
+A rule that flags unresolved TODO comments:
+
+```typescript
+import type { RuleContext } from "nestjs-doctor";
+
+export const noTodoComments = {
+  meta: {
+    id: "no-todo-comments",
+    category: "correctness",
+    severity: "warning",
+    description: "TODO comments should be resolved before merging",
+    help: "Replace the TODO with an implementation or open an issue.",
+  },
+  check(context: RuleContext) {
+    const text = context.sourceFile.getFullText();
+    const regex = /\/\/\s*TODO/gi;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(text)) !== null) {
+      const pos = context.sourceFile.getLineAndColumnAtPos(match.index);
+      context.report({
+        message: "Unresolved TODO comment",
+        file: context.filePath,
+        line: pos.line,
+      });
+    }
+  },
+};
+```
+
+## ID Prefixing
+
+Rule IDs are automatically prefixed with `custom/`. For example, a rule with `id: "no-todo-comments"` appears as `custom/no-todo-comments` in the scan output. This avoids collisions with built-in rules and makes it clear which diagnostics come from your custom checks.
+
+## Error Handling
+
+Invalid rules produce warnings but never crash the scan. Common issues are surfaced in CLI output:
+
+- Missing or non-function `check` export
+- Invalid `category` or `severity` values
+- Missing required `meta` fields
+- Syntax errors in the rule file
+
+Fix the warning and re-run — the rest of the analysis continues unaffected.
+
+## Disabling Custom Rules
+
+Custom rules can be toggled just like built-in rules, using the `custom/` prefix:
+
+```json
+{
+  "rules": {
+    "custom/no-todo-comments": false
+  }
+}
+```
+
+You can also suppress them per-file via `ignore.rules`:
+
+```json
+{
+  "ignore": {
+    "rules": ["custom/no-todo-comments"]
+  }
+}
+```

@@ -143,6 +143,61 @@ Also works as a `"nestjs-doctor"` key in `package.json`.
 | `ignore.files` | `string[]` | Glob patterns for files whose diagnostics are hidden |
 | `rules` | `Record<string, boolean>` | Enable/disable individual rules |
 | `categories` | `Record<string, boolean>` | Enable/disable entire categories |
+| `customRulesDir` | `string` | Path to a directory containing custom rule files |
+
+---
+
+## Custom Rules
+
+Extend the built-in rule set with project-specific checks. Only `.ts` files are supported.
+
+### Rule shape
+
+Each `.ts` file in the custom rules directory must export an object with a `meta` descriptor and a `check` function:
+
+```typescript
+import type { RuleContext } from "nestjs-doctor";
+
+export const noTodoComments = {
+  meta: {
+    id: "no-todo-comments",
+    category: "correctness",        // "security" | "performance" | "correctness" | "architecture"
+    severity: "warning",            // "error" | "warning" | "info"
+    description: "TODO comments should be resolved before merging",
+    help: "Replace the TODO with an implementation or open an issue.",
+    // scope: "file",              // optional — "file" (default) or "project"
+  },
+  check(context: RuleContext) {
+    const text = context.sourceFile.getFullText();
+    const regex = /\/\/\s*TODO/gi;
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(text)) !== null) {
+      const pos = context.sourceFile.getLineAndColumnAtPos(match.index);
+      context.report({
+        message: "Unresolved TODO comment",
+        file: context.filePath,
+        line: pos.line,
+      });
+    }
+  },
+};
+```
+
+Rule IDs are automatically prefixed with `custom/` (e.g. `no-todo-comments` becomes `custom/no-todo-comments`).
+
+### Usage
+
+Set `customRulesDir` in your config file:
+
+```json
+{
+  "customRulesDir": "./rules"
+}
+```
+
+### Error handling
+
+Invalid rules produce warnings but never crash the scan. Common issues — missing `check` function, invalid category/severity, syntax errors — are surfaced in CLI output so you can fix them without blocking the rest of the analysis.
 
 ---
 
