@@ -15,6 +15,7 @@ export const DOCS_NAV: NavSection[] = [
 			{ title: "Overview", href: "/docs" },
 			{ title: "Setup", href: "/docs/setup" },
 			{ title: "Configuration", href: "/docs/configuration" },
+			{ title: "Custom Rules", href: "/docs/custom-rules" },
 		],
 	},
 	{

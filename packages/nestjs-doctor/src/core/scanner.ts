@@ -5,6 +5,7 @@ import { buildModuleGraph, type ModuleGraph } from "../engine/module-graph.js";
 import { runRules } from "../engine/rule-runner.js";
 import { resolveProviders } from "../engine/type-resolver.js";
 import { allRules } from "../rules/index.js";
+import type { AnyRule } from "../rules/types.js";
 import { calculateScore } from "../scorer/index.js";
 import type { NestjsDoctorConfig } from "../types/config.js";
 import type { Diagnostic } from "../types/diagnostic.js";
@@ -19,6 +20,7 @@ import { loadConfig } from "./config-loader.js";
 import { collectFiles, collectMonorepoFiles } from "./file-collector.js";
 import { filterIgnoredDiagnostics } from "./filter-diagnostics.js";
 import { detectMonorepo, detectProject } from "./project-detector.js";
+import { mergeRules, resolveCustomRules } from "./rule-resolver.js";
 
 function formatRuleError(error: unknown): string {
 	if (error instanceof Error) {
@@ -27,29 +29,39 @@ function formatRuleError(error: unknown): string {
 	return String(error);
 }
 
+export interface ScanOptions {
+	config?: string;
+}
+
 export interface ScanResult {
+	customRuleWarnings: string[];
 	moduleGraph: ModuleGraph;
 	result: DiagnoseResult;
 }
 
 export interface MonorepoScanResult {
+	customRuleWarnings: string[];
 	moduleGraphs: Map<string, ModuleGraph>;
 	result: MonorepoResult;
 }
 
 export async function scan(
 	targetPath: string,
-	options: { config?: string } = {}
+	options: ScanOptions = {}
 ): Promise<ScanResult> {
 	const startTime = performance.now();
 
 	const config = await loadConfig(targetPath, options.config);
+	const { rules: customRules, warnings: customRuleWarnings } =
+		await resolveCustomRules(config, targetPath);
+	const combinedRules = mergeRules(allRules, customRules, customRuleWarnings);
+
 	const project = await detectProject(targetPath);
 	const files = await collectFiles(targetPath, config);
 	const astProject = createAstParser(files);
 	const moduleGraph = buildModuleGraph(astProject, files);
 	const providers = resolveProviders(astProject, files);
-	const rules = filterRules(config);
+	const rules = filterRules(config, combinedRules);
 	const { diagnostics: rawDiagnostics, errors } = runRules(
 		astProject,
 		files,
@@ -83,11 +95,11 @@ export async function scan(
 		elapsedMs,
 	};
 
-	return { result, moduleGraph };
+	return { result, moduleGraph, customRuleWarnings };
 }
 
-function filterRules(config: NestjsDoctorConfig) {
-	return allRules.filter((rule) => {
+function filterRules(config: NestjsDoctorConfig, rules: AnyRule[]) {
+	return rules.filter((rule) => {
 		const ruleConfig = config.rules?.[rule.meta.id];
 		if (ruleConfig === false) {
 			return false;
@@ -107,17 +119,21 @@ function filterRules(config: NestjsDoctorConfig) {
 
 export async function scanMonorepo(
 	targetPath: string,
-	options: { config?: string } = {}
+	options: ScanOptions = {}
 ): Promise<MonorepoScanResult> {
 	const startTime = performance.now();
 	const monorepo = await detectMonorepo(targetPath);
 
 	if (!monorepo) {
-		const { result, moduleGraph } = await scan(targetPath, options);
+		const { result, moduleGraph, customRuleWarnings } = await scan(
+			targetPath,
+			options
+		);
 		const moduleGraphs = new Map<string, ModuleGraph>();
 		moduleGraphs.set("default", moduleGraph);
 		return {
 			moduleGraphs,
+			customRuleWarnings,
 			result: {
 				isMonorepo: false,
 				subProjects: [{ name: "default", result }],
@@ -128,6 +144,10 @@ export async function scanMonorepo(
 	}
 
 	const rootConfig = await loadConfig(targetPath, options.config);
+	const { rules: customRules, warnings: customRuleWarnings } =
+		await resolveCustomRules(rootConfig, targetPath);
+	const combinedRules = mergeRules(allRules, customRules, customRuleWarnings);
+
 	const filesByProject = await collectMonorepoFiles(
 		targetPath,
 		monorepo,
@@ -154,7 +174,7 @@ export async function scanMonorepo(
 		const astProject = createAstParser(files);
 		const moduleGraph = buildModuleGraph(astProject, files);
 		const providers = resolveProviders(astProject, files);
-		const rules = filterRules(projectConfig);
+		const rules = filterRules(projectConfig, combinedRules);
 		const { diagnostics: rawDiagnostics, errors } = runRules(
 			astProject,
 			files,
@@ -219,6 +239,7 @@ export async function scanMonorepo(
 
 	return {
 		moduleGraphs,
+		customRuleWarnings,
 		result: {
 			isMonorepo: true,
 			subProjects,

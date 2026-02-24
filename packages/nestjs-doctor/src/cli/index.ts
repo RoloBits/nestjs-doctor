@@ -116,7 +116,7 @@ const main = defineCommand({
 						`Scanning monorepo (${monorepo.projects.size} projects)...`
 					).start();
 
-			const { result } = await scanMonorepo(targetPath, {
+			const { result, customRuleWarnings } = await scanMonorepo(targetPath, {
 				config: args.config,
 			});
 
@@ -125,6 +125,12 @@ const main = defineCommand({
 				scanSpinner.succeed(
 					`Scanned ${highlighter.info(String(result.combined.project.fileCount))} files across ${highlighter.info(String(result.subProjects.length))} projects (${projectNames})`
 				);
+			}
+
+			if (!isSilent) {
+				for (const warning of customRuleWarnings) {
+					logger.warn(warning);
+				}
 			}
 
 			const monorepoConfig = await loadConfig(targetPath, args.config);
@@ -167,7 +173,7 @@ const main = defineCommand({
 		// Standard single-project scan
 		const scanSpinner = isSilent ? null : spinner("Scanning...").start();
 
-		const { result } = await scan(targetPath, {
+		const { result, customRuleWarnings } = await scan(targetPath, {
 			config: args.config,
 		});
 
@@ -183,6 +189,12 @@ const main = defineCommand({
 				detailParts.push(highlighter.info(project.orm));
 			}
 			scanSpinner.succeed(detailParts.join(" | "));
+		}
+
+		if (!isSilent) {
+			for (const warning of customRuleWarnings) {
+				logger.warn(warning);
+			}
 		}
 
 		const config = await loadConfig(targetPath, args.config);

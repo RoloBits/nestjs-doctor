@@ -29,6 +29,9 @@ importers:
       citty:
         specifier: ^0.1.6
         version: 0.1.6
+      jiti:
+        specifier: 2.6.1
+        version: 2.6.1
       ora:
         specifier: 9.3.0
         version: 9.3.0

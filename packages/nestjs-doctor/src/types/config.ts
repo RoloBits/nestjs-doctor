@@ -12,6 +12,7 @@ export interface NestjsDoctorIgnoreConfig {
 
 export interface NestjsDoctorConfig {
 	categories?: Partial<Record<Category, boolean>>;
+	customRulesDir?: string;
 	exclude?: string[];
 	ignore?: NestjsDoctorIgnoreConfig;
 	include?: string[];
