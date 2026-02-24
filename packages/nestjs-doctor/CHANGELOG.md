@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.4.10
+
+### Patch Changes
+
+- ebca9bd: Rename `--graph` flag to `--report` and update output filename to `nestjs-doctor-report.html`. The `--graph` flag is kept as a backward-compatible alias.
+
 ## 0.4.9
 
 ### Patch Changes
