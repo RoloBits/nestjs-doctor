@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.4.7
+
+### Patch Changes
+
+- b24c960: Update docs and add tests for multi-agent skill installation
+
 ## 0.4.6
 
 ### Patch Changes
