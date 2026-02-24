@@ -14,11 +14,11 @@ For file paths and line numbers:
 npx nestjs-doctor@latest . --verbose
 ```
 
-No config, no plugins, no setup required.
+No configuration or plugins are required.
 
 ## Installation
 
-Install as a dev dependency for deterministic, cacheable CI runs:
+Install as a dev dependency for consistent CI runs:
 
 ```bash
 npm install -D nestjs-doctor
@@ -109,11 +109,11 @@ In Claude Code, type:
 /nestjs-doctor src/
 ```
 
-Claude will scan your codebase, present a prioritized health report, and offer to fix every issue found.
+Claude will scan the codebase, present the health report, and offer to fix the issues found.
 
 ## Node.js API
 
-You can also use nestjs-doctor programmatically:
+nestjs-doctor can be used programmatically:
 
 ```typescript
 import { diagnose, diagnoseMonorepo } from "nestjs-doctor";

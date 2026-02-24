@@ -24,7 +24,7 @@ import { CodeGroup } from "@/components/docs/code-group";
 
 Detects loops, conditional branches, and data transformations inside HTTP handler methods.
 
-**Why:** Controllers should be thin — they receive a request, delegate to a service, and return the response. Business logic in controllers can't be reused, is harder to test, and violates the single responsibility principle.
+**Why:** Controllers should delegate business logic to services — they receive a request, call the appropriate service method, and return the response. Business logic in controllers cannot be reused, is harder to test, and violates the single responsibility principle.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -85,7 +85,7 @@ export class UserController {
 
 Detects ORM types (`PrismaService`, `EntityManager`, `DataSource`, etc.) injected directly in controllers.
 
-**Why:** Same principle as `no-repository-in-controllers` but for other ORM access patterns. Controllers should go through a service layer.
+**Why:** Applies the same layering constraint as `no-repository-in-controllers`, extended to other ORM access patterns. Controllers should access data through a service layer.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -120,7 +120,7 @@ export class UserController {
 
 Detects cycles in the `@Module()` import graph and names the specific providers causing each edge.
 
-**Why:** Circular module dependencies make the dependency graph unpredictable, cause initialization ordering issues, and make the codebase harder to reason about.
+**Why:** Circular module dependencies produce unpredictable initialization ordering, complicate the dependency graph, and make the codebase harder to reason about.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -167,7 +167,7 @@ The rule uses `traceProviderEdges` to walk each module's providers and controlle
 
 Detects `new SomeService()` for classes that should be injected via NestJS DI.
 
-**Why:** Manually instantiating injectable classes bypasses the DI container, so constructor dependencies aren't resolved. It also breaks scoping and lifecycle hooks.
+**Why:** Manually instantiating injectable classes bypasses the DI container, so constructor dependencies are not resolved. It also breaks scoping and lifecycle hooks.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -220,7 +220,7 @@ export class UserService {
 
 Detects `ModuleRef.get()` or `ModuleRef.resolve()` calls that dynamically look up providers.
 
-**Why:** The service locator pattern hides dependencies — you can't see what a class depends on by looking at its constructor. Use constructor injection instead.
+**Why:** The service locator pattern hides dependencies — the constructor signature no longer reflects the true dependency set. Use constructor injection instead.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -252,7 +252,7 @@ export class TaskService {
 
 Detects `@Inject()` used on class properties instead of constructor parameters.
 
-**Why:** Constructor injection makes dependencies explicit and immutable. Property injection hides dependencies and allows them to be `undefined` before initialization.
+**Why:** Constructor injection makes dependencies explicit and immutable. Property injection obscures dependencies and permits them to be `undefined` before initialization.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -276,7 +276,7 @@ export class UserService {
 
 Detects deep imports that reach into another module's internal files.
 
-**Why:** Importing from `../other-module/services/internal.service` creates tight coupling to the other module's structure. Import from the module's public API (barrel file) instead.
+**Why:** Importing from `../other-module/services/internal.service` creates tight coupling to another module's internal structure. Import from the module's public API (barrel file) instead.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -322,7 +322,7 @@ export class OrderService {
 
 Detects barrel files (index.ts) that re-export internal implementation details like repositories.
 
-**Why:** Barrel files define a module's public API. Re-exporting repositories or internal services encourages consumers to bypass the service layer.
+**Why:** Barrel files define a module's public API. Re-exporting repositories or internal services allows consumers to bypass the service layer.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript

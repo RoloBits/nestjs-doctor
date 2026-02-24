@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  41 built-in rules across <b>security</b>, <b>performance</b>, <b>correctness</b>, and <b>architecture</b>. Outputs a <b>0–100 score</b> with actionable diagnostics. Zero config. Monorepo support. Built to catch the anti-patterns that AI-generated code loves to introduce.
+  41 built-in rules across <b>security</b>, <b>performance</b>, <b>correctness</b>, and <b>architecture</b>. Outputs a <b>0-100 score</b> with actionable diagnostics. Zero config. Monorepo support. Catches the anti-patterns that AI-generated code loves to introduce.
 </p>
 
 ---
@@ -25,13 +25,11 @@
 npx nestjs-doctor@latest .
 ```
 
-For file paths and line numbers:
+With file paths and line numbers:
 
 ```bash
 npx nestjs-doctor@latest . --verbose
 ```
-
-No config, no plugins, no setup.
 
 ![CLI Output](https://nestjs.doctor/cli-output.png)
 
@@ -39,32 +37,31 @@ No config, no plugins, no setup.
 
 ## Module Graph
 
-Visualize your module dependency graph:
-
 ```bash
 npx nestjs-doctor@latest . --graph
 ```
 
-Opens a self-contained HTML file with an interactive, physics-based graph of your NestJS modules. Click any module to inspect its providers, controllers, imports, and exports.
+Generates a self-contained HTML file with an interactive, physics-based graph of your NestJS modules. Click any module to see its providers, controllers, imports, and exports.
 
 ![Module Graph](https://nestjs.doctor/module-graph.png)
 
 ---
+
 ## CI
 
-Install as a devDependency for deterministic, cacheable CI runs:
+Pin it as a devDependency:
 
 ```bash
 npm install -D nestjs-doctor
 ```
 
-Then use `--min-score` to enforce a minimum health score:
+Use `--min-score` to gate on a minimum health score:
 
 ```bash
 npx nestjs-doctor . --min-score 75
 ```
 
-Or add it as a script in `package.json`:
+Or wire it into `package.json`:
 
 ```json
 {
@@ -74,7 +71,7 @@ Or add it as a script in `package.json`:
 }
 ```
 
-Exit codes: `1` when the score is below threshold or errors are found, `2` for invalid input. Works with all output modes (`--score`, `--json`, default).
+Exit codes: `1` if the score is below threshold, `2` for bad input.
 
 ```
 Usage: nestjs-doctor [directory] [options]
@@ -93,34 +90,21 @@ Usage: nestjs-doctor [directory] [options]
 
 ## Claude Code
 
-nestjs-doctor ships with a [Claude Code skill](https://docs.anthropic.com/en/docs/claude-code/skills) that scans your codebase and fixes issues interactively.
-
-### Setup
-
-If you haven't already, install as a devDependency:
+Ships with a [Claude Code skill](https://docs.anthropic.com/en/docs/claude-code/skills) that scans your project and fixes issues interactively.
 
 ```bash
 npm install -D nestjs-doctor
-```
-
-Then scaffold the skill:
-
-```bash
 npx nestjs-doctor --init
 ```
 
-This creates `.claude/skills/nestjs-doctor/SKILL.md` in your project. Commit it so every contributor gets the skill automatically.
+This drops `.claude/skills/nestjs-doctor/SKILL.md` into your project. Commit it so everyone on the team gets the skill.
 
-### Usage
-
-In Claude Code, type:
+Then in Claude Code:
 
 ```
 /nestjs-doctor
 /nestjs-doctor src/
 ```
-
-Claude will scan your codebase, present a prioritized health report, and offer to fix every issue found.
 
 ---
 
@@ -144,7 +128,7 @@ Optional. Create `nestjs-doctor.config.json` in your project root:
 }
 ```
 
-Or use a `"nestjs-doctor"` key in `package.json`.
+Also works as a `"nestjs-doctor"` key in `package.json`.
 
 | Key | Type | Description |
 |-----|------|-------------|
@@ -173,7 +157,7 @@ Auto-detected from `nest-cli.json`. When `"monorepo": true` is set, each sub-pro
 }
 ```
 
-The report shows a combined score plus a per-project breakdown.
+Output includes a combined score and a per-project breakdown.
 
 ---
 
@@ -226,11 +210,11 @@ mono.combined;      // Merged DiagnoseResult
 | `no-eval` | error | `eval()` or `new Function()` usage |
 | `no-csrf-disabled` | error | Explicitly disabling CSRF protection |
 | `no-dangerous-redirects` | error | Redirects with user-controlled input |
-| `no-synchronize-in-production` | error | `synchronize: true` in TypeORM config — can drop columns/tables |
+| `no-synchronize-in-production` | error | `synchronize: true` in TypeORM config -- can drop columns/tables |
 | `no-weak-crypto` | warning | `createHash('md5')` or `createHash('sha1')` |
 | `no-exposed-env-vars` | warning | Direct `process.env` in Injectable/Controller |
 | `no-exposed-stack-trace` | warning | `error.stack` exposed in responses |
-| `no-raw-entity-in-response` | warning | Returning ORM entities directly from controllers — leaks internal fields |
+| `no-raw-entity-in-response` | warning | Returning ORM entities directly from controllers -- leaks internal fields |
 
 ### Correctness (14)
 
@@ -246,10 +230,10 @@ mono.combined;      // Merged DiagnoseResult
 | `prefer-readonly-injection` | warning | Constructor DI params missing `readonly` |
 | `require-lifecycle-interface` | warning | Lifecycle method without corresponding interface |
 | `no-empty-handlers` | warning | HTTP handler with empty body |
-| `no-async-without-await` | warning | Async function/method with no `await` — remove `async` or add an `await` expression |
+| `no-async-without-await` | warning | Async function/method with no `await` |
 | `no-duplicate-module-metadata` | warning | Duplicate entries in `@Module()` arrays |
 | `no-missing-module-decorator` | warning | Class named `*Module` without `@Module()` |
-| `no-fire-and-forget-async` | warning | Async call without `await` in non-handler methods — unhandled rejections |
+| `no-fire-and-forget-async` | warning | Async call without `await` in non-handler methods |
 
 ### Architecture (11)
 
@@ -258,10 +242,10 @@ mono.combined;      // Merged DiagnoseResult
 | `no-business-logic-in-controllers` | error | Loops, branches, data transforms in HTTP handlers |
 | `no-repository-in-controllers` | error | Repository injection in controllers |
 | `no-orm-in-controllers` | error | PrismaService / EntityManager / DataSource in controllers |
-| `no-circular-module-deps` | error | Cycles in `@Module()` import graph — names the providers to extract |
+| `no-circular-module-deps` | error | Cycles in `@Module()` import graph |
 | `no-manual-instantiation` | error | `new SomeService()` for injectable classes |
 | `no-orm-in-services` | warning | Services using ORM directly (should use repositories) |
-| `no-service-locator` | warning | `ModuleRef.get()`/`resolve()` hides dependencies — use constructor injection |
+| `no-service-locator` | warning | `ModuleRef.get()`/`resolve()` hides dependencies |
 | `prefer-constructor-injection` | warning | `@Inject()` property injection |
 | `require-module-boundaries` | info | Deep imports into other modules' internals |
 | `prefer-interface-injection` | info | Concrete service-to-service injection |
@@ -275,7 +259,7 @@ mono.combined;      // Merged DiagnoseResult
 | `no-blocking-constructor` | warning | Loops/await in Injectable/Controller constructors |
 | `no-dynamic-require` | warning | `require()` with non-literal argument |
 | `no-unused-providers` | warning | Provider never injected anywhere |
-| `no-request-scope-abuse` | warning | `Scope.REQUEST` creates new instance per request — performance impact |
+| `no-request-scope-abuse` | warning | `Scope.REQUEST` creates new instance per request |
 | `no-unused-module-exports` | info | Module exports unused by importers |
 | `no-orphan-modules` | info | Module never imported by any other module |
 
@@ -283,24 +267,7 @@ mono.combined;      // Merged DiagnoseResult
 
 ## Contributing
 
-```bash
-git clone https://github.com/RoloBits/nestjs-doctor.git
-cd nestjs-doctor
-pnpm install
-pnpm run build
-pnpm test
-```
-
-### Architecture
-
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for a detailed walkthrough of the pipeline — from CLI invocation through config loading, AST parsing, rule execution, scoring, and output.
-
-### Adding a rule
-
-1. Create `src/rules/<category>/my-rule.ts`
-2. Export a `Rule` (file-scoped) or `ProjectRule` (project-scoped) object
-3. Register it in `src/rules/index.ts`
-4. Add tests in `tests/unit/rules/`
+See [CONTRIBUTING.md](./CONTRIBUTING.md). Architecture docs: [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ---
 

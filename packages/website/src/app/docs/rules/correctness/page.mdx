@@ -29,7 +29,7 @@ import { CodeGroup } from "@/components/docs/code-group";
 
 Detects classes listed in a module's `providers` array that are missing the `@Injectable()` decorator.
 
-**Why:** Without `@Injectable()`, NestJS can't resolve the class's constructor dependencies, causing runtime errors.
+**Why:** Without `@Injectable()`, NestJS cannot resolve the class's constructor dependencies, causing runtime errors.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -56,7 +56,7 @@ export class UserService {
 
 Detects two handlers with the same HTTP method, path, and version in a single controller.
 
-**Why:** Duplicate routes cause unpredictable behavior — only one handler will execute, silently shadowing the other.
+**Why:** Duplicate routes produce undefined behavior — only one handler will execute, silently shadowing the other.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -189,7 +189,7 @@ export class LoggingInterceptor implements NestInterceptor {
 
 Detects constructor parameters without a type annotation that are also missing `@Inject()`.
 
-**Why:** Without a type or `@Inject()`, NestJS can't resolve the dependency. This causes a runtime error.
+**Why:** Without a type or `@Inject()`, NestJS cannot resolve the dependency. This causes a runtime error.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -215,7 +215,7 @@ export class UserService {
 
 Detects constructor DI parameters missing the `readonly` modifier.
 
-**Why:** Injected dependencies should not be reassigned. `readonly` prevents accidental mutation and signals intent.
+**Why:** Injected dependencies should not be reassigned. The `readonly` modifier prevents accidental mutation and communicates intent.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -238,7 +238,7 @@ export class UserService {
 
 Detects lifecycle methods (`onModuleInit`, `onModuleDestroy`, etc.) without the corresponding interface.
 
-**Why:** Without the interface, TypeScript won't catch typos in the method name, and the intent is unclear to readers.
+**Why:** Without the interface, TypeScript will not catch typos in the method name, and the intent is unclear to readers.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -265,7 +265,7 @@ export class AppService implements OnModuleInit {
 
 Detects HTTP handler methods with empty bodies.
 
-**Why:** An empty handler returns `undefined`, which NestJS serializes as an empty response. This is almost always a mistake — either the handler is unfinished or should return something.
+**Why:** An empty handler returns `undefined`, which NestJS serializes as an empty response. This is nearly always unintentional — the handler is either incomplete or should return a value.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -324,7 +324,7 @@ export class UserService {
 
 Detects duplicate entries in `@Module()` metadata arrays (`imports`, `providers`, `controllers`, `exports`).
 
-**Why:** Duplicate entries are redundant and suggest a copy-paste error. NestJS ignores duplicates, but they add confusion.
+**Why:** Duplicate entries are redundant and suggest a copy-paste error. NestJS ignores duplicates, but they obscure the intended module composition.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -347,7 +347,7 @@ export class UserModule {}
 
 Detects classes named `*Module` that are missing the `@Module()` decorator.
 
-**Why:** A class following the module naming convention without `@Module()` is likely missing the decorator, which means NestJS won't register it.
+**Why:** A class following the module naming convention without `@Module()` is likely missing the decorator, which means NestJS will not register it.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -370,7 +370,7 @@ export class UserModule {}
 
 Detects async function calls without `await` in non-handler methods (services, etc.).
 
-**Why:** Calling an async function without `await` creates a floating promise. If it rejects, the error is silently swallowed, leading to data loss or inconsistent state.
+**Why:** Calling an async function without `await` produces a floating promise. If the promise rejects, the error is silently discarded, leading to data loss or inconsistent state.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript

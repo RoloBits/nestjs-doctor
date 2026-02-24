@@ -8,7 +8,7 @@ Resolves and merges user configuration with built-in defaults.
 
 ## Why
 
-Users need to customize which files to scan, which rules to enable/disable, and which diagnostics to ignore. The config loader provides a fallback chain so nestjs-doctor works out of the box but is fully customizable.
+Users need to customize which files to scan, which rules to enable/disable, and which diagnostics to ignore. The config loader provides a fallback chain so nestjs-doctor works without configuration but remains fully customizable.
 
 ## Input
 
@@ -72,6 +72,6 @@ Key merge behaviors:
 
 ## Debugging Tips
 
-- If a file isn't being scanned, check if it matches an exclude pattern. The default excludes are extensive (test files, mocks, seeders, declaration files).
-- If a rule isn't running, check both `rules` (individual toggle) and `categories` (category-level toggle) in config.
+- If a file is not being scanned, check whether it matches an exclude pattern. The default excludes are extensive (test files, mocks, seeders, declaration files).
+- If a rule is not running, check both `rules` (individual toggle) and `categories` (category-level toggle) in config.
 - Use `--config` to point to a specific config file and bypass the search chain.
