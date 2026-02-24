@@ -32,7 +32,8 @@ export const flags = {
 	},
 	init: {
 		type: "boolean",
-		description: "Set up the /nestjs-doctor Claude Code skill in your project",
+		description:
+			"Set up the nestjs-doctor skill for AI coding agents (Claude Code, Cursor, Codex, etc.)",
 		default: false,
 	},
 } satisfies ArgsDef;
