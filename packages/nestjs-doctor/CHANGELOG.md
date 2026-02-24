@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.4.9
+
+### Patch Changes
+
+- 2d50123: Add custom rules support with configurable rules directory, rule loader, and resolver
+
 ## 0.4.8
 
 ### Patch Changes
