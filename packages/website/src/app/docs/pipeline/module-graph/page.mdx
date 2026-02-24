@@ -79,6 +79,6 @@ function findCircularDeps(graph: ModuleGraph): string[][] {
 
 ## Debugging Tips
 
-- If a module isn't appearing in the graph, check that it has the `@Module()` decorator and is in a file included by the [file collector](/docs/pipeline/file-collection).
+- If a module does not appear in the graph, verify that it has the `@Module()` decorator and is in a file included by the [file collector](/docs/pipeline/file-collection).
 - Circular dependency detection works on the `imports` graph. Additionally, `traceProviderEdges` traces provider-level dependencies across module boundaries, enabling concrete suggestions about which providers to extract to break a cycle.
-- The `providerToModule` index is built from `@Module({ providers: [...] })`. If a provider isn't listed in any module's providers array, it won't appear in this index.
+- The `providerToModule` index is built from `@Module({ providers: [...] })`. If a provider is not listed in any module's providers array, it will not appear in this index.

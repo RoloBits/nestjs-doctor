@@ -85,7 +85,7 @@ context.report({
 
 ### Error Handling
 
-Each rule call is wrapped in a try-catch. If a rule throws an exception, it's recorded as a `RuleError` and the pipeline continues. A failing rule never crashes the scan.
+Each rule call is wrapped in a try-catch. If a rule throws an exception, the error is recorded as a `RuleError` and the pipeline continues. A failing rule never crashes the scan.
 
 ```typescript
 interface RuleError {
@@ -110,7 +110,7 @@ See the [Rules Overview](/docs/rules) for how to write and register new rules.
 
 ## Debugging Tips
 
-- If a rule isn't running, check that it's not disabled in config (`rules` or `categories`).
+- If a rule is not running, check that it is not disabled in config (`rules` or `categories`).
 - If a rule is producing unexpected results, use the [TypeScript AST Viewer](https://ts-ast-viewer.com) to inspect the AST structure of the code being analyzed.
 - Rule errors appear at the bottom of the console report. Check `ruleErrors` in the JSON output for details.
-- The `report()` callback is the only way to emit diagnostics. If a rule doesn't call `report()`, no diagnostics are produced.
+- The `report()` callback is the only way to emit diagnostics. If a rule does not call `report()`, no diagnostics are produced.

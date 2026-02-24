@@ -64,7 +64,7 @@ If no ignore config is set (the default), the filter returns the original array 
 - **`config.rules`** disables a rule entirely — it never runs
 - **`config.ignore.rules`** lets the rule run but hides its output
 
-This distinction matters for project-scoped rules that cross-reference data. For example, `no-missing-injectable` checks providers against the module graph. Disabling it with `config.rules` means it won't run at all. Ignoring it with `config.ignore.rules` means it runs (maintaining data consistency) but its diagnostics are hidden.
+This distinction matters for project-scoped rules that cross-reference data. For example, `no-missing-injectable` checks providers against the module graph. Disabling it with `config.rules` means the rule will not run at all. Ignoring it with `config.ignore.rules` means the rule runs (maintaining data consistency) but its diagnostics are hidden.
 
 ## Debugging Tips
 

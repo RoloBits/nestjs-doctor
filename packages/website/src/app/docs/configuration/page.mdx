@@ -1,6 +1,6 @@
 # Configuration
 
-Configuration is optional. nestjs-doctor works out of the box with sensible defaults.
+Configuration is optional. nestjs-doctor applies reasonable defaults when no configuration file is present.
 
 ## Config File
 
@@ -45,7 +45,7 @@ The config loader searches for configuration in this order:
 4. `"nestjs-doctor"` key in `package.json`
 5. Built-in defaults
 
-The first match wins. See [Config Loading](/docs/pipeline/config-loading) for implementation details.
+The first match takes precedence. See [Config Loading](/docs/pipeline/config-loading) for implementation details.
 
 ## Options
 

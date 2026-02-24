@@ -80,7 +80,7 @@ export class CacheService implements OnModuleInit {
 
 Detects `require()` calls with non-literal (dynamic) arguments.
 
-**Why:** Dynamic requires prevent bundlers from analyzing dependencies, can load unexpected modules, and are a potential security risk if the argument comes from user input.
+**Why:** Dynamic requires prevent bundlers from performing static analysis on dependencies, can load unexpected modules, and pose a security risk if the argument originates from user input.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -115,7 +115,7 @@ export class PluginLoader {
 
 Detects `@Injectable()` providers that are never injected by any other provider or controller.
 
-**Why:** Unused providers are dead code. They increase module initialization time, add confusion, and should be removed.
+**Why:** Unused providers are dead code. They increase module initialization time, obscure the dependency graph, and should be removed.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -168,7 +168,7 @@ export class UserService {
 
 Detects modules that export providers which are never imported by any other module.
 
-**Why:** Unused exports suggest the module boundary isn't being used as intended. Either the export is dead code or the consuming module is missing the import.
+**Why:** Unused exports suggest the module boundary is not being used as intended. Either the export is dead code or the consuming module is missing the import.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript

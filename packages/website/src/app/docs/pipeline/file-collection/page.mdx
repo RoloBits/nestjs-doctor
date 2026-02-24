@@ -46,4 +46,4 @@ For monorepos, `collectMonorepoFiles` calls `collectFiles` once per sub-project 
   - Does the file match an `include` pattern?
   - Does the file match an `exclude` pattern? (remember, defaults exclude test files, mocks, seeders)
 - Run with `--verbose` to see which files were scanned (the file count is shown in the report).
-- The glob is relative to the target path. Absolute patterns won't work.
+- The glob is relative to the target path. Absolute patterns are not supported.

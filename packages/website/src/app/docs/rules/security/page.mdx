@@ -165,7 +165,7 @@ const hash = createHash('sha256').update(data).digest('hex');
 
 Detects direct `process.env` access in Injectable or Controller classes.
 
-**Why:** Direct `process.env` access scatters configuration across the codebase, makes testing harder, and bypasses NestJS's `ConfigService` validation.
+**Why:** Direct `process.env` access distributes configuration reads across the codebase, complicates testing, and bypasses NestJS's `ConfigService` validation.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -220,7 +220,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
 Detects returning ORM entities directly from controller methods.
 
-**Why:** ORM entities may contain internal fields (passwords, soft-delete flags, relation metadata) that shouldn't be exposed. Use DTOs to control the response shape.
+**Why:** ORM entities may contain internal fields (passwords, soft-delete flags, relation metadata) that should not be exposed. Use DTOs to control the response shape.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript

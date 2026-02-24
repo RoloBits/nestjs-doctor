@@ -71,7 +71,7 @@ interface ProjectInfo {
 
 Reads `package.json` and inspects `dependencies` + `devDependencies`:
 
-**ORM detection** (first match wins):
+**ORM detection** (first match takes precedence):
 1. `prisma` or `@prisma/client` → `"prisma"`
 2. `typeorm` → `"typeorm"`
 3. `@mikro-orm/core` → `"mikro-orm"`
