@@ -7,7 +7,6 @@ import { noOrmInControllers } from "../../../src/rules/architecture/no-orm-in-co
 import { noOrmInServices } from "../../../src/rules/architecture/no-orm-in-services.js";
 import { noServiceLocator } from "../../../src/rules/architecture/no-service-locator.js";
 import { preferConstructorInjection } from "../../../src/rules/architecture/prefer-constructor-injection.js";
-import { preferInterfaceInjection } from "../../../src/rules/architecture/prefer-interface-injection.js";
 import { requireModuleBoundaries } from "../../../src/rules/architecture/require-module-boundaries.js";
 import type { Rule } from "../../../src/rules/types.js";
 import type { Diagnostic } from "../../../src/types/diagnostic.js";
@@ -359,37 +358,6 @@ describe("prefer-constructor-injection", () => {
       @Injectable()
       export class UsersService {
         constructor(private readonly logger: any) {}
-      }
-    `
-		);
-		expect(diags).toHaveLength(0);
-	});
-});
-
-describe("prefer-interface-injection", () => {
-	it("flags concrete service-to-service injection", () => {
-		const diags = runRule(
-			preferInterfaceInjection,
-			`
-      import { Injectable } from '@nestjs/common';
-      @Injectable()
-      export class OrdersService {
-        constructor(private readonly usersService: UsersService) {}
-      }
-    `
-		);
-		expect(diags.length).toBeGreaterThan(0);
-		expect(diags[0].message).toContain("UsersService");
-	});
-
-	it("does not flag abstract class injection", () => {
-		const diags = runRule(
-			preferInterfaceInjection,
-			`
-      import { Injectable } from '@nestjs/common';
-      @Injectable()
-      export class OrdersService {
-        constructor(private readonly usersService: AbstractUsersService) {}
       }
     `
 		);

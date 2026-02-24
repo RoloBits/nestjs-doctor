@@ -7,7 +7,6 @@ import { noOrmInServices } from "./architecture/no-orm-in-services.js";
 import { noRepositoryInControllers } from "./architecture/no-repository-in-controllers.js";
 import { noServiceLocator } from "./architecture/no-service-locator.js";
 import { preferConstructorInjection } from "./architecture/prefer-constructor-injection.js";
-import { preferInterfaceInjection } from "./architecture/prefer-interface-injection.js";
 import { requireModuleBoundaries } from "./architecture/require-module-boundaries.js";
 import { noAsyncWithoutAwait } from "./correctness/no-async-without-await.js";
 import { noDuplicateModuleMetadata } from "./correctness/no-duplicate-module-metadata.js";
@@ -50,7 +49,6 @@ export const allRules: AnyRule[] = [
 	noManualInstantiation,
 	noServiceLocator,
 	preferConstructorInjection,
-	preferInterfaceInjection,
 	requireModuleBoundaries,
 	noBarrelExportInternals,
 

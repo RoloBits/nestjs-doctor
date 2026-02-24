@@ -5,6 +5,11 @@ export type Category =
 	| "correctness"
 	| "architecture";
 
+export interface SourceLine {
+	line: number;
+	text: string;
+}
+
 export interface Diagnostic {
 	category: Category;
 	column: number;
@@ -14,4 +19,5 @@ export interface Diagnostic {
 	message: string;
 	rule: string;
 	severity: Severity;
+	sourceLines?: SourceLine[];
 }

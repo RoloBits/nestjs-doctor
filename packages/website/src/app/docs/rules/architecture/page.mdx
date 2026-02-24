@@ -2,7 +2,7 @@ import { CodeGroup } from "@/components/docs/code-group";
 
 # Architecture Rules
 
-11 rules that enforce clean layering, dependency injection patterns, and module boundaries.
+10 rules that enforce clean layering, dependency injection patterns, and module boundaries.
 
 | Rule | Severity | What it catches |
 |------|----------|-----------------|
@@ -15,7 +15,6 @@ import { CodeGroup } from "@/components/docs/code-group";
 | `no-service-locator` | warning | `ModuleRef.get()`/`resolve()` usage |
 | `prefer-constructor-injection` | warning | `@Inject()` property injection |
 | `require-module-boundaries` | info | Deep imports into other modules' internals |
-| `prefer-interface-injection` | info | Concrete service-to-service injection |
 | `no-barrel-export-internals` | info | Re-exporting repositories from barrel files |
 
 ---
@@ -287,32 +286,6 @@ import { OrderValidator } from '../order/validators/order.validator';
 // In user module:
 import { OrderValidator } from '../order';
 // Or better: inject via DI through the module system
-```
-</CodeGroup>
-
----
-
-## prefer-interface-injection
-
-Detects concrete service-to-service injection where an interface/abstract class could be used.
-
-**Why:** Depending on abstractions instead of concrete classes makes code more testable and allows swapping implementations without changing consumers.
-
-<CodeGroup labels={["Bad", "Good"]}>
-```typescript
-@Injectable()
-export class OrderService {
-  constructor(private readonly mailer: MailService) {}
-}
-```
-```typescript
-@Injectable()
-export class OrderService {
-  constructor(
-    @Inject('IMailService')
-    private readonly mailer: IMailService,
-  ) {}
-}
 ```
 </CodeGroup>
 

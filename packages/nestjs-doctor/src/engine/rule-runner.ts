@@ -8,7 +8,7 @@ import type {
 } from "../rules/types.js";
 import { isProjectRule } from "../rules/types.js";
 import type { NestjsDoctorConfig } from "../types/config.js";
-import type { Diagnostic } from "../types/diagnostic.js";
+import type { Diagnostic, SourceLine } from "../types/diagnostic.js";
 import type { ModuleGraph } from "./module-graph.js";
 import type { ProviderInfo } from "./type-resolver.js";
 
@@ -55,16 +55,26 @@ export function runRules(
 			continue;
 		}
 
+		const fullText = sourceFile.getFullText();
+		const allLines = fullText.split("\n");
+
 		for (const rule of fileRules) {
 			const context: RuleContext = {
 				sourceFile,
 				filePath,
 				report(partial) {
+					const sourceLines: SourceLine[] = [];
+					const start = Math.max(0, partial.line - 6);
+					const end = Math.min(allLines.length, partial.line + 5);
+					for (let i = start; i < end; i++) {
+						sourceLines.push({ line: i + 1, text: allLines[i] });
+					}
 					diagnostics.push({
 						...partial,
 						rule: rule.meta.id,
 						category: rule.meta.category,
 						severity: rule.meta.severity,
+						sourceLines,
 					});
 				},
 			};

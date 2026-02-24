@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  41 built-in rules across <b>security</b>, <b>performance</b>, <b>correctness</b>, and <b>architecture</b>. Outputs a <b>0-100 score</b> with actionable diagnostics. Zero config. Monorepo support. Catches the anti-patterns that AI-generated code loves to introduce.
+  40 built-in rules across <b>security</b>, <b>performance</b>, <b>correctness</b>, and <b>architecture</b>. Outputs a <b>0-100 score</b> with actionable diagnostics. Zero config. Monorepo support. Catches the anti-patterns that AI-generated code loves to introduce.
 </p>
 
 ---
@@ -41,7 +41,7 @@ npx nestjs-doctor@latest . --verbose
 npx nestjs-doctor@latest . --graph
 ```
 
-Generates a self-contained HTML file with an interactive, physics-based graph of your NestJS modules. Click any module to see its providers, controllers, imports, and exports.
+Generates a self-contained HTML file with an interactive, physics-based graph of your NestJS modules. Click any module to focus it — unrelated modules fade out and the detail panel shows its providers, controllers, imports, and exports.
 
 ![Module Graph](https://nestjs.doctor/module-graph.png)
 
@@ -124,7 +124,7 @@ Optional. Create `nestjs-doctor.config.json` in your project root:
     "files": ["src/generated/**"]
   },
   "rules": {
-    "architecture/prefer-interface-injection": false
+    "architecture/no-barrel-export-internals": false
   },
   "categories": {
     "performance": false
@@ -204,7 +204,7 @@ mono.combined;      // Merged DiagnoseResult
 
 ---
 
-## Rules (41)
+## Rules (40)
 
 ### Security (9)
 
@@ -239,7 +239,7 @@ mono.combined;      // Merged DiagnoseResult
 | `no-missing-module-decorator` | warning | Class named `*Module` without `@Module()` |
 | `no-fire-and-forget-async` | warning | Async call without `await` in non-handler methods |
 
-### Architecture (11)
+### Architecture (10)
 
 | Rule | Severity | What it catches |
 |------|----------|-----------------|
@@ -252,7 +252,6 @@ mono.combined;      // Merged DiagnoseResult
 | `no-service-locator` | warning | `ModuleRef.get()`/`resolve()` hides dependencies |
 | `prefer-constructor-injection` | warning | `@Inject()` property injection |
 | `require-module-boundaries` | info | Deep imports into other modules' internals |
-| `prefer-interface-injection` | info | Concrete service-to-service injection |
 | `no-barrel-export-internals` | info | Re-exporting repositories from barrel files |
 
 ### Performance (7)

@@ -1,42 +1,164 @@
 # NestJS Doctor
 
-Diagnose NestJS codebase health. Scans for security, performance, correctness, and architecture issues, then outputs a 0-100 score with actionable diagnostics.
+> Diagnose and fix your NestJS code in one command. 40 built-in rules across security, performance, correctness, and architecture. Outputs a 0-100 score with actionable diagnostics. Zero config. Monorepo support.
 
-## Usage
+## Quick Start
 
-Run this at your project root:
-
-```bash
-npx -y nestjs-doctor@latest .
-```
-
-Use `--verbose` to see affected files and line numbers:
+Run at your project root:
 
 ```bash
-npx -y nestjs-doctor@latest . --verbose
+npx nestjs-doctor@latest .
 ```
 
-Use `--score` to output only the numeric score:
+Install as a devDependency for CI:
 
 ```bash
-npx -y nestjs-doctor@latest . --score
+npm install -D nestjs-doctor
 ```
 
-Use `--json` for machine-readable output:
-
-```bash
-npx -y nestjs-doctor@latest . --json
-```
-
-## Options
+## CLI Options
 
 ```
 Usage: nestjs-doctor [directory] [options]
 
-Options:
-  --verbose       Show file paths and line numbers per diagnostic
+  --verbose       Show file paths, line numbers, and source context per diagnostic
   --score         Output only the numeric score (for CI)
   --json          JSON output (for tooling)
+  --graph         Generate an interactive HTML module graph with physics-based visualization
+  --min-score <n> Minimum passing score (0-100). Exits with code 1 if below threshold
   --config <p>    Path to config file
+  --init          Set up the /nestjs-doctor skill for AI coding agents
   -h, --help      Show help
 ```
+
+Exit codes: 0 = pass, 1 = score below threshold, 2 = bad input.
+
+## Configuration
+
+Optional. Create `nestjs-doctor.config.json` in your project root:
+
+```json
+{
+  "minScore": 75,
+  "ignore": {
+    "rules": ["architecture/no-orm-in-services"],
+    "files": ["src/generated/**"]
+  },
+  "rules": {
+    "architecture/no-barrel-export-internals": false
+  },
+  "categories": {
+    "performance": false
+  }
+}
+```
+
+Also works as a `"nestjs-doctor"` key in `package.json`.
+
+Options:
+- `include` (string[]) — Glob patterns to scan. Default: `["**/*.ts"]`
+- `exclude` (string[]) — Glob patterns to skip. Default includes node_modules, dist, build, coverage, test files, mocks, seeders
+- `minScore` (number) — Minimum passing score (0-100)
+- `ignore.rules` (string[]) — Rule IDs to suppress
+- `ignore.files` (string[]) — Glob patterns for files whose diagnostics are hidden
+- `rules` (Record<string, boolean>) — Enable/disable individual rules
+- `categories` (Record<string, boolean>) — Enable/disable entire categories (security, correctness, architecture, performance)
+
+## Monorepo Support
+
+Auto-detected from `nest-cli.json` when `"monorepo": true` is set. Each sub-project is scanned independently and results are merged. Output includes a combined score and per-project breakdown.
+
+## Scoring
+
+Weighted by severity and category, normalized by file count.
+
+Severity weights: error = 3.0, warning = 1.5, info = 0.5
+Category multipliers: security = 1.5x, correctness = 1.3x, architecture = 1.0x, performance = 0.8x
+
+Score labels: 90-100 = Excellent, 75-89 = Good, 50-74 = Fair, 25-49 = Poor, 0-24 = Critical
+
+## Node.js API
+
+```typescript
+import { diagnose, diagnoseMonorepo } from "nestjs-doctor";
+
+const result = await diagnose("./my-nestjs-app");
+result.score;       // { value: 82, label: "Good" }
+result.diagnostics; // Diagnostic[]
+result.summary;     // { total, errors, warnings, info, byCategory }
+
+const mono = await diagnoseMonorepo("./my-monorepo");
+mono.isMonorepo;    // true
+mono.subProjects;   // [{ name: "api", result }, ...]
+mono.combined;      // Merged DiagnoseResult
+```
+
+## AI Coding Agents
+
+Run `--init` to auto-detect installed agents and install the nestjs-doctor skill:
+
+```bash
+npx nestjs-doctor --init
+```
+
+Supported agents: Claude Code, Amp Code, Cursor, OpenCode, Windsurf, Antigravity, Gemini CLI, Codex. A project-level fallback is always written to `.agents/nestjs-doctor/`.
+
+## Rules (40)
+
+### Security (9)
+
+- `no-hardcoded-secrets` (error) — API keys, tokens, passwords in source code
+- `no-eval` (error) — eval() or new Function() usage
+- `no-csrf-disabled` (error) — Explicitly disabling CSRF protection
+- `no-dangerous-redirects` (error) — Redirects with user-controlled input
+- `no-synchronize-in-production` (error) — synchronize: true in TypeORM config
+- `no-weak-crypto` (warning) — createHash('md5') or createHash('sha1')
+- `no-exposed-env-vars` (warning) — Direct process.env in Injectable/Controller
+- `no-exposed-stack-trace` (warning) — error.stack exposed in responses
+- `no-raw-entity-in-response` (warning) — Returning ORM entities directly from controllers
+
+### Correctness (14)
+
+- `no-missing-injectable` (error) — Provider in module missing @Injectable()
+- `no-duplicate-routes` (error) — Same method + path + version twice in a controller
+- `no-missing-guard-method` (error) — Guard class missing canActivate()
+- `no-missing-pipe-method` (error) — Pipe class missing transform()
+- `no-missing-filter-catch` (error) — @Catch() class missing catch()
+- `no-missing-interceptor-method` (error) — Interceptor class missing intercept()
+- `require-inject-decorator` (error) — Untyped constructor param without @Inject()
+- `prefer-readonly-injection` (warning) — Constructor DI params missing readonly
+- `require-lifecycle-interface` (warning) — Lifecycle method without corresponding interface
+- `no-empty-handlers` (warning) — HTTP handler with empty body
+- `no-async-without-await` (warning) — Async function/method with no await
+- `no-duplicate-module-metadata` (warning) — Duplicate entries in @Module() arrays
+- `no-missing-module-decorator` (warning) — Class named *Module without @Module()
+- `no-fire-and-forget-async` (warning) — Async call without await in non-handler methods
+
+### Architecture (10)
+
+- `no-business-logic-in-controllers` (error) — Loops, branches, data transforms in HTTP handlers
+- `no-repository-in-controllers` (error) — Repository injection in controllers
+- `no-orm-in-controllers` (error) — PrismaService/EntityManager/DataSource in controllers
+- `no-circular-module-deps` (error) — Cycles in @Module() import graph
+- `no-manual-instantiation` (error) — new SomeService() for injectable classes
+- `no-orm-in-services` (warning) — Services using ORM directly instead of repositories
+- `no-service-locator` (warning) — ModuleRef.get()/resolve() hides dependencies
+- `prefer-constructor-injection` (warning) — @Inject() property injection
+- `require-module-boundaries` (info) — Deep imports into other modules' internals
+- `no-barrel-export-internals` (info) — Re-exporting repositories from barrel files
+
+### Performance (7)
+
+- `no-sync-io` (warning) — readFileSync, writeFileSync, etc.
+- `no-blocking-constructor` (warning) — Loops/await in Injectable/Controller constructors
+- `no-dynamic-require` (warning) — require() with non-literal argument
+- `no-unused-providers` (warning) — Provider never injected anywhere
+- `no-request-scope-abuse` (warning) — Scope.REQUEST creates new instance per request
+- `no-unused-module-exports` (info) — Module exports unused by importers
+- `no-orphan-modules` (info) — Module never imported by any other module
+
+## Links
+
+- Docs: https://www.nestjs.doctor/docs
+- npm: https://npmjs.com/package/nestjs-doctor
+- GitHub: https://github.com/RoloBits/nestjs-doctor
