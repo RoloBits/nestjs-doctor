@@ -32,7 +32,7 @@ Usage: nestjs-doctor [directory] [options]
   --verbose       Show file paths and line numbers per diagnostic
   --score         Output only the numeric score (for CI)
   --json          JSON output (for tooling)
-  --graph         Generate an interactive module graph (HTML)
+  --report        Generate an interactive HTML report (--graph also works)
   --min-score <n> Minimum passing score (0-100). Exits with code 1 if below
   --config <p>    Path to config file
   --init          Set up the /nestjs-doctor skill for AI coding agents
@@ -67,23 +67,22 @@ Or add it as a script in `package.json`:
 
 All output modes (`--score`, `--json`, default) respect exit codes.
 
-## Module Graph
+## HTML Report
 
-Visualize your module dependency graph as an interactive HTML page:
+Generate an interactive HTML report:
 
 ```bash
-npx nestjs-doctor . --graph
+npx nestjs-doctor . --report
 ```
 
-The generated page includes:
+The generated report includes four tabs:
 
-- **Physics-based layout** — modules as draggable nodes, edges as directed arrows
-- **Color coding** — green for root modules, red for circular dependency participants
-- **Detail panel + auto-focus** — click any module to see its providers, controllers, imports, exports; unrelated modules fade out automatically
-- **Circular dependency recommendations** — concrete suggestions naming which providers to extract
-- **Unfocus** — click empty space, press Esc, or use the Unfocus button (bottom-left) to exit focus mode
+- **Summary** — health score overview with category breakdown
+- **Diagnosis** — source-level findings with code viewer and fix examples
+- **Modules Graph** — physics-based layout with draggable nodes, directed edges, color coding for root modules and circular dependencies, detail panel with auto-focus, and concrete fix suggestions
+- **Lab** — custom rule playground to write and test your own rules
 
-Output: `nestjs-doctor-graph.html` in the project root, auto-opened in the default browser.
+Output: `nestjs-doctor-report.html` in the project root, auto-opened in the default browser.
 
 ![Module Graph](/module-graph.png)
 

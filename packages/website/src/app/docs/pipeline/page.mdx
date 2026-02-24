@@ -40,6 +40,6 @@ The pipeline has 10 stages. In a monorepo, stages 2-9 run once per sub-project.
 
 The `scan()` and `scanMonorepo()` functions in `src/core/scanner.ts` wire these stages together. The CLI calls one of these, and the Node.js API (`diagnose()`, `diagnoseMonorepo()`) wraps them with path validation.
 
-## Module Graph Visualization
+## HTML Report
 
-Run `npx nestjs-doctor . --graph` to generate an interactive HTML visualization of the module dependency graph. The output is a self-contained `nestjs-doctor-graph.html` file that auto-opens in your browser. Modules appear as nodes, imports as directed edges, and circular dependencies are highlighted in red.
+Run `npx nestjs-doctor . --report` to generate an interactive HTML report. The output is a self-contained `nestjs-doctor-report.html` file that auto-opens in your browser. It includes four tabs: summary, diagnostics, an interactive module graph (nodes, directed edges, circular dependency highlighting), and a custom rule lab.

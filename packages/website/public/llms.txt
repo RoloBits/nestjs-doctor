@@ -24,7 +24,7 @@ Usage: nestjs-doctor [directory] [options]
   --verbose       Show file paths, line numbers, and source context per diagnostic
   --score         Output only the numeric score (for CI)
   --json          JSON output (for tooling)
-  --graph         Generate an interactive HTML module graph with physics-based visualization
+  --report        Generate an interactive HTML report (--graph also works)
   --min-score <n> Minimum passing score (0-100). Exits with code 1 if below threshold
   --config <p>    Path to config file
   --init          Set up the /nestjs-doctor skill for AI coding agents
