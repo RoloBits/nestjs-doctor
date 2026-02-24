@@ -35,7 +35,7 @@ Usage: nestjs-doctor [directory] [options]
   --graph         Generate an interactive module graph (HTML)
   --min-score <n> Minimum passing score (0-100). Exits with code 1 if below
   --config <p>    Path to config file
-  --init          Set up the /nestjs-doctor Claude Code skill
+  --init          Set up the /nestjs-doctor skill for AI coding agents
   -h, --help      Show help
 ```
 
@@ -59,11 +59,11 @@ Or add it as a script in `package.json`:
 
 ### Exit Codes
 
-| Code | Meaning |
-|------|---------|
-| `0` | Score is at or above threshold |
-| `1` | Score is below threshold, or errors were found |
-| `2` | Invalid input (bad path, invalid flags) |
+| Code | Meaning                                        |
+| ---- | ---------------------------------------------- |
+| `0`  | Score is at or above threshold                 |
+| `1`  | Score is below threshold, or errors were found |
+| `2`  | Invalid input (bad path, invalid flags)        |
 
 All output modes (`--score`, `--json`, default) respect exit codes.
 
@@ -87,9 +87,9 @@ Output: `nestjs-doctor-graph.html` in the project root, auto-opened in the defau
 
 ![Module Graph](/module-graph.png)
 
-## Claude Code Skill
+## AI Agent Skills
 
-nestjs-doctor ships with a [Claude Code skill](https://docs.anthropic.com/en/docs/claude-code/skills) that scans your codebase and fixes issues interactively.
+nestjs-doctor ships with skills for popular AI coding agents. Run `--init` to auto-detect installed agents and set up the skill for each one:
 
 ### Setup
 
@@ -98,18 +98,20 @@ npm install -D nestjs-doctor
 npx nestjs-doctor --init
 ```
 
-This creates `.claude/skills/nestjs-doctor/SKILL.md` in your project. Commit it so every contributor gets the skill automatically.
+`--init` detects and installs for:
 
-### Usage
+- **Claude Code** — `~/.claude/skills/nestjs-doctor/`
+- **Amp Code** — `~/.config/amp/skills/nestjs-doctor/`
+- **Cursor** — `~/.cursor/skills/nestjs-doctor/`
+- **OpenCode** — `~/.config/opencode/skills/nestjs-doctor/`
+- **Windsurf** — appends to `~/.codeium/windsurf/memories/global_rules.md`
+- **Antigravity** — `~/.gemini/antigravity/skills/nestjs-doctor/`
+- **Gemini CLI** — `~/.gemini/skills/nestjs-doctor/`
+- **Codex** — `~/.codex/skills/nestjs-doctor/`
 
-In Claude Code, type:
+A project-level fallback is always written to `.agents/nestjs-doctor/`. Commit it so every contributor gets the skill automatically.
 
-```
-/nestjs-doctor
-/nestjs-doctor src/
-```
-
-Claude will scan the codebase, present the health report, and offer to fix the issues found.
+The agent will scan the codebase, present the health report, and offer to fix the issues found.
 
 ## Node.js API
 
@@ -119,14 +121,14 @@ nestjs-doctor can be used programmatically:
 import { diagnose, diagnoseMonorepo } from "nestjs-doctor";
 
 const result = await diagnose("./my-nestjs-app");
-result.score;       // { value: 82, label: "Good" }
+result.score; // { value: 82, label: "Good" }
 result.diagnostics; // Diagnostic[]
-result.summary;     // { total, errors, warnings, info, byCategory }
+result.summary; // { total, errors, warnings, info, byCategory }
 
 const mono = await diagnoseMonorepo("./my-monorepo");
-mono.isMonorepo;    // true
-mono.subProjects;   // [{ name: "api", result }, ...]
-mono.combined;      // Merged DiagnoseResult
+mono.isMonorepo; // true
+mono.subProjects; // [{ name: "api", result }, ...]
+mono.combined; // Merged DiagnoseResult
 ```
 
 See the [pipeline overview](/docs/pipeline) for details on the `DiagnoseResult` structure.

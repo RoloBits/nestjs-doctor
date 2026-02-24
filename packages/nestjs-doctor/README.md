@@ -82,29 +82,33 @@ Usage: nestjs-doctor [directory] [options]
   --graph         Generate an interactive module graph (HTML)
   --min-score <n> Minimum passing score (0-100). Exits with code 1 if below threshold
   --config <p>    Path to config file
-  --init          Set up the /nestjs-doctor Claude Code skill
+  --init          Set up the /nestjs-doctor skill for AI coding agents
   -h, --help      Show help
 ```
 
 ---
 
-## Claude Code
+## AI Coding Agents
 
-Ships with a [Claude Code skill](https://docs.anthropic.com/en/docs/claude-code/skills) that scans your project and fixes issues interactively.
+Ships with skills for popular AI coding agents. Run `--init` to auto-detect installed agents and install the nestjs-doctor skill for each one:
 
 ```bash
 npm install -D nestjs-doctor
 npx nestjs-doctor --init
 ```
 
-This drops `.claude/skills/nestjs-doctor/SKILL.md` into your project. Commit it so everyone on the team gets the skill.
+| Agent | Detection | Skill location |
+|-------|-----------|----------------|
+| Claude Code | `~/.claude` exists | `~/.claude/skills/nestjs-doctor/` |
+| Amp Code | `~/.amp` exists | `~/.config/amp/skills/nestjs-doctor/` |
+| Cursor | `~/.cursor` exists | `~/.cursor/skills/nestjs-doctor/` |
+| OpenCode | `opencode` CLI or `~/.config/opencode` | `~/.config/opencode/skills/nestjs-doctor/` |
+| Windsurf | `~/.codeium` exists | Appends to `~/.codeium/windsurf/memories/global_rules.md` |
+| Antigravity | `agy` CLI or `~/.gemini/antigravity` | `~/.gemini/antigravity/skills/nestjs-doctor/` |
+| Gemini CLI | `gemini` CLI or `~/.gemini` | `~/.gemini/skills/nestjs-doctor/` |
+| Codex | `codex` CLI or `~/.codex` | `~/.codex/skills/nestjs-doctor/` |
 
-Then in Claude Code:
-
-```
-/nestjs-doctor
-/nestjs-doctor src/
-```
+A project-level fallback is always written to `.agents/nestjs-doctor/`. Commit it so every contributor gets the skill automatically.
 
 ---
 
@@ -263,14 +267,4 @@ mono.combined;      // Merged DiagnoseResult
 | `no-unused-module-exports` | info | Module exports unused by importers |
 | `no-orphan-modules` | info | Module never imported by any other module |
 
----
 
-## Contributing
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md). Architecture docs: [ARCHITECTURE.md](./ARCHITECTURE.md).
-
----
-
-## License
-
-[MIT]
