@@ -1,4 +1,4 @@
-export function getGraphHtml(): string {
+export function getReportHtml(): string {
 	return `
 <!-- ── Header Row 1 ── -->
 <div id="header-row1">
@@ -27,22 +27,23 @@ export function getGraphHtml(): string {
 
 <!-- ── Header Row 2 (Tab bar) ── -->
 <div id="header-row2">
-  <button class="tab-btn active" data-tab="overview">Overview</button>
-  <button class="tab-btn" data-tab="findings">Findings <span class="count-badge" id="findings-count-badge"></span></button>
-  <button class="tab-btn" data-tab="graph">Graph</button>
+  <button class="tab-btn active" data-tab="summary">Summary</button>
+  <button class="tab-btn" data-tab="diagnosis">Diagnosis <span class="count-badge" id="diagnosis-count-badge"></span></button>
+  <button class="tab-btn" data-tab="modules">Modules Graph</button>
+  <button class="tab-btn" data-tab="lab">Lab</button>
   <div class="tab-spacer"></div>
   <div class="tab-controls" id="graph-controls">
     <select id="project-filter"><option value="all">All projects</option></select>
   </div>
 </div>
 
-<!-- ── Tab: Overview ── -->
-<div class="tab-content active" id="tab-overview"></div>
+<!-- ── Tab: Summary ── -->
+<div class="tab-content active" id="tab-summary"></div>
 
-<!-- ── Tab: Findings ── -->
-<div class="tab-content" id="tab-findings">
-  <div id="findings-sidebar">
-    <div class="findings-toolbar">
+<!-- ── Tab: Diagnosis ── -->
+<div class="tab-content" id="tab-diagnosis">
+  <div id="diagnosis-sidebar">
+    <div class="diagnosis-toolbar">
       <div class="sev-filters">
         <button class="sev-pill active" data-sev="all">All</button>
         <button class="sev-pill" data-sev="error">Errors</button>
@@ -50,10 +51,10 @@ export function getGraphHtml(): string {
         <button class="sev-pill" data-sev="info">Info</button>
       </div>
     </div>
-    <div id="findings-rule-list"></div>
+    <div id="diagnosis-rule-list"></div>
   </div>
-  <div id="findings-main">
-    <div id="findings-empty-state">
+  <div id="diagnosis-main">
+    <div id="diagnosis-empty-state">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
         <polyline points="14 2 14 8 20 8"/>
@@ -63,17 +64,113 @@ export function getGraphHtml(): string {
       </svg>
       <p>Select a finding to view its source code</p>
     </div>
-    <div id="findings-code-view" style="display:none">
-      <div id="findings-code-header"></div>
-      <div id="findings-code-body"></div>
-      <div id="findings-code-help"></div>
-      <div id="findings-code-examples"></div>
+    <div id="diagnosis-code-view" style="display:none">
+      <div id="diagnosis-code-header"></div>
+      <div id="diagnosis-code-body"></div>
+      <div id="diagnosis-code-help"></div>
+      <div id="diagnosis-code-examples"></div>
     </div>
   </div>
 </div>
 
-<!-- ── Tab: Graph ── -->
-<div class="tab-content" id="tab-graph">
+<!-- ── Tab: Lab ── -->
+<div class="tab-content" id="tab-lab">
+  <div class="playground-editor">
+    <div class="playground-section-label">RULE LAB</div>
+    <div class="playground-form">
+      <div class="playground-form-row">
+        <div class="playground-field">
+          <label for="pg-rule-id">Rule ID</label>
+          <input type="text" id="pg-rule-id" value="my-rule" spellcheck="false">
+        </div>
+        <div class="playground-field">
+          <label for="pg-category">Category</label>
+          <select id="pg-category">
+            <option value="correctness" selected>correctness</option>
+            <option value="security">security</option>
+            <option value="performance">performance</option>
+            <option value="architecture">architecture</option>
+          </select>
+        </div>
+        <div class="playground-field">
+          <label for="pg-severity">Severity</label>
+          <select id="pg-severity">
+            <option value="warning" selected>warning</option>
+            <option value="error">error</option>
+            <option value="info">info</option>
+          </select>
+        </div>
+      </div>
+      <div class="playground-form-row">
+        <div class="playground-field playground-field-wide">
+          <label for="pg-description">Description</label>
+          <input type="text" id="pg-description" placeholder="What does this rule check?" spellcheck="false">
+        </div>
+      </div>
+    </div>
+    <div class="playground-preset">
+      <div class="playground-field">
+        <label for="pg-scope">Scope</label>
+        <select id="pg-scope">
+          <option value="file" selected>File rule</option>
+          <option value="project">Project rule</option>
+        </select>
+      </div>
+      <div class="playground-preset-sep"></div>
+      <div class="playground-field playground-field-wide">
+        <label for="pg-preset">Load example</label>
+        <select id="pg-preset">
+        <optgroup label="File rules">
+          <option value="todo">Find TODO comments</option>
+          <option value="console-log">Find console.log statements</option>
+          <option value="large-file">Detect large files</option>
+        </optgroup>
+        <optgroup label="Project rules">
+          <option value="orphan-modules">Find orphan modules</option>
+          <option value="unused-providers">Find unused providers</option>
+        </optgroup>
+      </select>
+      </div>
+    </div>
+    <div class="playground-section-label">CHECK FUNCTION</div>
+    <div id="pg-cm-editor" class="pg-cm-wrap"></div>
+    <div id="pg-context-hint" class="pg-context-hint">context.fileText · context.filePath · context.report({ message, line })</div>
+    <script id="pg-code-init" type="text/plain">// context.fileText  — full source code (string)
+// context.filePath  — file path (string)
+// context.report({ message, line })  — report a finding
+
+const lines = context.fileText.split("\n");
+for (let i = 0; i < lines.length; i++) {
+  if (lines[i].includes("TODO")) {
+    context.report({
+      message: "Found TODO comment",
+      line: i + 1,
+    });
+  }
+}</script>
+    <div class="playground-actions">
+      <button id="pg-run-btn">&#9654; Run Rule</button>
+    </div>
+    <div id="pg-error" class="playground-error" style="display:none"></div>
+  </div>
+  <div class="playground-results">
+    <div class="playground-section-label">RESULTS <span id="pg-result-count"></span></div>
+    <div id="pg-code-viewer" style="display:none">
+      <div id="pg-code-header" class="playground-code-header"></div>
+      <div id="pg-code-body" class="playground-code-body"></div>
+    </div>
+    <div id="pg-result-list"></div>
+    <div id="pg-result-empty" class="playground-empty">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+      </svg>
+      <p>Write a check function and click Run</p>
+    </div>
+  </div>
+</div>
+
+<!-- ── Tab: Modules Graph ── -->
+<div class="tab-content" id="tab-modules">
   <canvas id="graph"></canvas>
   <button id="focus-btn">Unfocus</button>
 </div>

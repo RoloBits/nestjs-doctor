@@ -1,14 +1,16 @@
-export interface GraphScriptData {
+export interface ReportScriptData {
 	diagnosticsJson: string;
 	elapsedMsJson: string;
 	examplesJson: string;
+	fileSourcesJson: string;
 	graphJson: string;
 	projectJson: string;
+	providersJson: string;
 	sourceLinesJson: string;
 	summaryJson: string;
 }
 
-export function getGraphScripts(data: GraphScriptData): string {
+export function getReportScripts(data: ReportScriptData): string {
 	return `
 const graph = ${data.graphJson};
 const project = ${data.projectJson};
@@ -17,6 +19,8 @@ const sourceLinesData = ${data.sourceLinesJson};
 const summary = ${data.summaryJson};
 const elapsedMs = ${data.elapsedMsJson};
 const ruleExamples = ${data.examplesJson};
+const fileSources = ${data.fileSourcesJson};
+const providers = ${data.providersJson};
 
 // ── Score helpers ──
 function getScoreColor(v) {
@@ -49,9 +53,9 @@ function makeScoreRingSvg(size, strokeW, value) {
   meta.innerHTML = badges.join("");
 })();
 
-// ── Findings count badge ──
+// ── Diagnosis count badge ──
 (function() {
-  const badge = document.getElementById("findings-count-badge");
+  const badge = document.getElementById("diagnosis-count-badge");
   if (diagnostics.length > 0) {
     badge.textContent = diagnostics.length;
   } else {
@@ -61,15 +65,17 @@ function makeScoreRingSvg(size, strokeW, value) {
 })();
 
 // ── Tab switching ──
-let activeTab = "overview";
-let findingsRendered = false;
-let overviewRendered = false;
+let activeTab = "summary";
+let diagnosisRendered = false;
+let summaryRendered = false;
+let labRendered = false;
 
 const tabBtns = document.querySelectorAll(".tab-btn");
 const tabContents = {
-  graph: document.getElementById("tab-graph"),
-  findings: document.getElementById("tab-findings"),
-  overview: document.getElementById("tab-overview"),
+  modules: document.getElementById("tab-modules"),
+  diagnosis: document.getElementById("tab-diagnosis"),
+  summary: document.getElementById("tab-summary"),
+  lab: document.getElementById("tab-lab"),
 };
 const graphControls = document.getElementById("graph-controls");
 const sidebar = document.getElementById("sidebar");
@@ -82,18 +88,19 @@ function switchTab(name) {
   for (const [k, el] of Object.entries(tabContents)) {
     el.classList.toggle("active", k === name);
   }
-  graphControls.style.display = name === "graph" ? "flex" : "none";
-  sidebar.style.display = name === "graph" ? "block" : "none";
+  graphControls.style.display = name === "modules" ? "flex" : "none";
+  sidebar.style.display = name === "modules" ? "block" : "none";
 
-  if (name !== "graph") {
+  if (name !== "modules") {
     document.getElementById("detail").style.display = "none";
     selectedNode = null;
     exitFocus();
   }
 
-  if (name === "findings" && !findingsRendered) { renderFindings(); findingsRendered = true; }
-  if (name === "overview" && !overviewRendered) { renderOverview(); overviewRendered = true; }
-  if (name === "graph") resize();
+  if (name === "diagnosis" && !diagnosisRendered) { renderDiagnosis(); diagnosisRendered = true; }
+  if (name === "summary" && !summaryRendered) { renderSummary(); summaryRendered = true; }
+  if (name === "lab" && !labRendered) { renderLab(); labRendered = true; }
+  if (name === "modules") resize();
 }
 
 for (const btn of tabBtns) {
@@ -567,7 +574,7 @@ function draw() {
 }
 
 function loop() {
-  if (activeTab === "graph") {
+  if (activeTab === "modules") {
     simulate();
     draw();
   }
@@ -575,7 +582,7 @@ function loop() {
 }
 loop();
 
-// ── Findings Tab rendering ──
+// ── Diagnosis Tab rendering ──
 const CAT_META = {
   security:     { label: "Security",     color: "var(--cat-security)" },
   correctness:  { label: "Correctness",  color: "var(--cat-correctness)" },
@@ -585,15 +592,15 @@ const CAT_META = {
 const SEV_ORDER = { error: 0, warning: 1, info: 2 };
 const CAT_ORDER = ["security", "correctness", "architecture", "performance"];
 
-function renderFindings() {
-  const sidebarEl = document.getElementById("findings-sidebar");
-  const mainEl = document.getElementById("findings-main");
+function renderDiagnosis() {
+  const sidebarEl = document.getElementById("diagnosis-sidebar");
+  const mainEl = document.getElementById("diagnosis-main");
 
   if (diagnostics.length === 0) {
     sidebarEl.style.display = "none";
     mainEl.style.left = "0";
     mainEl.innerHTML =
-      '<div class="findings-clean">' +
+      '<div class="diagnosis-clean">' +
       '<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--score-green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>' +
       '<p>No issues found</p>' +
       '<span>Your project passed all checks.</span>' +
@@ -613,14 +620,14 @@ function renderFindings() {
   }
 
   // Build sidebar rule list
-  const ruleListEl = document.getElementById("findings-rule-list");
+  const ruleListEl = document.getElementById("diagnosis-rule-list");
   let sidebarHtml = "";
   let itemIdx = 0;
   for (const cat of CAT_ORDER) {
     const items = grouped[cat];
     if (items.length === 0) continue;
     const m = CAT_META[cat];
-    sidebarHtml += '<div class="findings-category" data-cat="' + cat + '">' +
+    sidebarHtml += '<div class="diagnosis-category" data-cat="' + cat + '">' +
       '<div class="cat-header">' +
       '<div class="cat-icon" style="background:' + m.color + '"></div>' +
       '<span class="cat-name">' + m.label + '</span>' +
@@ -631,7 +638,7 @@ function renderFindings() {
       const d = entry.d;
       const sevColor = d.severity === "error" ? "var(--sev-error)" : d.severity === "warning" ? "var(--sev-warning)" : "var(--sev-info)";
       const shortFile = d.filePath.split("/").slice(-2).join("/");
-      sidebarHtml += '<div class="findings-rule-item" data-idx="' + itemIdx + '" data-sev="' + d.severity + '">' +
+      sidebarHtml += '<div class="diagnosis-rule-item" data-idx="' + itemIdx + '" data-sev="' + d.severity + '">' +
         '<div class="sev-dot" style="background:' + sevColor + '"></div>' +
         '<div class="item-content">' +
         '<div class="item-msg">' + escHtml(d.message) + '</div>' +
@@ -659,7 +666,7 @@ function renderFindings() {
 
     // Update active state in sidebar
     if (activeItemEl) activeItemEl.classList.remove("active");
-    const items = ruleListEl.querySelectorAll(".findings-rule-item");
+    const items = ruleListEl.querySelectorAll(".diagnosis-rule-item");
     for (const item of items) {
       if (item.dataset.idx === String(idx)) {
         item.classList.add("active");
@@ -668,13 +675,13 @@ function renderFindings() {
       }
     }
 
-    const emptyState = document.getElementById("findings-empty-state");
-    const codeView = document.getElementById("findings-code-view");
+    const emptyState = document.getElementById("diagnosis-empty-state");
+    const codeView = document.getElementById("diagnosis-code-view");
     emptyState.style.display = "none";
     codeView.style.display = "block";
 
     // Header
-    const header = document.getElementById("findings-code-header");
+    const header = document.getElementById("diagnosis-code-header");
     header.innerHTML =
       '<div class="code-filepath">' + escHtml(d.filePath) + ':' + d.line + ':' + d.column + '</div>' +
       '<span class="code-rule-badge">' + escHtml(d.rule) + '</span>' +
@@ -682,27 +689,25 @@ function renderFindings() {
       '<div class="code-message">' + escHtml(d.message) + '</div>';
 
     // Code body
-    const codeBody = document.getElementById("findings-code-body");
+    const codeBody = document.getElementById("diagnosis-code-body");
     if (sourceLines && sourceLines.length > 0) {
-      let codeHtml = "";
-      for (const sl of sourceLines) {
-        const isTarget = sl.line === d.line;
-        codeHtml += '<div class="code-line' + (isTarget ? " highlight" : "") + '">' +
-          '<span class="line-num">' + sl.line + '</span>' +
-          '<span class="line-text">' + escHtml(sl.text) + '</span></div>';
+      var codeText = sourceLines.map(function(sl) { return sl.text; }).join("\\n");
+      var firstLineNum = sourceLines[0].line;
+      var highlightOffset = d.line - firstLineNum + 1;
+      if (window.createCodeViewer) {
+        window.createCodeViewer("diagnosis-code-body", codeText, {
+          highlightLine: highlightOffset,
+          firstLineNumber: firstLineNum,
+        });
       }
-      codeBody.innerHTML = codeHtml;
       codeBody.style.display = "block";
-      // Scroll highlighted line into view
-      const highlightedLine = codeBody.querySelector(".highlight");
-      if (highlightedLine) highlightedLine.scrollIntoView({ block: "center", behavior: "smooth" });
     } else {
       codeBody.innerHTML = '<div class="no-source-msg">Source code not available for project-scoped rules</div>';
       codeBody.style.display = "block";
     }
 
     // Help
-    const helpEl = document.getElementById("findings-code-help");
+    const helpEl = document.getElementById("diagnosis-code-help");
     if (d.help) {
       helpEl.innerHTML = '<div class="help-label">Recommendation</div>' + escHtml(d.help);
       helpEl.style.display = "block";
@@ -711,15 +716,19 @@ function renderFindings() {
     }
 
     // Code examples
-    const examplesEl = document.getElementById("findings-code-examples");
+    const examplesEl = document.getElementById("diagnosis-code-examples");
     const ex = ruleExamples[d.rule];
     if (ex) {
       examplesEl.innerHTML =
         '<div class="examples-label">Examples</div>' +
         '<div class="examples-group">' +
-          '<div class="example-block bad"><div class="example-tag bad">Bad</div><pre class="example-code">' + escHtml(ex.bad) + '</pre></div>' +
-          '<div class="example-block good"><div class="example-tag good">Good</div><pre class="example-code">' + escHtml(ex.good) + '</pre></div>' +
+          '<div class="example-block bad"><div class="example-tag bad">Bad</div><div class="example-code"></div></div>' +
+          '<div class="example-block good"><div class="example-tag good">Good</div><div class="example-code"></div></div>' +
         '</div>';
+      if (window.createCodeViewer) {
+        window.createCodeViewer(examplesEl.querySelector(".example-block.bad .example-code"), ex.bad, { lineNumbers: false });
+        window.createCodeViewer(examplesEl.querySelector(".example-block.good .example-code"), ex.good, { lineNumbers: false });
+      }
       examplesEl.style.display = "block";
     } else {
       examplesEl.style.display = "none";
@@ -728,7 +737,7 @@ function renderFindings() {
 
   // Click handler for sidebar items
   ruleListEl.addEventListener("click", (e) => {
-    const item = e.target.closest(".findings-rule-item");
+    const item = e.target.closest(".diagnosis-rule-item");
     if (item) showDiagnostic(Number(item.dataset.idx));
   });
 
@@ -740,14 +749,14 @@ function renderFindings() {
       activeSev = pill.dataset.sev;
       for (const p of pills) p.classList.toggle("active", p === pill);
       // Filter items
-      const items = ruleListEl.querySelectorAll(".findings-rule-item");
+      const items = ruleListEl.querySelectorAll(".diagnosis-rule-item");
       for (const item of items) {
         item.classList.toggle("hidden", activeSev !== "all" && item.dataset.sev !== activeSev);
       }
       // Update category counts and hide empty categories
-      const cats = ruleListEl.querySelectorAll(".findings-category");
+      const cats = ruleListEl.querySelectorAll(".diagnosis-category");
       for (const catEl of cats) {
-        const visible = catEl.querySelectorAll(".findings-rule-item:not(.hidden)");
+        const visible = catEl.querySelectorAll(".diagnosis-rule-item:not(.hidden)");
         catEl.classList.toggle("hidden", visible.length === 0);
         const countEl = catEl.querySelector(".cat-count");
         if (countEl) countEl.textContent = visible.length;
@@ -756,8 +765,8 @@ function renderFindings() {
       if (activeItemEl && activeItemEl.classList.contains("hidden")) {
         activeItemEl.classList.remove("active");
         activeItemEl = null;
-        document.getElementById("findings-empty-state").style.display = "flex";
-        document.getElementById("findings-code-view").style.display = "none";
+        document.getElementById("diagnosis-empty-state").style.display = "flex";
+        document.getElementById("diagnosis-code-view").style.display = "none";
       }
     });
   }
@@ -775,13 +784,13 @@ function escHtml(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-// ── Overview Tab rendering ──
-function renderOverview() {
-  const container = document.getElementById("tab-overview");
+// ── Summary Tab rendering ──
+function renderSummary() {
+  const container = document.getElementById("tab-summary");
   const sv = project.score.value;
   const stars = Math.round(sv / 20);
 
-  let html = '<div class="overview-grid">';
+  let html = '<div class="summary-grid">';
 
   // Score card (full width)
   html += '<div class="ov-card full-width"><h3>Health Score</h3>' +
@@ -838,5 +847,309 @@ function renderOverview() {
   container.innerHTML = html;
 }
 
-switchTab("overview");`;
+// ── Lab Tab rendering ──
+function renderLab() {
+  var PLAYGROUND_PRESETS = {
+    "todo": {
+      ruleId: "no-todo-comments",
+      category: "correctness",
+      severity: "warning",
+      scope: "file",
+      description: "Flags TODO comments left in source code",
+      code: '// Find TODO/FIXME comments...\\nconst lines = context.fileText.split("\\\\n");\\nfor (let i = 0; i < lines.length; i++) {\\n  if (/\\\\/\\\\/\\\\s*(TODO|FIXME)/.test(lines[i])) {\\n    context.report({\\n      message: "Found TODO/FIXME comment: " + lines[i].trim(),\\n      line: i + 1,\\n    });\\n  }\\n}'
+    },
+    "console-log": {
+      ruleId: "no-console-log",
+      category: "correctness",
+      severity: "warning",
+      scope: "file",
+      description: "Flags console.log statements left in source code",
+      code: '// Find console.log() calls...\\nconst lines = context.fileText.split("\\\\n");\\nfor (let i = 0; i < lines.length; i++) {\\n  if (/console\\\\.(log|debug|warn|error)\\\\s*\\\\(/.test(lines[i])) {\\n    const match = lines[i].match(/console\\\\.(log|debug|warn|error)/);\\n    context.report({\\n      message: "Found console." + match[1] + "() call",\\n      line: i + 1,\\n    });\\n  }\\n}'
+    },
+    "large-file": {
+      ruleId: "no-large-files",
+      category: "architecture",
+      severity: "info",
+      scope: "file",
+      description: "Flags files exceeding 300 lines",
+      code: '// Flag files that are too long\\nconst lines = context.fileText.split("\\\\n");\\nconst MAX_LINES = 300;\\nif (lines.length > MAX_LINES) {\\n  context.report({\\n    message: "File has " + lines.length + " lines (max " + MAX_LINES + ")",\\n    line: 1,\\n  });\\n}'
+    },
+    "orphan-modules": {
+      ruleId: "find-orphan-modules",
+      category: "architecture",
+      severity: "info",
+      scope: "project",
+      description: "Finds modules never imported by another module",
+      code: '// Find modules that are never imported...\\nvar imported = new Set();\\nfor (var i = 0; i < context.modules.length; i++) {\\n  var mod = context.modules[i];\\n  for (var j = 0; j < mod.imports.length; j++) {\\n    imported.add(mod.imports[j]);\\n  }\\n}\\nfor (var i = 0; i < context.modules.length; i++) {\\n  var mod = context.modules[i];\\n  if (mod.name !== "AppModule" && !imported.has(mod.name)) {\\n    context.report({\\n      message: "Module \\'" + mod.name + "\\' is never imported",\\n      filePath: mod.filePath,\\n      line: 1,\\n    });\\n  }\\n}'
+    },
+    "unused-providers": {
+      ruleId: "find-unused-providers",
+      category: "performance",
+      severity: "warning",
+      scope: "project",
+      description: "Finds providers never injected anywhere",
+      code: '// Find providers not used as dependencies...\\nvar allDeps = new Set();\\nfor (var i = 0; i < context.providers.length; i++) {\\n  var p = context.providers[i];\\n  for (var j = 0; j < p.dependencies.length; j++) {\\n    allDeps.add(p.dependencies[j]);\\n  }\\n}\\nfor (var i = 0; i < context.providers.length; i++) {\\n  var p = context.providers[i];\\n  if (!allDeps.has(p.name)) {\\n    context.report({\\n      message: "Provider \\'" + p.name + "\\' is never injected",\\n      filePath: p.filePath,\\n      line: 1,\\n    });\\n  }\\n}'
+    },
+  };
+
+  var presetSelect = document.getElementById("pg-preset");
+  function loadPreset(key) {
+    var p = PLAYGROUND_PRESETS[key];
+    if (!p) return;
+    document.getElementById("pg-rule-id").value = p.ruleId;
+    document.getElementById("pg-category").value = p.category;
+    document.getElementById("pg-severity").value = p.severity;
+    document.getElementById("pg-scope").value = p.scope || "file";
+    document.getElementById("pg-description").value = p.description;
+    updateContextHint();
+    if (window.cmEditor) {
+      window.cmEditor.dispatch({
+        changes: { from: 0, to: window.cmEditor.state.doc.length, insert: p.code }
+      });
+    }
+  }
+  presetSelect.addEventListener("change", function() { loadPreset(this.value); });
+
+  function updateContextHint() {
+    var hint = document.getElementById("pg-context-hint");
+    var scope = document.getElementById("pg-scope").value;
+    if (scope === "project") {
+      hint.textContent = "context.files · context.fileSources · context.modules · context.edges · context.circularDeps · context.providers · context.report({ message, filePath, line })";
+    } else {
+      hint.textContent = "context.fileText · context.filePath · context.report({ message, line })";
+    }
+  }
+
+  document.getElementById("pg-scope").addEventListener("change", function() {
+    updateContextHint();
+    filterPresetsByScope();
+  });
+
+  function filterPresetsByScope() {
+    var scope = document.getElementById("pg-scope").value;
+    var options = presetSelect.querySelectorAll("option");
+    for (var i = 0; i < options.length; i++) {
+      var opt = options[i];
+      var preset = PLAYGROUND_PRESETS[opt.value];
+      if (preset) {
+        opt.style.display = preset.scope === scope ? "" : "none";
+      }
+    }
+    var optgroups = presetSelect.querySelectorAll("optgroup");
+    for (var i = 0; i < optgroups.length; i++) {
+      var group = optgroups[i];
+      var visibleChildren = group.querySelectorAll("option");
+      var hasVisible = false;
+      for (var j = 0; j < visibleChildren.length; j++) {
+        if (visibleChildren[j].style.display !== "none") { hasVisible = true; break; }
+      }
+      group.style.display = hasVisible ? "" : "none";
+    }
+    var currentPreset = PLAYGROUND_PRESETS[presetSelect.value];
+    if (currentPreset && currentPreset.scope !== scope) {
+      for (var i = 0; i < options.length; i++) {
+        var preset = PLAYGROUND_PRESETS[options[i].value];
+        if (preset && preset.scope === scope) {
+          presetSelect.value = options[i].value;
+          loadPreset(options[i].value);
+          break;
+        }
+      }
+    }
+  }
+
+  loadPreset(presetSelect.value);
+
+  const runBtn = document.getElementById("pg-run-btn");
+  const errorEl = document.getElementById("pg-error");
+  const resultList = document.getElementById("pg-result-list");
+  const resultCount = document.getElementById("pg-result-count");
+  const resultEmpty = document.getElementById("pg-result-empty");
+  const codeViewer = document.getElementById("pg-code-viewer");
+  const codeHeader = document.getElementById("pg-code-header");
+  const codeBody = document.getElementById("pg-code-body");
+
+  let activeResultEl = null;
+
+  function showResultSource(filePath, line) {
+    const source = fileSources[filePath];
+    if (!source) {
+      codeViewer.style.display = "none";
+      return;
+    }
+    const allLines = source.split("\\n");
+    const start = Math.max(0, line - 6);
+    const end = Math.min(allLines.length, line + 5);
+    var snippet = allLines.slice(start, end).join("\\n");
+    var firstLineNum = start + 1;
+    var highlightOffset = line - firstLineNum + 1;
+    const shortFile = filePath.split("/").slice(-2).join("/");
+    codeHeader.textContent = shortFile + ":" + line;
+    if (window.createCodeViewer) {
+      window.createCodeViewer("pg-code-body", snippet, {
+        highlightLine: highlightOffset,
+        firstLineNumber: firstLineNum,
+      });
+    }
+    codeViewer.style.display = "block";
+  }
+
+  runBtn.addEventListener("click", function() {
+    errorEl.style.display = "none";
+    resultList.innerHTML = "";
+    codeViewer.style.display = "none";
+    activeResultEl = null;
+
+    if (!window.cmEditor) {
+      errorEl.textContent = "Editor not loaded — check your internet connection.";
+      errorEl.style.display = "block";
+      resultCount.textContent = "";
+      resultEmpty.style.display = "flex";
+      return;
+    }
+    const userCode = window.cmEditor.state.doc.toString();
+    const ruleId = document.getElementById("pg-rule-id").value || "my-rule";
+    const category = document.getElementById("pg-category").value;
+    const severity = document.getElementById("pg-severity").value;
+    const scope = document.getElementById("pg-scope").value;
+
+    var checkFn;
+    try {
+      checkFn = new Function("context", userCode);
+    } catch (err) {
+      errorEl.textContent = "Syntax error: " + err.message;
+      errorEl.style.display = "block";
+      resultCount.textContent = "";
+      resultEmpty.style.display = "flex";
+      return;
+    }
+
+    var results = [];
+
+    if (scope === "project") {
+      var projectResults = [];
+      var projectCtx = {
+        files: Object.keys(fileSources),
+        fileSources: fileSources,
+        modules: graph.modules,
+        edges: graph.edges,
+        circularDeps: graph.circularDeps,
+        providers: providers,
+        report: function(finding) {
+          projectResults.push({
+            message: finding.message || "No message",
+            line: finding.line || 1,
+            filePath: finding.filePath || "",
+            ruleId: ruleId,
+            category: category,
+            severity: severity,
+          });
+        },
+      };
+      try {
+        checkFn(projectCtx);
+      } catch (err) {
+        projectResults.push({
+          message: "Runtime error: " + err.message,
+          line: 1,
+          filePath: "",
+          ruleId: ruleId,
+          category: category,
+          severity: "error",
+          isError: true,
+        });
+      }
+      results = projectResults;
+    } else {
+      var fileEntries = Object.entries(fileSources);
+      for (var fi = 0; fi < fileEntries.length; fi++) {
+        var filePath = fileEntries[fi][0];
+        var fileText = fileEntries[fi][1];
+        var fileResults = [];
+        var ctx = {
+          fileText: fileText,
+          filePath: filePath,
+          report: function(finding) {
+            fileResults.push({
+              message: finding.message || "No message",
+              line: finding.line || 1,
+              filePath: filePath,
+              ruleId: ruleId,
+              category: category,
+              severity: severity,
+            });
+          },
+        };
+        try {
+          checkFn(ctx);
+        } catch (err) {
+          fileResults.push({
+            message: "Runtime error: " + err.message,
+            line: 1,
+            filePath: filePath,
+            ruleId: ruleId,
+            category: category,
+            severity: "error",
+            isError: true,
+          });
+        }
+        for (var r = 0; r < fileResults.length; r++) results.push(fileResults[r]);
+      }
+    }
+
+    // Sort by file path then line
+    results.sort(function(a, b) {
+      if (a.filePath < b.filePath) return -1;
+      if (a.filePath > b.filePath) return 1;
+      return a.line - b.line;
+    });
+
+    resultCount.textContent = "(" + results.length + " finding" + (results.length !== 1 ? "s" : "") + ")";
+
+    if (results.length === 0) {
+      resultEmpty.style.display = "flex";
+      return;
+    }
+    resultEmpty.style.display = "none";
+
+    var sevColors = { error: "var(--sev-error)", warning: "var(--sev-warning)", info: "var(--sev-info)" };
+    var listHtml = "";
+    for (var i = 0; i < results.length; i++) {
+      var res = results[i];
+      var shortFile = res.filePath.split("/").slice(-2).join("/");
+      var sevColor = sevColors[res.severity] || sevColors.warning;
+      listHtml += '<div class="pg-result-item" data-idx="' + i + '">' +
+        '<div class="sev-dot" style="background:' + sevColor + '"></div>' +
+        '<div class="item-content">' +
+        '<div class="item-msg">' + escHtml(res.message) + '</div>' +
+        '<div class="item-file">' + escHtml(shortFile) + ':' + res.line + '</div>' +
+        '</div></div>';
+    }
+    resultList.innerHTML = listHtml;
+
+    resultList.addEventListener("click", function(e) {
+      var item = e.target.closest(".pg-result-item");
+      if (!item) return;
+      var idx = Number(item.dataset.idx);
+      var res = results[idx];
+      if (!res) return;
+      if (activeResultEl) activeResultEl.classList.remove("active");
+      item.classList.add("active");
+      activeResultEl = item;
+      showResultSource(res.filePath, res.line);
+    });
+
+    // Auto-select first result
+    if (results.length > 0) {
+      var firstItem = resultList.querySelector(".pg-result-item");
+      if (firstItem) {
+        firstItem.classList.add("active");
+        activeResultEl = firstItem;
+        showResultSource(results[0].filePath, results[0].line);
+      }
+    }
+  });
+}
+
+switchTab("summary");`;
 }

@@ -18,10 +18,10 @@ import {
 	printConsoleReport,
 	printMonorepoReport,
 } from "./output/console-reporter.js";
-import { generateGraphHtml } from "./output/graph-reporter.js";
 import { highlighter } from "./output/highlighter.js";
 import { printJsonReport } from "./output/json-reporter.js";
 import { logger } from "./output/logger.js";
+import { generateReport } from "./output/report-generator.js";
 import { spinner } from "./output/spinner.js";
 
 const require = createRequire(import.meta.url);
@@ -32,7 +32,7 @@ const main = defineCommand({
 		name: "nestjs-doctor",
 		version,
 		description:
-			"Diagnostic CLI tool that scans NestJS codebases and produces a health score",
+			"Static analysis tool for NestJS — health score, diagnostics, and interactive HTML report",
 	},
 	args: {
 		path: {
@@ -51,38 +51,42 @@ const main = defineCommand({
 			return;
 		}
 
-		if (args.graph) {
+		if (args.report) {
 			const monorepo = await detectMonorepo(targetPath);
 
 			let html: string;
 			if (monorepo) {
-				const graphSpinner = spinner(
-					"Scanning monorepo module graph..."
-				).start();
+				const reportSpinner = spinner("Generating report...").start();
 				const { result: monorepoResult, moduleGraphs } = await scanMonorepo(
 					targetPath,
 					{ config: args.config }
 				);
 				const merged = mergeModuleGraphs(moduleGraphs);
 				const projects = [...moduleGraphs.keys()];
-				graphSpinner.succeed(
+				reportSpinner.succeed(
 					`Found ${highlighter.info(String(merged.modules.size))} modules across ${highlighter.info(String(moduleGraphs.size))} projects`
 				);
-				html = generateGraphHtml(merged, monorepoResult.combined, { projects });
+				html = generateReport(merged, monorepoResult.combined, { projects });
 			} else {
-				const graphSpinner = spinner("Scanning module graph...").start();
-				const { result, moduleGraph } = await scan(targetPath, {
-					config: args.config,
-				});
-				graphSpinner.succeed(
+				const reportSpinner = spinner("Generating report...").start();
+				const { result, moduleGraph, files, providers } = await scan(
+					targetPath,
+					{
+						config: args.config,
+					}
+				);
+				reportSpinner.succeed(
 					`Found ${highlighter.info(String(moduleGraph.modules.size))} modules, ${highlighter.info(String(moduleGraph.edges.size))} edges`
 				);
-				html = generateGraphHtml(moduleGraph, result);
+				html = generateReport(moduleGraph, result, {
+					files,
+					providers,
+				});
 			}
 
-			const outPath = join(targetPath, "nestjs-doctor-graph.html");
+			const outPath = join(targetPath, "nestjs-doctor-report.html");
 			await writeFile(outPath, html, "utf-8");
-			logger.info(`Graph written to ${highlighter.info(outPath)}`);
+			logger.info(`Report written to ${highlighter.info(outPath)}`);
 
 			let openCmd = "xdg-open";
 			if (process.platform === "darwin") {

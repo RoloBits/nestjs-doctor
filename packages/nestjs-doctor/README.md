@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  40 built-in rules across <b>security</b>, <b>performance</b>, <b>correctness</b>, and <b>architecture</b>. Outputs a <b>0-100 score</b> with actionable diagnostics. Zero config. Monorepo support. Catches the anti-patterns that AI-generated code loves to introduce.
+  40 built-in rules across <b>security</b>, <b>performance</b>, <b>correctness</b>, and <b>architecture</b>. Outputs a <b>0-100 score</b> with actionable diagnostics. Zero config. Monorepo support. Catches the anti-patterns that AI-generated code introduce (slop code).
 </p>
 
 ---
@@ -35,13 +35,13 @@ npx nestjs-doctor@latest . --verbose
 
 ---
 
-## Module Graph
+## Report
 
 ```bash
-npx nestjs-doctor@latest . --graph
+npx nestjs-doctor@latest . --report
 ```
 
-Generates a self-contained HTML file with an interactive, physics-based graph of your NestJS modules. Click any module to focus it — unrelated modules fade out and the detail panel shows its providers, controllers, imports, and exports.
+Generates a self-contained HTML file with four tabs: **Summary** (health score overview), **Diagnosis** (source-level findings), **Modules Graph** (interactive physics-based visualization), and **Lab** (custom rule playground). Click any module to focus it — unrelated modules fade out and the detail panel shows its providers, controllers, imports, and exports.
 
 ![Module Graph](https://nestjs.doctor/module-graph.png)
 
@@ -79,7 +79,7 @@ Usage: nestjs-doctor [directory] [options]
   --verbose       Show file paths and line numbers per diagnostic
   --score         Output only the numeric score (for CI)
   --json          JSON output (for tooling)
-  --graph         Generate an interactive module graph (HTML)
+  --report        Generate an interactive HTML report (--graph also works)
   --min-score <n> Minimum passing score (0-100). Exits with code 1 if below threshold
   --config <p>    Path to config file
   --init          Set up the /nestjs-doctor skill for AI coding agents

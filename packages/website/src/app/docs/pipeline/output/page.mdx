@@ -1,6 +1,6 @@
 # Output
 
-**Source:** `src/cli/output/console-reporter.ts`, `src/cli/output/json-reporter.ts`, `src/cli/output/graph-reporter.ts`
+**Source:** `src/cli/output/console-reporter.ts`, `src/cli/output/json-reporter.ts`, `src/cli/output/report-generator.ts`
 
 ## What
 
@@ -93,23 +93,22 @@ In monorepo mode, the console report shows:
   shared      95/100   18      0       1         0
 ```
 
-### Module Graph (`--graph`)
+### HTML Report (`--report`)
 
-Generates a self-contained HTML file with an interactive visualization:
+Generates a self-contained HTML file with an interactive report:
 
 ```bash
-npx nestjs-doctor . --graph
+npx nestjs-doctor . --report
 ```
 
-The graph includes:
+The report includes four tabs:
 
-- **Physics-based layout** — modules as draggable nodes, edges as directed arrows
-- **Color coding** — green for root modules, red for circular dependency participants
-- **Detail panel + auto-focus** — click any module to see its providers, controllers, imports, exports; unrelated modules fade out automatically
-- **Circular dependency recommendations** — concrete suggestions naming which providers to extract
-- **Unfocus** — click empty space, press Esc, or use the Unfocus button (bottom-left) to exit focus mode
+- **Summary** — health score overview with category breakdown
+- **Diagnosis** — source-level findings with code viewer and fix examples
+- **Modules Graph** — physics-based layout with draggable nodes, directed edges, color coding, detail panel with auto-focus, and circular dependency recommendations
+- **Lab** — custom rule playground to write and test your own rules
 
-Output: `nestjs-doctor-graph.html` in the project root, auto-opened in the default browser.
+Output: `nestjs-doctor-report.html` in the project root, auto-opened in the default browser.
 
 ![Module Graph](/module-graph.png)
 

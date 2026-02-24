@@ -25,9 +25,11 @@ export const flags = {
 		type: "string",
 		description: "Config file path",
 	},
-	graph: {
+	report: {
 		type: "boolean",
-		description: "Generate an interactive module graph (HTML)",
+		alias: "graph",
+		description:
+			"Generate an interactive HTML report (summary, diagnostics, module graph, rule lab)",
 		default: false,
 	},
 	init: {

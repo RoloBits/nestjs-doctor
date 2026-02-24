@@ -3,6 +3,7 @@ import { performance } from "node:perf_hooks";
 import { createAstParser } from "../engine/ast-parser.js";
 import { buildModuleGraph, type ModuleGraph } from "../engine/module-graph.js";
 import { runRules } from "../engine/rule-runner.js";
+import type { ProviderInfo } from "../engine/type-resolver.js";
 import { resolveProviders } from "../engine/type-resolver.js";
 import { allRules } from "../rules/index.js";
 import type { AnyRule } from "../rules/types.js";
@@ -35,7 +36,9 @@ export interface ScanOptions {
 
 export interface ScanResult {
 	customRuleWarnings: string[];
+	files: string[];
 	moduleGraph: ModuleGraph;
+	providers: Map<string, ProviderInfo>;
 	result: DiagnoseResult;
 }
 
@@ -95,7 +98,7 @@ export async function scan(
 		elapsedMs,
 	};
 
-	return { result, moduleGraph, customRuleWarnings };
+	return { result, moduleGraph, customRuleWarnings, files, providers };
 }
 
 function filterRules(config: NestjsDoctorConfig, rules: AnyRule[]) {
