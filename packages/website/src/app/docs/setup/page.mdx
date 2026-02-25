@@ -67,50 +67,48 @@ Or add it as a script in `package.json`:
 
 All output modes (`--score`, `--json`, default) respect exit codes.
 
-## HTML Report
-
-Generate an interactive HTML report:
+## Report
 
 ```bash
-npx nestjs-doctor . --report
+npx nestjs-doctor@latest . --report
 ```
 
-The generated report includes four tabs:
-
-- **Summary** — health score overview with category breakdown
-- **Diagnosis** — source-level findings with code viewer and fix examples
-- **Modules Graph** — physics-based layout with draggable nodes, directed edges, color coding for root modules and circular dependencies, detail panel with auto-focus, and concrete fix suggestions
-- **Lab** — custom rule playground to write and test your own rules
-
-Output: `nestjs-doctor-report.html` in the project root, auto-opened in the default browser.
+Self-contained HTML file with four sections: score summary, source-level diagnostics with code viewer, interactive module graph, and a [custom rule](/docs/custom-rules) playground. Opens in your browser.
 
 ![Module Graph](/module-graph.png)
 
-## AI Agent Skills
+## AI Coding Agents
 
-nestjs-doctor ships with skills for popular AI coding agents. Run `--init` to auto-detect installed agents and set up the skill for each one:
-
-### Setup
+Ships with skills for popular AI coding agents. Run `--init` to auto-detect installed agents and install the nestjs-doctor skill for each one:
 
 ```bash
 npm install -D nestjs-doctor
 npx nestjs-doctor --init
 ```
 
-`--init` detects and installs for:
-
-- **Claude Code** — `~/.claude/skills/nestjs-doctor/`
-- **Amp Code** — `~/.config/amp/skills/nestjs-doctor/`
-- **Cursor** — `~/.cursor/skills/nestjs-doctor/`
-- **OpenCode** — `~/.config/opencode/skills/nestjs-doctor/`
-- **Windsurf** — appends to `~/.codeium/windsurf/memories/global_rules.md`
-- **Antigravity** — `~/.gemini/antigravity/skills/nestjs-doctor/`
-- **Gemini CLI** — `~/.gemini/skills/nestjs-doctor/`
-- **Codex** — `~/.codex/skills/nestjs-doctor/`
+| Agent | Detection | Skill location |
+|-------|-----------|----------------|
+| Claude Code | `~/.claude` exists | `~/.claude/skills/nestjs-doctor/` |
+| Amp Code | `~/.amp` exists | `~/.config/amp/skills/nestjs-doctor/` |
+| Cursor | `~/.cursor` exists | `~/.cursor/skills/nestjs-doctor/` |
+| OpenCode | `opencode` CLI or `~/.config/opencode` | `~/.config/opencode/skills/nestjs-doctor/` |
+| Windsurf | `~/.codeium` exists | Appends to `~/.codeium/windsurf/memories/global_rules.md` |
+| Antigravity | `agy` CLI or `~/.gemini/antigravity` | `~/.gemini/antigravity/skills/nestjs-doctor/` |
+| Gemini CLI | `gemini` CLI or `~/.gemini` | `~/.gemini/skills/nestjs-doctor/` |
+| Codex | `codex` CLI or `~/.codex` | `~/.codex/skills/nestjs-doctor/` |
 
 A project-level fallback is always written to `.agents/nestjs-doctor/`. Commit it so every contributor gets the skill automatically.
 
-The agent will scan the codebase, present the health report, and offer to fix the issues found.
+### Skills
+
+`--init` installs two skills per agent:
+
+| Skill | Command | Description |
+|-------|---------|-------------|
+| nestjs-doctor | `/nestjs-doctor` | Runs the scan, shows the report, and fixes what it can |
+| nestjs-doctor-create-rule | `/nestjs-doctor-create-rule` | Scaffolds a custom rule: checks feasibility, writes the `.ts` file, updates config, verifies it loads |
+
+See [Custom Rules](/docs/custom-rules) for the rule format.
 
 ## Node.js API
 

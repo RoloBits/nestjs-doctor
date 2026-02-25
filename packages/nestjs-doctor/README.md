@@ -41,7 +41,7 @@ npx nestjs-doctor@latest . --verbose
 npx nestjs-doctor@latest . --report
 ```
 
-Generates a self-contained HTML file with four tabs: **Summary** (health score overview), **Diagnosis** (source-level findings), **Modules Graph** (interactive physics-based visualization), and **Lab** (custom rule playground). Click any module to focus it — unrelated modules fade out and the detail panel shows its providers, controllers, imports, and exports.
+Self-contained HTML file with four sections: score summary, source-level diagnostics with code viewer, interactive module graph, and a custom rule playground. Opens in your browser.
 
 ![Module Graph](https://nestjs.doctor/module-graph.png)
 
@@ -109,6 +109,15 @@ npx nestjs-doctor --init
 | Codex | `codex` CLI or `~/.codex` | `~/.codex/skills/nestjs-doctor/` |
 
 A project-level fallback is always written to `.agents/nestjs-doctor/`. Commit it so every contributor gets the skill automatically.
+
+### Skills
+
+`--init` installs two skills per agent:
+
+| Skill | Command | Description |
+|-------|---------|-------------|
+| nestjs-doctor | `/nestjs-doctor` | Runs the scan, shows the report, and fixes what it can |
+| nestjs-doctor-create-rule | `/nestjs-doctor-create-rule` | Scaffolds a custom rule: checks feasibility, writes the `.ts` file, updates config, verifies it loads |
 
 ---
 

@@ -120,14 +120,18 @@ import { basicSetup, EditorView } from "codemirror";
 import { EditorState } from "@codemirror/state";
 import { javascript } from "@codemirror/lang-javascript";
 import { oneDark } from "@codemirror/theme-one-dark";
-import { keymap, Decoration, ViewPlugin, lineNumbers, highlightSpecialChars } from "@codemirror/view";
+import { keymap, Decoration, ViewPlugin, lineNumbers, highlightSpecialChars, hoverTooltip, tooltips } from "@codemirror/view";
 import { syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language";
 import { indentWithTab } from "@codemirror/commands";
 
 // ── Read-only code viewer ──
 const viewerInstances = new Map();
 
-function makeHighlightPlugin(targetLine) {
+function escHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function makeHighlightPlugin(targetLines) {
   const lineDeco = Decoration.line({ attributes: { class: "cm-highlighted-line" } });
   return ViewPlugin.fromClass(class {
     constructor(view) {
@@ -135,14 +139,44 @@ function makeHighlightPlugin(targetLine) {
     }
     buildDecos(view) {
       const builder = [];
-      if (targetLine >= 1 && targetLine <= view.state.doc.lines) {
-        const line = view.state.doc.line(targetLine);
-        builder.push(lineDeco.range(line.from));
+      for (const tl of targetLines) {
+        if (tl >= 1 && tl <= view.state.doc.lines) {
+          builder.push(lineDeco.range(view.state.doc.line(tl).from));
+        }
       }
-      return Decoration.set(builder);
+      return Decoration.set(builder, true);
     }
     update() {}
   }, { decorations: (v) => v.decorations });
+}
+
+function makeLineTooltipPlugin(lineMetadata) {
+  return hoverTooltip(function(view, pos) {
+    const line = view.state.doc.lineAt(pos);
+    const lineNum = line.number;
+    const entries = lineMetadata[lineNum];
+    if (!entries || entries.length === 0) return null;
+    return {
+      pos: line.from,
+      above: true,
+      create: function() {
+        const dom = document.createElement("div");
+        dom.className = "cm-line-tooltip";
+        dom.innerHTML = entries.map(function(e) {
+          const sevColor = e.severity === "error" ? "var(--sev-error)"
+            : e.severity === "warning" ? "var(--sev-warning)" : "var(--sev-info)";
+          return '<div class="cm-line-tooltip-entry">' +
+            '<div class="cm-line-tooltip-header">' +
+              '<span class="cm-line-tooltip-dot" style="background:' + sevColor + '"></span>' +
+              '<span class="cm-line-tooltip-rule">' + escHtml(e.rule) + '</span>' +
+            '</div>' +
+            '<span class="cm-line-tooltip-msg">' + escHtml(e.message) + '</span>' +
+          '</div>';
+        }).join("");
+        return { dom: dom };
+      }
+    };
+  }, { hitSide: true });
 }
 
 window.createCodeViewer = function(container, code, options) {
@@ -160,6 +194,8 @@ window.createCodeViewer = function(container, code, options) {
   const firstLineNumber = options.firstLineNumber || 1;
   const showLineNumbers = options.lineNumbers !== false;
   const highlightLine = options.highlightLine || 0;
+  const highlightLines = options.highlightLines || (highlightLine > 0 ? [highlightLine] : []);
+  const lineMetadata = options.lineMetadata || null;
 
   const extensions = [
     EditorState.readOnly.of(true),
@@ -180,6 +216,7 @@ window.createCodeViewer = function(container, code, options) {
       ".cm-highlighted-line": {
         background: "rgba(234,40,69,0.12) !important",
         borderLeft: "3px solid #ea2845",
+        cursor: "pointer",
       },
     }),
   ];
@@ -188,8 +225,13 @@ window.createCodeViewer = function(container, code, options) {
     extensions.push(lineNumbers({ formatNumber: (n) => String(n + firstLineNumber - 1) }));
   }
 
-  if (highlightLine > 0) {
-    extensions.push(makeHighlightPlugin(highlightLine));
+  if (highlightLines.length > 0) {
+    extensions.push(makeHighlightPlugin(highlightLines));
+  }
+
+  if (lineMetadata) {
+    extensions.push(makeLineTooltipPlugin(lineMetadata));
+    extensions.push(tooltips({ parent: document.body }));
   }
 
   const view = new EditorView({
@@ -200,10 +242,11 @@ window.createCodeViewer = function(container, code, options) {
 
   viewerInstances.set(key, view);
 
-  if (highlightLine > 0) {
+  if (highlightLines.length > 0 && !options.skipScrollIntoView) {
+    const firstHL = highlightLines[0];
     requestAnimationFrame(() => {
-      if (highlightLine >= 1 && highlightLine <= view.state.doc.lines) {
-        const line = view.state.doc.line(highlightLine);
+      if (firstHL >= 1 && firstHL <= view.state.doc.lines) {
+        const line = view.state.doc.line(firstHL);
         view.dispatch({
           effects: EditorView.scrollIntoView(line.from, { y: "center" }),
         });

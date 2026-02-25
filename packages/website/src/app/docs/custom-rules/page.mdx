@@ -40,14 +40,14 @@ export const myRule = {
 
 ### `meta` Fields
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `id` | `string` | Yes | Unique identifier for the rule |
-| `category` | `string` | Yes | One of `"security"`, `"performance"`, `"correctness"`, `"architecture"` |
-| `severity` | `string` | Yes | One of `"error"`, `"warning"`, `"info"` |
-| `description` | `string` | Yes | Short summary shown in the report |
-| `help` | `string` | Yes | Fix guidance shown alongside diagnostics |
-| `scope` | `string` | No | `"file"` (default) or `"project"` |
+| Field         | Type     | Required | Description                                                             |
+| ------------- | -------- | -------- | ----------------------------------------------------------------------- |
+| `id`          | `string` | Yes      | Unique identifier for the rule                                          |
+| `category`    | `string` | Yes      | One of `"security"`, `"performance"`, `"correctness"`, `"architecture"` |
+| `severity`    | `string` | Yes      | One of `"error"`, `"warning"`, `"info"`                                 |
+| `description` | `string` | Yes      | Short summary shown in the report                                       |
+| `help`        | `string` | Yes      | Fix guidance shown alongside diagnostics                                |
+| `scope`       | `string` | No       | `"file"` (default) or `"project"`                                       |
 
 ### `check` Function
 
@@ -126,3 +126,17 @@ You can also suppress them per-file via `ignore.rules`:
   }
 }
 ```
+
+## Using AI to Create Rules
+
+If you have an AI coding agent set up, `/nestjs-doctor-create-rule` can write custom rules for you. Install it with `npx nestjs-doctor --init`, then call `/nestjs-doctor-create-rule` in your agent's chat. It checks whether the detection is doable with static analysis, picks file or project scope, writes the `.ts` file, sets `customRulesDir` in your config, and runs nestjs-doctor to make sure the rule loads.
+
+## Rule Lab
+
+The Report includes a **Lab** tab where you can write and test custom rules in the browser
+
+```bash
+npx nestjs-doctor . --report
+```
+
+**Recommended workflow:** use `/nestjs-doctor-create-rule` to scaffold a rule, test it in the Lab, then save the `.ts` file to your `customRulesDir`.

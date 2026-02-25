@@ -73,6 +73,7 @@ export function runRules(
 						...partial,
 						rule: rule.meta.id,
 						category: rule.meta.category,
+						scope: "file",
 						severity: rule.meta.severity,
 						sourceLines,
 					});
@@ -100,6 +101,7 @@ export function runRules(
 					...partial,
 					rule: rule.meta.id,
 					category: rule.meta.category,
+					scope: "project",
 					severity: rule.meta.severity,
 				});
 			},

@@ -44,12 +44,29 @@ export function getReportHtml(): string {
 <div class="tab-content" id="tab-diagnosis">
   <div id="diagnosis-sidebar">
     <div class="diagnosis-toolbar">
-      <div class="sev-filters">
-        <button class="sev-pill active" data-sev="all">All</button>
-        <button class="sev-pill" data-sev="error">Errors</button>
-        <button class="sev-pill" data-sev="warning">Warnings</button>
-        <button class="sev-pill" data-sev="info">Info</button>
+      <div class="filter-rows">
+        <div class="sev-filters">
+          <span class="filter-label">Severity</span>
+          <button class="sev-pill active" data-sev="all">All</button>
+          <button class="sev-pill" data-sev="error">Errors</button>
+          <button class="sev-pill" data-sev="warning">Warnings</button>
+          <button class="sev-pill" data-sev="info">Info</button>
+        </div>
+        <div class="scope-filters">
+          <span class="filter-label">Scope</span>
+          <button class="scope-pill active" data-scope="all">All</button>
+          <button class="scope-pill" data-scope="file">File</button>
+          <button class="scope-pill" data-scope="project">Project</button>
+        </div>
       </div>
+      <button class="collapse-all-btn" title="Collapse all folders">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="4 14 10 14 10 20"/>
+          <polyline points="20 10 14 10 14 4"/>
+          <line x1="14" y1="10" x2="21" y2="3"/>
+          <line x1="3" y1="21" x2="10" y2="14"/>
+        </svg>
+      </button>
     </div>
     <div id="diagnosis-rule-list"></div>
   </div>
@@ -62,13 +79,12 @@ export function getReportHtml(): string {
         <line x1="16" y1="17" x2="8" y2="17"/>
         <polyline points="10 9 9 9 8 9"/>
       </svg>
-      <p>Select a finding to view its source code</p>
+      <p>Select a file to view its diagnostics</p>
     </div>
-    <div id="diagnosis-code-view" style="display:none">
-      <div id="diagnosis-code-header"></div>
-      <div id="diagnosis-code-body"></div>
-      <div id="diagnosis-code-help"></div>
-      <div id="diagnosis-code-examples"></div>
+    <div id="diagnosis-file-view" style="display:none">
+      <div id="diagnosis-file-header"></div>
+      <div id="diagnosis-file-code"></div>
+      <div id="diagnosis-file-info"></div>
     </div>
   </div>
 </div>
@@ -76,7 +92,8 @@ export function getReportHtml(): string {
 <!-- ── Tab: Lab ── -->
 <div class="tab-content" id="tab-lab">
   <div class="playground-editor">
-    <div class="playground-section-label">RULE LAB</div>
+    <div class="playground-section-label playground-title">RULE LAB</div>
+    <p class="playground-subtitle">Write and test <a href="https://www.nestjs.doctor/docs/custom-rules" target="_blank" rel="noopener">custom rules</a> against your project. Use <code>/nestjs-doctor-create-rule</code> with an AI agent to <a href="https://www.nestjs.doctor/docs/setup#ai-agent-skills" target="_blank" rel="noopener">scaffold rules automatically</a>.</p>
     <div class="playground-form">
       <div class="playground-form-row">
         <div class="playground-field">
@@ -155,9 +172,9 @@ for (let i = 0; i < lines.length; i++) {
   </div>
   <div class="playground-results">
     <div class="playground-section-label">RESULTS <span id="pg-result-count"></span></div>
-    <div id="pg-code-viewer" style="display:none">
-      <div id="pg-code-header" class="playground-code-header"></div>
-      <div id="pg-code-body" class="playground-code-body"></div>
+    <div id="pg-file-view" style="display:none">
+      <div id="pg-file-header"></div>
+      <div id="pg-file-code" class="playground-code-body"></div>
     </div>
     <div id="pg-result-list"></div>
     <div id="pg-result-empty" class="playground-empty">
