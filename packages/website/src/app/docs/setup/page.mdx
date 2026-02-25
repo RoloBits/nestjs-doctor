@@ -129,3 +129,71 @@ mono.combined; // Merged DiagnoseResult
 ```
 
 See the [pipeline overview](/docs/pipeline) for details on the `DiagnoseResult` structure.
+
+## Incremental Scanning API
+
+For tooling that needs fine-grained control — such as editor integrations and language servers — nestjs-doctor exports an incremental scanning API. Instead of running a full `diagnose()` call, you can prepare a scan context once and then re-scan individual files as they change.
+
+```typescript
+import {
+  prepareScan,
+  updateFile,
+  scanFile,
+  scanAllFiles,
+  scanProject,
+  updateModuleGraphForFile,
+  updateProvidersForFile,
+  getRules,
+} from "nestjs-doctor";
+```
+
+### Lifecycle
+
+```typescript
+// 1. Prepare the scan context (parses all files, builds module graph, resolves providers)
+const { context, customRuleWarnings } = await prepareScan("./my-nestjs-app");
+
+// 2. When a file changes, update it in the context
+updateFile(context, "/absolute/path/to/changed-file.ts");
+
+// 3. Re-scan just that file (file-scoped rules only)
+const { diagnostics, errors } = scanFile(context, "/absolute/path/to/changed-file.ts");
+
+// 4. Or re-run all file-scoped rules across every file
+const allFileResults = scanAllFiles(context);
+
+// 5. Or re-run project-scoped rules (module graph, circular deps, etc.)
+const projectResults = scanProject(context);
+```
+
+### Granular Updates
+
+If you need to update the module graph or providers independently (for example, after editing multiple files before re-scanning):
+
+```typescript
+updateModuleGraphForFile(context.moduleGraph, context.astProject, filePath);
+updateProvidersForFile(context.providers, context.astProject, filePath);
+```
+
+### Listing Rules
+
+```typescript
+import { getRules } from "nestjs-doctor";
+
+const rules = getRules(); // all built-in rules (AnyRule[])
+```
+
+### `ScanContext`
+
+The `prepareScan` function returns a `ScanContext` that holds:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `astProject` | `Project` | ts-morph project with all source files |
+| `config` | `NestjsDoctorConfig` | Resolved configuration |
+| `files` | `string[]` | Collected file paths |
+| `fileRules` | `Rule[]` | File-scoped rules (filtered by config) |
+| `projectRules` | `ProjectRule[]` | Project-scoped rules (filtered by config) |
+| `moduleGraph` | `ModuleGraph` | Import/export graph |
+| `providers` | `Map<string, ProviderInfo>` | Resolved NestJS providers |
+| `targetPath` | `string` | Root directory of the scanned project |

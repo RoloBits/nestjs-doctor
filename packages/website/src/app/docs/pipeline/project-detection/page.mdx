@@ -72,11 +72,11 @@ interface ProjectInfo {
 Reads `package.json` and inspects `dependencies` + `devDependencies`:
 
 **ORM detection** (first match takes precedence):
-1. `prisma` or `@prisma/client` → `"prisma"`
+1. `@prisma/client` → `"prisma"`
 2. `typeorm` → `"typeorm"`
 3. `@mikro-orm/core` → `"mikro-orm"`
-4. `sequelize` or `sequelize-typescript` → `"sequelize"`
-5. `mongoose` or `@nestjs/mongoose` → `"mongoose"`
+4. `sequelize` → `"sequelize"`
+5. `mongoose` → `"mongoose"`
 6. `drizzle-orm` → `"drizzle"`
 
 **Framework detection:**

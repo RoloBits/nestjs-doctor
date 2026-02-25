@@ -55,7 +55,7 @@ The `check` function receives a `RuleContext` object with:
 
 - **`sourceFile`** — the ts-morph `SourceFile` AST node for the current file
 - **`filePath`** — the absolute path to the file being inspected
-- **`report(diagnostic)`** — call this to emit a diagnostic with `message`, `file`, and `line`
+- **`report(diagnostic)`** — call this to emit a diagnostic with `filePath`, `message`, `help`, `line`, and `column`
 
 For project-scoped rules (`scope: "project"`), the context includes the full project information instead of a single file.
 
@@ -82,8 +82,10 @@ export const noTodoComments = {
       const pos = context.sourceFile.getLineAndColumnAtPos(match.index);
       context.report({
         message: "Unresolved TODO comment",
-        file: context.filePath,
+        help: "Replace the TODO with an implementation or open an issue.",
+        filePath: context.filePath,
         line: pos.line,
+        column: pos.column,
       });
     }
   },

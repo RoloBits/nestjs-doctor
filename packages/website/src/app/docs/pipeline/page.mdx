@@ -40,6 +40,13 @@ The pipeline has 10 stages. In a monorepo, stages 2-9 run once per sub-project.
 
 The `scan()` and `scanMonorepo()` functions in `src/core/scanner.ts` wire these stages together. The CLI calls one of these, and the Node.js API (`diagnose()`, `diagnoseMonorepo()`) wraps them with path validation.
 
+### Parallel Execution
+
+The pipeline exploits concurrency where stages are independent:
+
+- **Single-project mode:** custom rule resolution and file collection run concurrently (`Promise.all`), and project detection runs in parallel with rule execution.
+- **Monorepo mode:** file collection for all sub-projects runs in parallel, and then each sub-project's full analysis (AST parsing through scoring) runs concurrently via `Promise.all`.
+
 ## HTML Report
 
 Run `npx nestjs-doctor . --report` to generate an interactive HTML report. The output is a self-contained `nestjs-doctor-report.html` file that auto-opens in your browser. It includes four tabs: summary, diagnostics, an interactive module graph (nodes, directed edges, circular dependency highlighting), and a custom rule lab.
