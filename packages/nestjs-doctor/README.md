@@ -52,6 +52,20 @@ Self-contained HTML file with four sections: score summary, source-level diagnos
 
 ---
 
+## VS Code Extension
+
+Install [NestJS Doctor](https://marketplace.visualstudio.com/items?itemName=rolobits.nestjs-doctor-vscode) from the VS Code Marketplace. Requires `nestjs-doctor` as a dev dependency — the extension's LSP server loads it from your workspace.
+
+```bash
+npm install -D nestjs-doctor
+```
+
+Same 40 rules as the CLI, surfaced as inline diagnostics in the editor and in the Problems panel. Files are scanned on open and on save with a configurable debounce.
+
+Use `NestJS Doctor: Scan Project` from the command palette to trigger a full scan manually.
+
+---
+
 ## CI
 
 Pin it as a devDependency:

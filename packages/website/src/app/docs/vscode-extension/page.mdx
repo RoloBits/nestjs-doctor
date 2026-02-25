@@ -1,0 +1,87 @@
+# VS Code Extension
+
+Get inline diagnostics from nestjs-doctor directly in your editor — same 40 rules, zero friction.
+
+## Installation
+
+1. Install [NestJS Doctor](https://marketplace.visualstudio.com/items?itemName=rolobits.nestjs-doctor-vscode) from the VS Code Marketplace.
+2. Add `nestjs-doctor` as a dev dependency in your project:
+
+```bash
+npm install -D nestjs-doctor
+```
+
+The extension's LSP server loads `nestjs-doctor` from your workspace `node_modules`, so the dev dependency is required.
+
+## How It Works
+
+The extension activates automatically when your workspace contains `@nestjs/core` in `node_modules` or when you open a TypeScript file. It starts a Language Server (LSP) that runs nestjs-doctor's analysis in the background using the [incremental scanning API](/docs/setup#incremental-scanning-api).
+
+Diagnostics appear inline in the editor and in the **Problems** panel, just like TypeScript or ESLint errors. The status bar shows a summary indicator while scanning.
+
+## Features
+
+- **Inline diagnostics** — warnings and errors are underlined in the editor with hover details
+- **Problems panel** — all diagnostics are listed in VS Code's Problems panel for quick navigation
+- **Status bar** — shows scan progress and a summary of findings
+- **Scan on save** — files are re-scanned automatically when you save, with a configurable debounce
+- **Scan on open** — runs a full scan when the workspace opens
+- **Manual scan** — trigger a full project scan from the command palette
+
+## Configuration
+
+All settings are under the `nestjsDoctor` namespace in VS Code settings.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `nestjsDoctor.enable` | `boolean` | `true` | Enable or disable NestJS Doctor analysis entirely |
+| `nestjsDoctor.scanOnSave` | `boolean` | `true` | Re-scan the saved file automatically |
+| `nestjsDoctor.scanOnOpen` | `boolean` | `true` | Run a full scan when the workspace opens |
+| `nestjsDoctor.debounceMs` | `number` | `2000` | Debounce delay in milliseconds before re-scanning after save |
+
+You can set these in your VS Code `settings.json`:
+
+```json
+{
+  "nestjsDoctor.enable": true,
+  "nestjsDoctor.scanOnSave": true,
+  "nestjsDoctor.scanOnOpen": true,
+  "nestjsDoctor.debounceMs": 2000
+}
+```
+
+The extension also respects your project's `nestjs-doctor.config.json` for rule configuration, ignore patterns, and custom rules. See [Configuration](/docs/configuration) for details.
+
+## Commands
+
+| Command | ID | Description |
+|---------|----|-------------|
+| NestJS Doctor: Scan Project | `nestjs-doctor.scan` | Manually trigger a full project scan |
+
+Open the command palette (`Cmd+Shift+P` / `Ctrl+Shift+P`) and search for "NestJS Doctor" to find available commands.
+
+## Troubleshooting
+
+### Extension not activating
+
+The extension activates when it detects `@nestjs/core` in your workspace `node_modules`. Make sure you've installed your project dependencies:
+
+```bash
+npm install
+```
+
+### No diagnostics appearing
+
+The LSP server requires `nestjs-doctor` to be installed as a dev dependency in your workspace. If it's missing, the server can't load the analysis engine:
+
+```bash
+npm install -D nestjs-doctor
+```
+
+### Diagnostics are stale
+
+If diagnostics seem outdated, run `NestJS Doctor: Scan Project` from the command palette to force a fresh scan. You can also try reloading the VS Code window (`Developer: Reload Window`).
+
+### Conflicting with CLI config
+
+The extension uses the same `nestjs-doctor.config.json` as the CLI. If you've disabled rules or categories in your config, those rules won't produce diagnostics in the editor either. See [Configuration](/docs/configuration).
