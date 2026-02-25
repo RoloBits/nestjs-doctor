@@ -2,7 +2,7 @@
   "name": "nestjs-doctor-vscode",
   "displayName": "NestJS Doctor",
   "description": "Static analysis for NestJS — inline diagnostics and health score",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "rolobits",
   "engines": {
     "vscode": "^1.85.0"
