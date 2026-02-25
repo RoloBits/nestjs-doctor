@@ -1,12 +1,19 @@
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
+import type { Project } from "ts-morph";
 import { createAstParser } from "../engine/ast-parser.js";
 import { buildModuleGraph, type ModuleGraph } from "../engine/module-graph.js";
-import { runRules } from "../engine/rule-runner.js";
+import {
+	type RunRulesOptions,
+	runFileRules,
+	runProjectRules,
+	runRules,
+	separateRules,
+} from "../engine/rule-runner.js";
 import type { ProviderInfo } from "../engine/type-resolver.js";
 import { resolveProviders } from "../engine/type-resolver.js";
 import { allRules } from "../rules/index.js";
-import type { AnyRule } from "../rules/types.js";
+import type { AnyRule, ProjectRule, Rule } from "../rules/types.js";
 import { calculateScore } from "../scorer/index.js";
 import type { NestjsDoctorConfig } from "../types/config.js";
 import type { Diagnostic } from "../types/diagnostic.js";
@@ -48,41 +55,155 @@ export interface MonorepoScanResult {
 	result: MonorepoResult;
 }
 
+export interface ScanContext {
+	astProject: Project;
+	config: NestjsDoctorConfig;
+	fileRules: Rule[];
+	files: string[];
+	moduleGraph: ModuleGraph;
+	projectRules: ProjectRule[];
+	providers: Map<string, ProviderInfo>;
+	targetPath: string;
+}
+
+export async function prepareScan(
+	targetPath: string,
+	options: ScanOptions = {}
+): Promise<{ context: ScanContext; customRuleWarnings: string[] }> {
+	const config = await loadConfig(targetPath, options.config);
+	const { rules: customRules, warnings: customRuleWarnings } =
+		await resolveCustomRules(config, targetPath);
+	const combinedRules = mergeRules(allRules, customRules, customRuleWarnings);
+
+	const files = await collectFiles(targetPath, config);
+	const astProject = createAstParser(files);
+	const moduleGraph = buildModuleGraph(astProject, files);
+	const providers = resolveProviders(astProject, files);
+	const rules = filterRules(config, combinedRules);
+	const { fileRules, projectRules } = separateRules(rules);
+
+	const context: ScanContext = {
+		astProject,
+		config,
+		fileRules,
+		files,
+		moduleGraph,
+		projectRules,
+		providers,
+		targetPath,
+	};
+
+	return { context, customRuleWarnings };
+}
+
+export function updateFile(context: ScanContext, filePath: string): void {
+	const existing = context.astProject.getSourceFile(filePath);
+	if (existing) {
+		context.astProject.removeSourceFile(existing);
+	}
+
+	context.astProject.addSourceFileAtPath(filePath);
+
+	if (!context.files.includes(filePath)) {
+		context.files.push(filePath);
+	}
+
+	context.moduleGraph = buildModuleGraph(context.astProject, context.files);
+	context.providers = resolveProviders(context.astProject, context.files);
+}
+
+export function scanFile(
+	context: ScanContext,
+	filePath: string
+): { diagnostics: Diagnostic[]; errors: RuleErrorInfo[] } {
+	const { diagnostics: rawDiagnostics, errors } = runFileRules(
+		context.astProject,
+		[filePath],
+		context.fileRules
+	);
+	const diagnostics = filterIgnoredDiagnostics(
+		rawDiagnostics,
+		context.config,
+		context.targetPath
+	);
+	const ruleErrors: RuleErrorInfo[] = errors.map((e) => ({
+		ruleId: e.ruleId,
+		error: formatRuleError(e.error),
+	}));
+
+	return { diagnostics, errors: ruleErrors };
+}
+
+export function scanAllFiles(context: ScanContext): {
+	diagnostics: Diagnostic[];
+	errors: RuleErrorInfo[];
+} {
+	const { diagnostics: rawDiagnostics, errors } = runFileRules(
+		context.astProject,
+		context.files,
+		context.fileRules
+	);
+	const diagnostics = filterIgnoredDiagnostics(
+		rawDiagnostics,
+		context.config,
+		context.targetPath
+	);
+	const ruleErrors: RuleErrorInfo[] = errors.map((e) => ({
+		ruleId: e.ruleId,
+		error: formatRuleError(e.error),
+	}));
+
+	return { diagnostics, errors: ruleErrors };
+}
+
+export function scanProject(context: ScanContext): {
+	diagnostics: Diagnostic[];
+	errors: RuleErrorInfo[];
+} {
+	const options: RunRulesOptions = {
+		moduleGraph: context.moduleGraph,
+		providers: context.providers,
+		config: context.config,
+	};
+	const { diagnostics: rawDiagnostics, errors } = runProjectRules(
+		context.astProject,
+		context.files,
+		context.projectRules,
+		options
+	);
+	const diagnostics = filterIgnoredDiagnostics(
+		rawDiagnostics,
+		context.config,
+		context.targetPath
+	);
+	const ruleErrors: RuleErrorInfo[] = errors.map((e) => ({
+		ruleId: e.ruleId,
+		error: formatRuleError(e.error),
+	}));
+
+	return { diagnostics, errors: ruleErrors };
+}
+
 export async function scan(
 	targetPath: string,
 	options: ScanOptions = {}
 ): Promise<ScanResult> {
 	const startTime = performance.now();
 
-	const config = await loadConfig(targetPath, options.config);
-	const { rules: customRules, warnings: customRuleWarnings } =
-		await resolveCustomRules(config, targetPath);
-	const combinedRules = mergeRules(allRules, customRules, customRuleWarnings);
+	const { context, customRuleWarnings } = await prepareScan(
+		targetPath,
+		options
+	);
+
+	const fileResult = scanAllFiles(context);
+	const projectResult = scanProject(context);
+
+	const diagnostics = [...fileResult.diagnostics, ...projectResult.diagnostics];
+	const ruleErrors = [...fileResult.errors, ...projectResult.errors];
 
 	const project = await detectProject(targetPath);
-	const files = await collectFiles(targetPath, config);
-	const astProject = createAstParser(files);
-	const moduleGraph = buildModuleGraph(astProject, files);
-	const providers = resolveProviders(astProject, files);
-	const rules = filterRules(config, combinedRules);
-	const { diagnostics: rawDiagnostics, errors } = runRules(
-		astProject,
-		files,
-		rules,
-		{ moduleGraph, providers, config }
-	);
-	const diagnostics = filterIgnoredDiagnostics(
-		rawDiagnostics,
-		config,
-		targetPath
-	);
-
-	const score = calculateScore(diagnostics, files.length);
+	const score = calculateScore(diagnostics, context.files.length);
 	const summary = buildSummary(diagnostics);
-	const ruleErrors: RuleErrorInfo[] = errors.map((e) => ({
-		ruleId: e.ruleId,
-		error: formatRuleError(e.error),
-	}));
 	const elapsedMs = performance.now() - startTime;
 
 	const result: DiagnoseResult = {
@@ -90,15 +211,21 @@ export async function scan(
 		diagnostics,
 		project: {
 			...project,
-			fileCount: files.length,
-			moduleCount: moduleGraph.modules.size,
+			fileCount: context.files.length,
+			moduleCount: context.moduleGraph.modules.size,
 		},
 		summary,
 		ruleErrors,
 		elapsedMs,
 	};
 
-	return { result, moduleGraph, customRuleWarnings, files, providers };
+	return {
+		result,
+		moduleGraph: context.moduleGraph,
+		customRuleWarnings,
+		files: context.files,
+		providers: context.providers,
+	};
 }
 
 function filterRules(config: NestjsDoctorConfig, rules: AnyRule[]) {
