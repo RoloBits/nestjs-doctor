@@ -56,9 +56,20 @@ The first match takes precedence. See [Config Loading](/docs/pipeline/config-loa
 | `minScore` | `number` | Minimum passing score (0-100) |
 | `ignore.rules` | `string[]` | Rule IDs to suppress |
 | `ignore.files` | `string[]` | Glob patterns for files whose diagnostics are hidden |
-| `rules` | `Record<string, boolean>` | Enable/disable individual rules |
+| `rules` | `Record<string, RuleOverride \| boolean>` | Enable/disable individual rules, or override severity |
 | `categories` | `Record<string, boolean>` | Enable/disable entire categories |
 | `customRulesDir` | `string` | Path to a directory of custom `.ts` rule files |
+
+Rules can be set to `false` to disable them, or configured with an object to override severity:
+
+```json
+{
+  "rules": {
+    "architecture/no-barrel-export-internals": false,
+    "security/no-hardcoded-secret": { "enabled": true, "severity": "error" }
+  }
+}
+```
 
 ## Default Excludes
 
