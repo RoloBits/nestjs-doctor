@@ -63,6 +63,60 @@ export function resolveProviders(
 	return providers;
 }
 
+export function updateProvidersForFile(
+	providers: Map<string, ProviderInfo>,
+	project: Project,
+	filePath: string
+): void {
+	// 1. Remove stale providers from this file
+	for (const [name, info] of providers) {
+		if (info.filePath === filePath) {
+			providers.delete(name);
+		}
+	}
+
+	// 2. Re-scan only the changed file for @Injectable() classes
+	const sourceFile = project.getSourceFile(filePath);
+	if (!sourceFile) {
+		return;
+	}
+
+	for (const cls of sourceFile.getClasses()) {
+		if (!cls.getDecorator("Injectable")) {
+			continue;
+		}
+
+		const name = cls.getName();
+		if (!name) {
+			continue;
+		}
+
+		const ctor = cls.getConstructors()[0];
+		const dependencies = ctor
+			? ctor.getParameters().map((p) => {
+					const typeNode = p.getTypeNode();
+					const typeText = typeNode
+						? typeNode.getText()
+						: p.getType().getText();
+					return extractSimpleTypeName(typeText);
+				})
+			: [];
+
+		const publicMethodCount = cls.getMethods().filter((m) => {
+			const scope = m.getScope();
+			return !scope || scope === "public";
+		}).length;
+
+		providers.set(name, {
+			name,
+			filePath,
+			classDeclaration: cls,
+			dependencies,
+			publicMethodCount,
+		});
+	}
+}
+
 function extractSimpleTypeName(typeText: string): string {
 	// Handle import("...").ClassName
 	const importMatch = typeText.match(IMPORT_TYPE_REGEX);

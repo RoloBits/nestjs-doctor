@@ -12,6 +12,8 @@ export {
 	scanProject,
 	updateFile,
 } from "../core/scanner.js";
+export { updateModuleGraphForFile } from "../engine/module-graph.js";
+export { updateProvidersForFile } from "../engine/type-resolver.js";
 export { getRules } from "../rules/index.js";
 export type {
 	AnyRule,

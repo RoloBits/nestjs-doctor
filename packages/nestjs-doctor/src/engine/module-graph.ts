@@ -124,6 +124,99 @@ function extractArrayPropertyNames(
 	});
 }
 
+export function updateModuleGraphForFile(
+	graph: ModuleGraph,
+	project: Project,
+	filePath: string
+): void {
+	// 1. Remove stale modules from this file
+	for (const [name, node] of graph.modules) {
+		if (node.filePath === filePath) {
+			graph.modules.delete(name);
+			graph.edges.delete(name);
+			// Clean up providerToModule entries for this module's providers
+			for (const provider of node.providers) {
+				if (graph.providerToModule.get(provider) === node) {
+					graph.providerToModule.delete(provider);
+				}
+			}
+			// Clean edges pointing TO this module from other modules
+			for (const edgeSet of graph.edges.values()) {
+				edgeSet.delete(name);
+			}
+		}
+	}
+
+	// 2. Re-scan only the changed file for @Module() classes
+	const sourceFile = project.getSourceFile(filePath);
+	if (!sourceFile) {
+		return;
+	}
+
+	const newModules: ModuleNode[] = [];
+	for (const cls of sourceFile.getClasses()) {
+		const moduleDecorator = cls.getDecorator("Module");
+		if (!moduleDecorator) {
+			continue;
+		}
+
+		const name = cls.getName() ?? "AnonymousModule";
+		const args = moduleDecorator.getArguments()[0];
+
+		const node: ModuleNode = {
+			name,
+			filePath,
+			classDeclaration: cls,
+			imports: [],
+			exports: [],
+			providers: [],
+			controllers: [],
+		};
+
+		if (args && args.getKind() === SyntaxKind.ObjectLiteralExpression) {
+			const obj = args.asKind(SyntaxKind.ObjectLiteralExpression);
+			if (obj) {
+				node.imports = extractArrayPropertyNames(obj, "imports");
+				node.exports = extractArrayPropertyNames(obj, "exports");
+				node.providers = extractArrayPropertyNames(obj, "providers");
+				node.controllers = extractArrayPropertyNames(obj, "controllers");
+			}
+		}
+
+		graph.modules.set(name, node);
+		newModules.push(node);
+	}
+
+	// 3. Rebuild edges for new modules and update providerToModule
+	for (const node of newModules) {
+		const importSet = new Set<string>();
+		for (const imp of node.imports) {
+			if (graph.modules.has(imp)) {
+				importSet.add(imp);
+			}
+		}
+		graph.edges.set(node.name, importSet);
+
+		for (const provider of node.providers) {
+			graph.providerToModule.set(provider, node);
+		}
+	}
+
+	// 4. Rebuild edges from existing modules that might reference newly added/renamed modules
+	for (const [name, node] of graph.modules) {
+		if (node.filePath === filePath) {
+			continue;
+		}
+		const importSet = new Set<string>();
+		for (const imp of node.imports) {
+			if (graph.modules.has(imp)) {
+				importSet.add(imp);
+			}
+		}
+		graph.edges.set(name, importSet);
+	}
+}
+
 export function mergeModuleGraphs(
 	graphs: Map<string, ModuleGraph>
 ): ModuleGraph {
