@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.4.16
+
+### Patch Changes
+
+- 5de88e2: Fix tsdown build for LSP and VS Code extension, add VS Code Marketplace badge to README, and fix publish workflow pnpm compatibility
+
 ## 0.4.15
 
 ### Patch Changes
