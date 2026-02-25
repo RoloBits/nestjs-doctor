@@ -33,7 +33,7 @@
     "vscode-languageserver-textdocument": "^1.0.0"
   },
   "peerDependencies": {
-    "nestjs-doctor": ">=0.4.12"
+    "nestjs-doctor": ">=0.4.13"
   },
   "devDependencies": {
     "tsdown": "^0.20.3"
