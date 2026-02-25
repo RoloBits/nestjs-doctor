@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.4.15
+
+### Patch Changes
+
+- 80925f8: Fix LSP build failure by suppressing tsdown inlineOnly error for intentionally bundled dependencies
+
 ## 0.4.14
 
 ### Patch Changes
