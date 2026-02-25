@@ -58,8 +58,8 @@ importers:
   packages/nestjs-doctor-lsp:
     dependencies:
       nestjs-doctor:
-        specifier: '>=0.4.12'
-        version: 0.4.12
+        specifier: workspace:>=0.4.13
+        version: link:../nestjs-doctor
       vscode-languageserver:
         specifier: ^9.0.0
         version: 9.0.1
@@ -1857,10 +1857,6 @@ packages:
   nanoid@3.3.11:
     resolution: {integrity: sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
-    hasBin: true
-
-  nestjs-doctor@0.4.12:
-    resolution: {integrity: sha512-AyMMuXgV8LNC8AOvdxpX2BfmqVjc9pWQl1GSuJr80245jIwSSYn7yVoLBfnlaUPLD5giP/ra+gLNi3GaqzKeiA==}
     hasBin: true
 
   next@16.1.6:
@@ -4273,16 +4269,6 @@ snapshots:
   ms@2.1.3: {}
 
   nanoid@3.3.11: {}
-
-  nestjs-doctor@0.4.12:
-    dependencies:
-      citty: 0.1.6
-      jiti: 2.6.1
-      ora: 9.3.0
-      picocolors: 1.1.1
-      picomatch: 4.0.3
-      tinyglobby: 0.2.15
-      ts-morph: 25.0.1
 
   next@16.1.6(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
     dependencies:
