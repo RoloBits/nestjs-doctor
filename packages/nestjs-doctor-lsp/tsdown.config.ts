@@ -8,4 +8,5 @@ export default defineConfig({
 	format: ["cjs"],
 	clean: true,
 	noExternal: [/^vscode-languageserver/],
+	inlineOnly: false,
 });
