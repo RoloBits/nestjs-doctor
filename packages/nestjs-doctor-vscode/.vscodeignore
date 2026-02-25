@@ -1,0 +1,6 @@
+src/**
+node_modules/**
+tsconfig.json
+tsdown.config.ts
+*.ts
+!dist/**
