@@ -56,6 +56,12 @@
   "dependencies": {
     "vscode-languageclient": "^9.0.0"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RoloBits/nestjs-doctor.git",
+    "directory": "packages/nestjs-doctor-vscode"
+  },
+  "license": "MIT",
   "devDependencies": {
     "@types/vscode": "^1.85.0",
     "tsdown": "^0.20.3"
