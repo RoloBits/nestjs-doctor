@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import {
 	LEADERBOARD_ENTRIES,
@@ -101,6 +102,13 @@ const LeaderboardPage = () => {
 					className="inline-flex items-center gap-2 text-neutral-500 transition-colors hover:text-neutral-300"
 					href="/"
 				>
+					<Image
+						alt=""
+						className="rounded"
+						height={20}
+						src="/logo.png"
+						width={20}
+					/>
 					<span>nestjs-doctor</span>
 				</Link>
 			</div>
