@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.4.12
+
+### Patch Changes
+
+- f1a347d: Export granular scanning API (`prepareScan`, `scanFile`, `scanAllFiles`, `scanProject`, `updateFile`) for incremental LSP scanning support.
+
 ## 0.4.11
 
 ### Patch Changes
