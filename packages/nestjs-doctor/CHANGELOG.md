@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.4.14
+
+### Patch Changes
+
+- 9aa514a: Fix VS Code extension auto-publish by adding publish job to release workflow and workflow_dispatch fallback
+
 ## 0.4.13
 
 ### Patch Changes
