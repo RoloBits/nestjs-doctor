@@ -3,7 +3,15 @@ import { resolve } from "node:path";
 import { scan, scanMonorepo } from "../core/scanner.js";
 import { ValidationError } from "../types/errors.js";
 
+export type { ScanContext } from "../core/scanner.js";
 // biome-ignore lint/performance/noBarrelFile: this is the public API surface
+export {
+	prepareScan,
+	scanAllFiles,
+	scanFile,
+	scanProject,
+	updateFile,
+} from "../core/scanner.js";
 export { getRules } from "../rules/index.js";
 export type {
 	AnyRule,
