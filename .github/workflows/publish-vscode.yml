@@ -3,6 +3,7 @@ name: Publish VS Code Extension
 on:
   release:
     types: [published]
+  workflow_dispatch:
 
 permissions:
   contents: read
