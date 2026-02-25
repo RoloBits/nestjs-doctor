@@ -58,7 +58,7 @@ importers:
   packages/nestjs-doctor-lsp:
     dependencies:
       nestjs-doctor:
-        specifier: workspace:>=0.4.16
+        specifier: workspace:>=0.4.17
         version: link:../nestjs-doctor
       vscode-languageserver:
         specifier: ^9.0.0
