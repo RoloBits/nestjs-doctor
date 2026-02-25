@@ -7,6 +7,31 @@
   "engines": {
     "vscode": "^1.85.0"
   },
+  "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#18181b",
+    "theme": "dark"
+  },
+  "badges": [
+    {
+      "url": "https://img.shields.io/npm/v/nestjs-doctor?color=%2318181b",
+      "href": "https://www.npmjs.com/package/nestjs-doctor",
+      "description": "npm version"
+    },
+    {
+      "url": "https://img.shields.io/visual-studio-marketplace/i/rolobits.nestjs-doctor-vscode?color=%2318181b",
+      "href": "https://marketplace.visualstudio.com/items?itemName=rolobits.nestjs-doctor-vscode",
+      "description": "Marketplace installs"
+    }
+  ],
+  "keywords": [
+    "nestjs",
+    "nest",
+    "linter",
+    "diagnostics",
+    "static-analysis",
+    "code-quality"
+  ],
   "categories": [
     "Linters"
   ],

@@ -4,3 +4,4 @@ tsconfig.json
 tsdown.config.ts
 *.ts
 !dist/**
+!icon.png
