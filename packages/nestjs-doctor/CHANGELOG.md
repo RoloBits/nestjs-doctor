@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.4.13
+
+### Patch Changes
+
+- 69ba416: Add logo to HTML report brand bar, README, docs header, and leaderboard page
+
 ## 0.4.12
 
 ### Patch Changes
