@@ -54,3 +54,4 @@ jobs:
           registryUrl: https://marketplace.visualstudio.com
           packagePath: packages/nestjs-doctor-vscode
           dependencies: false
+          skipDuplicate: true
