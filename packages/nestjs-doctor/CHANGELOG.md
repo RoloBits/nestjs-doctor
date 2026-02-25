@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.4.11
+
+### Patch Changes
+
+- ba201ef: Add create-rule skill, enhance Lab with code viewer layout swap and improved scripting, and update docs.
+
 ## 0.4.10
 
 ### Patch Changes
