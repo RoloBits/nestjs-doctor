@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 const GITHUB_URL = "https://github.com/RoloBits/nestjs-doctor";
@@ -5,9 +6,16 @@ const GITHUB_URL = "https://github.com/RoloBits/nestjs-doctor";
 export const DocsHeader = () => (
 	<header className="flex items-center justify-between border-white/10 border-b px-4 py-3">
 		<Link
-			className="font-medium text-sm text-white hover:text-nest-red"
+			className="flex items-center gap-2 font-medium text-sm text-white hover:text-nest-red"
 			href="/"
 		>
+			<Image
+				alt=""
+				className="rounded"
+				height={20}
+				src="/logo.png"
+				width={20}
+			/>
 			nestjs-doctor
 		</Link>
 		<a

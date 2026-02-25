@@ -1,4 +1,8 @@
 <p align="center">
+  <img src="https://nestjs.doctor/logo.png" width="120" alt="nestjs-doctor logo" />
+</p>
+
+<p align="center">
   <h1 align="center">nestjs-doctor</h1>
 </p>
 

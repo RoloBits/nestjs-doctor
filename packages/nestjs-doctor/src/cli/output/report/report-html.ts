@@ -3,19 +3,7 @@ export function getReportHtml(): string {
 <!-- ── Header Row 1 ── -->
 <div id="header-row1">
   <div class="brand">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ea2845" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M4.8 2.3A.3.3 0 1 0 5 2H4.8"/>
-      <path d="M4 5V4.8a2 2 0 0 1 2-2h.2"/>
-      <path d="M14 2h.2a2 2 0 0 1 2 2v.2"/>
-      <path d="M18 5v-.2a2 2 0 0 0-2-2h-.2"/>
-      <path d="M4 14v.2a2 2 0 0 0 2 2h.2"/>
-      <path d="M14 16h.2a2 2 0 0 0 2-2v-.2"/>
-      <circle cx="11" cy="9" r="2"/>
-      <path d="M11 11v5"/>
-      <path d="M9 18h4"/>
-      <path d="M9 22h4"/>
-      <path d="M11 18v4"/>
-    </svg>
+    <img src="https://nestjs.doctor/logo.png" width="22" height="22" alt="nestjs-doctor logo" style="border-radius:4px">
     nestjs-doctor
   </div>
   <div class="meta" id="header-meta"></div>
