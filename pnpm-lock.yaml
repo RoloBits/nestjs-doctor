@@ -58,8 +58,8 @@ importers:
   packages/nestjs-doctor-lsp:
     dependencies:
       nestjs-doctor:
-        specifier: '>=0.4.0'
-        version: 0.4.11
+        specifier: '>=0.4.12'
+        version: 0.4.12
       vscode-languageserver:
         specifier: ^9.0.0
         version: 9.0.1
@@ -1859,8 +1859,8 @@ packages:
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
-  nestjs-doctor@0.4.11:
-    resolution: {integrity: sha512-wWADwh6ooVmb1y+uHOyTCaYDsc6PL3c6itihzcjfnWsmxVPKqWub1wPWjMiCUV4l6lQ4JQe7hqq7vCcbaKOezw==}
+  nestjs-doctor@0.4.12:
+    resolution: {integrity: sha512-AyMMuXgV8LNC8AOvdxpX2BfmqVjc9pWQl1GSuJr80245jIwSSYn7yVoLBfnlaUPLD5giP/ra+gLNi3GaqzKeiA==}
     hasBin: true
 
   next@16.1.6:
@@ -4274,7 +4274,7 @@ snapshots:
 
   nanoid@3.3.11: {}
 
-  nestjs-doctor@0.4.11:
+  nestjs-doctor@0.4.12:
     dependencies:
       citty: 0.1.6
       jiti: 2.6.1

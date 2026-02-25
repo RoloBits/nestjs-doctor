@@ -1,0 +1,63 @@
+{
+  "name": "nestjs-doctor-vscode",
+  "displayName": "NestJS Doctor",
+  "description": "Static analysis for NestJS — inline diagnostics and health score",
+  "version": "0.1.0",
+  "publisher": "rolobits",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Linters"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/node_modules/@nestjs/core",
+    "onLanguage:typescript"
+  ],
+  "main": "./dist/extension.cjs",
+  "contributes": {
+    "configuration": {
+      "title": "NestJS Doctor",
+      "properties": {
+        "nestjsDoctor.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable NestJS Doctor analysis"
+        },
+        "nestjsDoctor.scanOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Re-scan on file save"
+        },
+        "nestjsDoctor.scanOnOpen": {
+          "type": "boolean",
+          "default": true,
+          "description": "Scan when workspace opens"
+        },
+        "nestjsDoctor.debounceMs": {
+          "type": "number",
+          "default": 2000,
+          "description": "Debounce delay in ms before re-scanning after save"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "nestjs-doctor.scan",
+        "title": "NestJS Doctor: Scan Project"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "tsdown && cp ../nestjs-doctor-lsp/dist/server.cjs dist/server.cjs && cp ../nestjs-doctor-lsp/dist/scan-worker.cjs dist/scan-worker.cjs",
+    "dev": "pnpm --filter nestjs-doctor-lsp build && tsdown --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "tsdown": "^0.20.3"
+  }
+}
