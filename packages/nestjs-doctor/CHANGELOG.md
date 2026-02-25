@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.4.17
+
+### Patch Changes
+
+- fe8ec20: Add VS Code Marketplace publish workflow
+
 ## 0.4.16
 
 ### Patch Changes
