@@ -1,3 +1,5 @@
+import type { RuleScope } from "../rules/types.js";
+
 export type Severity = "error" | "warning" | "info";
 export type Category =
 	| "security"
@@ -18,6 +20,7 @@ export interface Diagnostic {
 	line: number;
 	message: string;
 	rule: string;
+	scope?: RuleScope;
 	severity: Severity;
 	sourceLines?: SourceLine[];
 }

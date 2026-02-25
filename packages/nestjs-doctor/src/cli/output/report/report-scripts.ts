@@ -21,6 +21,7 @@ const elapsedMs = ${data.elapsedMsJson};
 const ruleExamples = ${data.examplesJson};
 const fileSources = ${data.fileSourcesJson};
 const providers = ${data.providersJson};
+const isMonorepo = Object.keys(fileSources).length === 0;
 
 // ── Score helpers ──
 function getScoreColor(v) {
@@ -583,13 +584,13 @@ function loop() {
 loop();
 
 // ── Diagnosis Tab rendering ──
+const SEV_ORDER = { error: 0, warning: 1, info: 2 };
 const CAT_META = {
   security:     { label: "Security",     color: "var(--cat-security)" },
   correctness:  { label: "Correctness",  color: "var(--cat-correctness)" },
   architecture: { label: "Architecture", color: "var(--cat-architecture)" },
   performance:  { label: "Performance",  color: "var(--cat-performance)" },
 };
-const SEV_ORDER = { error: 0, warning: 1, info: 2 };
 const CAT_ORDER = ["security", "correctness", "architecture", "performance"];
 
 function renderDiagnosis() {
@@ -608,180 +609,584 @@ function renderDiagnosis() {
     return;
   }
 
-  // Group by category, sort by severity (track original index for source lines lookup)
-  const grouped = {};
-  for (const cat of CAT_ORDER) grouped[cat] = [];
+  // Group diagnostics by file path
+  const fileMap = {};
   for (let i = 0; i < diagnostics.length; i++) {
     const d = diagnostics[i];
-    if (grouped[d.category]) grouped[d.category].push({ d: d, origIdx: i });
+    const fp = d.filePath || "";
+    if (!fileMap[fp]) fileMap[fp] = [];
+    fileMap[fp].push({ d: d, origIdx: i });
   }
-  for (const cat of CAT_ORDER) {
-    grouped[cat].sort((a, b) => (SEV_ORDER[a.d.severity] || 0) - (SEV_ORDER[b.d.severity] || 0));
+  for (const fp in fileMap) {
+    fileMap[fp].sort(function(a, b) { return a.d.line - b.d.line; });
   }
 
-  // Build sidebar rule list
+  // Build tree from file paths
+  const diagSev = function(item) { return item.d.severity; };
+  const treeRoot = buildFileTree(fileMap, "diags");
+  compressTree(treeRoot);
+
+  function collectSevs(diagList) {
+    const sevs = {};
+    for (let i = 0; i < diagList.length; i++) sevs[diagList[i].d.severity] = true;
+    return Object.keys(sevs).join(",");
+  }
+
   const ruleListEl = document.getElementById("diagnosis-rule-list");
-  let sidebarHtml = "";
-  let itemIdx = 0;
-  for (const cat of CAT_ORDER) {
-    const items = grouped[cat];
-    if (items.length === 0) continue;
-    const m = CAT_META[cat];
-    sidebarHtml += '<div class="diagnosis-category" data-cat="' + cat + '">' +
-      '<div class="cat-header">' +
-      '<div class="cat-icon" style="background:' + m.color + '"></div>' +
-      '<span class="cat-name">' + m.label + '</span>' +
-      '<span class="cat-count">' + items.length + '</span>' +
-      '<span class="cat-chevron">&#9660;</span>' +
-      '</div><div class="cat-body">';
-    for (const entry of items) {
-      const d = entry.d;
-      const sevColor = d.severity === "error" ? "var(--sev-error)" : d.severity === "warning" ? "var(--sev-warning)" : "var(--sev-info)";
-      const shortFile = d.filePath.split("/").slice(-2).join("/");
-      sidebarHtml += '<div class="diagnosis-rule-item" data-idx="' + itemIdx + '" data-sev="' + d.severity + '">' +
-        '<div class="sev-dot" style="background:' + sevColor + '"></div>' +
-        '<div class="item-content">' +
-        '<div class="item-msg">' + escHtml(d.message) + '</div>' +
-        '<div class="item-file">' + escHtml(shortFile) + ':' + d.line + '</div>' +
-        '</div></div>';
-      itemIdx++;
-    }
-    sidebarHtml += '</div></div>';
-  }
-  ruleListEl.innerHTML = sidebarHtml;
+  ruleListEl.innerHTML = renderTreeHtml(treeRoot, {
+    itemsKey: "diags",
+    getSeverity: diagSev,
+    collectSevs: collectSevs,
+  });
 
-  // Flatten diagnostics in display order for index lookup
-  const orderedDiags = [];
-  for (const cat of CAT_ORDER) {
-    for (const entry of grouped[cat]) orderedDiags.push(entry);
-  }
+  // Expand state per diagnostic origIdx
+  const expandState = {};
+  const EXPAND_STEP = 20;
+  let activeFilePath = null;
+  let activeFileEl = null;
 
-  // Show diagnostic in code viewer
-  let activeItemEl = null;
-  function showDiagnostic(idx) {
-    const entry = orderedDiags[idx];
-    if (!entry) return;
-    const d = entry.d;
-    const sourceLines = sourceLinesData[entry.origIdx];
+  // Show all diagnostics for a file in the main panel
+  function showFile(filePath) {
+    const diags = fileMap[filePath];
+    if (!diags) return;
+
+    // Filter by active severity and scope
+    let filtered = diags.filter(function(entry) { return isDiagVisible(entry); });
 
     // Update active state in sidebar
-    if (activeItemEl) activeItemEl.classList.remove("active");
-    const items = ruleListEl.querySelectorAll(".diagnosis-rule-item");
-    for (const item of items) {
-      if (item.dataset.idx === String(idx)) {
-        item.classList.add("active");
-        activeItemEl = item;
+    if (activeFileEl) activeFileEl.classList.remove("active");
+    const fileEls = ruleListEl.querySelectorAll(".tree-file");
+    for (let i = 0; i < fileEls.length; i++) {
+      if (fileEls[i].dataset.path === filePath) {
+        fileEls[i].classList.add("active");
+        activeFileEl = fileEls[i];
         break;
       }
     }
+    activeFilePath = filePath;
 
     const emptyState = document.getElementById("diagnosis-empty-state");
-    const codeView = document.getElementById("diagnosis-code-view");
+    const fileView = document.getElementById("diagnosis-file-view");
     emptyState.style.display = "none";
-    codeView.style.display = "block";
+    fileView.style.display = "block";
 
-    // Header
-    const header = document.getElementById("diagnosis-code-header");
-    header.innerHTML =
-      '<div class="code-filepath">' + escHtml(d.filePath) + ':' + d.line + ':' + d.column + '</div>' +
-      '<span class="code-rule-badge">' + escHtml(d.rule) + '</span>' +
-      '<span class="code-sev-badge ' + d.severity + '">' + d.severity + '</span>' +
-      '<div class="code-message">' + escHtml(d.message) + '</div>';
+    // File header
+    const headerEl = document.getElementById("diagnosis-file-header");
+    headerEl.innerHTML = renderFileHeader(filePath, filtered, diagSev);
 
-    // Code body
-    const codeBody = document.getElementById("diagnosis-code-body");
-    if (sourceLines && sourceLines.length > 0) {
-      var codeText = sourceLines.map(function(sl) { return sl.text; }).join("\\n");
-      var firstLineNum = sourceLines[0].line;
-      var highlightOffset = d.line - firstLineNum + 1;
-      if (window.createCodeViewer) {
-        window.createCodeViewer("diagnosis-code-body", codeText, {
-          highlightLine: highlightOffset,
-          firstLineNumber: firstLineNum,
-        });
+    // ── Unified code viewer ──
+    const codeEl = document.getElementById("diagnosis-file-code");
+    codeEl.innerHTML = "";
+
+    const fullSource = fileSources[filePath];
+
+    // Sort filtered diagnostics by line number
+    const sorted = filtered.slice().sort(function(a, b) { return a.d.line - b.d.line; });
+
+    // Check if any diagnostic has source lines
+    let hasAnySource = false;
+    for (let si = 0; si < sorted.length; si++) {
+      const sl = sourceLinesData[sorted[si].origIdx];
+      if (sl && sl.length > 0) { hasAnySource = true; break; }
+    }
+
+    if (!hasAnySource && !fullSource) {
+      codeEl.innerHTML = isMonorepo
+        ? '<div class="no-source-msg">Source code viewer is not available in monorepo reports.<br><span style="opacity:0.7;font-size:0.92em">Run <code>npx nestjs-doctor &lt;package-path&gt; --report</code> on a single package for the full code viewer.</span></div>'
+        : '<div class="no-source-msg">Source code not available for project-scoped rules</div>';
+    } else if (fullSource) {
+      const allLines = fullSource.split("\\n");
+      const totalLines = allLines.length;
+
+      // Build segments from diagnostic source ranges
+      const segments = [];
+      for (let si = 0; si < sorted.length; si++) {
+        const entry = sorted[si];
+        const sl = sourceLinesData[entry.origIdx];
+        let segStart, segEnd;
+        if (sl && sl.length > 0) {
+          segStart = sl[0].line;
+          segEnd = sl[sl.length - 1].line;
+        } else {
+          segStart = Math.max(1, entry.d.line - 3);
+          segEnd = Math.min(totalLines, entry.d.line + 3);
+        }
+        // Apply expand state
+        if (!expandState[entry.origIdx]) expandState[entry.origIdx] = { above: 0, below: 0 };
+
+        // Merge with previous segment if overlapping or within 3 lines
+        if (segments.length > 0) {
+          const prev = segments[segments.length - 1];
+          if (segStart <= prev.end + 4) {
+            prev.end = Math.max(prev.end, segEnd);
+            prev.diagEntries.push({ line: entry.d.line, rule: entry.d.rule, message: entry.d.message, severity: entry.d.severity });
+            continue;
+          }
+        }
+        segments.push({ start: segStart, end: segEnd, diagEntries: [{ line: entry.d.line, rule: entry.d.rule, message: entry.d.message, severity: entry.d.severity }] });
       }
-      codeBody.style.display = "block";
-    } else {
-      codeBody.innerHTML = '<div class="no-source-msg">Source code not available for project-scoped rules</div>';
-      codeBody.style.display = "block";
-    }
 
-    // Help
-    const helpEl = document.getElementById("diagnosis-code-help");
-    if (d.help) {
-      helpEl.innerHTML = '<div class="help-label">Recommendation</div>' + escHtml(d.help);
-      helpEl.style.display = "block";
-    } else {
-      helpEl.style.display = "none";
-    }
-
-    // Code examples
-    const examplesEl = document.getElementById("diagnosis-code-examples");
-    const ex = ruleExamples[d.rule];
-    if (ex) {
-      examplesEl.innerHTML =
-        '<div class="examples-label">Examples</div>' +
-        '<div class="examples-group">' +
-          '<div class="example-block bad"><div class="example-tag bad">Bad</div><div class="example-code"></div></div>' +
-          '<div class="example-block good"><div class="example-tag good">Good</div><div class="example-code"></div></div>' +
-        '</div>';
-      if (window.createCodeViewer) {
-        window.createCodeViewer(examplesEl.querySelector(".example-block.bad .example-code"), ex.bad, { lineNumbers: false });
-        window.createCodeViewer(examplesEl.querySelector(".example-block.good .example-code"), ex.good, { lineNumbers: false });
+      // Apply global expand state for first/last segment
+      if (segments.length > 0) {
+        // Use global expand state keyed by filePath
+        if (!expandState["__file_" + filePath]) expandState["__file_" + filePath] = { above: 0, below: 0 };
+        const fileExpand = expandState["__file_" + filePath];
+        segments[0].start = Math.max(1, segments[0].start - fileExpand.above);
+        segments[segments.length - 1].end = Math.min(totalLines, segments[segments.length - 1].end + fileExpand.below);
       }
-      examplesEl.style.display = "block";
+
+      // Render expand-above row
+      if (segments.length > 0 && segments[0].start > 1) {
+        const aboveCount = segments[0].start - 1;
+        const aboveRow = document.createElement("div");
+        aboveRow.className = "code-expand-row";
+        aboveRow.innerHTML = SVG_UP + " Expand " + Math.min(EXPAND_STEP, aboveCount) + " lines";
+        (function(fp) {
+          aboveRow.addEventListener("click", function() {
+            const mEl = document.getElementById("diagnosis-main");
+            const scrollBefore = mEl.scrollTop;
+            expandState["__file_" + fp].above += EXPAND_STEP;
+            showFile(fp);
+            mEl.scrollTop = scrollBefore;
+          });
+        })(filePath);
+        codeEl.appendChild(aboveRow);
+      }
+
+      // Render each segment with separators between them
+      for (let sg = 0; sg < segments.length; sg++) {
+        if (sg > 0) {
+          const gapStart = segments[sg - 1].end;
+          const gapEnd = segments[sg].start;
+          const hiddenCount = gapEnd - gapStart - 1;
+          if (hiddenCount > 0) {
+            const sepRow = document.createElement("div");
+            sepRow.className = "code-separator-row";
+            sepRow.textContent = "\\u22EF " + hiddenCount + " line" + (hiddenCount !== 1 ? "s" : "") + " hidden";
+            codeEl.appendChild(sepRow);
+          }
+        }
+
+        const seg = segments[sg];
+        const snippetLines = allLines.slice(seg.start - 1, seg.end);
+        const codeText = snippetLines.join("\\n");
+        const firstLineNum = seg.start;
+
+        // Compute highlight lines and line metadata relative to this segment
+        const hlLines = [];
+        const lineMetadata = {};
+        for (let hi = 0; hi < seg.diagEntries.length; hi++) {
+          const de = seg.diagEntries[hi];
+          const relLine = de.line - firstLineNum + 1;
+          if (relLine >= 1 && relLine <= snippetLines.length) {
+            hlLines.push(relLine);
+            if (!lineMetadata[relLine]) lineMetadata[relLine] = [];
+            lineMetadata[relLine].push({ rule: de.rule, message: de.message, severity: de.severity });
+          }
+        }
+
+        const wrapDiv = document.createElement("div");
+        codeEl.appendChild(wrapDiv);
+        if (window.createCodeViewer) {
+          window.createCodeViewer(wrapDiv, codeText, {
+            highlightLines: hlLines,
+            lineMetadata: lineMetadata,
+            firstLineNumber: firstLineNum,
+            skipScrollIntoView: sg > 0,
+          });
+        }
+      }
+
+      // Render expand-below row
+      if (segments.length > 0 && segments[segments.length - 1].end < totalLines) {
+        const belowCount = totalLines - segments[segments.length - 1].end;
+        const belowRow = document.createElement("div");
+        belowRow.className = "code-expand-row";
+        belowRow.innerHTML = SVG_DOWN + " Expand " + Math.min(EXPAND_STEP, belowCount) + " lines";
+        (function(fp) {
+          belowRow.addEventListener("click", function() {
+            const mEl = document.getElementById("diagnosis-main");
+            const scrollBefore = mEl.scrollTop;
+            expandState["__file_" + fp].below += EXPAND_STEP;
+            showFile(fp);
+            mEl.scrollTop = scrollBefore;
+          });
+        })(filePath);
+        codeEl.appendChild(belowRow);
+      }
     } else {
-      examplesEl.style.display = "none";
+      // No fullSource but has sourceLines — render from snippet data
+      const sl = sourceLinesData[sorted[0].origIdx];
+      if (sl && sl.length > 0) {
+        const codeText = sl.map(function(s) { return s.text; }).join("\\n");
+        const firstLineNum = sl[0].line;
+        const hlLines = [];
+        const lineMetadata = {};
+        for (let hi = 0; hi < sorted.length; hi++) {
+          const de = sorted[hi].d;
+          const relLine = de.line - firstLineNum + 1;
+          if (relLine >= 1) {
+            hlLines.push(relLine);
+            if (!lineMetadata[relLine]) lineMetadata[relLine] = [];
+            lineMetadata[relLine].push({ rule: de.rule, message: de.message, severity: de.severity });
+          }
+        }
+        const wrapDiv = document.createElement("div");
+        codeEl.appendChild(wrapDiv);
+        if (window.createCodeViewer) {
+          window.createCodeViewer(wrapDiv, codeText, {
+            highlightLines: hlLines,
+            lineMetadata: lineMetadata,
+            firstLineNumber: firstLineNum,
+          });
+        }
+      }
     }
+
+    // ── Stacked diagnostic info items below code ──
+    const infoEl = document.getElementById("diagnosis-file-info");
+    infoEl.innerHTML = "";
+
+    // Group diagnostics by rule (preserving order of first occurrence)
+    const ruleGroups = [];
+    const ruleGroupMap = {};
+    for (let j = 0; j < sorted.length; j++) {
+      const entry = sorted[j];
+      const rule = entry.d.rule;
+      if (!ruleGroupMap[rule]) {
+        ruleGroupMap[rule] = { rule: rule, entries: [] };
+        ruleGroups.push(ruleGroupMap[rule]);
+      }
+      ruleGroupMap[rule].entries.push(entry);
+    }
+
+    for (let g = 0; g < ruleGroups.length; g++) {
+      const group = ruleGroups[g];
+      const item = document.createElement("div");
+      item.className = "diag-info-item";
+
+      // Render each diagnostic's header + message
+      let innerHtml = "";
+      let helpText = null;
+      for (let k = 0; k < group.entries.length; k++) {
+        const d = group.entries[k].d;
+        const sevColor = d.severity === "error" ? "var(--sev-error)"
+          : d.severity === "warning" ? "var(--sev-warning)" : "var(--sev-info)";
+        innerHtml +=
+          '<div class="diag-info-header">' +
+            '<div class="sev-dot" style="background:' + sevColor + '"></div>' +
+            '<span class="code-sev-badge ' + d.severity + '">' + d.severity + '</span>' +
+            '<span class="code-rule-badge">' + escHtml(d.rule) + '</span>' +
+            '<span class="diag-linecol">Ln ' + d.line + ', Col ' + d.column + '</span>' +
+          '</div>' +
+          '<div class="diag-info-msg">' + escHtml(d.message) + '</div>';
+        if (!helpText && d.help) helpText = d.help;
+      }
+      item.innerHTML = innerHtml;
+
+      // Help text — once per group
+      if (helpText) {
+        const helpDiv = document.createElement("div");
+        helpDiv.className = "diag-info-help";
+        helpDiv.innerHTML = '<div class="section-label">Recommendation</div>' + escHtml(helpText);
+        item.appendChild(helpDiv);
+      }
+
+      // Examples — once per group
+      const ex = ruleExamples[group.rule];
+      if (ex) {
+        const exDiv = document.createElement("div");
+        exDiv.className = "diag-info-examples";
+        exDiv.innerHTML =
+          '<div class="section-label">Examples</div>' +
+          '<div class="examples-group">' +
+            '<div class="example-block bad"><div class="example-tag bad">Bad</div><div class="example-code"></div></div>' +
+            '<div class="example-block good"><div class="example-tag good">Good</div><div class="example-code"></div></div>' +
+          '</div>';
+        if (window.createCodeViewer) {
+          window.createCodeViewer(exDiv.querySelector(".example-block.bad .example-code"), ex.bad, { lineNumbers: false });
+          window.createCodeViewer(exDiv.querySelector(".example-block.good .example-code"), ex.good, { lineNumbers: false });
+        }
+        item.appendChild(exDiv);
+      }
+
+      infoEl.appendChild(item);
+    }
+
+    // Scroll main panel to top
+    mainEl.scrollTop = 0;
   }
 
-  // Click handler for sidebar items
-  ruleListEl.addEventListener("click", (e) => {
-    const item = e.target.closest(".diagnosis-rule-item");
-    if (item) showDiagnostic(Number(item.dataset.idx));
+  // Delegated click handler for tree headers
+  ruleListEl.addEventListener("click", function(e) {
+    const folderH = e.target.closest(".tree-folder-header");
+    if (folderH) { folderH.parentElement.classList.toggle("collapsed"); return; }
+    const fileH = e.target.closest(".tree-file-header");
+    if (fileH) {
+      const fileEl = fileH.parentElement;
+      const path = fileEl.dataset.path;
+      if (path) showFile(path);
+    }
+  });
+
+  // Collapse-all toggle
+  const collapseAllBtn = sidebarEl.querySelector(".collapse-all-btn");
+  collapseAllBtn.addEventListener("click", function() {
+    const folders = ruleListEl.querySelectorAll(".tree-folder");
+    let someExpanded = false;
+    for (let i = 0; i < folders.length; i++) {
+      if (!folders[i].classList.contains("collapsed")) { someExpanded = true; break; }
+    }
+    for (let i = 0; i < folders.length; i++) {
+      if (someExpanded) folders[i].classList.add("collapsed");
+      else folders[i].classList.remove("collapsed");
+    }
+    collapseAllBtn.classList.toggle("all-collapsed", someExpanded);
   });
 
   // Severity filter
   let activeSev = "all";
   const pills = sidebarEl.querySelectorAll(".sev-pill");
-  for (const pill of pills) {
-    pill.addEventListener("click", () => {
-      activeSev = pill.dataset.sev;
-      for (const p of pills) p.classList.toggle("active", p === pill);
-      // Filter items
-      const items = ruleListEl.querySelectorAll(".diagnosis-rule-item");
-      for (const item of items) {
-        item.classList.toggle("hidden", activeSev !== "all" && item.dataset.sev !== activeSev);
-      }
-      // Update category counts and hide empty categories
-      const cats = ruleListEl.querySelectorAll(".diagnosis-category");
-      for (const catEl of cats) {
-        const visible = catEl.querySelectorAll(".diagnosis-rule-item:not(.hidden)");
-        catEl.classList.toggle("hidden", visible.length === 0);
-        const countEl = catEl.querySelector(".cat-count");
-        if (countEl) countEl.textContent = visible.length;
-      }
-      // Clear main panel if active item is filtered out
-      if (activeItemEl && activeItemEl.classList.contains("hidden")) {
-        activeItemEl.classList.remove("active");
-        activeItemEl = null;
-        document.getElementById("diagnosis-empty-state").style.display = "flex";
-        document.getElementById("diagnosis-code-view").style.display = "none";
-      }
-    });
+
+  // Scope filter
+  let activeScope = "all";
+  const scopePills = sidebarEl.querySelectorAll(".scope-pill");
+
+  function isDiagVisible(entry) {
+    if (activeSev !== "all" && entry.d.severity !== activeSev) return false;
+    if (activeScope !== "all" && entry.d.scope !== activeScope) return false;
+    return true;
   }
 
-  // Collapsible categories
-  const catHeaders = ruleListEl.querySelectorAll(".cat-header");
-  for (const ch of catHeaders) {
-    ch.addEventListener("click", () => {
-      ch.parentElement.classList.toggle("collapsed");
+  function countFileVisibleDiags(filePath) {
+    const diags = fileMap[filePath];
+    if (!diags) return 0;
+    let count = 0;
+    for (let i = 0; i < diags.length; i++) {
+      if (isDiagVisible(diags[i])) count++;
+    }
+    return count;
+  }
+
+  function updateTreeVisibility() {
+    // 1. File nodes — hide if 0 matching diags, update count + severity icon
+    const fileNodes = ruleListEl.querySelectorAll(".tree-file");
+    for (let f = 0; f < fileNodes.length; f++) {
+      const fPath = fileNodes[f].dataset.path;
+      const visCount = countFileVisibleDiags(fPath);
+      fileNodes[f].classList.toggle("hidden", visCount === 0);
+      const fc = fileNodes[f].querySelector(".tree-count");
+      if (fc) fc.textContent = visCount;
+      // Update severity indicator
+      const fIcon = fileNodes[f].querySelector(".tree-file-icon");
+      if (fIcon) {
+        fIcon.classList.remove("sev-indicator-error", "sev-indicator-warning", "sev-indicator-info");
+        if (visCount > 0) {
+          const fDiags = fileMap[fPath];
+          let fWorst = "info";
+          for (let vi = 0; vi < fDiags.length; vi++) {
+            if (!isDiagVisible(fDiags[vi])) continue;
+            const vs = fDiags[vi].d.severity;
+            if (vs === "error") { fWorst = "error"; break; }
+            if (vs === "warning") fWorst = "warning";
+          }
+          fIcon.classList.add("sev-indicator-" + fWorst);
+        }
+      }
+    }
+    // 2. Folder nodes — process in reverse DOM order (deepest first)
+    const folderNodes = ruleListEl.querySelectorAll(".tree-folder");
+    for (let g = folderNodes.length - 1; g >= 0; g--) {
+      const folder = folderNodes[g];
+      const body = folder.querySelector(".tree-folder-body");
+      const visChildren = body.querySelectorAll(":scope > .tree-file:not(.hidden), :scope > .tree-folder:not(.hidden)");
+      folder.classList.toggle("hidden", visChildren.length === 0);
+      // Count visible diags in all descendant files
+      const descendantFiles = folder.querySelectorAll(".tree-file:not(.hidden)");
+      let totalCount = 0;
+      for (let df = 0; df < descendantFiles.length; df++) {
+        totalCount += countFileVisibleDiags(descendantFiles[df].dataset.path);
+      }
+      const gc = folder.querySelector(":scope > .tree-folder-header .tree-count");
+      if (gc) gc.textContent = totalCount;
+      // Update severity indicator
+      const gIcon = folder.querySelector(":scope > .tree-folder-header .tree-folder-icon");
+      if (gIcon) {
+        gIcon.classList.remove("sev-indicator-error", "sev-indicator-warning", "sev-indicator-info");
+        if (totalCount > 0) {
+          let gWorst = "info";
+          for (let di = 0; di < descendantFiles.length; di++) {
+            const dDiags = fileMap[descendantFiles[di].dataset.path];
+            if (!dDiags) continue;
+            for (let ai = 0; ai < dDiags.length; ai++) {
+              if (!isDiagVisible(dDiags[ai])) continue;
+              const as = dDiags[ai].d.severity;
+              if (as === "error") { gWorst = "error"; break; }
+              if (as === "warning") gWorst = "warning";
+            }
+            if (gWorst === "error") break;
+          }
+          gIcon.classList.add("sev-indicator-" + gWorst);
+        }
+      }
+    }
+    // 3. If current file is hidden, clear main panel
+    if (activeFileEl && activeFileEl.classList.contains("hidden")) {
+      activeFileEl.classList.remove("active");
+      activeFileEl = null;
+      activeFilePath = null;
+      document.getElementById("diagnosis-empty-state").style.display = "flex";
+      document.getElementById("diagnosis-file-view").style.display = "none";
+    } else if (activeFilePath) {
+      // Re-render main panel with filtered diagnostics
+      showFile(activeFilePath);
+    }
+  }
+  for (let pi = 0; pi < pills.length; pi++) {
+    pills[pi].addEventListener("click", function() {
+      activeSev = this.dataset.sev;
+      for (let pp = 0; pp < pills.length; pp++) pills[pp].classList.toggle("active", pills[pp] === this);
+      updateTreeVisibility();
+    });
+  }
+  for (let si = 0; si < scopePills.length; si++) {
+    scopePills[si].addEventListener("click", function() {
+      activeScope = this.dataset.scope;
+      for (let sp = 0; sp < scopePills.length; sp++) scopePills[sp].classList.toggle("active", scopePills[sp] === this);
+      updateTreeVisibility();
     });
   }
 }
 
 function escHtml(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// ── Shared SVG icons ──
+const SVG_FOLDER = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>';
+const SVG_FILE = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
+const SVG_UP = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 8l1.5 1.5L8 3l6.5 6.5L16 8 8 0z"/></svg>';
+const SVG_DOWN = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 8l1.5-1.5L8 13l6.5-6.5L16 8 8 16z"/></svg>';
+
+// ── Shared tree helpers ──
+function buildFileTree(fileMap, itemsKey) {
+  const root = { name: "", children: {}, files: {} };
+  for (const fp in fileMap) {
+    if (fp === "") continue;
+    const parts = fp.split("/");
+    const fName = parts.pop();
+    let node = root;
+    for (let p = 0; p < parts.length; p++) {
+      if (!node.children[parts[p]]) node.children[parts[p]] = { name: parts[p], children: {}, files: {} };
+      node = node.children[parts[p]];
+    }
+    const fileNode = { name: fName, fullPath: fp };
+    fileNode[itemsKey] = fileMap[fp];
+    node.files[fName] = fileNode;
+  }
+  return root;
+}
+
+function compressTree(root) {
+  function compress(n) {
+    for (const k in n.children) compress(n.children[k]);
+    const cKeys = Object.keys(n.children);
+    const fKeys = Object.keys(n.files);
+    if (cKeys.length === 1 && fKeys.length === 0) {
+      const child = n.children[cKeys[0]];
+      n.name = n.name ? n.name + "/" + child.name : child.name;
+      n.children = child.children;
+      n.files = child.files;
+    }
+  }
+  for (const rk in root.children) compress(root.children[rk]);
+}
+
+function worstSev(itemList, getSeverity) {
+  let worst = "info";
+  for (let i = 0; i < itemList.length; i++) {
+    const s = getSeverity(itemList[i]);
+    if (s === "error") return "error";
+    if (s === "warning") worst = "warning";
+  }
+  return worst;
+}
+
+function worstSevNode(n, itemsKey, getSeverity) {
+  let worst = "info";
+  for (const k in n.children) {
+    const cs = worstSevNode(n.children[k], itemsKey, getSeverity);
+    if (cs === "error") return "error";
+    if (cs === "warning") worst = "warning";
+  }
+  for (const f in n.files) {
+    const fs = worstSev(n.files[f][itemsKey], getSeverity);
+    if (fs === "error") return "error";
+    if (fs === "warning") worst = "warning";
+  }
+  return worst;
+}
+
+function countItems(n, itemsKey) {
+  let total = 0;
+  for (const k in n.children) total += countItems(n.children[k], itemsKey);
+  for (const f in n.files) total += n.files[f][itemsKey].length;
+  return total;
+}
+
+function renderTreeHtml(root, config) {
+  let html = "";
+  function renderNode(n, depth) {
+    const dirs = Object.keys(n.children).sort();
+    const files = Object.keys(n.files).sort();
+    const pad = (depth * 12) + "px";
+
+    for (let i = 0; i < dirs.length; i++) {
+      const child = n.children[dirs[i]];
+      const folderSev = worstSevNode(child, config.itemsKey, config.getSeverity);
+      const folderCount = countItems(child, config.itemsKey);
+      html += '<div class="tree-folder">' +
+        '<div class="tree-folder-header" style="padding-left:calc(14px + ' + pad + ')">' +
+        '<span class="tree-chevron">&#9660;</span>' +
+        '<span class="tree-folder-icon sev-indicator-' + folderSev + '">' + SVG_FOLDER + '</span>' +
+        '<span class="tree-folder-name">' + escHtml(child.name) + '</span>' +
+        '<span class="tree-count">' + folderCount + '</span>' +
+        '</div><div class="tree-folder-body">';
+      renderNode(child, depth + 1);
+      html += '</div></div>';
+    }
+
+    for (let j = 0; j < files.length; j++) {
+      const fileNode = n.files[files[j]];
+      const fileSev = worstSev(fileNode[config.itemsKey], config.getSeverity);
+      const fileCount = fileNode[config.itemsKey].length;
+      let extraAttrs = "";
+      if (config.collectSevs) extraAttrs = ' data-sevs="' + config.collectSevs(fileNode[config.itemsKey]) + '"';
+      html += '<div class="tree-file" data-path="' + escHtml(fileNode.fullPath) + '"' + extraAttrs + '>' +
+        '<div class="tree-file-header" style="padding-left:calc(14px + ' + pad + ')">' +
+        '<span class="tree-file-icon sev-indicator-' + fileSev + '">' + SVG_FILE + '</span>' +
+        '<span class="tree-file-name">' + escHtml(fileNode.name) + '</span>' +
+        '<span class="tree-count">' + fileCount + '</span>' +
+        '</div></div>';
+    }
+  }
+  renderNode(root, 0);
+  return html;
+}
+
+function renderFileHeader(filePath, items, getSeverity) {
+  const pathParts = filePath.split("/");
+  const fileName = pathParts.pop();
+  const parentDir = pathParts.join("/");
+  const sevCounts = { error: 0, warning: 0, info: 0 };
+  for (let c = 0; c < items.length; c++) sevCounts[getSeverity(items[c])]++;
+  let countsHtml = "";
+  if (sevCounts.error > 0) countsHtml += '<span><span class="fv-count-dot" style="background:var(--sev-error)"></span>' + sevCounts.error + ' error' + (sevCounts.error !== 1 ? 's' : '') + '</span>';
+  if (sevCounts.warning > 0) countsHtml += '<span><span class="fv-count-dot" style="background:var(--sev-warning)"></span>' + sevCounts.warning + ' warning' + (sevCounts.warning !== 1 ? 's' : '') + '</span>';
+  if (sevCounts.info > 0) countsHtml += '<span><span class="fv-count-dot" style="background:var(--sev-info)"></span>' + sevCounts.info + ' info</span>';
+  return '<div class="file-view-title">' + escHtml(fileName) + '</div>' +
+    (parentDir ? '<div class="file-view-dir">' + escHtml(parentDir) + '/</div>' : '') +
+    '<div class="file-view-counts">' + countsHtml + '</div>';
 }
 
 // ── Summary Tab rendering ──
@@ -849,7 +1254,7 @@ function renderSummary() {
 
 // ── Lab Tab rendering ──
 function renderLab() {
-  var PLAYGROUND_PRESETS = {
+  const PLAYGROUND_PRESETS = {
     "todo": {
       ruleId: "no-todo-comments",
       category: "correctness",
@@ -892,9 +1297,9 @@ function renderLab() {
     },
   };
 
-  var presetSelect = document.getElementById("pg-preset");
+  const presetSelect = document.getElementById("pg-preset");
   function loadPreset(key) {
-    var p = PLAYGROUND_PRESETS[key];
+    const p = PLAYGROUND_PRESETS[key];
     if (!p) return;
     document.getElementById("pg-rule-id").value = p.ruleId;
     document.getElementById("pg-category").value = p.category;
@@ -911,8 +1316,8 @@ function renderLab() {
   presetSelect.addEventListener("change", function() { loadPreset(this.value); });
 
   function updateContextHint() {
-    var hint = document.getElementById("pg-context-hint");
-    var scope = document.getElementById("pg-scope").value;
+    const hint = document.getElementById("pg-context-hint");
+    const scope = document.getElementById("pg-scope").value;
     if (scope === "project") {
       hint.textContent = "context.files · context.fileSources · context.modules · context.edges · context.circularDeps · context.providers · context.report({ message, filePath, line })";
     } else {
@@ -926,29 +1331,29 @@ function renderLab() {
   });
 
   function filterPresetsByScope() {
-    var scope = document.getElementById("pg-scope").value;
-    var options = presetSelect.querySelectorAll("option");
-    for (var i = 0; i < options.length; i++) {
-      var opt = options[i];
-      var preset = PLAYGROUND_PRESETS[opt.value];
+    const scope = document.getElementById("pg-scope").value;
+    const options = presetSelect.querySelectorAll("option");
+    for (let i = 0; i < options.length; i++) {
+      const opt = options[i];
+      const preset = PLAYGROUND_PRESETS[opt.value];
       if (preset) {
         opt.style.display = preset.scope === scope ? "" : "none";
       }
     }
-    var optgroups = presetSelect.querySelectorAll("optgroup");
-    for (var i = 0; i < optgroups.length; i++) {
-      var group = optgroups[i];
-      var visibleChildren = group.querySelectorAll("option");
-      var hasVisible = false;
-      for (var j = 0; j < visibleChildren.length; j++) {
+    const optgroups = presetSelect.querySelectorAll("optgroup");
+    for (let i = 0; i < optgroups.length; i++) {
+      const group = optgroups[i];
+      const visibleChildren = group.querySelectorAll("option");
+      let hasVisible = false;
+      for (let j = 0; j < visibleChildren.length; j++) {
         if (visibleChildren[j].style.display !== "none") { hasVisible = true; break; }
       }
       group.style.display = hasVisible ? "" : "none";
     }
-    var currentPreset = PLAYGROUND_PRESETS[presetSelect.value];
+    const currentPreset = PLAYGROUND_PRESETS[presetSelect.value];
     if (currentPreset && currentPreset.scope !== scope) {
-      for (var i = 0; i < options.length; i++) {
-        var preset = PLAYGROUND_PRESETS[options[i].value];
+      for (let i = 0; i < options.length; i++) {
+        const preset = PLAYGROUND_PRESETS[options[i].value];
         if (preset && preset.scope === scope) {
           presetSelect.value = options[i].value;
           loadPreset(options[i].value);
@@ -965,40 +1370,180 @@ function renderLab() {
   const resultList = document.getElementById("pg-result-list");
   const resultCount = document.getElementById("pg-result-count");
   const resultEmpty = document.getElementById("pg-result-empty");
-  const codeViewer = document.getElementById("pg-code-viewer");
-  const codeHeader = document.getElementById("pg-code-header");
-  const codeBody = document.getElementById("pg-code-body");
+  const pgFileView = document.getElementById("pg-file-view");
+  const pgFileHeader = document.getElementById("pg-file-header");
+  const pgFileCode = document.getElementById("pg-file-code");
 
   let activeResultEl = null;
+  let pgExpandState = {};
+  const PG_EXPAND_STEP = 20;
+  let currentPgFileMap = {};
+  let activePgFilePath = null;
 
-  function showResultSource(filePath, line) {
-    const source = fileSources[filePath];
-    if (!source) {
-      codeViewer.style.display = "none";
+  // Delegated click handler — registered once, outside runBtn
+  resultList.addEventListener("click", function(e) {
+    const folderH = e.target.closest(".tree-folder-header");
+    if (folderH) { folderH.parentElement.classList.toggle("collapsed"); return; }
+    const fileH = e.target.closest(".tree-file-header");
+    if (fileH) {
+      const fileEl = fileH.parentElement;
+      const path = fileEl.dataset.path;
+      if (path) showPgFile(path);
       return;
     }
-    const allLines = source.split("\\n");
-    const start = Math.max(0, line - 6);
-    const end = Math.min(allLines.length, line + 5);
-    var snippet = allLines.slice(start, end).join("\\n");
-    var firstLineNum = start + 1;
-    var highlightOffset = line - firstLineNum + 1;
-    const shortFile = filePath.split("/").slice(-2).join("/");
-    codeHeader.textContent = shortFile + ":" + line;
-    if (window.createCodeViewer) {
-      window.createCodeViewer("pg-code-body", snippet, {
-        highlightLine: highlightOffset,
-        firstLineNumber: firstLineNum,
-      });
+    const standalone = e.target.closest(".pg-standalone-item");
+    if (standalone) {
+      const idx = Number(standalone.dataset.idx);
+      const items = currentPgFileMap[""] || [];
+      const entry = items[idx];
+      if (!entry) return;
+      if (activeResultEl) activeResultEl.classList.remove("active");
+      standalone.classList.add("active");
+      activeResultEl = standalone;
+      pgFileView.style.display = "none";
+      return;
     }
-    codeViewer.style.display = "block";
+  });
+
+
+  function showPgFile(filePath) {
+    const findings = currentPgFileMap[filePath];
+    if (!findings) return;
+
+    // Update active state in tree
+    if (activeResultEl) activeResultEl.classList.remove("active");
+    const fileEls = resultList.querySelectorAll(".tree-file");
+    for (let i = 0; i < fileEls.length; i++) {
+      if (fileEls[i].dataset.path === filePath) {
+        fileEls[i].classList.add("active");
+        activeResultEl = fileEls[i];
+        break;
+      }
+    }
+    activePgFilePath = filePath;
+
+    // File header
+    const labSev = function(item) { return item.res.severity; };
+    pgFileHeader.innerHTML = renderFileHeader(filePath, findings, labSev);
+
+    // Unified code viewer
+    pgFileCode.innerHTML = "";
+    const fullSource = fileSources[filePath];
+    if (!fullSource) {
+      pgFileCode.innerHTML = isMonorepo
+        ? '<div class="no-source-msg">Source code viewer is not available in monorepo reports.<br><span style="opacity:0.7;font-size:0.92em">Run <code>npx nestjs-doctor &lt;package-path&gt; --report</code> on a single package for the full code viewer.</span></div>'
+        : '<div class="no-source-msg">Source code not available</div>';
+    } else {
+      // Sort findings by line
+      const sorted = findings.slice().sort(function(a, b) { return a.res.line - b.res.line; });
+      const allLines = fullSource.split("\\n");
+      const totalLines = allLines.length;
+
+      // Build segments (merge nearby findings within 4 lines)
+      const segments = [];
+      for (let si = 0; si < sorted.length; si++) {
+        const entry = sorted[si];
+        const segStart = Math.max(1, entry.res.line - 3);
+        const segEnd = Math.min(totalLines, entry.res.line + 3);
+        if (segments.length > 0) {
+          const prev = segments[segments.length - 1];
+          if (segStart <= prev.end + 4) {
+            prev.end = Math.max(prev.end, segEnd);
+            prev.entries.push(entry);
+            continue;
+          }
+        }
+        segments.push({ start: segStart, end: segEnd, entries: [entry] });
+      }
+
+      // Apply expand state
+      if (!pgExpandState[filePath]) pgExpandState[filePath] = { above: 0, below: 0 };
+      const fileExp = pgExpandState[filePath];
+      if (segments.length > 0) {
+        segments[0].start = Math.max(1, segments[0].start - fileExp.above);
+        segments[segments.length - 1].end = Math.min(totalLines, segments[segments.length - 1].end + fileExp.below);
+      }
+
+      // Expand above
+      if (segments.length > 0 && segments[0].start > 1) {
+        const aboveCount = segments[0].start - 1;
+        const aboveRow = document.createElement("div");
+        aboveRow.className = "code-expand-row";
+        aboveRow.innerHTML = SVG_UP + " Expand " + Math.min(PG_EXPAND_STEP, aboveCount) + " lines";
+        (function(fp) {
+          aboveRow.addEventListener("click", function() {
+            pgExpandState[fp].above += PG_EXPAND_STEP;
+            showPgFile(fp);
+          });
+        })(filePath);
+        pgFileCode.appendChild(aboveRow);
+      }
+
+      // Render segments with separators
+      for (let sg = 0; sg < segments.length; sg++) {
+        if (sg > 0) {
+          const gapStart = segments[sg - 1].end;
+          const gapEnd = segments[sg].start;
+          const hiddenCount = gapEnd - gapStart - 1;
+          if (hiddenCount > 0) {
+            const sepRow = document.createElement("div");
+            sepRow.className = "code-separator-row";
+            sepRow.textContent = "\\u22EF " + hiddenCount + " line" + (hiddenCount !== 1 ? "s" : "") + " hidden";
+            pgFileCode.appendChild(sepRow);
+          }
+        }
+        const seg = segments[sg];
+        const snippetLines = allLines.slice(seg.start - 1, seg.end);
+        const codeText = snippetLines.join("\\n");
+        const firstLineNum = seg.start;
+        const hlLines = [];
+        const lineMetadata = {};
+        for (let hi = 0; hi < seg.entries.length; hi++) {
+          const e = seg.entries[hi];
+          const relLine = e.res.line - firstLineNum + 1;
+          if (relLine >= 1 && relLine <= snippetLines.length) {
+            hlLines.push(relLine);
+            if (!lineMetadata[relLine]) lineMetadata[relLine] = [];
+            lineMetadata[relLine].push({ rule: e.res.ruleId, message: e.res.message, severity: e.res.severity });
+          }
+        }
+        const wrapDiv = document.createElement("div");
+        pgFileCode.appendChild(wrapDiv);
+        if (window.createCodeViewer) {
+          window.createCodeViewer(wrapDiv, codeText, {
+            highlightLines: hlLines,
+            lineMetadata: lineMetadata,
+            firstLineNumber: firstLineNum,
+            skipScrollIntoView: sg > 0,
+          });
+        }
+      }
+
+      // Expand below
+      if (segments.length > 0 && segments[segments.length - 1].end < totalLines) {
+        const belowCount = totalLines - segments[segments.length - 1].end;
+        const belowRow = document.createElement("div");
+        belowRow.className = "code-expand-row";
+        belowRow.innerHTML = SVG_DOWN + " Expand " + Math.min(PG_EXPAND_STEP, belowCount) + " lines";
+        (function(fp) {
+          belowRow.addEventListener("click", function() {
+            pgExpandState[fp].below += PG_EXPAND_STEP;
+            showPgFile(fp);
+          });
+        })(filePath);
+        pgFileCode.appendChild(belowRow);
+      }
+    }
+
+    pgFileView.style.display = "block";
   }
 
   runBtn.addEventListener("click", function() {
     errorEl.style.display = "none";
     resultList.innerHTML = "";
-    codeViewer.style.display = "none";
+    pgFileView.style.display = "none";
     activeResultEl = null;
+    pgExpandState = {};
 
     if (!window.cmEditor) {
       errorEl.textContent = "Editor not loaded — check your internet connection.";
@@ -1013,7 +1558,7 @@ function renderLab() {
     const severity = document.getElementById("pg-severity").value;
     const scope = document.getElementById("pg-scope").value;
 
-    var checkFn;
+    let checkFn;
     try {
       checkFn = new Function("context", userCode);
     } catch (err) {
@@ -1024,11 +1569,11 @@ function renderLab() {
       return;
     }
 
-    var results = [];
+    let results = [];
 
     if (scope === "project") {
-      var projectResults = [];
-      var projectCtx = {
+      const projectResults = [];
+      const projectCtx = {
         files: Object.keys(fileSources),
         fileSources: fileSources,
         modules: graph.modules,
@@ -1061,12 +1606,12 @@ function renderLab() {
       }
       results = projectResults;
     } else {
-      var fileEntries = Object.entries(fileSources);
-      for (var fi = 0; fi < fileEntries.length; fi++) {
-        var filePath = fileEntries[fi][0];
-        var fileText = fileEntries[fi][1];
-        var fileResults = [];
-        var ctx = {
+      const fileEntries = Object.entries(fileSources);
+      for (let fi = 0; fi < fileEntries.length; fi++) {
+        const filePath = fileEntries[fi][0];
+        const fileText = fileEntries[fi][1];
+        const fileResults = [];
+        const ctx = {
           fileText: fileText,
           filePath: filePath,
           report: function(finding) {
@@ -1093,7 +1638,7 @@ function renderLab() {
             isError: true,
           });
         }
-        for (var r = 0; r < fileResults.length; r++) results.push(fileResults[r]);
+        for (let r = 0; r < fileResults.length; r++) results.push(fileResults[r]);
       }
     }
 
@@ -1107,45 +1652,65 @@ function renderLab() {
     resultCount.textContent = "(" + results.length + " finding" + (results.length !== 1 ? "s" : "") + ")";
 
     if (results.length === 0) {
+      if (isMonorepo && scope === "file") {
+        resultEmpty.innerHTML = '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg><p>No source files available in monorepo reports.<br><span style="opacity:0.7;font-size:0.92em">Run <code>npx nestjs-doctor &lt;package-path&gt; --report</code> on a single package to use the Lab with file rules.</span></p>';
+      } else {
+        resultEmpty.innerHTML = '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg><p>Write a check function and click Run</p>';
+      }
       resultEmpty.style.display = "flex";
       return;
     }
     resultEmpty.style.display = "none";
 
-    var sevColors = { error: "var(--sev-error)", warning: "var(--sev-warning)", info: "var(--sev-info)" };
-    var listHtml = "";
-    for (var i = 0; i < results.length; i++) {
-      var res = results[i];
-      var shortFile = res.filePath.split("/").slice(-2).join("/");
-      var sevColor = sevColors[res.severity] || sevColors.warning;
-      listHtml += '<div class="pg-result-item" data-idx="' + i + '">' +
-        '<div class="sev-dot" style="background:' + sevColor + '"></div>' +
-        '<div class="item-content">' +
-        '<div class="item-msg">' + escHtml(res.message) + '</div>' +
-        '<div class="item-file">' + escHtml(shortFile) + ':' + res.line + '</div>' +
-        '</div></div>';
+    currentPgFileMap = {};
+
+    const sevColors = { error: "var(--sev-error)", warning: "var(--sev-warning)", info: "var(--sev-info)" };
+    const labSev = function(item) { return item.res.severity; };
+
+    // Group results by filePath, keeping original index
+    const standaloneItems = [];
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      if (!r.filePath) { standaloneItems.push({ res: r, idx: i }); continue; }
+      if (!currentPgFileMap[r.filePath]) currentPgFileMap[r.filePath] = [];
+      currentPgFileMap[r.filePath].push({ res: r, idx: i });
     }
-    resultList.innerHTML = listHtml;
+    currentPgFileMap[""] = standaloneItems;
 
-    resultList.addEventListener("click", function(e) {
-      var item = e.target.closest(".pg-result-item");
-      if (!item) return;
-      var idx = Number(item.dataset.idx);
-      var res = results[idx];
-      if (!res) return;
-      if (activeResultEl) activeResultEl.classList.remove("active");
-      item.classList.add("active");
-      activeResultEl = item;
-      showResultSource(res.filePath, res.line);
+    // Build tree from file paths
+    const pgTreeRoot = buildFileTree(currentPgFileMap, "findings");
+    compressTree(pgTreeRoot);
+
+    // Render tree HTML
+    let pgTreeHtml = "";
+
+    // Render standalone items (no filePath) at top
+    for (let si = 0; si < standaloneItems.length; si++) {
+      const st = standaloneItems[si];
+      const sc = sevColors[st.res.severity] || sevColors.warning;
+      pgTreeHtml += '<div class="pg-standalone-item" data-idx="' + si + '" style="padding-left:14px">' +
+        '<div class="sev-dot" style="background:' + sc + '"></div>' +
+        '<span class="finding-msg">' + escHtml(st.res.message) + '</span>' +
+        '</div>';
+    }
+
+    pgTreeHtml += renderTreeHtml(pgTreeRoot, {
+      itemsKey: "findings",
+      getSeverity: labSev,
     });
+    resultList.innerHTML = pgTreeHtml;
 
-    // Auto-select first result
+    // Auto-select first file or standalone item
     if (results.length > 0) {
-      var firstItem = resultList.querySelector(".pg-result-item");
-      if (firstItem) {
-        firstItem.classList.add("active");
-        activeResultEl = firstItem;
-        showResultSource(results[0].filePath, results[0].line);
+      const firstFile = resultList.querySelector(".tree-file");
+      if (firstFile) {
+        showPgFile(firstFile.dataset.path);
+      } else {
+        const firstStandalone = resultList.querySelector(".pg-standalone-item");
+        if (firstStandalone) {
+          firstStandalone.classList.add("active");
+          activeResultEl = firstStandalone;
+        }
       }
     }
   });

@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const FAKE_HOME = "/fake-home";
 const FAKE_SKILL_TEMPLATE = "# Skill\n\n> v0.0.0\n\nSome content.";
+const FAKE_CREATE_RULE_TEMPLATE =
+	"# Create Rule\n\n> v0.0.0\n\nCreate rule content.";
 const FAKE_VERSION = "1.2.3";
 
 const mockState = {
@@ -72,6 +74,9 @@ vi.mock("node:child_process", () => ({
 vi.mock("node:module", () => ({
 	createRequire: () => ({
 		resolve: (specifier: string) => {
+			if (specifier.includes("CREATE-RULE-SKILL.md")) {
+				return "/resolved/CREATE-RULE-SKILL.md";
+			}
 			if (specifier.includes("SKILL.md")) {
 				return "/resolved/SKILL.md";
 			}
@@ -111,6 +116,10 @@ beforeEach(() => {
 
 	mockState.existingFileContents.set("/resolved/SKILL.md", FAKE_SKILL_TEMPLATE);
 	mockState.existingFileContents.set(
+		"/resolved/CREATE-RULE-SKILL.md",
+		FAKE_CREATE_RULE_TEMPLATE
+	);
+	mockState.existingFileContents.set(
 		"/resolved/package.json",
 		JSON.stringify({ version: FAKE_VERSION })
 	);
@@ -130,6 +139,17 @@ describe("initSkill", () => {
 		expect(writes.dirs.has(projectDir)).toBe(true);
 		expect(writes.files.has(join(projectDir, "SKILL.md"))).toBe(true);
 		expect(writes.files.has(join(projectDir, "AGENTS.md"))).toBe(true);
+
+		const createRuleProjectDir = join(
+			"/project",
+			".agents",
+			"nestjs-doctor-create-rule"
+		);
+		expect(writes.dirs.has(createRuleProjectDir)).toBe(true);
+		expect(writes.files.has(join(createRuleProjectDir, "SKILL.md"))).toBe(true);
+		expect(writes.files.has(join(createRuleProjectDir, "AGENTS.md"))).toBe(
+			true
+		);
 	});
 
 	it("detects Claude Code and installs skill files", async () => {
@@ -141,8 +161,17 @@ describe("initSkill", () => {
 		const dir = join(FAKE_HOME, ".claude", "skills", "nestjs-doctor");
 		expect(writes.files.has(join(dir, "SKILL.md"))).toBe(true);
 		expect(writes.files.has(join(dir, "AGENTS.md"))).toBe(true);
+
+		const createRuleDir = join(
+			FAKE_HOME,
+			".claude",
+			"skills",
+			"nestjs-doctor-create-rule"
+		);
+		expect(writes.files.has(join(createRuleDir, "SKILL.md"))).toBe(true);
+		expect(writes.files.has(join(createRuleDir, "AGENTS.md"))).toBe(true);
 		expect(mockLogger.success).toHaveBeenCalledWith(
-			"Installed skill for Claude Code"
+			"Installed 2 skills for Claude Code"
 		);
 	});
 
@@ -237,7 +266,7 @@ describe("initSkill", () => {
 		// Only project fallback should be installed (1 target)
 		expect(mockLogger.success).toHaveBeenCalledTimes(1);
 		expect(mockLogger.success).toHaveBeenCalledWith(
-			"Installed skill to .agents/nestjs-doctor/"
+			"Installed 2 skills to .agents/"
 		);
 		expect(mockLogger.dim).toHaveBeenCalledWith(
 			expect.stringContaining("1 target")
@@ -252,8 +281,16 @@ describe("initSkill", () => {
 
 		const dir = join(FAKE_HOME, ".gemini", "skills", "nestjs-doctor");
 		expect(writes.files.has(join(dir, "AGENTS.md"))).toBe(true);
+
+		const createRuleDir = join(
+			FAKE_HOME,
+			".gemini",
+			"skills",
+			"nestjs-doctor-create-rule"
+		);
+		expect(writes.files.has(join(createRuleDir, "AGENTS.md"))).toBe(true);
 		expect(mockLogger.success).toHaveBeenCalledWith(
-			"Installed skill for Gemini CLI"
+			"Installed 2 skills for Gemini CLI"
 		);
 	});
 
@@ -269,11 +306,11 @@ describe("initSkill", () => {
 		await initSkill("/project");
 
 		expect(mockLogger.error).toHaveBeenCalledWith(
-			"Failed to install skill for Claude Code"
+			"Failed to install skills for Claude Code"
 		);
 		// Cursor should still succeed
 		expect(mockLogger.success).toHaveBeenCalledWith(
-			"Installed skill for Cursor"
+			"Installed 2 skills for Cursor"
 		);
 	});
 
