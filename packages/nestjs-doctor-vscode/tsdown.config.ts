@@ -5,5 +5,6 @@ export default defineConfig({
 	format: ["cjs"],
 	external: ["vscode"],
 	noExternal: [/^vscode-/],
+	inlineOnly: false,
 	clean: true,
 });
