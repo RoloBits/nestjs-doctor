@@ -11,7 +11,7 @@
     "typecheck": "pnpm --filter nestjs-doctor run typecheck",
     "build:website": "pnpm --filter website run build",
     "changeset": "changeset",
-    "version": "changeset version && node scripts/sync-skill-version.mjs",
+    "version": "changeset version && pnpm install --no-frozen-lockfile && node scripts/sync-skill-version.mjs",
     "release": "pnpm build && changeset publish",
     "prepare": "husky"
   },
