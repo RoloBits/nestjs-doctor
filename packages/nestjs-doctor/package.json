@@ -1,6 +1,6 @@
 {
   "name": "nestjs-doctor",
-  "version": "0.4.10",
+  "version": "0.4.11",
   "description": "Static analysis tool for NestJS that produces a health score with actionable diagnostics and an interactive report",
   "type": "module",
   "bin": {
