@@ -25,11 +25,16 @@ export async function collectMonorepoFiles(
 	monorepo: MonorepoInfo,
 	config: NestjsDoctorConfig = {}
 ): Promise<Map<string, string[]>> {
-	const result = new Map<string, string[]>();
+	const entries = await Promise.all(
+		[...monorepo.projects.entries()].map(async ([name, root]) => {
+			const projectPath = join(targetPath, root);
+			const files = await collectFiles(projectPath, config);
+			return [name, files] as const;
+		})
+	);
 
-	for (const [name, root] of monorepo.projects) {
-		const projectPath = join(targetPath, root);
-		const files = await collectFiles(projectPath, config);
+	const result = new Map<string, string[]>();
+	for (const [name, files] of entries) {
 		result.set(name, files);
 	}
 

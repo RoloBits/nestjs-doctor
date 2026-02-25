@@ -38,7 +38,7 @@ Uses [`tinyglobby`](https://github.com/SuperchupuDev/tinyglobby) to match files:
 3. Runs the glob from `targetPath`
 4. Returns results sorted alphabetically for deterministic output
 
-For monorepos, `collectMonorepoFiles` calls `collectFiles` once per sub-project using each project's root path.
+For monorepos, `collectMonorepoFiles` calls `collectFiles` once per sub-project using each project's root path. All sub-project globs run in parallel via `Promise.all`.
 
 ## Debugging Tips
 

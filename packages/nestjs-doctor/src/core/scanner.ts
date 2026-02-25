@@ -2,7 +2,11 @@ import { join } from "node:path";
 import { performance } from "node:perf_hooks";
 import type { Project } from "ts-morph";
 import { createAstParser } from "../engine/ast-parser.js";
-import { buildModuleGraph, type ModuleGraph } from "../engine/module-graph.js";
+import {
+	buildModuleGraph,
+	type ModuleGraph,
+	updateModuleGraphForFile,
+} from "../engine/module-graph.js";
 import {
 	type RunRulesOptions,
 	runFileRules,
@@ -11,7 +15,10 @@ import {
 	separateRules,
 } from "../engine/rule-runner.js";
 import type { ProviderInfo } from "../engine/type-resolver.js";
-import { resolveProviders } from "../engine/type-resolver.js";
+import {
+	resolveProviders,
+	updateProvidersForFile,
+} from "../engine/type-resolver.js";
 import { allRules } from "../rules/index.js";
 import type { AnyRule, ProjectRule, Rule } from "../rules/types.js";
 import { calculateScore } from "../scorer/index.js";
@@ -71,11 +78,12 @@ export async function prepareScan(
 	options: ScanOptions = {}
 ): Promise<{ context: ScanContext; customRuleWarnings: string[] }> {
 	const config = await loadConfig(targetPath, options.config);
-	const { rules: customRules, warnings: customRuleWarnings } =
-		await resolveCustomRules(config, targetPath);
+	const [{ rules: customRules, warnings: customRuleWarnings }, files] =
+		await Promise.all([
+			resolveCustomRules(config, targetPath),
+			collectFiles(targetPath, config),
+		]);
 	const combinedRules = mergeRules(allRules, customRules, customRuleWarnings);
-
-	const files = await collectFiles(targetPath, config);
 	const astProject = createAstParser(files);
 	const moduleGraph = buildModuleGraph(astProject, files);
 	const providers = resolveProviders(astProject, files);
@@ -108,8 +116,8 @@ export function updateFile(context: ScanContext, filePath: string): void {
 		context.files.push(filePath);
 	}
 
-	context.moduleGraph = buildModuleGraph(context.astProject, context.files);
-	context.providers = resolveProviders(context.astProject, context.files);
+	updateModuleGraphForFile(context.moduleGraph, context.astProject, filePath);
+	updateProvidersForFile(context.providers, context.astProject, filePath);
 }
 
 export function scanFile(
@@ -195,13 +203,15 @@ export async function scan(
 		options
 	);
 
+	const projectPromise = detectProject(targetPath);
+
 	const fileResult = scanAllFiles(context);
 	const projectResult = scanProject(context);
 
 	const diagnostics = [...fileResult.diagnostics, ...projectResult.diagnostics];
 	const ruleErrors = [...fileResult.errors, ...projectResult.errors];
 
-	const project = await detectProject(targetPath);
+	const project = await projectPromise;
 	const score = calculateScore(diagnostics, context.files.length);
 	const summary = buildSummary(diagnostics);
 	const elapsedMs = performance.now() - startTime;
@@ -284,64 +294,68 @@ export async function scanMonorepo(
 		rootConfig
 	);
 
+	const subProjectEntries = await Promise.all(
+		[...filesByProject.entries()]
+			.filter(([, files]) => files.length > 0)
+			.map(async ([name, files]) => {
+				const projectPath = join(targetPath, monorepo.projects.get(name)!);
+				const [project, projectConfig] = await Promise.all([
+					detectProject(projectPath),
+					loadConfigWithFallback(projectPath, rootConfig),
+				]);
+
+				const astProject = createAstParser(files);
+				const moduleGraph = buildModuleGraph(astProject, files);
+				const providers = resolveProviders(astProject, files);
+				const rules = filterRules(projectConfig, combinedRules);
+				const { diagnostics: rawDiagnostics, errors } = runRules(
+					astProject,
+					files,
+					rules,
+					{ moduleGraph, providers, config: projectConfig }
+				);
+				const diagnostics = filterIgnoredDiagnostics(
+					rawDiagnostics,
+					projectConfig,
+					projectPath
+				);
+
+				const score = calculateScore(diagnostics, files.length);
+				const summary = buildSummary(diagnostics);
+				const ruleErrors: RuleErrorInfo[] = errors.map((e) => ({
+					ruleId: e.ruleId,
+					error: formatRuleError(e.error),
+				}));
+
+				const result: DiagnoseResult = {
+					score,
+					diagnostics,
+					project: {
+						...project,
+						fileCount: files.length,
+						moduleCount: moduleGraph.modules.size,
+					},
+					summary,
+					ruleErrors,
+					elapsedMs: 0,
+				};
+
+				return { name, result, moduleGraph, diagnostics, ruleErrors };
+			})
+	);
+
 	const subProjects: SubProjectResult[] = [];
 	const allDiagnostics: Diagnostic[] = [];
 	const allRuleErrors: RuleErrorInfo[] = [];
 	const moduleGraphs = new Map<string, ModuleGraph>();
 	let totalFiles = 0;
 
-	for (const [name, files] of filesByProject) {
-		if (files.length === 0) {
-			continue;
-		}
-
-		const projectPath = join(targetPath, monorepo.projects.get(name)!);
-		const project = await detectProject(projectPath);
-
-		// Load per-project config if available, falling back to root config
-		const projectConfig = await loadConfigWithFallback(projectPath, rootConfig);
-
-		const astProject = createAstParser(files);
-		const moduleGraph = buildModuleGraph(astProject, files);
-		const providers = resolveProviders(astProject, files);
-		const rules = filterRules(projectConfig, combinedRules);
-		const { diagnostics: rawDiagnostics, errors } = runRules(
-			astProject,
-			files,
-			rules,
-			{ moduleGraph, providers, config: projectConfig }
-		);
-		const diagnostics = filterIgnoredDiagnostics(
-			rawDiagnostics,
-			projectConfig,
-			projectPath
-		);
-
-		const score = calculateScore(diagnostics, files.length);
-		const summary = buildSummary(diagnostics);
-		const ruleErrors: RuleErrorInfo[] = errors.map((e) => ({
-			ruleId: e.ruleId,
-			error: formatRuleError(e.error),
-		}));
-
-		const result: DiagnoseResult = {
-			score,
-			diagnostics,
-			project: {
-				...project,
-				fileCount: files.length,
-				moduleCount: moduleGraph.modules.size,
-			},
-			summary,
-			ruleErrors,
-			elapsedMs: 0,
-		};
-
-		subProjects.push({ name, result });
-		moduleGraphs.set(name, moduleGraph);
-		allDiagnostics.push(...diagnostics);
-		allRuleErrors.push(...ruleErrors);
-		totalFiles += files.length;
+	for (const entry of subProjectEntries) {
+		subProjects.push({ name: entry.name, result: entry.result });
+		moduleGraphs.set(entry.name, entry.moduleGraph);
+		allDiagnostics.push(...entry.diagnostics);
+		allRuleErrors.push(...entry.ruleErrors);
+		totalFiles += entry.result.project.fileCount;
 	}
 
 	const combinedScore = calculateScore(allDiagnostics, totalFiles);
