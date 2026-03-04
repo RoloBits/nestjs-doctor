@@ -1,11 +1,14 @@
 {
+  /* We extend the base tsconfig.json file to inherit common compiler options and settings. */
   "extends": "../../tsconfig.json",
+
+  /* We override or add specific compiler options for this package. */
   "compilerOptions": {
-    "outDir": "dist",
-    "rootDir": "src",
-    "noEmit": true,
-    "declarationMap": true,
-    "strictNullChecks": true
+    "outDir": "dist", // Specify an output folder for all emitted files.
+    "rootDir": "src", // Specify the root folder within your source files. Only use to control the output directory structure with --outDir.
+    "noEmit": true, // Do not emit outputs. We are not transpiling with Typescript, but we want to generate declaration files, so we need to set this to true to prevent emitting JavaScript files.
+    "declarationMap": true, // Generates a sourcemap for each corresponding '.d.ts' file. Useful for debugging declaration files.
+    "strictNullChecks": true // Enable strict null checks. This means that null and undefined are only assignable to themselves and any
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist", "tests"]

@@ -9,6 +9,7 @@ export const SEVERITY_WEIGHTS: Record<Severity, number> = {
 export const CATEGORY_MULTIPLIERS: Record<Category, number> = {
 	security: 1.5,
 	correctness: 1.3,
+	schema: 1.1,
 	architecture: 1.0,
 	performance: 0.8,
 };

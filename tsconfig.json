@@ -1,17 +1,31 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ES2022",
-    "moduleResolution": "bundler",
-    "lib": ["ES2022"],
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
+    /* Base Options */
+    "esModuleInterop": true, // Enables emit interoperability between CommonJS and ES Modules via creation of namespace objects for all imports.
+    "skipLibCheck": true, // Skip type checking of declaration files.
+    "target": "ES2022", // Set the JavaScript language version for emitted JavaScript and include compatible library declarations.
+    "verbatimModuleSyntax": true, // Emit import and export declarations as-is (preserving the original module syntax).
+    //"allowJs": true, // Allow JavaScript files to be compiled.
+    "resolveJsonModule": true, // Enable importing .json files as modules.
+    //"moduleDetection": "force", // Force TypeScript to treat all files as modules.
+
+    /* Strictness */
+    "strict": true, // Enable all strict type-checking options.
+    //"noUncheckedIndexedAccess": true, // Check for undefined when accessing an index signature. e.g. `obj[key]` will be of type `T | undefined` if `obj` is of type `{ [key: string]: T }`.
+
+    /* We are not transpiling with Typescript */
+    "moduleResolution": "bundler", // bundler for webpack, rollup, etc. node for node projects. This case is bundler because we are not transpiling with Typescript, but we want to use the same module resolution as webpack, rollup, etc.
+    "module": "ES2022", // Specify module code generation: 'none', 'commonjs', 'amd', 'system', 'umd', 'es2020', 'es2022', or 'node16'.
+    "lib": ["ES2022"], // Specify library files to be included in the compilation. e.g. "lib": ["ES2022", "DOM"] to include both ES2022 and DOM library files. In this case we only need ES2022 because we are not working with the DOM.
+    "sourceMap": true, // Generates corresponding '.map' file. Do we need this? We are not transpiling with Typescript, but it can be useful for debugging.
+
+    /* We are bundling for a library, so we want to generate declaration files */
     "declaration": true,
-    "sourceMap": true,
-    "isolatedModules": true,
-    "verbatimModuleSyntax": true
+
+    /* We want to preserve the original file names and casing, so we don't want to force consistent casing in file names. */
+    "forceConsistentCasingInFileNames": true,
+
+    /* We are not transpiling with Typescript, so we want to preserve the original module syntax and not transform it to CommonJS or something else. */
+    "isolatedModules": true
   }
 }

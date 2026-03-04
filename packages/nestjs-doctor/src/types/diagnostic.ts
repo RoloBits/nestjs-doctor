@@ -5,22 +5,41 @@ export type Category =
 	| "security"
 	| "performance"
 	| "correctness"
-	| "architecture";
+	| "architecture"
+	| "schema";
 
 export interface SourceLine {
 	line: number;
 	text: string;
 }
 
-export interface Diagnostic {
+export interface BaseDiagnostic {
 	category: Category;
-	column: number;
 	filePath: string;
 	help: string;
-	line: number;
 	message: string;
 	rule: string;
 	scope?: RuleScope;
 	severity: Severity;
+}
+
+export interface CodeDiagnostic extends BaseDiagnostic {
+	column: number;
+	line: number;
 	sourceLines?: SourceLine[];
+}
+
+export interface SchemaDiagnostic extends BaseDiagnostic {
+	entity: string;
+	schemaColumn?: string;
+}
+
+export type Diagnostic = CodeDiagnostic | SchemaDiagnostic;
+
+export function isCodeDiagnostic(d: Diagnostic): d is CodeDiagnostic {
+	return "line" in d;
+}
+
+export function isSchemaDiagnostic(d: Diagnostic): d is SchemaDiagnostic {
+	return "entity" in d;
 }

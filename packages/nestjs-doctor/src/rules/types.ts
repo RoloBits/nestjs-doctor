@@ -2,9 +2,17 @@ import type { Project, SourceFile } from "ts-morph";
 import type { ModuleGraph } from "../engine/module-graph.js";
 import type { ProviderInfo } from "../engine/type-resolver.js";
 import type { NestjsDoctorConfig } from "../types/config.js";
-import type { Category, Diagnostic, Severity } from "../types/diagnostic.js";
+import type {
+	Category,
+	CodeDiagnostic,
+	SchemaDiagnostic,
+	Severity,
+} from "../types/diagnostic.js";
+import type { SchemaGraph } from "../types/schema.js";
 
-export type RuleScope = "file" | "project";
+// ── Shared ──
+
+export type RuleScope = "file" | "project" | "schema";
 
 export interface RuleMeta {
 	category: Category;
@@ -15,9 +23,13 @@ export interface RuleMeta {
 	severity: Severity;
 }
 
-export interface RuleContext {
+// ── Contexts ──
+
+export interface CodeRuleContext {
 	filePath: string;
-	report(diagnostic: Omit<Diagnostic, "rule" | "category" | "severity">): void;
+	report(
+		diagnostic: Omit<CodeDiagnostic, "rule" | "category" | "severity" | "scope">
+	): void;
 	sourceFile: SourceFile;
 }
 
@@ -27,11 +39,26 @@ export interface ProjectRuleContext {
 	moduleGraph: ModuleGraph;
 	project: Project;
 	providers: Map<string, ProviderInfo>;
-	report(diagnostic: Omit<Diagnostic, "rule" | "category" | "severity">): void;
+	report(
+		diagnostic: Omit<CodeDiagnostic, "rule" | "category" | "severity" | "scope">
+	): void;
 }
 
+export interface SchemaRuleContext {
+	orm: string;
+	report(
+		diagnostic: Omit<
+			SchemaDiagnostic,
+			"rule" | "category" | "severity" | "scope"
+		>
+	): void;
+	schemaGraph: SchemaGraph;
+}
+
+// ── Rules ──
+
 export interface Rule {
-	check(context: RuleContext): void;
+	check(context: CodeRuleContext): void;
 	meta: RuleMeta;
 }
 
@@ -40,8 +67,19 @@ export interface ProjectRule {
 	meta: RuleMeta;
 }
 
-export type AnyRule = Rule | ProjectRule;
+export interface SchemaRule {
+	check(context: SchemaRuleContext): void;
+	meta: RuleMeta;
+}
+
+export type AnyRule = Rule | ProjectRule | SchemaRule;
+
+// ── Type guards ──
 
 export function isProjectRule(rule: AnyRule): rule is ProjectRule {
 	return rule.meta.scope === "project";
+}
+
+export function isSchemaRule(rule: AnyRule): rule is SchemaRule {
+	return rule.meta.scope === "schema";
 }
