@@ -382,10 +382,31 @@ model Category {
 		);
 		expect(childrenRel!.fromEntity).toBe("Category");
 		expect(childrenRel!.toEntity).toBe("Category");
-		// Self-referencing list fields are detected as many-to-many
-		// because the extractor finds a list field of the same type on both sides
-		expect(childrenRel!.type).toBe("many-to-many");
+		expect(childrenRel!.type).toBe("one-to-many");
 		expect(childrenRel!.isNullable).toBe(false);
+	});
+
+	it("should detect @@id composite primary keys", () => {
+		writePrismaSchema(
+			testDir,
+			`
+model PostTag {
+  postId Int
+  tagId  Int
+  @@id([postId, tagId])
+}
+`
+		);
+
+		const project = new Project({ useInMemoryFileSystem: true });
+		const graph = extractSchema(project, [], "prisma", testDir);
+
+		const postTag = graph.entities.get("PostTag");
+		expect(postTag).toBeDefined();
+		const postIdCol = postTag!.columns.find((c) => c.name === "postId");
+		const tagIdCol = postTag!.columns.find((c) => c.name === "tagId");
+		expect(postIdCol!.isPrimary).toBe(true);
+		expect(tagIdCol!.isPrimary).toBe(true);
 	});
 
 	it("should mark cuid() and dbgenerated() as isGenerated", () => {

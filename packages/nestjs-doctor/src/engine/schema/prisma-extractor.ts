@@ -47,6 +47,7 @@ interface ParsedIndex {
 }
 
 interface ParsedModel {
+	compositeIdColumns: string[];
 	fields: ParsedField[];
 	filePath: string;
 	indexes: ParsedIndex[];
@@ -110,6 +111,7 @@ function parseSchemaFiles(filePaths: string[]): {
 		let currentBlock: { name: string; type: "model" | "enum" } | null = null;
 		let currentFields: ParsedField[] = [];
 		let currentIndexes: ParsedIndex[] = [];
+		let currentCompositeId: string[] = [];
 		let currentTableName: string | undefined;
 
 		for (const rawLine of lines) {
@@ -121,6 +123,7 @@ function parseSchemaFiles(filePaths: string[]): {
 				currentBlock = { type: "model", name: modelMatch[1] };
 				currentFields = [];
 				currentIndexes = [];
+				currentCompositeId = [];
 				currentTableName = undefined;
 				continue;
 			}
@@ -140,6 +143,7 @@ function parseSchemaFiles(filePaths: string[]): {
 						name: currentBlock.name,
 						fields: currentFields,
 						indexes: currentIndexes,
+						compositeIdColumns: currentCompositeId,
 						filePath,
 						tableName: currentTableName,
 					});
@@ -147,14 +151,21 @@ function parseSchemaFiles(filePaths: string[]): {
 				currentBlock = null;
 				currentFields = [];
 				currentIndexes = [];
+				currentCompositeId = [];
 				currentTableName = undefined;
 				continue;
 			}
 
 			// Parse fields inside model block
 			if (currentBlock?.type === "model" && line && !line.startsWith("//")) {
-				// Capture @@index and @@unique block-level attributes
+				// Capture @@id, @@index and @@unique block-level attributes
 				if (line.startsWith("@@")) {
+					const compositeIdMatch = COMPOSITE_ID_REGEX.exec(line);
+					if (compositeIdMatch) {
+						currentCompositeId = compositeIdMatch[1]
+							.split(",")
+							.map((c) => c.trim());
+					}
 					const idx = parseBlockIndex(line);
 					if (idx) {
 						currentIndexes.push(idx);
@@ -179,6 +190,7 @@ function parseSchemaFiles(filePaths: string[]): {
 }
 
 const BLOCK_INDEX_REGEX = /^@@(index|unique)\(\[([^\]]*)\]\)/;
+const COMPOSITE_ID_REGEX = /^@@id\(\[([^\]]*)\]\)/;
 
 function parseBlockIndex(line: string): ParsedIndex | null {
 	const match = BLOCK_INDEX_REGEX.exec(line);
@@ -285,6 +297,9 @@ function buildEntities(
 			}
 		}
 
+		// Build a set of composite primary key columns from @@id
+		const compositeIdSet = new Set(model.compositeIdColumns);
+
 		for (const field of model.fields) {
 			const isRelationField =
 				modelNames.has(field.type) && !enums.has(field.type);
@@ -304,7 +319,7 @@ function buildEntities(
 				if (field.isList) {
 					const targetModel = models.find((m) => m.name === field.type);
 					const reverseField = targetModel?.fields.find(
-						(f) => f.type === model.name && f.isList
+						(f) => f !== field && f.type === model.name && f.isList
 					);
 					if (reverseField) {
 						relType = "many-to-many";
@@ -323,6 +338,9 @@ function buildEntities(
 				});
 			} else if (!field.attributes.some((a) => a.startsWith("@relation"))) {
 				const col = fieldToColumn(field);
+				if (compositeIdSet.has(field.name)) {
+					col.isPrimary = true;
+				}
 				if (
 					indexedColumns.has(field.name) ||
 					field.attributes.some((a) => a.startsWith("@unique"))

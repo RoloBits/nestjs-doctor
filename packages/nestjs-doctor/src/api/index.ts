@@ -19,6 +19,7 @@ export { getRules } from "../rules/index.js";
 export type {
 	AnyRule,
 	CodeRuleContext,
+	CodeRuleContext as RuleContext,
 	ProjectRule,
 	ProjectRuleContext,
 	Rule,
