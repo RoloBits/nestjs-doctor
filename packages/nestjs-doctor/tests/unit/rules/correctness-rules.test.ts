@@ -157,6 +157,39 @@ describe("no-missing-injectable", () => {
 		expect(diags).toHaveLength(0);
 	});
 
+	it("does not flag provider with empty constructor (no params)", () => {
+		const diags = runProjectRule(noMissingInjectable, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ providers: [MyService] })
+        export class AppModule {}
+      `,
+			"my.service.ts": `
+        export class MyService {
+          constructor() {}
+        }
+      `,
+		});
+		expect(diags).toHaveLength(0);
+	});
+
+	it("flags provider with optional constructor dependency", () => {
+		const diags = runProjectRule(noMissingInjectable, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ providers: [MyService] })
+        export class AppModule {}
+      `,
+			"my.service.ts": `
+        export class MyService {
+          constructor(private readonly dep?: OtherService) {}
+        }
+      `,
+		});
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("MyService");
+	});
+
 	it("allows provider with @Injectable", () => {
 		const diags = runProjectRule(noMissingInjectable, {
 			"app.module.ts": `

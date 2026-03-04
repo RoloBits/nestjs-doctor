@@ -159,6 +159,11 @@ function getDisplayName(n) {
 const canvas = document.getElementById("graph");
 const ctx = canvas.getContext("2d");
 const dpr = window.devicePixelRatio || 1;
+let simulationHeat = 1;
+
+function wakeSimulation(heat = 1) {
+  simulationHeat = Math.max(simulationHeat, heat);
+}
 
 let W, H;
 function resize() {
@@ -411,11 +416,6 @@ const CENTER_PULL = 0.00035;
 const HEAT_DECAY = 0.985;
 const HEAT_SLEEP_THRESHOLD = 0.02;
 const SPEED_SLEEP_THRESHOLD = 0.03;
-let simulationHeat = 1;
-
-function wakeSimulation(heat = 1) {
-  simulationHeat = Math.max(simulationHeat, heat);
-}
 
 function simulate() {
   if (simulationHeat <= 0 && !dragging && !panning) {

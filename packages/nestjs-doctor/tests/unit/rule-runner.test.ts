@@ -180,6 +180,32 @@ describe("runSchemaRules", () => {
 });
 
 describe("runFileRules", () => {
+	it("context.config is undefined when config is not provided", () => {
+		const project = new Project({ useInMemoryFileSystem: true });
+		project.createSourceFile("test.ts", "const value = 1;");
+
+		let receivedConfig: NestjsDoctorConfig | undefined = "NOT_SET" as never;
+
+		const rule: Rule = {
+			meta: {
+				id: "test/config-undefined",
+				category: "correctness",
+				severity: "warning",
+				description: "",
+				help: "",
+			},
+			check(context) {
+				receivedConfig = context.config;
+			},
+		};
+
+		const { diagnostics, errors } = runFileRules(project, ["test.ts"], [rule]);
+
+		expect(errors).toHaveLength(0);
+		expect(diagnostics).toHaveLength(0);
+		expect(receivedConfig).toBeUndefined();
+	});
+
 	it("passes config into file-scoped rule context", () => {
 		const project = new Project({ useInMemoryFileSystem: true });
 		project.createSourceFile("test.ts", "const value = 1;");

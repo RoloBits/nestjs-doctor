@@ -374,6 +374,82 @@ describe("no-manual-instantiation", () => {
 		);
 		expect(diags).toHaveLength(0);
 	});
+
+	it("does not flag qualified class name when simple name is excluded", () => {
+		const diags = runRule(
+			noManualInstantiation,
+			`
+      const logger = new Foo.LoggerService();
+    `,
+			"test.ts",
+			{
+				rules: {
+					"architecture/no-manual-instantiation": {
+						excludeClasses: ["LoggerService"],
+					},
+				},
+			}
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("excludes multiple classes and still flags others", () => {
+		const diags = runRule(
+			noManualInstantiation,
+			`
+      const logger = new LoggerService();
+      const cache = new CacheService();
+      const user = new UserService();
+    `,
+			"test.ts",
+			{
+				rules: {
+					"architecture/no-manual-instantiation": {
+						excludeClasses: ["LoggerService", "CacheService"],
+					},
+				},
+			}
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("UserService");
+	});
+
+	it("excludes full qualified name via exprText match", () => {
+		const diags = runRule(
+			noManualInstantiation,
+			`
+      const logger = new Foo.LoggerService();
+    `,
+			"test.ts",
+			{
+				rules: {
+					"architecture/no-manual-instantiation": {
+						excludeClasses: ["Foo.LoggerService"],
+					},
+				},
+			}
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("still flags DI-only classes when excludeClasses is empty", () => {
+		const diags = runRule(
+			noManualInstantiation,
+			`
+      const svc = new UserService();
+    `,
+			"test.ts",
+			{
+				rules: {
+					"architecture/no-manual-instantiation": {
+						excludeClasses: [],
+					},
+				},
+			}
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("UserService");
+	});
 });
 
 describe("prefer-constructor-injection", () => {
