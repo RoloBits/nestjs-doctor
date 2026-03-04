@@ -308,6 +308,7 @@ function extractEntityFromClass(cls: ClassDeclaration): SchemaEntity | null {
 }
 
 export const typeormExtractor: OrmSchemaExtractor = {
+	supportsIncrementalUpdate: true,
 	extract(project: Project, files: string[]): SchemaEntity[] {
 		const entities: SchemaEntity[] = [];
 

@@ -14,6 +14,8 @@ export interface OrmSchemaExtractor {
 		files: string[],
 		targetPath: string
 	): SchemaEntity[];
+	/** Whether this extractor supports incremental per-file updates (LSP path). */
+	supportsIncrementalUpdate: boolean;
 }
 
 // Explicit strategy map — add new ORMs here
@@ -92,8 +94,9 @@ export function updateSchemaForFile(
 		}
 	}
 
+	// Prisma reads .prisma files, not TS sources — skip per-file re-extraction
 	const extractor = extractors[graph.orm];
-	if (!extractor) {
+	if (!extractor?.supportsIncrementalUpdate) {
 		rebuildRelations(graph);
 		return;
 	}
