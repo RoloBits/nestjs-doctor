@@ -119,7 +119,7 @@ Supported agents: Claude Code, Amp Code, Cursor, OpenCode, Windsurf, Antigravity
 
 ### Correctness (14)
 
-- `no-missing-injectable` (error) — Provider in module missing @Injectable()
+- `no-missing-injectable` (error) — Provider with constructor deps missing @Injectable()
 - `no-duplicate-routes` (error) — Same method + path + version twice in a controller
 - `no-missing-guard-method` (error) — Guard class missing canActivate()
 - `no-missing-pipe-method` (error) — Pipe class missing transform()

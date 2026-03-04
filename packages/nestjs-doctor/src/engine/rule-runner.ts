@@ -61,7 +61,8 @@ export function separateRules(rules: AnyRule[]): {
 export function runFileRulesOnFile(
 	project: Project,
 	filePath: string,
-	rules: Rule[]
+	rules: Rule[],
+	config?: NestjsDoctorConfig
 ): RunRulesResult {
 	const diagnostics: CodeDiagnostic[] = [];
 	const errors: RuleError[] = [];
@@ -76,6 +77,7 @@ export function runFileRulesOnFile(
 
 	for (const rule of rules) {
 		const context: CodeRuleContext = {
+			config,
 			sourceFile,
 			filePath,
 			report(partial) {
@@ -109,13 +111,14 @@ export function runFileRulesOnFile(
 export function runFileRules(
 	project: Project,
 	files: string[],
-	rules: Rule[]
+	rules: Rule[],
+	config?: NestjsDoctorConfig
 ): RunRulesResult {
 	const diagnostics: Diagnostic[] = [];
 	const errors: RuleError[] = [];
 
 	for (const filePath of files) {
-		const result = runFileRulesOnFile(project, filePath, rules);
+		const result = runFileRulesOnFile(project, filePath, rules, config);
 		diagnostics.push(...result.diagnostics);
 		errors.push(...result.errors);
 	}
@@ -200,7 +203,7 @@ export function runRules(
 ): RunRulesResult {
 	const { fileRules, projectRules } = separateRules(rules);
 
-	const fileResult = runFileRules(project, files, fileRules);
+	const fileResult = runFileRules(project, files, fileRules, options.config);
 	const projectResult = runProjectRules(project, files, projectRules, options);
 
 	return {

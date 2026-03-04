@@ -149,7 +149,8 @@ export function scanFile(
 	const { diagnostics: rawDiagnostics, errors } = runFileRules(
 		context.astProject,
 		[filePath],
-		context.fileRules
+		context.fileRules,
+		context.config
 	);
 	const diagnostics = filterIgnoredDiagnostics(
 		rawDiagnostics,
@@ -171,7 +172,8 @@ export function scanAllFiles(context: ScanContext): {
 	const { diagnostics: rawDiagnostics, errors } = runFileRules(
 		context.astProject,
 		context.files,
-		context.fileRules
+		context.fileRules,
+		context.config
 	);
 	const diagnostics = filterIgnoredDiagnostics(
 		rawDiagnostics,

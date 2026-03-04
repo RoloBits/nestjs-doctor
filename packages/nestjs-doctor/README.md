@@ -169,9 +169,21 @@ Also works as a `"nestjs-doctor"` key in `package.json`.
 | `minScore` | `number` | Minimum passing score (0-100). Exits with code 1 if below threshold |
 | `ignore.rules` | `string[]` | Rule IDs to suppress |
 | `ignore.files` | `string[]` | Glob patterns for files whose diagnostics are hidden |
-| `rules` | `Record<string, boolean>` | Enable/disable individual rules |
+| `rules` | `Record<string, RuleOverride \| boolean>` | Enable/disable individual rules, override severity, and pass rule-specific options |
 | `categories` | `Record<string, boolean>` | Enable/disable entire categories |
 | `customRulesDir` | `string` | Path to a directory containing custom rule files |
+
+Example rule-specific override:
+
+```json
+{
+  "rules": {
+    "architecture/no-manual-instantiation": {
+      "excludeClasses": ["Logger", "PinoLogger"]
+    }
+  }
+}
+```
 
 ---
 
@@ -321,7 +333,7 @@ mono.combined;      // Merged DiagnoseResult
 
 | Rule | Severity | What it catches |
 |------|----------|-----------------|
-| `no-missing-injectable` | error | Provider in module missing `@Injectable()` |
+| `no-missing-injectable` | error | Provider with constructor deps missing `@Injectable()` |
 | `no-duplicate-routes` | error | Same method + path + version twice in a controller |
 | `no-missing-guard-method` | error | Guard class missing `canActivate()` |
 | `no-missing-pipe-method` | error | Pipe class missing `transform()` |
@@ -370,4 +382,3 @@ mono.combined;      // Merged DiagnoseResult
 | `schema/require-primary-key` | error | Entity without a primary key column |
 | `schema/require-timestamps` | warning | Entity missing createdAt/updatedAt columns |
 | `schema/require-cascade-rule` | info | Relation missing explicit onDelete behavior |
-

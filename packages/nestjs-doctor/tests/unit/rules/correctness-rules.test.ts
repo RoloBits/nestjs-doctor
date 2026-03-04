@@ -124,7 +124,24 @@ describe("require-lifecycle-interface", () => {
 });
 
 describe("no-missing-injectable", () => {
-	it("flags provider listed in module without @Injectable", () => {
+	it("flags provider with constructor dependencies listed in module without @Injectable", () => {
+		const diags = runProjectRule(noMissingInjectable, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ providers: [MyService] })
+        export class AppModule {}
+      `,
+			"my.service.ts": `
+        export class MyService {
+          constructor(private readonly dep: OtherService) {}
+        }
+      `,
+		});
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("MyService");
+	});
+
+	it("does not flag provider without constructor dependencies", () => {
 		const diags = runProjectRule(noMissingInjectable, {
 			"app.module.ts": `
         import { Module } from '@nestjs/common';
@@ -137,8 +154,7 @@ describe("no-missing-injectable", () => {
         }
       `,
 		});
-		expect(diags).toHaveLength(1);
-		expect(diags[0].message).toContain("MyService");
+		expect(diags).toHaveLength(0);
 	});
 
 	it("allows provider with @Injectable", () => {

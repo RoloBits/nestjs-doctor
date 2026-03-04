@@ -1,6 +1,12 @@
+import { Project } from "ts-morph";
 import { describe, expect, it } from "vitest";
-import { runSchemaRules, separateRules } from "../../src/engine/rule-runner.js";
-import type { AnyRule, SchemaRule } from "../../src/rules/types.js";
+import {
+	runFileRules,
+	runSchemaRules,
+	separateRules,
+} from "../../src/engine/rule-runner.js";
+import type { AnyRule, Rule, SchemaRule } from "../../src/rules/types.js";
+import type { NestjsDoctorConfig } from "../../src/types/config.js";
 import type { SchemaEntity, SchemaGraph } from "../../src/types/schema.js";
 
 function makeFileRule(id: string): AnyRule {
@@ -170,5 +176,54 @@ describe("runSchemaRules", () => {
 		expect(errors).toHaveLength(1);
 		expect(errors[0].ruleId).toBe("schema/broken");
 		expect(errors[0].error).toBeInstanceOf(Error);
+	});
+});
+
+describe("runFileRules", () => {
+	it("passes config into file-scoped rule context", () => {
+		const project = new Project({ useInMemoryFileSystem: true });
+		project.createSourceFile("test.ts", "const value = 1;");
+
+		const rule: Rule = {
+			meta: {
+				id: "architecture/config-aware-test",
+				category: "architecture",
+				severity: "warning",
+				description: "",
+				help: "",
+			},
+			check(context) {
+				const ruleConfig =
+					context.config?.rules?.["architecture/no-manual-instantiation"];
+				if (typeof ruleConfig === "object" && ruleConfig !== null) {
+					context.report({
+						filePath: context.filePath,
+						message: "config received",
+						help: "",
+						line: 1,
+						column: 1,
+					});
+				}
+			},
+		};
+
+		const config: NestjsDoctorConfig = {
+			rules: {
+				"architecture/no-manual-instantiation": {
+					excludeClasses: ["Logger"],
+				},
+			},
+		};
+
+		const { diagnostics, errors } = runFileRules(
+			project,
+			["test.ts"],
+			[rule],
+			config
+		);
+
+		expect(errors).toHaveLength(0);
+		expect(diagnostics).toHaveLength(1);
+		expect(diagnostics[0].message).toBe("config received");
 	});
 });

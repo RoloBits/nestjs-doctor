@@ -9,14 +9,21 @@ import { noServiceLocator } from "../../../src/rules/architecture/no-service-loc
 import { preferConstructorInjection } from "../../../src/rules/architecture/prefer-constructor-injection.js";
 import { requireModuleBoundaries } from "../../../src/rules/architecture/require-module-boundaries.js";
 import type { Rule } from "../../../src/rules/types.js";
+import type { NestjsDoctorConfig } from "../../../src/types/config.js";
 import type { Diagnostic } from "../../../src/types/diagnostic.js";
 
-function runRule(rule: Rule, code: string, filePath = "test.ts"): Diagnostic[] {
+function runRule(
+	rule: Rule,
+	code: string,
+	filePath = "test.ts",
+	config: NestjsDoctorConfig = {}
+): Diagnostic[] {
 	const project = new Project({ useInMemoryFileSystem: true });
 	const sourceFile = project.createSourceFile(filePath, code);
 	const diagnostics: Diagnostic[] = [];
 
 	rule.check({
+		config,
 		sourceFile,
 		filePath,
 		report(partial) {
@@ -330,6 +337,42 @@ describe("no-manual-instantiation", () => {
     `
 		);
 		expect(diags).toHaveLength(2);
+	});
+
+	it("does not flag excluded classes via rule options", () => {
+		const diags = runRule(
+			noManualInstantiation,
+			`
+      const logger = new LoggerService();
+    `,
+			"test.ts",
+			{
+				rules: {
+					"architecture/no-manual-instantiation": {
+						options: { excludeClasses: ["LoggerService"] },
+					},
+				},
+			}
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag excluded classes via direct excludeClasses override", () => {
+		const diags = runRule(
+			noManualInstantiation,
+			`
+      const logger = new LoggerService();
+    `,
+			"test.ts",
+			{
+				rules: {
+					"architecture/no-manual-instantiation": {
+						excludeClasses: ["LoggerService"],
+					},
+				},
+			}
+		);
+		expect(diags).toHaveLength(0);
 	});
 });
 
