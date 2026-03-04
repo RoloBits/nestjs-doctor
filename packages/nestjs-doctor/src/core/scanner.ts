@@ -210,8 +210,37 @@ export function scanProject(context: ScanContext): {
 		ruleId: e.ruleId,
 		error: formatRuleError(e.error),
 	}));
+	const schemaResult = scanSchema(context);
+	diagnostics.push(...schemaResult.diagnostics);
+	ruleErrors.push(...schemaResult.errors);
 
 	return { diagnostics, errors: ruleErrors };
+}
+
+function scanSchema(context: ScanContext): {
+	diagnostics: Diagnostic[];
+	errors: RuleErrorInfo[];
+} {
+	if (!context.schemaGraph || context.schemaRules.length === 0) {
+		return { diagnostics: [], errors: [] };
+	}
+
+	if (context.schemaGraph.entities.size === 0) {
+		return { diagnostics: [], errors: [] };
+	}
+
+	const schemaResult = runSchemaRules(context.schemaGraph, context.schemaRules);
+	const diagnostics = filterIgnoredDiagnostics(
+		schemaResult.diagnostics,
+		context.config,
+		context.targetPath
+	);
+	const errors: RuleErrorInfo[] = schemaResult.errors.map((e) => ({
+		ruleId: e.ruleId,
+		error: formatRuleError(e.error),
+	}));
+
+	return { diagnostics, errors };
 }
 
 export async function scan(
@@ -237,23 +266,6 @@ export async function scan(
 	const schemaGraph =
 		context.schemaGraph ??
 		extractSchema(context.astProject, context.files, project.orm, targetPath);
-
-	// Run schema rules if schema was extracted
-	if (schemaGraph.entities.size > 0 && context.schemaRules.length > 0) {
-		const schemaResult = runSchemaRules(schemaGraph, context.schemaRules);
-		const filteredSchemaDiagnostics = filterIgnoredDiagnostics(
-			schemaResult.diagnostics,
-			context.config,
-			targetPath
-		);
-		diagnostics.push(...filteredSchemaDiagnostics);
-		ruleErrors.push(
-			...schemaResult.errors.map((e) => ({
-				ruleId: e.ruleId,
-				error: formatRuleError(e.error),
-			}))
-		);
-	}
 
 	const score = calculateScore(diagnostics, context.files.length);
 	const summary = buildSummary(diagnostics);

@@ -824,7 +824,11 @@ function renderDiagnosis() {
       }
     } else {
       // No fullSource but has sourceLines — render from snippet data
-      const sl = sourceLinesData[sorted[0].origIdx];
+      const firstWithSource = sorted.find(function(entry) {
+        const lines = sourceLinesData[entry.origIdx];
+        return lines && lines.length > 0;
+      });
+      const sl = firstWithSource ? sourceLinesData[firstWithSource.origIdx] : null;
       if (sl && sl.length > 0) {
         const codeText = sl.map(function(s) { return s.text; }).join("\\n");
         const firstLineNum = sl[0].line;
@@ -834,7 +838,7 @@ function renderDiagnosis() {
           const de = sorted[hi].d;
           if (!("line" in de)) continue;
           const relLine = de.line - firstLineNum + 1;
-          if (relLine >= 1) {
+          if (relLine >= 1 && relLine <= sl.length) {
             hlLines.push(relLine);
             if (!lineMetadata[relLine]) lineMetadata[relLine] = [];
             lineMetadata[relLine].push({ rule: de.rule, message: de.message, severity: de.severity });
