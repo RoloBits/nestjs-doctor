@@ -1,5 +1,6 @@
 import {
 	findCircularDeps,
+	type ProviderEdge,
 	traceProviderEdges,
 } from "../../engine/module-graph.js";
 import type { ProjectRule, ProjectRuleContext } from "../types.js";

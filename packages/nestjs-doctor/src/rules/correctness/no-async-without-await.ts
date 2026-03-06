@@ -61,7 +61,7 @@ export const noAsyncWithoutAwait: Rule = {
 
 				// Exclude nested async functions/arrow functions
 				const directAwaits = awaitExpressions.filter((expr) => {
-					let parent = expr.getParent();
+					let parent: Node | undefined = expr.getParent();
 					while (parent && parent !== body) {
 						if (
 							parent.getKind() === SyntaxKind.ArrowFunction ||
@@ -114,7 +114,7 @@ export const noAsyncWithoutAwait: Rule = {
 			);
 
 			const directAwaits = awaitExpressions.filter((expr) => {
-				let parent = expr.getParent();
+				let parent: Node | undefined = expr.getParent();
 				while (parent && parent !== body) {
 					if (
 						parent.getKind() === SyntaxKind.ArrowFunction ||
