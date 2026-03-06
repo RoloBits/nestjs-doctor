@@ -26,6 +26,7 @@ export interface RuleMeta {
 // ── Contexts ──
 
 export interface CodeRuleContext {
+	config?: NestjsDoctorConfig;
 	filePath: string;
 	report(
 		diagnostic: Omit<CodeDiagnostic, "rule" | "category" | "severity" | "scope">

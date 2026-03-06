@@ -7,8 +7,8 @@ export const noMissingInjectable: ProjectRule = {
 		category: "correctness",
 		severity: "error",
 		description:
-			"Class listed in a module's providers must have the @Injectable() decorator",
-		help: "Add @Injectable() decorator to the class.",
+			"Provider classes with constructor dependencies must have the @Injectable() decorator",
+		help: "Add @Injectable() to providers that inject constructor dependencies.",
 		scope: "project",
 	},
 
@@ -51,7 +51,11 @@ export const noMissingInjectable: ProjectRule = {
 				}
 
 				for (const { cls, filePath } of classEntries) {
-					if (!cls.getDecorator("Injectable")) {
+					const ctorDecl = cls.getConstructors()[0];
+					const hasConstructorDependencies =
+						(ctorDecl?.getParameters().length ?? 0) > 0;
+
+					if (!cls.getDecorator("Injectable") && hasConstructorDependencies) {
 						context.report({
 							filePath,
 							message: `Class '${providerName}' is listed in '${mod.name}' providers but is missing @Injectable() decorator.`,

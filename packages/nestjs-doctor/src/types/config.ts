@@ -2,6 +2,8 @@ import type { Category, Severity } from "./diagnostic.js";
 
 export interface RuleOverride {
 	enabled?: boolean;
+	excludeClasses?: string[];
+	options?: Record<string, unknown>;
 	severity?: Severity;
 }
 

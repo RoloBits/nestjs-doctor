@@ -71,6 +71,18 @@ Rules can be set to `false` to disable them, or configured with an object to ove
 }
 ```
 
+Rule objects can also include rule-specific options. Example for `no-manual-instantiation`:
+
+```json
+{
+  "rules": {
+    "architecture/no-manual-instantiation": {
+      "excludeClasses": ["Logger", "PinoLogger"]
+    }
+  }
+}
+```
+
 ## Default Excludes
 
 These patterns are always excluded (your `exclude` config is additive):

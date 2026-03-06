@@ -9,14 +9,21 @@ import { noServiceLocator } from "../../../src/rules/architecture/no-service-loc
 import { preferConstructorInjection } from "../../../src/rules/architecture/prefer-constructor-injection.js";
 import { requireModuleBoundaries } from "../../../src/rules/architecture/require-module-boundaries.js";
 import type { Rule } from "../../../src/rules/types.js";
+import type { NestjsDoctorConfig } from "../../../src/types/config.js";
 import type { Diagnostic } from "../../../src/types/diagnostic.js";
 
-function runRule(rule: Rule, code: string, filePath = "test.ts"): Diagnostic[] {
+function runRule(
+	rule: Rule,
+	code: string,
+	filePath = "test.ts",
+	config: NestjsDoctorConfig = {}
+): Diagnostic[] {
 	const project = new Project({ useInMemoryFileSystem: true });
 	const sourceFile = project.createSourceFile(filePath, code);
 	const diagnostics: Diagnostic[] = [];
 
 	rule.check({
+		config,
 		sourceFile,
 		filePath,
 		report(partial) {
@@ -330,6 +337,118 @@ describe("no-manual-instantiation", () => {
     `
 		);
 		expect(diags).toHaveLength(2);
+	});
+
+	it("does not flag excluded classes via rule options", () => {
+		const diags = runRule(
+			noManualInstantiation,
+			`
+      const logger = new LoggerService();
+    `,
+			"test.ts",
+			{
+				rules: {
+					"architecture/no-manual-instantiation": {
+						options: { excludeClasses: ["LoggerService"] },
+					},
+				},
+			}
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag excluded classes via direct excludeClasses override", () => {
+		const diags = runRule(
+			noManualInstantiation,
+			`
+      const logger = new LoggerService();
+    `,
+			"test.ts",
+			{
+				rules: {
+					"architecture/no-manual-instantiation": {
+						excludeClasses: ["LoggerService"],
+					},
+				},
+			}
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag qualified class name when simple name is excluded", () => {
+		const diags = runRule(
+			noManualInstantiation,
+			`
+      const logger = new Foo.LoggerService();
+    `,
+			"test.ts",
+			{
+				rules: {
+					"architecture/no-manual-instantiation": {
+						excludeClasses: ["LoggerService"],
+					},
+				},
+			}
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("excludes multiple classes and still flags others", () => {
+		const diags = runRule(
+			noManualInstantiation,
+			`
+      const logger = new LoggerService();
+      const cache = new CacheService();
+      const user = new UserService();
+    `,
+			"test.ts",
+			{
+				rules: {
+					"architecture/no-manual-instantiation": {
+						excludeClasses: ["LoggerService", "CacheService"],
+					},
+				},
+			}
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("UserService");
+	});
+
+	it("excludes full qualified name via exprText match", () => {
+		const diags = runRule(
+			noManualInstantiation,
+			`
+      const logger = new Foo.LoggerService();
+    `,
+			"test.ts",
+			{
+				rules: {
+					"architecture/no-manual-instantiation": {
+						excludeClasses: ["Foo.LoggerService"],
+					},
+				},
+			}
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("still flags DI-only classes when excludeClasses is empty", () => {
+		const diags = runRule(
+			noManualInstantiation,
+			`
+      const svc = new UserService();
+    `,
+			"test.ts",
+			{
+				rules: {
+					"architecture/no-manual-instantiation": {
+						excludeClasses: [],
+					},
+				},
+			}
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("UserService");
 	});
 });
 

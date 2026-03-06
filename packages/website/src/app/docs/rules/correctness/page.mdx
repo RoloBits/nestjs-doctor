@@ -6,7 +6,7 @@ import { CodeGroup } from "@/components/docs/code-group";
 
 | Rule | Severity | What it catches |
 |------|----------|-----------------|
-| `no-missing-injectable` | error | Provider in module missing `@Injectable()` |
+| `no-missing-injectable` | error | Provider with constructor deps missing `@Injectable()` |
 | `no-duplicate-routes` | error | Same method + path twice in a controller |
 | `no-missing-guard-method` | error | Guard class missing `canActivate()` |
 | `no-missing-pipe-method` | error | Pipe class missing `transform()` |
@@ -27,9 +27,9 @@ import { CodeGroup } from "@/components/docs/code-group";
 
 **Scope:** Project
 
-Detects classes listed in a module's `providers` array that are missing the `@Injectable()` decorator.
+Detects classes listed in a module's `providers` array that declare constructor dependencies but are missing the `@Injectable()` decorator.
 
-**Why:** Without `@Injectable()`, NestJS cannot resolve the class's constructor dependencies, causing runtime errors.
+**Why:** Without `@Injectable()`, NestJS cannot resolve constructor dependencies, causing runtime errors.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript

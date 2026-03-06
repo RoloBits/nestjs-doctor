@@ -159,6 +159,11 @@ function getDisplayName(n) {
 const canvas = document.getElementById("graph");
 const ctx = canvas.getContext("2d");
 const dpr = window.devicePixelRatio || 1;
+let simulationHeat = 1;
+
+function wakeSimulation(heat = 1) {
+  simulationHeat = Math.max(simulationHeat, heat);
+}
 
 let W, H;
 function resize() {
@@ -169,6 +174,7 @@ function resize() {
   canvas.style.width = W + "px";
   canvas.style.height = H + "px";
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  wakeSimulation(0.4);
 }
 resize();
 window.addEventListener("resize", resize);
@@ -266,6 +272,7 @@ canvas.addEventListener("mousedown", (e) => {
   for (const n of nodes) {
     if (pos.x >= n.x - n.w / 2 && pos.x <= n.x + n.w / 2 && pos.y >= n.y - n.h / 2 && pos.y <= n.y + n.h / 2) {
       dragging = n;
+      wakeSimulation(0.35);
       return;
     }
   }
@@ -292,6 +299,7 @@ canvas.addEventListener("mouseup", () => {
   if (dragging && !panning) {
     showDetail(dragging);
   }
+  wakeSimulation(0.25);
   dragging = null;
   panning = false;
 });
@@ -337,9 +345,10 @@ document.getElementById("project-filter").addEventListener("change", (e) => {
   activeProject = e.target.value;
   remeasureNodes();
   for (const n of nodes) {
-    n.vx = (Math.random() - 0.5) * 2;
-    n.vy = (Math.random() - 0.5) * 2;
+    n.vx = (Math.random() - 0.5) * 0.8;
+    n.vy = (Math.random() - 0.5) * 0.8;
   }
+  wakeSimulation();
   if (focusNode) exitFocus();
   if (selectedNode && !isNodeVisible(selectedNode)) {
     document.getElementById("detail").style.display = "none";
@@ -399,13 +408,22 @@ function showDetail(n) {
 }
 
 // ── Physics simulation ──
-const REPULSION = 3000;
+const REPULSION = 2400;
 const SPRING_LENGTH = 180;
-const SPRING_K = 0.004;
-const DAMPING = 0.85;
-const CENTER_PULL = 0.0005;
+const SPRING_K = 0.0035;
+const DAMPING = 0.8;
+const CENTER_PULL = 0.00035;
+const HEAT_DECAY = 0.985;
+const HEAT_SLEEP_THRESHOLD = 0.02;
+const SPEED_SLEEP_THRESHOLD = 0.03;
 
 function simulate() {
+  if (simulationHeat <= 0 && !dragging && !panning) {
+    return;
+  }
+
+  const forceScale = Math.max(simulationHeat, HEAT_SLEEP_THRESHOLD);
+
   for (const a of nodes) {
     if (!isNodeVisible(a)) continue;
     for (const b of nodes) {
@@ -413,12 +431,12 @@ function simulate() {
       let dx = a.x - b.x;
       let dy = a.y - b.y;
       const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-      const force = REPULSION / (dist * dist);
+      const force = (REPULSION * forceScale) / (dist * dist);
       a.vx += (dx / dist) * force;
       a.vy += (dy / dist) * force;
     }
-    a.vx += (W / 2 - a.x) * CENTER_PULL;
-    a.vy += (H / 2 - a.y) * CENTER_PULL;
+    a.vx += (W / 2 - a.x) * CENTER_PULL * forceScale;
+    a.vy += (H / 2 - a.y) * CENTER_PULL * forceScale;
   }
   for (const edge of graph.edges) {
     const a = nodeMap.get(edge.from);
@@ -428,18 +446,33 @@ function simulate() {
     const dx = b.x - a.x;
     const dy = b.y - a.y;
     const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-    const force = (dist - SPRING_LENGTH) * SPRING_K;
+    const force = (dist - SPRING_LENGTH) * SPRING_K * forceScale;
     const fx = (dx / dist) * force;
     const fy = (dy / dist) * force;
     a.vx += fx; a.vy += fy;
     b.vx -= fx; b.vy -= fy;
   }
+
+  let maxSpeed = 0;
   for (const n of nodes) {
     if (n === dragging || !isNodeVisible(n)) continue;
     n.vx *= DAMPING;
     n.vy *= DAMPING;
     n.x += n.vx;
     n.y += n.vy;
+    const speed = Math.abs(n.vx) + Math.abs(n.vy);
+    if (speed > maxSpeed) maxSpeed = speed;
+  }
+
+  if (!dragging && !panning) {
+    simulationHeat *= HEAT_DECAY;
+    if (simulationHeat < HEAT_SLEEP_THRESHOLD && maxSpeed < SPEED_SLEEP_THRESHOLD) {
+      simulationHeat = 0;
+      for (const n of nodes) {
+        n.vx = 0;
+        n.vy = 0;
+      }
+    }
   }
 }
 

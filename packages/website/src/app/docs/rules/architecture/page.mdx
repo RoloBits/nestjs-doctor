@@ -190,6 +190,19 @@ export class OrderService {
 ```
 </CodeGroup>
 
+If your project intentionally allows manual construction for specific classes
+(for example `Logger` wrappers), you can exclude them:
+
+```json
+{
+  "rules": {
+    "architecture/no-manual-instantiation": {
+      "excludeClasses": ["Logger", "PinoLogger"]
+    }
+  }
+}
+```
+
 ---
 
 ## no-orm-in-services
