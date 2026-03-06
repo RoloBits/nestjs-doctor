@@ -1,3 +1,4 @@
+import { SyntaxKind } from "ts-morph";
 import { HTTP_DECORATORS, isController } from "../../engine/decorator-utils.js";
 import type { Rule } from "../types.js";
 
@@ -30,7 +31,12 @@ export const noEmptyHandlers: Rule = {
 					continue;
 				}
 
-				const statements = body.getStatements();
+				const block = body.asKind(SyntaxKind.Block);
+				if (!block) {
+					continue;
+				}
+
+				const statements = block.getStatements();
 				if (statements.length === 0) {
 					context.report({
 						filePath: context.filePath,
