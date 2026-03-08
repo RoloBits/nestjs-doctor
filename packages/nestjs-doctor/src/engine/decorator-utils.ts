@@ -1,4 +1,4 @@
-import type { ClassDeclaration, Decorator, MethodDeclaration } from "ts-morph";
+import type { ClassDeclaration, MethodDeclaration } from "ts-morph";
 
 export const HTTP_DECORATORS = new Set([
 	"Get",
@@ -11,7 +11,7 @@ export const HTTP_DECORATORS = new Set([
 	"All",
 ]);
 
-export type NestClassType =
+type NestClassType =
 	| "controller"
 	| "service"
 	| "module"
@@ -39,14 +39,6 @@ export function hasDecorator(cls: ClassDeclaration, name: string): boolean {
 	return cls.getDecorator(name) !== undefined;
 }
 
-export function getDecoratorArgs(decorator: Decorator): string | undefined {
-	const args = decorator.getArguments();
-	if (args.length === 0) {
-		return undefined;
-	}
-	return args[0].getText();
-}
-
 export function getClassType(cls: ClassDeclaration): NestClassType {
 	for (const [decoratorName, type] of Object.entries(NEST_CLASS_DECORATORS)) {
 		if (hasDecorator(cls, decoratorName)) {
@@ -72,7 +64,7 @@ export function isHttpHandler(method: MethodDeclaration): boolean {
 	return method.getDecorators().some((d) => HTTP_DECORATORS.has(d.getName()));
 }
 
-export const FRAMEWORK_HANDLER_DECORATORS = new Set([
+const FRAMEWORK_HANDLER_DECORATORS = new Set([
 	"TsRestHandler",
 	"GrpcMethod",
 	"GrpcStreamMethod",

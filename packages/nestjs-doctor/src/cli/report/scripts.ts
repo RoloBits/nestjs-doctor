@@ -1,4 +1,4 @@
-export interface ReportScriptData {
+interface ReportScriptData {
 	diagnosticsJson: string;
 	elapsedMsJson: string;
 	examplesJson: string;

@@ -20,12 +20,12 @@ import type { SchemaGraph } from "../types/schema.js";
 import type { ModuleGraph } from "./module-graph.js";
 import type { ProviderInfo } from "./type-resolver.js";
 
-export interface RuleError {
+interface RuleError {
 	error: unknown;
 	ruleId: string;
 }
 
-export interface RunRulesResult {
+interface RunRulesResult {
 	diagnostics: Diagnostic[];
 	errors: RuleError[];
 }
@@ -58,7 +58,7 @@ export function separateRules(rules: AnyRule[]): {
 	return { fileRules, projectRules, schemaRules };
 }
 
-export function runFileRulesOnFile(
+function runFileRulesOnFile(
 	project: Project,
 	filePath: string,
 	rules: Rule[],

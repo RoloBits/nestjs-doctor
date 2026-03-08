@@ -6,7 +6,7 @@ import {
 	getSeverityIcon,
 	getStarRating,
 	printFramedBox,
-} from "../../src/cli/output/console-reporter.js";
+} from "../../src/cli/formatters/console-reporter.js";
 import type { Diagnostic } from "../../src/types/diagnostic.js";
 
 const FILLED_BLOCK_REGEX = /^█+$/;
@@ -298,7 +298,7 @@ describe("console-reporter", () => {
 
 		it("renders the full report without errors", async () => {
 			const { printConsoleReport } = await import(
-				"../../src/cli/output/console-reporter.js"
+				"../../src/cli/formatters/console-reporter.js"
 			);
 
 			const result = makeResult();
@@ -314,7 +314,7 @@ describe("console-reporter", () => {
 
 		it("renders diagnostics grouped by rule", async () => {
 			const { printConsoleReport } = await import(
-				"../../src/cli/output/console-reporter.js"
+				"../../src/cli/formatters/console-reporter.js"
 			);
 
 			const diagnostics = [
@@ -363,7 +363,7 @@ describe("console-reporter", () => {
 
 		it("shows file paths in verbose mode", async () => {
 			const { printConsoleReport } = await import(
-				"../../src/cli/output/console-reporter.js"
+				"../../src/cli/formatters/console-reporter.js"
 			);
 
 			const diagnostics = [

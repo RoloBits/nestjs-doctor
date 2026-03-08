@@ -13,7 +13,7 @@ const VALID_SEVERITIES = new Set<string>(["error", "warning", "info"]);
 const VALID_SCOPES = new Set<string>(["file", "project"]);
 const CUSTOM_PREFIX = "custom/";
 
-export interface LoadCustomRulesResult {
+interface LoadCustomRulesResult {
 	rules: AnyRule[];
 	warnings: string[];
 }

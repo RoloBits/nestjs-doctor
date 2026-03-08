@@ -1,10 +1,10 @@
 import {
 	findCircularDeps,
 	type ModuleGraph,
-} from "../../../engine/module-graph.js";
-import type { DiagnoseResult } from "../../../types/result.js";
+} from "../../engine/module-graph.js";
+import type { DiagnoseResult } from "../../types/result.js";
 
-export interface SerializedModuleNode {
+interface SerializedModuleNode {
 	controllers: string[];
 	exports: string[];
 	filePath: string;
@@ -14,7 +14,7 @@ export interface SerializedModuleNode {
 	providers: string[];
 }
 
-export interface SerializedModuleGraph {
+interface SerializedModuleGraph {
 	circularDepRecommendations: Record<string, string>;
 	circularDeps: string[][];
 	edges: Array<{ from: string; to: string }>;

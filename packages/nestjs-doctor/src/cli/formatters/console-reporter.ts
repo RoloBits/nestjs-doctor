@@ -1,7 +1,7 @@
 import type { Diagnostic } from "../../types/diagnostic.js";
 import type { DiagnoseResult, MonorepoResult } from "../../types/result.js";
-import { highlighter } from "./highlighter.js";
-import { logger } from "./logger.js";
+import { highlighter } from "../ui/highlighter.js";
+import { logger } from "../ui/logger.js";
 
 const PERFECT_SCORE = 100;
 const SCORE_BAR_WIDTH = 50;
@@ -32,7 +32,7 @@ const createFramedLine = (
 	renderedText,
 });
 
-export const colorizeByScore = (text: string, score: number): string => {
+const colorizeByScore = (text: string, score: number): string => {
 	if (score >= SCORE_GOOD_THRESHOLD) {
 		return highlighter.success(text);
 	}

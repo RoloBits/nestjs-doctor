@@ -8,6 +8,7 @@ web:
 
 check:
 	pnpm check
+	pnpm knip
 	pnpm test
 	pnpm build
 

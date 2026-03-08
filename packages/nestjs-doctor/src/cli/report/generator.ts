@@ -2,11 +2,11 @@ import { readFileSync } from "node:fs";
 import type { ModuleGraph } from "../../engine/module-graph.js";
 import type { ProviderInfo } from "../../engine/type-resolver.js";
 import type { DiagnoseResult } from "../../types/result.js";
-import { serializeModuleGraph } from "./report/module-serializer.js";
-import { getRuleExamples } from "./report/report-examples.js";
-import { getReportHtml } from "./report/report-html.js";
-import { getReportScripts } from "./report/report-scripts.js";
-import { getReportStyles } from "./report/report-styles.js";
+import { getRuleExamples } from "./examples.js";
+import { getReportHtml } from "./html.js";
+import { serializeModuleGraph } from "./module-serializer.js";
+import { getReportScripts } from "./scripts.js";
+import { getReportStyles } from "./styles.js";
 
 function safeJsonForScript(json: string): string {
 	return json.replace(/<\/script/gi, "<\\/script").replace(/<!--/g, "<\\!--");

@@ -296,13 +296,6 @@ export function findCircularDeps(graph: ModuleGraph): string[][] {
 	return cycles;
 }
 
-export function getModuleByClassName(
-	graph: ModuleGraph,
-	className: string
-): ModuleNode | undefined {
-	return graph.modules.get(className);
-}
-
 export function findProviderModule(
 	graph: ModuleGraph,
 	providerName: string

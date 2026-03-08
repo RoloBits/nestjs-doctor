@@ -4,7 +4,7 @@ import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { logger } from "./output/logger.js";
+import { logger } from "./ui/logger.js";
 
 const VERSION_LINE_RE = /^> v.+$/m;
 

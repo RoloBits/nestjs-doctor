@@ -41,7 +41,11 @@ import type { SchemaGraph } from "../types/schema.js";
 import { loadConfig } from "./config-loader.js";
 import { collectFiles, collectMonorepoFiles } from "./file-collector.js";
 import { filterIgnoredDiagnostics } from "./filter-diagnostics.js";
-import { detectMonorepo, detectProject } from "./project-detector.js";
+import {
+	detectMonorepo,
+	detectProject,
+	type MonorepoInfo,
+} from "./project-detector.js";
 import { mergeRules, resolveCustomRules } from "./rule-resolver.js";
 
 function formatRuleError(error: unknown): string {
@@ -51,8 +55,9 @@ function formatRuleError(error: unknown): string {
 	return String(error);
 }
 
-export interface ScanOptions {
+interface ScanOptions {
 	config?: string;
+	monorepo?: MonorepoInfo;
 }
 
 export interface ScanResult {
@@ -321,7 +326,7 @@ export async function scanMonorepo(
 	options: ScanOptions = {}
 ): Promise<MonorepoScanResult> {
 	const startTime = performance.now();
-	const monorepo = await detectMonorepo(targetPath);
+	const monorepo = options.monorepo ?? (await detectMonorepo(targetPath));
 
 	if (!monorepo) {
 		const { result, moduleGraph, customRuleWarnings } = await scan(
@@ -475,6 +480,26 @@ export async function scanMonorepo(
 			elapsedMs,
 		},
 	};
+}
+
+export type AutoScanResult =
+	| { isMonorepo: true; monorepo: MonorepoScanResult }
+	| { isMonorepo: false; single: ScanResult };
+
+export async function autoScan(
+	targetPath: string,
+	options: ScanOptions = {}
+): Promise<AutoScanResult> {
+	const detected = await detectMonorepo(targetPath);
+	if (detected) {
+		const result = await scanMonorepo(targetPath, {
+			...options,
+			monorepo: detected,
+		});
+		return { isMonorepo: true, monorepo: result };
+	}
+	const result = await scan(targetPath, options);
+	return { isMonorepo: false, single: result };
 }
 
 async function loadConfigWithFallback(

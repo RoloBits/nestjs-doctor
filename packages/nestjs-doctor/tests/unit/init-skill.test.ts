@@ -98,7 +98,7 @@ const mockLogger = {
 	log: vi.fn(),
 };
 
-vi.mock("../../src/cli/output/logger.js", () => ({
+vi.mock("../../src/cli/ui/logger.js", () => ({
 	logger: mockLogger,
 }));
 
@@ -126,7 +126,7 @@ beforeEach(() => {
 });
 
 const loadInitSkill = async () => {
-	const mod = await import("../../src/cli/init-skill.js");
+	const mod = await import("../../src/cli/init.js");
 	return mod.initSkill;
 };
 
