@@ -1,102 +1,5 @@
-import { readFileSync } from "node:fs";
-import type { DiagnoseResult } from "../common/result.js";
-import type { ModuleGraph } from "../engine/module-graph.js";
-import type { ProviderInfo } from "../engine/type-resolver.js";
-import { getRuleExamples } from "./examples.js";
-import { getReportHtml } from "./html.js";
-import { serializeModuleGraph } from "./module-serializer.js";
-import { getReportScripts } from "./scripts.js";
-import { getReportStyles } from "./styles.js";
-
-function safeJsonForScript(json: string): string {
-	return json.replace(/<\/script/gi, "<\\/script").replace(/<!--/g, "<\\!--");
-}
-
-function serializeProviders(providers: Map<string, ProviderInfo>): Array<{
-	name: string;
-	filePath: string;
-	dependencies: string[];
-	publicMethodCount: number;
-}> {
-	return [...providers.values()].map((p) => ({
-		name: p.name,
-		filePath: p.filePath,
-		dependencies: p.dependencies,
-		publicMethodCount: p.publicMethodCount,
-	}));
-}
-
-function buildFileSources(files: string[]): Record<string, string> {
-	const sources: Record<string, string> = {};
-	for (const filePath of files) {
-		try {
-			sources[filePath] = readFileSync(filePath, "utf-8");
-		} catch {
-			// Skip files that can't be read
-		}
-	}
-	return sources;
-}
-
-export function generateReport(
-	moduleGraph: ModuleGraph,
-	result: DiagnoseResult,
-	options?: {
-		files?: string[];
-		projects?: string[];
-		providers?: Map<string, ProviderInfo>;
-	}
-): string {
-	const graph = serializeModuleGraph(moduleGraph, result, options?.projects);
-
-	const diagnosticsWithoutSource = result.diagnostics.map((d) => {
-		if ("sourceLines" in d) {
-			const { sourceLines: _sl, ...rest } = d;
-			return rest;
-		}
-		return d;
-	});
-	const sourceLinesArray = result.diagnostics.map((d) =>
-		"sourceLines" in d ? (d.sourceLines ?? null) : null
-	);
-
-	const graphJson = safeJsonForScript(JSON.stringify(graph));
-	const projectJson = safeJsonForScript(
-		JSON.stringify({
-			name: result.project.name,
-			score: result.score,
-			moduleCount: result.project.moduleCount,
-			fileCount: result.project.fileCount,
-			framework: result.project.framework,
-			nestVersion: result.project.nestVersion,
-			orm: result.project.orm,
-		})
-	);
-	const diagnosticsJson = safeJsonForScript(
-		JSON.stringify(diagnosticsWithoutSource)
-	);
-	const summaryJson = safeJsonForScript(JSON.stringify(result.summary));
-	const elapsedMsJson = safeJsonForScript(JSON.stringify(result.elapsedMs));
-	const sourceLinesJson = safeJsonForScript(JSON.stringify(sourceLinesArray));
-	const examplesJson = safeJsonForScript(JSON.stringify(getRuleExamples()));
-	const fileSources = buildFileSources(options?.files ?? []);
-	const fileSourcesJson = safeJsonForScript(JSON.stringify(fileSources));
-	const serializedProviders = serializeProviders(
-		options?.providers ?? new Map()
-	);
-	const providersJson = safeJsonForScript(JSON.stringify(serializedProviders));
-	const schemaJson = safeJsonForScript(
-		JSON.stringify(result.schema ?? { entities: [], relations: [], orm: "" })
-	);
-
-	return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>nestjs-doctor — Health Report</title>
-<style>${getReportStyles()}</style>
-<script type="importmap">
+export function getCodeMirrorImportMap(): string {
+	return `<script type="importmap">
 {
   "imports": {
     "style-mod": "https://esm.sh/style-mod@4.1.2",
@@ -119,14 +22,11 @@ export function generateReport(
     "codemirror": "https://esm.sh/*codemirror@6.0.1"
   }
 }
-</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js" integrity="sha512-psLUZfcgPmi012lcpVHkWoOqyztollwCGu4w/mXijFMK/YcdUdP06voJNVOJ7f/dUIlO2tGlDLuypRyXX2lcvQ==" crossorigin="anonymous"></script>
-</head>
-<body>
-${getReportHtml()}
-<script>${getReportScripts({ graphJson, projectJson, diagnosticsJson, summaryJson, elapsedMsJson, sourceLinesJson, examplesJson, fileSourcesJson, providersJson, schemaJson })}</script>
-<script type="module">
-import { basicSetup, EditorView } from "codemirror";
+</script>`;
+}
+
+export function getCodeMirrorScript(): string {
+	return `import { basicSetup, EditorView } from "codemirror";
 import { EditorState } from "@codemirror/state";
 import { javascript } from "@codemirror/lang-javascript";
 import { oneDark } from "@codemirror/theme-one-dark";
@@ -288,8 +188,5 @@ if (parent) {
     parent: parent,
   });
   window.cmEditor = editor;
-}
-</script>
-</body>
-</html>`;
+}`;
 }

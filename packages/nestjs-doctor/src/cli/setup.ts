@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { runReportFlow } from "../report/flow.js";
+import { runReport } from "../report/setup.js";
 import { initSkill } from "./init.js";
 import { validateMinScoreArg } from "./min-score.js";
 import { logger } from "./ui/logger.js";
@@ -63,7 +63,7 @@ export class CliSetup {
 	handleReport(): this {
 		this.steps.push(async () => {
 			if (this.args.report) {
-				await runReportFlow(this.targetPath, this.args.config);
+				await runReport(this.targetPath, this.args.config);
 				return false;
 			}
 			return true;
