@@ -302,6 +302,50 @@ describe("scanner integration", () => {
 		expect(result.project.moduleCount).toBe(3);
 	});
 
+	it("resolves dynamic module imports in module graph", async () => {
+		const targetPath = resolve(FIXTURES, "dynamic-modules/src");
+		const scanConfig = await resolveScanConfig(targetPath);
+		const context = await buildAnalysisContext(targetPath, scanConfig);
+		const rawOutput = diagnose(context);
+		const { result } = buildResult(
+			context,
+			rawOutput,
+			scanConfig.customRuleWarnings
+		);
+
+		// Should detect all 5 modules
+		expect(result.project.moduleCount).toBe(5);
+
+		// AppModule should have edges to all 4 imported modules
+		const appEdges = context.moduleGraph.edges.get("AppModule");
+		expect(appEdges).toBeDefined();
+		expect(appEdges?.has("ConfigModule")).toBe(true);
+		expect(appEdges?.has("UsersModule")).toBe(true);
+		expect(appEdges?.has("AuthModule")).toBe(true);
+		expect(appEdges?.has("DatabaseModule")).toBe(true);
+
+		// Should be a clean result with no diagnostics
+		expect(result.score.value).toBeGreaterThanOrEqual(90);
+	});
+
+	it("produces no false circular deps from dynamic imports", async () => {
+		const targetPath = resolve(FIXTURES, "dynamic-modules/src");
+		const scanConfig = await resolveScanConfig(targetPath);
+		const context = await buildAnalysisContext(targetPath, scanConfig);
+		const rawOutput = diagnose(context);
+		const { result } = buildResult(
+			context,
+			rawOutput,
+			scanConfig.customRuleWarnings
+		);
+
+		// Dynamic imports (forRoot, spread, forwardRef) should not produce false circular deps
+		const circularDiags = result.diagnostics.filter(
+			(d) => d.rule === "architecture/no-circular-module-deps"
+		);
+		expect(circularDiags).toHaveLength(0);
+	});
+
 	it("diagnoseMonorepo falls back to single scan for non-monorepo", async () => {
 		const targetPath = resolve(FIXTURES, "basic-app/src");
 		const result = await diagnoseMonorepo(targetPath);

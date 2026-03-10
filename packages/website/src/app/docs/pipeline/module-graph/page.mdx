@@ -58,13 +58,66 @@ Scans every file for classes decorated with `@Module()`. For each module:
 
 For each module's `imports` array, creates directed edges in the graph. Also builds the `providerToModule` reverse index mapping each provider name back to its containing module.
 
-### Special Syntax Handling
+### Import Resolution
 
-The parser handles NestJS-specific patterns:
+The graph builder recursively resolves import expressions to extract module names from a variety of patterns commonly used in NestJS codebases.
 
-- **`forwardRef(() => SomeModule)`** — extracts `SomeModule` from the arrow function body
-- **Spread syntax `...someArray`** — extracts the variable name
-- **Direct class references** — `SomeModule` is used as-is
+**Supported patterns:**
+
+| Pattern | Example | Resolves To |
+|---------|---------|-------------|
+| Plain identifier | `UsersModule` | `"UsersModule"` |
+| Dynamic module method | `ConfigModule.forRoot({ ... })` | `"ConfigModule"` |
+| `forwardRef` | `forwardRef(() => UsersModule)` | `"UsersModule"` |
+| Spread of variable | `...extraImports` | contents of variable |
+| Spread of function call | `...getCommonImports()` | return value of function |
+| `.concat()` chain | `[A].concat([B])` | both `A` and `B` |
+| Function call as value | `getImports()` | return value of function |
+| Variable as value | `commonImports` | contents of variable |
+
+**Recognized dynamic module methods:** `forRoot`, `forRootAsync`, `forFeature`, `forFeatureAsync`, `forChild`, `forChildAsync`, `register`, `registerAsync`.
+
+**Resolution rules:**
+
+- Resolution is recursive with a depth limit of 3
+- **Same-file functions:** the resolver finds the function declaration and extracts identifiers from its `return` statements
+- **Same-file variables:** the resolver finds the `const`/`let`/`var` declaration and resolves its initializer
+- **Cross-file references** are not resolved (only same-file)
+- **Unresolvable expressions** (ternaries, computed values) gracefully return empty — no crash, the import is silently skipped
+
+**Why this matters:**
+
+Before this resolution engine, `ConfigModule.forRoot(...)` was stored as the raw string `"ConfigModule.forRoot({ isGlobal: true })"`, which never matched a module key and silently dropped the edge. This caused:
+
+- False negatives in circular dependency detection
+- False positives in orphan module detection
+- False positives in unused export detection
+
+**Example — multiple patterns in one module:**
+
+```typescript
+const commonImports = [SharedModule, LoggingModule];
+
+function getAuthImports() {
+  return [AuthModule, SessionModule];
+}
+
+@Module({
+  imports: [
+    UsersModule,                          // plain identifier
+    ConfigModule.forRoot({ isGlobal: true }), // dynamic module method
+    TypeOrmModule.forFeature([User]),      // dynamic module method
+    forwardRef(() => OrderModule),        // forwardRef
+    ...commonImports,                     // spread of variable
+    ...getAuthImports(),                  // spread of function call
+  ],
+})
+export class AppModule {}
+
+// Graph builder extracts:
+// → UsersModule, ConfigModule, TypeOrmModule, OrderModule,
+//   SharedModule, LoggingModule, AuthModule, SessionModule
+```
 
 ### Circular Dependency Detection
 
@@ -85,5 +138,6 @@ function findCircularDeps(graph: ModuleGraph): string[][] {
 ## Debugging Tips
 
 - If a module does not appear in the graph, verify that it has the `@Module()` decorator and is in a file included by the [file collector](/docs/pipeline/file-collection).
+- If a dynamically-imported module (e.g. via `.forRoot()`) does not appear in the graph edges, verify the method name is one of the recognized dynamic module methods listed above.
 - Circular dependency detection works on the `imports` graph. Additionally, `traceProviderEdges` traces provider-level dependencies across module boundaries, enabling concrete suggestions about which providers to extract to break a cycle.
 - The `providerToModule` index is built from `@Module({ providers: [...] })`. If a provider is not listed in any module's providers array, it will not appear in this index.

@@ -1,7 +1,10 @@
 import type {
+	CallExpression,
 	ClassDeclaration,
+	Node,
 	ObjectLiteralExpression,
 	Project,
+	SourceFile,
 } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import type { ProviderInfo } from "./type-resolver.js";
@@ -104,6 +107,19 @@ export function buildModuleGraph(
 	return { modules, edges, providerToModule };
 }
 
+const MAX_RESOLVE_DEPTH = 3;
+
+const DYNAMIC_MODULE_METHODS = new Set([
+	"forRoot",
+	"forRootAsync",
+	"forFeature",
+	"forFeatureAsync",
+	"forChild",
+	"forChildAsync",
+	"register",
+	"registerAsync",
+]);
+
 function extractArrayPropertyNames(
 	obj: ObjectLiteralExpression,
 	propertyName: string
@@ -113,26 +129,205 @@ function extractArrayPropertyNames(
 		return [];
 	}
 
-	const initializer = prop.getChildrenOfKind(
-		SyntaxKind.ArrayLiteralExpression
-	)[0];
+	const assignment = prop.asKind(SyntaxKind.PropertyAssignment);
+	if (!assignment) {
+		return [];
+	}
+
+	const initializer = assignment.getInitializer();
 	if (!initializer) {
 		return [];
 	}
 
-	return initializer.getElements().map((el) => {
-		const text = el.getText();
-		// Handle forwardRef(() => SomeModule)
-		if (text.startsWith("forwardRef")) {
-			const match = text.match(FORWARD_REF_REGEX);
-			return match ? match[1] : text;
+	return extractNamesFromExpression(initializer, obj.getSourceFile(), 0);
+}
+
+function extractNamesFromExpression(
+	node: Node,
+	sourceFile: SourceFile,
+	depth: number
+): string[] {
+	if (depth > MAX_RESOLVE_DEPTH) {
+		return [];
+	}
+
+	const kind = node.getKind();
+
+	if (kind === SyntaxKind.ArrayLiteralExpression) {
+		const arr = node.asKindOrThrow(SyntaxKind.ArrayLiteralExpression);
+		const names: string[] = [];
+		for (const el of arr.getElements()) {
+			names.push(...extractNamesFromElement(el, sourceFile, depth));
 		}
-		// Handle spread operator
-		if (text.startsWith("...")) {
-			return text.slice(3).trim();
+		return names;
+	}
+
+	if (kind === SyntaxKind.CallExpression) {
+		return extractNamesFromCallExpression(
+			node.asKindOrThrow(SyntaxKind.CallExpression),
+			sourceFile,
+			depth
+		);
+	}
+
+	if (kind === SyntaxKind.Identifier) {
+		return resolveIdentifier(node.getText(), sourceFile, depth + 1);
+	}
+
+	return [];
+}
+
+function extractNamesFromElement(
+	el: Node,
+	sourceFile: SourceFile,
+	depth: number
+): string[] {
+	const text = el.getText();
+
+	// Handle forwardRef(() => SomeModule)
+	if (text.startsWith("forwardRef")) {
+		const match = text.match(FORWARD_REF_REGEX);
+		return match ? [match[1]] : [text];
+	}
+
+	const kind = el.getKind();
+
+	// Handle spread elements: ...getImports() or ...someArray
+	if (kind === SyntaxKind.SpreadElement) {
+		const spread = el.asKindOrThrow(SyntaxKind.SpreadElement);
+		return extractNamesFromExpression(
+			spread.getExpression(),
+			sourceFile,
+			depth
+		);
+	}
+
+	// Handle call expressions: ConfigModule.forRoot(), someFunction()
+	if (kind === SyntaxKind.CallExpression) {
+		return extractNamesFromCallExpression(
+			el.asKindOrThrow(SyntaxKind.CallExpression),
+			sourceFile,
+			depth
+		);
+	}
+
+	// Handle property access without call: SomeModule.SomeProperty
+	if (kind === SyntaxKind.PropertyAccessExpression) {
+		const access = el.asKindOrThrow(SyntaxKind.PropertyAccessExpression);
+		return [access.getExpression().getText()];
+	}
+
+	// Plain identifier
+	if (kind === SyntaxKind.Identifier) {
+		return [text];
+	}
+
+	return [text];
+}
+
+function extractNamesFromCallExpression(
+	call: CallExpression,
+	sourceFile: SourceFile,
+	depth: number
+): string[] {
+	const expr = call.getExpression();
+
+	// Handle .concat() chains: [A, B].concat([C, D])
+	if (expr.getKind() === SyntaxKind.PropertyAccessExpression) {
+		const access = expr.asKindOrThrow(SyntaxKind.PropertyAccessExpression);
+		const methodName = access.getName();
+
+		if (methodName === "concat") {
+			const receiverNames = extractNamesFromExpression(
+				access.getExpression(),
+				sourceFile,
+				depth
+			);
+			const argNames: string[] = [];
+			for (const arg of call.getArguments()) {
+				argNames.push(...extractNamesFromExpression(arg, sourceFile, depth));
+			}
+			return [...receiverNames, ...argNames];
 		}
-		return text;
-	});
+
+		// Handle dynamic module methods: ConfigModule.forRoot(), TypeOrmModule.forFeature()
+		if (DYNAMIC_MODULE_METHODS.has(methodName)) {
+			return [access.getExpression().getText()];
+		}
+
+		// Unknown property access call — try to use the leftmost identifier
+		return [access.getExpression().getText()];
+	}
+
+	// Handle plain function calls: getImports()
+	if (expr.getKind() === SyntaxKind.Identifier) {
+		const funcName = expr.getText();
+		return resolveFunctionCall(funcName, sourceFile, depth + 1);
+	}
+
+	return [];
+}
+
+function resolveIdentifier(
+	name: string,
+	sourceFile: SourceFile,
+	depth: number
+): string[] {
+	if (depth > MAX_RESOLVE_DEPTH) {
+		return [];
+	}
+
+	for (const stmt of sourceFile.getStatements()) {
+		if (stmt.getKind() !== SyntaxKind.VariableStatement) {
+			continue;
+		}
+		const varStmt = stmt.asKindOrThrow(SyntaxKind.VariableStatement);
+		for (const decl of varStmt.getDeclarations()) {
+			if (decl.getName() === name) {
+				const init = decl.getInitializer();
+				if (init) {
+					return extractNamesFromExpression(init, sourceFile, depth);
+				}
+			}
+		}
+	}
+
+	return [];
+}
+
+function resolveFunctionCall(
+	funcName: string,
+	sourceFile: SourceFile,
+	depth: number
+): string[] {
+	if (depth > MAX_RESOLVE_DEPTH) {
+		return [];
+	}
+
+	for (const stmt of sourceFile.getStatements()) {
+		if (stmt.getKind() !== SyntaxKind.FunctionDeclaration) {
+			continue;
+		}
+		const funcDecl = stmt.asKindOrThrow(SyntaxKind.FunctionDeclaration);
+		if (funcDecl.getName() !== funcName) {
+			continue;
+		}
+
+		const names: string[] = [];
+		for (const returnStmt of funcDecl.getDescendantsOfKind(
+			SyntaxKind.ReturnStatement
+		)) {
+			const returnExpr = returnStmt.getExpression();
+			if (returnExpr) {
+				names.push(
+					...extractNamesFromExpression(returnExpr, sourceFile, depth)
+				);
+			}
+		}
+		return names;
+	}
+
+	return [];
 }
 
 export function updateModuleGraphForFile(

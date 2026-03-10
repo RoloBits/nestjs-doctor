@@ -165,6 +165,8 @@ Consider extracting AuthService into a shared module — it would break the weak
 
 The rule uses `traceProviderEdges` to walk each module's providers and controllers, checking which constructor parameters resolve to providers from the target module. The edge with the fewest provider dependencies is flagged as the best candidate for extraction.
 
+> Dynamic module patterns like `ConfigModule.forRoot()`, `forwardRef()`, spread syntax, and helper function calls are fully resolved during graph construction. You do not need to restructure your code to use plain identifiers for accurate cycle detection. See [Module Graph — Import Resolution](/docs/pipeline/module-graph) for the full list of supported patterns.
+
 ---
 
 ## no-manual-instantiation
