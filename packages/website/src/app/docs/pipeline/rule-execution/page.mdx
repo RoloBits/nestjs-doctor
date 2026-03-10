@@ -1,3 +1,9 @@
+import { BreadcrumbJsonLd } from "@/components/json-ld";
+import { docsMetadata } from "@/lib/docs-metadata";
+export const metadata = docsMetadata["/docs/pipeline/rule-execution"];
+
+<BreadcrumbJsonLd path="/docs/pipeline/rule-execution" />
+
 # Rule Execution
 
 **Source:** `src/engine/rule-runner.ts`
@@ -31,16 +37,31 @@ interface RunRulesResult {
   errors: RuleError[]          // rules that threw exceptions
 }
 
-interface Diagnostic {
+// Diagnostic is a union of two variants:
+type Diagnostic = CodeDiagnostic | SchemaDiagnostic
+
+// Shared base fields
+interface DiagnosticBase {
   rule: string          // e.g. "security/no-eval"
-  category: Category    // "security" | "performance" | "correctness" | "architecture"
+  category: Category    // "security" | "performance" | "correctness" | "architecture" | "schema"
   severity: Severity    // "error" | "warning" | "info"
+  scope?: RuleScope     // "file" | "project" | "schema"
   filePath: string
-  line: number
-  column: number
   message: string       // what's wrong
   help: string          // how to fix it
-  sourceLines?: SourceLine[]  // source context around the issue (file-scoped rules only)
+}
+
+// File-scoped and project-scoped rules emit CodeDiagnostic
+interface CodeDiagnostic extends DiagnosticBase {
+  line: number
+  column: number
+  sourceLines?: SourceLine[]  // source context around the issue
+}
+
+// Schema-scoped rules emit SchemaDiagnostic
+interface SchemaDiagnostic extends DiagnosticBase {
+  entity: string              // entity/table name
+  schemaColumn?: string       // column name (if applicable)
 }
 
 interface SourceLine {
@@ -53,7 +74,7 @@ interface SourceLine {
 
 ### Rule Categories
 
-Rules are separated into two types by their `meta.scope`:
+Rules are separated into three types by their `meta.scope`:
 
 **File-scoped rules** (default) run once per source file:
 
@@ -70,6 +91,14 @@ For each file:
 ```
 For each project-scoped rule:
   context = { project, files, moduleGraph, providers, config, report() }
+  rule.check(context)
+```
+
+**Schema-scoped rules** (`scope: "schema"`) run once per schema graph, analyzing entity-relation data extracted from Prisma or TypeORM:
+
+```
+For each schema-scoped rule:
+  context = { schemaGraph, orm, report() }
   rule.check(context)
 ```
 
@@ -91,12 +120,12 @@ context.report({
 
 ### Error Handling
 
-Each rule call is wrapped in a try-catch. If a rule throws an exception, the error is recorded as a `RuleError` and the pipeline continues. A failing rule never crashes the scan.
+Each rule call is wrapped in a try-catch. If a rule throws an exception, the error is recorded as a `RuleErrorInfo` and the pipeline continues. A failing rule never crashes the scan.
 
 ```typescript
-interface RuleError {
+interface RuleErrorInfo {
   ruleId: string
-  error: unknown
+  error: string
 }
 ```
 

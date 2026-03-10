@@ -1,3 +1,9 @@
+import { BreadcrumbJsonLd } from "@/components/json-ld";
+import { docsMetadata } from "@/lib/docs-metadata";
+export const metadata = docsMetadata["/docs/vscode-extension"];
+
+<BreadcrumbJsonLd path="/docs/vscode-extension" />
+
 # VS Code Extension
 
 Get inline diagnostics from nestjs-doctor directly in your editor — same 43 rules, zero friction.

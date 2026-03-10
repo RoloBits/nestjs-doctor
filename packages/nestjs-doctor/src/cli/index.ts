@@ -25,7 +25,7 @@ const main = defineCommand({
 		...flags,
 	},
 	async run({ args }) {
-		const ctx = await new CliSetup(args as CliArgs)
+		const ctx = await new CliSetup(args as CliArgs, version)
 			.resolveTargetPath()
 			.handleInit()
 			.handleReport()

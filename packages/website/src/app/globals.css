@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "@xyflow/react/dist/style.css";
 
 @theme {
 	--font-mono: var(--font-mono), ui-monospace, monospace;
@@ -31,6 +32,33 @@ body {
 .docs-sidebar {
 	scrollbar-color: #333 transparent;
 	scrollbar-width: thin;
+}
+
+/* React Flow overrides */
+.react-flow__node {
+	cursor: default !important;
+}
+
+.react-flow__node .pipeline-node:hover {
+	border-color: var(--color-nest-red) !important;
+}
+
+.react-flow,
+.react-flow__background {
+	background: transparent !important;
+}
+
+.react-flow__node-group.parallel-group::after {
+	position: absolute;
+	top: -10px;
+	left: 50%;
+	padding: 0 8px;
+	font-family: var(--font-mono), ui-monospace, monospace;
+	font-size: 10px;
+	color: rgba(255, 255, 255, 0.5);
+	content: "Promise.all";
+	background: #0a0a0a;
+	transform: translateX(-50%);
 }
 
 /* Docs code block syntax */

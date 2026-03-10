@@ -1,9 +1,9 @@
 import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
-import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { CREATE_RULE_SKILL_TEMPLATE, SKILL_TEMPLATE } from "./skill-content.js";
 import { logger } from "./ui/logger.js";
 
 const VERSION_LINE_RE = /^> v.+$/m;
@@ -272,26 +272,16 @@ const SKILL_TARGETS: SkillTarget[] = [
 	},
 ];
 
-export const initSkill = async (targetPath: string): Promise<void> => {
-	const require = createRequire(import.meta.url);
-
-	const templatePath = require.resolve("../../skill/SKILL.md");
-	const template = await readFile(templatePath, "utf-8");
-
-	const createRuleTemplatePath = require.resolve(
-		"../../skill/CREATE-RULE-SKILL.md"
-	);
-	const createRuleTemplate = await readFile(createRuleTemplatePath, "utf-8");
-
-	const pkgPath = require.resolve("../../package.json");
-	const pkg = JSON.parse(await readFile(pkgPath, "utf-8")) as {
-		version: string;
-	};
-	const { version } = pkg;
-
+export const initSkill = async (
+	targetPath: string,
+	version: string
+): Promise<void> => {
 	const skills: SkillContents = {
-		main: template.replace(VERSION_LINE_RE, `> v${version}`),
-		createRule: createRuleTemplate.replace(VERSION_LINE_RE, `> v${version}`),
+		main: SKILL_TEMPLATE.replace(VERSION_LINE_RE, `> v${version}`),
+		createRule: CREATE_RULE_SKILL_TEMPLATE.replace(
+			VERSION_LINE_RE,
+			`> v${version}`
+		),
 	};
 
 	let installed = 0;

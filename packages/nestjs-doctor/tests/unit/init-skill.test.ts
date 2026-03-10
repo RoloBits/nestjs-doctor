@@ -71,21 +71,9 @@ vi.mock("node:child_process", () => ({
 	},
 }));
 
-vi.mock("node:module", () => ({
-	createRequire: () => ({
-		resolve: (specifier: string) => {
-			if (specifier.includes("CREATE-RULE-SKILL.md")) {
-				return "/resolved/CREATE-RULE-SKILL.md";
-			}
-			if (specifier.includes("SKILL.md")) {
-				return "/resolved/SKILL.md";
-			}
-			if (specifier.includes("package.json")) {
-				return "/resolved/package.json";
-			}
-			return specifier;
-		},
-	}),
+vi.mock("../../src/cli/skill-content.js", () => ({
+	SKILL_TEMPLATE: FAKE_SKILL_TEMPLATE,
+	CREATE_RULE_SKILL_TEMPLATE: FAKE_CREATE_RULE_TEMPLATE,
 }));
 
 const mockLogger = {
@@ -113,16 +101,6 @@ beforeEach(() => {
 	writes.dirs.clear();
 
 	vi.clearAllMocks();
-
-	mockState.existingFileContents.set("/resolved/SKILL.md", FAKE_SKILL_TEMPLATE);
-	mockState.existingFileContents.set(
-		"/resolved/CREATE-RULE-SKILL.md",
-		FAKE_CREATE_RULE_TEMPLATE
-	);
-	mockState.existingFileContents.set(
-		"/resolved/package.json",
-		JSON.stringify({ version: FAKE_VERSION })
-	);
 });
 
 const loadInitSkill = async () => {
@@ -133,7 +111,7 @@ const loadInitSkill = async () => {
 describe("initSkill", () => {
 	it("always writes project-level fallback", async () => {
 		const initSkill = await loadInitSkill();
-		await initSkill("/project");
+		await initSkill("/project", FAKE_VERSION);
 
 		const projectDir = join("/project", ".agents", "nestjs-doctor");
 		expect(writes.dirs.has(projectDir)).toBe(true);
@@ -156,7 +134,7 @@ describe("initSkill", () => {
 		mockState.existingPaths.add(join(FAKE_HOME, ".claude"));
 
 		const initSkill = await loadInitSkill();
-		await initSkill("/project");
+		await initSkill("/project", FAKE_VERSION);
 
 		const dir = join(FAKE_HOME, ".claude", "skills", "nestjs-doctor");
 		expect(writes.files.has(join(dir, "SKILL.md"))).toBe(true);
@@ -179,7 +157,7 @@ describe("initSkill", () => {
 		mockState.existingPaths.add(join(FAKE_HOME, ".claude"));
 
 		const initSkill = await loadInitSkill();
-		await initSkill("/project");
+		await initSkill("/project", FAKE_VERSION);
 
 		const dir = join(FAKE_HOME, ".claude", "skills", "nestjs-doctor");
 		const content = writes.files.get(join(dir, "SKILL.md"))!;
@@ -191,7 +169,7 @@ describe("initSkill", () => {
 		mockState.availableCommands.add("codex");
 
 		const initSkill = await loadInitSkill();
-		await initSkill("/project");
+		await initSkill("/project", FAKE_VERSION);
 
 		const dir = join(FAKE_HOME, ".codex", "skills", "nestjs-doctor");
 		expect(writes.files.has(join(dir, "AGENTS.md"))).toBe(true);
@@ -207,7 +185,7 @@ describe("initSkill", () => {
 		mockState.existingPaths.add(join(FAKE_HOME, ".codeium"));
 
 		const initSkill = await loadInitSkill();
-		await initSkill("/project");
+		await initSkill("/project", FAKE_VERSION);
 
 		const rulesPath = join(
 			FAKE_HOME,
@@ -232,7 +210,7 @@ describe("initSkill", () => {
 		mockState.existingFileContents.set(rulesPath, "# Existing Rules\n");
 
 		const initSkill = await loadInitSkill();
-		await initSkill("/project");
+		await initSkill("/project", FAKE_VERSION);
 
 		expect(writes.appends.has(rulesPath)).toBe(true);
 		expect(writes.appends.get(rulesPath)).toContain("# NestJS Doctor");
@@ -253,7 +231,7 @@ describe("initSkill", () => {
 		);
 
 		const initSkill = await loadInitSkill();
-		await initSkill("/project");
+		await initSkill("/project", FAKE_VERSION);
 
 		expect(writes.appends.has(rulesPath)).toBe(false);
 		expect(writes.files.has(rulesPath)).toBe(false);
@@ -261,7 +239,7 @@ describe("initSkill", () => {
 
 	it("skips agents that are not detected", async () => {
 		const initSkill = await loadInitSkill();
-		await initSkill("/project");
+		await initSkill("/project", FAKE_VERSION);
 
 		// Only project fallback should be installed (1 target)
 		expect(mockLogger.success).toHaveBeenCalledTimes(1);
@@ -277,7 +255,7 @@ describe("initSkill", () => {
 		mockState.availableCommands.add("gemini");
 
 		const initSkill = await loadInitSkill();
-		await initSkill("/project");
+		await initSkill("/project", FAKE_VERSION);
 
 		const dir = join(FAKE_HOME, ".gemini", "skills", "nestjs-doctor");
 		expect(writes.files.has(join(dir, "AGENTS.md"))).toBe(true);
@@ -303,7 +281,7 @@ describe("initSkill", () => {
 		mockState.failingWritePaths.add(claudeDir);
 
 		const initSkill = await loadInitSkill();
-		await initSkill("/project");
+		await initSkill("/project", FAKE_VERSION);
 
 		expect(mockLogger.error).toHaveBeenCalledWith(
 			"Failed to install skills for Claude Code"
@@ -319,7 +297,7 @@ describe("initSkill", () => {
 		mockState.existingPaths.add(join(FAKE_HOME, ".cursor"));
 
 		const initSkill = await loadInitSkill();
-		await initSkill("/project");
+		await initSkill("/project", FAKE_VERSION);
 
 		// 2 agents + 1 project fallback = 3 targets
 		expect(mockLogger.dim).toHaveBeenCalledWith(

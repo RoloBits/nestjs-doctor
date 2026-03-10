@@ -1,3 +1,9 @@
+import { BreadcrumbJsonLd } from "@/components/json-ld";
+import { docsMetadata } from "@/lib/docs-metadata";
+export const metadata = docsMetadata["/docs/rules"];
+
+<BreadcrumbJsonLd path="/docs/rules" />
+
 # Rules Overview
 
 nestjs-doctor ships with 43 built-in rules across five categories.
@@ -25,7 +31,7 @@ Rules have one of three scopes:
 Every rule has a `meta` object and a `check` function:
 
 ```typescript
-import type { Rule } from "../types.js";
+import type { Rule } from "../../types.js";
 
 export const myRule: Rule = {
   meta: {
@@ -47,10 +53,10 @@ export const myRule: Rule = {
 
 ### 1. Create the rule file
 
-Create `src/rules/<category>/my-rule.ts`:
+Create `src/engine/rules/definitions/<category>/my-rule.ts`:
 
 ```typescript
-import type { Rule } from "../types.js";
+import type { Rule } from "../../types.js";
 import { SyntaxKind } from "ts-morph";
 
 export const noFoo: Rule = {
@@ -84,10 +90,10 @@ export const noFoo: Rule = {
 
 ### 2. Register it
 
-Add the import and reference in `src/rules/index.ts`:
+Add the import and reference in `src/engine/rules/index.ts`:
 
 ```typescript
-import { noFoo } from "./correctness/no-foo.js";
+import { noFoo } from "./definitions/correctness/no-foo.js";
 
 export const allRules: AnyRule[] = [
   // ... existing rules
@@ -104,7 +110,7 @@ Create `tests/unit/rules/correctness/no-foo.test.ts`.
 For rules that need the full module graph or provider map:
 
 ```typescript
-import type { ProjectRule } from "../types.js";
+import type { ProjectRule } from "../../types.js";
 
 export const noOrphanServices: ProjectRule = {
   meta: {
@@ -134,6 +140,7 @@ export const noOrphanServices: ProjectRule = {
 |----------|------|-------------|
 | `sourceFile` | `SourceFile` | ts-morph SourceFile for the current file |
 | `filePath` | `string` | Absolute path to the current file |
+| `config` | `NestjsDoctorConfig \| undefined` | User configuration (optional) |
 | `report()` | `(diagnostic) => void` | Emit a diagnostic |
 
 ### ProjectRuleContext (project-scoped)
@@ -145,6 +152,14 @@ export const noOrphanServices: ProjectRule = {
 | `moduleGraph` | `ModuleGraph` | Module dependency graph |
 | `providers` | `Map<string, ProviderInfo>` | All `@Injectable()` classes |
 | `config` | `NestjsDoctorConfig` | User configuration |
+| `report()` | `(diagnostic) => void` | Emit a diagnostic |
+
+### SchemaRuleContext (schema-scoped)
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `schemaGraph` | `SchemaGraph` | Entity-relation data extracted from Prisma or TypeORM |
+| `orm` | `string` | Detected ORM name (e.g. `"prisma"`, `"typeorm"`) |
 | `report()` | `(diagnostic) => void` | Emit a diagnostic |
 
 ### report() Fields

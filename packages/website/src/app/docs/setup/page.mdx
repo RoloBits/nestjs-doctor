@@ -1,3 +1,9 @@
+import { BreadcrumbJsonLd } from "@/components/json-ld";
+import { docsMetadata } from "@/lib/docs-metadata";
+export const metadata = docsMetadata["/docs/setup"];
+
+<BreadcrumbJsonLd path="/docs/setup" />
+
 # Setup
 
 ## Quick Start
@@ -73,7 +79,7 @@ All output modes (`--score`, `--json`, default) respect exit codes.
 npx nestjs-doctor@latest . --report
 ```
 
-Self-contained HTML file with four sections: score summary, source-level diagnostics with code viewer, interactive module graph, and a [custom rule](/docs/custom-rules) playground. Opens in your browser.
+Self-contained HTML file with five sections: score summary, source-level diagnostics with code viewer, interactive module graph, schema ER diagram, and a [custom rule](/docs/custom-rules) playground. Opens in your browser.
 
 ![Module Graph](/module-graph.png)
 
@@ -136,7 +142,7 @@ For tooling that needs fine-grained control — such as editor integrations and 
 
 ```typescript
 import {
-  prepareScan,
+  prepareAnalysis,
   updateFile,
   checkFile,
   checkAllFiles,
@@ -150,8 +156,8 @@ import {
 ### Lifecycle
 
 ```typescript
-// 1. Prepare the scan context (parses all files, builds module graph, resolves providers)
-const { context, customRuleWarnings } = await prepareScan("./my-nestjs-app");
+// 1. Prepare the analysis context (parses all files, builds module graph, resolves providers)
+const { context, customRuleWarnings } = await prepareAnalysis("./my-nestjs-app");
 
 // 2. When a file changes, update it in the context
 updateFile(context, "/absolute/path/to/changed-file.ts");
@@ -183,9 +189,9 @@ import { getRules } from "nestjs-doctor";
 const rules = getRules(); // all built-in rules (AnyRule[])
 ```
 
-### `ScanContext`
+### `AnalysisContext`
 
-The `prepareScan` function returns a `ScanContext` that holds:
+The `prepareAnalysis` function returns an `AnalysisContext` that holds:
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -196,4 +202,7 @@ The `prepareScan` function returns a `ScanContext` that holds:
 | `projectRules` | `ProjectRule[]` | Project-scoped rules (filtered by config) |
 | `moduleGraph` | `ModuleGraph` | Import/export graph |
 | `providers` | `Map<string, ProviderInfo>` | Resolved NestJS providers |
+| `project` | `ProjectInfo` | Detected project metadata (name, version, ORM, framework) |
+| `schemaGraph` | `SchemaGraph \| undefined` | Extracted database schema (if ORM detected) |
+| `schemaRules` | `SchemaRule[]` | Schema-scoped rules (filtered by config) |
 | `targetPath` | `string` | Root directory of the scanned project |

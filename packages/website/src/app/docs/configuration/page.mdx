@@ -1,3 +1,9 @@
+import { BreadcrumbJsonLd } from "@/components/json-ld";
+import { docsMetadata } from "@/lib/docs-metadata";
+export const metadata = docsMetadata["/docs/configuration"];
+
+<BreadcrumbJsonLd path="/docs/configuration" />
+
 # Configuration
 
 Configuration is optional. nestjs-doctor applies reasonable defaults when no configuration file is present.
@@ -126,7 +132,8 @@ Scores are weighted by severity and category, normalized by file count:
 |----------|--------|-|----------|------------|
 | error | 3.0 | | security | 1.5x |
 | warning | 1.5 | | correctness | 1.3x |
-| info | 0.5 | | architecture | 1.0x |
+| info | 0.5 | | schema | 1.1x |
+| | | | architecture | 1.0x |
 | | | | performance | 0.8x |
 
 | Score | Label |

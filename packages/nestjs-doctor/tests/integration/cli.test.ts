@@ -202,6 +202,54 @@ describe("scanner integration", () => {
 		);
 	});
 
+	it("fires barrel-export and hardcoded-secrets rules without config", async () => {
+		const targetPath = resolve(FIXTURES, "config-disable-rules/src");
+		const scanConfig = await resolveScanConfig(targetPath);
+		const context = await buildAnalysisContext(targetPath, scanConfig);
+		const rawOutput = diagnose(context);
+		const { result } = buildResult(
+			context,
+			rawOutput,
+			scanConfig.customRuleWarnings
+		);
+
+		const barrelDiags = result.diagnostics.filter(
+			(d) => d.rule === "architecture/no-barrel-export-internals"
+		);
+		expect(barrelDiags.length).toBeGreaterThan(0);
+
+		const secretDiags = result.diagnostics.filter(
+			(d) => d.rule === "security/no-hardcoded-secrets"
+		);
+		expect(secretDiags.length).toBeGreaterThan(0);
+	});
+
+	it("disables both rules when config sets them to false", async () => {
+		const targetPath = resolve(FIXTURES, "config-disable-rules/src");
+		const configPath = resolve(
+			FIXTURES,
+			"config-disable-rules/nestjs-doctor.config.json"
+		);
+		const scanConfig = await resolveScanConfig(targetPath, configPath);
+		const context = await buildAnalysisContext(targetPath, scanConfig);
+		const rawOutput = diagnose(context);
+		const { result } = buildResult(
+			context,
+			rawOutput,
+			scanConfig.customRuleWarnings
+		);
+
+		const barrelDiags = result.diagnostics.filter(
+			(d) => d.rule === "architecture/no-barrel-export-internals"
+		);
+		expect(barrelDiags).toHaveLength(0);
+
+		const secretDiags = result.diagnostics.filter(
+			(d) => d.rule === "security/no-hardcoded-secrets"
+		);
+		expect(secretDiags).toHaveLength(0);
+	});
+
 	it("diagnoseMonorepo falls back to single scan for non-monorepo", async () => {
 		const targetPath = resolve(FIXTURES, "basic-app/src");
 		const result = await diagnoseMonorepo(targetPath);

@@ -1,6 +1,12 @@
+import { BreadcrumbJsonLd } from "@/components/json-ld";
+import { docsMetadata } from "@/lib/docs-metadata";
+export const metadata = docsMetadata["/docs/pipeline/module-graph"];
+
+<BreadcrumbJsonLd path="/docs/pipeline/module-graph" />
+
 # Module Graph
 
-**Source:** `src/engine/module-graph.ts`
+**Source:** `src/engine/graph/module-graph.ts`
 
 ## What
 
@@ -73,7 +79,6 @@ function findCircularDeps(graph: ModuleGraph): string[][] {
 
 ### Helper Functions
 
-- `getModuleByClassName(graph, name)` — find a module by its class name
 - `findProviderModule(graph, providerName)` — find which module owns a provider
 - `traceProviderEdges(fromModule, toModule, providers, providerToModule, project, files)` — find which providers/controllers in one module depend on providers in another module. Returns `ProviderEdge[]` with `{ consumer, dependency }`. Used by `no-circular-module-deps` to generate concrete fix suggestions.
 
