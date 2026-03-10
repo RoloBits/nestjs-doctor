@@ -346,6 +346,79 @@ describe("scanner integration", () => {
 		expect(circularDiags).toHaveLength(0);
 	});
 
+	it("resolves cross-file function calls in module graph", async () => {
+		const targetPath = resolve(FIXTURES, "cross-file-imports/src");
+		const scanConfig = await resolveScanConfig(targetPath);
+		const context = await buildAnalysisContext(targetPath, scanConfig);
+		const rawOutput = diagnose(context);
+		const { result } = buildResult(
+			context,
+			rawOutput,
+			scanConfig.customRuleWarnings
+		);
+
+		// Should detect 5 modules: AppModule, AuthModule, HealthModule, DatabaseModule, AdminModule
+		expect(result.project.moduleCount).toBe(5);
+
+		// AppModule should have edges to all 4 imported modules
+		const appEdges = context.moduleGraph.edges.get("AppModule");
+		expect(appEdges).toBeDefined();
+		expect(appEdges?.has("AuthModule")).toBe(true);
+		expect(appEdges?.has("HealthModule")).toBe(true);
+		expect(appEdges?.has("DatabaseModule")).toBe(true);
+		expect(appEdges?.has("AdminModule")).toBe(true);
+
+		// No false circular deps
+		const circularDiags = result.diagnostics.filter(
+			(d) => d.rule === "architecture/no-circular-module-deps"
+		);
+		expect(circularDiags).toHaveLength(0);
+
+		// Clean score
+		expect(result.score.value).toBeGreaterThanOrEqual(90);
+	});
+
+	it("resolves cross-file monorepo-style chained imports in module graph", async () => {
+		const targetPath = resolve(FIXTURES, "cross-file-monorepo/src");
+		const scanConfig = await resolveScanConfig(targetPath);
+		const context = await buildAnalysisContext(targetPath, scanConfig);
+		const rawOutput = diagnose(context);
+		const { result } = buildResult(
+			context,
+			rawOutput,
+			scanConfig.customRuleWarnings
+		);
+
+		// Should detect 7 modules: AppModule + 6 imported
+		expect(result.project.moduleCount).toBe(7);
+
+		// AppModule should have edges to all 6 imported modules
+		const appEdges = context.moduleGraph.edges.get("AppModule");
+		expect(appEdges).toBeDefined();
+		expect(appEdges?.has("ConfigModule")).toBe(true);
+		expect(appEdges?.has("LoggerModule")).toBe(true);
+		expect(appEdges?.has("HealthModule")).toBe(true);
+		expect(appEdges?.has("DatabaseModule")).toBe(true);
+		expect(appEdges?.has("AdminAuthModule")).toBe(true);
+		expect(appEdges?.has("QueueModule")).toBe(true);
+
+		// No false circular deps
+		const circularDiags = result.diagnostics.filter(
+			(d) => d.rule === "architecture/no-circular-module-deps"
+		);
+		expect(circularDiags).toHaveLength(0);
+
+		// No orphan modules
+		const orphanDiags = result.diagnostics.filter(
+			(d) => d.rule === "architecture/no-orphan-modules"
+		);
+		expect(orphanDiags).toHaveLength(0);
+
+		// Clean score with zero diagnostics
+		expect(result.score.value).toBeGreaterThanOrEqual(90);
+		expect(result.diagnostics).toHaveLength(0);
+	});
+
 	it("diagnoseMonorepo falls back to single scan for non-monorepo", async () => {
 		const targetPath = resolve(FIXTURES, "basic-app/src");
 		const result = await diagnoseMonorepo(targetPath);

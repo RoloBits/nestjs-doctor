@@ -466,4 +466,341 @@ describe("module-graph", () => {
 		const app = graph.modules.get("AppModule")!;
 		expect(app.imports).toEqual([]);
 	});
+
+	// Cross-file: a function imported from another file should be resolved
+	it("resolves cross-file function call", () => {
+		const { project, paths } = createProject({
+			"/src/app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { getImports } from './helpers';
+        @Module({ imports: getImports() })
+        export class AppModule {}
+      `,
+			"/src/helpers.ts": `
+        export function getImports() {
+          return [AuthModule, UsersModule];
+        }
+      `,
+			"/src/auth.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AuthModule {}
+      `,
+			"/src/users.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class UsersModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		const app = graph.modules.get("AppModule")!;
+		expect(app.imports).toContain("AuthModule");
+		expect(app.imports).toContain("UsersModule");
+	});
+
+	// Cross-file: a variable imported from another file should be resolved
+	it("resolves cross-file variable reference", () => {
+		const { project, paths } = createProject({
+			"/src/app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { commonImports } from './shared';
+        @Module({ imports: commonImports })
+        export class AppModule {}
+      `,
+			"/src/shared.ts": `
+        export const commonImports = [AuthModule, UsersModule];
+      `,
+			"/src/auth.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AuthModule {}
+      `,
+			"/src/users.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class UsersModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		const app = graph.modules.get("AppModule")!;
+		expect(app.imports).toContain("AuthModule");
+		expect(app.imports).toContain("UsersModule");
+	});
+
+	// Cross-file: function().concat([X]) pattern from the issue
+	it("resolves cross-file .concat() chain", () => {
+		const { project, paths } = createProject({
+			"/src/app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { getServiceImports } from './shared';
+        @Module({ imports: getServiceImports().concat([AdminModule]) })
+        export class AppModule {}
+      `,
+			"/src/shared.ts": `
+        export function getServiceImports() {
+          return [AuthModule, DatabaseModule];
+        }
+      `,
+			"/src/auth.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AuthModule {}
+      `,
+			"/src/database.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class DatabaseModule {}
+      `,
+			"/src/admin.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AdminModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		const app = graph.modules.get("AppModule")!;
+		expect(app.imports).toContain("AuthModule");
+		expect(app.imports).toContain("DatabaseModule");
+		expect(app.imports).toContain("AdminModule");
+	});
+
+	// Cross-file: chained resolution across 3 files (A calls B, B calls C)
+	it("resolves chained cross-file function calls", () => {
+		const { project, paths } = createProject({
+			"/src/app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { getServiceImports } from './service-imports';
+        @Module({ imports: getServiceImports().concat([AdminModule]) })
+        export class AppModule {}
+      `,
+			"/src/service-imports.ts": `
+        import { getBaseImports } from './base-imports';
+        export function getServiceImports() {
+          return getBaseImports().concat([DatabaseModule]);
+        }
+      `,
+			"/src/base-imports.ts": `
+        export function getBaseImports() {
+          return [AuthModule, HealthModule];
+        }
+      `,
+			"/src/auth.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AuthModule {}
+      `,
+			"/src/health.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class HealthModule {}
+      `,
+			"/src/database.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class DatabaseModule {}
+      `,
+			"/src/admin.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AdminModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		const app = graph.modules.get("AppModule")!;
+		expect(app.imports).toContain("AuthModule");
+		expect(app.imports).toContain("HealthModule");
+		expect(app.imports).toContain("DatabaseModule");
+		expect(app.imports).toContain("AdminModule");
+	});
+
+	// Cross-file: arrow function export should be resolved
+	it("resolves cross-file arrow function export", () => {
+		const { project, paths } = createProject({
+			"/src/app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { getImports } from './helpers';
+        @Module({ imports: getImports() })
+        export class AppModule {}
+      `,
+			"/src/helpers.ts": `
+        export const getImports = () => [AuthModule, UsersModule];
+      `,
+			"/src/auth.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AuthModule {}
+      `,
+			"/src/users.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class UsersModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		const app = graph.modules.get("AppModule")!;
+		expect(app.imports).toContain("AuthModule");
+		expect(app.imports).toContain("UsersModule");
+	});
+
+	// Non-relative import should be silently ignored, not crash
+	it("ignores non-relative imports gracefully", () => {
+		const { project, paths } = createProject({
+			"/src/app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { getImports } from '@shared/helpers';
+        @Module({ imports: getImports() })
+        export class AppModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		const app = graph.modules.get("AppModule")!;
+		expect(app.imports).toEqual([]);
+	});
+
+	// Spread of a cross-file function call should resolve
+	it("resolves spread of cross-file function call", () => {
+		const { project, paths } = createProject({
+			"/src/app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { getImports } from './helpers';
+        @Module({ imports: [...getImports(), LocalModule] })
+        export class AppModule {}
+      `,
+			"/src/helpers.ts": `
+        export function getImports() {
+          return [AuthModule];
+        }
+      `,
+			"/src/auth.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AuthModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		const app = graph.modules.get("AppModule")!;
+		expect(app.imports).toContain("AuthModule");
+		expect(app.imports).toContain("LocalModule");
+	});
+
+	// Import alias: import { foo as bar } should resolve to the original name
+	it("resolves import alias correctly", () => {
+		const { project, paths } = createProject({
+			"/src/app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { getImports as getAppImports } from './helpers';
+        @Module({ imports: getAppImports() })
+        export class AppModule {}
+      `,
+			"/src/helpers.ts": `
+        export function getImports() {
+          return [AuthModule, UsersModule];
+        }
+      `,
+			"/src/auth.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AuthModule {}
+      `,
+			"/src/users.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class UsersModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		const app = graph.modules.get("AppModule")!;
+		expect(app.imports).toContain("AuthModule");
+		expect(app.imports).toContain("UsersModule");
+	});
+
+	// Barrel file re-export: export { X } from './other' should resolve through
+	it("resolves barrel file re-exports", () => {
+		const { project, paths } = createProject({
+			"/src/app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { getImports } from './barrel';
+        @Module({ imports: getImports() })
+        export class AppModule {}
+      `,
+			"/src/barrel.ts": `
+        export { getImports } from './helpers';
+      `,
+			"/src/helpers.ts": `
+        export function getImports() {
+          return [AuthModule, UsersModule];
+        }
+      `,
+			"/src/auth.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AuthModule {}
+      `,
+			"/src/users.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class UsersModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		const app = graph.modules.get("AppModule")!;
+		expect(app.imports).toContain("AuthModule");
+		expect(app.imports).toContain("UsersModule");
+	});
+
+	// Unresolvable file should not crash
+	it("handles unresolvable cross-file import gracefully", () => {
+		const { project, paths } = createProject({
+			"/src/app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { getImports } from './nonexistent';
+        @Module({ imports: getImports() })
+        export class AppModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		const app = graph.modules.get("AppModule")!;
+		expect(app.imports).toEqual([]);
+	});
+
+	// Same-file arrow function should also work
+	it("resolves same-file arrow function in imports", () => {
+		const { project, paths } = createProject({
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+
+        const getImports = () => [AuthModule, UsersModule];
+
+        @Module({
+          imports: getImports(),
+        })
+        export class AppModule {}
+      `,
+			"auth.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AuthModule {}
+      `,
+			"users.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class UsersModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		const app = graph.modules.get("AppModule")!;
+		expect(app.imports).toContain("AuthModule");
+		expect(app.imports).toContain("UsersModule");
+	});
 });
