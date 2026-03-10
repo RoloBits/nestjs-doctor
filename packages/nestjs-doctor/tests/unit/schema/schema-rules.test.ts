@@ -6,9 +6,9 @@ import type {
 	SchemaGraph,
 	SchemaRelation,
 } from "../../../src/common/schema.js";
-import { requireCascadeRule } from "../../../src/engine/rules/schema/require-cascade-rule.js";
-import { requirePrimaryKey } from "../../../src/engine/rules/schema/require-primary-key.js";
-import { requireTimestamps } from "../../../src/engine/rules/schema/require-timestamps.js";
+import { requireCascadeRule } from "../../../src/engine/rules/definitions/schema/require-cascade-rule.js";
+import { requirePrimaryKey } from "../../../src/engine/rules/definitions/schema/require-primary-key.js";
+import { requireTimestamps } from "../../../src/engine/rules/definitions/schema/require-timestamps.js";
 import type { SchemaRule } from "../../../src/engine/rules/types.js";
 
 function runSchemaRule(

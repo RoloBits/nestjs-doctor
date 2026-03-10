@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import type { DiagnoseResult } from "../../common/result.js";
-import type { ModuleGraph } from "../../engine/module-graph.js";
-import type { ProviderInfo } from "../../engine/type-resolver.js";
+import type { ModuleGraph } from "../../engine/graph/module-graph.js";
+import type { ProviderInfo } from "../../engine/graph/type-resolver.js";
 import { getRuleExamples } from "../data/examples.js";
 import type { ReportScriptData } from "../ui/scripts.js";
 import { serializeModuleGraph } from "./module-serializer.js";

@@ -2,14 +2,14 @@ import { Project } from "ts-morph";
 import { describe, expect, it } from "vitest";
 import type { NestjsDoctorConfig } from "../../../src/common/config.js";
 import type { Diagnostic } from "../../../src/common/diagnostic.js";
-import { noBarrelExportInternals } from "../../../src/engine/rules/architecture/no-barrel-export-internals.js";
-import { noBusinessLogicInControllers } from "../../../src/engine/rules/architecture/no-business-logic-in-controllers.js";
-import { noManualInstantiation } from "../../../src/engine/rules/architecture/no-manual-instantiation.js";
-import { noOrmInControllers } from "../../../src/engine/rules/architecture/no-orm-in-controllers.js";
-import { noOrmInServices } from "../../../src/engine/rules/architecture/no-orm-in-services.js";
-import { noServiceLocator } from "../../../src/engine/rules/architecture/no-service-locator.js";
-import { preferConstructorInjection } from "../../../src/engine/rules/architecture/prefer-constructor-injection.js";
-import { requireModuleBoundaries } from "../../../src/engine/rules/architecture/require-module-boundaries.js";
+import { noBarrelExportInternals } from "../../../src/engine/rules/definitions/architecture/no-barrel-export-internals.js";
+import { noBusinessLogicInControllers } from "../../../src/engine/rules/definitions/architecture/no-business-logic-in-controllers.js";
+import { noManualInstantiation } from "../../../src/engine/rules/definitions/architecture/no-manual-instantiation.js";
+import { noOrmInControllers } from "../../../src/engine/rules/definitions/architecture/no-orm-in-controllers.js";
+import { noOrmInServices } from "../../../src/engine/rules/definitions/architecture/no-orm-in-services.js";
+import { noServiceLocator } from "../../../src/engine/rules/definitions/architecture/no-service-locator.js";
+import { preferConstructorInjection } from "../../../src/engine/rules/definitions/architecture/prefer-constructor-injection.js";
+import { requireModuleBoundaries } from "../../../src/engine/rules/definitions/architecture/require-module-boundaries.js";
 import type { Rule } from "../../../src/engine/rules/types.js";
 
 function runRule(

@@ -1,6 +1,9 @@
+import picomatch from "picomatch";
 import type { NestjsDoctorConfig } from "../common/config.js";
 import type { Diagnostic } from "../common/diagnostic.js";
-import { compileGlobPattern } from "./match-glob-pattern.js";
+
+const compileGlobPattern = (pattern: string): RegExp =>
+	picomatch.makeRe(pattern, { windows: false });
 
 const BACKSLASH_RE = /\\/g;
 const TRAILING_SLASH_RE = /\/$/;

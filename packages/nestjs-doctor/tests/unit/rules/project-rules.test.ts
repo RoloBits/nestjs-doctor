@@ -2,10 +2,10 @@ import { Project } from "ts-morph";
 import { describe, expect, it } from "vitest";
 import type { NestjsDoctorConfig } from "../../../src/common/config.js";
 import type { Diagnostic } from "../../../src/common/diagnostic.js";
-import { buildModuleGraph } from "../../../src/engine/module-graph.js";
-import { noCircularModuleDeps } from "../../../src/engine/rules/architecture/no-circular-module-deps.js";
+import { buildModuleGraph } from "../../../src/engine/graph/module-graph.js";
+import { resolveProviders } from "../../../src/engine/graph/type-resolver.js";
+import { noCircularModuleDeps } from "../../../src/engine/rules/definitions/architecture/no-circular-module-deps.js";
 import type { ProjectRule } from "../../../src/engine/rules/types.js";
-import { resolveProviders } from "../../../src/engine/type-resolver.js";
 
 function createProjectContext(
 	files: Record<string, string>,

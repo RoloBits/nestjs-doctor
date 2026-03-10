@@ -1,9 +1,7 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import {
-	mergeRules,
-	resolveCustomRules,
-} from "../../src/engine/rule-resolver.js";
+import { resolveCustomRules } from "../../src/engine/config/scan-config.js";
+import { mergeRules } from "../../src/engine/rules/rule-pipeline.js";
 import type { AnyRule } from "../../src/engine/rules/types.js";
 
 const fixturesDir = path.resolve(

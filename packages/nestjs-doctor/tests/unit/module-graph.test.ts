@@ -5,7 +5,7 @@ import {
 	findCircularDeps,
 	findProviderModule,
 	mergeModuleGraphs,
-} from "../../src/engine/module-graph.js";
+} from "../../src/engine/graph/module-graph.js";
 
 function createProject(files: Record<string, string>) {
 	const project = new Project({ useInMemoryFileSystem: true });

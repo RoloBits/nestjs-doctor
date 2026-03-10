@@ -1,5 +1,5 @@
 import type { DiagnoseResult } from "../common/result.js";
-import type { MonorepoScanResult, ScanResult } from "../engine/scanner.js";
+import type { EngineResult, MonorepoEngineResult } from "../engine/scanner.js";
 import {
 	printConsoleReport,
 	printMonorepoReport,
@@ -37,7 +37,7 @@ const exitOnDiagnosticErrors = (diagnoseResult: DiagnoseResult): void => {
 };
 
 export const outputMonorepoResults = (
-	monorepoScanResult: MonorepoScanResult,
+	monorepoScanResult: MonorepoEngineResult,
 	resolvedMinimumScore: number | undefined,
 	isMachineReadable: boolean,
 	args: OutputArgs
@@ -74,7 +74,7 @@ export const outputMonorepoResults = (
 };
 
 export const outputSingleProjectResults = (
-	singleProjectScanResult: ScanResult,
+	singleProjectScanResult: EngineResult,
 	resolvedMinimumScore: number | undefined,
 	isMachineReadable: boolean,
 	args: OutputArgs

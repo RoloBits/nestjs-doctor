@@ -3,8 +3,8 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { highlighter } from "../cli/ui/highlighter.js";
 import { logger } from "../cli/ui/logger.js";
-import { mergeModuleGraphs } from "../engine/module-graph.js";
-import type { MonorepoScanResult, ScanResult } from "../engine/scanner.js";
+import { mergeModuleGraphs } from "../engine/graph/module-graph.js";
+import type { EngineResult, MonorepoEngineResult } from "../engine/scanner.js";
 
 export const writeReportFile = async (
 	targetPath: string,
@@ -28,14 +28,14 @@ export const openReportInBrowser = (filePath: string): void => {
 	exec(`xdg-open "${filePath}"`);
 };
 
-export const logSingleProjectSummary = (scanResult: ScanResult): void => {
+export const logSingleProjectSummary = (scanResult: EngineResult): void => {
 	const { moduleGraph } = scanResult;
 	logger.info(
 		`Found ${highlighter.info(String(moduleGraph.modules.size))} modules, ${highlighter.info(String(moduleGraph.edges.size))} edges`
 	);
 };
 
-export const logMonorepoSummary = (monoResult: MonorepoScanResult): void => {
+export const logMonorepoSummary = (monoResult: MonorepoEngineResult): void => {
 	const { moduleGraphs } = monoResult;
 	const merged = mergeModuleGraphs(moduleGraphs);
 	logger.info(

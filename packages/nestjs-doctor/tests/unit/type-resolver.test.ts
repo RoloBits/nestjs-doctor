@@ -1,6 +1,6 @@
 import { Project } from "ts-morph";
 import { describe, expect, it } from "vitest";
-import { resolveProviders } from "../../src/engine/type-resolver.js";
+import { resolveProviders } from "../../src/engine/graph/type-resolver.js";
 
 function createProject(files: Record<string, string>) {
 	const project = new Project({ useInMemoryFileSystem: true });

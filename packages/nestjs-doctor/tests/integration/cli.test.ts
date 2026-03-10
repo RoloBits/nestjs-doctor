@@ -3,10 +3,10 @@ import { describe, expect, it } from "vitest";
 import { diagnoseMonorepo } from "../../src/api/index.js";
 import { detectMonorepo } from "../../src/engine/project-detector.js";
 import {
-	buildScanContext,
-	buildScanResult,
+	buildAnalysisContext,
+	buildResult,
+	diagnose,
 	resolveScanConfig,
-	runRules,
 	scanMonorepo,
 } from "../../src/engine/scanner.js";
 
@@ -16,9 +16,9 @@ describe("scanner integration", () => {
 	it("produces a clean result for basic-app", async () => {
 		const targetPath = resolve(FIXTURES, "basic-app/src");
 		const scanConfig = await resolveScanConfig(targetPath);
-		const context = await buildScanContext(targetPath, scanConfig);
-		const rawOutput = runRules(context);
-		const { result } = buildScanResult(
+		const context = await buildAnalysisContext(targetPath, scanConfig);
+		const rawOutput = diagnose(context);
+		const { result } = buildResult(
 			context,
 			rawOutput,
 			scanConfig.customRuleWarnings
@@ -33,9 +33,9 @@ describe("scanner integration", () => {
 	it("detects violations in bad-practices fixture", async () => {
 		const targetPath = resolve(FIXTURES, "bad-practices/src");
 		const scanConfig = await resolveScanConfig(targetPath);
-		const context = await buildScanContext(targetPath, scanConfig);
-		const rawOutput = runRules(context);
-		const { result } = buildScanResult(
+		const context = await buildAnalysisContext(targetPath, scanConfig);
+		const rawOutput = diagnose(context);
+		const { result } = buildResult(
 			context,
 			rawOutput,
 			scanConfig.customRuleWarnings
@@ -66,9 +66,9 @@ describe("scanner integration", () => {
 	it("returns valid summary structure", async () => {
 		const targetPath = resolve(FIXTURES, "bad-practices/src");
 		const scanConfig = await resolveScanConfig(targetPath);
-		const context = await buildScanContext(targetPath, scanConfig);
-		const rawOutput = runRules(context);
-		const { result } = buildScanResult(
+		const context = await buildAnalysisContext(targetPath, scanConfig);
+		const rawOutput = diagnose(context);
+		const { result } = buildResult(
 			context,
 			rawOutput,
 			scanConfig.customRuleWarnings
@@ -87,9 +87,9 @@ describe("scanner integration", () => {
 	it("summary counts match actual diagnostics array", async () => {
 		const targetPath = resolve(FIXTURES, "bad-practices/src");
 		const scanConfig = await resolveScanConfig(targetPath);
-		const context = await buildScanContext(targetPath, scanConfig);
-		const rawOutput = runRules(context);
-		const { result } = buildScanResult(
+		const context = await buildAnalysisContext(targetPath, scanConfig);
+		const rawOutput = diagnose(context);
+		const { result } = buildResult(
 			context,
 			rawOutput,
 			scanConfig.customRuleWarnings
@@ -110,9 +110,9 @@ describe("scanner integration", () => {
 	it("returns valid project info", async () => {
 		const targetPath = resolve(FIXTURES, "bad-practices/src");
 		const scanConfig = await resolveScanConfig(targetPath);
-		const context = await buildScanContext(targetPath, scanConfig);
-		const rawOutput = runRules(context);
-		const { result } = buildScanResult(
+		const context = await buildAnalysisContext(targetPath, scanConfig);
+		const rawOutput = diagnose(context);
+		const { result } = buildResult(
 			context,
 			rawOutput,
 			scanConfig.customRuleWarnings
@@ -125,9 +125,9 @@ describe("scanner integration", () => {
 	it("detects architecture violations in bad-architecture fixture", async () => {
 		const targetPath = resolve(FIXTURES, "bad-architecture/src");
 		const scanConfig = await resolveScanConfig(targetPath);
-		const context = await buildScanContext(targetPath, scanConfig);
-		const rawOutput = runRules(context);
-		const { result } = buildScanResult(
+		const context = await buildAnalysisContext(targetPath, scanConfig);
+		const rawOutput = diagnose(context);
+		const { result } = buildResult(
 			context,
 			rawOutput,
 			scanConfig.customRuleWarnings
@@ -163,9 +163,9 @@ describe("scanner integration", () => {
 	it("counts modules correctly via module graph", async () => {
 		const targetPath = resolve(FIXTURES, "bad-architecture/src");
 		const scanConfig = await resolveScanConfig(targetPath);
-		const context = await buildScanContext(targetPath, scanConfig);
-		const rawOutput = runRules(context);
-		const { result } = buildScanResult(
+		const context = await buildAnalysisContext(targetPath, scanConfig);
+		const rawOutput = diagnose(context);
+		const { result } = buildResult(
 			context,
 			rawOutput,
 			scanConfig.customRuleWarnings

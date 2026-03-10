@@ -8,7 +8,7 @@ import {
 	isFrameworkHandler,
 	isModule,
 	isService,
-} from "../../src/engine/decorator-utils.js";
+} from "../../src/engine/nest-class-inspector.js";
 
 function createClass(code: string) {
 	const project = new Project({ useInMemoryFileSystem: true });

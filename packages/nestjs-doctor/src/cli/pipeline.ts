@@ -1,18 +1,18 @@
 import { performance } from "node:perf_hooks";
 import type { MonorepoInfo } from "../engine/project-detector.js";
 import {
+	type AnalysisContext,
+	buildAnalysisContext,
 	buildMonorepoContext,
 	buildMonorepoResult,
-	buildScanContext,
-	buildScanResult,
+	buildResult,
+	diagnose,
+	type EngineResult,
 	type MonorepoContext,
-	type MonorepoScanResult,
-	type RawScanOutput,
+	type MonorepoEngineResult,
+	type RawDiagnosticOutput,
 	resolveScanConfig,
-	runRules,
 	type ScanConfig,
-	type ScanContext,
-	type ScanResult,
 } from "../engine/scanner.js";
 import { resolveMinScore } from "./min-score.js";
 import { outputMonorepoResults, outputSingleProjectResults } from "./output.js";
@@ -101,8 +101,8 @@ abstract class ScanPipeline {
 export class MonorepoPipeline extends ScanPipeline {
 	private readonly monorepo: MonorepoInfo;
 	private monorepoCtx!: MonorepoContext;
-	private readonly rawOutputs = new Map<string, RawScanOutput>();
-	private result!: MonorepoScanResult;
+	private readonly rawOutputs = new Map<string, RawDiagnosticOutput>();
+	private result!: MonorepoEngineResult;
 	private scanStartTime!: number;
 
 	constructor(
@@ -129,7 +129,7 @@ export class MonorepoPipeline extends ScanPipeline {
 	runRules(): this {
 		this.steps.push(() => {
 			for (const [name, context] of this.monorepoCtx.subProjects) {
-				this.rawOutputs.set(name, runRules(context));
+				this.rawOutputs.set(name, diagnose(context));
 			}
 		});
 		return this;
@@ -167,27 +167,30 @@ export class MonorepoPipeline extends ScanPipeline {
 
 /** Single-project scan builder — resolveConfig, buildContext, runRules, buildResult, warn, output */
 export class SingleProjectPipeline extends ScanPipeline {
-	private context!: ScanContext;
-	private rawOutput!: RawScanOutput;
-	private result!: ScanResult;
+	private context!: AnalysisContext;
+	private rawOutput!: RawDiagnosticOutput;
+	private result!: EngineResult;
 
 	buildContext(): this {
 		this.steps.push(async () => {
-			this.context = await buildScanContext(this.targetPath, this.scanConfig);
+			this.context = await buildAnalysisContext(
+				this.targetPath,
+				this.scanConfig
+			);
 		});
 		return this;
 	}
 
 	runRules(): this {
 		this.steps.push(() => {
-			this.rawOutput = runRules(this.context);
+			this.rawOutput = diagnose(this.context);
 		});
 		return this;
 	}
 
 	buildResult(): this {
 		this.steps.push(() => {
-			this.result = buildScanResult(
+			this.result = buildResult(
 				this.context,
 				this.rawOutput,
 				this.scanConfig.customRuleWarnings
