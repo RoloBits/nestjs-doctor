@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.4.21
+
+### Patch Changes
+
+- 29c2c77: Update docs for dynamic module import resolution
+
 ## 0.4.20
 
 ### Patch Changes
