@@ -1,14 +1,14 @@
 import { Project } from "ts-morph";
 import { describe, expect, it } from "vitest";
 import type { Diagnostic } from "../../../src/common/diagnostic.js";
-import { noCsrfDisabled } from "../../../src/engine/rules/security/no-csrf-disabled.js";
-import { noDangerousRedirects } from "../../../src/engine/rules/security/no-dangerous-redirects.js";
-import { noEval } from "../../../src/engine/rules/security/no-eval.js";
-import { noExposedEnvVars } from "../../../src/engine/rules/security/no-exposed-env-vars.js";
-import { noExposedStackTrace } from "../../../src/engine/rules/security/no-exposed-stack-trace.js";
-import { noRawEntityInResponse } from "../../../src/engine/rules/security/no-raw-entity-in-response.js";
-import { noSynchronizeInProduction } from "../../../src/engine/rules/security/no-synchronize-in-production.js";
-import { noWeakCrypto } from "../../../src/engine/rules/security/no-weak-crypto.js";
+import { noCsrfDisabled } from "../../../src/engine/rules/definitions/security/no-csrf-disabled.js";
+import { noDangerousRedirects } from "../../../src/engine/rules/definitions/security/no-dangerous-redirects.js";
+import { noEval } from "../../../src/engine/rules/definitions/security/no-eval.js";
+import { noExposedEnvVars } from "../../../src/engine/rules/definitions/security/no-exposed-env-vars.js";
+import { noExposedStackTrace } from "../../../src/engine/rules/definitions/security/no-exposed-stack-trace.js";
+import { noRawEntityInResponse } from "../../../src/engine/rules/definitions/security/no-raw-entity-in-response.js";
+import { noSynchronizeInProduction } from "../../../src/engine/rules/definitions/security/no-synchronize-in-production.js";
+import { noWeakCrypto } from "../../../src/engine/rules/definitions/security/no-weak-crypto.js";
 import type { Rule } from "../../../src/engine/rules/types.js";
 
 function runRule(rule: Rule, code: string, filePath = "test.ts"): Diagnostic[] {

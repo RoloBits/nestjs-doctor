@@ -4,10 +4,10 @@ import { ValidationError } from "../common/errors.js";
 import type { MonorepoResult } from "../common/result.js";
 import { detectMonorepo } from "../engine/project-detector.js";
 import {
-	buildScanContext,
-	buildScanResult,
+	buildAnalysisContext,
+	buildResult,
 	resolveScanConfig,
-	runRules,
+	diagnose as runDiagnosis,
 	scanMonorepo,
 } from "../engine/scanner.js";
 
@@ -47,7 +47,8 @@ export type {
 	SchemaRelation,
 	SerializedSchemaGraph,
 } from "../common/schema.js";
-export { updateModuleGraphForFile } from "../engine/module-graph.js";
+export { updateModuleGraphForFile } from "../engine/graph/module-graph.js";
+export { updateProvidersForFile } from "../engine/graph/type-resolver.js";
 export { getRules } from "../engine/rules/index.js";
 export type {
 	AnyRule,
@@ -61,25 +62,24 @@ export type {
 	SchemaRuleContext,
 } from "../engine/rules/types.js";
 export type {
+	AnalysisContext,
 	AutoScanResult,
-	RawScanOutput,
+	RawDiagnosticOutput,
 	ScanConfig,
-	ScanContext,
 } from "../engine/scanner.js";
 export {
 	autoScan,
-	buildScanContext,
-	buildScanResult,
+	buildAnalysisContext,
+	buildResult,
 	checkAllFiles,
 	checkFile,
 	checkProject,
 	checkSchema,
-	prepareScan,
+	prepareAnalysis,
 	resolveScanConfig,
 	updateFile,
 } from "../engine/scanner.js";
 export { extractSchema } from "../engine/schema/extract.js";
-export { updateProvidersForFile } from "../engine/type-resolver.js";
 
 function validatePath(path: string): string {
 	if (!path || path.trim() === "") {
@@ -118,9 +118,9 @@ export async function diagnose(
 ) {
 	const targetPath = validatePath(path);
 	const scanConfig = await resolveScanConfig(targetPath, options.config);
-	const context = await buildScanContext(targetPath, scanConfig);
-	const rawOutput = runRules(context);
-	const { result } = buildScanResult(
+	const context = await buildAnalysisContext(targetPath, scanConfig);
+	const rawOutput = runDiagnosis(context);
+	const { result } = buildResult(
 		context,
 		rawOutput,
 		scanConfig.customRuleWarnings
@@ -148,9 +148,9 @@ export async function diagnoseMonorepo(
 	const monorepo = await detectMonorepo(targetPath);
 
 	if (!monorepo) {
-		const context = await buildScanContext(targetPath, scanConfig);
-		const rawOutput = runRules(context);
-		const { result } = buildScanResult(
+		const context = await buildAnalysisContext(targetPath, scanConfig);
+		const rawOutput = runDiagnosis(context);
+		const { result } = buildResult(
 			context,
 			rawOutput,
 			scanConfig.customRuleWarnings

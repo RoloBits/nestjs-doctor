@@ -2,7 +2,7 @@ import type { DiagnoseResult } from "../../common/result.js";
 import {
 	findCircularDeps,
 	type ModuleGraph,
-} from "../../engine/module-graph.js";
+} from "../../engine/graph/module-graph.js";
 
 interface SerializedModuleNode {
 	controllers: string[];

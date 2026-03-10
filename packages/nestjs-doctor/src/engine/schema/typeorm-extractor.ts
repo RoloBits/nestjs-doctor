@@ -24,7 +24,7 @@ import type {
 	SchemaEntity,
 	SchemaRelation,
 } from "../../common/schema.js";
-import { hasDecorator } from "../decorator-utils.js";
+import { hasDecorator } from "../nest-class-inspector.js";
 import type { OrmSchemaExtractor } from "./extract.js";
 
 const FORWARD_REF_REGEX = /=>\s*(\w+)/;

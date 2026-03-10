@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { loadCustomRules } from "../../src/engine/custom-rule-loader.js";
+import { loadCustomRules } from "../../src/engine/config/custom-rule-loader.js";
 
 const tempRootDirectory = fs.mkdtempSync(
 	path.join(os.tmpdir(), "nestjs-doctor-custom-rules-test-")

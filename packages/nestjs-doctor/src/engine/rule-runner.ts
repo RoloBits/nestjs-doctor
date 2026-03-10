@@ -7,9 +7,9 @@ import type {
 	SourceLine,
 } from "../common/diagnostic.js";
 import type { SchemaGraph } from "../common/schema.js";
-import type { ModuleGraph } from "./module-graph.js";
+import type { ModuleGraph } from "./graph/module-graph.js";
+import type { ProviderInfo } from "./graph/type-resolver.js";
 import type {
-	AnyRule,
 	CodeRuleContext,
 	ProjectRule,
 	ProjectRuleContext,
@@ -17,8 +17,6 @@ import type {
 	SchemaRule,
 	SchemaRuleContext,
 } from "./rules/types.js";
-import { isProjectRule, isSchemaRule } from "./rules/types.js";
-import type { ProviderInfo } from "./type-resolver.js";
 
 interface RuleError {
 	error: unknown;
@@ -34,28 +32,6 @@ export interface RunRulesOptions {
 	config: NestjsDoctorConfig;
 	moduleGraph: ModuleGraph;
 	providers: Map<string, ProviderInfo>;
-}
-
-export function separateRules(rules: AnyRule[]): {
-	fileRules: Rule[];
-	projectRules: ProjectRule[];
-	schemaRules: SchemaRule[];
-} {
-	const fileRules: Rule[] = [];
-	const projectRules: ProjectRule[] = [];
-	const schemaRules: SchemaRule[] = [];
-
-	for (const rule of rules) {
-		if (isSchemaRule(rule)) {
-			schemaRules.push(rule);
-		} else if (isProjectRule(rule)) {
-			projectRules.push(rule);
-		} else {
-			fileRules.push(rule);
-		}
-	}
-
-	return { fileRules, projectRules, schemaRules };
 }
 
 function runFileRulesOnFile(

@@ -1,7 +1,7 @@
 import { Project } from "ts-morph";
 import { describe, expect, it } from "vitest";
 import type { Diagnostic } from "../../../src/common/diagnostic.js";
-import { preferReadonlyInjection } from "../../../src/engine/rules/correctness/prefer-readonly-injection.js";
+import { preferReadonlyInjection } from "../../../src/engine/rules/definitions/correctness/prefer-readonly-injection.js";
 
 function runRule(code: string): Diagnostic[] {
 	const project = new Project({ useInMemoryFileSystem: true });

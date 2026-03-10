@@ -2,11 +2,8 @@ import { Project } from "ts-morph";
 import { describe, expect, it } from "vitest";
 import type { NestjsDoctorConfig } from "../../src/common/config.js";
 import type { SchemaEntity, SchemaGraph } from "../../src/common/schema.js";
-import {
-	runFileRules,
-	runSchemaRules,
-	separateRules,
-} from "../../src/engine/rule-runner.js";
+import { runFileRules, runSchemaRules } from "../../src/engine/rule-runner.js";
+import { separateRules } from "../../src/engine/rules/rule-pipeline.js";
 import type {
 	AnyRule,
 	Rule,

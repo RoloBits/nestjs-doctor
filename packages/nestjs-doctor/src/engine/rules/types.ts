@@ -7,8 +7,8 @@ import type {
 	Severity,
 } from "../../common/diagnostic.js";
 import type { SchemaGraph } from "../../common/schema.js";
-import type { ModuleGraph } from "../module-graph.js";
-import type { ProviderInfo } from "../type-resolver.js";
+import type { ModuleGraph } from "../graph/module-graph.js";
+import type { ProviderInfo } from "../graph/type-resolver.js";
 
 // ── Shared ──
 

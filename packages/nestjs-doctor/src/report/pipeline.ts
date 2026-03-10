@@ -1,20 +1,20 @@
 import { performance } from "node:perf_hooks";
 import { spinner } from "../cli/ui/spinner.js";
-import { mergeModuleGraphs } from "../engine/module-graph.js";
+import { mergeModuleGraphs } from "../engine/graph/module-graph.js";
 import type { MonorepoInfo } from "../engine/project-detector.js";
 import {
+	type AnalysisContext,
+	buildAnalysisContext,
 	buildMonorepoContext,
 	buildMonorepoResult,
-	buildScanContext,
-	buildScanResult,
+	buildResult,
+	diagnose,
+	type EngineResult,
 	type MonorepoContext,
-	type MonorepoScanResult,
-	type RawScanOutput,
+	type MonorepoEngineResult,
+	type RawDiagnosticOutput,
 	resolveScanConfig,
-	runRules,
 	type ScanConfig,
-	type ScanContext,
-	type ScanResult,
 } from "../engine/scanner.js";
 import { buildHtmlReport } from "./html-report.js";
 
@@ -66,31 +66,34 @@ abstract class ReportPipeline {
 
 /** Single-project report pipeline */
 export class SingleProjectReportPipeline extends ReportPipeline {
-	private context!: ScanContext;
-	private rawOutput!: RawScanOutput;
-	private _scanResult!: ScanResult;
+	private context!: AnalysisContext;
+	private rawOutput!: RawDiagnosticOutput;
+	private _scanResult!: EngineResult;
 
-	get scanResult(): ScanResult {
+	get scanResult(): EngineResult {
 		return this._scanResult;
 	}
 
 	buildContext(): this {
 		this.steps.push(async () => {
-			this.context = await buildScanContext(this.targetPath, this.scanConfig);
+			this.context = await buildAnalysisContext(
+				this.targetPath,
+				this.scanConfig
+			);
 		});
 		return this;
 	}
 
 	runRules(): this {
 		this.steps.push(() => {
-			this.rawOutput = runRules(this.context);
+			this.rawOutput = diagnose(this.context);
 		});
 		return this;
 	}
 
 	buildResult(): this {
 		this.steps.push(() => {
-			this._scanResult = buildScanResult(
+			this._scanResult = buildResult(
 				this.context,
 				this.rawOutput,
 				this.scanConfig.customRuleWarnings
@@ -112,8 +115,8 @@ export class SingleProjectReportPipeline extends ReportPipeline {
 export class MonorepoReportPipeline extends ReportPipeline {
 	private readonly monorepo: MonorepoInfo;
 	private monorepoCtx!: MonorepoContext;
-	private readonly rawOutputs = new Map<string, RawScanOutput>();
-	private _monoResult!: MonorepoScanResult;
+	private readonly rawOutputs = new Map<string, RawDiagnosticOutput>();
+	private _monoResult!: MonorepoEngineResult;
 	private scanStartTime!: number;
 
 	constructor(
@@ -125,7 +128,7 @@ export class MonorepoReportPipeline extends ReportPipeline {
 		this.monorepo = monorepo;
 	}
 
-	get monoResult(): MonorepoScanResult {
+	get monoResult(): MonorepoEngineResult {
 		return this._monoResult;
 	}
 
@@ -144,7 +147,7 @@ export class MonorepoReportPipeline extends ReportPipeline {
 	runRules(): this {
 		this.steps.push(() => {
 			for (const [name, context] of this.monorepoCtx.subProjects) {
-				this.rawOutputs.set(name, runRules(context));
+				this.rawOutputs.set(name, diagnose(context));
 			}
 		});
 		return this;
