@@ -1,4 +1,4 @@
-import { isController, isService } from "../../../nest-class-inspector.js";
+import { isInjectable } from "../../../nest-class-inspector.js";
 import type { Rule } from "../../types.js";
 
 export const preferConstructorInjection: Rule = {
@@ -13,7 +13,7 @@ export const preferConstructorInjection: Rule = {
 
 	check(context) {
 		for (const cls of context.sourceFile.getClasses()) {
-			if (!(isService(cls) || isController(cls))) {
+			if (!isInjectable(cls)) {
 				continue;
 			}
 

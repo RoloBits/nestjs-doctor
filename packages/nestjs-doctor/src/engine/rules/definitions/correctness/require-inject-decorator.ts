@@ -1,4 +1,4 @@
-import { hasDecorator } from "../../../nest-class-inspector.js";
+import { isInjectable } from "../../../nest-class-inspector.js";
 import type { Rule } from "../../types.js";
 
 export const requireInjectDecorator: Rule = {
@@ -13,9 +13,7 @@ export const requireInjectDecorator: Rule = {
 
 	check(context) {
 		for (const cls of context.sourceFile.getClasses()) {
-			if (
-				!(hasDecorator(cls, "Injectable") || hasDecorator(cls, "Controller"))
-			) {
+			if (!isInjectable(cls)) {
 				continue;
 			}
 

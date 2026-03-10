@@ -250,6 +250,58 @@ describe("scanner integration", () => {
 		expect(secretDiags).toHaveLength(0);
 	});
 
+	it("produces a clean result for graphql-app (resolvers are implicit injectables)", async () => {
+		const targetPath = resolve(FIXTURES, "graphql-app/src");
+		const scanConfig = await resolveScanConfig(targetPath);
+		const context = await buildAnalysisContext(targetPath, scanConfig);
+		const rawOutput = diagnose(context);
+		const { result } = buildResult(
+			context,
+			rawOutput,
+			scanConfig.customRuleWarnings
+		);
+
+		// Should NOT flag @Resolver as missing @Injectable
+		expect(
+			result.diagnostics.filter(
+				(d) => d.rule === "correctness/no-missing-injectable"
+			)
+		).toHaveLength(0);
+
+		// Should NOT flag resolver constructor params
+		expect(
+			result.diagnostics.filter(
+				(d) => d.rule === "correctness/require-inject-decorator"
+			)
+		).toHaveLength(0);
+
+		// Should NOT flag RecipesService as unused (it's injected by the resolver)
+		expect(
+			result.diagnostics.filter(
+				(d) => d.rule === "performance/no-unused-providers"
+			)
+		).toHaveLength(0);
+
+		// Overall clean
+		expect(result.score.value).toBeGreaterThanOrEqual(90);
+		expect(result.diagnostics).toHaveLength(0);
+	});
+
+	it("counts modules correctly in graphql-app", async () => {
+		const targetPath = resolve(FIXTURES, "graphql-app/src");
+		const scanConfig = await resolveScanConfig(targetPath);
+		const context = await buildAnalysisContext(targetPath, scanConfig);
+		const rawOutput = diagnose(context);
+		const { result } = buildResult(
+			context,
+			rawOutput,
+			scanConfig.customRuleWarnings
+		);
+
+		// Should detect 3 modules: AppModule, RecipesModule, PostsModule
+		expect(result.project.moduleCount).toBe(3);
+	});
+
 	it("diagnoseMonorepo falls back to single scan for non-monorepo", async () => {
 		const targetPath = resolve(FIXTURES, "basic-app/src");
 		const result = await diagnoseMonorepo(targetPath);

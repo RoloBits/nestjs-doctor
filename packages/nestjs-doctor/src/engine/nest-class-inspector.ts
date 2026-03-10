@@ -56,6 +56,17 @@ export function isService(cls: ClassDeclaration): boolean {
 	return hasDecorator(cls, "Injectable");
 }
 
+// NestJS treats @Resolver and @WebSocketGateway as implicit @Injectable —
+// they participate in dependency injection without requiring an explicit @Injectable() decorator.
+export function isInjectable(cls: ClassDeclaration): boolean {
+	return (
+		hasDecorator(cls, "Injectable") ||
+		hasDecorator(cls, "Controller") ||
+		hasDecorator(cls, "Resolver") ||
+		hasDecorator(cls, "WebSocketGateway")
+	);
+}
+
 export function isModule(cls: ClassDeclaration): boolean {
 	return hasDecorator(cls, "Module");
 }

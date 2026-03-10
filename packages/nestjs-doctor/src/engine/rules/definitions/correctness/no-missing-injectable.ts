@@ -55,7 +55,13 @@ export const noMissingInjectable: ProjectRule = {
 					const hasConstructorDependencies =
 						(ctorDecl?.getParameters().length ?? 0) > 0;
 
-					if (!cls.getDecorator("Injectable") && hasConstructorDependencies) {
+					// @Resolver and @WebSocketGateway implicitly apply @Injectable() metadata in NestJS,
+					// so classes with these decorators don't need an explicit @Injectable() decorator.
+					const hasImplicitInjectable =
+						cls.getDecorator("Injectable") ||
+						cls.getDecorator("Resolver") ||
+						cls.getDecorator("WebSocketGateway");
+					if (!hasImplicitInjectable && hasConstructorDependencies) {
 						context.report({
 							filePath,
 							message: `Class '${providerName}' is listed in '${mod.name}' providers but is missing @Injectable() decorator.`,

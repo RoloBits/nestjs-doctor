@@ -28,7 +28,9 @@ export const noUnusedProviders: ProjectRule = {
 			}
 		}
 
-		// Also collect controller dependencies
+		// Resolvers and gateways inject services via constructor just like controllers,
+		// so their dependencies must be counted to avoid false "unused provider" warnings.
+		const CONSUMER_DECORATORS = ["Controller", "Resolver", "WebSocketGateway"];
 		for (const filePath of context.files) {
 			const sourceFile = context.project.getSourceFile(filePath);
 			if (!sourceFile) {
@@ -36,7 +38,10 @@ export const noUnusedProviders: ProjectRule = {
 			}
 
 			for (const cls of sourceFile.getClasses()) {
-				if (!cls.getDecorator("Controller")) {
+				const isConsumer = CONSUMER_DECORATORS.some(
+					(d) => cls.getDecorator(d) !== undefined
+				);
+				if (!isConsumer) {
 					continue;
 				}
 				const ctor = cls.getConstructors()[0];
