@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.4.22
+
+### Patch Changes
+
+- 16db4ff: Update module graph docs for cross-file import resolution
+
 ## 0.4.21
 
 ### Patch Changes
