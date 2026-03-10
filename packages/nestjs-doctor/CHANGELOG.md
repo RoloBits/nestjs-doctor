@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.4.20
+
+### Patch Changes
+
+- 398033a: Treat `@Resolver` and `@WebSocketGateway` as implicit `@Injectable` to prevent false positives in GraphQL and WebSocket apps.
+
 ## 0.4.19
 
 ### Patch Changes
