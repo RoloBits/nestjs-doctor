@@ -1,0 +1,6 @@
+{
+  "rules": {
+    "architecture/no-barrel-export-internals": false,
+    "security/no-hardcoded-secrets": false
+  }
+}

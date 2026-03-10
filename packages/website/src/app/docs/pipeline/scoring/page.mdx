@@ -1,6 +1,12 @@
+import { BreadcrumbJsonLd } from "@/components/json-ld";
+import { docsMetadata } from "@/lib/docs-metadata";
+export const metadata = docsMetadata["/docs/pipeline/scoring"];
+
+<BreadcrumbJsonLd path="/docs/pipeline/scoring" />
+
 # Scoring
 
-**Source:** `src/scorer/index.ts`, `src/scorer/weights.ts`, `src/scorer/labels.ts`
+**Source:** `src/engine/scorer/index.ts`, `src/engine/scorer/weights.ts`, `src/engine/scorer/labels.ts`
 
 ## What
 
@@ -50,6 +56,7 @@ The score is clamped to the 0-100 range.
 |----------|------------|-----------|
 | security | 1.5x | Security issues are the most impactful |
 | correctness | 1.3x | Bugs that cause runtime errors |
+| schema | 1.1x | Database structural integrity |
 | architecture | 1.0x | Structural issues that grow over time |
 | performance | 0.8x | Important but less critical than correctness |
 

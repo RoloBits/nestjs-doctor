@@ -1,6 +1,4 @@
 import { resolve } from "node:path";
-import { runReport } from "../report/setup.js";
-import { initSkill } from "./init.js";
 import { validateMinScoreArg } from "./min-score.js";
 import { logger } from "./ui/logger.js";
 
@@ -35,10 +33,12 @@ type SetupStep = () => boolean | Promise<boolean>;
 export class CliSetup {
 	private readonly args: CliArgs;
 	private readonly steps: SetupStep[] = [];
+	private readonly version: string;
 	private targetPath = "";
 
-	constructor(args: CliArgs) {
+	constructor(args: CliArgs, version: string) {
 		this.args = args;
+		this.version = version;
 	}
 
 	resolveTargetPath(): this {
@@ -52,7 +52,8 @@ export class CliSetup {
 	handleInit(): this {
 		this.steps.push(async () => {
 			if (this.args.init) {
-				await initSkill(this.targetPath);
+				const { initSkill } = await import("./init.js");
+				await initSkill(this.targetPath, this.version);
 				return false;
 			}
 			return true;
@@ -63,6 +64,7 @@ export class CliSetup {
 	handleReport(): this {
 		this.steps.push(async () => {
 			if (this.args.report) {
+				const { runReport } = await import("../report/setup.js");
 				await runReport(this.targetPath, this.args.config);
 				return false;
 			}

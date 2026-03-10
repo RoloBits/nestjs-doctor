@@ -9,12 +9,31 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 const SITE_URL = "https://www.nestjs.doctor";
-const TWITTER_IMAGE_PATH = "/nestjs-doctor-og-banner.svg";
+const TWITTER_IMAGE_PATH = "/nestjs-doctor-og-banner.png";
 
 export const metadata: Metadata = {
 	metadataBase: new URL(SITE_URL),
-	title: "NestJS Doctor",
+	title: {
+		default: "NestJS Doctor - Diagnose and Fix Your NestJS Code",
+		template: "%s | NestJS Doctor",
+	},
 	description: "Diagnose and fix your NestJS code in one command.",
+	alternates: { canonical: "./" },
+	openGraph: {
+		title: "NestJS Doctor - Diagnose and Fix Your NestJS Code",
+		description: "Diagnose and fix your NestJS code in one command.",
+		url: SITE_URL,
+		siteName: "NestJS Doctor",
+		type: "website",
+		images: [
+			{
+				url: TWITTER_IMAGE_PATH,
+				width: 1200,
+				height: 630,
+				alt: "NestJS Doctor - Diagnose and fix your NestJS code",
+			},
+		],
+	},
 	twitter: {
 		card: "summary_large_image",
 		images: [TWITTER_IMAGE_PATH],

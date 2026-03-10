@@ -1,6 +1,12 @@
+import { BreadcrumbJsonLd } from "@/components/json-ld";
+import { docsMetadata } from "@/lib/docs-metadata";
+export const metadata = docsMetadata["/docs/pipeline/diagnostic-filtering"];
+
+<BreadcrumbJsonLd path="/docs/pipeline/diagnostic-filtering" />
+
 # Diagnostic Filtering
 
-**Source:** `src/core/filter-diagnostics.ts`
+**Source:** `src/engine/filter-diagnostics.ts`
 
 ## What
 
@@ -15,6 +21,7 @@ Users may want to suppress known issues or exclude generated files from results 
 ```typescript
 diagnostics: Diagnostic[]          // all diagnostics from rule execution
 config: NestjsDoctorConfig         // contains ignore.rules and ignore.files
+targetPath: string                 // root directory (used to convert absolute paths to relative for glob matching)
 ```
 
 ## Output

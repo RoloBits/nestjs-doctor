@@ -85,7 +85,7 @@ const LeaderboardRow = ({
 };
 
 export const metadata: Metadata = {
-	title: "Leaderboard - NestJS Doctor",
+	title: "Leaderboard",
 	description:
 		"Scores for popular open-source NestJS projects, diagnosed by NestJS Doctor.",
 };
@@ -119,7 +119,7 @@ const LeaderboardPage = () => {
 				</pre>
 			</div>
 
-			<div className="mb-1 text-white text-xl">Leaderboard</div>
+			<h1 className="mb-1 text-white text-xl">Leaderboard</h1>
 			<div className="mb-8 text-neutral-500">
 				Scores for popular open-source NestJS projects.
 			</div>

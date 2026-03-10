@@ -215,7 +215,7 @@ export const noTodoComments = {
       const pos = context.sourceFile.getLineAndColumnAtPos(match.index);
       context.report({
         message: "Unresolved TODO comment",
-        file: context.filePath,
+        filePath: context.filePath,
         line: pos.line,
       });
     }

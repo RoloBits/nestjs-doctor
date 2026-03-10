@@ -1,3 +1,9 @@
+import { BreadcrumbJsonLd } from "@/components/json-ld";
+import { docsMetadata } from "@/lib/docs-metadata";
+export const metadata = docsMetadata["/docs/custom-rules"];
+
+<BreadcrumbJsonLd path="/docs/custom-rules" />
+
 # Custom Rules
 
 Extend the built-in rule set with project-specific checks. Custom rules let you encode domain conventions, enforce team standards, or flag patterns unique to your codebase — anything the built-in rules don't cover.

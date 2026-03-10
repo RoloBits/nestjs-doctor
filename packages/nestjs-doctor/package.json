@@ -8,29 +8,16 @@
   },
   "exports": {
     ".": {
-      "import": {
-        "types": "./dist/api/index.d.mts",
-        "default": "./dist/api/index.mjs"
-      },
-      "require": {
-        "types": "./dist/api/index.d.cts",
-        "default": "./dist/api/index.cjs"
-      }
+      "types": "./dist/api/index.d.mts",
+      "default": "./dist/api/index.mjs"
     },
     "./api": {
-      "import": {
-        "types": "./dist/api/index.d.mts",
-        "default": "./dist/api/index.mjs"
-      },
-      "require": {
-        "types": "./dist/api/index.d.cts",
-        "default": "./dist/api/index.cjs"
-      }
+      "types": "./dist/api/index.d.mts",
+      "default": "./dist/api/index.mjs"
     }
   },
   "files": [
-    "dist",
-    "skill"
+    "dist"
   ],
   "scripts": {
     "build": "tsdown",

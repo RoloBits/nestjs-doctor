@@ -1,6 +1,12 @@
+import { BreadcrumbJsonLd } from "@/components/json-ld";
+import { docsMetadata } from "@/lib/docs-metadata";
+export const metadata = docsMetadata["/docs/pipeline/output"];
+
+<BreadcrumbJsonLd path="/docs/pipeline/output" />
+
 # Output
 
-**Source:** `src/cli/output/console-reporter.ts`, `src/cli/output/json-reporter.ts`, `src/cli/output/report-generator.ts`
+**Source:** `src/cli/formatters/console-reporter.ts`, `src/cli/formatters/json-reporter.ts`
 
 ## What
 
@@ -19,6 +25,7 @@ interface DiagnoseResult {
   project: ProjectInfo
   summary: DiagnoseSummary
   ruleErrors: RuleErrorInfo[]
+  schema?: SerializedSchemaGraph
   elapsedMs: number
 }
 
@@ -101,11 +108,12 @@ Generates a self-contained HTML file with an interactive report:
 npx nestjs-doctor . --report
 ```
 
-The report includes four tabs:
+The report includes five tabs:
 
 - **Summary** — health score overview with category breakdown
 - **Diagnosis** — source-level findings with code viewer and fix examples
-- **Modules Graph** — physics-based layout with draggable nodes, directed edges, color coding, detail panel with auto-focus, and circular dependency recommendations
+- **Modules Graph** — directed graph layout with draggable nodes, directed edges, color coding, detail panel with auto-focus, and circular dependency recommendations
+- **Schema ER Diagram** — entity-relationship visualization of database models
 - **Lab** — custom rule playground to write and test your own rules
 
 Output: `nestjs-doctor-report.html` in the project root, auto-opened in the default browser.
