@@ -74,15 +74,18 @@ The graph builder recursively resolves import expressions to extract module name
 | `.concat()` chain | `[A].concat([B])` | both `A` and `B` |
 | Function call as value | `getImports()` | return value of function |
 | Variable as value | `commonImports` | contents of variable |
+| Cross-file function call | `getImports()` (imported from `./helpers`) | return value of function in other file |
+| Cross-file variable | `commonImports` (imported from `./shared`) | contents of variable in other file |
+| Chained cross-file calls | `getA()` calls `getB()` in another file | recursively follows the chain |
 
 **Recognized dynamic module methods:** `forRoot`, `forRootAsync`, `forFeature`, `forFeatureAsync`, `forChild`, `forChildAsync`, `register`, `registerAsync`.
 
 **Resolution rules:**
 
-- Resolution is recursive with a depth limit of 3
-- **Same-file functions:** the resolver finds the function declaration and extracts identifiers from its `return` statements
+- Resolution is recursive with a depth limit of 5
+- **Same-file functions:** the resolver finds the function declaration (or arrow function variable) and extracts identifiers from its `return` statements
 - **Same-file variables:** the resolver finds the `const`/`let`/`var` declaration and resolves its initializer
-- **Cross-file references** are not resolved (only same-file)
+- **Cross-file resolution:** if a function or variable is not found in the current file, the resolver follows `import { name } from './other-file'` declarations and `export { name } from './other-file'` re-exports to locate the definition in the external file, then continues resolving there
 - **Unresolvable expressions** (ternaries, computed values) gracefully return empty — no crash, the import is silently skipped
 
 **Why this matters:**
@@ -119,6 +122,22 @@ export class AppModule {}
 //   SharedModule, LoggingModule, AuthModule, SessionModule
 ```
 
+**Example — cross-file resolution chain:**
+
+When imports are split across multiple files, the resolver follows the chain recursively:
+
+```
+app.module.ts
+  imports: getServiceAppCommonImports({...}).concat([AdminAuthModule])
+    ↓ follows import to libs/app-shared.ts
+  getServiceAppCommonImports() → getAppCommonImports().concat([DatabaseModule])
+    ↓ follows import to libs/common-imports.ts
+  getAppCommonImports() → [ConfigModule.forRoot({...}), LoggerModule, HealthModule]
+```
+
+The graph builder resolves the full chain and extracts:
+`ConfigModule`, `LoggerModule`, `HealthModule`, `DatabaseModule`, `AdminAuthModule`
+
 ### Circular Dependency Detection
 
 `findCircularDeps()` uses DFS (depth-first search) with a recursion stack to detect cycles:
@@ -140,4 +159,5 @@ function findCircularDeps(graph: ModuleGraph): string[][] {
 - If a module does not appear in the graph, verify that it has the `@Module()` decorator and is in a file included by the [file collector](/docs/pipeline/file-collection).
 - If a dynamically-imported module (e.g. via `.forRoot()`) does not appear in the graph edges, verify the method name is one of the recognized dynamic module methods listed above.
 - Circular dependency detection works on the `imports` graph. Additionally, `traceProviderEdges` traces provider-level dependencies across module boundaries, enabling concrete suggestions about which providers to extract to break a cycle.
+- If a cross-file function or variable is not resolved, verify the function/variable is exported from its source file and imported with a named import in the module file. Only relative path imports (starting with `./` or `../`) are followed — bare specifiers (e.g., `@nestjs/common`) are skipped.
 - The `providerToModule` index is built from `@Module({ providers: [...] })`. If a provider is not listed in any module's providers array, it will not appear in this index.
