@@ -243,7 +243,7 @@ Invalid rules produce warnings but never crash the scan. Common issues — missi
 
 ## Monorepo Support
 
-Monorepo detection supports two strategies (checked in order):
+Monorepo detection supports five strategies (checked in priority order — first match wins):
 
 ### 1. `nest-cli.json` (takes precedence)
 
@@ -260,9 +260,9 @@ When `"monorepo": true` is set, each sub-project is scanned independently and re
 }
 ```
 
-### 2. `pnpm-workspace.yaml` (Turborepo / pnpm workspaces)
+### 2. `pnpm-workspace.yaml` (pnpm / Turborepo)
 
-If no `nest-cli.json` monorepo is found, nestjs-doctor reads `pnpm-workspace.yaml`, expands the `packages` globs, and filters to packages that depend on `@nestjs/core` or `@nestjs/common`.
+Reads `pnpm-workspace.yaml`, expands the `packages` globs, and filters to packages that depend on `@nestjs/core` or `@nestjs/common`.
 
 ```yaml
 packages:
@@ -270,7 +270,48 @@ packages:
   - "packages/*"
 ```
 
-Only NestJS packages are included — non-Nest packages in the workspace are skipped automatically.
+### 3. `package.json` workspaces (npm / Yarn)
+
+Reads the `workspaces` field from the root `package.json`. Both array and object formats are supported. Skipped when `pnpm-workspace.yaml` exists to avoid duplicate detection.
+
+```json
+{
+  "workspaces": ["apps/*", "packages/*"]
+}
+```
+
+```json
+{
+  "workspaces": {
+    "packages": ["apps/*", "packages/*"]
+  }
+}
+```
+
+### 4. `nx.json` (Nx)
+
+Detects `nx.json` and discovers sub-projects by scanning for `project.json` files. Each project must have a `package.json` with a NestJS dependency to be included.
+
+```json
+// nx.json
+{
+  "targetDefaults": { "build": { "dependsOn": ["^build"] } }
+}
+```
+
+### 5. `lerna.json` (standalone Lerna)
+
+Reads `lerna.json` when `useWorkspaces` is **not** set. Uses the `packages` globs (defaults to `["packages/*"]`). When `useWorkspaces` is `true`, detection is handled by strategy 3 instead.
+
+```json
+{
+  "packages": ["packages/*"]
+}
+```
+
+Non-NestJS packages are always filtered out automatically — only packages with `@nestjs/core` or `@nestjs/common` are included.
+
+If a monorepo is detected but no NestJS packages are found, nestjs-doctor emits a warning and falls back to single-project mode.
 
 Output includes a combined score and a per-project breakdown.
 

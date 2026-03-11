@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
 	detectMonorepo,
 	detectProject,
+	looksLikeMonorepo,
+	parsePackageJsonWorkspaces,
 	parseWorkspacePatterns,
 } from "../../src/engine/project-detector.js";
 
@@ -74,6 +76,55 @@ describe("monorepo-detector", () => {
 		expect(info!.projects.has("api")).toBe(true);
 		expect(info!.projects.has("admin")).toBe(true);
 	});
+
+	it("detects Yarn workspace monorepo with object format", async () => {
+		const info = await detectMonorepo(resolve(FIXTURES, "yarn-workspace-app"));
+		expect(info).not.toBeNull();
+		expect(info!.projects.size).toBe(1);
+		expect(info!.projects.has("@ever/api")).toBe(true);
+		expect(info!.projects.get("@ever/api")).toBe("packages/api");
+	});
+
+	it("excludes non-NestJS packages from Yarn workspace", async () => {
+		const info = await detectMonorepo(resolve(FIXTURES, "yarn-workspace-app"));
+		expect(info).not.toBeNull();
+		expect(info!.projects.has("@ever/web-angular")).toBe(false);
+		expect(info!.projects.has("@ever/shared")).toBe(false);
+	});
+
+	it("detects standalone Lerna monorepo", async () => {
+		const info = await detectMonorepo(
+			resolve(FIXTURES, "lerna-standalone-app")
+		);
+		expect(info).not.toBeNull();
+		expect(info!.projects.size).toBe(1);
+		expect(info!.projects.has("@lerna/api")).toBe(true);
+		expect(info!.projects.get("@lerna/api")).toBe("packages/api");
+	});
+
+	it("excludes non-NestJS packages from Lerna monorepo", async () => {
+		const info = await detectMonorepo(
+			resolve(FIXTURES, "lerna-standalone-app")
+		);
+		expect(info).not.toBeNull();
+		expect(info!.projects.has("@lerna/frontend")).toBe(false);
+	});
+
+	it("detects Nx monorepo via nx.json and project.json files", async () => {
+		const info = await detectMonorepo(resolve(FIXTURES, "nx-app"));
+		expect(info).not.toBeNull();
+		expect(info!.projects.size).toBe(2);
+		expect(info!.projects.has("@nx/api")).toBe(true);
+		expect(info!.projects.get("@nx/api")).toBe("apps/api");
+		expect(info!.projects.has("@nx/shared")).toBe(true);
+		expect(info!.projects.get("@nx/shared")).toBe("libs/shared");
+	});
+
+	it("excludes non-NestJS packages from Nx monorepo", async () => {
+		const info = await detectMonorepo(resolve(FIXTURES, "nx-app"));
+		expect(info).not.toBeNull();
+		expect(info!.projects.has("@nx/dashboard")).toBe(false);
+	});
 });
 
 describe("parseWorkspacePatterns", () => {
@@ -109,5 +160,72 @@ describe("parseWorkspacePatterns", () => {
 	it("returns empty for empty string", () => {
 		const patterns = parseWorkspacePatterns("");
 		expect(patterns).toEqual([]);
+	});
+});
+
+describe("parsePackageJsonWorkspaces", () => {
+	it("parses array format", () => {
+		const patterns = parsePackageJsonWorkspaces({
+			workspaces: ["apps/*", "packages/*"],
+		});
+		expect(patterns).toEqual(["apps/*", "packages/*"]);
+	});
+
+	it("parses Yarn object format with packages key", () => {
+		const patterns = parsePackageJsonWorkspaces({
+			workspaces: {
+				packages: ["libs/*", "apps/*", "packages/*"],
+				nohoist: ["**/react-native"],
+			},
+		});
+		expect(patterns).toEqual(["libs/*", "apps/*", "packages/*"]);
+	});
+
+	it("returns empty when workspaces is missing", () => {
+		const patterns = parsePackageJsonWorkspaces({ name: "my-app" });
+		expect(patterns).toEqual([]);
+	});
+
+	it("returns empty for object without packages key", () => {
+		const patterns = parsePackageJsonWorkspaces({
+			workspaces: { nohoist: ["**/react-native"] },
+		});
+		expect(patterns).toEqual([]);
+	});
+});
+
+describe("looksLikeMonorepo", () => {
+	it("returns true for directory with lerna.json", async () => {
+		const result = await looksLikeMonorepo(
+			resolve(FIXTURES, "lerna-standalone-app")
+		);
+		expect(result).toBe(true);
+	});
+
+	it("returns true for directory with pnpm-workspace.yaml", async () => {
+		const result = await looksLikeMonorepo(resolve(FIXTURES, "turborepo-app"));
+		expect(result).toBe(true);
+	});
+
+	it("returns true for directory with nx.json", async () => {
+		const result = await looksLikeMonorepo(resolve(FIXTURES, "nx-app"));
+		expect(result).toBe(true);
+	});
+
+	it("returns true for directory with workspaces in package.json", async () => {
+		const result = await looksLikeMonorepo(
+			resolve(FIXTURES, "yarn-workspace-app")
+		);
+		expect(result).toBe(true);
+	});
+
+	it("returns false for single project", async () => {
+		const result = await looksLikeMonorepo(resolve(FIXTURES, "basic-app"));
+		expect(result).toBe(false);
+	});
+
+	it("returns false for nonexistent path", async () => {
+		const result = await looksLikeMonorepo("/tmp/nonexistent-path-xyz");
+		expect(result).toBe(false);
 	});
 });

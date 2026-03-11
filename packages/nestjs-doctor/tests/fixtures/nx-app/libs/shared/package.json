@@ -1,0 +1,6 @@
+{
+  "name": "@nx/shared",
+  "dependencies": {
+    "@nestjs/common": "^10.0.0"
+  }
+}

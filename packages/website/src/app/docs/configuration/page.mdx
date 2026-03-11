@@ -107,9 +107,9 @@ These patterns are always excluded (your `exclude` config is additive):
 
 ## Monorepo Support
 
-Monorepo mode is auto-detected using two strategies (checked in order):
+Monorepo mode is auto-detected using five strategies (checked in priority order — first match wins):
 
-### `nest-cli.json` (takes precedence)
+### 1. `nest-cli.json` (takes precedence)
 
 ```json
 {
@@ -122,15 +122,39 @@ Monorepo mode is auto-detected using two strategies (checked in order):
 }
 ```
 
-### `pnpm-workspace.yaml` (Turborepo / pnpm workspaces)
-
-If no `nest-cli.json` monorepo is found, nestjs-doctor reads `pnpm-workspace.yaml`, expands the `packages` globs, and includes only packages that depend on `@nestjs/core` or `@nestjs/common`.
+### 2. `pnpm-workspace.yaml` (pnpm / Turborepo)
 
 ```yaml
 packages:
   - "apps/*"
   - "packages/*"
 ```
+
+### 3. `package.json` workspaces (npm / Yarn)
+
+Both array and object formats are supported. Skipped when `pnpm-workspace.yaml` exists.
+
+```json
+{
+  "workspaces": ["apps/*", "packages/*"]
+}
+```
+
+### 4. `nx.json` (Nx)
+
+Discovers sub-projects by scanning for `project.json` files alongside `nx.json`.
+
+### 5. `lerna.json` (standalone Lerna)
+
+Used when `useWorkspaces` is not set. Defaults to `["packages/*"]` if no `packages` globs are specified. When `useWorkspaces` is `true`, detection falls through to strategy 3.
+
+```json
+{
+  "packages": ["packages/*"]
+}
+```
+
+Non-NestJS packages are always filtered out — only packages with `@nestjs/core` or `@nestjs/common` are included. If a monorepo is detected but no NestJS packages are found, nestjs-doctor emits a warning and falls back to single-project mode.
 
 Each sub-project is scanned independently. Per-project config files are supported — place a `nestjs-doctor.config.json` inside a sub-project's root to override the root config for that project.
 

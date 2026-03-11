@@ -113,27 +113,15 @@ function hasNestDependency(pkg: PackageJson): boolean {
 	return Boolean(allDeps["@nestjs/core"] || allDeps["@nestjs/common"]);
 }
 
-async function detectPnpmWorkspaceMonorepo(
-	targetPath: string
+async function resolveWorkspaceProjects(
+	targetPath: string,
+	patterns: string[]
 ): Promise<MonorepoInfo | null> {
-	const workspacePath = join(targetPath, "pnpm-workspace.yaml");
-
-	let content: string;
-	try {
-		content = await readFile(workspacePath, "utf-8");
-	} catch {
-		return null;
-	}
-
-	const patterns = parseWorkspacePatterns(content);
-	if (patterns.length === 0) {
-		return null;
-	}
-
 	const pkgGlobs = patterns.map((p) => `${p}/package.json`);
 	const pkgPaths = await glob(pkgGlobs, {
 		cwd: targetPath,
 		absolute: true,
+		ignore: ["**/node_modules/**"],
 	});
 
 	const projects = new Map<string, string>();
@@ -161,17 +149,224 @@ async function detectPnpmWorkspaceMonorepo(
 	return { projects };
 }
 
+async function detectPnpmWorkspaceMonorepo(
+	targetPath: string
+): Promise<MonorepoInfo | null> {
+	const workspacePath = join(targetPath, "pnpm-workspace.yaml");
+
+	let content: string;
+	try {
+		content = await readFile(workspacePath, "utf-8");
+	} catch {
+		return null;
+	}
+
+	const patterns = parseWorkspacePatterns(content);
+	if (patterns.length === 0) {
+		return null;
+	}
+
+	return resolveWorkspaceProjects(targetPath, patterns);
+}
+
+export function parsePackageJsonWorkspaces(
+	pkg: Record<string, unknown>
+): string[] {
+	const workspaces = pkg.workspaces;
+	if (!workspaces) {
+		return [];
+	}
+
+	// Array format: "workspaces": ["apps/*", "packages/*"]
+	if (Array.isArray(workspaces)) {
+		return workspaces.filter((w): w is string => typeof w === "string");
+	}
+
+	// Yarn object format: "workspaces": { "packages": ["apps/*", "packages/*"] }
+	if (typeof workspaces === "object" && workspaces !== null) {
+		const obj = workspaces as Record<string, unknown>;
+		if (Array.isArray(obj.packages)) {
+			return obj.packages.filter((w): w is string => typeof w === "string");
+		}
+	}
+
+	return [];
+}
+
+async function detectNpmYarnWorkspaceMonorepo(
+	targetPath: string
+): Promise<MonorepoInfo | null> {
+	const pkgPath = join(targetPath, "package.json");
+
+	let raw: string;
+	try {
+		raw = await readFile(pkgPath, "utf-8");
+	} catch {
+		return null;
+	}
+
+	const pkg = JSON.parse(raw) as Record<string, unknown>;
+	const patterns = parsePackageJsonWorkspaces(pkg);
+	if (patterns.length === 0) {
+		return null;
+	}
+
+	return resolveWorkspaceProjects(targetPath, patterns);
+}
+
+interface LernaJson {
+	packages?: string[];
+	useWorkspaces?: boolean;
+}
+
+async function detectLernaMonorepo(
+	targetPath: string
+): Promise<MonorepoInfo | null> {
+	const lernaPath = join(targetPath, "lerna.json");
+
+	let raw: string;
+	try {
+		raw = await readFile(lernaPath, "utf-8");
+	} catch {
+		return null;
+	}
+
+	const config = JSON.parse(raw) as LernaJson;
+
+	// If useWorkspaces is true, npm/yarn workspace detection already handles it
+	if (config.useWorkspaces) {
+		return null;
+	}
+
+	const patterns = config.packages ?? ["packages/*"];
+	if (patterns.length === 0) {
+		return null;
+	}
+
+	return resolveWorkspaceProjects(targetPath, patterns);
+}
+
+async function detectNxMonorepo(
+	targetPath: string
+): Promise<MonorepoInfo | null> {
+	const nxPath = join(targetPath, "nx.json");
+
+	try {
+		await readFile(nxPath, "utf-8");
+	} catch {
+		return null;
+	}
+
+	const projectJsonPaths = await glob(["**/project.json"], {
+		cwd: targetPath,
+		absolute: true,
+		ignore: ["node_modules/**"],
+	});
+
+	const projects = new Map<string, string>();
+
+	for (const projectJsonPath of projectJsonPaths) {
+		const projectDir = dirname(projectJsonPath);
+		const relativePath = relative(targetPath, projectDir);
+
+		// Skip root-level project.json
+		if (relativePath === "") {
+			continue;
+		}
+
+		const pkgPath = join(projectDir, "package.json");
+		try {
+			const raw = await readFile(pkgPath, "utf-8");
+			const pkg = JSON.parse(raw) as PackageJson;
+
+			if (hasNestDependency(pkg)) {
+				const name = pkg.name ?? relativePath;
+				projects.set(name, relativePath);
+			}
+		} catch {
+			// No package.json or unreadable — skip
+		}
+	}
+
+	if (projects.size === 0) {
+		return null;
+	}
+
+	return { projects };
+}
+
+async function hasPnpmWorkspace(targetPath: string): Promise<boolean> {
+	try {
+		await readFile(join(targetPath, "pnpm-workspace.yaml"), "utf-8");
+		return true;
+	} catch {
+		return false;
+	}
+}
+
 export async function detectMonorepo(
 	targetPath: string
 ): Promise<MonorepoInfo | null> {
-	// 1. Try nest-cli.json (existing, backward-compatible)
+	// 1. Try nest-cli.json (highest priority — explicit NestJS config)
 	const nestMonorepo = await detectNestCliMonorepo(targetPath);
 	if (nestMonorepo) {
 		return nestMonorepo;
 	}
 
-	// 2. Try pnpm-workspace.yaml (Turborepo / pnpm workspace support)
-	return detectPnpmWorkspaceMonorepo(targetPath);
+	// 2. Try pnpm-workspace.yaml (pnpm / Turborepo+pnpm)
+	const pnpmMonorepo = await detectPnpmWorkspaceMonorepo(targetPath);
+	if (pnpmMonorepo) {
+		return pnpmMonorepo;
+	}
+
+	// 3. Try package.json workspaces (npm / yarn / Turborepo+npm/yarn / Lerna)
+	// Skip if pnpm-workspace.yaml exists (pnpm repos may duplicate the field)
+	if (!(await hasPnpmWorkspace(targetPath))) {
+		const npmYarnMonorepo = await detectNpmYarnWorkspaceMonorepo(targetPath);
+		if (npmYarnMonorepo) {
+			return npmYarnMonorepo;
+		}
+	}
+
+	// 4. Try nx.json (Nx fallback)
+	const nxMonorepo = await detectNxMonorepo(targetPath);
+	if (nxMonorepo) {
+		return nxMonorepo;
+	}
+
+	// 5. Try lerna.json (standalone Lerna without useWorkspaces)
+	return detectLernaMonorepo(targetPath);
+}
+
+export async function looksLikeMonorepo(targetPath: string): Promise<boolean> {
+	const indicators = [
+		"lerna.json",
+		"turbo.json",
+		"nx.json",
+		"pnpm-workspace.yaml",
+	];
+
+	for (const file of indicators) {
+		try {
+			await readFile(join(targetPath, file), "utf-8");
+			return true;
+		} catch {
+			// Continue checking
+		}
+	}
+
+	// Check package.json workspaces field
+	try {
+		const raw = await readFile(join(targetPath, "package.json"), "utf-8");
+		const pkg = JSON.parse(raw) as Record<string, unknown>;
+		if (pkg.workspaces) {
+			return true;
+		}
+	} catch {
+		// No package.json
+	}
+
+	return false;
 }
 
 export async function detectProject(targetPath: string): Promise<ProjectInfo> {

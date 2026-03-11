@@ -1,0 +1,8 @@
+{
+  "name": "yarn-workspace-app",
+  "private": true,
+  "workspaces": {
+    "packages": ["packages/*"],
+    "nohoist": ["**/react-native", "**/react-native/**"]
+  }
+}
