@@ -419,6 +419,40 @@ describe("scanner integration", () => {
 		expect(result.diagnostics).toHaveLength(0);
 	});
 
+	it("resolves cross-file imports via tsconfig path aliases", async () => {
+		const targetPath = resolve(FIXTURES, "cross-file-path-aliases/src");
+		const scanConfig = await resolveScanConfig(targetPath);
+		const context = await buildAnalysisContext(targetPath, scanConfig);
+		const rawOutput = diagnose(context);
+		const { result } = buildResult(
+			context,
+			rawOutput,
+			scanConfig.customRuleWarnings
+		);
+
+		// Should detect 5 modules: AppModule, AuthModule, HealthModule, DatabaseModule, AdminModule
+		expect(result.project.moduleCount).toBe(5);
+
+		// AppModule should have edges to all 4 imported modules (resolved via path aliases)
+		const appEdges = context.moduleGraph.edges.get("AppModule");
+		expect(appEdges).toBeDefined();
+		expect(appEdges?.has("AuthModule")).toBe(true);
+		expect(appEdges?.has("HealthModule")).toBe(true);
+		expect(appEdges?.has("DatabaseModule")).toBe(true);
+		expect(appEdges?.has("AdminModule")).toBe(true);
+
+		// No false circular deps
+		const circularDiags = result.diagnostics.filter(
+			(d) => d.rule === "architecture/no-circular-module-deps"
+		);
+		expect(circularDiags).toHaveLength(0);
+
+		// Path aliases loaded correctly
+		expect(context.pathAliases.size).toBeGreaterThan(0);
+		expect(context.pathAliases.has("@app/*")).toBe(true);
+		expect(context.pathAliases.has("@shared/*")).toBe(true);
+	});
+
 	it("diagnoseMonorepo falls back to single scan for non-monorepo", async () => {
 		const targetPath = resolve(FIXTURES, "basic-app/src");
 		const result = await diagnoseMonorepo(targetPath);

@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "baseUrl": "./src",
+    "paths": {
+      "@app/*": ["*"],
+      "@shared/*": ["shared/*"]
+    }
+  }
+}
