@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.4.26
+
+### Patch Changes
+
+- 109b95f: Fix combined monorepo schema ORM field being overwritten by sub-projects without an ORM
+
 ## 0.4.25
 
 ### Patch Changes
