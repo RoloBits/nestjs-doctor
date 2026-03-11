@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.4.25
+
+### Patch Changes
+
+- 2f121fa: Add Drizzle ORM schema extraction support and require-timestamps rule coverage for Drizzle schemas
+
 ## 0.4.24
 
 ### Patch Changes
