@@ -511,4 +511,71 @@ describe("scanner integration", () => {
 		expect(result.subProjects.length).toBe(1);
 		expect(result.subProjects[0].name).toBe("default");
 	});
+
+	describe("drizzle-app fixture", () => {
+		const targetPath = resolve(FIXTURES, "drizzle-app");
+		let context: Awaited<ReturnType<typeof buildAnalysisContext>>;
+		let result: Awaited<ReturnType<typeof buildResult>>["result"];
+
+		beforeAll(async () => {
+			const scanConfig = await resolveScanConfig(targetPath);
+			context = await buildAnalysisContext(targetPath, scanConfig);
+			const rawOutput = diagnose(context);
+			({ result } = buildResult(
+				context,
+				rawOutput,
+				scanConfig.customRuleWarnings
+			));
+		});
+
+		it("detects Drizzle ORM and extracts schema", () => {
+			expect(result.project.orm).toBe("drizzle");
+			expect(result.schema).toBeDefined();
+			expect(result.schema!.entities).toHaveLength(9);
+			expect(result.schema!.relations).toHaveLength(10);
+			expect(result.schema!.orm).toBe("drizzle");
+		});
+
+		it("fires exactly 4 schema diagnostics", () => {
+			const schemaDiags = result.diagnostics.filter(
+				(d) => d.category === "schema"
+			);
+			expect(schemaDiags).toHaveLength(4);
+
+			const pkDiags = schemaDiags.filter(
+				(d) => d.rule === "schema/require-primary-key"
+			);
+			expect(pkDiags).toHaveLength(1);
+			expect(pkDiags[0].entity).toBe("auditLogs");
+
+			const tsDiags = schemaDiags.filter(
+				(d) => d.rule === "schema/require-timestamps"
+			);
+			expect(tsDiags).toHaveLength(2);
+			const tsEntities = tsDiags.map((d) => d.entity).sort();
+			expect(tsEntities).toEqual(["auditLogs", "notifications"]);
+
+			const cascadeDiags = schemaDiags.filter(
+				(d) => d.rule === "schema/require-cascade-rule"
+			);
+			expect(cascadeDiags).toHaveLength(1);
+			expect(cascadeDiags[0].entity).toBe("notifications");
+		});
+
+		it("builds correct module graph", () => {
+			expect(result.project.moduleCount).toBe(5);
+
+			const appEdges = context.moduleGraph.edges.get("AppModule");
+			expect(appEdges).toBeDefined();
+			expect(appEdges?.has("DatabaseModule")).toBe(true);
+			expect(appEdges?.has("UsersModule")).toBe(true);
+			expect(appEdges?.has("ProductsModule")).toBe(true);
+			expect(appEdges?.has("OrdersModule")).toBe(true);
+		});
+
+		it("excludes config files from the scan", () => {
+			const configFiles = context.files.filter((f) => f.endsWith(".config.ts"));
+			expect(configFiles).toHaveLength(0);
+		});
+	});
 });

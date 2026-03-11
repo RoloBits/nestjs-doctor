@@ -257,6 +257,105 @@ export class User {
 		expect(names).toContain("Post");
 	});
 
+	it("updateSchemaForFile should add a new Drizzle entity incrementally", () => {
+		const { project, paths } = createProject({
+			"users.ts": `
+import { pgTable, integer, text } from "drizzle-orm/pg-core";
+
+export const users = pgTable('users', {
+  id: integer().primaryKey(),
+  name: text().notNull(),
+});`,
+		});
+
+		const graph = extractSchema(project, paths, "drizzle", "/test");
+		expect(graph.entities.size).toBe(1);
+
+		project.createSourceFile(
+			"posts.ts",
+			`
+import { pgTable, integer, text } from "drizzle-orm/pg-core";
+
+export const posts = pgTable('posts', {
+  id: integer().primaryKey(),
+  title: text().notNull(),
+  authorId: integer().references(() => users.id),
+});`
+		);
+
+		updateSchemaForFile(graph, project, "/posts.ts", "/test");
+
+		expect(graph.entities.size).toBe(2);
+		expect(graph.entities.get("posts")).toBeDefined();
+		expect(graph.relations).toHaveLength(1);
+	});
+
+	it("updateSchemaForFile should remove Drizzle entities when file changes", () => {
+		const { project, paths } = createProject({
+			"users.ts": `
+import { pgTable, integer, text } from "drizzle-orm/pg-core";
+
+export const users = pgTable('users', {
+  id: integer().primaryKey(),
+  name: text().notNull(),
+});`,
+			"posts.ts": `
+import { pgTable, integer, text } from "drizzle-orm/pg-core";
+
+export const posts = pgTable('posts', {
+  id: integer().primaryKey(),
+  title: text().notNull(),
+});`,
+		});
+
+		const graph = extractSchema(project, paths, "drizzle", "/test");
+		expect(graph.entities.size).toBe(2);
+
+		const postFile = project.getSourceFile("posts.ts");
+		postFile!.replaceWithText("export const config = {};");
+
+		updateSchemaForFile(graph, project, "/posts.ts", "/test");
+
+		expect(graph.entities.size).toBe(1);
+		expect(graph.entities.get("users")).toBeDefined();
+		expect(graph.entities.get("posts")).toBeUndefined();
+		expect(graph.relations).toHaveLength(0);
+	});
+
+	it("updateSchemaForFile should modify existing Drizzle entity", () => {
+		const { project, paths } = createProject({
+			"users.ts": `
+import { pgTable, integer, text } from "drizzle-orm/pg-core";
+
+export const users = pgTable('users', {
+  id: integer().primaryKey(),
+  name: text().notNull(),
+});`,
+		});
+
+		const graph = extractSchema(project, paths, "drizzle", "/test");
+		expect(graph.entities.get("users")!.columns).toHaveLength(2);
+
+		const userFile = project.getSourceFile("users.ts");
+		userFile!.replaceWithText(`
+import { pgTable, integer, text, varchar } from "drizzle-orm/pg-core";
+
+export const users = pgTable('users', {
+  id: integer().primaryKey(),
+  name: text().notNull(),
+  email: varchar().notNull().unique(),
+});`);
+
+		updateSchemaForFile(graph, project, "/users.ts", "/test");
+
+		expect(graph.entities.get("users")!.columns).toHaveLength(3);
+		const emailCol = graph.entities
+			.get("users")!
+			.columns.find((c) => c.name === "email");
+		expect(emailCol).toBeDefined();
+		expect(emailCol!.isUnique).toBe(true);
+	});
+
 	it("updateSchemaForFile should handle multiple entities from same file", () => {
 		const { project, paths } = createProject({
 			"entities.ts": `

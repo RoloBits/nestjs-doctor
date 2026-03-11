@@ -32,6 +32,17 @@ function hasTimestampColumns(entity: SchemaEntity, orm: string): boolean {
 		);
 	}
 
+	if (orm === "drizzle") {
+		return entity.columns.some(
+			(c) =>
+				(c.type === "timestamp" ||
+					c.type === "date" ||
+					c.type === "datetime") &&
+				c.defaultValue !== undefined &&
+				c.defaultValue.includes("now()")
+		);
+	}
+
 	return false;
 }
 

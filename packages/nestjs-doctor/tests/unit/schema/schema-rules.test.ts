@@ -183,6 +183,49 @@ describe("schema/require-timestamps", () => {
 
 		expect(diagnostics).toHaveLength(0);
 	});
+
+	it("should detect Drizzle timestamp with defaultNow()", () => {
+		const entity = makeEntity({
+			columns: [
+				makeColumn({ name: "id", isPrimary: true }),
+				makeColumn({
+					name: "registeredAt",
+					type: "timestamp",
+					defaultValue: "now()",
+				}),
+			],
+		});
+		const graph = makeGraph([entity], "drizzle");
+		const diagnostics = runSchemaRule(requireTimestamps, graph);
+
+		expect(diagnostics).toHaveLength(0);
+	});
+
+	it("should detect Drizzle createdAt by column name", () => {
+		const entity = makeEntity({
+			columns: [
+				makeColumn({ name: "id", isPrimary: true }),
+				makeColumn({ name: "createdAt", type: "timestamp" }),
+			],
+		});
+		const graph = makeGraph([entity], "drizzle");
+		const diagnostics = runSchemaRule(requireTimestamps, graph);
+
+		expect(diagnostics).toHaveLength(0);
+	});
+
+	it("should report Drizzle entity without timestamp columns", () => {
+		const entity = makeEntity({
+			columns: [
+				makeColumn({ name: "id", isPrimary: true }),
+				makeColumn({ name: "name", type: "text" }),
+			],
+		});
+		const graph = makeGraph([entity], "drizzle");
+		const diagnostics = runSchemaRule(requireTimestamps, graph);
+
+		expect(diagnostics).toHaveLength(1);
+	});
 });
 
 // ── require-cascade-rule ──

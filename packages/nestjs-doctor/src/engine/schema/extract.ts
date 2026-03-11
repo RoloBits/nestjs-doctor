@@ -5,6 +5,7 @@ import type {
 	SchemaRelation,
 	SerializedSchemaGraph,
 } from "../../common/schema.js";
+import { drizzleExtractor } from "./drizzle-extractor.js";
 import { prismaExtractor } from "./prisma-extractor.js";
 import { typeormExtractor } from "./typeorm-extractor.js";
 
@@ -22,6 +23,7 @@ export interface OrmSchemaExtractor {
 const extractors: Record<string, OrmSchemaExtractor> = {
 	prisma: prismaExtractor,
 	typeorm: typeormExtractor,
+	drizzle: drizzleExtractor,
 };
 
 export function extractSchema(
