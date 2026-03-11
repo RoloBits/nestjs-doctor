@@ -52,6 +52,24 @@ describe("file-collector", () => {
 		}
 	});
 
+	it("DEFAULT_CONFIG excludes node_modules, dist, build, coverage with ** prefix", () => {
+		const exclude = DEFAULT_CONFIG.exclude ?? [];
+		expect(exclude).toContain("**/node_modules/**");
+		expect(exclude).toContain("**/dist/**");
+		expect(exclude).toContain("**/build/**");
+		expect(exclude).toContain("**/coverage/**");
+	});
+
+	it("DEFAULT_CONFIG excludes root-level config files", () => {
+		const exclude = DEFAULT_CONFIG.exclude ?? [];
+		expect(exclude).toContain("*.config.ts");
+		expect(exclude).toContain("*.config.js");
+		expect(exclude).toContain("*.config.mjs");
+		expect(exclude).toContain("*.config.cjs");
+		expect(exclude).toContain("*.config.mts");
+		expect(exclude).toContain("*.config.cts");
+	});
+
 	it("excludes test directory files by default", async () => {
 		const files = await collectFiles(resolve(FIXTURES, "basic-app/src"));
 		for (const f of files) {

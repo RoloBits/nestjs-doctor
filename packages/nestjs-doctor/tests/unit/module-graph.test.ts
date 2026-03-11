@@ -868,6 +868,33 @@ describe("module-graph", () => {
 		expect(app.imports).toEqual([]);
 	});
 
+	// .forRootAsync() with nested config object should resolve to the module class name
+	it("resolves Module.forRootAsync() dynamic module imports", () => {
+		const { project, paths } = createProject({
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({
+          imports: [DatabaseModule.forRootAsync({
+            imports: [ConfigModule],
+            inject: [ConfigService],
+            useFactory: (config: ConfigService) => ({})
+          })],
+        })
+        export class AppModule {}
+      `,
+			"database.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class DatabaseModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		const app = graph.modules.get("AppModule")!;
+		expect(app.imports).toContain("DatabaseModule");
+		expect(graph.edges.get("AppModule")?.has("DatabaseModule")).toBe(true);
+	});
+
 	// Same-file arrow function should also work
 	it("resolves same-file arrow function in imports", () => {
 		const { project, paths } = createProject({

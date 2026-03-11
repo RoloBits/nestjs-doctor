@@ -25,10 +25,10 @@ export interface NestjsDoctorConfig {
 export const DEFAULT_CONFIG: NestjsDoctorConfig = {
 	include: ["**/*.ts"],
 	exclude: [
-		"node_modules/**",
-		"dist/**",
-		"build/**",
-		"coverage/**",
+		"**/node_modules/**",
+		"**/dist/**",
+		"**/build/**",
+		"**/coverage/**",
 		"**/*.spec.ts",
 		"**/*.test.ts",
 		"**/*.e2e-spec.ts",
@@ -46,5 +46,11 @@ export const DEFAULT_CONFIG: NestjsDoctorConfig = {
 		"**/seeders/**",
 		"**/*.seed.ts",
 		"**/*.seeder.ts",
+		"*.config.ts",
+		"*.config.js",
+		"*.config.mjs",
+		"*.config.cjs",
+		"*.config.mts",
+		"*.config.cts",
 	],
 };

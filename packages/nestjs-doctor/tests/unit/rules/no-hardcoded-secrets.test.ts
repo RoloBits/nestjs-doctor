@@ -3,14 +3,14 @@ import { describe, expect, it } from "vitest";
 import type { Diagnostic } from "../../../src/common/diagnostic.js";
 import { noHardcodedSecrets } from "../../../src/engine/rules/definitions/security/no-hardcoded-secrets.js";
 
-function runRule(code: string): Diagnostic[] {
+function runRule(code: string, filePath = "test.ts"): Diagnostic[] {
 	const project = new Project({ useInMemoryFileSystem: true });
-	const sourceFile = project.createSourceFile("test.ts", code);
+	const sourceFile = project.createSourceFile(filePath, code);
 	const diagnostics: Diagnostic[] = [];
 
 	noHardcodedSecrets.check({
 		sourceFile,
-		filePath: "test.ts",
+		filePath,
 		report(partial) {
 			diagnostics.push({
 				...partial,
@@ -139,11 +139,60 @@ describe("no-hardcoded-secrets", () => {
 		expect(diags).toHaveLength(0);
 	});
 
+	it("does not flag migration class names with timestamps", () => {
+		const diags = runRule(`
+      const name = 'CreateUsersTable1700000000000abcdef1234567890ab';
+    `);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag migration identifiers with word-like segments", () => {
+		const diags = runRule(`
+      const name = 'AddEmailMigration1700000000000abcdef1234567890ab';
+    `);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("still flags real secrets regardless of file path", () => {
+		const diags = runRule(`
+      const token = 'sk-abcdefghijklmnopqrstuvwxyz1234567890';
+    `);
+		expect(diags.length).toBeGreaterThan(0);
+	});
+
 	it("still flags real Base64 secrets not in pagination context", () => {
 		const diags = runRule(`
       const config = {
         apiCredential: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop1234',
       };
+    `);
+		expect(diags.length).toBeGreaterThan(0);
+	});
+
+	it("does not flag PascalCase identifiers with timestamps", () => {
+		const diags = runRule(`
+      const name = 'CreateUsersTable1700000000000abcdef1234567890ab';
+    `);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag snake_case DB constraint names", () => {
+		const diags = runRule(`
+      const idx = 'IDX_user_email_constraint_abc123def456ghi789jkl';
+    `);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag camelCase identifiers with digits", () => {
+		const diags = runRule(`
+      const handler = 'handleUserAuthenticationSessionTimeout12345678ab';
+    `);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("still flags actual Base64 encoded data", () => {
+		const diags = runRule(`
+      const data = 'aGVsbG8gd29ybGQgdGhpcyBpcyBhIHRlc3Qga2V5MTIz';
     `);
 		expect(diags.length).toBeGreaterThan(0);
 	});

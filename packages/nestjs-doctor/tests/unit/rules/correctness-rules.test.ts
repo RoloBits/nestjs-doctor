@@ -19,14 +19,27 @@ import { requireInjectDecorator } from "../../../src/engine/rules/definitions/co
 import { requireLifecycleInterface } from "../../../src/engine/rules/definitions/correctness/require-lifecycle-interface.js";
 import type { ProjectRule, Rule } from "../../../src/engine/rules/types.js";
 
-function runRule(rule: Rule, code: string, filePath = "test.ts"): Diagnostic[] {
-	const project = new Project({ useInMemoryFileSystem: true });
-	const sourceFile = project.createSourceFile(filePath, code);
+function runRule(
+	rule: Rule,
+	code: string,
+	filePath = "test.ts",
+	options?: { useRealFs?: boolean }
+): Diagnostic[] {
+	const useRealFs = options?.useRealFs ?? false;
+	const project = useRealFs
+		? new Project({ compilerOptions: { strict: true } })
+		: new Project({ useInMemoryFileSystem: true });
+	const actualPath = useRealFs
+		? `/tmp/nestjs-doctor-test-${Date.now()}-${Math.random().toString(36).slice(2)}.ts`
+		: filePath;
+	const sourceFile = project.createSourceFile(actualPath, code, {
+		overwrite: true,
+	});
 	const diagnostics: Diagnostic[] = [];
 
 	rule.check({
 		sourceFile,
-		filePath,
+		filePath: actualPath,
 		report(partial) {
 			diagnostics.push({
 				...partial,
@@ -36,6 +49,10 @@ function runRule(rule: Rule, code: string, filePath = "test.ts"): Diagnostic[] {
 			});
 		},
 	});
+
+	if (useRealFs) {
+		project.getSourceFile(actualPath)?.deleteImmediatelySync();
+	}
 
 	return diagnostics;
 }
@@ -947,6 +964,63 @@ describe("no-fire-and-forget-async", () => {
         }
       }
     `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag Map.delete() calls", () => {
+		const diags = runRule(
+			noFireAndForgetAsync,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class CacheService {
+        private cache = new Map<string, any>();
+        invalidate(key: string) {
+          this.cache.delete(key);
+        }
+      }
+    `,
+			"test.ts",
+			{ useRealFs: true }
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag Set.delete() calls", () => {
+		const diags = runRule(
+			noFireAndForgetAsync,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class TagService {
+        private tags = new Set<string>();
+        removeTag(tag: string) {
+          this.tags.delete(tag);
+        }
+      }
+    `,
+			"test.ts",
+			{ useRealFs: true }
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag Array.sort() or other sync built-in methods", () => {
+		const diags = runRule(
+			noFireAndForgetAsync,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class ListService {
+        private items: string[] = [];
+        processItems() {
+          this.items.sort();
+        }
+      }
+    `,
+			"test.ts",
+			{ useRealFs: true }
 		);
 		expect(diags).toHaveLength(0);
 	});

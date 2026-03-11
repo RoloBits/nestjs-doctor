@@ -1,5 +1,6 @@
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { diagnoseMonorepo } from "../../src/api/index.js";
 import { detectMonorepo } from "../../src/engine/project-detector.js";
 import {
@@ -28,6 +29,23 @@ describe("scanner integration", () => {
 		expect(result.score.label).toBe("Excellent");
 		expect(result.diagnostics).toHaveLength(0);
 		expect(result.project.fileCount).toBeGreaterThan(0);
+	});
+
+	it("excludes config files from the scan", async () => {
+		const targetPath = resolve(FIXTURES, "basic-app/src");
+		const scanConfig = await resolveScanConfig(targetPath);
+		const context = await buildAnalysisContext(targetPath, scanConfig);
+
+		const configFiles = context.files.filter((f) => f.endsWith(".config.ts"));
+		expect(configFiles).toHaveLength(0);
+
+		const rawOutput = diagnose(context);
+		const { result } = buildResult(
+			context,
+			rawOutput,
+			scanConfig.customRuleWarnings
+		);
+		expect(result.diagnostics).toHaveLength(0);
 	});
 
 	it("detects violations in bad-practices fixture", async () => {
@@ -313,13 +331,14 @@ describe("scanner integration", () => {
 			scanConfig.customRuleWarnings
 		);
 
-		// Should detect all 5 modules
-		expect(result.project.moduleCount).toBe(5);
+		// Should detect all 6 modules
+		expect(result.project.moduleCount).toBe(6);
 
-		// AppModule should have edges to all 4 imported modules
+		// AppModule should have edges to all 5 imported modules
 		const appEdges = context.moduleGraph.edges.get("AppModule");
 		expect(appEdges).toBeDefined();
 		expect(appEdges?.has("ConfigModule")).toBe(true);
+		expect(appEdges?.has("CacheModule")).toBe(true);
 		expect(appEdges?.has("UsersModule")).toBe(true);
 		expect(appEdges?.has("AuthModule")).toBe(true);
 		expect(appEdges?.has("DatabaseModule")).toBe(true);
@@ -451,6 +470,37 @@ describe("scanner integration", () => {
 		expect(context.pathAliases.size).toBeGreaterThan(0);
 		expect(context.pathAliases.has("@app/*")).toBe(true);
 		expect(context.pathAliases.has("@shared/*")).toBe(true);
+	});
+
+	describe("nested node_modules exclusion", () => {
+		const nestedDir = resolve(
+			FIXTURES,
+			"basic-app/src/lib/node_modules/some-pkg"
+		);
+		const nestedFile = resolve(nestedDir, "index.ts");
+
+		beforeAll(() => {
+			mkdirSync(nestedDir, { recursive: true });
+			writeFileSync(nestedFile, "export class Foo {}\n");
+		});
+
+		afterAll(() => {
+			rmSync(resolve(FIXTURES, "basic-app/src/lib"), {
+				recursive: true,
+				force: true,
+			});
+		});
+
+		it("excludes .ts files inside nested node_modules", async () => {
+			const targetPath = resolve(FIXTURES, "basic-app/src");
+			const scanConfig = await resolveScanConfig(targetPath);
+			const context = await buildAnalysisContext(targetPath, scanConfig);
+
+			expect(existsSync(nestedFile)).toBe(true);
+			expect(
+				context.files.filter((f) => f.includes("node_modules"))
+			).toHaveLength(0);
+		});
 	});
 
 	it("diagnoseMonorepo falls back to single scan for non-monorepo", async () => {

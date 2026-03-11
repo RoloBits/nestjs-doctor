@@ -1,6 +1,21 @@
-import { SyntaxKind } from "ts-morph";
+import { type CallExpression, SyntaxKind } from "ts-morph";
 import { isHttpHandler } from "../../../nest-class-inspector.js";
 import type { Rule } from "../../types.js";
+
+function returnsPromise(callExpr: CallExpression): boolean | "unknown" {
+	const returnType = callExpr.getReturnType();
+	const typeText = returnType.getText();
+
+	if (typeText.startsWith("Promise<") || typeText === "Promise") {
+		return true;
+	}
+
+	if (typeText === "any" || typeText === "error") {
+		return "unknown";
+	}
+
+	return false;
+}
 
 const ASYNC_PREFIXES = new Set([
 	"save",
@@ -72,19 +87,27 @@ export const noFireAndForgetAsync: Rule = {
 						continue;
 					}
 
-					// Check if the called function/method name suggests it's async
 					const callText = callExpr.getExpression().getText();
 					const methodName = callText.split(".").pop() ?? "";
 
-					const lowerName = methodName.toLowerCase();
-					const isLikelyAsync =
-						ASYNC_PREFIXES.has(lowerName) ||
-						[...ASYNC_PREFIXES].some(
-							(prefix) => lowerName.startsWith(prefix) && lowerName !== prefix
-						);
+					const promiseCheck = returnsPromise(callExpr);
 
-					if (!isLikelyAsync) {
+					if (promiseCheck === false) {
+						// Return type is known and is NOT a Promise — safe to skip
 						continue;
+					}
+
+					if (promiseCheck === "unknown") {
+						// Type is unresolvable (any) — fall back to name heuristic
+						const lowerName = methodName.toLowerCase();
+						const isLikelyAsync =
+							ASYNC_PREFIXES.has(lowerName) ||
+							[...ASYNC_PREFIXES].some(
+								(prefix) => lowerName.startsWith(prefix) && lowerName !== prefix
+							);
+						if (!isLikelyAsync) {
+							continue;
+						}
 					}
 
 					// Check the call is inside a non-arrow, non-nested function scope
