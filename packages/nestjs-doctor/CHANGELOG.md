@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.4.24
+
+### Patch Changes
+
+- 4a55ef9: Add integration tests for config file exclusion, nested node_modules exclusion, and forRootAsync module resolution
+
 ## 0.4.23
 
 ### Patch Changes
