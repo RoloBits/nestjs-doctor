@@ -107,7 +107,9 @@ These patterns are always excluded (your `exclude` config is additive):
 
 ## Monorepo Support
 
-Monorepo mode is auto-detected from `nest-cli.json`:
+Monorepo mode is auto-detected using two strategies (checked in order):
+
+### `nest-cli.json` (takes precedence)
 
 ```json
 {
@@ -118,6 +120,16 @@ Monorepo mode is auto-detected from `nest-cli.json`:
     "shared": { "root": "libs/shared" }
   }
 }
+```
+
+### `pnpm-workspace.yaml` (Turborepo / pnpm workspaces)
+
+If no `nest-cli.json` monorepo is found, nestjs-doctor reads `pnpm-workspace.yaml`, expands the `packages` globs, and includes only packages that depend on `@nestjs/core` or `@nestjs/common`.
+
+```yaml
+packages:
+  - "apps/*"
+  - "packages/*"
 ```
 
 Each sub-project is scanned independently. Per-project config files are supported — place a `nestjs-doctor.config.json` inside a sub-project's root to override the root config for that project.

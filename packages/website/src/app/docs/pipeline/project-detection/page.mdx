@@ -34,7 +34,9 @@ interface MonorepoInfo {
 // Returns null if not a monorepo
 ```
 
-### How It Works
+Two detection strategies are tried in order. The first match wins.
+
+### Strategy 1: `nest-cli.json`
 
 Reads `nest-cli.json` and checks for:
 - `monorepo: true`
@@ -50,7 +52,22 @@ Reads `nest-cli.json` and checks for:
 }
 ```
 
-If detected, the pipeline runs stages 2-9 independently for each sub-project, then aggregates results into a combined score.
+### Strategy 2: `pnpm-workspace.yaml`
+
+If no `nest-cli.json` monorepo is found, reads `pnpm-workspace.yaml` and:
+1. Parses the `packages:` patterns (block-style and inline arrays are both supported)
+2. Globs for `package.json` files matching those patterns
+3. Filters to packages that have `@nestjs/core` or `@nestjs/common` in `dependencies`, `devDependencies`, or `peerDependencies`
+
+```yaml
+packages:
+  - "apps/*"
+  - "packages/*"
+```
+
+Non-NestJS packages in the workspace are skipped automatically.
+
+If detected by either strategy, the pipeline runs stages 2-9 independently for each sub-project, then aggregates results into a combined score.
 
 ## Single Project Detection
 
@@ -94,4 +111,4 @@ Reads `package.json` and inspects `dependencies` + `devDependencies`:
 ## Debugging Tips
 
 - If the ORM shows as `null`, check that the ORM package is in `dependencies` or `devDependencies` in the project's `package.json`.
-- Monorepo detection only works with `nest-cli.json`. Nx, Turborepo, or pnpm workspaces without a Nest CLI config are treated as single projects.
+- Monorepo detection checks `nest-cli.json` first, then falls back to `pnpm-workspace.yaml`. Turborepo and pnpm workspaces are supported — only packages with `@nestjs/core` or `@nestjs/common` are included. Nx workspaces without either config are still treated as single projects.

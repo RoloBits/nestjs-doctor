@@ -243,7 +243,11 @@ Invalid rules produce warnings but never crash the scan. Common issues — missi
 
 ## Monorepo Support
 
-Auto-detected from `nest-cli.json`. When `"monorepo": true` is set, each sub-project is scanned independently and results are merged.
+Monorepo detection supports two strategies (checked in order):
+
+### 1. `nest-cli.json` (takes precedence)
+
+When `"monorepo": true` is set, each sub-project is scanned independently and results are merged.
 
 ```json
 {
@@ -255,6 +259,18 @@ Auto-detected from `nest-cli.json`. When `"monorepo": true` is set, each sub-pro
   }
 }
 ```
+
+### 2. `pnpm-workspace.yaml` (Turborepo / pnpm workspaces)
+
+If no `nest-cli.json` monorepo is found, nestjs-doctor reads `pnpm-workspace.yaml`, expands the `packages` globs, and filters to packages that depend on `@nestjs/core` or `@nestjs/common`.
+
+```yaml
+packages:
+  - "apps/*"
+  - "packages/*"
+```
+
+Only NestJS packages are included — non-Nest packages in the workspace are skipped automatically.
 
 Output includes a combined score and a per-project breakdown.
 
