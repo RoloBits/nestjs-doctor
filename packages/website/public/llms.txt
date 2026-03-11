@@ -66,7 +66,7 @@ Options:
 
 ## Monorepo Support
 
-Auto-detected from `nest-cli.json` when `"monorepo": true` is set. Each sub-project is scanned independently and results are merged. Output includes a combined score and per-project breakdown.
+Auto-detected using five strategies (first match wins): `nest-cli.json` monorepo mode, `pnpm-workspace.yaml`, `package.json` workspaces (npm/Yarn), `nx.json` (Nx), and `lerna.json` (standalone Lerna). Non-NestJS packages are filtered out automatically. Each sub-project is scanned independently and results are merged. Output includes a combined score and per-project breakdown.
 
 ## Scoring
 

@@ -34,7 +34,7 @@ interface MonorepoInfo {
 // Returns null if not a monorepo
 ```
 
-Two detection strategies are tried in order. The first match wins.
+Five detection strategies are tried in priority order. The first match wins.
 
 ### Strategy 1: `nest-cli.json`
 
@@ -54,7 +54,7 @@ Reads `nest-cli.json` and checks for:
 
 ### Strategy 2: `pnpm-workspace.yaml`
 
-If no `nest-cli.json` monorepo is found, reads `pnpm-workspace.yaml` and:
+Reads `pnpm-workspace.yaml` and:
 1. Parses the `packages:` patterns (block-style and inline arrays are both supported)
 2. Globs for `package.json` files matching those patterns
 3. Filters to packages that have `@nestjs/core` or `@nestjs/common` in `dependencies`, `devDependencies`, or `peerDependencies`
@@ -65,9 +65,47 @@ packages:
   - "packages/*"
 ```
 
-Non-NestJS packages in the workspace are skipped automatically.
+### Strategy 3: `package.json` workspaces (npm / Yarn)
 
-If detected by either strategy, the pipeline runs stages 2-9 independently for each sub-project, then aggregates results into a combined score.
+If no `pnpm-workspace.yaml` exists, reads the `workspaces` field from the root `package.json`. Both array and object (Yarn classic) formats are supported:
+
+```json
+{
+  "workspaces": ["apps/*", "packages/*"]
+}
+```
+
+```json
+{
+  "workspaces": {
+    "packages": ["apps/*", "packages/*"]
+  }
+}
+```
+
+Resolves workspace globs the same way as strategy 2 — filters to packages with `@nestjs/core` or `@nestjs/common`. Skipped when `pnpm-workspace.yaml` exists to avoid duplicate detection (pnpm repos may have both).
+
+### Strategy 4: `nx.json` (Nx)
+
+Detects the presence of `nx.json`, then scans for `project.json` files throughout the repo (excluding `node_modules` and the root-level `project.json`). For each project directory with a `project.json`, reads the sibling `package.json` and includes the project only if it depends on `@nestjs/core` or `@nestjs/common`.
+
+### Strategy 5: `lerna.json` (standalone Lerna)
+
+Reads `lerna.json` and uses its `packages` globs (defaults to `["packages/*"]` when not specified). Only activates when `useWorkspaces` is **not** set — if `useWorkspaces: true`, Lerna delegates to npm/Yarn workspaces and strategy 3 handles detection instead.
+
+```json
+{
+  "packages": ["packages/*"]
+}
+```
+
+Non-NestJS packages are always filtered out automatically across all strategies.
+
+### Fallback warning
+
+If none of the strategies find NestJS packages but the directory looks like a monorepo (contains `lerna.json`, `turbo.json`, `nx.json`, `pnpm-workspace.yaml`, or a `workspaces` field in `package.json`), nestjs-doctor emits a warning and falls back to single-project mode.
+
+If detected by any strategy, the pipeline runs stages 2-9 independently for each sub-project, then aggregates results into a combined score.
 
 ## Single Project Detection
 
@@ -111,4 +149,4 @@ Reads `package.json` and inspects `dependencies` + `devDependencies`:
 ## Debugging Tips
 
 - If the ORM shows as `null`, check that the ORM package is in `dependencies` or `devDependencies` in the project's `package.json`.
-- Monorepo detection checks `nest-cli.json` first, then falls back to `pnpm-workspace.yaml`. Turborepo and pnpm workspaces are supported — only packages with `@nestjs/core` or `@nestjs/common` are included. Nx workspaces without either config are still treated as single projects.
+- Monorepo detection tries five strategies in order: `nest-cli.json`, `pnpm-workspace.yaml`, `package.json` workspaces (npm/Yarn), `nx.json` (Nx), and `lerna.json` (standalone Lerna). Only packages with `@nestjs/core` or `@nestjs/common` are included.

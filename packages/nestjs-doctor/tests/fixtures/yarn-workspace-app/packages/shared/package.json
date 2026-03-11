@@ -1,0 +1,6 @@
+{
+  "name": "@ever/shared",
+  "dependencies": {
+    "lodash": "^4.17.21"
+  }
+}

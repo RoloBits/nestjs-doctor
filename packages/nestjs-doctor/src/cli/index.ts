@@ -1,6 +1,9 @@
 import { createRequire } from "node:module";
 import { defineCommand, runMain } from "citty";
-import { detectMonorepo } from "../engine/project-detector.js";
+import {
+	detectMonorepo,
+	looksLikeMonorepo,
+} from "../engine/project-detector.js";
 import { flags } from "./flags.js";
 import { MonorepoPipeline, SingleProjectPipeline } from "./pipeline.js";
 import { type CliArgs, CliSetup } from "./setup.js";
@@ -49,6 +52,12 @@ const main = defineCommand({
 				.output()
 				.run();
 			return;
+		}
+
+		if (await looksLikeMonorepo(targetPath)) {
+			console.warn(
+				"Warning: This directory appears to be a monorepo, but no NestJS packages were found.\nConsider running on a specific sub-project instead."
+			);
 		}
 
 		await new SingleProjectPipeline(targetPath, options)

@@ -1,0 +1,5 @@
+{
+  "name": "shared",
+  "sourceRoot": "libs/shared/src",
+  "projectType": "library"
+}

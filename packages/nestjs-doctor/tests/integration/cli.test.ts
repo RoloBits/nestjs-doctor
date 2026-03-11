@@ -646,6 +646,158 @@ describe("scanner integration", () => {
 		});
 	});
 
+	describe("yarn-workspace-app fixture", () => {
+		it("scans only NestJS sub-projects", async () => {
+			const targetPath = resolve(FIXTURES, "yarn-workspace-app");
+			const monorepo = await detectMonorepo(targetPath);
+			expect(monorepo).not.toBeNull();
+
+			const scanConfig = await resolveScanConfig(targetPath);
+			const monoResult = await scanMonorepo(targetPath, scanConfig, monorepo!);
+
+			expect(monoResult.result.isMonorepo).toBe(true);
+			const projectNames = monoResult.result.subProjects
+				.map((p) => p.name)
+				.sort();
+			expect(projectNames).toEqual(["@ever/api"]);
+		});
+
+		it("scans files and produces a valid combined result", async () => {
+			const targetPath = resolve(FIXTURES, "yarn-workspace-app");
+			const monorepo = await detectMonorepo(targetPath);
+			const scanConfig = await resolveScanConfig(targetPath);
+			const monoResult = await scanMonorepo(targetPath, scanConfig, monorepo!);
+
+			for (const sub of monoResult.result.subProjects) {
+				expect(sub.result.project.fileCount).toBeGreaterThan(0);
+			}
+
+			const subFileSum = monoResult.result.subProjects.reduce(
+				(sum, p) => sum + p.result.project.fileCount,
+				0
+			);
+			expect(monoResult.result.combined.project.fileCount).toBe(subFileSum);
+		});
+
+		it("detects framework for the api sub-project", async () => {
+			const targetPath = resolve(FIXTURES, "yarn-workspace-app");
+			const monorepo = await detectMonorepo(targetPath);
+			const scanConfig = await resolveScanConfig(targetPath);
+			const monoResult = await scanMonorepo(targetPath, scanConfig, monorepo!);
+
+			const api = monoResult.result.subProjects.find(
+				(p) => p.name === "@ever/api"
+			);
+			expect(api!.result.project.framework).toBe("express");
+		});
+	});
+
+	describe("nx-app fixture", () => {
+		it("scans only NestJS sub-projects", async () => {
+			const targetPath = resolve(FIXTURES, "nx-app");
+			const monorepo = await detectMonorepo(targetPath);
+			expect(monorepo).not.toBeNull();
+
+			const scanConfig = await resolveScanConfig(targetPath);
+			const monoResult = await scanMonorepo(targetPath, scanConfig, monorepo!);
+
+			expect(monoResult.result.isMonorepo).toBe(true);
+			const projectNames = monoResult.result.subProjects
+				.map((p) => p.name)
+				.sort();
+			expect(projectNames).toEqual(["@nx/api", "@nx/shared"]);
+		});
+
+		it("scans files and produces a valid combined result", async () => {
+			const targetPath = resolve(FIXTURES, "nx-app");
+			const monorepo = await detectMonorepo(targetPath);
+			const scanConfig = await resolveScanConfig(targetPath);
+			const monoResult = await scanMonorepo(targetPath, scanConfig, monorepo!);
+
+			for (const sub of monoResult.result.subProjects) {
+				expect(sub.result.project.fileCount).toBeGreaterThan(0);
+			}
+
+			const subFileSum = monoResult.result.subProjects.reduce(
+				(sum, p) => sum + p.result.project.fileCount,
+				0
+			);
+			expect(monoResult.result.combined.project.fileCount).toBe(subFileSum);
+		});
+
+		it("excludes non-NestJS dashboard app", async () => {
+			const targetPath = resolve(FIXTURES, "nx-app");
+			const monorepo = await detectMonorepo(targetPath);
+			const scanConfig = await resolveScanConfig(targetPath);
+			const monoResult = await scanMonorepo(targetPath, scanConfig, monorepo!);
+
+			const names = monoResult.result.subProjects.map((p) => p.name);
+			expect(names).not.toContain("@nx/dashboard");
+		});
+	});
+
+	describe("lerna-standalone-app fixture", () => {
+		it("scans only NestJS sub-projects", async () => {
+			const targetPath = resolve(FIXTURES, "lerna-standalone-app");
+			const monorepo = await detectMonorepo(targetPath);
+			expect(monorepo).not.toBeNull();
+
+			const scanConfig = await resolveScanConfig(targetPath);
+			const monoResult = await scanMonorepo(targetPath, scanConfig, monorepo!);
+
+			expect(monoResult.result.isMonorepo).toBe(true);
+			const projectNames = monoResult.result.subProjects
+				.map((p) => p.name)
+				.sort();
+			expect(projectNames).toEqual(["@lerna/api"]);
+		});
+
+		it("scans files and produces a valid combined result", async () => {
+			const targetPath = resolve(FIXTURES, "lerna-standalone-app");
+			const monorepo = await detectMonorepo(targetPath);
+			const scanConfig = await resolveScanConfig(targetPath);
+			const monoResult = await scanMonorepo(targetPath, scanConfig, monorepo!);
+
+			for (const sub of monoResult.result.subProjects) {
+				expect(sub.result.project.fileCount).toBeGreaterThan(0);
+			}
+
+			const subFileSum = monoResult.result.subProjects.reduce(
+				(sum, p) => sum + p.result.project.fileCount,
+				0
+			);
+			expect(monoResult.result.combined.project.fileCount).toBe(subFileSum);
+		});
+
+		it("excludes non-NestJS frontend package", async () => {
+			const targetPath = resolve(FIXTURES, "lerna-standalone-app");
+			const monorepo = await detectMonorepo(targetPath);
+			const scanConfig = await resolveScanConfig(targetPath);
+			const monoResult = await scanMonorepo(targetPath, scanConfig, monorepo!);
+
+			const names = monoResult.result.subProjects.map((p) => p.name);
+			expect(names).not.toContain("@lerna/frontend");
+		});
+	});
+
+	it("does not flag migration identifiers as secrets in false-positives fixture", async () => {
+		const targetPath = resolve(FIXTURES, "false-positives/src");
+		const scanConfig = await resolveScanConfig(targetPath);
+		const context = await buildAnalysisContext(targetPath, scanConfig);
+		const rawOutput = diagnose(context);
+		const { result } = buildResult(
+			context,
+			rawOutput,
+			scanConfig.customRuleWarnings
+		);
+
+		const secretDiags = result.diagnostics.filter(
+			(d) => d.rule === "security/no-hardcoded-secrets"
+		);
+		expect(secretDiags).toHaveLength(0);
+		expect(result.diagnostics).toHaveLength(0);
+	});
+
 	describe("drizzle-app fixture", () => {
 		const targetPath = resolve(FIXTURES, "drizzle-app");
 		let context: Awaited<ReturnType<typeof buildAnalysisContext>>;
