@@ -8,6 +8,8 @@ import type {
 	SourceFile,
 } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
+import type { PathAliasMap } from "./tsconfig-paths.js";
+import { resolvePathAlias } from "./tsconfig-paths.js";
 import type { ProviderInfo } from "./type-resolver.js";
 
 const FORWARD_REF_REGEX = /=>\s*(\w+)/;
@@ -31,7 +33,8 @@ export interface ModuleGraph {
 
 function extractModulesFromFile(
 	sourceFile: ReturnType<Project["getSourceFile"]> & object,
-	filePath: string
+	filePath: string,
+	pathAliases: PathAliasMap
 ): ModuleNode[] {
 	const modules: ModuleNode[] = [];
 	for (const cls of sourceFile.getClasses()) {
@@ -56,10 +59,18 @@ function extractModulesFromFile(
 		if (args && args.getKind() === SyntaxKind.ObjectLiteralExpression) {
 			const obj = args.asKind(SyntaxKind.ObjectLiteralExpression);
 			if (obj) {
-				node.imports = extractArrayPropertyNames(obj, "imports");
-				node.exports = extractArrayPropertyNames(obj, "exports");
-				node.providers = extractArrayPropertyNames(obj, "providers");
-				node.controllers = extractArrayPropertyNames(obj, "controllers");
+				node.imports = extractArrayPropertyNames(obj, "imports", pathAliases);
+				node.exports = extractArrayPropertyNames(obj, "exports", pathAliases);
+				node.providers = extractArrayPropertyNames(
+					obj,
+					"providers",
+					pathAliases
+				);
+				node.controllers = extractArrayPropertyNames(
+					obj,
+					"controllers",
+					pathAliases
+				);
 			}
 		}
 
@@ -70,7 +81,8 @@ function extractModulesFromFile(
 
 export function buildModuleGraph(
 	project: Project,
-	files: string[]
+	files: string[],
+	pathAliases: PathAliasMap = new Map()
 ): ModuleGraph {
 	const modules = new Map<string, ModuleNode>();
 	const edges = new Map<string, Set<string>>();
@@ -82,7 +94,11 @@ export function buildModuleGraph(
 			continue;
 		}
 
-		for (const node of extractModulesFromFile(sourceFile, filePath)) {
+		for (const node of extractModulesFromFile(
+			sourceFile,
+			filePath,
+			pathAliases
+		)) {
 			modules.set(node.name, node);
 		}
 	}
@@ -124,7 +140,8 @@ const DYNAMIC_MODULE_METHODS = new Set([
 
 function extractArrayPropertyNames(
 	obj: ObjectLiteralExpression,
-	propertyName: string
+	propertyName: string,
+	pathAliases: PathAliasMap
 ): string[] {
 	const prop = obj.getProperty(propertyName);
 	if (!prop) {
@@ -141,13 +158,19 @@ function extractArrayPropertyNames(
 		return [];
 	}
 
-	return extractNamesFromExpression(initializer, obj.getSourceFile(), 0);
+	return extractNamesFromExpression(
+		initializer,
+		obj.getSourceFile(),
+		0,
+		pathAliases
+	);
 }
 
 function extractNamesFromExpression(
 	node: Node,
 	sourceFile: SourceFile,
-	depth: number
+	depth: number,
+	pathAliases: PathAliasMap
 ): string[] {
 	if (depth > MAX_RESOLVE_DEPTH) {
 		return [];
@@ -159,7 +182,9 @@ function extractNamesFromExpression(
 		const arr = node.asKindOrThrow(SyntaxKind.ArrayLiteralExpression);
 		const names: string[] = [];
 		for (const el of arr.getElements()) {
-			names.push(...extractNamesFromElement(el, sourceFile, depth));
+			names.push(
+				...extractNamesFromElement(el, sourceFile, depth, pathAliases)
+			);
 		}
 		return names;
 	}
@@ -168,12 +193,18 @@ function extractNamesFromExpression(
 		return extractNamesFromCallExpression(
 			node.asKindOrThrow(SyntaxKind.CallExpression),
 			sourceFile,
-			depth
+			depth,
+			pathAliases
 		);
 	}
 
 	if (kind === SyntaxKind.Identifier) {
-		return resolveIdentifier(node.getText(), sourceFile, depth + 1);
+		return resolveIdentifier(
+			node.getText(),
+			sourceFile,
+			depth + 1,
+			pathAliases
+		);
 	}
 
 	return [];
@@ -182,7 +213,8 @@ function extractNamesFromExpression(
 function extractNamesFromElement(
 	el: Node,
 	sourceFile: SourceFile,
-	depth: number
+	depth: number,
+	pathAliases: PathAliasMap
 ): string[] {
 	const text = el.getText();
 
@@ -200,7 +232,8 @@ function extractNamesFromElement(
 		return extractNamesFromExpression(
 			spread.getExpression(),
 			sourceFile,
-			depth
+			depth,
+			pathAliases
 		);
 	}
 
@@ -209,7 +242,8 @@ function extractNamesFromElement(
 		return extractNamesFromCallExpression(
 			el.asKindOrThrow(SyntaxKind.CallExpression),
 			sourceFile,
-			depth
+			depth,
+			pathAliases
 		);
 	}
 
@@ -230,7 +264,8 @@ function extractNamesFromElement(
 function extractNamesFromCallExpression(
 	call: CallExpression,
 	sourceFile: SourceFile,
-	depth: number
+	depth: number,
+	pathAliases: PathAliasMap
 ): string[] {
 	const expr = call.getExpression();
 
@@ -243,11 +278,14 @@ function extractNamesFromCallExpression(
 			const receiverNames = extractNamesFromExpression(
 				access.getExpression(),
 				sourceFile,
-				depth
+				depth,
+				pathAliases
 			);
 			const argNames: string[] = [];
 			for (const arg of call.getArguments()) {
-				argNames.push(...extractNamesFromExpression(arg, sourceFile, depth));
+				argNames.push(
+					...extractNamesFromExpression(arg, sourceFile, depth, pathAliases)
+				);
 			}
 			return [...receiverNames, ...argNames];
 		}
@@ -264,7 +302,7 @@ function extractNamesFromCallExpression(
 	// Handle plain function calls: getImports()
 	if (expr.getKind() === SyntaxKind.Identifier) {
 		const funcName = expr.getText();
-		return resolveFunctionCall(funcName, sourceFile, depth + 1);
+		return resolveFunctionCall(funcName, sourceFile, depth + 1, pathAliases);
 	}
 
 	return [];
@@ -272,9 +310,27 @@ function extractNamesFromCallExpression(
 
 function resolveModuleSpecifier(
 	specifier: string,
-	sourceFile: SourceFile
+	sourceFile: SourceFile,
+	pathAliases: PathAliasMap
 ): SourceFile | undefined {
 	if (!specifier.startsWith(".")) {
+		const aliasResolved = resolvePathAlias(specifier, pathAliases);
+		if (!aliasResolved) {
+			return undefined;
+		}
+		const project = sourceFile.getProject();
+		const candidates = [
+			`${aliasResolved}.ts`,
+			`${aliasResolved}/index.ts`,
+			aliasResolved,
+			aliasResolved.replace(JS_EXT_REGEX, ".ts"),
+		];
+		for (const candidate of candidates) {
+			const target = project.getSourceFile(candidate);
+			if (target) {
+				return target;
+			}
+		}
 		return undefined;
 	}
 
@@ -302,7 +358,8 @@ function resolveModuleSpecifier(
 
 function resolveImportedSourceFile(
 	name: string,
-	sourceFile: SourceFile
+	sourceFile: SourceFile,
+	pathAliases: PathAliasMap
 ): { sourceFile: SourceFile; localName: string } | undefined {
 	// Check import declarations: import { foo } from './other' or import { foo as bar } from './other'
 	for (const importDecl of sourceFile.getImportDeclarations()) {
@@ -312,7 +369,11 @@ function resolveImportedSourceFile(
 				: namedImport.getName();
 			if (importedName === name) {
 				const specifier = importDecl.getModuleSpecifierValue();
-				const target = resolveModuleSpecifier(specifier, sourceFile);
+				const target = resolveModuleSpecifier(
+					specifier,
+					sourceFile,
+					pathAliases
+				);
 				if (target) {
 					// Return the original exported name (not the alias)
 					return { sourceFile: target, localName: namedImport.getName() };
@@ -333,7 +394,11 @@ function resolveImportedSourceFile(
 				: namedExport.getName();
 			if (exportedName === name) {
 				const specifier = exportDecl.getModuleSpecifierValue()!;
-				const target = resolveModuleSpecifier(specifier, sourceFile);
+				const target = resolveModuleSpecifier(
+					specifier,
+					sourceFile,
+					pathAliases
+				);
 				if (target) {
 					return { sourceFile: target, localName: namedExport.getName() };
 				}
@@ -348,7 +413,8 @@ function resolveImportedSourceFile(
 function resolveIdentifier(
 	name: string,
 	sourceFile: SourceFile,
-	depth: number
+	depth: number,
+	pathAliases: PathAliasMap
 ): string[] {
 	if (depth > MAX_RESOLVE_DEPTH) {
 		return [];
@@ -364,19 +430,25 @@ function resolveIdentifier(
 			if (decl.getName() === name) {
 				const init = decl.getInitializer();
 				if (init) {
-					return extractNamesFromExpression(init, sourceFile, depth);
+					return extractNamesFromExpression(
+						init,
+						sourceFile,
+						depth,
+						pathAliases
+					);
 				}
 			}
 		}
 	}
 
 	// Cross-file fallback
-	const imported = resolveImportedSourceFile(name, sourceFile);
+	const imported = resolveImportedSourceFile(name, sourceFile, pathAliases);
 	if (imported) {
 		return resolveIdentifier(
 			imported.localName,
 			imported.sourceFile,
-			depth + 1
+			depth + 1,
+			pathAliases
 		);
 	}
 
@@ -386,7 +458,8 @@ function resolveIdentifier(
 function resolveArrowFunctionBody(
 	name: string,
 	sourceFile: SourceFile,
-	depth: number
+	depth: number,
+	pathAliases: PathAliasMap
 ): string[] | undefined {
 	for (const stmt of sourceFile.getStatements()) {
 		if (stmt.getKind() !== SyntaxKind.VariableStatement) {
@@ -406,7 +479,7 @@ function resolveArrowFunctionBody(
 
 			// Concise body: () => [AuthModule, HealthModule]
 			if (body.getKind() !== SyntaxKind.Block) {
-				return extractNamesFromExpression(body, sourceFile, depth);
+				return extractNamesFromExpression(body, sourceFile, depth, pathAliases);
 			}
 
 			// Block body: () => { return [...] }
@@ -417,7 +490,12 @@ function resolveArrowFunctionBody(
 				const returnExpr = returnStmt.getExpression();
 				if (returnExpr) {
 					names.push(
-						...extractNamesFromExpression(returnExpr, sourceFile, depth)
+						...extractNamesFromExpression(
+							returnExpr,
+							sourceFile,
+							depth,
+							pathAliases
+						)
 					);
 				}
 			}
@@ -430,7 +508,8 @@ function resolveArrowFunctionBody(
 function resolveFunctionCall(
 	funcName: string,
 	sourceFile: SourceFile,
-	depth: number
+	depth: number,
+	pathAliases: PathAliasMap
 ): string[] {
 	if (depth > MAX_RESOLVE_DEPTH) {
 		return [];
@@ -453,7 +532,12 @@ function resolveFunctionCall(
 			const returnExpr = returnStmt.getExpression();
 			if (returnExpr) {
 				names.push(
-					...extractNamesFromExpression(returnExpr, sourceFile, depth)
+					...extractNamesFromExpression(
+						returnExpr,
+						sourceFile,
+						depth,
+						pathAliases
+					)
 				);
 			}
 		}
@@ -461,18 +545,24 @@ function resolveFunctionCall(
 	}
 
 	// Same-file arrow function variable: const getImports = () => [...]
-	const arrowResult = resolveArrowFunctionBody(funcName, sourceFile, depth);
+	const arrowResult = resolveArrowFunctionBody(
+		funcName,
+		sourceFile,
+		depth,
+		pathAliases
+	);
 	if (arrowResult) {
 		return arrowResult;
 	}
 
 	// Cross-file fallback
-	const imported = resolveImportedSourceFile(funcName, sourceFile);
+	const imported = resolveImportedSourceFile(funcName, sourceFile, pathAliases);
 	if (imported) {
 		return resolveFunctionCall(
 			imported.localName,
 			imported.sourceFile,
-			depth + 1
+			depth + 1,
+			pathAliases
 		);
 	}
 
@@ -482,7 +572,8 @@ function resolveFunctionCall(
 export function updateModuleGraphForFile(
 	graph: ModuleGraph,
 	project: Project,
-	filePath: string
+	filePath: string,
+	pathAliases: PathAliasMap = new Map()
 ): void {
 	// 1. Remove stale modules from this file
 	for (const [name, node] of graph.modules) {
@@ -508,7 +599,7 @@ export function updateModuleGraphForFile(
 		return;
 	}
 
-	const newModules = extractModulesFromFile(sourceFile, filePath);
+	const newModules = extractModulesFromFile(sourceFile, filePath, pathAliases);
 	for (const node of newModules) {
 		graph.modules.set(node.name, node);
 	}

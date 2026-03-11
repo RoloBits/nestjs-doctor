@@ -12,6 +12,7 @@ import {
 	type ModuleGraph,
 	updateModuleGraphForFile,
 } from "./graph/module-graph.js";
+import { loadPathAliases, type PathAliasMap } from "./graph/tsconfig-paths.js";
 import type { ProviderInfo } from "./graph/type-resolver.js";
 import {
 	resolveProviders,
@@ -28,6 +29,7 @@ export interface AnalysisContext {
 	fileRules: Rule[];
 	files: string[];
 	moduleGraph: ModuleGraph;
+	pathAliases: PathAliasMap;
 	project: ProjectInfo;
 	projectRules: ProjectRule[];
 	providers: Map<string, ProviderInfo>;
@@ -50,7 +52,8 @@ export async function buildAnalysisContext(
 		detectProject(targetPath),
 	]);
 	const astProject = createAstParser(files);
-	const moduleGraph = buildModuleGraph(astProject, files);
+	const pathAliases = loadPathAliases(targetPath);
+	const moduleGraph = buildModuleGraph(astProject, files, pathAliases);
 	const providers = resolveProviders(astProject, files);
 	const schemaGraph = extractSchema(astProject, files, project.orm, targetPath);
 
@@ -60,6 +63,7 @@ export async function buildAnalysisContext(
 		fileRules,
 		files,
 		moduleGraph,
+		pathAliases,
 		project,
 		projectRules,
 		providers,
@@ -90,7 +94,12 @@ export function updateFile(context: AnalysisContext, filePath: string): void {
 		context.files.push(filePath);
 	}
 
-	updateModuleGraphForFile(context.moduleGraph, context.astProject, filePath);
+	updateModuleGraphForFile(
+		context.moduleGraph,
+		context.astProject,
+		filePath,
+		context.pathAliases
+	);
 	updateProvidersForFile(context.providers, context.astProject, filePath);
 	if (context.schemaGraph) {
 		updateSchemaForFile(
@@ -125,7 +134,8 @@ export async function buildMonorepoContext(
 				]);
 
 				const astProject = createAstParser(files);
-				const moduleGraph = buildModuleGraph(astProject, files);
+				const pathAliases = loadPathAliases(projectPath);
+				const moduleGraph = buildModuleGraph(astProject, files, pathAliases);
 				const providers = resolveProviders(astProject, files);
 				const schemaGraph = extractSchema(
 					astProject,
@@ -144,6 +154,7 @@ export async function buildMonorepoContext(
 						fileRules,
 						files,
 						moduleGraph,
+						pathAliases,
 						project,
 						projectRules,
 						providers,

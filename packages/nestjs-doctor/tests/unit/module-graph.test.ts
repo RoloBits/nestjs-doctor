@@ -6,6 +6,7 @@ import {
 	findProviderModule,
 	mergeModuleGraphs,
 } from "../../src/engine/graph/module-graph.js";
+import type { PathAliasMap } from "../../src/engine/graph/tsconfig-paths.js";
 
 function createProject(files: Record<string, string>) {
 	const project = new Project({ useInMemoryFileSystem: true });
@@ -647,7 +648,7 @@ describe("module-graph", () => {
 		expect(app.imports).toContain("UsersModule");
 	});
 
-	// Non-relative import should be silently ignored, not crash
+	// Non-relative import without path aliases should be silently ignored, not crash
 	it("ignores non-relative imports gracefully", () => {
 		const { project, paths } = createProject({
 			"/src/app.module.ts": `
@@ -661,6 +662,100 @@ describe("module-graph", () => {
 		const graph = buildModuleGraph(project, paths);
 		const app = graph.modules.get("AppModule")!;
 		expect(app.imports).toEqual([]);
+	});
+
+	// Path alias: cross-file function call via @app/* alias
+	it("resolves path alias imports for cross-file function calls", () => {
+		const aliases: PathAliasMap = new Map([["@app/*", ["/src/*"]]]);
+		const { project, paths } = createProject({
+			"/src/app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { getImports } from '@app/helpers';
+        @Module({ imports: getImports() })
+        export class AppModule {}
+      `,
+			"/src/helpers.ts": `
+        export function getImports() {
+          return [AuthModule, UsersModule];
+        }
+      `,
+			"/src/auth.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AuthModule {}
+      `,
+			"/src/users.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class UsersModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths, aliases);
+		const app = graph.modules.get("AppModule")!;
+		expect(app.imports).toContain("AuthModule");
+		expect(app.imports).toContain("UsersModule");
+	});
+
+	// Path alias: cross-file variable reference via alias
+	it("resolves path alias imports for cross-file variable references", () => {
+		const aliases: PathAliasMap = new Map([["@libs/*", ["/src/libs/*"]]]);
+		const { project, paths } = createProject({
+			"/src/app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { commonImports } from '@libs/shared';
+        @Module({ imports: commonImports })
+        export class AppModule {}
+      `,
+			"/src/libs/shared.ts": `
+        export const commonImports = [AuthModule, UsersModule];
+      `,
+			"/src/auth.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AuthModule {}
+      `,
+			"/src/users.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class UsersModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths, aliases);
+		const app = graph.modules.get("AppModule")!;
+		expect(app.imports).toContain("AuthModule");
+		expect(app.imports).toContain("UsersModule");
+	});
+
+	// Path alias: index.ts barrel file resolution
+	it("resolves path alias to index.ts barrel file", () => {
+		const aliases: PathAliasMap = new Map([["@app/*", ["/src/*"]]]);
+		const { project, paths } = createProject({
+			"/src/app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { getImports } from '@app/shared';
+        @Module({ imports: getImports() })
+        export class AppModule {}
+      `,
+			"/src/shared/index.ts": `
+        export { getImports } from './helpers';
+      `,
+			"/src/shared/helpers.ts": `
+        export function getImports() {
+          return [AuthModule];
+        }
+      `,
+			"/src/auth.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AuthModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths, aliases);
+		const app = graph.modules.get("AppModule")!;
+		expect(app.imports).toContain("AuthModule");
 	});
 
 	// Spread of a cross-file function call should resolve
