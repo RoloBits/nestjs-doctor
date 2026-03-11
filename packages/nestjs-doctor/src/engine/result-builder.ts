@@ -6,7 +6,11 @@ import type {
 	RuleErrorInfo,
 	SubProjectResult,
 } from "../common/result.js";
-import type { SchemaGraph } from "../common/schema.js";
+import type {
+	SchemaGraph,
+	SchemaRelation,
+	SerializedSchemaEntity,
+} from "../common/schema.js";
 import type { AnalysisContext, MonorepoContext } from "./analysis-context.js";
 import type { RawDiagnosticOutput } from "./diagnostician.js";
 import type { ModuleGraph } from "./graph/module-graph.js";
@@ -109,6 +113,9 @@ export function buildMonorepoResult(
 	const allRuleErrors: RuleErrorInfo[] = [];
 	const moduleGraphs = new Map<string, ModuleGraph>();
 	let totalFiles = 0;
+	const allSchemaEntities: SerializedSchemaEntity[] = [];
+	const allSchemaRelations: SchemaRelation[] = [];
+	let detectedOrm = "";
 
 	for (const [name, context] of monorepoCtx.subProjects) {
 		const rawOutput = rawOutputs.get(name)!;
@@ -118,6 +125,16 @@ export function buildMonorepoResult(
 		allDiagnostics.push(...scanResult.result.diagnostics);
 		allRuleErrors.push(...scanResult.result.ruleErrors);
 		totalFiles += scanResult.result.project.fileCount;
+		if (scanResult.result.schema) {
+			allSchemaEntities.push(...scanResult.result.schema.entities);
+			allSchemaRelations.push(...scanResult.result.schema.relations);
+			if (
+				scanResult.result.schema.orm &&
+				scanResult.result.schema.orm !== "unknown"
+			) {
+				detectedOrm = scanResult.result.schema.orm;
+			}
+		}
 	}
 
 	const combinedScore = calculateScore(allDiagnostics, totalFiles);
@@ -129,7 +146,7 @@ export function buildMonorepoResult(
 		project: {
 			name: "monorepo",
 			nestVersion: subProjects[0]?.result.project.nestVersion ?? null,
-			orm: subProjects[0]?.result.project.orm ?? null,
+			orm: detectedOrm || (subProjects[0]?.result.project.orm ?? null),
 			framework: subProjects[0]?.result.project.framework ?? null,
 			fileCount: totalFiles,
 			moduleCount: subProjects.reduce(
@@ -140,6 +157,14 @@ export function buildMonorepoResult(
 		summary: combinedSummary,
 		ruleErrors: allRuleErrors,
 		elapsedMs: totalElapsedMs,
+		schema:
+			allSchemaEntities.length > 0
+				? {
+						entities: allSchemaEntities,
+						relations: allSchemaRelations,
+						orm: detectedOrm || "unknown",
+					}
+				: undefined,
 	};
 
 	return {

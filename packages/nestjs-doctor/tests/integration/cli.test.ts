@@ -512,6 +512,140 @@ describe("scanner integration", () => {
 		expect(result.subProjects[0].name).toBe("default");
 	});
 
+	describe("turborepo-app fixture", () => {
+		it("detects Turborepo monorepo from pnpm-workspace.yaml", async () => {
+			const targetPath = resolve(FIXTURES, "turborepo-app");
+			const monorepo = await detectMonorepo(targetPath);
+			expect(monorepo).not.toBeNull();
+			expect(monorepo!.projects.size).toBe(4);
+			expect(monorepo!.projects.has("api")).toBe(true);
+			expect(monorepo!.projects.has("admin")).toBe(true);
+			expect(monorepo!.projects.has("@acme/core")).toBe(true);
+			expect(monorepo!.projects.has("@acme/db")).toBe(true);
+		});
+
+		it("scans all NestJS sub-projects in the monorepo", async () => {
+			const targetPath = resolve(FIXTURES, "turborepo-app");
+			const monorepo = await detectMonorepo(targetPath);
+			expect(monorepo).not.toBeNull();
+
+			const scanConfig = await resolveScanConfig(targetPath);
+			const monoResult = await scanMonorepo(targetPath, scanConfig, monorepo!);
+			const projectNames = monoResult.result.subProjects
+				.map((p) => p.name)
+				.sort();
+			expect(projectNames).toEqual(["@acme/core", "@acme/db", "admin", "api"]);
+			for (const sub of monoResult.result.subProjects) {
+				expect(sub.result.project.fileCount).toBeGreaterThan(0);
+			}
+		});
+
+		it("finds Prisma schema in packages/db sub-project", async () => {
+			const targetPath = resolve(FIXTURES, "turborepo-app");
+			const monorepo = await detectMonorepo(targetPath);
+			const scanConfig = await resolveScanConfig(targetPath);
+			const monoResult = await scanMonorepo(targetPath, scanConfig, monorepo!);
+
+			const dbProject = monoResult.result.subProjects.find(
+				(p) => p.name === "@acme/db"
+			);
+			expect(dbProject).toBeDefined();
+			expect(dbProject!.result.project.orm).toBe("prisma");
+			expect(dbProject!.result.schema.entities.length).toBe(3);
+
+			const entityNames = dbProject!.result.schema.entities
+				.map((e) => e.name)
+				.sort();
+			expect(entityNames).toEqual(["Order", "Product", "User"]);
+
+			// Check relations exist
+			const hasRelations = dbProject!.result.schema.entities.some(
+				(e) => e.relations && e.relations.length > 0
+			);
+			expect(hasRelations).toBe(true);
+		});
+
+		it("detects ORM and framework per app", async () => {
+			const targetPath = resolve(FIXTURES, "turborepo-app");
+			const monorepo = await detectMonorepo(targetPath);
+			const scanConfig = await resolveScanConfig(targetPath);
+			const monoResult = await scanMonorepo(targetPath, scanConfig, monorepo!);
+
+			const api = monoResult.result.subProjects.find((p) => p.name === "api");
+			expect(api!.result.project.orm).toBe("prisma");
+			expect(api!.result.project.framework).toBe("express");
+
+			const admin = monoResult.result.subProjects.find(
+				(p) => p.name === "admin"
+			);
+			expect(admin!.result.project.orm).toBeNull();
+			expect(admin!.result.project.framework).toBe("express");
+		});
+
+		it("builds correct module graph per app", async () => {
+			const targetPath = resolve(FIXTURES, "turborepo-app");
+			const monorepo = await detectMonorepo(targetPath);
+			const scanConfig = await resolveScanConfig(targetPath);
+			const monoResult = await scanMonorepo(targetPath, scanConfig, monorepo!);
+
+			const api = monoResult.result.subProjects.find((p) => p.name === "api");
+			expect(api!.result.project.moduleCount).toBeGreaterThanOrEqual(3);
+
+			const admin = monoResult.result.subProjects.find(
+				(p) => p.name === "admin"
+			);
+			expect(admin!.result.project.moduleCount).toBe(2);
+		});
+
+		it("produces valid combined monorepo result", async () => {
+			const targetPath = resolve(FIXTURES, "turborepo-app");
+			const monorepo = await detectMonorepo(targetPath);
+			const scanConfig = await resolveScanConfig(targetPath);
+			const monoResult = await scanMonorepo(targetPath, scanConfig, monorepo!);
+
+			const subFileSum = monoResult.result.subProjects.reduce(
+				(sum, p) => sum + p.result.project.fileCount,
+				0
+			);
+			expect(monoResult.result.combined.project.fileCount).toBe(subFileSum);
+
+			const subModuleSum = monoResult.result.subProjects.reduce(
+				(sum, p) => sum + p.result.project.moduleCount,
+				0
+			);
+			expect(monoResult.result.combined.project.moduleCount).toBe(subModuleSum);
+		});
+
+		it("merges sub-project schemas into combined result", async () => {
+			const targetPath = resolve(FIXTURES, "turborepo-app");
+			const monorepo = await detectMonorepo(targetPath);
+			const scanConfig = await resolveScanConfig(targetPath);
+			const monoResult = await scanMonorepo(targetPath, scanConfig, monorepo!);
+
+			const combined = monoResult.result.combined;
+
+			// combined.schema should exist because @acme/db has Prisma entities
+			expect(combined.schema).toBeDefined();
+			expect(combined.schema!.orm).toBe("prisma");
+
+			// Should contain all 3 entities from packages/db: User, Product, Order
+			const entityNames = combined.schema!.entities.map((e) => e.name).sort();
+			expect(entityNames).toEqual(["Order", "Product", "User"]);
+
+			// Should contain the relations from packages/db
+			expect(combined.schema!.relations.length).toBeGreaterThan(0);
+		});
+
+		it("resolves @app/* path aliases within api app", async () => {
+			const targetPath = resolve(FIXTURES, "turborepo-app/apps/api/src");
+			const scanConfig = await resolveScanConfig(targetPath);
+			const context = await buildAnalysisContext(targetPath, scanConfig);
+
+			expect(context.pathAliases.size).toBeGreaterThan(0);
+			expect(context.pathAliases.has("@app/*")).toBe(true);
+		});
+	});
+
 	describe("drizzle-app fixture", () => {
 		const targetPath = resolve(FIXTURES, "drizzle-app");
 		let context: Awaited<ReturnType<typeof buildAnalysisContext>>;

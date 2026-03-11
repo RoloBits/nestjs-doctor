@@ -1,0 +1,7 @@
+{
+  "name": "@acme/core",
+  "main": "src/index.ts",
+  "dependencies": {
+    "@nestjs/common": "^10.0.0"
+  }
+}

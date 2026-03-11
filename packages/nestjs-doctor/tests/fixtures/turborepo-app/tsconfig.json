@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@acme/core": ["packages/core/src/index.ts"],
+      "@acme/db": ["packages/db/src/index.ts"]
+    }
+  }
+}

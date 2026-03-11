@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "./src",
+    "paths": {
+      "@app/*": ["*"],
+      "@acme/core": ["../../packages/core/src/index.ts"],
+      "@acme/db": ["../../packages/db/src/index.ts"]
+    }
+  }
+}
