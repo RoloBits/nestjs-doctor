@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.4.28
+
+### Patch Changes
+
+- af2fef3: Add endpoint dependency graph to the report. Each HTTP endpoint now shows which services, repositories, and other providers it calls, including nested dependencies and call order. The new Endpoints tab is hidden until endpoint data is available and is marked as beta.
+
 ## 0.4.27
 
 ### Patch Changes
