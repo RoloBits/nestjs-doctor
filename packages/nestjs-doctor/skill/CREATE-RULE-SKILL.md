@@ -1,4 +1,5 @@
 ---
+name: nestj-doctor-create-rule
 description: Create a custom nestjs-doctor rule that detects a specific pattern or anti-pattern in a NestJS codebase
 disable-model-invocation: true
 allowed-tools: Bash, Read, Edit, Glob, Grep, Write

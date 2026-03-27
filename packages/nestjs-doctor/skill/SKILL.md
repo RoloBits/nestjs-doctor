@@ -1,4 +1,5 @@
 ---
+name: nestjs-doctor
 description: Scan a NestJS project with nestjs-doctor, present a health report, and fix issues interactively
 disable-model-invocation: true
 allowed-tools: Bash, Read, Edit, Glob, Grep, Write
