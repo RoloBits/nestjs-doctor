@@ -1,6 +1,6 @@
 {
   "name": "nestjs-doctor-lsp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Language Server Protocol server for nestjs-doctor diagnostics",
   "type": "module",
   "main": "dist/server.cjs",

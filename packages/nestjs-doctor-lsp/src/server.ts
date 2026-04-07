@@ -152,6 +152,7 @@ function spawnWorker() {
 			`NestJS Doctor worker error: ${err.message}`
 		);
 		terminateWorker();
+		setTimeout(() => spawnWorker(), 3000);
 	});
 
 	worker.on("exit", () => {
