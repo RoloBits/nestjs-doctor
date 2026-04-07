@@ -26,7 +26,7 @@ interface Settings {
 }
 
 const defaultSettings: Settings = {
-	debounceMs: 200,
+	debounceMs: 2000,
 	enable: true,
 	scanOnOpen: true,
 	scanOnSave: true,
@@ -152,6 +152,7 @@ function spawnWorker() {
 			`NestJS Doctor worker error: ${err.message}`
 		);
 		terminateWorker();
+		setTimeout(() => spawnWorker(), 3000);
 	});
 
 	worker.on("exit", () => {

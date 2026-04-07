@@ -77,9 +77,15 @@ export async function activate(context: ExtensionContext): Promise<void> {
 				if (!client) {
 					return;
 				}
-				updateStatusBar(true);
-				await client.sendRequest("nestjs-doctor/scan");
-				updateStatusBar();
+				try {
+					updateStatusBar(true);
+					await client.sendRequest("nestjs-doctor/scan");
+				} catch (err) {
+					const message = err instanceof Error ? err.message : String(err);
+					output.appendLine(`NestJS Doctor scan failed: ${message}`);
+				} finally {
+					updateStatusBar();
+				}
 			}
 		);
 		context.subscriptions.push(scanCommand);

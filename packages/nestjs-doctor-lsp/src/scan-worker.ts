@@ -27,7 +27,7 @@ interface NestjsDoctorApi {
 	checkAllFiles(context: ScanContext): ScanResult;
 	checkFile(context: ScanContext, filePath: string): ScanResult;
 	checkProject(context: ScanContext): ScanResult;
-	prepareScan(
+	prepareAnalysis(
 		path: string
 	): Promise<{ context: ScanContext; customRuleWarnings: string[] }>;
 	updateFile(context: ScanContext, filePath: string): void;
@@ -94,7 +94,7 @@ async function initialize() {
 		const require = createRequire(join(workspaceRoot, "package.json"));
 		const api = require("nestjs-doctor") as NestjsDoctorApi;
 
-		const { context } = await api.prepareScan(workspaceRoot);
+		const { context } = await api.prepareAnalysis(workspaceRoot);
 		ctx = context;
 
 		post({ kind: "ready" });
