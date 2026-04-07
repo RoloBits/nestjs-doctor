@@ -3178,6 +3178,8 @@ var EP_TYPE_COLORS = {
   pipe: "#14b8a6",
   filter: "#ef4444",
   gateway: "#ec4899",
+  step: "#64748b",
+  throw: "#f87171",
   unknown: "#666"
 };
 
