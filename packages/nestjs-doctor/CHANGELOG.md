@@ -1,5 +1,11 @@
 # nestjs-doctor
 
+## 0.4.30
+
+### Patch Changes
+
+- 5553c99: Enrich endpoint dependency graph with branch conditions, iteration context, guard-throw patterns, swagger metadata, and inline step/throw nodes
+
 ## 0.4.29
 
 ### Patch Changes
