@@ -61,8 +61,8 @@
         },
         "nestjsDoctor.debounceMs": {
           "type": "number",
-          "default": 2000,
-          "description": "Debounce delay in ms before re-scanning after save"
+          "default": 200,
+          "description": "Debounce delay (ms) before re-scanning after a file save. Lower values give faster feedback."
         }
       }
     },

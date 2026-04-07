@@ -26,7 +26,7 @@ interface Settings {
 }
 
 const defaultSettings: Settings = {
-	debounceMs: 2000,
+	debounceMs: 200,
 	enable: true,
 	scanOnOpen: true,
 	scanOnSave: true,
