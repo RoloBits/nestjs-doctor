@@ -4,7 +4,7 @@
   "packageManager": "pnpm@10.2.0",
   "scripts": {
     "dev": "pnpm --filter nestjs-doctor run dev",
-    "build": "pnpm --filter nestjs-doctor run build",
+    "build": "pnpm --filter nestjs-doctor --filter nestjs-doctor-lsp run build",
     "test": "pnpm --filter nestjs-doctor run test",
     "check": "ultracite check",
     "fix": "ultracite fix",

@@ -13,6 +13,7 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
+    "prepack": "pnpm run build",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [
