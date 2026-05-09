@@ -218,4 +218,104 @@ describe("no-circular-module-deps", () => {
 		expect(help).toContain("AController");
 		expect(help).toContain("BService");
 	});
+
+	it("flags mutual forwardRef cycle by default (option disabled)", () => {
+		const diags = runProjectRule(noCircularModuleDeps, {
+			"a.module.ts": `
+        import { forwardRef, Module } from '@nestjs/common';
+        @Module({ imports: [forwardRef(() => BModule)] })
+        export class AModule {}
+      `,
+			"b.module.ts": `
+        import { forwardRef, Module } from '@nestjs/common';
+        @Module({ imports: [forwardRef(() => AModule)] })
+        export class BModule {}
+      `,
+		});
+		expect(diags.length).toBeGreaterThan(0);
+	});
+
+	it("suppresses mutual forwardRef cycle when ignoreForwardRefCycles is enabled", () => {
+		const diags = runProjectRule(
+			noCircularModuleDeps,
+			{
+				"a.module.ts": `
+          import { forwardRef, Module } from '@nestjs/common';
+          @Module({ imports: [forwardRef(() => BModule)] })
+          export class AModule {}
+        `,
+				"b.module.ts": `
+          import { forwardRef, Module } from '@nestjs/common';
+          @Module({ imports: [forwardRef(() => AModule)] })
+          export class BModule {}
+        `,
+			},
+			{
+				rules: {
+					"architecture/no-circular-module-deps": {
+						options: { ignoreForwardRefCycles: true },
+					},
+				},
+			}
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("still flags one-sided forwardRef cycle when ignoreForwardRefCycles is enabled", () => {
+		const diags = runProjectRule(
+			noCircularModuleDeps,
+			{
+				"a.module.ts": `
+          import { forwardRef, Module } from '@nestjs/common';
+          @Module({ imports: [forwardRef(() => BModule)] })
+          export class AModule {}
+        `,
+				"b.module.ts": `
+          import { Module } from '@nestjs/common';
+          @Module({ imports: [AModule] })
+          export class BModule {}
+        `,
+			},
+			{
+				rules: {
+					"architecture/no-circular-module-deps": {
+						options: { ignoreForwardRefCycles: true },
+					},
+				},
+			}
+		);
+		expect(diags.length).toBeGreaterThan(0);
+		expect(diags[0].message).toContain("Circular");
+	});
+
+	it("still flags 3-module cycle if any edge is not forwardRef-wrapped (option enabled)", () => {
+		const diags = runProjectRule(
+			noCircularModuleDeps,
+			{
+				"a.module.ts": `
+          import { forwardRef, Module } from '@nestjs/common';
+          @Module({ imports: [forwardRef(() => BModule)] })
+          export class AModule {}
+        `,
+				"b.module.ts": `
+          import { forwardRef, Module } from '@nestjs/common';
+          @Module({ imports: [forwardRef(() => CModule)] })
+          export class BModule {}
+        `,
+				"c.module.ts": `
+          import { Module } from '@nestjs/common';
+          @Module({ imports: [AModule] })
+          export class CModule {}
+        `,
+			},
+			{
+				rules: {
+					"architecture/no-circular-module-deps": {
+						options: { ignoreForwardRefCycles: true },
+					},
+				},
+			}
+		);
+		expect(diags.length).toBeGreaterThan(0);
+	});
 });

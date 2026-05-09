@@ -1,12 +1,43 @@
 import {
 	findCircularDeps,
+	type ModuleGraph,
 	type ProviderEdge,
 	traceProviderEdges,
 } from "../../../graph/module-graph.js";
 import type { ProjectRule, ProjectRuleContext } from "../../types.js";
 
 const GENERIC_HELP =
-	"Break the cycle by extracting shared logic into a separate module or using forwardRef().";
+	"Break the cycle by extracting the coupling providers into a shared module. forwardRef() only defers resolution at runtime — it does not address the architectural coupling. Use forwardRef() as a last resort and enable rules.architecture/no-circular-module-deps.options.ignoreForwardRefCycles to opt out of these reports.";
+
+function readIgnoreForwardRefOption(context: ProjectRuleContext): boolean {
+	const override =
+		context.config.rules?.["architecture/no-circular-module-deps"];
+	if (typeof override !== "object" || override === null) {
+		return false;
+	}
+	return override.options?.ignoreForwardRefCycles === true;
+}
+
+function isFullyMitigatedByForwardRef(
+	cycle: string[],
+	moduleGraph: ModuleGraph
+): boolean {
+	const nodes =
+		cycle.length > 1 && cycle[0] === cycle.at(-1) ? cycle.slice(0, -1) : cycle;
+	for (let i = 0; i < nodes.length; i++) {
+		const fromName = nodes[i];
+		const toName = nodes[(i + 1) % nodes.length];
+		const fromModule = moduleGraph.modules.get(fromName);
+		const toModule = moduleGraph.modules.get(toName);
+		if (!(fromModule && toModule)) {
+			return false;
+		}
+		if (!fromModule.forwardRefImports.has(toName)) {
+			return false;
+		}
+	}
+	return true;
+}
 
 function buildConcreteHelp(
 	cycle: string[],
@@ -111,8 +142,16 @@ export const noCircularModuleDeps: ProjectRule = {
 
 	check(context) {
 		const cycles = findCircularDeps(context.moduleGraph);
+		const ignoreForwardRefCycles = readIgnoreForwardRefOption(context);
 
 		for (const cycle of cycles) {
+			if (
+				ignoreForwardRefCycles &&
+				isFullyMitigatedByForwardRef(cycle, context.moduleGraph)
+			) {
+				continue;
+			}
+
 			const cycleStr = cycle.join(" -> ");
 			const firstModule = context.moduleGraph.modules.get(cycle[0]);
 			const help = buildConcreteHelp(cycle, context);

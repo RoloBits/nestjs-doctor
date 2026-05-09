@@ -153,7 +153,7 @@ export class OrderModule {}
 
 ### Smart suggestions
 
-Instead of a generic "use forwardRef" message, this rule traces provider-level dependencies to identify *why* each module edge exists. It then suggests which specific providers to extract into a shared module to break the cycle at the weakest edge.
+The rule traces provider-level dependencies to identify *why* each module edge exists, then suggests which specific providers to extract into a shared module to break the cycle at the weakest edge. `forwardRef()` is treated as a last-resort escape hatch — it only defers resolution at runtime, it does not address the architectural coupling.
 
 **Example output:**
 
@@ -164,6 +164,26 @@ Consider extracting AuthService into a shared module — it would break the weak
 ```
 
 The rule uses `traceProviderEdges` to walk each module's providers and controllers, checking which constructor parameters resolve to providers from the target module. The edge with the fewest provider dependencies is flagged as the best candidate for extraction.
+
+### Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `ignoreForwardRefCycles` | `boolean` | `false` | Suppress diagnostics for cycles where every edge in the cycle direction is wrapped in `forwardRef()`. |
+
+When enabled, a 2-module cycle in which both modules use `forwardRef(() => Other)` is suppressed. For longer cycles (A → B → C → A), every consecutive edge must be wrapped. Cycles with **any** plain edge — including one-sided `forwardRef()`, which still throws at runtime in NestJS — continue to be flagged. Default behavior is unchanged: cycles are reported as `error` regardless of `forwardRef()`.
+
+```json
+{
+  "rules": {
+    "architecture/no-circular-module-deps": {
+      "options": { "ignoreForwardRefCycles": true }
+    }
+  }
+}
+```
+
+> Detection looks for a call expression whose callee is the bare identifier `forwardRef`. The check is textual — it does not verify that the symbol resolves to `@nestjs/common`'s `forwardRef`, so a locally-defined `forwardRef` would also match. Aliased imports (`import { forwardRef as fr }`) and namespace access (`Nest.forwardRef(...)`) are not recognized — use the bare imported name to benefit from the opt-out.
 
 > Dynamic module patterns like `ConfigModule.forRoot()`, `forwardRef()`, spread syntax, and helper function calls are fully resolved during graph construction. You do not need to restructure your code to use plain identifiers for accurate cycle detection. See [Module Graph — Import Resolution](/docs/pipeline/module-graph) for the full list of supported patterns.
 

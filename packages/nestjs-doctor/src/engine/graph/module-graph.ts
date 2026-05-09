@@ -12,7 +12,6 @@ import type { PathAliasMap } from "./tsconfig-paths.js";
 import { resolvePathAlias } from "./tsconfig-paths.js";
 import type { ProviderInfo } from "./type-resolver.js";
 
-const FORWARD_REF_REGEX = /=>\s*(\w+)/;
 const JS_EXT_REGEX = /\.js$/;
 
 export interface ModuleNode {
@@ -20,6 +19,7 @@ export interface ModuleNode {
 	controllers: string[];
 	exports: string[];
 	filePath: string;
+	forwardRefImports: Set<string>;
 	imports: string[];
 	name: string;
 	providers: string[];
@@ -51,6 +51,7 @@ function extractModulesFromFile(
 			filePath,
 			classDeclaration: cls,
 			imports: [],
+			forwardRefImports: new Set<string>(),
 			exports: [],
 			providers: [],
 			controllers: [],
@@ -59,18 +60,32 @@ function extractModulesFromFile(
 		if (args && args.getKind() === SyntaxKind.ObjectLiteralExpression) {
 			const obj = args.asKind(SyntaxKind.ObjectLiteralExpression);
 			if (obj) {
-				node.imports = extractArrayPropertyNames(obj, "imports", pathAliases);
-				node.exports = extractArrayPropertyNames(obj, "exports", pathAliases);
+				const importTags = extractArrayPropertyNames(
+					obj,
+					"imports",
+					pathAliases
+				);
+				node.imports = importTags.map((t) => t.name);
+				for (const t of importTags) {
+					if (t.viaForwardRef) {
+						node.forwardRefImports.add(t.name);
+					}
+				}
+				node.exports = extractArrayPropertyNames(
+					obj,
+					"exports",
+					pathAliases
+				).map((t) => t.name);
 				node.providers = extractArrayPropertyNames(
 					obj,
 					"providers",
 					pathAliases
-				);
+				).map((t) => t.name);
 				node.controllers = extractArrayPropertyNames(
 					obj,
 					"controllers",
 					pathAliases
-				);
+				).map((t) => t.name);
 			}
 		}
 
@@ -138,11 +153,20 @@ const DYNAMIC_MODULE_METHODS = new Set([
 	"registerAsync",
 ]);
 
+interface ExtractedName {
+	name: string;
+	viaForwardRef: boolean;
+}
+
+function plain(name: string): ExtractedName {
+	return { name, viaForwardRef: false };
+}
+
 function extractArrayPropertyNames(
 	obj: ObjectLiteralExpression,
 	propertyName: string,
 	pathAliases: PathAliasMap
-): string[] {
+): ExtractedName[] {
 	const prop = obj.getProperty(propertyName);
 	if (!prop) {
 		return [];
@@ -171,7 +195,7 @@ function extractNamesFromExpression(
 	sourceFile: SourceFile,
 	depth: number,
 	pathAliases: PathAliasMap
-): string[] {
+): ExtractedName[] {
 	if (depth > MAX_RESOLVE_DEPTH) {
 		return [];
 	}
@@ -180,7 +204,7 @@ function extractNamesFromExpression(
 
 	if (kind === SyntaxKind.ArrayLiteralExpression) {
 		const arr = node.asKindOrThrow(SyntaxKind.ArrayLiteralExpression);
-		const names: string[] = [];
+		const names: ExtractedName[] = [];
 		for (const el of arr.getElements()) {
 			names.push(
 				...extractNamesFromElement(el, sourceFile, depth, pathAliases)
@@ -215,15 +239,7 @@ function extractNamesFromElement(
 	sourceFile: SourceFile,
 	depth: number,
 	pathAliases: PathAliasMap
-): string[] {
-	const text = el.getText();
-
-	// Handle forwardRef(() => SomeModule)
-	if (text.startsWith("forwardRef")) {
-		const match = text.match(FORWARD_REF_REGEX);
-		return match ? [match[1]] : [text];
-	}
-
+): ExtractedName[] {
 	const kind = el.getKind();
 
 	// Handle spread elements: ...getImports() or ...someArray
@@ -237,7 +253,7 @@ function extractNamesFromElement(
 		);
 	}
 
-	// Handle call expressions: ConfigModule.forRoot(), someFunction()
+	// Handle call expressions: forwardRef(() => X), ConfigModule.forRoot(), someFunction()
 	if (kind === SyntaxKind.CallExpression) {
 		return extractNamesFromCallExpression(
 			el.asKindOrThrow(SyntaxKind.CallExpression),
@@ -250,15 +266,15 @@ function extractNamesFromElement(
 	// Handle property access without call: SomeModule.SomeProperty
 	if (kind === SyntaxKind.PropertyAccessExpression) {
 		const access = el.asKindOrThrow(SyntaxKind.PropertyAccessExpression);
-		return [access.getExpression().getText()];
+		return [plain(access.getExpression().getText())];
 	}
 
 	// Plain identifier
 	if (kind === SyntaxKind.Identifier) {
-		return [text];
+		return [plain(el.getText())];
 	}
 
-	return [text];
+	return [plain(el.getText())];
 }
 
 function extractNamesFromCallExpression(
@@ -266,8 +282,58 @@ function extractNamesFromCallExpression(
 	sourceFile: SourceFile,
 	depth: number,
 	pathAliases: PathAliasMap
-): string[] {
+): ExtractedName[] {
 	const expr = call.getExpression();
+
+	// Handle forwardRef(() => SomeModule) — AST-level callee match
+	if (
+		expr.getKind() === SyntaxKind.Identifier &&
+		expr.getText() === "forwardRef"
+	) {
+		const args = call.getArguments();
+		if (args.length === 0) {
+			return [];
+		}
+		const arg = args[0];
+		if (arg.getKind() === SyntaxKind.ArrowFunction) {
+			const arrow = arg.asKindOrThrow(SyntaxKind.ArrowFunction);
+			const body = arrow.getBody();
+			if (body.getKind() === SyntaxKind.Identifier) {
+				return [{ name: body.getText(), viaForwardRef: true }];
+			}
+			// Block body: () => { return SomeModule }
+			if (body.getKind() === SyntaxKind.Block) {
+				const block = body.asKindOrThrow(SyntaxKind.Block);
+				const names: ExtractedName[] = [];
+				for (const ret of block.getDescendantsOfKind(
+					SyntaxKind.ReturnStatement
+				)) {
+					const retExpr = ret.getExpression();
+					if (!retExpr) {
+						continue;
+					}
+					for (const e of extractNamesFromExpression(
+						retExpr,
+						sourceFile,
+						depth,
+						pathAliases
+					)) {
+						names.push({ ...e, viaForwardRef: true });
+					}
+				}
+				return names;
+			}
+			// Other expression bodies (rare): recurse and tag.
+			const inner = extractNamesFromExpression(
+				body,
+				sourceFile,
+				depth,
+				pathAliases
+			);
+			return inner.map((e) => ({ ...e, viaForwardRef: true }));
+		}
+		return [plain(arg.getText())];
+	}
 
 	// Handle .concat() chains: [A, B].concat([C, D])
 	if (expr.getKind() === SyntaxKind.PropertyAccessExpression) {
@@ -281,7 +347,7 @@ function extractNamesFromCallExpression(
 				depth,
 				pathAliases
 			);
-			const argNames: string[] = [];
+			const argNames: ExtractedName[] = [];
 			for (const arg of call.getArguments()) {
 				argNames.push(
 					...extractNamesFromExpression(arg, sourceFile, depth, pathAliases)
@@ -292,11 +358,11 @@ function extractNamesFromCallExpression(
 
 		// Handle dynamic module methods: ConfigModule.forRoot(), TypeOrmModule.forFeature()
 		if (DYNAMIC_MODULE_METHODS.has(methodName)) {
-			return [access.getExpression().getText()];
+			return [plain(access.getExpression().getText())];
 		}
 
 		// Unknown property access call — try to use the leftmost identifier
-		return [access.getExpression().getText()];
+		return [plain(access.getExpression().getText())];
 	}
 
 	// Handle plain function calls: getImports()
@@ -415,7 +481,7 @@ function resolveIdentifier(
 	sourceFile: SourceFile,
 	depth: number,
 	pathAliases: PathAliasMap
-): string[] {
+): ExtractedName[] {
 	if (depth > MAX_RESOLVE_DEPTH) {
 		return [];
 	}
@@ -460,7 +526,7 @@ function resolveArrowFunctionBody(
 	sourceFile: SourceFile,
 	depth: number,
 	pathAliases: PathAliasMap
-): string[] | undefined {
+): ExtractedName[] | undefined {
 	for (const stmt of sourceFile.getStatements()) {
 		if (stmt.getKind() !== SyntaxKind.VariableStatement) {
 			continue;
@@ -483,7 +549,7 @@ function resolveArrowFunctionBody(
 			}
 
 			// Block body: () => { return [...] }
-			const names: string[] = [];
+			const names: ExtractedName[] = [];
 			for (const returnStmt of body.getDescendantsOfKind(
 				SyntaxKind.ReturnStatement
 			)) {
@@ -510,7 +576,7 @@ function resolveFunctionCall(
 	sourceFile: SourceFile,
 	depth: number,
 	pathAliases: PathAliasMap
-): string[] {
+): ExtractedName[] {
 	if (depth > MAX_RESOLVE_DEPTH) {
 		return [];
 	}
@@ -525,7 +591,7 @@ function resolveFunctionCall(
 			continue;
 		}
 
-		const names: string[] = [];
+		const names: ExtractedName[] = [];
 		for (const returnStmt of funcDecl.getDescendantsOfKind(
 			SyntaxKind.ReturnStatement
 		)) {
@@ -644,12 +710,19 @@ export function mergeModuleGraphs(
 	for (const [projectName, graph] of graphs) {
 		for (const [name, node] of graph.modules) {
 			const prefixed = `${projectName}/${name}`;
+			const prefixedForwardRef = new Set<string>();
+			for (const ref of node.forwardRefImports) {
+				prefixedForwardRef.add(
+					graph.modules.has(ref) ? `${projectName}/${ref}` : ref
+				);
+			}
 			const mergedNode: ModuleNode = {
 				...node,
 				name: prefixed,
 				imports: node.imports.map((imp) =>
 					graph.modules.has(imp) ? `${projectName}/${imp}` : imp
 				),
+				forwardRefImports: prefixedForwardRef,
 				exports: node.exports.map((exp) =>
 					graph.modules.has(exp) ? `${projectName}/${exp}` : exp
 				),
