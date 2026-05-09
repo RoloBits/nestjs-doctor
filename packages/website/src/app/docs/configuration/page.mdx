@@ -89,6 +89,18 @@ Rule objects can also include rule-specific options. Example for `no-manual-inst
 }
 ```
 
+Some rules accept options under a nested `options` key. Example for `no-circular-module-deps`, which can opt out of cycles whose every consecutive edge is wrapped in `forwardRef()`:
+
+```json
+{
+  "rules": {
+    "architecture/no-circular-module-deps": {
+      "options": { "ignoreForwardRefCycles": true }
+    }
+  }
+}
+```
+
 ## Default Excludes
 
 These patterns are always excluded (your `exclude` config is additive):

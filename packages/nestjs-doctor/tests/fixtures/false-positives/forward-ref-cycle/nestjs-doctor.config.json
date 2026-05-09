@@ -1,0 +1,8 @@
+{
+  "include": ["src/**/*.ts"],
+  "rules": {
+    "architecture/no-circular-module-deps": {
+      "options": { "ignoreForwardRefCycles": true }
+    }
+  }
+}

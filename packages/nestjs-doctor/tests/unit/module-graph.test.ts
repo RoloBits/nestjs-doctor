@@ -215,6 +215,67 @@ describe("module-graph", () => {
 		expect(aModule?.imports).toContain("BModule");
 	});
 
+	it("populates forwardRefImports for forwardRef-wrapped module imports", () => {
+		const { project, paths } = createProject({
+			"a.module.ts": `
+        import { forwardRef, Module } from '@nestjs/common';
+        @Module({ imports: [forwardRef(() => BModule)] })
+        export class AModule {}
+      `,
+			"b.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ imports: [AModule] })
+        export class BModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		const a = graph.modules.get("AModule");
+		const b = graph.modules.get("BModule");
+		expect(a?.imports).toContain("BModule");
+		expect(a?.forwardRefImports).toEqual(new Set(["BModule"]));
+		expect(b?.imports).toContain("AModule");
+		expect(b?.forwardRefImports).toEqual(new Set());
+	});
+
+	it("preserves forwardRefImports across mergeModuleGraphs with project prefixing", () => {
+		const { project, paths } = createProject({
+			"a.module.ts": `
+        import { forwardRef, Module } from '@nestjs/common';
+        @Module({ imports: [forwardRef(() => BModule)] })
+        export class AModule {}
+      `,
+			"b.module.ts": `
+        import { forwardRef, Module } from '@nestjs/common';
+        @Module({ imports: [forwardRef(() => AModule)] })
+        export class BModule {}
+      `,
+		});
+		const inner = buildModuleGraph(project, paths);
+		const merged = mergeModuleGraphs(new Map([["api", inner]]));
+		const a = merged.modules.get("api/AModule");
+		expect(a?.forwardRefImports).toEqual(new Set(["api/BModule"]));
+	});
+
+	it("does not treat look-alike identifiers (forwardRefHelper) as forwardRef calls", () => {
+		const { project, paths } = createProject({
+			"helper.ts": `
+        export function forwardRefHelper(m: unknown) { return m; }
+        export class BModule {}
+      `,
+			"a.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { forwardRefHelper, BModule } from './helper';
+        @Module({ imports: [forwardRefHelper(BModule)] })
+        export class AModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		const a = graph.modules.get("AModule");
+		expect(a?.forwardRefImports).toEqual(new Set());
+	});
+
 	// Dynamic module methods like .forRoot() should resolve to the module class name
 	it("resolves Module.forRoot() dynamic module imports", () => {
 		const { project, paths } = createProject({

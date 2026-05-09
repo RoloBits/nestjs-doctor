@@ -193,6 +193,45 @@ describe("scanner integration", () => {
 		expect(result.project.moduleCount).toBe(3);
 	});
 
+	describe("forward-ref cycle (issue #110)", () => {
+		const fixtureRoot = resolve(FIXTURES, "false-positives/forward-ref-cycle");
+
+		it("flags mutual forwardRef cycle by default (option not set)", async () => {
+			const targetPath = resolve(fixtureRoot, "src");
+			const scanConfig = await resolveScanConfig(targetPath);
+			const context = await buildAnalysisContext(targetPath, scanConfig);
+			const rawOutput = diagnose(context);
+			const { result } = buildResult(
+				context,
+				rawOutput,
+				scanConfig.customRuleWarnings
+			);
+
+			const cycleDiags = result.diagnostics.filter(
+				(d) => d.rule === "architecture/no-circular-module-deps"
+			);
+			expect(cycleDiags.length).toBeGreaterThan(0);
+		});
+
+		it("does not flag mutual forwardRef cycle when ignoreForwardRefCycles is enabled in config", async () => {
+			const targetPath = resolve(fixtureRoot, "src");
+			const configPath = resolve(fixtureRoot, "nestjs-doctor.config.json");
+			const scanConfig = await resolveScanConfig(targetPath, configPath);
+			const context = await buildAnalysisContext(targetPath, scanConfig);
+			const rawOutput = diagnose(context);
+			const { result } = buildResult(
+				context,
+				rawOutput,
+				scanConfig.customRuleWarnings
+			);
+
+			const cycleDiags = result.diagnostics.filter(
+				(d) => d.rule === "architecture/no-circular-module-deps"
+			);
+			expect(cycleDiags).toHaveLength(0);
+		});
+	});
+
 	it("scans monorepo with multiple sub-projects", async () => {
 		const targetPath = resolve(FIXTURES, "monorepo-app");
 		const scanConfig = await resolveScanConfig(targetPath);
