@@ -242,9 +242,10 @@ describe("module-graph — name-collision regressions (issue #110)", () => {
 			"ConsumerModule",
 			"consumer.module.ts"
 		);
-		expect(consumer.importKeys).toHaveLength(1);
+		const consumerEdges = graph.edges.get(consumer.key);
+		expect(consumerEdges?.size).toBe(1);
 		const sharedA = findByFilePath(graph, "SharedModule", "a/shared.module.ts");
-		expect(consumer.importKeys[0]).toBe(sharedA.key);
+		expect(consumerEdges?.has(sharedA.key)).toBe(true);
 	});
 
 	it("follows barrel re-exports under name collision", () => {
@@ -276,9 +277,10 @@ describe("module-graph — name-collision regressions (issue #110)", () => {
 			"ConsumerModule",
 			"consumer.module.ts"
 		);
-		expect(consumer.importKeys).toHaveLength(1);
+		const consumerEdges = graph.edges.get(consumer.key);
+		expect(consumerEdges?.size).toBe(1);
 		const sharedA = findByFilePath(graph, "SharedModule", "a/shared.module.ts");
-		expect(consumer.importKeys[0]).toBe(sharedA.key);
+		expect(consumerEdges?.has(sharedA.key)).toBe(true);
 	});
 
 	it("handles a self-import without crashing", () => {

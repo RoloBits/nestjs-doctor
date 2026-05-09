@@ -13,12 +13,13 @@ export const noOrphanModules: ProjectRule = {
 
 	check(context) {
 		// Collect every composite key that's imported by at least one other module.
-		// Using importKeys (resolved per-import) instead of the imports name array
-		// avoids false negatives when two modules share a class name.
+		// Reading the edge Set (composite-keyed) avoids false negatives when two
+		// modules share a class name, which would collapse on the raw `imports`
+		// string array.
 		const importedKeys = new Set<string>();
-		for (const mod of context.moduleGraph.modules.values()) {
-			for (const importKey of mod.importKeys) {
-				importedKeys.add(importKey);
+		for (const targets of context.moduleGraph.edges.values()) {
+			for (const target of targets) {
+				importedKeys.add(target);
 			}
 		}
 

@@ -13,6 +13,8 @@ import { resolvePathAlias } from "./tsconfig-paths.js";
 import type { ProviderInfo } from "./type-resolver.js";
 
 const JS_EXT_REGEX = /\.js$/;
+const KEY_SEP = "::";
+const PROJECT_SEP = "/";
 
 export interface ModuleNode {
 	classDeclaration: ClassDeclaration;
@@ -20,7 +22,6 @@ export interface ModuleNode {
 	exports: string[];
 	filePath: string;
 	forwardRefImports: Set<string>;
-	importKeys: string[];
 	imports: string[];
 	key: string;
 	name: string;
@@ -35,7 +36,7 @@ export interface ModuleGraph {
 }
 
 function moduleKey(filePath: string, name: string): string {
-	return `${filePath}::${name}`;
+	return `${filePath}${KEY_SEP}${name}`;
 }
 
 function extractModulesFromFile(
@@ -54,16 +55,15 @@ function extractModulesFromFile(
 		const args = moduleDecorator.getArguments()[0];
 
 		const node: ModuleNode = {
-			name,
-			key: moduleKey(filePath, name),
-			filePath,
 			classDeclaration: cls,
-			imports: [],
-			importKeys: [],
-			forwardRefImports: new Set<string>(),
-			exports: [],
-			providers: [],
 			controllers: [],
+			exports: [],
+			filePath,
+			forwardRefImports: new Set<string>(),
+			imports: [],
+			key: moduleKey(filePath, name),
+			name,
+			providers: [],
 		};
 
 		if (args && args.getKind() === SyntaxKind.ObjectLiteralExpression) {
@@ -112,7 +112,6 @@ export function buildModuleGraph(
 	const byName = new Map<string, ModuleNode[]>();
 	const edges = new Map<string, Set<string>>();
 
-	// Pass 1: collect all @Module() classes, key by composite
 	for (const filePath of files) {
 		const sourceFile = project.getSourceFile(filePath);
 		if (!sourceFile) {
@@ -134,23 +133,11 @@ export function buildModuleGraph(
 		}
 	}
 
-	// Pass 2: resolve each module's imports to composite keys, then build edges
 	for (const node of modules.values()) {
-		const importSet = new Set<string>();
-		for (const imp of node.imports) {
-			const resolved = resolveImportToKey(
-				imp,
-				node,
-				modules,
-				byName,
-				pathAliases
-			);
-			if (resolved) {
-				importSet.add(resolved);
-			}
-		}
-		node.importKeys = [...importSet];
-		edges.set(node.key, importSet);
+		edges.set(
+			node.key,
+			resolveImportKeysForNode(node, modules, byName, pathAliases)
+		);
 	}
 
 	// Build inverse index: provider name → module
@@ -171,12 +158,12 @@ function resolveImportToKey(
 	byName: Map<string, ModuleNode[]>,
 	pathAliases: PathAliasMap
 ): string | undefined {
-	// 1. Walk import declarations — chase through barrel re-exports until we
-	//    land on a file that actually declares the target @Module class. Without
-	//    this loop, `import { X } from './barrel'` followed by
-	//    `export { X } from './a'` lands on the barrel file, whose composite key
-	//    is not in `modules`, and resolution falls through to the by-name
-	//    fallback — which under name collision picks the wrong file.
+	// Walk import declarations — chase through barrel re-exports until we land
+	// on a file that actually declares the target @Module class. Without this
+	// loop, `import { X } from './barrel'` followed by `export { X } from './a'`
+	// lands on the barrel file, whose composite key is not in `modules`, and
+	// resolution falls through to the by-name fallback — which under name
+	// collision picks the wrong file.
 	let currentSource: SourceFile | undefined =
 		consumerNode.classDeclaration.getSourceFile();
 	let currentName = importedName;
@@ -199,25 +186,45 @@ function resolveImportToKey(
 		currentName = next.localName;
 	}
 
-	// 2. Same-file reference (a module imports another @Module declared in the same file)
 	const sameFileCandidate = moduleKey(consumerNode.filePath, importedName);
 	if (modules.has(sameFileCandidate)) {
 		return sameFileCandidate;
 	}
 
-	// 3. Fall back to a unique by-name match (collision-free codebases)
 	const bucket = byName.get(importedName);
 	if (bucket && bucket.length === 1) {
 		return bucket[0].key;
 	}
 
-	// 4. Multiple candidates and no import statement to disambiguate — pick the first
-	//    arbitrarily to preserve current best-effort behavior for unresolvable symbols.
+	// Multiple candidates and no import statement to disambiguate — pick the first
+	// arbitrarily to preserve current best-effort behavior for unresolvable symbols.
 	if (bucket && bucket.length > 1) {
 		return bucket[0].key;
 	}
 
 	return undefined;
+}
+
+function resolveImportKeysForNode(
+	node: ModuleNode,
+	modules: Map<string, ModuleNode>,
+	byName: Map<string, ModuleNode[]>,
+	pathAliases: PathAliasMap
+): Set<string> {
+	const importSet = new Set<string>();
+	for (const imp of node.imports) {
+		const resolved = resolveImportToKey(
+			imp,
+			node,
+			modules,
+			byName,
+			pathAliases
+		);
+		if (resolved) {
+			importSet.add(resolved);
+		}
+	}
+	return importSet;
 }
 
 const MAX_RESOLVE_DEPTH = 5;
@@ -771,45 +778,14 @@ export function updateModuleGraphForFile(
 		}
 	}
 
-	// 3. Rebuild edges for new modules (resolve via the same algorithm buildModuleGraph uses)
-	for (const node of newModules) {
-		const importSet = new Set<string>();
-		for (const imp of node.imports) {
-			const resolved = resolveImportToKey(
-				imp,
-				node,
-				graph.modules,
-				graph.byName,
-				pathAliases
-			);
-			if (resolved) {
-				importSet.add(resolved);
-			}
-		}
-		node.importKeys = [...importSet];
-		graph.edges.set(node.key, importSet);
-	}
-
-	// 4. Rebuild edges from existing modules that might now reference newly added/renamed modules
+	// 3. Rebuild edges for every module — both the newly extracted ones and any
+	// existing module that might now reference them (an import that previously
+	// failed to resolve could resolve again after a sibling file was patched).
 	for (const [key, node] of graph.modules) {
-		if (node.filePath === filePath) {
-			continue;
-		}
-		const importSet = new Set<string>();
-		for (const imp of node.imports) {
-			const resolved = resolveImportToKey(
-				imp,
-				node,
-				graph.modules,
-				graph.byName,
-				pathAliases
-			);
-			if (resolved) {
-				importSet.add(resolved);
-			}
-		}
-		node.importKeys = [...importSet];
-		graph.edges.set(key, importSet);
+		graph.edges.set(
+			key,
+			resolveImportKeysForNode(node, graph.modules, graph.byName, pathAliases)
+		);
 	}
 }
 
@@ -827,15 +803,8 @@ export function mergeModuleGraphs(
 		// in `node.key` (`${projectName}/${filePath}::${name}`) for downstream readers.
 		// `forwardRefImports` is class-name based and passes through unchanged via spread.
 		for (const [innerKey, node] of graph.modules) {
-			const prefixedKey = `${projectName}/${innerKey}`;
-			const prefixedImportKeys = node.importKeys.map(
-				(k) => `${projectName}/${k}`
-			);
-			const mergedNode: ModuleNode = {
-				...node,
-				key: prefixedKey,
-				importKeys: prefixedImportKeys,
-			};
+			const prefixedKey = `${projectName}${PROJECT_SEP}${innerKey}`;
+			const mergedNode: ModuleNode = { ...node, key: prefixedKey };
 			modules.set(prefixedKey, mergedNode);
 			const bucket = byName.get(node.name);
 			if (bucket) {
@@ -846,19 +815,22 @@ export function mergeModuleGraphs(
 		}
 
 		for (const [innerFromKey, targets] of graph.edges) {
-			const prefixedFrom = `${projectName}/${innerFromKey}`;
+			const prefixedFrom = `${projectName}${PROJECT_SEP}${innerFromKey}`;
 			const prefixedTargets = new Set<string>();
 			for (const target of targets) {
-				prefixedTargets.add(`${projectName}/${target}`);
+				prefixedTargets.add(`${projectName}${PROJECT_SEP}${target}`);
 			}
 			edges.set(prefixedFrom, prefixedTargets);
 		}
 
 		for (const [provider, node] of graph.providerToModule) {
-			const prefixedKey = `${projectName}/${node.key}`;
+			const prefixedKey = `${projectName}${PROJECT_SEP}${node.key}`;
 			const existingNode = modules.get(prefixedKey);
 			if (existingNode) {
-				providerToModule.set(`${projectName}/${provider}`, existingNode);
+				providerToModule.set(
+					`${projectName}${PROJECT_SEP}${provider}`,
+					existingNode
+				);
 			}
 		}
 	}

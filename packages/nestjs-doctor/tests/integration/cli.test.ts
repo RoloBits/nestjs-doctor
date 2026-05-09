@@ -421,17 +421,23 @@ describe("scanner integration", () => {
 
 		// AppModule should have edges to all 5 imported modules
 		const appHasModule = context.moduleGraph.byName.has("AppModule");
-		const __from = "AppModule";
+		const appModuleName = "AppModule";
 		expect(appHasModule).toBe(true);
-		expect(edgeContains(context.moduleGraph, __from, "ConfigModule")).toBe(
+		expect(
+			edgeContains(context.moduleGraph, appModuleName, "ConfigModule")
+		).toBe(true);
+		expect(
+			edgeContains(context.moduleGraph, appModuleName, "CacheModule")
+		).toBe(true);
+		expect(
+			edgeContains(context.moduleGraph, appModuleName, "UsersModule")
+		).toBe(true);
+		expect(edgeContains(context.moduleGraph, appModuleName, "AuthModule")).toBe(
 			true
 		);
-		expect(edgeContains(context.moduleGraph, __from, "CacheModule")).toBe(true);
-		expect(edgeContains(context.moduleGraph, __from, "UsersModule")).toBe(true);
-		expect(edgeContains(context.moduleGraph, __from, "AuthModule")).toBe(true);
-		expect(edgeContains(context.moduleGraph, __from, "DatabaseModule")).toBe(
-			true
-		);
+		expect(
+			edgeContains(context.moduleGraph, appModuleName, "DatabaseModule")
+		).toBe(true);
 
 		// Should be a clean result with no diagnostics
 		expect(result.score.value).toBeGreaterThanOrEqual(90);
@@ -471,16 +477,20 @@ describe("scanner integration", () => {
 
 		// AppModule should have edges to all 4 imported modules
 		const appHasModule = context.moduleGraph.byName.has("AppModule");
-		const __from = "AppModule";
+		const appModuleName = "AppModule";
 		expect(appHasModule).toBe(true);
-		expect(edgeContains(context.moduleGraph, __from, "AuthModule")).toBe(true);
-		expect(edgeContains(context.moduleGraph, __from, "HealthModule")).toBe(
+		expect(edgeContains(context.moduleGraph, appModuleName, "AuthModule")).toBe(
 			true
 		);
-		expect(edgeContains(context.moduleGraph, __from, "DatabaseModule")).toBe(
-			true
-		);
-		expect(edgeContains(context.moduleGraph, __from, "AdminModule")).toBe(true);
+		expect(
+			edgeContains(context.moduleGraph, appModuleName, "HealthModule")
+		).toBe(true);
+		expect(
+			edgeContains(context.moduleGraph, appModuleName, "DatabaseModule")
+		).toBe(true);
+		expect(
+			edgeContains(context.moduleGraph, appModuleName, "AdminModule")
+		).toBe(true);
 
 		// No false circular deps
 		const circularDiags = result.diagnostics.filter(
@@ -508,24 +518,26 @@ describe("scanner integration", () => {
 
 		// AppModule should have edges to all 6 imported modules
 		const appHasModule = context.moduleGraph.byName.has("AppModule");
-		const __from = "AppModule";
+		const appModuleName = "AppModule";
 		expect(appHasModule).toBe(true);
-		expect(edgeContains(context.moduleGraph, __from, "ConfigModule")).toBe(
-			true
-		);
-		expect(edgeContains(context.moduleGraph, __from, "LoggerModule")).toBe(
-			true
-		);
-		expect(edgeContains(context.moduleGraph, __from, "HealthModule")).toBe(
-			true
-		);
-		expect(edgeContains(context.moduleGraph, __from, "DatabaseModule")).toBe(
-			true
-		);
-		expect(edgeContains(context.moduleGraph, __from, "AdminAuthModule")).toBe(
-			true
-		);
-		expect(edgeContains(context.moduleGraph, __from, "QueueModule")).toBe(true);
+		expect(
+			edgeContains(context.moduleGraph, appModuleName, "ConfigModule")
+		).toBe(true);
+		expect(
+			edgeContains(context.moduleGraph, appModuleName, "LoggerModule")
+		).toBe(true);
+		expect(
+			edgeContains(context.moduleGraph, appModuleName, "HealthModule")
+		).toBe(true);
+		expect(
+			edgeContains(context.moduleGraph, appModuleName, "DatabaseModule")
+		).toBe(true);
+		expect(
+			edgeContains(context.moduleGraph, appModuleName, "AdminAuthModule")
+		).toBe(true);
+		expect(
+			edgeContains(context.moduleGraph, appModuleName, "QueueModule")
+		).toBe(true);
 
 		// No false circular deps
 		const circularDiags = result.diagnostics.filter(
@@ -560,16 +572,20 @@ describe("scanner integration", () => {
 
 		// AppModule should have edges to all 4 imported modules (resolved via path aliases)
 		const appHasModule = context.moduleGraph.byName.has("AppModule");
-		const __from = "AppModule";
+		const appModuleName = "AppModule";
 		expect(appHasModule).toBe(true);
-		expect(edgeContains(context.moduleGraph, __from, "AuthModule")).toBe(true);
-		expect(edgeContains(context.moduleGraph, __from, "HealthModule")).toBe(
+		expect(edgeContains(context.moduleGraph, appModuleName, "AuthModule")).toBe(
 			true
 		);
-		expect(edgeContains(context.moduleGraph, __from, "DatabaseModule")).toBe(
-			true
-		);
-		expect(edgeContains(context.moduleGraph, __from, "AdminModule")).toBe(true);
+		expect(
+			edgeContains(context.moduleGraph, appModuleName, "HealthModule")
+		).toBe(true);
+		expect(
+			edgeContains(context.moduleGraph, appModuleName, "DatabaseModule")
+		).toBe(true);
+		expect(
+			edgeContains(context.moduleGraph, appModuleName, "AdminModule")
+		).toBe(true);
 
 		// No false circular deps
 		const circularDiags = result.diagnostics.filter(
@@ -1045,20 +1061,20 @@ describe("scanner integration", () => {
 			expect(result.project.moduleCount).toBe(5);
 
 			const appHasModule = context.moduleGraph.byName.has("AppModule");
-			const __from = "AppModule";
+			const appModuleName = "AppModule";
 			expect(appHasModule).toBe(true);
-			expect(edgeContains(context.moduleGraph, __from, "DatabaseModule")).toBe(
-				true
-			);
-			expect(edgeContains(context.moduleGraph, __from, "UsersModule")).toBe(
-				true
-			);
-			expect(edgeContains(context.moduleGraph, __from, "ProductsModule")).toBe(
-				true
-			);
-			expect(edgeContains(context.moduleGraph, __from, "OrdersModule")).toBe(
-				true
-			);
+			expect(
+				edgeContains(context.moduleGraph, appModuleName, "DatabaseModule")
+			).toBe(true);
+			expect(
+				edgeContains(context.moduleGraph, appModuleName, "UsersModule")
+			).toBe(true);
+			expect(
+				edgeContains(context.moduleGraph, appModuleName, "ProductsModule")
+			).toBe(true);
+			expect(
+				edgeContains(context.moduleGraph, appModuleName, "OrdersModule")
+			).toBe(true);
 		});
 
 		it("excludes config files from the scan", () => {

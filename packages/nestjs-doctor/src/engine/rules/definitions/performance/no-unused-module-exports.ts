@@ -25,7 +25,7 @@ export const noUnusedModuleExports: ProjectRule = {
 				if (otherMod.key === mod.key) {
 					continue;
 				}
-				if (otherMod.importKeys.includes(mod.key)) {
+				if (context.moduleGraph.edges.get(otherMod.key)?.has(mod.key)) {
 					importingModules.push(otherMod);
 				}
 			}
