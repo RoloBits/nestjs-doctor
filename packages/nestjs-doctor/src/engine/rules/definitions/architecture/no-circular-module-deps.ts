@@ -1,6 +1,6 @@
 import {
 	findCircularDeps,
-	type ModuleGraph,
+	type ModuleNode,
 	type ProviderEdge,
 	traceProviderEdges,
 } from "../../../graph/module-graph.js";
@@ -18,21 +18,19 @@ function readIgnoreForwardRefOption(context: ProjectRuleContext): boolean {
 	return override.options?.ignoreForwardRefCycles === true;
 }
 
-function isFullyMitigatedByForwardRef(
-	cycle: string[],
-	moduleGraph: ModuleGraph
-): boolean {
+function isFullyMitigatedByForwardRef(cycleNodes: ModuleNode[]): boolean {
+	// Defensive: drop the trailing duplicate if findCircularDeps returns a
+	// closed-cycle shape (e.g. [A, B, A] from the rare `[...path, neighbor]`
+	// fallback). Using class names against forwardRefImports because that Set
+	// stores the original `imports: [forwardRef(() => X)]` symbol names.
 	const nodes =
-		cycle.length > 1 && cycle[0] === cycle.at(-1) ? cycle.slice(0, -1) : cycle;
+		cycleNodes.length > 1 && cycleNodes[0] === cycleNodes.at(-1)
+			? cycleNodes.slice(0, -1)
+			: cycleNodes;
 	for (let i = 0; i < nodes.length; i++) {
-		const fromName = nodes[i];
-		const toName = nodes[(i + 1) % nodes.length];
-		const fromModule = moduleGraph.modules.get(fromName);
-		const toModule = moduleGraph.modules.get(toName);
-		if (!(fromModule && toModule)) {
-			return false;
-		}
-		if (!fromModule.forwardRefImports.has(toName)) {
+		const fromModule = nodes[i];
+		const toModule = nodes[(i + 1) % nodes.length];
+		if (!fromModule.forwardRefImports.has(toModule.name)) {
 			return false;
 		}
 	}
@@ -40,22 +38,18 @@ function isFullyMitigatedByForwardRef(
 }
 
 function buildConcreteHelp(
-	cycle: string[],
+	cycleNodes: ModuleNode[],
 	context: ProjectRuleContext
 ): string {
 	const { moduleGraph, providers, project, files } = context;
 	const edgeDescriptions: string[] = [];
-	let weakestEdge: { description: string; count: number } | undefined;
+	let weakestEdge:
+		| { fromNode: ModuleNode; toNode: ModuleNode; count: number }
+		| undefined;
 
-	for (let i = 0; i < cycle.length; i++) {
-		const fromName = cycle[i];
-		const toName = cycle[(i + 1) % cycle.length];
-		const fromModule = moduleGraph.modules.get(fromName);
-		const toModule = moduleGraph.modules.get(toName);
-
-		if (!(fromModule && toModule)) {
-			continue;
-		}
+	for (let i = 0; i < cycleNodes.length; i++) {
+		const fromModule = cycleNodes[i];
+		const toModule = cycleNodes[(i + 1) % cycleNodes.length];
 
 		const edges: ProviderEdge[] = traceProviderEdges(
 			fromModule,
@@ -82,16 +76,19 @@ function buildConcreteHelp(
 
 		const parts: string[] = [];
 		for (const [consumer, deps] of grouped) {
-			const depList = deps.map((d) => `${d} (from ${toName})`).join(", ");
-			parts.push(`${consumer} (in ${fromName}) injects ${depList}`);
+			const depList = deps
+				.map((d) => `${d} (from ${toModule.name})`)
+				.join(", ");
+			parts.push(`${consumer} (in ${fromModule.name}) injects ${depList}`);
 		}
 
-		const description = `${fromName} -> ${toName}: ${parts.join("; ")}`;
+		const description = `${fromModule.name} -> ${toModule.name}: ${parts.join("; ")}`;
 		edgeDescriptions.push(description);
 
 		if (!weakestEdge || edges.length < weakestEdge.count) {
 			weakestEdge = {
-				description: `${fromName} -> ${toName}`,
+				fromNode: fromModule,
+				toNode: toModule,
 				count: edges.length,
 			};
 		}
@@ -107,24 +104,17 @@ function buildConcreteHelp(
 		const depsWord = weakestEdge.count === 1 ? "dependency" : "dependencies";
 
 		// Find providers to extract — the dependencies on the weakest edge
-		const fromName = weakestEdge.description.split(" -> ")[0];
-		const toName = weakestEdge.description.split(" -> ")[1];
-		const fromModule = moduleGraph.modules.get(fromName);
-		const toModule = moduleGraph.modules.get(toName);
-
-		if (fromModule && toModule) {
-			const edges = traceProviderEdges(
-				fromModule,
-				toModule,
-				providers,
-				moduleGraph.providerToModule,
-				project,
-				files
-			);
-			const uniqueDeps = [...new Set(edges.map((e) => e.dependency))];
-			const providerList = uniqueDeps.join(", ");
-			help += `\nConsider extracting ${providerList} into a shared module — it would break the ${weakestEdge.description} edge (${weakestEdge.count} ${depsWord}).`;
-		}
+		const edges = traceProviderEdges(
+			weakestEdge.fromNode,
+			weakestEdge.toNode,
+			providers,
+			moduleGraph.providerToModule,
+			project,
+			files
+		);
+		const uniqueDeps = [...new Set(edges.map((e) => e.dependency))];
+		const providerList = uniqueDeps.join(", ");
+		help += `\nConsider extracting ${providerList} into a shared module — it would break the ${weakestEdge.fromNode.name} -> ${weakestEdge.toNode.name} edge (${weakestEdge.count} ${depsWord}).`;
 	}
 
 	return help;
@@ -145,22 +135,30 @@ export const noCircularModuleDeps: ProjectRule = {
 		const ignoreForwardRefCycles = readIgnoreForwardRefOption(context);
 
 		for (const cycle of cycles) {
-			if (
-				ignoreForwardRefCycles &&
-				isFullyMitigatedByForwardRef(cycle, context.moduleGraph)
-			) {
+			const cycleNodes: ModuleNode[] = [];
+			for (const key of cycle) {
+				const node = context.moduleGraph.modules.get(key);
+				if (node) {
+					cycleNodes.push(node);
+				}
+			}
+			if (cycleNodes.length === 0) {
 				continue;
 			}
 
-			const cycleStr = cycle.join(" -> ");
-			const firstModule = context.moduleGraph.modules.get(cycle[0]);
-			const help = buildConcreteHelp(cycle, context);
+			if (ignoreForwardRefCycles && isFullyMitigatedByForwardRef(cycleNodes)) {
+				continue;
+			}
+
+			const cycleStr = cycleNodes.map((n) => n.name).join(" -> ");
+			const firstModule = cycleNodes[0];
+			const help = buildConcreteHelp(cycleNodes, context);
 
 			context.report({
-				filePath: firstModule?.filePath ?? "unknown",
+				filePath: firstModule.filePath,
 				message: `Circular module dependency detected: ${cycleStr}`,
 				help,
-				line: firstModule?.classDeclaration.getStartLineNumber() ?? 1,
+				line: firstModule.classDeclaration.getStartLineNumber(),
 				column: 1,
 			});
 		}

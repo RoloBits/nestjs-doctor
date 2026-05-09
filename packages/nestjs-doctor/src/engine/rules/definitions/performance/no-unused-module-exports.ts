@@ -1,3 +1,4 @@
+import type { ModuleNode } from "../../../graph/module-graph.js";
 import type { ProjectRule } from "../../types.js";
 
 export const noUnusedModuleExports: ProjectRule = {
@@ -18,14 +19,14 @@ export const noUnusedModuleExports: ProjectRule = {
 				continue;
 			}
 
-			// Find modules that import this one
-			const importingModules: string[] = [];
+			// Find modules that import this one (by composite key — handles same-name collisions)
+			const importingModules: ModuleNode[] = [];
 			for (const otherMod of context.moduleGraph.modules.values()) {
-				if (otherMod.name === mod.name) {
+				if (otherMod.key === mod.key) {
 					continue;
 				}
-				if (otherMod.imports.includes(mod.name)) {
-					importingModules.push(otherMod.name);
+				if (otherMod.importKeys.includes(mod.key)) {
+					importingModules.push(otherMod);
 				}
 			}
 
@@ -36,12 +37,7 @@ export const noUnusedModuleExports: ProjectRule = {
 
 			// Collect all provider dependencies from importing modules
 			const usedProviders = new Set<string>();
-			for (const importerName of importingModules) {
-				const importer = context.moduleGraph.modules.get(importerName);
-				if (!importer) {
-					continue;
-				}
-
+			for (const importer of importingModules) {
 				// Check which providers in the importing module depend on exported providers
 				for (const providerName of importer.providers) {
 					const provider = context.providers.get(providerName);
@@ -91,7 +87,7 @@ export const noUnusedModuleExports: ProjectRule = {
 
 			for (const exportedName of mod.exports) {
 				// Skip module re-exports (e.g. CoreModule exports SharedModule)
-				if (context.moduleGraph.modules.has(exportedName)) {
+				if (context.moduleGraph.byName.has(exportedName)) {
 					continue;
 				}
 				if (!usedProviders.has(exportedName)) {

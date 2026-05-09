@@ -4,6 +4,8 @@ import {
 	buildModuleGraph,
 	findCircularDeps,
 	findProviderModule,
+	type ModuleGraph,
+	type ModuleNode,
 	mergeModuleGraphs,
 } from "../../src/engine/graph/module-graph.js";
 import type { PathAliasMap } from "../../src/engine/graph/tsconfig-paths.js";
@@ -16,6 +18,34 @@ function createProject(files: Record<string, string>) {
 		paths.push(name);
 	}
 	return { project, paths };
+}
+
+function getByName(graph: ModuleGraph, name: string): ModuleNode {
+	const bucket = graph.byName.get(name);
+	if (!bucket || bucket.length === 0) {
+		throw new Error(`Module "${name}" not found in graph`);
+	}
+	return bucket[0];
+}
+
+function edgesFromName(
+	graph: ModuleGraph,
+	fromName: string
+): Set<string> | undefined {
+	const node = graph.byName.get(fromName)?.[0];
+	return node ? graph.edges.get(node.key) : undefined;
+}
+
+function edgeHas(
+	graph: ModuleGraph,
+	fromName: string,
+	toName: string
+): boolean {
+	const targetKey = graph.byName.get(toName)?.[0]?.key;
+	if (!targetKey) {
+		return false;
+	}
+	return edgesFromName(graph, fromName)?.has(targetKey) ?? false;
 }
 
 describe("module-graph", () => {
@@ -44,15 +74,15 @@ describe("module-graph", () => {
 		const graph = buildModuleGraph(project, paths);
 
 		expect(graph.modules.size).toBe(2);
-		expect(graph.modules.has("AppModule")).toBe(true);
-		expect(graph.modules.has("UsersModule")).toBe(true);
+		expect(graph.byName.has("AppModule")).toBe(true);
+		expect(graph.byName.has("UsersModule")).toBe(true);
 
-		const app = graph.modules.get("AppModule")!;
+		const app = getByName(graph, "AppModule")!;
 		expect(app.imports).toContain("UsersModule");
 		expect(app.providers).toContain("AppService");
 		expect(app.controllers).toContain("AppController");
 
-		const users = graph.modules.get("UsersModule")!;
+		const users = getByName(graph, "UsersModule")!;
 		expect(users.providers).toContain("UsersService");
 		expect(users.exports).toContain("UsersService");
 	});
@@ -78,9 +108,9 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths);
-		expect(graph.edges.get("AppModule")?.has("UsersModule")).toBe(true);
-		expect(graph.edges.get("AppModule")?.has("OrdersModule")).toBe(true);
-		expect(graph.edges.get("OrdersModule")?.has("UsersModule")).toBe(true);
+		expect(edgeHas(graph, "AppModule", "UsersModule")).toBe(true);
+		expect(edgeHas(graph, "AppModule", "OrdersModule")).toBe(true);
+		expect(edgeHas(graph, "OrdersModule", "UsersModule")).toBe(true);
 	});
 
 	// Mutual imports between two modules should be detected as a cycle
@@ -171,28 +201,38 @@ describe("module-graph", () => {
 		]);
 		const merged = mergeModuleGraphs(graphs);
 
-		// Modules are prefixed
+		// All three modules merged; class names appear under byName, possibly with collisions across projects
 		expect(merged.modules.size).toBe(3);
-		expect(merged.modules.has("api/AppModule")).toBe(true);
-		expect(merged.modules.has("api/UsersModule")).toBe(true);
-		expect(merged.modules.has("admin/AppModule")).toBe(true);
+		expect(merged.byName.has("AppModule")).toBe(true);
+		expect(merged.byName.has("UsersModule")).toBe(true);
+		expect(merged.byName.get("AppModule")).toHaveLength(2);
 
-		// Imports are remapped
-		const apiApp = merged.modules.get("api/AppModule")!;
-		expect(apiApp.imports).toContain("api/UsersModule");
+		// Per-project nodes are distinguished by the composite key prefix
+		const apiApp = merged.byName
+			.get("AppModule")!
+			.find((n) => n.key.startsWith("api/"))!;
+		const adminApp = merged.byName
+			.get("AppModule")!
+			.find((n) => n.key.startsWith("admin/"))!;
+		expect(apiApp).toBeDefined();
+		expect(adminApp).toBeDefined();
+		expect(apiApp.name).toBe("AppModule");
+		expect(adminApp.name).toBe("AppModule");
 
-		// Exports keep non-module names unprefixed (UsersService is a provider, not a module)
-		const apiUsers = merged.modules.get("api/UsersModule")!;
+		// imports stays as class names (display-friendly); edges carry the composite-key wiring
+		expect(apiApp.imports).toContain("UsersModule");
+
+		const apiUsers = merged.byName
+			.get("UsersModule")!
+			.find((n) => n.key.startsWith("api/"))!;
 		expect(apiUsers.exports).toContain("UsersService");
 
-		// Edges are prefixed
-		expect(merged.edges.get("api/AppModule")?.has("api/UsersModule")).toBe(
-			true
-		);
+		// Edges are keyed by the prefixed composite key
+		expect(merged.edges.get(apiApp.key)?.has(apiUsers.key)).toBe(true);
 
-		// providerToModule references the same object as modules map
+		// providerToModule key is project-prefixed; value points at the merged node
 		const providerModule = merged.providerToModule.get("api/AppService");
-		expect(providerModule).toBe(merged.modules.get("api/AppModule"));
+		expect(providerModule).toBe(apiApp);
 	});
 
 	// forwardRef(() => SomeModule) should unwrap the arrow function and resolve to the module name
@@ -211,7 +251,7 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths);
-		const aModule = graph.modules.get("AModule");
+		const aModule = getByName(graph, "AModule");
 		expect(aModule?.imports).toContain("BModule");
 	});
 
@@ -230,8 +270,8 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths);
-		const a = graph.modules.get("AModule");
-		const b = graph.modules.get("BModule");
+		const a = getByName(graph, "AModule");
+		const b = getByName(graph, "BModule");
 		expect(a?.imports).toContain("BModule");
 		expect(a?.forwardRefImports).toEqual(new Set(["BModule"]));
 		expect(b?.imports).toContain("AModule");
@@ -253,8 +293,12 @@ describe("module-graph", () => {
 		});
 		const inner = buildModuleGraph(project, paths);
 		const merged = mergeModuleGraphs(new Map([["api", inner]]));
-		const a = merged.modules.get("api/AModule");
-		expect(a?.forwardRefImports).toEqual(new Set(["api/BModule"]));
+		const a = merged.byName.get("AModule")?.[0];
+		// `forwardRefImports` stores class names (matches `imports`), so it stays
+		// unchanged through the merge — no project prefix.
+		expect(a?.forwardRefImports).toEqual(new Set(["BModule"]));
+		// `key` carries the project prefix on the composite identity.
+		expect(a?.key.startsWith("api/")).toBe(true);
 	});
 
 	it("does not treat look-alike identifiers (forwardRefHelper) as forwardRef calls", () => {
@@ -272,7 +316,7 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths);
-		const a = graph.modules.get("AModule");
+		const a = getByName(graph, "AModule");
 		expect(a?.forwardRefImports).toEqual(new Set());
 	});
 
@@ -294,9 +338,9 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths);
-		const app = graph.modules.get("AppModule")!;
+		const app = getByName(graph, "AppModule")!;
 		expect(app.imports).toContain("ConfigModule");
-		expect(graph.edges.get("AppModule")?.has("ConfigModule")).toBe(true);
+		expect(edgeHas(graph, "AppModule", "ConfigModule")).toBe(true);
 	});
 
 	// .forFeature() should resolve identically to .forRoot() — extract the module class name
@@ -317,7 +361,7 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths);
-		const app = graph.modules.get("AppModule")!;
+		const app = getByName(graph, "AppModule")!;
 		expect(app.imports).toContain("TypeOrmModule");
 	});
 
@@ -344,7 +388,7 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths);
-		const app = graph.modules.get("AppModule")!;
+		const app = getByName(graph, "AppModule")!;
 		expect(app.imports).toContain("AuthModule");
 		expect(app.imports).toContain("UsersModule");
 	});
@@ -372,7 +416,7 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths);
-		const app = graph.modules.get("AppModule")!;
+		const app = getByName(graph, "AppModule")!;
 		expect(app.imports).toContain("AuthModule");
 	});
 
@@ -402,7 +446,7 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths);
-		const app = graph.modules.get("AppModule")!;
+		const app = getByName(graph, "AppModule")!;
 		expect(app.imports).toContain("AuthModule");
 		expect(app.imports).toContain("UsersModule");
 	});
@@ -435,7 +479,7 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths);
-		const app = graph.modules.get("AppModule")!;
+		const app = getByName(graph, "AppModule")!;
 		expect(app.imports).toContain("AuthModule");
 		expect(app.imports).toContain("UsersModule");
 	});
@@ -472,7 +516,7 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths);
-		const app = graph.modules.get("AppModule")!;
+		const app = getByName(graph, "AppModule")!;
 		expect(app.imports).toContain("UsersModule");
 		expect(app.imports).toContain("ConfigModule");
 		expect(app.imports).toContain("OrdersModule");
@@ -506,7 +550,7 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths);
-		const app = graph.modules.get("AppModule")!;
+		const app = getByName(graph, "AppModule")!;
 		expect(app.imports).toContain("AuthModule");
 		expect(app.imports).toContain("UsersModule");
 	});
@@ -525,7 +569,7 @@ describe("module-graph", () => {
 
 		// Should not throw, just return empty imports
 		const graph = buildModuleGraph(project, paths);
-		const app = graph.modules.get("AppModule")!;
+		const app = getByName(graph, "AppModule")!;
 		expect(app.imports).toEqual([]);
 	});
 
@@ -556,7 +600,7 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths);
-		const app = graph.modules.get("AppModule")!;
+		const app = getByName(graph, "AppModule")!;
 		expect(app.imports).toContain("AuthModule");
 		expect(app.imports).toContain("UsersModule");
 	});
@@ -586,7 +630,7 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths);
-		const app = graph.modules.get("AppModule")!;
+		const app = getByName(graph, "AppModule")!;
 		expect(app.imports).toContain("AuthModule");
 		expect(app.imports).toContain("UsersModule");
 	});
@@ -623,7 +667,7 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths);
-		const app = graph.modules.get("AppModule")!;
+		const app = getByName(graph, "AppModule")!;
 		expect(app.imports).toContain("AuthModule");
 		expect(app.imports).toContain("DatabaseModule");
 		expect(app.imports).toContain("AdminModule");
@@ -672,7 +716,7 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths);
-		const app = graph.modules.get("AppModule")!;
+		const app = getByName(graph, "AppModule")!;
 		expect(app.imports).toContain("AuthModule");
 		expect(app.imports).toContain("HealthModule");
 		expect(app.imports).toContain("DatabaseModule");
@@ -704,7 +748,7 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths);
-		const app = graph.modules.get("AppModule")!;
+		const app = getByName(graph, "AppModule")!;
 		expect(app.imports).toContain("AuthModule");
 		expect(app.imports).toContain("UsersModule");
 	});
@@ -721,7 +765,7 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths);
-		const app = graph.modules.get("AppModule")!;
+		const app = getByName(graph, "AppModule")!;
 		expect(app.imports).toEqual([]);
 	});
 
@@ -753,7 +797,7 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths, aliases);
-		const app = graph.modules.get("AppModule")!;
+		const app = getByName(graph, "AppModule")!;
 		expect(app.imports).toContain("AuthModule");
 		expect(app.imports).toContain("UsersModule");
 	});
@@ -784,7 +828,7 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths, aliases);
-		const app = graph.modules.get("AppModule")!;
+		const app = getByName(graph, "AppModule")!;
 		expect(app.imports).toContain("AuthModule");
 		expect(app.imports).toContain("UsersModule");
 	});
@@ -815,7 +859,7 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths, aliases);
-		const app = graph.modules.get("AppModule")!;
+		const app = getByName(graph, "AppModule")!;
 		expect(app.imports).toContain("AuthModule");
 	});
 
@@ -841,7 +885,7 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths);
-		const app = graph.modules.get("AppModule")!;
+		const app = getByName(graph, "AppModule")!;
 		expect(app.imports).toContain("AuthModule");
 		expect(app.imports).toContain("LocalModule");
 	});
@@ -873,7 +917,7 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths);
-		const app = graph.modules.get("AppModule")!;
+		const app = getByName(graph, "AppModule")!;
 		expect(app.imports).toContain("AuthModule");
 		expect(app.imports).toContain("UsersModule");
 	});
@@ -908,7 +952,7 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths);
-		const app = graph.modules.get("AppModule")!;
+		const app = getByName(graph, "AppModule")!;
 		expect(app.imports).toContain("AuthModule");
 		expect(app.imports).toContain("UsersModule");
 	});
@@ -925,7 +969,7 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths);
-		const app = graph.modules.get("AppModule")!;
+		const app = getByName(graph, "AppModule")!;
 		expect(app.imports).toEqual([]);
 	});
 
@@ -951,9 +995,9 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths);
-		const app = graph.modules.get("AppModule")!;
+		const app = getByName(graph, "AppModule")!;
 		expect(app.imports).toContain("DatabaseModule");
-		expect(graph.edges.get("AppModule")?.has("DatabaseModule")).toBe(true);
+		expect(edgeHas(graph, "AppModule", "DatabaseModule")).toBe(true);
 	});
 
 	// Same-file arrow function should also work
@@ -982,7 +1026,7 @@ describe("module-graph", () => {
 		});
 
 		const graph = buildModuleGraph(project, paths);
-		const app = graph.modules.get("AppModule")!;
+		const app = getByName(graph, "AppModule")!;
 		expect(app.imports).toContain("AuthModule");
 		expect(app.imports).toContain("UsersModule");
 	});

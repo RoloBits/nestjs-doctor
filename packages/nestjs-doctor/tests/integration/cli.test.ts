@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { diagnoseMonorepo } from "../../src/api/index.js";
+import type { ModuleGraph } from "../../src/engine/graph/module-graph.js";
 import { detectMonorepo } from "../../src/engine/project-detector.js";
 import {
 	buildAnalysisContext,
@@ -12,6 +13,21 @@ import {
 } from "../../src/engine/scanner.js";
 
 const FIXTURES = resolve(import.meta.dirname, "../fixtures");
+
+const COLLISION_FIXTURE_FILE_REGEX = /shared_in_file_[ab]\.ts$/;
+
+function edgeContains(
+	graph: ModuleGraph,
+	fromName: string,
+	toName: string
+): boolean {
+	const fromKey = graph.byName.get(fromName)?.[0]?.key;
+	const toKey = graph.byName.get(toName)?.[0]?.key;
+	if (!(fromKey && toKey)) {
+		return false;
+	}
+	return graph.edges.get(fromKey)?.has(toKey) ?? false;
+}
 
 describe("scanner integration", () => {
 	it("produces a clean result for basic-app", async () => {
@@ -232,6 +248,36 @@ describe("scanner integration", () => {
 		});
 	});
 
+	it("attributes circular-deps diagnostics to the actual cycle files (issue #110)", async () => {
+		const targetPath = resolve(
+			FIXTURES,
+			"false-positives/module-name-collision/src"
+		);
+		const scanConfig = await resolveScanConfig(targetPath);
+		const context = await buildAnalysisContext(targetPath, scanConfig);
+		const rawOutput = diagnose(context);
+		const { result } = buildResult(
+			context,
+			rawOutput,
+			scanConfig.customRuleWarnings
+		);
+
+		const cycleDiags = result.diagnostics.filter(
+			(d) => d.rule === "architecture/no-circular-module-deps"
+		);
+		expect(cycleDiags.length).toBeGreaterThan(0);
+
+		// Each cycle is reported against a file that actually defines its members.
+		// Before the fix, both cycle diagnostics landed on shared_in_file_b.ts
+		// (the file that won the modules.set name collision), even when the cycle
+		// involved AModule (declared only in shared_in_file_a.ts).
+		for (const diag of cycleDiags) {
+			expect(diag.filePath).toMatch(COLLISION_FIXTURE_FILE_REGEX);
+		}
+		const reportedFiles = new Set(cycleDiags.map((d) => d.filePath));
+		expect(reportedFiles.size).toBe(2);
+	});
+
 	it("scans monorepo with multiple sub-projects", async () => {
 		const targetPath = resolve(FIXTURES, "monorepo-app");
 		const scanConfig = await resolveScanConfig(targetPath);
@@ -374,13 +420,18 @@ describe("scanner integration", () => {
 		expect(result.project.moduleCount).toBe(6);
 
 		// AppModule should have edges to all 5 imported modules
-		const appEdges = context.moduleGraph.edges.get("AppModule");
-		expect(appEdges).toBeDefined();
-		expect(appEdges?.has("ConfigModule")).toBe(true);
-		expect(appEdges?.has("CacheModule")).toBe(true);
-		expect(appEdges?.has("UsersModule")).toBe(true);
-		expect(appEdges?.has("AuthModule")).toBe(true);
-		expect(appEdges?.has("DatabaseModule")).toBe(true);
+		const appHasModule = context.moduleGraph.byName.has("AppModule");
+		const __from = "AppModule";
+		expect(appHasModule).toBe(true);
+		expect(edgeContains(context.moduleGraph, __from, "ConfigModule")).toBe(
+			true
+		);
+		expect(edgeContains(context.moduleGraph, __from, "CacheModule")).toBe(true);
+		expect(edgeContains(context.moduleGraph, __from, "UsersModule")).toBe(true);
+		expect(edgeContains(context.moduleGraph, __from, "AuthModule")).toBe(true);
+		expect(edgeContains(context.moduleGraph, __from, "DatabaseModule")).toBe(
+			true
+		);
 
 		// Should be a clean result with no diagnostics
 		expect(result.score.value).toBeGreaterThanOrEqual(90);
@@ -419,12 +470,17 @@ describe("scanner integration", () => {
 		expect(result.project.moduleCount).toBe(5);
 
 		// AppModule should have edges to all 4 imported modules
-		const appEdges = context.moduleGraph.edges.get("AppModule");
-		expect(appEdges).toBeDefined();
-		expect(appEdges?.has("AuthModule")).toBe(true);
-		expect(appEdges?.has("HealthModule")).toBe(true);
-		expect(appEdges?.has("DatabaseModule")).toBe(true);
-		expect(appEdges?.has("AdminModule")).toBe(true);
+		const appHasModule = context.moduleGraph.byName.has("AppModule");
+		const __from = "AppModule";
+		expect(appHasModule).toBe(true);
+		expect(edgeContains(context.moduleGraph, __from, "AuthModule")).toBe(true);
+		expect(edgeContains(context.moduleGraph, __from, "HealthModule")).toBe(
+			true
+		);
+		expect(edgeContains(context.moduleGraph, __from, "DatabaseModule")).toBe(
+			true
+		);
+		expect(edgeContains(context.moduleGraph, __from, "AdminModule")).toBe(true);
 
 		// No false circular deps
 		const circularDiags = result.diagnostics.filter(
@@ -451,14 +507,25 @@ describe("scanner integration", () => {
 		expect(result.project.moduleCount).toBe(7);
 
 		// AppModule should have edges to all 6 imported modules
-		const appEdges = context.moduleGraph.edges.get("AppModule");
-		expect(appEdges).toBeDefined();
-		expect(appEdges?.has("ConfigModule")).toBe(true);
-		expect(appEdges?.has("LoggerModule")).toBe(true);
-		expect(appEdges?.has("HealthModule")).toBe(true);
-		expect(appEdges?.has("DatabaseModule")).toBe(true);
-		expect(appEdges?.has("AdminAuthModule")).toBe(true);
-		expect(appEdges?.has("QueueModule")).toBe(true);
+		const appHasModule = context.moduleGraph.byName.has("AppModule");
+		const __from = "AppModule";
+		expect(appHasModule).toBe(true);
+		expect(edgeContains(context.moduleGraph, __from, "ConfigModule")).toBe(
+			true
+		);
+		expect(edgeContains(context.moduleGraph, __from, "LoggerModule")).toBe(
+			true
+		);
+		expect(edgeContains(context.moduleGraph, __from, "HealthModule")).toBe(
+			true
+		);
+		expect(edgeContains(context.moduleGraph, __from, "DatabaseModule")).toBe(
+			true
+		);
+		expect(edgeContains(context.moduleGraph, __from, "AdminAuthModule")).toBe(
+			true
+		);
+		expect(edgeContains(context.moduleGraph, __from, "QueueModule")).toBe(true);
 
 		// No false circular deps
 		const circularDiags = result.diagnostics.filter(
@@ -492,12 +559,17 @@ describe("scanner integration", () => {
 		expect(result.project.moduleCount).toBe(5);
 
 		// AppModule should have edges to all 4 imported modules (resolved via path aliases)
-		const appEdges = context.moduleGraph.edges.get("AppModule");
-		expect(appEdges).toBeDefined();
-		expect(appEdges?.has("AuthModule")).toBe(true);
-		expect(appEdges?.has("HealthModule")).toBe(true);
-		expect(appEdges?.has("DatabaseModule")).toBe(true);
-		expect(appEdges?.has("AdminModule")).toBe(true);
+		const appHasModule = context.moduleGraph.byName.has("AppModule");
+		const __from = "AppModule";
+		expect(appHasModule).toBe(true);
+		expect(edgeContains(context.moduleGraph, __from, "AuthModule")).toBe(true);
+		expect(edgeContains(context.moduleGraph, __from, "HealthModule")).toBe(
+			true
+		);
+		expect(edgeContains(context.moduleGraph, __from, "DatabaseModule")).toBe(
+			true
+		);
+		expect(edgeContains(context.moduleGraph, __from, "AdminModule")).toBe(true);
 
 		// No false circular deps
 		const circularDiags = result.diagnostics.filter(
@@ -972,12 +1044,21 @@ describe("scanner integration", () => {
 		it("builds correct module graph", () => {
 			expect(result.project.moduleCount).toBe(5);
 
-			const appEdges = context.moduleGraph.edges.get("AppModule");
-			expect(appEdges).toBeDefined();
-			expect(appEdges?.has("DatabaseModule")).toBe(true);
-			expect(appEdges?.has("UsersModule")).toBe(true);
-			expect(appEdges?.has("ProductsModule")).toBe(true);
-			expect(appEdges?.has("OrdersModule")).toBe(true);
+			const appHasModule = context.moduleGraph.byName.has("AppModule");
+			const __from = "AppModule";
+			expect(appHasModule).toBe(true);
+			expect(edgeContains(context.moduleGraph, __from, "DatabaseModule")).toBe(
+				true
+			);
+			expect(edgeContains(context.moduleGraph, __from, "UsersModule")).toBe(
+				true
+			);
+			expect(edgeContains(context.moduleGraph, __from, "ProductsModule")).toBe(
+				true
+			);
+			expect(edgeContains(context.moduleGraph, __from, "OrdersModule")).toBe(
+				true
+			);
 		});
 
 		it("excludes config files from the scan", () => {

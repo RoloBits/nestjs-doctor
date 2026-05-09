@@ -29,10 +29,12 @@ export function serializeModuleGraph(
 ): SerializedModuleGraph {
 	const modules: SerializedModuleNode[] = [];
 	for (const node of graph.modules.values()) {
-		const slashIdx = node.name.indexOf("/");
+		// Project name is encoded as the prefix before the first slash on the
+		// composite key (mergeModuleGraphs prepends `${projectName}/`).
+		const slashIdx = node.key.indexOf("/");
 		const project =
 			projects && projects.length > 0 && slashIdx !== -1
-				? node.name.slice(0, slashIdx)
+				? node.key.slice(0, slashIdx)
 				: undefined;
 		modules.push({
 			name: node.name,
@@ -45,24 +47,38 @@ export function serializeModuleGraph(
 		});
 	}
 
+	// Edges in the graph are keyed by composite ModuleNode keys; downstream UI
+	// consumers expect human-readable names, so resolve each edge to its node's name.
 	const edges: Array<{ from: string; to: string }> = [];
-	for (const [from, targets] of graph.edges) {
-		for (const to of targets) {
-			edges.push({ from, to });
+	for (const [fromKey, targets] of graph.edges) {
+		const fromName = graph.modules.get(fromKey)?.name ?? fromKey;
+		for (const toKey of targets) {
+			const toName = graph.modules.get(toKey)?.name ?? toKey;
+			edges.push({ from: fromName, to: toName });
 		}
 	}
 
-	const circularDeps = findCircularDeps(graph);
+	// Cycles from findCircularDeps contain composite keys; project them onto
+	// display names so the report message and the UI agree.
+	const rawCycles = findCircularDeps(graph);
+	const circularDeps = rawCycles.map((cycle) =>
+		cycle.map((key) => graph.modules.get(key)?.name ?? key)
+	);
 
+	// Recommendations are keyed by the composite cycle (not the display projection)
+	// so two distinct cycles whose display names happen to match — common after the
+	// name-collision fix introduces multiple modules with the same class name —
+	// don't overwrite each other.
 	const circularDepRecommendations: Record<string, string> = {};
 	for (const diag of result.diagnostics) {
 		if (diag.rule !== "architecture/no-circular-module-deps") {
 			continue;
 		}
-		for (const cycle of circularDeps) {
-			const cycleStr = cycle.join(" -> ");
+		for (let i = 0; i < rawCycles.length; i++) {
+			const displayCycle = circularDeps[i];
+			const cycleStr = displayCycle.join(" -> ");
 			if (diag.message.includes(cycleStr)) {
-				circularDepRecommendations[cycle.join(",")] = diag.help;
+				circularDepRecommendations[rawCycles[i].join(",")] = diag.help;
 			}
 		}
 	}

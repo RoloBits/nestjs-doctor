@@ -12,11 +12,13 @@ export const noOrphanModules: ProjectRule = {
 	},
 
 	check(context) {
-		// Collect all module names that are imported by at least one other module
-		const importedModules = new Set<string>();
+		// Collect every composite key that's imported by at least one other module.
+		// Using importKeys (resolved per-import) instead of the imports name array
+		// avoids false negatives when two modules share a class name.
+		const importedKeys = new Set<string>();
 		for (const mod of context.moduleGraph.modules.values()) {
-			for (const imp of mod.imports) {
-				importedModules.add(imp);
+			for (const importKey of mod.importKeys) {
+				importedKeys.add(importKey);
 			}
 		}
 
@@ -26,7 +28,7 @@ export const noOrphanModules: ProjectRule = {
 				continue;
 			}
 
-			if (!importedModules.has(mod.name)) {
+			if (!importedKeys.has(mod.key)) {
 				context.report({
 					filePath: mod.filePath,
 					message: `Module '${mod.name}' is never imported by any other module.`,

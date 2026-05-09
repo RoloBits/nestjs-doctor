@@ -20,15 +20,22 @@ export interface ModuleNode {
 	exports: string[];
 	filePath: string;
 	forwardRefImports: Set<string>;
+	importKeys: string[];
 	imports: string[];
+	key: string;
 	name: string;
 	providers: string[];
 }
 
 export interface ModuleGraph {
+	byName: Map<string, ModuleNode[]>;
 	edges: Map<string, Set<string>>;
 	modules: Map<string, ModuleNode>;
 	providerToModule: Map<string, ModuleNode>;
+}
+
+function moduleKey(filePath: string, name: string): string {
+	return `${filePath}::${name}`;
 }
 
 function extractModulesFromFile(
@@ -48,9 +55,11 @@ function extractModulesFromFile(
 
 		const node: ModuleNode = {
 			name,
+			key: moduleKey(filePath, name),
 			filePath,
 			classDeclaration: cls,
 			imports: [],
+			importKeys: [],
 			forwardRefImports: new Set<string>(),
 			exports: [],
 			providers: [],
@@ -100,9 +109,10 @@ export function buildModuleGraph(
 	pathAliases: PathAliasMap = new Map()
 ): ModuleGraph {
 	const modules = new Map<string, ModuleNode>();
+	const byName = new Map<string, ModuleNode[]>();
 	const edges = new Map<string, Set<string>>();
 
-	// First pass: collect all @Module() classes
+	// Pass 1: collect all @Module() classes, key by composite
 	for (const filePath of files) {
 		const sourceFile = project.getSourceFile(filePath);
 		if (!sourceFile) {
@@ -114,19 +124,33 @@ export function buildModuleGraph(
 			filePath,
 			pathAliases
 		)) {
-			modules.set(node.name, node);
+			modules.set(node.key, node);
+			const bucket = byName.get(node.name);
+			if (bucket) {
+				bucket.push(node);
+			} else {
+				byName.set(node.name, [node]);
+			}
 		}
 	}
 
-	// Second pass: build edges from import relationships
-	for (const [name, node] of modules) {
+	// Pass 2: resolve each module's imports to composite keys, then build edges
+	for (const node of modules.values()) {
 		const importSet = new Set<string>();
 		for (const imp of node.imports) {
-			if (modules.has(imp)) {
-				importSet.add(imp);
+			const resolved = resolveImportToKey(
+				imp,
+				node,
+				modules,
+				byName,
+				pathAliases
+			);
+			if (resolved) {
+				importSet.add(resolved);
 			}
 		}
-		edges.set(name, importSet);
+		node.importKeys = [...importSet];
+		edges.set(node.key, importSet);
 	}
 
 	// Build inverse index: provider name → module
@@ -137,7 +161,63 @@ export function buildModuleGraph(
 		}
 	}
 
-	return { modules, edges, providerToModule };
+	return { modules, byName, edges, providerToModule };
+}
+
+function resolveImportToKey(
+	importedName: string,
+	consumerNode: ModuleNode,
+	modules: Map<string, ModuleNode>,
+	byName: Map<string, ModuleNode[]>,
+	pathAliases: PathAliasMap
+): string | undefined {
+	// 1. Walk import declarations — chase through barrel re-exports until we
+	//    land on a file that actually declares the target @Module class. Without
+	//    this loop, `import { X } from './barrel'` followed by
+	//    `export { X } from './a'` lands on the barrel file, whose composite key
+	//    is not in `modules`, and resolution falls through to the by-name
+	//    fallback — which under name collision picks the wrong file.
+	let currentSource: SourceFile | undefined =
+		consumerNode.classDeclaration.getSourceFile();
+	let currentName = importedName;
+	const visited = new Set<string>();
+	while (currentSource && !visited.has(currentSource.getFilePath())) {
+		visited.add(currentSource.getFilePath());
+		const next = resolveImportedSourceFile(
+			currentName,
+			currentSource,
+			pathAliases
+		);
+		if (!next) {
+			break;
+		}
+		const candidate = moduleKey(next.sourceFile.getFilePath(), next.localName);
+		if (modules.has(candidate)) {
+			return candidate;
+		}
+		currentSource = next.sourceFile;
+		currentName = next.localName;
+	}
+
+	// 2. Same-file reference (a module imports another @Module declared in the same file)
+	const sameFileCandidate = moduleKey(consumerNode.filePath, importedName);
+	if (modules.has(sameFileCandidate)) {
+		return sameFileCandidate;
+	}
+
+	// 3. Fall back to a unique by-name match (collision-free codebases)
+	const bucket = byName.get(importedName);
+	if (bucket && bucket.length === 1) {
+		return bucket[0].key;
+	}
+
+	// 4. Multiple candidates and no import statement to disambiguate — pick the first
+	//    arbitrarily to preserve current best-effort behavior for unresolvable symbols.
+	if (bucket && bucket.length > 1) {
+		return bucket[0].key;
+	}
+
+	return undefined;
 }
 
 const MAX_RESOLVE_DEPTH = 5;
@@ -641,20 +721,32 @@ export function updateModuleGraphForFile(
 	filePath: string,
 	pathAliases: PathAliasMap = new Map()
 ): void {
-	// 1. Remove stale modules from this file
-	for (const [name, node] of graph.modules) {
-		if (node.filePath === filePath) {
-			graph.modules.delete(name);
-			graph.edges.delete(name);
-			// Clean up providerToModule entries for this module's providers
-			for (const provider of node.providers) {
-				if (graph.providerToModule.get(provider) === node) {
-					graph.providerToModule.delete(provider);
-				}
+	// 1. Remove stale modules from this file (composite-keyed)
+	for (const [key, node] of graph.modules) {
+		if (node.filePath !== filePath) {
+			continue;
+		}
+		graph.modules.delete(key);
+		graph.edges.delete(key);
+		// Clean up providerToModule entries for this module's providers
+		for (const provider of node.providers) {
+			if (graph.providerToModule.get(provider) === node) {
+				graph.providerToModule.delete(provider);
 			}
-			// Clean edges pointing TO this module from other modules
-			for (const edgeSet of graph.edges.values()) {
-				edgeSet.delete(name);
+		}
+		// Clean edges pointing TO this module from other modules
+		for (const edgeSet of graph.edges.values()) {
+			edgeSet.delete(key);
+		}
+		// Drop from byName bucket
+		const bucket = graph.byName.get(node.name);
+		if (bucket) {
+			const idx = bucket.indexOf(node);
+			if (idx !== -1) {
+				bucket.splice(idx, 1);
+			}
+			if (bucket.length === 0) {
+				graph.byName.delete(node.name);
 			}
 		}
 	}
@@ -667,36 +759,57 @@ export function updateModuleGraphForFile(
 
 	const newModules = extractModulesFromFile(sourceFile, filePath, pathAliases);
 	for (const node of newModules) {
-		graph.modules.set(node.name, node);
-	}
-
-	// 3. Rebuild edges for new modules and update providerToModule
-	for (const node of newModules) {
-		const importSet = new Set<string>();
-		for (const imp of node.imports) {
-			if (graph.modules.has(imp)) {
-				importSet.add(imp);
-			}
+		graph.modules.set(node.key, node);
+		const bucket = graph.byName.get(node.name);
+		if (bucket) {
+			bucket.push(node);
+		} else {
+			graph.byName.set(node.name, [node]);
 		}
-		graph.edges.set(node.name, importSet);
-
 		for (const provider of node.providers) {
 			graph.providerToModule.set(provider, node);
 		}
 	}
 
-	// 4. Rebuild edges from existing modules that might reference newly added/renamed modules
-	for (const [name, node] of graph.modules) {
+	// 3. Rebuild edges for new modules (resolve via the same algorithm buildModuleGraph uses)
+	for (const node of newModules) {
+		const importSet = new Set<string>();
+		for (const imp of node.imports) {
+			const resolved = resolveImportToKey(
+				imp,
+				node,
+				graph.modules,
+				graph.byName,
+				pathAliases
+			);
+			if (resolved) {
+				importSet.add(resolved);
+			}
+		}
+		node.importKeys = [...importSet];
+		graph.edges.set(node.key, importSet);
+	}
+
+	// 4. Rebuild edges from existing modules that might now reference newly added/renamed modules
+	for (const [key, node] of graph.modules) {
 		if (node.filePath === filePath) {
 			continue;
 		}
 		const importSet = new Set<string>();
 		for (const imp of node.imports) {
-			if (graph.modules.has(imp)) {
-				importSet.add(imp);
+			const resolved = resolveImportToKey(
+				imp,
+				node,
+				graph.modules,
+				graph.byName,
+				pathAliases
+			);
+			if (resolved) {
+				importSet.add(resolved);
 			}
 		}
-		graph.edges.set(name, importSet);
+		node.importKeys = [...importSet];
+		graph.edges.set(key, importSet);
 	}
 }
 
@@ -704,34 +817,36 @@ export function mergeModuleGraphs(
 	graphs: Map<string, ModuleGraph>
 ): ModuleGraph {
 	const modules = new Map<string, ModuleNode>();
+	const byName = new Map<string, ModuleNode[]>();
 	const edges = new Map<string, Set<string>>();
 	const providerToModule = new Map<string, ModuleNode>();
 
 	for (const [projectName, graph] of graphs) {
-		for (const [name, node] of graph.modules) {
-			const prefixed = `${projectName}/${name}`;
-			const prefixedForwardRef = new Set<string>();
-			for (const ref of node.forwardRefImports) {
-				prefixedForwardRef.add(
-					graph.modules.has(ref) ? `${projectName}/${ref}` : ref
-				);
-			}
+		// Merged composite key prefixes the inner key with the project name.
+		// `node.name` stays as the original class name; project context is preserved
+		// in `node.key` (`${projectName}/${filePath}::${name}`) for downstream readers.
+		// `forwardRefImports` is class-name based and passes through unchanged via spread.
+		for (const [innerKey, node] of graph.modules) {
+			const prefixedKey = `${projectName}/${innerKey}`;
+			const prefixedImportKeys = node.importKeys.map(
+				(k) => `${projectName}/${k}`
+			);
 			const mergedNode: ModuleNode = {
 				...node,
-				name: prefixed,
-				imports: node.imports.map((imp) =>
-					graph.modules.has(imp) ? `${projectName}/${imp}` : imp
-				),
-				forwardRefImports: prefixedForwardRef,
-				exports: node.exports.map((exp) =>
-					graph.modules.has(exp) ? `${projectName}/${exp}` : exp
-				),
+				key: prefixedKey,
+				importKeys: prefixedImportKeys,
 			};
-			modules.set(prefixed, mergedNode);
+			modules.set(prefixedKey, mergedNode);
+			const bucket = byName.get(node.name);
+			if (bucket) {
+				bucket.push(mergedNode);
+			} else {
+				byName.set(node.name, [mergedNode]);
+			}
 		}
 
-		for (const [name, targets] of graph.edges) {
-			const prefixedFrom = `${projectName}/${name}`;
+		for (const [innerFromKey, targets] of graph.edges) {
+			const prefixedFrom = `${projectName}/${innerFromKey}`;
 			const prefixedTargets = new Set<string>();
 			for (const target of targets) {
 				prefixedTargets.add(`${projectName}/${target}`);
@@ -740,15 +855,15 @@ export function mergeModuleGraphs(
 		}
 
 		for (const [provider, node] of graph.providerToModule) {
-			const prefixedModuleName = `${projectName}/${node.name}`;
-			const existingNode = modules.get(prefixedModuleName);
+			const prefixedKey = `${projectName}/${node.key}`;
+			const existingNode = modules.get(prefixedKey);
 			if (existingNode) {
 				providerToModule.set(`${projectName}/${provider}`, existingNode);
 			}
 		}
 	}
 
-	return { modules, edges, providerToModule };
+	return { modules, byName, edges, providerToModule };
 }
 
 export function findCircularDeps(graph: ModuleGraph): string[][] {
@@ -816,7 +931,7 @@ export function traceProviderEdges(
 		}
 		for (const dep of provider.dependencies) {
 			const depModule = providerToModule.get(dep);
-			if (depModule && depModule.name === toModule.name) {
+			if (depModule && depModule.key === toModule.key) {
 				edges.push({ consumer: providerName, dependency: dep });
 			}
 		}
@@ -845,7 +960,7 @@ export function traceProviderEdges(
 					const simpleName =
 						typeText.split(".").pop()?.split("<")[0] ?? typeText;
 					const depModule = providerToModule.get(simpleName);
-					if (depModule && depModule.name === toModule.name) {
+					if (depModule && depModule.key === toModule.key) {
 						edges.push({ consumer: controllerName, dependency: simpleName });
 					}
 				}
