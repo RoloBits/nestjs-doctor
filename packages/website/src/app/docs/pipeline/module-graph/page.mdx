@@ -27,21 +27,53 @@ files: string[]      // file paths to scan
 
 ```typescript
 interface ModuleGraph {
-  modules: Map<string, ModuleNode>          // module name → node
-  edges: Map<string, Set<string>>           // module → set of imported modules
+  modules: Map<string, ModuleNode>          // composite key → node
+  byName: Map<string, ModuleNode[]>         // class name → all nodes with that name
+  edges: Map<string, Set<string>>           // composite key → set of imported keys
   providerToModule: Map<string, ModuleNode> // provider name → owning module
 }
 
 interface ModuleNode {
   name: string                    // class name
+  key: string                     // composite `${filePath}::${name}`
   filePath: string
   classDeclaration: ClassDeclaration
-  imports: string[]               // from @Module({ imports: [...] })
+  imports: string[]               // from @Module({ imports: [...] }), raw class names
   exports: string[]               // from @Module({ exports: [...] })
   providers: string[]             // from @Module({ providers: [...] })
   controllers: string[]           // from @Module({ controllers: [...] })
+  forwardRefImports: Set<string>  // subset of `imports` wrapped in forwardRef()
 }
 ```
+
+### Why composite keys
+
+`modules` and `edges` are keyed by `${filePath}::${name}` so that two files can declare classes with the same name without one silently overwriting the other. This is the fix for [issue #110](https://github.com/RoloBits/nestjs-doctor/issues/110)'s file-attribution observation.
+
+To look up a module by its class name, use `byName`:
+
+```typescript
+// Custom rule example
+const apps = graph.byName.get("AppModule") ?? [];
+const app = apps[0]; // pick the first if you only expect one
+
+// Iterate all modules (the values are the canonical nodes)
+for (const node of graph.modules.values()) {
+  // node.name → class name; node.key → composite identity
+}
+```
+
+### Migration from 0.4.x to 0.5.0
+
+Custom rules that previously did `graph.modules.get("AppModule")` need to switch to `graph.byName.get("AppModule")?.[0]`. The change is mechanical:
+
+| Before (0.4.x) | After (0.5.0) |
+|---------------|----------------|
+| `graph.modules.get("X")` | `graph.byName.get("X")?.[0]` |
+| `graph.modules.has("X")` | `graph.byName.has("X")` |
+| `graph.edges.get("X")?.has("Y")` | `graph.edges.get(graph.byName.get("X")?.[0]?.key)?.has(graph.byName.get("Y")?.[0]?.key)` |
+
+`providerToModule` is unchanged and remains the recommended path for class-name lookups of providers.
 
 ## How It Works
 
@@ -144,8 +176,10 @@ The graph builder resolves the full chain and extracts:
 
 ```typescript
 function findCircularDeps(graph: ModuleGraph): string[][] {
-  // Returns array of cycles, each cycle is an array of module names
-  // e.g., [["ModuleA", "ModuleB", "ModuleA"]]
+  // Returns array of cycles. Each cycle is an array of composite keys
+  // (the same keys used in `graph.modules` and `graph.edges`).
+  // To get class names for display, map each key through graph.modules:
+  //   cycle.map((k) => graph.modules.get(k)?.name)
 }
 ```
 

@@ -235,6 +235,20 @@ Set `customRulesDir` in your config file:
 }
 ```
 
+### Project-scoped rules and the module graph
+
+Project-scoped rules (`scope: "project"`) receive `context.moduleGraph` for cross-file analysis. Starting in **0.5.0**, `moduleGraph.modules` and `moduleGraph.edges` are keyed by a composite `${filePath}::${className}` instead of the bare class name. To look up a module by class name, use the new `moduleGraph.byName` index:
+
+```typescript
+// Before (0.4.x):
+const app = context.moduleGraph.modules.get("AppModule");
+
+// After (0.5.0+):
+const app = context.moduleGraph.byName.get("AppModule")?.[0];
+```
+
+`byName` returns an array because two files can declare the same class name. Pick `[0]` if you only expect one. `providerToModule` is unchanged. See the [Module Graph](https://nestjs.doctor/docs/pipeline/module-graph) docs for the full API.
+
 ### Error handling
 
 Invalid rules produce warnings but never crash the scan. Common issues — missing `check` function, invalid category/severity, syntax errors — are surfaced in CLI output so you can fix them without blocking the rest of the analysis.

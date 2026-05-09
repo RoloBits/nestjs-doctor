@@ -36,9 +36,10 @@ Project rules receive the entire `Project` and cross-file analysis data:
 
 - `context.project.getSourceFile(path)` — access any file's AST
 - `context.files` — array of all file paths being analyzed
-- `context.moduleGraph.modules` — `Map<string, ModuleNode>` where each `ModuleNode` has: `{ name, filePath, classDeclaration, imports[], exports[], providers[], controllers[] }`
-- `context.moduleGraph.edges` — `Map<string, Set<string>>` (module name → set of imported module names)
-- `context.moduleGraph.providerToModule` — `Map<string, ModuleNode>` (provider class name → owning module)
+- `context.moduleGraph.modules` — `Map<string, ModuleNode>` keyed by composite `${filePath}::${className}`. Each `ModuleNode` has: `{ name, key, filePath, classDeclaration, imports[], exports[], providers[], controllers[], forwardRefImports }`
+- `context.moduleGraph.byName` — `Map<className, ModuleNode[]>` for class-name lookups. Returns an array because two files can declare the same class name; pick `[0]` if you only expect one
+- `context.moduleGraph.edges` — `Map<string, Set<string>>` keyed by the composite key, mapping a module's key to the keys of modules it imports
+- `context.moduleGraph.providerToModule` — `Map<string, ModuleNode>` (provider class name → owning module). Unchanged shape — recommended path for class-name lookups of providers
 - `context.providers` — `Map<string, ProviderInfo>` where each `ProviderInfo` has: `{ name, filePath, classDeclaration, dependencies: string[], publicMethodCount }`
 - `context.config` — full `NestjsDoctorConfig` object
 
@@ -162,7 +163,12 @@ interface ProjectRule {
     files: string[];
     config: Record<string, unknown>;
     moduleGraph: {
-      modules: Map<string, { name: string; filePath: string; classDeclaration: any; imports: string[]; providers: string[]; controllers: string[]; exports: string[] }>;
+      // `modules` and `edges` are keyed by composite `${filePath}::${className}` (`node.key`).
+      // Use `byName` to look up modules by class name; it returns an array because two
+      // files can declare the same class name. Migration: `graph.modules.get("AppModule")`
+      // becomes `graph.byName.get("AppModule")?.[0]`.
+      modules: Map<string, { name: string; key: string; filePath: string; classDeclaration: any; imports: string[]; providers: string[]; controllers: string[]; exports: string[]; forwardRefImports: Set<string> }>;
+      byName: Map<string, Array<{ name: string; key: string; filePath: string }>>;
       edges: Map<string, Set<string>>;
       providerToModule: Map<string, { name: string; filePath: string; classDeclaration: any }>;
     };
