@@ -369,6 +369,33 @@ describe("no-raw-entity-in-response", () => {
 		);
 		expect(diags).toHaveLength(0);
 	});
+
+	it("flags MikroORM @Entity-decorated class with Entity suffix", () => {
+		// Idiomatic MikroORM naming with the `Entity` suffix (UserEntity).
+		// The current rule fires on the suffix; this confirms MikroORM users
+		// following that convention get the same protection as TypeORM users.
+		const diags = runRule(
+			noRawEntityInResponse,
+			`
+      import { Controller, Get } from '@nestjs/common';
+      import { Entity, PrimaryKey, Property } from '@mikro-orm/core';
+
+      @Entity()
+      class UserEntity {
+        @PrimaryKey() id!: number;
+        @Property() passwordHash!: string;
+      }
+
+      @Controller('users')
+      export class UsersController {
+        @Get()
+        findAll(): UserEntity[] { return []; }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("raw entity");
+	});
 });
 
 describe("require-guards-on-endpoints", () => {

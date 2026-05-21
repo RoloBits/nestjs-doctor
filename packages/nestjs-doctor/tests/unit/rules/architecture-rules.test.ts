@@ -163,6 +163,119 @@ describe("no-orm-in-controllers", () => {
 		);
 		expect(diags).toHaveLength(0);
 	});
+
+	it("flags MikroORM injection (@mikro-orm/core)", () => {
+		const diags = runRule(
+			noOrmInControllers,
+			`
+      import { Controller } from '@nestjs/common';
+      import { MikroORM } from '@mikro-orm/core';
+      @Controller('users')
+      export class UsersController {
+        constructor(private readonly orm: MikroORM) {}
+      }
+    `
+		);
+		expect(diags.length).toBeGreaterThan(0);
+		expect(diags[0].message).toContain("MikroORM");
+	});
+
+	it("flags MikroORM @InjectEntityManager() decorator AND EntityManager type", () => {
+		const diags = runRule(
+			noOrmInControllers,
+			`
+      import { Controller } from '@nestjs/common';
+      import { InjectEntityManager } from '@mikro-orm/nestjs';
+      import { EntityManager } from '@mikro-orm/postgresql';
+      @Controller('users')
+      export class UsersController {
+        constructor(
+          @InjectEntityManager()
+          private readonly em: EntityManager,
+        ) {}
+      }
+    `
+		);
+		// Both branches must fire — the type-name set check AND the decorator scan
+		expect(diags).toHaveLength(2);
+		const messages = diags.map((d) => d.message);
+		expect(messages.some((m) => m.includes("EntityManager"))).toBe(true);
+		expect(messages.some((m) => m.includes("@InjectEntityManager"))).toBe(true);
+	});
+
+	it("flags @InjectEntityManager() even when paired with an unknown type", () => {
+		// Isolates the decorator-branch by using a type name not in ORM_TYPES.
+		// Guards against a regression that silences the decorator scan.
+		const diags = runRule(
+			noOrmInControllers,
+			`
+      import { Controller } from '@nestjs/common';
+      import { InjectEntityManager } from '@mikro-orm/nestjs';
+      @Controller('users')
+      export class UsersController {
+        constructor(
+          @InjectEntityManager()
+          private readonly em: unknown,
+        ) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("@InjectEntityManager");
+	});
+
+	it("flags DrizzleService injection in controllers", () => {
+		const diags = runRule(
+			noOrmInControllers,
+			`
+      import { Controller } from '@nestjs/common';
+      @Controller('users')
+      export class UsersController {
+        constructor(private readonly drizzle: DrizzleService) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("DrizzleService");
+	});
+
+	it("flags MongooseModel injection in controllers", () => {
+		const diags = runRule(
+			noOrmInControllers,
+			`
+      import { Controller } from '@nestjs/common';
+      @Controller('users')
+      export class UsersController {
+        constructor(private readonly model: MongooseModel) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("MongooseModel");
+	});
+
+	it("flags MikroORM EntityRepository<T> injection in a controller", () => {
+		const diags = runRule(
+			noOrmInControllers,
+			`
+      import { Controller } from '@nestjs/common';
+      import { InjectRepository } from '@mikro-orm/nestjs';
+      import { EntityRepository } from '@mikro-orm/core';
+      @Controller('users')
+      export class UsersController {
+        constructor(
+          @InjectRepository(User)
+          private readonly repo: EntityRepository<User>,
+        ) {}
+      }
+    `
+		);
+		// Both branches: EntityRepository type + InjectRepository decorator
+		expect(diags).toHaveLength(2);
+		const messages = diags.map((d) => d.message);
+		expect(messages.some((m) => m.includes("EntityRepository"))).toBe(true);
+		expect(messages.some((m) => m.includes("@InjectRepository"))).toBe(true);
+	});
 });
 
 describe("no-orm-in-services", () => {
@@ -192,6 +305,100 @@ describe("no-orm-in-services", () => {
     `
 		);
 		expect(diags).toHaveLength(0);
+	});
+
+	it("flags MikroORM @InjectEntityManager() in services on both branches", () => {
+		const diags = runRule(
+			noOrmInServices,
+			`
+      import { Injectable } from '@nestjs/common';
+      import { InjectEntityManager } from '@mikro-orm/nestjs';
+      import { EntityManager } from '@mikro-orm/postgresql';
+      @Injectable()
+      export class UsersService {
+        constructor(
+          @InjectEntityManager()
+          private readonly em: EntityManager,
+        ) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(2);
+		const messages = diags.map((d) => d.message);
+		expect(messages.some((m) => m.includes("EntityManager"))).toBe(true);
+		expect(messages.some((m) => m.includes("@InjectEntityManager"))).toBe(true);
+	});
+
+	it("flags DrizzleService injection in services (info severity)", () => {
+		const diags = runRule(
+			noOrmInServices,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class UsersService {
+        constructor(private readonly drizzle: DrizzleService) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("DrizzleService");
+	});
+
+	it("flags MongooseModel injection in services (info severity)", () => {
+		const diags = runRule(
+			noOrmInServices,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class UsersService {
+        constructor(private readonly model: MongooseModel) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("MongooseModel");
+	});
+
+	it("flags only the @InjectRepository decorator (NOT the EntityRepository type) in services", () => {
+		// MikroORM's EntityRepository<T> is the typed-repo wrapper, the direct
+		// analogue of TypeORM's Repository<T>. Both are intentionally excluded
+		// from the service ORM_TYPES set because services can legitimately wrap
+		// a repository. Only the @InjectRepository decorator path fires —
+		// confirming services that follow @mikro-orm/nestjs's canonical pattern
+		// are not double-flagged.
+		const diags = runRule(
+			noOrmInServices,
+			`
+      import { Injectable } from '@nestjs/common';
+      import { InjectRepository } from '@mikro-orm/nestjs';
+      import { EntityRepository } from '@mikro-orm/core';
+      @Injectable()
+      export class UsersService {
+        constructor(
+          @InjectRepository(User)
+          private readonly repo: EntityRepository<User>,
+        ) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("@InjectRepository");
+	});
+
+	it("flags MikroORM injection in services", () => {
+		const diags = runRule(
+			noOrmInServices,
+			`
+      import { Injectable } from '@nestjs/common';
+      import { MikroORM } from '@mikro-orm/core';
+      @Injectable()
+      export class BootstrapService {
+        constructor(private readonly orm: MikroORM) {}
+      }
+    `
+		);
+		expect(diags.length).toBeGreaterThan(0);
+		expect(diags[0].message).toContain("MikroORM");
 	});
 });
 

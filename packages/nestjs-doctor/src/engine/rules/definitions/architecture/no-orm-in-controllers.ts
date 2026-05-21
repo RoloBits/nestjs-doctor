@@ -1,19 +1,19 @@
+import { extractSimpleTypeName } from "../../../graph/type-resolver.js";
 import { isController } from "../../../nest-class-inspector.js";
 import type { Rule } from "../../types.js";
-
-const DOTTED_SUFFIX_REGEX = /\.(\w+)$/;
-const GENERIC_TYPE_REGEX = /^(\w+)</;
 
 const ORM_TYPES = new Set([
 	"PrismaService",
 	"PrismaClient",
 	"EntityManager",
+	"EntityRepository",
 	"DataSource",
 	"Repository",
 	"Connection",
 	"MongooseModel",
 	"InjectModel",
 	"InjectRepository",
+	"InjectEntityManager",
 	"MikroORM",
 	"DrizzleService",
 ]);
@@ -41,7 +41,7 @@ export const noOrmInControllers: Rule = {
 
 			for (const param of ctor.getParameters()) {
 				const typeText = param.getType().getText();
-				const typeName = extractTypeName(typeText);
+				const typeName = extractSimpleTypeName(typeText);
 
 				if (ORM_TYPES.has(typeName)) {
 					const nameNode = param.getNameNode();
@@ -59,7 +59,11 @@ export const noOrmInControllers: Rule = {
 			for (const param of cls.getConstructors()[0]?.getParameters() ?? []) {
 				for (const decorator of param.getDecorators()) {
 					const name = decorator.getName();
-					if (name === "InjectRepository" || name === "InjectModel") {
+					if (
+						name === "InjectRepository" ||
+						name === "InjectModel" ||
+						name === "InjectEntityManager"
+					) {
 						context.report({
 							filePath: context.filePath,
 							message: `Controller uses @${name}() decorator. Move data access to a service.`,
@@ -73,15 +77,3 @@ export const noOrmInControllers: Rule = {
 		}
 	},
 };
-
-function extractTypeName(typeText: string): string {
-	const match = typeText.match(DOTTED_SUFFIX_REGEX);
-	if (match) {
-		return match[1];
-	}
-	const genericMatch = typeText.match(GENERIC_TYPE_REGEX);
-	if (genericMatch) {
-		return genericMatch[1];
-	}
-	return typeText;
-}
