@@ -11,6 +11,8 @@ import { requirePrimaryKey } from "../../../src/engine/rules/definitions/schema/
 import { requireTimestamps } from "../../../src/engine/rules/definitions/schema/require-timestamps.js";
 import type { SchemaRule } from "../../../src/engine/rules/types.js";
 
+const TIMESTAMP_MESSAGE_REGEX = /timestamp/;
+
 function runSchemaRule(
 	rule: SchemaRule,
 	graph: SchemaGraph
@@ -222,6 +224,78 @@ describe("schema/require-timestamps", () => {
 			],
 		});
 		const graph = makeGraph([entity], "drizzle");
+		const diagnostics = runSchemaRule(requireTimestamps, graph);
+
+		expect(diagnostics).toHaveLength(1);
+	});
+
+	// `registeredAt` / `lastSeenAt` deliberately bypass the name-based
+	// shortcut on lines 10-12 of require-timestamps.ts so the new
+	// MikroORM branch is actually exercised.
+	it("should not report MikroORM entity with defaultRaw='now()' timestamp", () => {
+		const entity = makeEntity({
+			columns: [
+				makeColumn({ name: "id", isPrimary: true }),
+				makeColumn({
+					name: "registeredAt",
+					type: "Date",
+					defaultValue: '"now()"',
+				}),
+			],
+		});
+		const graph = makeGraph([entity], "mikro-orm");
+		const diagnostics = runSchemaRule(requireTimestamps, graph);
+
+		expect(diagnostics).toHaveLength(0);
+	});
+
+	it("should not report MikroORM entity with onUpdate-driven generated timestamp", () => {
+		const entity = makeEntity({
+			columns: [
+				makeColumn({ name: "id", isPrimary: true }),
+				makeColumn({
+					name: "lastSeenAt",
+					type: "Date",
+					isGenerated: true,
+				}),
+			],
+		});
+		const graph = makeGraph([entity], "mikro-orm");
+		const diagnostics = runSchemaRule(requireTimestamps, graph);
+
+		expect(diagnostics).toHaveLength(0);
+	});
+
+	it("should report MikroORM entity without any timestamp column", () => {
+		const entity = makeEntity({
+			columns: [
+				makeColumn({ name: "id", isPrimary: true }),
+				makeColumn({ name: "name", type: "string" }),
+			],
+		});
+		const graph = makeGraph([entity], "mikro-orm");
+		const diagnostics = runSchemaRule(requireTimestamps, graph);
+
+		expect(diagnostics).toHaveLength(1);
+		expect(diagnostics[0].message).toMatch(TIMESTAMP_MESSAGE_REGEX);
+	});
+
+	it("should NOT treat MikroORM UUID @PrimaryKey({ onCreate }) as a timestamp", () => {
+		// Guards against false-negatives: a UUID-on-create column has
+		// isGenerated=true but type !== Date. The branch must gate on type,
+		// not just isGenerated.
+		const entity = makeEntity({
+			columns: [
+				makeColumn({
+					name: "id",
+					type: "string",
+					isPrimary: true,
+					isGenerated: true,
+				}),
+				makeColumn({ name: "name", type: "string" }),
+			],
+		});
+		const graph = makeGraph([entity], "mikro-orm");
 		const diagnostics = runSchemaRule(requireTimestamps, graph);
 
 		expect(diagnostics).toHaveLength(1);

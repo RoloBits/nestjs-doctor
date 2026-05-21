@@ -6,6 +6,7 @@ import type {
 	SerializedSchemaGraph,
 } from "../../common/schema.js";
 import { drizzleExtractor } from "./drizzle-extractor.js";
+import { mikroOrmExtractor } from "./mikro-orm-extractor.js";
 import { prismaExtractor } from "./prisma-extractor.js";
 import { typeormExtractor } from "./typeorm-extractor.js";
 
@@ -24,6 +25,7 @@ const extractors: Record<string, OrmSchemaExtractor> = {
 	prisma: prismaExtractor,
 	typeorm: typeormExtractor,
 	drizzle: drizzleExtractor,
+	"mikro-orm": mikroOrmExtractor,
 };
 
 export function extractSchema(
