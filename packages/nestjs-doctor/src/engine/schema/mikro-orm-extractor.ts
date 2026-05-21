@@ -313,9 +313,10 @@ function collectInheritedFromAbstractBases(
 	indexedProps: Set<string>,
 	indexes: { columns: string[]; isUnique: boolean }[]
 ): { columns: SchemaColumn[]; relations: SchemaRelation[] } {
-	const columns: SchemaColumn[] = [];
-	const relations: SchemaRelation[] = [];
-
+	// First pass: collect abstract ancestors in walk order (immediate parent
+	// first, then grandparent, ...). Stop at the first non-abstract @Entity
+	// ancestor so single-table inheritance does not double-count columns.
+	const ancestors: ClassDeclaration[] = [];
 	let current = cls.getBaseClass();
 	while (current) {
 		const dec = current.getDecorator("Entity");
@@ -326,9 +327,22 @@ function collectInheritedFromAbstractBases(
 		if (args?.abstract !== "true") {
 			break;
 		}
+		ancestors.push(current);
+		current = current.getBaseClass();
+	}
+
+	// Second pass: walk DEEPEST-first so the resulting column list reads
+	// top-down (grandparent → parent → child after the caller appends child
+	// columns). Using push + an indexed reverse iteration avoids the
+	// spread-in-accumulator pattern that CLAUDE.md flags.
+	const columns: SchemaColumn[] = [];
+	const relations: SchemaRelation[] = [];
+	for (let i = ancestors.length - 1; i >= 0; i--) {
+		const ancestor = ancestors[i];
+
 		// Class-level @Index({ properties: [...] }) / @Unique({ properties: [...] })
 		// on the abstract base must propagate to the concrete entity's indexes.
-		for (const baseDec of current.getDecorators()) {
+		for (const baseDec of ancestor.getDecorators()) {
 			const decName = baseDec.getName();
 			if (decName !== "Index" && decName !== "Unique") {
 				continue;
@@ -344,16 +358,19 @@ function collectInheritedFromAbstractBases(
 				indexes.push({ columns: cols, isUnique: decName === "Unique" });
 			}
 		}
+
 		const extracted = extractColumnsFromClass(
-			current,
+			ancestor,
 			entityName,
 			indexedProps,
 			indexes
 		);
-		// Parent fields come first (id, createdAt usually live on the base).
-		columns.unshift(...extracted.columns);
-		relations.unshift(...extracted.relations);
-		current = current.getBaseClass();
+		for (const c of extracted.columns) {
+			columns.push(c);
+		}
+		for (const r of extracted.relations) {
+			relations.push(r);
+		}
 	}
 
 	return { columns, relations };

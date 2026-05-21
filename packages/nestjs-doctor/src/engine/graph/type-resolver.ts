@@ -2,6 +2,10 @@ import type { ClassDeclaration, Project } from "ts-morph";
 
 const IMPORT_TYPE_REGEX = /import\([^)]+\)\.(\w+)/;
 const GENERIC_TYPE_REGEX = /^(\w+)</;
+// Fallback for bare namespace-qualified types like `Foo.Bar` or `Sequelize.Model`
+// that ts-morph occasionally emits when a type is declared inside an ambient
+// namespace. Matches the LAST dotted segment.
+const DOTTED_SUFFIX_REGEX = /\.(\w+)$/;
 
 export interface ProviderInfo {
 	classDeclaration: ClassDeclaration;
@@ -107,6 +111,11 @@ export function extractSimpleTypeName(typeText: string): string {
 	const genericMatch = typeText.match(GENERIC_TYPE_REGEX);
 	if (genericMatch) {
 		return genericMatch[1];
+	}
+	// Handle bare namespace-qualified types Sequelize.Model / Foo.Bar.Baz
+	const dottedMatch = typeText.match(DOTTED_SUFFIX_REGEX);
+	if (dottedMatch) {
+		return dottedMatch[1];
 	}
 	return typeText;
 }

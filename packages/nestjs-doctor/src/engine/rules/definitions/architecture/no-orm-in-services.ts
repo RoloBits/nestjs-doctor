@@ -2,15 +2,16 @@ import { extractSimpleTypeName } from "../../../graph/type-resolver.js";
 import { isService } from "../../../nest-class-inspector.js";
 import type { Rule } from "../../types.js";
 
-// Note: `Repository` is INTENTIONALLY excluded — services can legitimately wrap
-// a repository (the repository pattern itself). The class-name guard below
-// also skips classes named `*Repository`/`*Repo`, so a repo implementation
-// won't be flagged for injecting ORM types either.
+// Note: `Repository` (TypeORM) AND `EntityRepository` (MikroORM) are
+// INTENTIONALLY excluded — services can legitimately wrap a repository (the
+// repository pattern itself). The class-name guard below also skips classes
+// named `*Repository`/`*Repo`, so a repo implementation won't be flagged for
+// injecting ORM types either. Both rules above and below should remain
+// symmetric for the two ORMs' typed repository classes.
 const ORM_TYPES = new Set([
 	"PrismaService",
 	"PrismaClient",
 	"EntityManager",
-	"EntityRepository",
 	"DataSource",
 	"Connection",
 	"MongooseModel",
