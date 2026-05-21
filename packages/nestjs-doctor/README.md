@@ -319,12 +319,12 @@ Output includes a combined score and a per-project breakdown.
 
 ## Schema Analysis
 
-Auto-detected from Prisma schema files (`schema.prisma`) or TypeORM entity decorators (`@Entity()`). When a schema is found, nestjs-doctor extracts entity-relationship data and:
+Auto-detected from Prisma schema files (`schema.prisma`), TypeORM/MikroORM entity decorators (`@Entity()`), or Drizzle table declarations (`pgTable(...)` / `mysqlTable(...)` / `sqliteTable(...)`). When a schema is found, nestjs-doctor extracts entity-relationship data and:
 
 - Renders an **interactive ER diagram** in the Schema tab of the HTML report (sidebar entity tree + canvas diagram + problems panel)
 - Runs **3 schema-specific rules** covering primary keys, timestamps, and cascade configuration
 
-Supported ORMs: **Prisma**, **TypeORM**.
+Supported ORMs: **Prisma**, **TypeORM**, **Drizzle**, **MikroORM**.
 
 See the [schema rules documentation](https://nestjs.doctor/docs/rules/schema) for the full rule list.
 

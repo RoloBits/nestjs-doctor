@@ -24,7 +24,7 @@ Rules have one of three scopes:
 
 - **File-scoped** (default) — runs once per source file. Gets a `RuleContext` with the file's AST.
 - **Project-scoped** (`scope: "project"`) — runs once for the entire project. Gets a `ProjectRuleContext` with the full module graph and provider map.
-- **Schema-scoped** (`scope: "schema"`) — runs once per schema graph. Gets a `SchemaRuleContext` with the extracted entity-relation data from Prisma or TypeORM.
+- **Schema-scoped** (`scope: "schema"`) — runs once per schema graph. Gets a `SchemaRuleContext` with the extracted entity-relation data from Prisma, TypeORM, Drizzle, or MikroORM.
 
 ## Rule Structure
 
@@ -158,8 +158,8 @@ export const noOrphanServices: ProjectRule = {
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `schemaGraph` | `SchemaGraph` | Entity-relation data extracted from Prisma or TypeORM |
-| `orm` | `string` | Detected ORM name (e.g. `"prisma"`, `"typeorm"`) |
+| `schemaGraph` | `SchemaGraph` | Entity-relation data extracted from Prisma, TypeORM, Drizzle, or MikroORM |
+| `orm` | `string` | Detected ORM name (e.g. `"prisma"`, `"typeorm"`, `"drizzle"`, `"mikro-orm"`) |
 | `report()` | `(diagnostic) => void` | Emit a diagnostic |
 
 ### report() Fields
