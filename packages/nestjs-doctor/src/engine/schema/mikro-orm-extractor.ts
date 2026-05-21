@@ -36,6 +36,10 @@ const FORWARD_REF_REGEX = /=>\s*(\w+)/;
 // present and the resolver injects a fully-qualified type), and both must match.
 const COLLECTION_TYPE_REGEX = /\bCollection<\s*(\w+)/;
 const REF_TYPE_REGEX = /\b(?:Ref|IdentifiedReference|Reference)<\s*(\w+)/;
+// Captures the property names listed inside `@Index({ properties: ['a', 'b'] })`
+// / `@Unique({ properties: [...] })`. Hoisted to module scope to avoid
+// recompiling on every class iteration.
+const INDEX_PROPERTIES_REGEX = /['"](\w+)['"]/g;
 
 const COLUMN_DECORATORS = new Set([
 	"Property",
@@ -268,7 +272,9 @@ function extractEntityFromClass(cls: ClassDeclaration): SchemaEntity | null {
 			continue;
 		}
 		const propsText = objArg.properties;
-		const cols = [...propsText.matchAll(/['"](\w+)['"]/g)].map((m) => m[1]);
+		const cols = [...propsText.matchAll(INDEX_PROPERTIES_REGEX)].map(
+			(m) => m[1]
+		);
 		if (cols.length > 0) {
 			indexes.push({ columns: cols, isUnique: decName === "Unique" });
 		}
