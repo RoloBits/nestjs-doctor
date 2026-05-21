@@ -985,4 +985,72 @@ describe("scanner integration", () => {
 			expect(configFiles).toHaveLength(0);
 		});
 	});
+
+	describe("mikro-orm-app fixture", () => {
+		const targetPath = resolve(FIXTURES, "mikro-orm-app");
+		let context: Awaited<ReturnType<typeof buildAnalysisContext>>;
+		let result: Awaited<ReturnType<typeof buildResult>>["result"];
+
+		beforeAll(async () => {
+			const scanConfig = await resolveScanConfig(targetPath);
+			context = await buildAnalysisContext(targetPath, scanConfig);
+			const rawOutput = diagnose(context);
+			({ result } = buildResult(
+				context,
+				rawOutput,
+				scanConfig.customRuleWarnings
+			));
+		});
+
+		it("detects MikroORM and extracts schema", () => {
+			expect(result.project.orm).toBe("mikro-orm");
+			expect(result.schema).toBeDefined();
+			expect(result.schema!.entities).toHaveLength(4);
+			expect(result.schema!.relations).toHaveLength(3);
+			expect(result.schema!.orm).toBe("mikro-orm");
+
+			const entityNames = result.schema!.entities.map((e) => e.name).sort();
+			expect(entityNames).toEqual([
+				"AuditLog",
+				"Notification",
+				"Order",
+				"User",
+			]);
+		});
+
+		it("fires exactly 4 schema diagnostics", () => {
+			const schemaDiags = result.diagnostics.filter(
+				(d) => d.category === "schema"
+			);
+			expect(schemaDiags).toHaveLength(4);
+
+			const pkDiags = schemaDiags.filter(
+				(d) => d.rule === "schema/require-primary-key"
+			);
+			expect(pkDiags).toHaveLength(1);
+			expect(pkDiags[0].entity).toBe("AuditLog");
+
+			const tsDiags = schemaDiags.filter(
+				(d) => d.rule === "schema/require-timestamps"
+			);
+			expect(tsDiags).toHaveLength(2);
+			const tsEntities = tsDiags.map((d) => d.entity).sort();
+			expect(tsEntities).toEqual(["AuditLog", "Notification"]);
+
+			const cascadeDiags = schemaDiags.filter(
+				(d) => d.rule === "schema/require-cascade-rule"
+			);
+			expect(cascadeDiags).toHaveLength(1);
+			expect(cascadeDiags[0].entity).toBe("Notification");
+		});
+
+		it("builds correct module graph", () => {
+			expect(result.project.moduleCount).toBe(3);
+
+			const appEdges = context.moduleGraph.edges.get("AppModule");
+			expect(appEdges).toBeDefined();
+			expect(appEdges?.has("UsersModule")).toBe(true);
+			expect(appEdges?.has("OrdersModule")).toBe(true);
+		});
+	});
 });
