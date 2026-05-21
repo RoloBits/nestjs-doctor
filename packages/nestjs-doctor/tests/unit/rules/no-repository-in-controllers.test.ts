@@ -67,6 +67,26 @@ describe("no-repository-in-controllers", () => {
 		expect(diags).toHaveLength(0);
 	});
 
+	it("flags MikroORM EntityRepository<T> injection in controllers", () => {
+		const diags = runRule(`
+      import { Controller } from '@nestjs/common';
+      import { InjectRepository } from '@mikro-orm/nestjs';
+      import { EntityRepository } from '@mikro-orm/core';
+
+      @Controller('users')
+      export class UsersController {
+        constructor(
+          @InjectRepository(User)
+          private readonly users: EntityRepository<User>,
+        ) {}
+      }
+    `);
+		expect(diags.length).toBeGreaterThan(0);
+		expect(diags.some((d) => d.message.includes("EntityRepository"))).toBe(
+			true
+		);
+	});
+
 	it("flags import from /repositories/ path in controllers", () => {
 		const diags = runRule(`
       import { Controller } from '@nestjs/common';

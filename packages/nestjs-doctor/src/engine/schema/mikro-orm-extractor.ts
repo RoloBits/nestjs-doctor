@@ -238,6 +238,127 @@ function extractRelation(
 	};
 }
 
+function extractColumnsFromClass(
+	cls: ClassDeclaration,
+	entityName: string,
+	indexedProps: Set<string>,
+	indexes: { columns: string[]; isUnique: boolean }[]
+): { columns: SchemaColumn[]; relations: SchemaRelation[] } {
+	const columns: SchemaColumn[] = [];
+	const relations: SchemaRelation[] = [];
+
+	for (const prop of cls.getProperties()) {
+		const propName = prop.getName();
+		const propTypeText =
+			prop.getTypeNode()?.getText() ?? prop.getType().getText();
+		const decorators = prop.getDecorators();
+
+		for (const d of decorators) {
+			const dn = d.getName();
+			if (dn === "Index") {
+				indexedProps.add(propName);
+				indexes.push({ columns: [propName], isUnique: false });
+			} else if (dn === "Unique") {
+				indexedProps.add(propName);
+				indexes.push({ columns: [propName], isUnique: true });
+			}
+		}
+
+		for (const dec of decorators) {
+			const decName = dec.getName();
+
+			if (COLUMN_DECORATORS.has(decName)) {
+				const col = extractColumn(propName, dec);
+				if (indexedProps.has(propName)) {
+					col.hasIndex = true;
+				}
+				columns.push(col);
+				break;
+			}
+
+			if (decName in RELATION_DECORATORS) {
+				const relation = extractRelation(
+					entityName,
+					propName,
+					propTypeText,
+					dec
+				);
+				if (relation) {
+					relations.push(relation);
+				}
+				break;
+			}
+		}
+	}
+
+	return { columns, relations };
+}
+
+/**
+ * Walk the class hierarchy and collect columns/relations declared on
+ * `@Entity({ abstract: true })` ancestors. This is the MikroORM "BaseEntity"
+ * pattern — children inherit id/timestamps from a shared abstract base.
+ *
+ * Without this, schema rules like `require-primary-key` and
+ * `require-timestamps` produce false positives on every concrete entity
+ * whose PK/timestamps live on its abstract parent.
+ *
+ * Only walks ancestors that are themselves marked abstract, to avoid
+ * double-counting columns under single-table inheritance (where the
+ * concrete parent is its own row in the schema graph).
+ */
+function collectInheritedFromAbstractBases(
+	cls: ClassDeclaration,
+	entityName: string,
+	indexedProps: Set<string>,
+	indexes: { columns: string[]; isUnique: boolean }[]
+): { columns: SchemaColumn[]; relations: SchemaRelation[] } {
+	const columns: SchemaColumn[] = [];
+	const relations: SchemaRelation[] = [];
+
+	let current = cls.getBaseClass();
+	while (current) {
+		const dec = current.getDecorator("Entity");
+		if (!dec) {
+			break;
+		}
+		const args = getDecoratorObjectArg(dec);
+		if (args?.abstract !== "true") {
+			break;
+		}
+		// Class-level @Index({ properties: [...] }) / @Unique({ properties: [...] })
+		// on the abstract base must propagate to the concrete entity's indexes.
+		for (const baseDec of current.getDecorators()) {
+			const decName = baseDec.getName();
+			if (decName !== "Index" && decName !== "Unique") {
+				continue;
+			}
+			const objArg = getDecoratorObjectArg(baseDec);
+			if (!objArg?.properties) {
+				continue;
+			}
+			const cols = [...objArg.properties.matchAll(INDEX_PROPERTIES_REGEX)].map(
+				(m) => m[1]
+			);
+			if (cols.length > 0) {
+				indexes.push({ columns: cols, isUnique: decName === "Unique" });
+			}
+		}
+		const extracted = extractColumnsFromClass(
+			current,
+			entityName,
+			indexedProps,
+			indexes
+		);
+		// Parent fields come first (id, createdAt usually live on the base).
+		columns.unshift(...extracted.columns);
+		relations.unshift(...extracted.relations);
+		current = current.getBaseClass();
+	}
+
+	return { columns, relations };
+}
+
 function extractEntityFromClass(cls: ClassDeclaration): SchemaEntity | null {
 	if (!hasDecorator(cls, "Entity")) {
 		return null;
@@ -282,44 +403,18 @@ function extractEntityFromClass(cls: ClassDeclaration): SchemaEntity | null {
 
 	const indexedProps = new Set<string>();
 
-	for (const prop of cls.getProperties()) {
-		const propName = prop.getName();
-		const propTypeText =
-			prop.getTypeNode()?.getText() ?? prop.getType().getText();
-		const decorators = prop.getDecorators();
+	const inherited = collectInheritedFromAbstractBases(
+		cls,
+		name,
+		indexedProps,
+		indexes
+	);
+	columns.push(...inherited.columns);
+	relations.push(...inherited.relations);
 
-		for (const d of decorators) {
-			const dn = d.getName();
-			if (dn === "Index") {
-				indexedProps.add(propName);
-				indexes.push({ columns: [propName], isUnique: false });
-			} else if (dn === "Unique") {
-				indexedProps.add(propName);
-				indexes.push({ columns: [propName], isUnique: true });
-			}
-		}
-
-		for (const dec of decorators) {
-			const decName = dec.getName();
-
-			if (COLUMN_DECORATORS.has(decName)) {
-				const col = extractColumn(propName, dec);
-				if (indexedProps.has(propName)) {
-					col.hasIndex = true;
-				}
-				columns.push(col);
-				break;
-			}
-
-			if (decName in RELATION_DECORATORS) {
-				const relation = extractRelation(name, propName, propTypeText, dec);
-				if (relation) {
-					relations.push(relation);
-				}
-				break;
-			}
-		}
-	}
+	const own = extractColumnsFromClass(cls, name, indexedProps, indexes);
+	columns.push(...own.columns);
+	relations.push(...own.relations);
 
 	for (const idx of indexes) {
 		for (const colName of idx.columns) {

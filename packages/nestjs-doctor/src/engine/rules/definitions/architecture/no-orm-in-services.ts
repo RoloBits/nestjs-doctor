@@ -1,16 +1,21 @@
+import { extractSimpleTypeName } from "../../../graph/type-resolver.js";
 import { isService } from "../../../nest-class-inspector.js";
 import type { Rule } from "../../types.js";
 
-const DOTTED_SUFFIX_REGEX = /\.(\w+)$/;
-const GENERIC_TYPE_REGEX = /^(\w+)</;
-
+// Note: `Repository` is INTENTIONALLY excluded — services can legitimately wrap
+// a repository (the repository pattern itself). The class-name guard below
+// also skips classes named `*Repository`/`*Repo`, so a repo implementation
+// won't be flagged for injecting ORM types either.
 const ORM_TYPES = new Set([
 	"PrismaService",
 	"PrismaClient",
 	"EntityManager",
+	"EntityRepository",
 	"DataSource",
 	"Connection",
+	"MongooseModel",
 	"MikroORM",
+	"DrizzleService",
 ]);
 
 export const noOrmInServices: Rule = {
@@ -42,7 +47,7 @@ export const noOrmInServices: Rule = {
 
 			for (const param of ctor.getParameters()) {
 				const typeText = param.getType().getText();
-				const typeName = extractTypeName(typeText);
+				const typeName = extractSimpleTypeName(typeText);
 
 				if (ORM_TYPES.has(typeName)) {
 					const nameNode = param.getNameNode();
@@ -58,7 +63,11 @@ export const noOrmInServices: Rule = {
 				// Check for @InjectRepository/@InjectModel
 				for (const decorator of param.getDecorators()) {
 					const name = decorator.getName();
-					if (name === "InjectRepository" || name === "InjectModel") {
+					if (
+						name === "InjectRepository" ||
+						name === "InjectModel" ||
+						name === "InjectEntityManager"
+					) {
 						context.report({
 							filePath: context.filePath,
 							message: `Service uses @${name}() directly. Consider wrapping in a repository class.`,
@@ -72,15 +81,3 @@ export const noOrmInServices: Rule = {
 		}
 	},
 };
-
-function extractTypeName(typeText: string): string {
-	const match = typeText.match(DOTTED_SUFFIX_REGEX);
-	if (match) {
-		return match[1];
-	}
-	const genericMatch = typeText.match(GENERIC_TYPE_REGEX);
-	if (genericMatch) {
-		return genericMatch[1];
-	}
-	return typeText;
-}

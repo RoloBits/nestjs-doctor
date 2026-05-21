@@ -354,6 +354,199 @@ export class UserService { name!: string; }`,
 		expect(graph.entities.size).toBe(0);
 	});
 
+	it("should inherit columns from @Entity({ abstract: true }) base classes", () => {
+		// BaseEntity holds id + createdAt; User extends it and adds name.
+		// Without inheritance, User would have only `name` and would fire
+		// schema/require-primary-key + schema/require-timestamps false-positives.
+		const { project, paths } = createProject({
+			"base.entity.ts": `
+import { Entity, PrimaryKey, Property } from "@mikro-orm/core";
+
+@Entity({ abstract: true })
+export class BaseEntity {
+  @PrimaryKey()
+  id!: number;
+
+  @Property({ type: "Date", defaultRaw: "now()" })
+  createdAt!: Date;
+}`,
+			"user.entity.ts": `
+import { Entity, Property } from "@mikro-orm/core";
+import { BaseEntity } from "./base.entity";
+
+@Entity()
+export class User extends BaseEntity {
+  @Property()
+  name!: string;
+}`,
+		});
+		const graph = extractSchema(project, paths, "mikro-orm", "/test");
+
+		expect(graph.entities.has("BaseEntity")).toBe(false);
+		const user = graph.entities.get("User");
+		expect(user).toBeDefined();
+
+		const colNames = user?.columns.map((c) => c.name).sort();
+		expect(colNames).toEqual(["createdAt", "id", "name"]);
+
+		const idCol = user?.columns.find((c) => c.name === "id");
+		expect(idCol?.isPrimary).toBe(true);
+
+		const createdAt = user?.columns.find((c) => c.name === "createdAt");
+		expect(createdAt?.type).toBe("Date");
+		expect(createdAt?.defaultValue).toBe('"now()"');
+	});
+
+	it("should inherit through multi-level abstract bases", () => {
+		const { project, paths } = createProject({
+			"timestamped.entity.ts": `
+import { Entity, Property } from "@mikro-orm/core";
+
+@Entity({ abstract: true })
+export class Timestamped {
+  @Property({ type: "Date", defaultRaw: "now()" })
+  createdAt!: Date;
+}`,
+			"identified.entity.ts": `
+import { Entity, PrimaryKey } from "@mikro-orm/core";
+import { Timestamped } from "./timestamped.entity";
+
+@Entity({ abstract: true })
+export class Identified extends Timestamped {
+  @PrimaryKey()
+  id!: number;
+}`,
+			"user.entity.ts": `
+import { Entity, Property } from "@mikro-orm/core";
+import { Identified } from "./identified.entity";
+
+@Entity()
+export class User extends Identified {
+  @Property()
+  name!: string;
+}`,
+		});
+		const graph = extractSchema(project, paths, "mikro-orm", "/test");
+
+		const user = graph.entities.get("User");
+		expect(user).toBeDefined();
+		const colNames = user?.columns.map((c) => c.name).sort();
+		expect(colNames).toEqual(["createdAt", "id", "name"]);
+	});
+
+	it("should inherit relations from abstract base classes", () => {
+		// Confirms require-cascade-rule sees inherited @ManyToOne and reads its
+		// deleteRule correctly when the relation lives on the abstract parent.
+		const { project, paths } = createProject({
+			"owned.entity.ts": `
+import { Entity, PrimaryKey, ManyToOne } from "@mikro-orm/core";
+import { User } from "./user.entity";
+
+@Entity({ abstract: true })
+export class Owned {
+  @PrimaryKey()
+  id!: number;
+
+  @ManyToOne(() => User, { deleteRule: "cascade" })
+  owner!: User;
+}`,
+			"user.entity.ts": `
+import { Entity, PrimaryKey, Property } from "@mikro-orm/core";
+
+@Entity()
+export class User {
+  @PrimaryKey()
+  id!: number;
+
+  @Property()
+  email!: string;
+}`,
+			"post.entity.ts": `
+import { Entity, Property } from "@mikro-orm/core";
+import { Owned } from "./owned.entity";
+
+@Entity()
+export class Post extends Owned {
+  @Property()
+  title!: string;
+}`,
+		});
+		const graph = extractSchema(project, paths, "mikro-orm", "/test");
+
+		const post = graph.entities.get("Post");
+		expect(post).toBeDefined();
+		expect(post?.relations).toHaveLength(1);
+		const ownerRel = post?.relations[0];
+		expect(ownerRel?.fromEntity).toBe("Post");
+		expect(ownerRel?.toEntity).toBe("User");
+		expect(ownerRel?.onDelete).toBe("cascade");
+	});
+
+	it("should inherit class-level @Index({ properties }) from abstract base", () => {
+		const { project, paths } = createProject({
+			"base.entity.ts": `
+import { Entity, PrimaryKey, Property, Index } from "@mikro-orm/core";
+
+@Entity({ abstract: true })
+@Index({ properties: ["id", "createdAt"] })
+export class BaseEntity {
+  @PrimaryKey()
+  id!: number;
+
+  @Property({ type: "Date", defaultRaw: "now()" })
+  createdAt!: Date;
+}`,
+			"user.entity.ts": `
+import { Entity, Property } from "@mikro-orm/core";
+import { BaseEntity } from "./base.entity";
+
+@Entity()
+export class User extends BaseEntity {
+  @Property()
+  name!: string;
+}`,
+		});
+		const graph = extractSchema(project, paths, "mikro-orm", "/test");
+		const user = graph.entities.get("User");
+		const composite = user?.indexes?.find((i) => i.columns.length === 2);
+		expect(composite).toBeDefined();
+		expect(composite?.columns).toEqual(["id", "createdAt"]);
+	});
+
+	it("should NOT inherit from concrete (non-abstract) base classes", () => {
+		// Single-table inheritance: parent IS a row in the graph; child should
+		// only carry its own columns or we'd double-count the parent's columns
+		// across parent + child rows.
+		const { project, paths } = createProject({
+			"animal.entity.ts": `
+import { Entity, PrimaryKey, Property } from "@mikro-orm/core";
+
+@Entity()
+export class Animal {
+  @PrimaryKey()
+  id!: number;
+
+  @Property()
+  species!: string;
+}`,
+			"dog.entity.ts": `
+import { Entity, Property } from "@mikro-orm/core";
+import { Animal } from "./animal.entity";
+
+@Entity()
+export class Dog extends Animal {
+  @Property()
+  breed!: string;
+}`,
+		});
+		const graph = extractSchema(project, paths, "mikro-orm", "/test");
+
+		const dog = graph.entities.get("Dog");
+		expect(dog).toBeDefined();
+		const colNames = dog?.columns.map((c) => c.name).sort();
+		expect(colNames).toEqual(["breed"]);
+	});
+
 	it("should skip @Entity({ abstract: true }) base classes", () => {
 		const { project, paths } = createProject({
 			"base.entity.ts": `

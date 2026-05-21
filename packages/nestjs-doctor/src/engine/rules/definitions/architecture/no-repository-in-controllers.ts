@@ -1,8 +1,7 @@
+import { extractSimpleTypeName } from "../../../graph/type-resolver.js";
 import { isController } from "../../../nest-class-inspector.js";
 import type { Rule } from "../../types.js";
 
-const DOTTED_SUFFIX_REGEX = /\.(\w+)$/;
-const GENERIC_TYPE_REGEX = /^(\w+)</;
 const REPOSITORY_PATTERNS = [/Repository$/, /Repo$/];
 
 export const noRepositoryInControllers: Rule = {
@@ -28,7 +27,7 @@ export const noRepositoryInControllers: Rule = {
 
 			for (const param of ctor.getParameters()) {
 				const typeText = param.getType().getText();
-				const typeName = extractTypeName(typeText);
+				const typeName = extractSimpleTypeName(typeText);
 
 				if (REPOSITORY_PATTERNS.some((p) => p.test(typeName))) {
 					const nameNode = param.getNameNode();
@@ -61,17 +60,3 @@ export const noRepositoryInControllers: Rule = {
 		}
 	},
 };
-
-function extractTypeName(typeText: string): string {
-	// Handle import("...").ClassName patterns from ts-morph
-	const match = typeText.match(DOTTED_SUFFIX_REGEX);
-	if (match) {
-		return match[1];
-	}
-	// Handle generic types like Repository<User>
-	const genericMatch = typeText.match(GENERIC_TYPE_REGEX);
-	if (genericMatch) {
-		return genericMatch[1];
-	}
-	return typeText;
-}
