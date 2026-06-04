@@ -3,6 +3,7 @@ import type { Diagnostic } from "../common/diagnostic.js";
 import type { RuleErrorInfo } from "../common/result.js";
 import type { AnalysisContext } from "./analysis-context.js";
 import { filterIgnoredDiagnostics } from "./filter-diagnostics.js";
+import { filterSuppressedDiagnostics } from "./inline-suppressions.js";
 import {
 	type RunRulesOptions,
 	runFileRules,
@@ -28,10 +29,13 @@ function processResults(
 	errors: { ruleId: string; error: unknown }[],
 	context: AnalysisContext
 ): { diagnostics: Diagnostic[]; errors: RuleErrorInfo[] } {
-	const diagnostics = filterIgnoredDiagnostics(
+	const configFiltered = filterIgnoredDiagnostics(
 		rawDiagnostics,
 		context.config,
 		context.targetPath
+	);
+	const diagnostics = filterSuppressedDiagnostics(configFiltered, (filePath) =>
+		context.astProject.getSourceFile(filePath)?.getFullText()
 	);
 	const ruleErrors: RuleErrorInfo[] = errors.map((e) => ({
 		ruleId: e.ruleId,

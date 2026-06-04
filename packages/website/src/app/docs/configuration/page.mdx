@@ -101,6 +101,27 @@ Some rules accept options under a nested `options` key. Example for `no-circular
 }
 ```
 
+## Inline Suppression
+
+For one-off exceptions that don't belong in the config file, suppress a rule directly in the source with an `ignore` comment (`disable` works as an alias):
+
+```typescript
+const config = eval(raw); // nestjs-doctor-ignore security/no-eval
+
+// nestjs-doctor-ignore-next-line security/no-eval
+const config = eval(raw);
+
+// nestjs-doctor-ignore-file security/no-eval
+```
+
+| Directive | Scope |
+|-----------|-------|
+| `nestjs-doctor-ignore[-line] <rules>` | The comment's own line |
+| `nestjs-doctor-ignore-next-line <rules>` | The line below the comment |
+| `nestjs-doctor-ignore-file <rules>` | Every line in the file |
+
+The rule list is space- or comma-separated; omit it to suppress every rule for that scope. A `-- reason` trailer is ignored, so you can document the exception inline. See [Diagnostic Filtering](/docs/pipeline/diagnostic-filtering) for details.
+
 ## Default Excludes
 
 These patterns are always excluded (your `exclude` config is additive):

@@ -185,6 +185,39 @@ Example rule-specific override:
 }
 ```
 
+### Inline suppression
+
+Silence a rule from within the source — useful for one-off exceptions that don't warrant a config change. Write the directive inside a `//` or `/* */` comment:
+
+```typescript
+// Suppress on the same line
+const config = eval(raw); // nestjs-doctor-ignore security/no-eval
+
+// Suppress on the next line
+// nestjs-doctor-ignore-next-line security/no-eval
+const config = eval(raw);
+
+// Suppress for the entire file (put it anywhere, typically at the top)
+// nestjs-doctor-ignore-file security/no-eval
+```
+
+| Directive | Scope |
+|-----------|-------|
+| `nestjs-doctor-ignore <rules>` | The line the comment is on |
+| `nestjs-doctor-ignore-line <rules>` | The line the comment is on |
+| `nestjs-doctor-ignore-next-line <rules>` | The line below the comment |
+| `nestjs-doctor-ignore-file <rules>` | Every line in the file |
+
+`disable` is accepted as an alias for `ignore` (e.g. `nestjs-doctor-disable-next-line`), matching the muscle memory of other linters.
+
+The rule list is space- or comma-separated (`security/no-eval, security/no-weak-crypto`). Omit it to suppress **all** rules for that scope. An optional `-- reason` trailer is ignored, so you can document why:
+
+```typescript
+const token = sign(payload); // nestjs-doctor-ignore security/no-weak-crypto -- legacy HS256, migration tracked in #42
+```
+
+Directives must live on a single line. The line-scoped forms match only code diagnostics — schema diagnostics have no line, so suppress those with `nestjs-doctor-ignore-file` in the entity file.
+
 ---
 
 ## Custom Rules

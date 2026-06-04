@@ -62,9 +62,32 @@ Exact match against the diagnostic's `rule` field. All diagnostics from that rul
 
 File paths are normalized to forward slashes before matching, so patterns work across platforms.
 
+### Inline Suppression
+
+**Source:** `src/engine/inline-suppressions.ts`
+
+After config-based filtering, a second pass (`filterSuppressedDiagnostics`) removes diagnostics silenced by comments in the source itself. Directives use the `ignore` verb (or `disable` as an alias) inside a `//` or `/* */` comment:
+
+```typescript
+const config = eval(raw); // nestjs-doctor-ignore security/no-eval
+
+// nestjs-doctor-ignore-next-line security/no-eval
+const config = eval(raw);
+
+// nestjs-doctor-ignore-file security/no-eval
+```
+
+| Directive | Scope |
+|-----------|-------|
+| `nestjs-doctor-ignore[-line] <rules>` | The comment's own line |
+| `nestjs-doctor-ignore-next-line <rules>` | The line below the comment |
+| `nestjs-doctor-ignore-file <rules>` | Every line in the file |
+
+The rule list is space- or comma-separated; omitting it suppresses every rule for that scope. A `-- reason` trailer is ignored. The source text is resolved from the AST project (no extra disk reads) and each file is parsed at most once. Because line-scoped directives key off the diagnostic's `line`, they apply only to code diagnostics — schema diagnostics (which have no line) are suppressed only by `nestjs-doctor-ignore-file`.
+
 ### Performance
 
-If no ignore config is set (the default), the filter returns the original array immediately without iterating.
+If no ignore config is set (the default), the filter returns the original array immediately without iterating. The inline-suppression pass skips any file whose source contains no `nestjs-doctor-ignore`/`-disable` token.
 
 ## Difference from `rules` Config
 
