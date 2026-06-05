@@ -212,6 +212,53 @@ function extractRelation(
 	};
 }
 
+/**
+ * Collect columns and relations from a single class into the shared accumulators.
+ * `seenProps` prevents a child-class property from being overridden by the same
+ * name on a parent — whichever class is passed first wins.
+ */
+function collectPropsFromClass(
+	cls: ClassDeclaration,
+	entityName: string,
+	seenProps: Set<string>,
+	columns: SchemaColumn[],
+	relations: SchemaRelation[],
+	indexes: { columns: string[]; isUnique: boolean }[]
+): void {
+	for (const prop of cls.getProperties()) {
+		const propName = prop.getName();
+		if (seenProps.has(propName)) {
+			continue;
+		}
+		seenProps.add(propName);
+
+		const decorators = prop.getDecorators();
+		const hasIndex = decorators.some((d: Decorator) => d.getName() === "Index");
+		if (hasIndex) {
+			indexes.push({ columns: [propName], isUnique: false });
+		}
+
+		for (const dec of decorators) {
+			const decName = dec.getName();
+			if (COLUMN_DECORATORS.has(decName)) {
+				const col = extractColumn(propName, dec);
+				if (hasIndex) {
+					col.hasIndex = true;
+				}
+				columns.push(col);
+				break;
+			}
+			if (decName in RELATION_DECORATORS) {
+				const relation = extractRelation(entityName, propName, dec);
+				if (relation) {
+					relations.push(relation);
+				}
+				break;
+			}
+		}
+	}
+}
+
 function extractEntityFromClass(cls: ClassDeclaration): SchemaEntity | null {
 	if (!hasDecorator(cls, "Entity")) {
 		return null;
@@ -258,40 +305,20 @@ function extractEntityFromClass(cls: ClassDeclaration): SchemaEntity | null {
 		}
 	}
 
-	// Track which properties have @Index decorators
-	const indexedProps = new Set<string>();
-
-	for (const prop of cls.getProperties()) {
-		const propName = prop.getName();
-		const decorators = prop.getDecorators();
-
-		// Check for property-level @Index
-		const hasIndex = decorators.some((d) => d.getName() === "Index");
-		if (hasIndex) {
-			indexedProps.add(propName);
-			indexes.push({ columns: [propName], isUnique: false });
-		}
-
-		for (const dec of decorators) {
-			const decName = dec.getName();
-
-			if (COLUMN_DECORATORS.has(decName)) {
-				const col = extractColumn(propName, dec);
-				if (hasIndex) {
-					col.hasIndex = true;
-				}
-				columns.push(col);
-				break;
-			}
-
-			if (decName in RELATION_DECORATORS) {
-				const relation = extractRelation(name, propName, dec);
-				if (relation) {
-					relations.push(relation);
-				}
-				break;
-			}
-		}
+	// Walk the class hierarchy — entity first, then each ancestor — so that
+	// child properties take precedence over same-named properties on a base class.
+	const seenProps = new Set<string>();
+	let current: ClassDeclaration | undefined = cls;
+	while (current) {
+		collectPropsFromClass(
+			current,
+			name,
+			seenProps,
+			columns,
+			relations,
+			indexes
+		);
+		current = current.getBaseClass();
 	}
 
 	// Mark columns that appear in class-level indexes
