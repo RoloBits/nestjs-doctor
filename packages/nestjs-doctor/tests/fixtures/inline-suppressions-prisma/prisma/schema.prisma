@@ -1,0 +1,31 @@
+// nestjs-doctor-ignore-file schema/require-primary-key
+//
+// File-scoped directive above targets require-primary-key ONLY. It lives at the
+// top of the file, outside any model block, so it is inert to the Prisma parser.
+// Before the fix, this directive was silently ignored because .prisma files are
+// not in the ts-morph AST project; the disk-read fallback makes it real.
+// require-timestamps must STILL fire (proves rule-specificity + the fallback).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// no @id            -> schema/require-primary-key  (SUPPRESSED by -file directive)
+// no timestamp col  -> schema/require-timestamps   (NOT suppressed)
+model AuditLog {
+  action     String
+  entityType String
+  entityId   Int
+}
+
+// CLEAN: has @id and a createdAt default(now()) timestamp -> no diagnostics.
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+}

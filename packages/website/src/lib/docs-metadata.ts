@@ -14,7 +14,7 @@ export const docsMetadata: Record<string, Metadata> = {
 	"/docs/configuration": {
 		title: "Configuration",
 		description:
-			"Configure nestjs-doctor with nestjs-doctor.config.json. Customize file patterns, enable or disable rules, and ignore specific diagnostics.",
+			"Configure nestjs-doctor with nestjs-doctor.config.json. Customize file patterns, enable or disable rules, ignore specific diagnostics, and suppress rules inline with comments.",
 	},
 	"/docs/custom-rules": {
 		title: "Custom Rules",

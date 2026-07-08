@@ -60,7 +60,7 @@ For each diagnostic to fix:
 
 - **no-hardcoded-secrets**: Extract the secret value to an environment variable. Import `ConfigService`, inject it, and use `this.configService.get('ENV_VAR_NAME')`. Add the env var name to `.env.example` if it exists.
 - **no-eval**: Remove `eval()` or `new Function()`. Replace with safe alternatives: `JSON.parse()` for JSON, a proper expression parser for dynamic evaluation, or refactor to avoid dynamic code execution entirely.
-- **no-csrf-disabled**: Remove the code that explicitly disables CSRF protection, or add a comment explaining why it's intentionally disabled with a `// nestjs-doctor-ignore` comment.
+- **no-csrf-disabled**: Remove the code that explicitly disables CSRF protection, or, if it's intentional, suppress it with a `// nestjs-doctor-ignore security/no-csrf-disabled -- <reason>` comment on that line.
 - **no-dangerous-redirects**: Validate redirect URLs against an allowlist of trusted domains. Never pass user input directly to `res.redirect()`.
 - **no-weak-crypto**: Replace `createHash('md5')` or `createHash('sha1')` with `createHash('sha256')` or stronger.
 - **no-exposed-env-vars**: Replace direct `process.env.X` access with `ConfigService`. Inject `ConfigService` and use `this.configService.get('X')` or `this.configService.getOrThrow('X')`.
