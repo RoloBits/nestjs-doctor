@@ -17,6 +17,7 @@
  */
 import type {
 	Expression,
+	Node,
 	ObjectLiteralExpression,
 	Project,
 	SourceFile,
@@ -211,8 +212,10 @@ function extractRelationsFromColumns(
 	return relations;
 }
 
+// `thirdArg` is a call argument (`Node`, as returned by `getArguments()`); it
+// is only walked for descendant call expressions, so `Node` is the right type.
 function extractIndexes(
-	thirdArg: Expression
+	thirdArg: Node
 ): { columns: string[]; isUnique: boolean }[] {
 	const indexes: { columns: string[]; isUnique: boolean }[] = [];
 
