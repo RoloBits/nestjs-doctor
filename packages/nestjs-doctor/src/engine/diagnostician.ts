@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { performance } from "node:perf_hooks";
 import type { Diagnostic } from "../common/diagnostic.js";
 import type { RuleErrorInfo } from "../common/result.js";
@@ -18,6 +19,35 @@ function formatRuleError(error: unknown): string {
 	return String(error);
 }
 
+// Non-TypeScript schema sources (Prisma `.prisma` files) are not part of the
+// ts-morph AST project, so their inline directives cannot be resolved from it.
+const NON_AST_SOURCE_EXTENSIONS = [".prisma"];
+
+/**
+ * Resolves a diagnostic's `filePath` to its source text for inline-suppression
+ * parsing. TypeScript files are served from the in-memory ts-morph project (no
+ * disk read). Files outside that project — Prisma `.prisma` schemas — fall back
+ * to a direct read so `nestjs-doctor-ignore-file` directives work there too.
+ * A missing/unreadable file returns `undefined`, leaving diagnostics untouched.
+ */
+function resolveSourceText(
+	context: AnalysisContext,
+	filePath: string
+): string | undefined {
+	const fromProject = context.astProject.getSourceFile(filePath)?.getFullText();
+	if (fromProject !== undefined) {
+		return fromProject;
+	}
+	if (NON_AST_SOURCE_EXTENSIONS.some((ext) => filePath.endsWith(ext))) {
+		try {
+			return readFileSync(filePath, "utf8");
+		} catch {
+			return;
+		}
+	}
+	return;
+}
+
 export interface RawDiagnosticOutput {
 	diagnostics: Diagnostic[];
 	elapsedMs: number;
@@ -35,7 +65,7 @@ function processResults(
 		context.targetPath
 	);
 	const diagnostics = filterSuppressedDiagnostics(configFiltered, (filePath) =>
-		context.astProject.getSourceFile(filePath)?.getFullText()
+		resolveSourceText(context, filePath)
 	);
 	const ruleErrors: RuleErrorInfo[] = errors.map((e) => ({
 		ruleId: e.ruleId,
