@@ -1053,4 +1053,79 @@ describe("scanner integration", () => {
 			expect(appEdges?.has("OrdersModule")).toBe(true);
 		});
 	});
+
+	describe("typeorm-app fixture (abstract base inheritance)", () => {
+		const targetPath = resolve(FIXTURES, "typeorm-app");
+		let context: Awaited<ReturnType<typeof buildAnalysisContext>>;
+		let result: Awaited<ReturnType<typeof buildResult>>["result"];
+
+		beforeAll(async () => {
+			const scanConfig = await resolveScanConfig(targetPath);
+			context = await buildAnalysisContext(targetPath, scanConfig);
+			const rawOutput = diagnose(context);
+			({ result } = buildResult(
+				context,
+				rawOutput,
+				scanConfig.customRuleWarnings
+			));
+		});
+
+		it("detects TypeORM and inherits columns from the abstract base", () => {
+			expect(result.project.orm).toBe("typeorm");
+			expect(result.schema).toBeDefined();
+
+			// BaseEntity is an undecorated abstract class → not its own node.
+			const entityNames = result.schema!.entities.map((e) => e.name).sort();
+			expect(entityNames).toEqual(["AuditLog", "LegacyEvent", "Order", "User"]);
+
+			// User inherits id + createdAt + updatedAt from BaseEntity, on top of
+			// its own columns — the behavior this PR adds.
+			const user = result.schema!.entities.find((e) => e.name === "User")!;
+			const userCols = user.columns.map((c) => c.name).sort();
+			expect(userCols).toEqual([
+				"createdAt",
+				"displayName",
+				"email",
+				"id",
+				"updatedAt",
+			]);
+			expect(user.columns.find((c) => c.name === "id")?.isPrimary).toBe(true);
+		});
+
+		it("does NOT flag entities that inherit PK/timestamps from the base", () => {
+			const schemaDiags = result.diagnostics.filter(
+				(d) => d.category === "schema"
+			);
+			const flagged = new Set(schemaDiags.map((d) => d.entity));
+
+			// The regression this PR fixes: without hierarchy walking, User and
+			// Order would each fire require-primary-key + require-timestamps.
+			expect(flagged.has("User")).toBe(false);
+			expect(flagged.has("Order")).toBe(false);
+		});
+
+		it("still flags entities that genuinely lack PK/timestamps", () => {
+			const schemaDiags = result.diagnostics.filter(
+				(d) => d.category === "schema"
+			);
+
+			const pkEntities = schemaDiags
+				.filter((d) => d.rule === "schema/require-primary-key")
+				.map((d) => d.entity)
+				.sort();
+			expect(pkEntities).toEqual(["AuditLog"]);
+
+			const tsEntities = schemaDiags
+				.filter((d) => d.rule === "schema/require-timestamps")
+				.map((d) => d.entity)
+				.sort();
+			expect(tsEntities).toEqual(["AuditLog", "LegacyEvent"]);
+
+			const cascadeEntities = schemaDiags
+				.filter((d) => d.rule === "schema/require-cascade-rule")
+				.map((d) => d.entity)
+				.sort();
+			expect(cascadeEntities).toEqual(["LegacyEvent"]);
+		});
+	});
 });

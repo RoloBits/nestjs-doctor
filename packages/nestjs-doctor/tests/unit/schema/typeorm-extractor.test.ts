@@ -480,6 +480,95 @@ export class Post {
 		expect(post!.relations[0].toEntity).toBe("User");
 	});
 
+	it("should extract columns inherited from an abstract base class", () => {
+		const { project, paths } = createProject({
+			"base.entity.ts": `
+import { PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from "typeorm";
+
+export abstract class BaseEntity {
+  @PrimaryGeneratedColumn("uuid")
+  id: string;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+}`,
+			"order.entity.ts": `
+import { Entity, Column } from "typeorm";
+import { BaseEntity } from "./base.entity";
+
+@Entity({ name: "orders" })
+export class OrderEntity extends BaseEntity {
+  @Column()
+  status: string;
+}`,
+		});
+
+		const graph = extractSchema(project, paths, "typeorm", "/test");
+		const order = graph.entities.get("OrderEntity");
+		expect(order).toBeDefined();
+		expect(order!.columns).toHaveLength(4);
+		expect(order!.columns.find((c) => c.name === "id")?.isPrimary).toBe(true);
+		expect(order!.columns.find((c) => c.name === "createdAt")).toBeDefined();
+		expect(order!.columns.find((c) => c.name === "updatedAt")).toBeDefined();
+		expect(order!.columns.find((c) => c.name === "status")).toBeDefined();
+	});
+
+	it("should extract columns through multiple levels of inheritance", () => {
+		const { project, paths } = createProject({
+			"base.entity.ts": `
+import { PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from "typeorm";
+
+export abstract class BaseEntity {
+  @PrimaryGeneratedColumn("uuid")
+  id: string;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
+}`,
+			"basic.entity.ts": `
+import { Entity, Column } from "typeorm";
+import { BaseEntity } from "./base.entity";
+
+@Entity({ name: "basic" })
+export class BasicEntity extends BaseEntity {
+  @Column()
+  tenant: string;
+}`,
+			"order.entity.ts": `
+import { Entity, Column } from "typeorm";
+import { BasicEntity } from "./basic.entity";
+
+@Entity({ name: "orders" })
+export class OrderEntity extends BasicEntity {
+  @Column()
+  status: string;
+}`,
+		});
+
+		const graph = extractSchema(project, paths, "typeorm", "/test");
+
+		const basic = graph.entities.get("BasicEntity");
+		expect(basic).toBeDefined();
+		expect(basic!.columns).toHaveLength(4);
+		expect(basic!.columns.find((c) => c.name === "id")?.isPrimary).toBe(true);
+		expect(basic!.columns.find((c) => c.name === "tenant")).toBeDefined();
+
+		const order = graph.entities.get("OrderEntity");
+		expect(order).toBeDefined();
+		expect(order!.columns).toHaveLength(5);
+		expect(order!.columns.find((c) => c.name === "id")?.isPrimary).toBe(true);
+		expect(order!.columns.find((c) => c.name === "createdAt")).toBeDefined();
+		expect(order!.columns.find((c) => c.name === "updatedAt")).toBeDefined();
+		expect(order!.columns.find((c) => c.name === "tenant")).toBeDefined();
+		expect(order!.columns.find((c) => c.name === "status")).toBeDefined();
+	});
+
 	it("should extract self-referencing relation", () => {
 		const { project, paths } = createProject({
 			"category.entity.ts": `
