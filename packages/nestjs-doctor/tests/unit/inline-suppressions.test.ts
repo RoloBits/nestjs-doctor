@@ -186,6 +186,46 @@ describe("filterSuppressedDiagnostics", () => {
 		expect(result).toHaveLength(0);
 	});
 
+	it("suppresses only the named rule when the reason precedes it", () => {
+		// A misplaced reason must not widen the directive to "all rules".
+		const text =
+			"const x = eval(payload); // nestjs-doctor-disable-line -- legacy security/no-eval";
+		const result = filterSuppressedDiagnostics(
+			[
+				codeDiagnostic({ line: 1, rule: "security/no-eval" }),
+				codeDiagnostic({ line: 1, rule: "correctness/no-empty-handlers" }),
+			],
+			fromText(text)
+		);
+		expect(result).toHaveLength(1);
+		expect(result[0].rule).toBe("correctness/no-empty-handlers");
+	});
+
+	it("suppresses all rules for a bare directive with a slash-free reason", () => {
+		const text =
+			"const x = eval(payload); // nestjs-doctor-disable-line -- legacy code";
+		const result = filterSuppressedDiagnostics(
+			[
+				codeDiagnostic({ line: 1, rule: "security/no-eval" }),
+				codeDiagnostic({ line: 1, rule: "correctness/no-empty-handlers" }),
+			],
+			fromText(text)
+		);
+		expect(result).toHaveLength(0);
+	});
+
+	it("suppresses nothing when a bare directive's reason contains a slash", () => {
+		// Safe under-suppression: a slash in the reason (e.g. a URL) is read as a
+		// rule id, so nothing matches and the finding surfaces rather than hides.
+		const text =
+			"const x = eval(payload); // nestjs-doctor-disable-line -- see https://example.com/issues/42";
+		const result = filterSuppressedDiagnostics(
+			[codeDiagnostic({ line: 1, rule: "security/no-eval" })],
+			fromText(text)
+		);
+		expect(result).toHaveLength(1);
+	});
+
 	it("supports block comment directives", () => {
 		const text =
 			"const x = eval(payload); /* nestjs-doctor-disable-line security/no-eval */";

@@ -72,6 +72,11 @@ describe("inline suppression (integration)", () => {
 			result = await analyze("inline-suppressions-app");
 		});
 
+		const evalIn = (suffix: string) =>
+			result.diagnostics.filter(
+				(d) => d.rule === "security/no-eval" && d.filePath.endsWith(suffix)
+			);
+
 		it("detects MikroORM", () => {
 			expect(result.project.orm).toBe("mikro-orm");
 		});
@@ -81,23 +86,20 @@ describe("inline suppression (integration)", () => {
 		// the negative controls remain:
 		//   L45 (H) no directive · L50 (I) misspelled `-lines` · L55 (J) wrong rule
 		it("suppresses every directive FORM and keeps the negative controls", () => {
-			const evalDiags = result.diagnostics.filter(
-				(d) => d.rule === "security/no-eval"
-			);
-			expect(
-				evalDiags.every((d) => d.filePath.endsWith("security.service.ts"))
-			).toBe(true);
-			const lines = evalDiags.map(lineOf).sort((a, b) => a - b);
+			const lines = evalIn("security.service.ts")
+				.map(lineOf)
+				.sort((a, b) => a - b);
 			expect(lines).toEqual([45, 50, 55]);
 		});
 
 		it("suppresses a rule file-wide via -file (security-file.service.ts)", () => {
-			const fromFileScoped = result.diagnostics.filter(
-				(d) =>
-					d.rule === "security/no-eval" &&
-					d.filePath.endsWith("security-file.service.ts")
-			);
-			expect(fromFileScoped).toHaveLength(0);
+			expect(evalIn("security-file.service.ts")).toHaveLength(0);
+		});
+
+		// gap 1: a directive that only appears inside a string literal must not
+		// suppress the real eval() on the next line.
+		it("does not treat a directive inside a string literal as real", () => {
+			expect(evalIn("string-literal.service.ts")).toHaveLength(1);
 		});
 
 		it("suppresses an architecture rule inline, control still fires", () => {

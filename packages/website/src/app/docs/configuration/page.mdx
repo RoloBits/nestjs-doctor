@@ -120,7 +120,15 @@ const config = eval(raw);
 | `nestjs-doctor-ignore-next-line <rules>` | The line below the comment |
 | `nestjs-doctor-ignore-file <rules>` | Every line in the file |
 
-The rule list is space- or comma-separated; omit it to suppress every rule for that scope. A `-- reason` trailer is ignored, so you can document the exception inline. See [Diagnostic Filtering](/docs/pipeline/diagnostic-filtering) for details.
+`disable` works everywhere `ignore` does. The rule list is space- or comma-separated; omit it to suppress every rule for that scope. A `-- reason` trailer (placed after the rules) is ignored, so you can document the exception inline. A directive only counts inside a real comment — one that merely appears inside a string literal is ignored.
+
+Inline suppression runs _after_ config-based filtering, so the two mechanisms compose. Line-scoped directives (`-line` / `-next-line`) match only code diagnostics. Schema diagnostics (`schema/*`) have no line and are suppressed only by `nestjs-doctor-ignore-file` — placed in the entity source for TypeORM/MikroORM/Drizzle, or directly in `schema.prisma` for Prisma:
+
+```prisma
+// nestjs-doctor-ignore-file schema/require-timestamps
+```
+
+See [Diagnostic Filtering](/docs/pipeline/diagnostic-filtering) for details.
 
 ## Default Excludes
 

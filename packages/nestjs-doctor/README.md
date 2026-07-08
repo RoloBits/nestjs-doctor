@@ -216,7 +216,9 @@ The rule list is space- or comma-separated (`security/no-eval, security/no-weak-
 const token = sign(payload); // nestjs-doctor-ignore security/no-weak-crypto -- legacy HS256, migration tracked in #42
 ```
 
-Directives must live on a single line. The line-scoped forms match only code diagnostics — schema diagnostics have no line, so suppress those with `nestjs-doctor-ignore-file` in the entity file.
+Directives must live on a single line, inside a real comment — a directive that only appears inside a string literal is ignored. Put the `-- reason` after the rules (a bare ignore whose reason contains a slash is read as naming a rule).
+
+The line-scoped forms match only code diagnostics — schema diagnostics have no line, so suppress those with `nestjs-doctor-ignore-file`, either in the entity source (TypeORM / MikroORM / Drizzle) or directly in `schema.prisma` (Prisma).
 
 ---
 

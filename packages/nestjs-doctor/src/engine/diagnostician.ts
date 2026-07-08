@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { performance } from "node:perf_hooks";
+import { type SourceFile, SyntaxKind } from "ts-morph";
 import type { Diagnostic } from "../common/diagnostic.js";
 import type { RuleErrorInfo } from "../common/result.js";
 import type { AnalysisContext } from "./analysis-context.js";
@@ -19,28 +20,65 @@ function formatRuleError(error: unknown): string {
 	return String(error);
 }
 
-// Non-TypeScript schema sources (Prisma `.prisma` files) are not part of the
-// ts-morph AST project, so their inline directives cannot be resolved from it.
+// Prisma `.prisma` schemas live outside the ts-morph AST project.
 const NON_AST_SOURCE_EXTENSIONS = [".prisma"];
+// Cheap gate: skip string-blanking for files that mention no directive.
+const SUPPRESSION_MARKER = "nestjs-doctor-";
+const NON_NEWLINE_RE = /[^\n]/g;
+// A double-quoted Prisma string, backslash escapes included.
+const PRISMA_STRING_RE = /"(?:\\.|[^"\\])*"/g;
+// Literal kinds whose contents get blanked so their text can't look like a directive.
+const STRING_LIKE_KINDS = new Set<SyntaxKind>([
+	SyntaxKind.StringLiteral,
+	SyntaxKind.NoSubstitutionTemplateLiteral,
+	SyntaxKind.TemplateHead,
+	SyntaxKind.TemplateMiddle,
+	SyntaxKind.TemplateTail,
+	SyntaxKind.RegularExpressionLiteral,
+]);
 
-/**
- * Resolves a diagnostic's `filePath` to its source text for inline-suppression
- * parsing. TypeScript files are served from the in-memory ts-morph project (no
- * disk read). Files outside that project — Prisma `.prisma` schemas — fall back
- * to a direct read so `nestjs-doctor-ignore-file` directives work there too.
- * A missing/unreadable file returns `undefined`, leaving diagnostics untouched.
- */
+// Blank string/template/regex-literal contents (newlines kept) so a directive only counts inside a real comment, never inside a string.
+function blankStringLiterals(sourceFile: SourceFile): string {
+	const full = sourceFile.getFullText();
+	const spans = sourceFile
+		.getDescendants()
+		.filter((node) => STRING_LIKE_KINDS.has(node.getKind()))
+		.map((node) => [node.getStart(), node.getEnd()] as const)
+		.sort((a, b) => a[0] - b[0]);
+
+	let result = "";
+	let cursor = 0;
+	for (const [start, end] of spans) {
+		if (start < cursor) {
+			continue;
+		}
+		result += full.slice(cursor, start);
+		result += full.slice(start, end).replace(NON_NEWLINE_RE, " ");
+		cursor = end;
+	}
+	return result + full.slice(cursor);
+}
+
+const blankPrismaStrings = (text: string): string =>
+	text.replace(PRISMA_STRING_RE, (match) => match.replace(NON_NEWLINE_RE, " "));
+
+// TS source comes from the AST project; `.prisma` is read from disk so its
+// `-file` directives resolve too. String contents are blanked before parsing.
 function resolveSourceText(
 	context: AnalysisContext,
 	filePath: string
 ): string | undefined {
-	const fromProject = context.astProject.getSourceFile(filePath)?.getFullText();
-	if (fromProject !== undefined) {
-		return fromProject;
+	const sourceFile = context.astProject.getSourceFile(filePath);
+	if (sourceFile) {
+		const text = sourceFile.getFullText();
+		return text.includes(SUPPRESSION_MARKER)
+			? blankStringLiterals(sourceFile)
+			: text;
 	}
 	if (NON_AST_SOURCE_EXTENSIONS.some((ext) => filePath.endsWith(ext))) {
 		try {
-			return readFileSync(filePath, "utf8");
+			const raw = readFileSync(filePath, "utf8");
+			return raw.includes(SUPPRESSION_MARKER) ? blankPrismaStrings(raw) : raw;
 		} catch {
 			return;
 		}

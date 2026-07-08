@@ -46,11 +46,7 @@ const createSuppressionSet = (): SuppressionSet => ({
 const matchesRule = (set: SuppressionSet, rule: string): boolean =>
 	set.all || set.rules.has(rule);
 
-/**
- * Parses the text that follows a directive into the set of rule IDs it
- * targets. Returns `"all"` when no explicit rule is listed. A `-- reason`
- * trailer and the closing `*​/` of a block comment are stripped first.
- */
+// A token is a rule only if it contains `/` (every rule id is `category/name`), so a `-- reason` is ignored wherever it sits; no rule tokens means "all".
 const parseRuleList = (rest: string): string[] | "all" => {
 	let text = rest;
 
@@ -59,15 +55,10 @@ const parseRuleList = (rest: string): string[] | "all" => {
 		text = text.slice(0, closeIdx);
 	}
 
-	const reasonIdx = text.indexOf("--");
-	if (reasonIdx !== -1) {
-		text = text.slice(0, reasonIdx);
-	}
-
 	const tokens = text
 		.split(RULE_SEPARATOR_RE)
 		.map((token) => token.trim())
-		.filter(Boolean);
+		.filter((token) => token.includes("/"));
 
 	return tokens.length === 0 ? "all" : tokens;
 };
