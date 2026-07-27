@@ -15,6 +15,11 @@ const MAX_TABLE_ROWS = 50;
 const SEVERITY_ORDER = { error: 0, warning: 1, info: 2 } as const;
 const PIPE_RE = /\|/g;
 const NEWLINE_RE = /\r?\n/g;
+const FULL_SHA_RE = /^[0-9a-f]{40}$/i;
+
+/** Abbreviates a base given as a full SHA; leaves branch names alone. */
+const shortenRef = (ref: string): string =>
+	FULL_SHA_RE.test(ref) ? ref.slice(0, 7) : ref;
 
 export interface MarkdownReportOptions {
 	commitSha?: string;
@@ -99,7 +104,7 @@ function renderScopeNote(scope: ScopeInfo | undefined): string[] {
 				? `${scope.changedFiles} of ${pluralize(total, "changed file")} scanned`
 				: `${pluralize(scope.changedFiles, "file")} in scope`;
 		lines.push(
-			`<sub>Scope \`${scope.mode}\` · ${counted}${scope.baseRef ? ` vs \`${scope.baseRef}\`` : ""}.</sub>`
+			`<sub>Scope \`${scope.mode}\` · ${counted}${scope.baseRef ? ` vs \`${shortenRef(scope.baseRef)}\`` : ""}.</sub>`
 		);
 	}
 	return lines.length ? ["", ...lines] : [];
