@@ -5,7 +5,6 @@ import { DataSource } from "typeorm";
 @UseGuards(AuthGuard)
 @Controller("orders")
 export class OrdersController {
-  // nestjs-doctor-ignore-next-line architecture/no-orm-in-controllers
   constructor(private readonly ds: DataSource) {}
 
   @Get(":id")
