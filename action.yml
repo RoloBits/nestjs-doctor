@@ -368,6 +368,7 @@ runs:
           const MARKER = "<!-- nestjs-doctor:review -->";
           const KEY_RE = /<!-- nestjs-doctor:key ([A-Za-z0-9+/=]+) -->/;
           const RETIRED = "<!-- nestjs-doctor:retired -->";
+          const REVIVED = "<!-- nestjs-doctor:revived -->";
           const headSha = process.env.NESTJS_DOCTOR_HEAD_SHA || "";
           const shortSha = headSha.slice(0, 7);
           const directoryPrefix = (process.env.INPUT_DIRECTORY || ".")
@@ -456,7 +457,8 @@ runs:
           if (wanted.size === 0 && diagnostics.length > 0) return;
 
           // Threads, not bare comments: resolving needs the thread id, and only
-          // GraphQL exposes it.
+          // GraphQL exposes it. `viewerCanResolve` answers up front whether the
+          // token behind this run is allowed to resolve at all.
           let threads = [];
           try {
             const result = await github.graphql(
@@ -467,7 +469,9 @@ runs:
                        nodes{
                          id
                          isResolved
-                         comments(first:1){ nodes{ id databaseId body isMinimized } }
+                         viewerCanResolve
+                         root: comments(first:1){ nodes{ databaseId body } }
+                         recent: comments(last:20){ nodes{ body } }
                        }
                      }
                    }
@@ -480,27 +484,29 @@ runs:
             core.warning(`nestjs-doctor could not read review threads (${error.message}).`);
           }
 
-          const ours = new Map();
-          // Comments from before the key format cannot be matched to a finding,
-          // so this run's keyed set supersedes them.
-          const legacy = [];
-          for (const thread of threads) {
-            const first = thread.comments.nodes[0];
-            if (!first?.body?.startsWith(MARKER)) continue;
-            const entry = {
-              threadId: thread.id,
-              commentId: first.databaseId,
-              commentNodeId: first.id,
-              isResolved: thread.isResolved,
-              isMinimized: first.isMinimized,
-              retired: first.body.includes(RETIRED),
-            };
-            const match = first.body.match(KEY_RE);
-            if (match) {
-              ours.set(match[1], entry);
-            } else if (!entry.retired) {
-              legacy.push(entry);
+          // The newest status reply decides the thread's state, so a human
+          // replying afterwards does not change it.
+          const stateOf = (bodies) => {
+            for (let index = bodies.length - 1; index >= 0; index -= 1) {
+              if (bodies[index].includes(RETIRED)) return "retired";
+              if (bodies[index].includes(REVIVED)) return "live";
             }
+            return "live";
+          };
+
+          const ours = new Map();
+          for (const thread of threads) {
+            const root = thread.root.nodes[0];
+            if (!root?.body?.startsWith(MARKER)) continue;
+            const match = root.body.match(KEY_RE);
+            if (!match) continue;
+            ours.set(match[1], {
+              threadId: thread.id,
+              rootId: root.databaseId,
+              isResolved: thread.isResolved,
+              canResolve: thread.viewerCanResolve,
+              state: stateOf(thread.recent.nodes.map((node) => node.body ?? "")),
+            });
           }
 
           // Only genuinely new findings are posted. An unchanged one keeps its
@@ -524,113 +530,88 @@ runs:
             }
           }
 
-          // GitHub refuses resolveReviewThread to the default token, so a
-          // collapsed comment stands in when resolving is not permitted.
-          let collapseDenied = false;
-          const isDenied = (error) => /not accessible by integration/i.test(error.message);
+          core.info(
+            `review threads — ${ours.size} known, ` +
+              `${[...ours.values()].filter((entry) => entry.canResolve).length} resolvable by this token`,
+          );
 
-          const mutate = async (query, variables) => {
-            try {
-              await github.graphql(query, variables);
-              return true;
-            } catch (error) {
-              if (!isDenied(error)) throw error;
-              return false;
-            }
-          };
+          let resolveDenied = false;
 
-          const setBody = (entry, body) =>
-            github.rest.pulls.updateReviewComment({
+          // The finding itself is never rewritten. A reply records what changed,
+          // so the original text and the discussion under it both survive.
+          const reply = (entry, body) =>
+            github.rest.pulls.createReplyForReviewComment({
               ...context.repo,
-              comment_id: entry.commentId,
+              pull_number: pullRequest.number,
+              comment_id: entry.rootId,
               body,
             });
 
-          const collapse = async (entry) => {
-            const resolvedNow =
-              entry.isResolved ||
-              (await mutate(
-                `mutation($id:ID!){ resolveReviewThread(input:{threadId:$id}){ thread{ id } } }`,
-                { id: entry.threadId },
-              ));
-            if (resolvedNow || entry.isMinimized) return;
-            const minimized = await mutate(
-              `mutation($id:ID!){ minimizeComment(input:{subjectId:$id,classifier:OUTDATED}){ clientMutationId } }`,
-              { id: entry.commentNodeId },
-            );
-            collapseDenied = collapseDenied || !minimized;
-          };
-
-          const reopen = async (entry) => {
-            if (entry.isResolved) {
-              const unresolved = await mutate(
-                `mutation($id:ID!){ unresolveReviewThread(input:{threadId:$id}){ thread{ id } } }`,
-                { id: entry.threadId },
-              );
-              collapseDenied = collapseDenied || !unresolved;
+          const setResolved = async (entry, resolved) => {
+            if (entry.isResolved === resolved) return;
+            if (!entry.canResolve) {
+              resolveDenied = true;
+              return;
             }
-            if (entry.isMinimized) {
-              const unminimized = await mutate(
-                `mutation($id:ID!){ unminimizeComment(input:{subjectId:$id}){ clientMutationId } }`,
-                { id: entry.commentNodeId },
-              );
-              collapseDenied = collapseDenied || !unminimized;
-            }
-          };
-
-          // A finding that comes back reuses its original thread, so the
-          // discussion under it survives the round trip.
-          let reopened = 0;
-          for (const [key, comment] of wanted) {
-            const entry = ours.get(key);
-            if (!entry?.retired) continue;
             try {
-              await setBody(entry, comment.body);
-              await reopen(entry);
-              reopened += 1;
+              await github.graphql(
+                resolved
+                  ? `mutation($id:ID!){ resolveReviewThread(input:{threadId:$id}){ thread{ id } } }`
+                  : `mutation($id:ID!){ unresolveReviewThread(input:{threadId:$id}){ thread{ id } } }`,
+                { id: entry.threadId },
+              );
             } catch (error) {
-              core.warning(`nestjs-doctor could not reopen a review thread: ${error.message}`);
+              if (!/not accessible by integration/i.test(error.message)) throw error;
+              resolveDenied = true;
             }
-          }
+          };
 
-          // A finding that stopped being reported is retired, not deleted, and
-          // not called fixed: the scan cannot tell a fix from a suppression, a
-          // deletion, or a disabled rule, so it states only what it observed.
+          // "No longer reported" rather than "fixed": the scan cannot tell a fix
+          // from a suppression, a deletion, or a disabled rule.
           let retired = 0;
           for (const [key, entry] of ours) {
-            if (wanted.has(key) || entry.retired) continue;
+            if (wanted.has(key) || entry.state === "retired") continue;
             try {
-              await setBody(
+              await reply(
                 entry,
-                `${MARKER}\n<!-- nestjs-doctor:key ${key} -->\n${RETIRED}\n_No longer reported as of \`${shortSha}\`._`,
+                `${MARKER}\n${RETIRED}\n✅ **No longer reported** as of \`${shortSha}\`.`,
               );
-              await collapse(entry);
+              await setResolved(entry, true);
               retired += 1;
             } catch (error) {
               core.warning(`nestjs-doctor could not retire a review thread: ${error.message}`);
             }
           }
 
-          for (const entry of legacy) {
+          // A finding that comes back reuses its thread rather than opening a
+          // second one somebody has to read alongside the first.
+          let reopened = 0;
+          for (const key of wanted.keys()) {
+            const entry = ours.get(key);
+            if (!entry || entry.state !== "retired") continue;
             try {
-              await setBody(entry, `${MARKER}\n${RETIRED}\n_Superseded by an updated comment._`);
-              await collapse(entry);
+              await reply(
+                entry,
+                `${MARKER}\n${REVIVED}\n⚠️ **Reported again** as of \`${shortSha}\`.`,
+              );
+              await setResolved(entry, false);
+              reopened += 1;
             } catch (error) {
-              core.warning(`nestjs-doctor could not retire a superseded comment: ${error.message}`);
+              core.warning(`nestjs-doctor could not reopen a review thread: ${error.message}`);
             }
           }
 
-          if (collapseDenied) {
+          if (resolveDenied) {
             core.warning(
-              "nestjs-doctor marked stale comments but could not collapse them: GitHub refuses " +
-                "resolveReviewThread and minimizeComment to the default GITHUB_TOKEN. Pass a " +
-                "GitHub App installation token or a machine account's PAT as `github-token`.",
+              "nestjs-doctor replied to stale comments but left their threads open: GitHub does " +
+                "not let this token resolve a review thread. Pass a GitHub App installation " +
+                "token or a machine account's PAT as `github-token` to have them resolved.",
             );
           }
 
           core.info(
             `inline comments — posted ${fresh.length}, kept ${wanted.size - fresh.length}, ` +
-              `reopened ${reopened}, retired ${retired}, superseded ${legacy.length}`,
+              `retired ${retired}, reopened ${reopened}`,
           );
     - name: Publish commit status
       if: ${{ always() && inputs.commit-status == 'true' }}
