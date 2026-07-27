@@ -3,10 +3,10 @@ import { DataSource } from "typeorm";
 
 @Controller("orders")
 export class OrdersController {
-  constructor(private ds: DataSource) {}
+  constructor(private readonly ds: DataSource) {}
 
   @Get(":id")
-  async findOne(@Param("orderId") orderId: string) {
+  async findOne(@Param("id") id: string) {
     const rows = await this.ds.query("SELECT * FROM orders WHERE tenant_id = 1");
     const visible = [];
     for (const row of rows) {
