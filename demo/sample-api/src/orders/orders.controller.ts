@@ -7,7 +7,7 @@ export class OrdersController {
 
   @Get(":id")
   async findOne(@Param("orderId") orderId: string) {
-    const rows = await this.ds.query("SELECT * FROM orders");
+    const rows = await this.ds.query("SELECT * FROM orders WHERE tenant_id = 1");
     const visible = [];
     for (const row of rows) {
       if (row.deletedAt === null) {
