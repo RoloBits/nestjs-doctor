@@ -248,6 +248,32 @@ describe("buildMarkdownReport", () => {
 		expect(markdown).toContain("5 of 9 changed files scanned");
 	});
 
+	it("abbreviates a base given as a full sha but not a branch name", () => {
+		const sha = "13bb31aa5bf4b88f1da75375c0d1cfec6d022dd2";
+		const shaScope = {
+			mode: "changed" as const,
+			changedFiles: 5,
+			baseRef: sha,
+		};
+		const shaMarkdown = buildMarkdownReport(
+			{ ...resultWith([]), scope: shaScope },
+			{ ...options, scope: shaScope }
+		);
+		expect(shaMarkdown).toContain("vs `13bb31a`");
+		expect(shaMarkdown).not.toContain(sha);
+
+		const branchScope = {
+			mode: "changed" as const,
+			changedFiles: 5,
+			baseRef: "origin/release-1.2.3",
+		};
+		const branchMarkdown = buildMarkdownReport(
+			{ ...resultWith([]), scope: branchScope },
+			{ ...options, scope: branchScope }
+		);
+		expect(branchMarkdown).toContain("vs `origin/release-1.2.3`");
+	});
+
 	it("does not say 'of' when nothing was filtered out", () => {
 		const scope = {
 			mode: "files" as const,
