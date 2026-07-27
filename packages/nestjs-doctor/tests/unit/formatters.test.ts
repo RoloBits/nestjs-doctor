@@ -24,6 +24,7 @@ import { buildSarifLog } from "../../src/formatters/sarif-report.js";
 
 const ROOT = "/repo";
 const SHA256_HEX_RE = /^[0-9a-f]{64}$/;
+const EMOJI_RE = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
 
 const code = (
 	overrides: Partial<CodeDiagnostic> & { line: number }
@@ -231,6 +232,25 @@ describe("buildMarkdownReport", () => {
 		});
 		expect(markdown).toContain("introduced by this change");
 		expect(markdown).toContain("resolved 2 existing findings");
+	});
+
+	it("brands the heading with the logo rather than an emoji", () => {
+		const markdown = buildMarkdownReport(resultWith([]), options);
+		expect(markdown).toContain("nestjs.doctor/logo.png");
+		expect(markdown).not.toMatch(EMOJI_RE);
+	});
+
+	it("names the severity instead of colouring it", () => {
+		// A screen reader announces a coloured circle as "red circle", not
+		// "error", so the word carries the meaning the colour used to.
+		const markdown = buildMarkdownReport(
+			resultWith([code({ line: 8 }), schemaDiagnostic]),
+			options
+		);
+		expect(markdown).toContain("| Severity |");
+		expect(markdown).toContain("| warning |");
+		expect(markdown).toContain("| error |");
+		expect(markdown).not.toMatch(EMOJI_RE);
 	});
 
 	it("counts files in scope, not files in the change", () => {
