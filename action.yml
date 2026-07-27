@@ -340,10 +340,10 @@ runs:
       env:
         NESTJS_DOCTOR_REPORT_FILE: ${{ steps.scan.outputs.report-file }}
         INPUT_DIRECTORY: ${{ steps.base.outputs.prefix || inputs.directory }}
+        NESTJS_DOCTOR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       with:
         script: |
           const fs = require("fs");
-          const path = require("path");
           const reportPath = process.env.NESTJS_DOCTOR_REPORT_FILE;
           const pullRequest = context.payload.pull_request;
           if (!pullRequest || !reportPath || !fs.existsSync(reportPath)) return;
@@ -352,13 +352,16 @@ runs:
           try {
             report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
           } catch {
-            // A crashed scan leaves a truncated report; leave existing feedback
-            // in place rather than wiping it on a transient failure.
+            // A crashed scan leaves a truncated report. Leave existing feedback
+            // alone rather than acting on nothing.
             return;
           }
           const diagnostics = Array.isArray(report.diagnostics) ? report.diagnostics : [];
 
-          const marker = "<!-- nestjs-doctor:review -->";
+          const MARKER = "<!-- nestjs-doctor:review -->";
+          const KEY_RE = /<!-- nestjs-doctor:key ([A-Za-z0-9+/=]+) -->/;
+          const headSha = process.env.NESTJS_DOCTOR_HEAD_SHA || "";
+          const shortSha = headSha.slice(0, 7);
           const directoryPrefix = (process.env.INPUT_DIRECTORY || ".")
             .replace(/^\.\/?/, "")
             .replace(/\/$/, "");
@@ -375,10 +378,8 @@ runs:
             return;
           }
 
-          // The Reviews API accepts RIGHT-side comments on any line inside a
-          // hunk — added (`+`) and unchanged context (` `) alike, since a
-          // finding can land on a context line when the change that caused it
-          // is elsewhere in the hunk. Removed lines are not RIGHT-side lines.
+          // RIGHT-side comments are accepted on added (`+`) and context (` `)
+          // lines. Removed lines and the no-newline marker are not.
           const commentableByFile = new Map();
           for (const file of files) {
             if (!file.patch) continue;
@@ -398,7 +399,6 @@ runs:
             commentableByFile.set(file.filename, commentable);
           }
 
-          // Report paths are absolute; map them back onto repo-relative ones.
           const workspace = (process.env.GITHUB_WORKSPACE || process.cwd()).replace(/\\/g, "/");
           const toRepoPath = (filePath) => {
             let normalized = String(filePath || "").replace(/\\/g, "/").replace(/^\.\//, "");
@@ -414,64 +414,83 @@ runs:
             return suffixMatches.length === 1 ? suffixMatches[0] : null;
           };
 
-          const seen = new Set();
-          const comments = [];
+          // Identity excludes the line number, so a finding that merely shifted
+          // keeps its comment instead of being reposted. The occurrence index
+          // separates two findings that are otherwise identical.
+          const occurrences = new Map();
+          const keyFor = (repoPath, diagnostic) => {
+            const base = `${diagnostic.rule}|${repoPath}|${diagnostic.message}`;
+            const seen = occurrences.get(base) ?? 0;
+            occurrences.set(base, seen + 1);
+            return Buffer.from(`${base}|${seen}`).toString("base64");
+          };
+
+          const wanted = new Map();
           for (const diagnostic of diagnostics) {
             if (!diagnostic || typeof diagnostic.line !== "number" || diagnostic.line <= 0) continue;
             const repoPath = toRepoPath(diagnostic.filePath);
             if (!repoPath) continue;
             const commentable = commentableByFile.get(repoPath);
             if (!commentable || !commentable.has(diagnostic.line)) continue;
-            const dedupeKey = `${repoPath}:${diagnostic.line}:${diagnostic.rule}`;
-            if (seen.has(dedupeKey)) continue;
-            seen.add(dedupeKey);
+            const key = keyFor(repoPath, diagnostic);
+            if (wanted.has(key)) continue;
             const fix = diagnostic.help ? `\n\n**Fix** → ${diagnostic.help}` : "";
-            comments.push({
+            wanted.set(key, {
               path: repoPath,
               line: diagnostic.line,
               side: "RIGHT",
-              body: `${marker}\n**nestjs-doctor** · \`${diagnostic.rule}\` _(${diagnostic.severity})_\n\n${diagnostic.message}${fix}`,
+              body: `${MARKER}\n<!-- nestjs-doctor:key ${key} -->\n**nestjs-doctor** · \`${diagnostic.rule}\` _(${diagnostic.severity})_\n\n${diagnostic.message}${fix}`,
             });
           }
 
-          // Findings that mapped onto no changed line must not wipe existing
-          // inline feedback — that would read as "all clear" when it isn't.
-          if (comments.length === 0 && diagnostics.length > 0) return;
+          // Findings that mapped onto no changed line must not clear existing
+          // feedback — that would read as "all clear" when it is not.
+          if (wanted.size === 0 && diagnostics.length > 0) return;
 
-          // Capture the prior review comments up front, and delete them only
-          // after the new review posts, so a failed post leaves the last run's
-          // feedback rather than nothing at all.
-          let priorIds = [];
+          // Threads, not bare comments: resolving needs the thread id, and only
+          // GraphQL exposes it.
+          let threads = [];
           try {
-            const existing = await github.paginate(github.rest.pulls.listReviewComments, {
-              ...context.repo,
-              pull_number: pullRequest.number,
-              per_page: 100,
-            });
-            // A comment someone replied to is a conversation, not just output.
-            // Deleting its parent would leave the reply answering nothing, so
-            // those are kept even once the finding is resolved.
-            const repliedTo = new Set(
-              existing.map((comment) => comment.in_reply_to_id).filter(Boolean),
+            const result = await github.graphql(
+              `query($owner:String!,$repo:String!,$number:Int!){
+                 repository(owner:$owner,name:$repo){
+                   pullRequest(number:$number){
+                     reviewThreads(first:100){
+                       nodes{
+                         id
+                         isResolved
+                         comments(first:1){ nodes{ databaseId body } }
+                       }
+                     }
+                   }
+                 }
+               }`,
+              { owner: context.repo.owner, repo: context.repo.repo, number: pullRequest.number },
             );
-            priorIds = existing
-              .filter((comment) => comment.body?.startsWith(marker))
-              .filter((comment) => !repliedTo.has(comment.id))
-              .map((comment) => comment.id);
+            threads = result.repository.pullRequest.reviewThreads.nodes ?? [];
           } catch (error) {
-            core.warning(`nestjs-doctor could not list prior review comments: ${error.message}`);
+            core.warning(`nestjs-doctor could not read review threads (${error.message}).`);
           }
 
-          // Capped to stay inside GitHub's per-review size limits and to keep a
-          // large pull request readable; the sticky comment holds every finding.
+          const ours = new Map();
+          for (const thread of threads) {
+            const first = thread.comments.nodes[0];
+            if (!first?.body?.startsWith(MARKER)) continue;
+            const match = first.body.match(KEY_RE);
+            if (match) ours.set(match[1], { ...thread, commentId: first.databaseId });
+          }
+
+          // Only genuinely new findings are posted. An unchanged one keeps its
+          // comment, so re-pushing does not re-notify or break permalinks.
+          const fresh = [...wanted.entries()].filter(([key]) => !ours.has(key)).map(([, c]) => c);
           const MAX_COMMENTS = 40;
-          if (comments.length > 0) {
+          if (fresh.length > 0) {
             try {
               await github.rest.pulls.createReview({
                 ...context.repo,
                 pull_number: pullRequest.number,
                 event: "COMMENT",
-                comments: comments.slice(0, MAX_COMMENTS),
+                comments: fresh.slice(0, MAX_COMMENTS),
               });
             } catch (error) {
               core.warning(
@@ -482,14 +501,29 @@ runs:
             }
           }
 
-          for (const commentId of priorIds) {
+          // A finding that stopped being reported is resolved, not deleted, and
+          // not called fixed: the scan cannot tell a fix from a suppression, a
+          // deletion, or a disabled rule, so it states only what it observed.
+          let resolved = 0;
+          for (const [key, thread] of ours) {
+            if (wanted.has(key) || thread.isResolved) continue;
             try {
-              await github.rest.pulls.deleteReviewComment({ ...context.repo, comment_id: commentId });
+              await github.rest.pulls.updateReviewComment({
+                ...context.repo,
+                comment_id: thread.commentId,
+                body: `${MARKER}\n<!-- nestjs-doctor:key ${key} -->\n_No longer reported as of \`${shortSha}\`._`,
+              });
+              await github.graphql(
+                `mutation($id:ID!){ resolveReviewThread(input:{threadId:$id}){ thread{ id } } }`,
+                { id: thread.id },
+              );
+              resolved += 1;
             } catch (error) {
-              core.warning(`nestjs-doctor could not clear a prior review comment: ${error.message}`);
+              core.warning(`nestjs-doctor could not resolve a review thread: ${error.message}`);
             }
           }
 
+          core.info(`inline comments — posted ${fresh.length}, kept ${wanted.size - fresh.length}, resolved ${resolved}`);
     - name: Publish commit status
       if: ${{ always() && inputs.commit-status == 'true' }}
       uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
