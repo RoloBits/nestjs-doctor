@@ -1,0 +1,55 @@
+name: Action Live Demo
+
+# Temporary. Runs the action with commenting switched on so a human can see what
+# it posts on a real pull request. Delete with the demo branch.
+#
+# `version` points at the local build, not npm: the published package predates
+# every flag this action passes, so `version: latest` would test the wrong code.
+on:
+  pull_request:
+    paths:
+      - "demo/**"
+      - ".github/workflows/action-demo.yml"
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+
+jobs:
+  demo:
+    name: Scan the demo app and comment
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # `scope: changed` resolves the merge base, which a shallow clone cannot.
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter nestjs-doctor build
+
+      - id: doctor
+        uses: ./
+        with:
+          directory: demo/billing-api
+          version: ${{ github.workspace }}/packages/nestjs-doctor
+          scope: changed
+          blocking: none
+          comment: "true"
+          review-comments: "true"
+          commit-status: "true"
+
+      - name: Show the outputs
+        run: |
+          echo "score          = ${{ steps.doctor.outputs.score }}"
+          echo "label          = ${{ steps.doctor.outputs.label }}"
+          echo "total-issues   = ${{ steps.doctor.outputs.total-issues }}"
+          echo "fixed-issues   = ${{ steps.doctor.outputs.fixed-issues }}"
+          echo "error-count    = ${{ steps.doctor.outputs.error-count }}"
+          echo "warning-count  = ${{ steps.doctor.outputs.warning-count }}"
+          echo "affected-files = ${{ steps.doctor.outputs.affected-files }}"
