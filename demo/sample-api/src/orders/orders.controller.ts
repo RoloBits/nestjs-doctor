@@ -1,6 +1,8 @@
-import { Controller, Get, Param } from "@nestjs/common";
+import { Controller, Get, Param, UseGuards } from "@nestjs/common";
+import { AuthGuard } from "../auth.guard";
 import { DataSource } from "typeorm";
 
+@UseGuards(AuthGuard)
 @Controller("orders")
 export class OrdersController {
   constructor(private readonly ds: DataSource) {}
