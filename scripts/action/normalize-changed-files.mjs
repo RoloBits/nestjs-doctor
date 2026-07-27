@@ -9,7 +9,7 @@
  *
  * Usage: normalize-changed-files.mjs <scanPrefix> <outputPath> < paths
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 
 // Only source the scanner can actually parse; everything else is noise on a
 // pull request and would widen the changed set for no benefit.
@@ -57,11 +57,23 @@ const isMain = import.meta.url === `file://${process.argv[1]}`;
 if (isMain) {
 	const [, , scanPrefix, outputPath] = process.argv;
 	const raw = readFileSync(0, "utf-8");
-	const files = normalizeChangedFiles(raw.split("\n"), scanPrefix);
+	const incoming = raw.split("\n").filter((line) => line.trim());
+	const files = normalizeChangedFiles(incoming, scanPrefix);
 	writeFileSync(
 		outputPath,
 		files.length ? `${files.join("\n")}\n` : "",
 		"utf-8"
 	);
-	console.log(`nestjs-doctor: ${files.length} changed file(s) in scope`);
+
+	// The pre-filter total lets the report say "5 of 9 scanned" rather than a
+	// bare 5, which reads as a miscount beside the pull request's own count.
+	if (process.env.GITHUB_OUTPUT) {
+		appendFileSync(
+			process.env.GITHUB_OUTPUT,
+			`changed-total=${incoming.length}\n`
+		);
+	}
+	console.log(
+		`nestjs-doctor: ${files.length} of ${incoming.length} changed file(s) in scope`
+	);
 }

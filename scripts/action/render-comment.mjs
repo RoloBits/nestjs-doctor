@@ -48,6 +48,13 @@ async function render() {
 		report.scope.degradedFrom = undefined;
 	}
 
+	// The scan only ever saw the filtered list, so the pre-filter total has to
+	// come from the step that did the filtering.
+	const total = Number(process.env.NESTJS_DOCTOR_CHANGED_TOTAL);
+	if (report.scope && Number.isFinite(total) && total > 0) {
+		report.scope.changedFilesTotal = total;
+	}
+
 	try {
 		const api = await import(pathToFileURL(apiEntry).href);
 		return api.buildMarkdownReport(report, {

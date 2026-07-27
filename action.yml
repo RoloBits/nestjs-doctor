@@ -38,6 +38,9 @@ inputs:
   silence-missing-baseline-warning:
     description: "Hide the warning shown when a compare scope cannot reach the base commit (a shallow checkout) and falls back to reporting every finding in the changed files. Setting `fetch-depth: 0` on actions/checkout is the real remedy."
     default: "false"
+  github-token:
+    description: "Token used to comment and set the commit status. The default posts as github-actions[bot], with GitHub's own avatar; a GitHub App installation token or a bot account's PAT posts under that identity's name and picture instead."
+    default: ${{ github.token }}
   node-version:
     description: "Node.js version to use"
     default: "22"
@@ -164,6 +167,7 @@ runs:
         # github-script's own directory, so pass ours explicitly.
         COMPOSITE_ACTION_PATH: ${{ github.action_path }}
       with:
+        github-token: ${{ inputs.github-token }}
         script: |
           const fs = require("fs");
           const { pathToFileURL } = require("url");
@@ -288,6 +292,7 @@ runs:
         NESTJS_DOCTOR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         NESTJS_DOCTOR_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         NESTJS_DOCTOR_SILENCE_BASELINE_WARNING: ${{ inputs.silence-missing-baseline-warning }}
+        NESTJS_DOCTOR_CHANGED_TOTAL: ${{ steps.base.outputs.changed-total || steps.pr-files.outputs.changed-total }}
       run: |
         node "$GITHUB_ACTION_PATH/scripts/action/read-report.mjs" "$REPORT_FILE"
         node "$GITHUB_ACTION_PATH/scripts/action/render-comment.mjs" "$API_ENTRY" "$REPORT_FILE" "$COMMENT_FILE"
@@ -299,6 +304,7 @@ runs:
       env:
         NESTJS_DOCTOR_COMMENT_FILE: ${{ steps.report.outputs.comment-file }}
       with:
+        github-token: ${{ inputs.github-token }}
         script: |
           const fs = require("fs");
           const commentPath = process.env.NESTJS_DOCTOR_COMMENT_FILE;
@@ -342,6 +348,7 @@ runs:
         INPUT_DIRECTORY: ${{ steps.base.outputs.prefix || inputs.directory }}
         NESTJS_DOCTOR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       with:
+        github-token: ${{ inputs.github-token }}
         script: |
           const fs = require("fs");
           const reportPath = process.env.NESTJS_DOCTOR_REPORT_FILE;
@@ -562,6 +569,7 @@ runs:
         NESTJS_DOCTOR_STATUS_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         NESTJS_DOCTOR_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       with:
+        github-token: ${{ inputs.github-token }}
         script: |
           const sha = process.env.NESTJS_DOCTOR_STATUS_SHA;
           if (!sha) return;
