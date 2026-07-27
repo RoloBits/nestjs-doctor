@@ -16,6 +16,7 @@ export const DOCS_NAV: NavSection[] = [
 			{ title: "Setup", href: "/docs/setup" },
 			{ title: "Configuration", href: "/docs/configuration" },
 			{ title: "Custom Rules", href: "/docs/custom-rules" },
+			{ title: "CI & Pull Requests", href: "/docs/ci" },
 			{ title: "VS Code Extension", href: "/docs/vscode-extension" },
 		],
 	},

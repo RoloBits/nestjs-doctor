@@ -21,6 +21,11 @@ export const docsMetadata: Record<string, Metadata> = {
 		description:
 			"Extend nestjs-doctor with project-specific checks. Encode domain conventions, enforce team standards, or flag patterns unique to your codebase.",
 	},
+	"/docs/ci": {
+		title: "CI & Pull Requests",
+		description:
+			"Run nestjs-doctor in CI. Official GitHub Action with sticky pull request comments, inline review comments, and commit statuses; diff-scoped scanning that reports only what a change introduced; SARIF and GitLab Code Quality output.",
+	},
 	"/docs/vscode-extension": {
 		title: "VS Code Extension",
 		description:

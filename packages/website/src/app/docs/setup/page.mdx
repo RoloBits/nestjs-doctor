@@ -35,15 +35,27 @@ npm install -D nestjs-doctor
 ```
 Usage: nestjs-doctor [directory] [options]
 
-  --verbose       Show file paths and line numbers per diagnostic
-  --score         Output only the numeric score (for CI)
-  --json          JSON output (for tooling)
-  --report        Generate an interactive HTML report (--graph also works)
-  --min-score <n> Minimum passing score (0-100). Exits with code 1 if below
-  --config <p>    Path to config file
-  --init          Set up the /nestjs-doctor skill for AI coding agents
-  -h, --help      Show help
+  --verbose             Show file paths and line numbers per diagnostic
+  --score               Output only the numeric score (for CI)
+  --json                JSON output (for tooling)
+  --format <f>          console (default), json, sarif, gitlab, markdown, github
+  --output <path>       Write the formatted output to a file instead of stdout
+  --json-compact        Emit JSON-based formats without indentation
+  --scope <s>           full (default), files, lines, changed
+  --base <ref>          Git ref to compare against (auto-detected)
+  --staged              Scope to the staged files, for pre-commit hooks
+  --changed-files-from  Path to a newline-separated list of changed files
+  --blocking <level>    Severity that fails the run: none, warning, error
+  --min-score <n>       Minimum passing score (0-100)
+  --report              Generate an interactive HTML report (--graph also works)
+  --config <p>          Path to config file
+  --list-rules          List every built-in rule and exit
+  --init                Set up the /nestjs-doctor skill for AI coding agents
+  -h, --help            Show help
 ```
+
+See [CI & Pull Requests](/docs/ci) for `--scope`, `--blocking`, and the official
+GitHub Action.
 
 ## CI Integration
 
@@ -65,13 +77,20 @@ Or add it as a script in `package.json`:
 
 ### Exit Codes
 
-| Code | Meaning                                        |
-| ---- | ---------------------------------------------- |
-| `0`  | Score is at or above threshold                 |
-| `1`  | Score is below threshold, or errors were found |
-| `2`  | Invalid input (bad path, invalid flags)        |
+| Code | Meaning                                 |
+| ---- | --------------------------------------- |
+| `0`  | Both gates passed                       |
+| `1`  | A gate failed — see below               |
+| `2`  | Invalid input (bad path, invalid flags) |
 
-All output modes (`--score`, `--json`, default) respect exit codes.
+Two independent gates can fail a run. `--min-score` compares the project's
+health score against a threshold. `--blocking` fails on reported findings at or
+above a severity: `error` (the default for the console report), `warning`, or
+`none`.
+
+`--json` and `--score` default to `--blocking none`, so they fail only on
+`--min-score` — the behaviour they had before `--blocking` existed. Pass
+`--blocking` explicitly to make every output mode behave the same.
 
 ## Report
 
