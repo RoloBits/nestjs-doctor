@@ -448,8 +448,15 @@ runs:
               pull_number: pullRequest.number,
               per_page: 100,
             });
+            // A comment someone replied to is a conversation, not just output.
+            // Deleting its parent would leave the reply answering nothing, so
+            // those are kept even once the finding is resolved.
+            const repliedTo = new Set(
+              existing.map((comment) => comment.in_reply_to_id).filter(Boolean),
+            );
             priorIds = existing
               .filter((comment) => comment.body?.startsWith(marker))
+              .filter((comment) => !repliedTo.has(comment.id))
               .map((comment) => comment.id);
           } catch (error) {
             core.warning(`nestjs-doctor could not list prior review comments: ${error.message}`);
