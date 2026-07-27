@@ -7,7 +7,7 @@ allowed-tools: Bash, Read, Edit, Glob, Grep, Write
 
 # /nestjs-doctor — NestJS Health Scanner & Fixer
 
-> v0.5.1
+> v0.6.0
 
 Scan the NestJS codebase, present a prioritized health report, and offer to fix every issue found.
 
