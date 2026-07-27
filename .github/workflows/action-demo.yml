@@ -39,7 +39,6 @@ jobs:
           directory: demo/billing-api
           version: ${{ github.workspace }}/packages/nestjs-doctor
           scope: changed
-          blocking: none
           comment: "true"
           review-comments: "true"
           commit-status: "true"
