@@ -91,8 +91,15 @@ function renderScopeNote(scope: ScopeInfo | undefined): string[] {
 		);
 	}
 	if (scope.changedFiles !== undefined) {
+		// Showing only the narrowed count invites the reader to compare it with
+		// the pull request's own file count and read the gap as a miscount.
+		const total = scope.changedFilesTotal;
+		const counted =
+			total !== undefined && total !== scope.changedFiles
+				? `${scope.changedFiles} of ${pluralize(total, "changed file")} scanned`
+				: `${pluralize(scope.changedFiles, "file")} in scope`;
 		lines.push(
-			`<sub>Scope \`${scope.mode}\` · ${pluralize(scope.changedFiles, "file")} in scope${scope.baseRef ? ` vs \`${scope.baseRef}\`` : ""}.</sub>`
+			`<sub>Scope \`${scope.mode}\` · ${counted}${scope.baseRef ? ` vs \`${scope.baseRef}\`` : ""}.</sub>`
 		);
 	}
 	return lines.length ? ["", ...lines] : [];

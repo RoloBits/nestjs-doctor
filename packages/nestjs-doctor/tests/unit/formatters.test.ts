@@ -234,6 +234,35 @@ describe("buildMarkdownReport", () => {
 		expect(markdown).toContain("resolved 2 existing findings");
 	});
 
+	it("shows both counts when the change had files it did not scan", () => {
+		const scope = {
+			mode: "changed" as const,
+			changedFiles: 5,
+			changedFilesTotal: 9,
+			baseRef: "main",
+		};
+		const markdown = buildMarkdownReport(
+			{ ...resultWith([]), scope },
+			{ ...options, scope }
+		);
+		expect(markdown).toContain("5 of 9 changed files scanned");
+	});
+
+	it("does not say 'of' when nothing was filtered out", () => {
+		const scope = {
+			mode: "files" as const,
+			changedFiles: 5,
+			changedFilesTotal: 5,
+			baseRef: "main",
+		};
+		const markdown = buildMarkdownReport(
+			{ ...resultWith([]), scope },
+			{ ...options, scope }
+		);
+		expect(markdown).toContain("5 files in scope");
+		expect(markdown).not.toContain(" of ");
+	});
+
 	it("brands the heading with the logo rather than an emoji", () => {
 		const markdown = buildMarkdownReport(resultWith([]), options);
 		expect(markdown).toContain("nestjs.doctor/logo.png");
