@@ -1,5 +1,85 @@
 # nestjs-doctor
 
+## 0.6.0
+
+### Minor Changes
+
+- 7fc03e8: Add diff-scoped scanning so a scan can report only what a change introduced.
+
+  `--scope full|files|lines|changed` narrows what gets **reported**; the whole
+  project is still analysed, so cross-file rules (module cycles, unused providers,
+  unused exports) stay correct. `--base <ref>` picks the revision to compare
+  against, `--staged` scopes to the git index for pre-commit hooks, and
+  `--changed-files-from <path>` accepts a pre-computed file list for CI.
+
+  `changed` scans the base revision in a temporary git worktree and subtracts the
+  findings that were already there, also reporting how many the change resolved.
+  Findings are matched on rule, file, message, and source text rather than line
+  number, so an unrelated edit above a finding does not make it look new. When the
+  base cannot be reached — a shallow CI clone, typically — the scan degrades to
+  `files` and warns instead of claiming a delta it never measured.
+
+  The score always reflects the whole project, whatever the scope: narrowing a
+  report cannot make a codebase look healthier than it is. Results gain an
+  optional `scope` field describing what was reported.
+
+  Git invocations run with `GIT_DIR`, `GIT_INDEX_FILE`, and the other
+  repository-scoping variables cleared. Git exports those to every hook it runs
+  and a hook's children inherit them, so `--staged` from a husky `pre-commit`
+  would otherwise resolve refs against the hook's repository rather than the
+  scanned one.
+
+- 7fc03e8: Add SARIF, GitLab Code Quality, markdown, and GitHub Actions output, plus a
+  configurable failure gate.
+
+  `--format console|json|sarif|gitlab|markdown|github` selects the output shape,
+  `--output <path>` writes it to a file, and `--json-compact` drops the
+  indentation from the JSON-based formats. SARIF results carry explicit
+  `partialFingerprints`, so a GitHub code-scanning alert survives an edit near the
+  finding instead of being closed and reopened. `github` is additive: it prints
+  workflow annotations and appends the report to the job summary while keeping the
+  readable console output.
+
+  `--blocking none|warning|error` sets the severity that fails the run,
+  independently of `--min-score`. The defaults reproduce existing behaviour
+  exactly — `error` for the console report, `none` for `--json` and `--score`,
+  which previously failed only on `--min-score`. Passing `--blocking` explicitly
+  makes every output mode behave the same.
+
+  `--list-rules` prints the built-in rule catalogue (add `--json` for a
+  machine-readable list).
+
+  The markdown, SARIF, and GitLab builders are exported from the public API as
+  `buildMarkdownReport`, `buildSarifLog`, and `buildCodeQualityReport`, alongside
+  the diff-scoping and fingerprint helpers.
+
+  Warnings and errors about the run itself now go to stderr, so stdout stays a
+  clean machine-readable stream.
+
+### Patch Changes
+
+- 41eaa2a: Make the markdown report's scope caption self-explanatory.
+
+  When the scan was handed fewer files than the change touched, the caption now
+  reads "5 of 9 changed files scanned" instead of "5 files in scope" — the old
+  wording invited a reader to compare it against the pull request's own file count
+  and read the gap as a miscount. It falls back to the previous wording when the
+  caller does not know the pre-filter total, and says nothing extra when nothing
+  was filtered out.
+
+  A base given as a full commit SHA is abbreviated to seven characters. Branch
+  names are printed as they were given.
+
+- 76e5f09: Fix a monorepo's root config being silently ignored by every sub-project.
+
+  `loadConfigWithFallback` only fell back to the root config when `loadConfig`
+  threw, but `loadConfig` swallows a missing file and returns the defaults — so a
+  root `nestjs-doctor.config.json` (or one passed via `--config`) was loaded and
+  then dropped for each sub-project. A sub-project that ships its own config still
+  takes precedence; one that ships none now inherits the root's.
+
+  Closes #109.
+
 ## 0.5.1
 
 ### Patch Changes
