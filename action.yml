@@ -473,11 +473,18 @@ runs:
           }
 
           const ours = new Map();
+          // Comments from before the key format cannot be matched to a finding,
+          // so this run's keyed set supersedes them.
+          const legacy = [];
           for (const thread of threads) {
             const first = thread.comments.nodes[0];
             if (!first?.body?.startsWith(MARKER)) continue;
             const match = first.body.match(KEY_RE);
-            if (match) ours.set(match[1], { ...thread, commentId: first.databaseId });
+            if (match) {
+              ours.set(match[1], { ...thread, commentId: first.databaseId });
+            } else if (!thread.isResolved) {
+              legacy.push({ ...thread, commentId: first.databaseId });
+            }
           }
 
           // Only genuinely new findings are posted. An unchanged one keeps its
@@ -523,7 +530,26 @@ runs:
             }
           }
 
-          core.info(`inline comments — posted ${fresh.length}, kept ${wanted.size - fresh.length}, resolved ${resolved}`);
+          for (const thread of legacy) {
+            try {
+              await github.rest.pulls.updateReviewComment({
+                ...context.repo,
+                comment_id: thread.commentId,
+                body: `${MARKER}\n_Superseded by an updated comment._`,
+              });
+              await github.graphql(
+                `mutation($id:ID!){ resolveReviewThread(input:{threadId:$id}){ thread{ id } } }`,
+                { id: thread.id },
+              );
+            } catch (error) {
+              core.warning(`nestjs-doctor could not retire a superseded comment: ${error.message}`);
+            }
+          }
+
+          core.info(
+            `inline comments — posted ${fresh.length}, kept ${wanted.size - fresh.length}, ` +
+              `resolved ${resolved}, superseded ${legacy.length}`,
+          );
     - name: Publish commit status
       if: ${{ always() && inputs.commit-status == 'true' }}
       uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
