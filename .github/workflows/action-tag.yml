@@ -1,0 +1,42 @@
+name: Move Action Major Tag
+
+# Consumers pin `RoloBits/nestjs-doctor@v1`, so that tag has to follow every
+# release. The action's major version tracks its own input/output contract, not
+# the npm package's version — a patch release of the CLI must not move a major.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      major-tag:
+        description: "Major tag to move (e.g. v1)"
+        required: true
+        default: "v1"
+
+permissions:
+  contents: write
+
+jobs:
+  retag:
+    name: Point the major tag at the release commit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Move the tag
+        shell: bash
+        env:
+          MAJOR_TAG: ${{ inputs.major-tag || 'v1' }}
+          TARGET_SHA: ${{ github.event.release.target_commitish || github.sha }}
+        run: |
+          set -euo pipefail
+          # A branch name in `target_commitish` resolves through the fetched
+          # history; a SHA passes straight through.
+          SHA="$(git rev-parse "$TARGET_SHA^{commit}")"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag --force "$MAJOR_TAG" "$SHA"
+          git push --force origin "refs/tags/$MAJOR_TAG"
+          echo "Moved $MAJOR_TAG to $SHA"

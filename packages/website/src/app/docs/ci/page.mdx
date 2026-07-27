@@ -10,6 +10,91 @@ Running a linter on a codebase that predates it produces a wall of findings
 nobody reads. nestjs-doctor solves that by reporting only what a change
 introduced, and leaving the existing backlog to the score.
 
+## GitHub Action
+
+```yaml
+# .github/workflows/nestjs-doctor.yml
+name: NestJS Doctor
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+
+jobs:
+  doctor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # required for `scope: changed`
+      - uses: RoloBits/nestjs-doctor@v1
+```
+
+On a pull request the action reports in three places: a sticky summary comment
+that is rewritten in place on every push, inline review comments on the changed
+lines, and a commit status carrying the score. The full report is also mirrored
+into the run's job summary.
+
+`fetch-depth: 0` matters for the default scope. The action compares against the
+**merge base** of your branch and its target; a shallow checkout cannot resolve
+one, so it falls back to the base branch tip — and if it cannot reach that
+either, to reporting every finding in the changed files. The comment says which
+of those happened, and `silence-missing-baseline-warning` hides the notice if
+you would rather live with the fallback.
+
+### Inputs
+
+| Input | Default | Description |
+|-------|---------|-------------|
+| `directory` | `.` | Project directory to scan |
+| `scope` | `changed` | What a pull request reports — see below |
+| `blocking` | `none` | Severity that fails the workflow: `none`, `warning`, `error` |
+| `min-score` | — | Fail when the project's health score drops below this |
+| `config` | — | Path to a config file |
+| `comment` | `true` | Sticky pull request summary comment |
+| `review-comments` | `true` | Inline review comments on changed lines |
+| `commit-status` | `true` | Commit status with the score |
+| `sarif` | `false` | Also write a SARIF report |
+| `sarif-file` | `nestjs-doctor.sarif` | Where the SARIF report is written |
+| `silence-missing-baseline-warning` | `false` | Hide the degraded-scope warning |
+| `node-version` | `22` | Node.js version |
+| `version` | `latest` | nestjs-doctor version to run |
+
+### Outputs
+
+`score`, `label`, `total-issues`, `fixed-issues`, `error-count`,
+`warning-count`, `affected-files`, `report-file`, `sarif-file`.
+
+```yaml
+      - uses: RoloBits/nestjs-doctor@v1
+        id: doctor
+      - run: echo "Health is ${{ steps.doctor.outputs.score }}/100"
+```
+
+### Permissions
+
+The action degrades rather than failing when a permission is missing, and logs a
+warning naming the one it needs.
+
+| Feature | Permission |
+|---------|-----------|
+| Sticky comment, inline review comments | `pull-requests: write` |
+| Commit status | `statuses: write` |
+| Changed-file API fallback | `pull-requests: read` |
+| SARIF upload (via `github/codeql-action/upload-sarif`) | `security-events: write` |
+
+### Pushes to the default branch
+
+A push run always scans the whole project and never fails, whatever `blocking`
+says. It is a health snapshot — surfaced through the job summary and the commit
+status — so `main` does not go red on findings that were already there.
+
 ## Scope
 
 The whole project is always analysed. Cross-file rules like
@@ -66,8 +151,8 @@ Exit codes: `0` pass, `1` a gate failed, `2` bad input.
 
 ## Code scanning
 
-SARIF sends findings to a code-scanning backend, where they persist across runs
-as alerts rather than living only in a pull request comment.
+SARIF sends findings to the repository's Security tab, where they persist across
+runs as alerts rather than living only in a pull request comment.
 
 ```yaml
 permissions:
@@ -76,10 +161,17 @@ permissions:
 
 steps:
   - uses: actions/checkout@v4
-  - run: npx nestjs-doctor@latest . --format sarif --output nestjs-doctor.sarif
-  - uses: github/codeql-action/upload-sarif@v3
     with:
-      sarif_file: nestjs-doctor.sarif
+      fetch-depth: 0
+  - uses: RoloBits/nestjs-doctor@v1
+    id: doctor
+    with:
+      scope: full
+      sarif: "true"
+  - uses: github/codeql-action/upload-sarif@v3
+    if: always() && steps.doctor.outputs.sarif-file != ''
+    with:
+      sarif_file: ${{ steps.doctor.outputs.sarif-file }}
 ```
 
 Every result carries a `partialFingerprints` entry derived from the rule, path,

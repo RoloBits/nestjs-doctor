@@ -1,6 +1,6 @@
 # NestJS Doctor
 
-> Diagnose and fix your NestJS code in one command. 50 built-in rules across security, performance, correctness, architecture, and schema. Outputs a 0-100 score with actionable diagnostics. Zero config. Monorepo support. Reports only what a change introduced, so it can gate a pull request without drowning it in pre-existing findings.
+> Diagnose and fix your NestJS code in one command. 50 built-in rules across security, performance, correctness, architecture, and schema. Outputs a 0-100 score with actionable diagnostics. Zero config. Monorepo support. Ships an official GitHub Action that reports only what a pull request introduced.
 
 ## Quick Start
 
@@ -59,6 +59,22 @@ npx nestjs-doctor . --staged --blocking error   # pre-commit hook
 
 The score always reflects the whole project, whatever the scope. `--min-score`
 gates on that score; `--blocking` gates on the reported findings.
+
+## GitHub Action
+
+```yaml
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0        # required for scope: changed
+- uses: RoloBits/nestjs-doctor@v1
+```
+
+Reports only what the pull request introduced, posts a sticky summary comment,
+inline review comments on the changed lines, and a commit status. Inputs:
+`directory`, `scope`, `blocking`, `min-score`, `config`, `comment`,
+`review-comments`, `commit-status`, `sarif`, `sarif-file`, `node-version`,
+`version`. Outputs: `score`, `label`, `total-issues`, `fixed-issues`,
+`error-count`, `warning-count`, `affected-files`, `report-file`, `sarif-file`.
 
 ## Configuration
 
