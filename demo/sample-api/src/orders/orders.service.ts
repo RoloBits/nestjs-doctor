@@ -6,7 +6,7 @@ export class OrdersService {
   constructor(private readonly ds: DataSource) {}
 
   async findVisible() {
-    const rows = await this.ds.query("SELECT * FROM orders");
+    const rows = await this.ds.query("SELECT * FROM orders LIMIT 100");
     return rows.filter((row: { deletedAt: Date | null }) => row.deletedAt === null);
   }
 }
