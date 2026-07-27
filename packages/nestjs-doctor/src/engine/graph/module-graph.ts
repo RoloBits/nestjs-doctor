@@ -59,6 +59,13 @@ function resolvePosix(fromDirectory: string, specifier: string): string {
 
 const JS_EXT_REGEX = /\.js$/;
 
+/** An object-literal provider: `{ provide: TOKEN, useClass: X }`. */
+interface ProviderRegistration {
+	token: string;
+	useClass?: string;
+	useExisting?: string;
+}
+
 export interface ModuleNode {
 	classDeclaration: ClassDeclaration;
 	controllers: string[];
@@ -67,6 +74,8 @@ export interface ModuleNode {
 	forwardRefImports: Set<string>;
 	imports: string[];
 	name: string;
+	/** Object-literal entries of `providers`, which `providers` keeps as raw text. */
+	providerRegistrations: ProviderRegistration[];
 	providers: string[];
 }
 
@@ -99,6 +108,7 @@ function extractModulesFromFile(
 			forwardRefImports: new Set<string>(),
 			exports: [],
 			providers: [],
+			providerRegistrations: [],
 			controllers: [],
 		};
 
@@ -126,6 +136,7 @@ function extractModulesFromFile(
 					"providers",
 					pathAliases
 				).map((t) => t.name);
+				node.providerRegistrations = extractProviderRegistrations(obj);
 				node.controllers = extractArrayPropertyNames(
 					obj,
 					"controllers",
@@ -205,6 +216,47 @@ interface ExtractedName {
 
 function plain(name: string): ExtractedName {
 	return { name, viaForwardRef: false };
+}
+
+/** Text of a property's initializer, reduced to its last dotted segment. */
+function bareInitializerText(
+	obj: ObjectLiteralExpression,
+	propertyName: string
+): string | undefined {
+	const assignment = obj
+		.getProperty(propertyName)
+		?.asKind(SyntaxKind.PropertyAssignment);
+	const text = assignment?.getInitializer()?.getText();
+	return text ? text.split(".").pop() : undefined;
+}
+
+/** Object-literal entries of a module's `providers` array. */
+function extractProviderRegistrations(
+	obj: ObjectLiteralExpression
+): ProviderRegistration[] {
+	const initializer = obj
+		.getProperty("providers")
+		?.asKind(SyntaxKind.PropertyAssignment)
+		?.getInitializer()
+		?.asKind(SyntaxKind.ArrayLiteralExpression);
+	if (!initializer) {
+		return [];
+	}
+
+	const registrations: ProviderRegistration[] = [];
+	for (const element of initializer.getElements()) {
+		const literal = element.asKind(SyntaxKind.ObjectLiteralExpression);
+		const token = literal && bareInitializerText(literal, "provide");
+		if (!(literal && token)) {
+			continue;
+		}
+		registrations.push({
+			token,
+			useClass: bareInitializerText(literal, "useClass"),
+			useExisting: bareInitializerText(literal, "useExisting"),
+		});
+	}
+	return registrations;
 }
 
 function extractArrayPropertyNames(

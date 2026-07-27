@@ -10,9 +10,14 @@ import { noRawEntityInResponse } from "../../../src/engine/rules/definitions/sec
 import { noSynchronizeInProduction } from "../../../src/engine/rules/definitions/security/no-synchronize-in-production.js";
 import { noWeakCrypto } from "../../../src/engine/rules/definitions/security/no-weak-crypto.js";
 import { requireGuardsOnEndpoints } from "../../../src/engine/rules/definitions/security/require-guards-on-endpoints.js";
-import type { Rule } from "../../../src/engine/rules/types.js";
+import type { GuardFacts, Rule } from "../../../src/engine/rules/types.js";
 
-function runRule(rule: Rule, code: string, filePath = "test.ts"): Diagnostic[] {
+function runRule(
+	rule: Rule,
+	code: string,
+	filePath = "test.ts",
+	guards?: GuardFacts
+): Diagnostic[] {
 	const project = new Project({ useInMemoryFileSystem: true });
 	const sourceFile = project.createSourceFile(filePath, code);
 	const diagnostics: Diagnostic[] = [];
@@ -20,6 +25,7 @@ function runRule(rule: Rule, code: string, filePath = "test.ts"): Diagnostic[] {
 	rule.check({
 		sourceFile,
 		filePath,
+		guards,
 		report(partial) {
 			diagnostics.push({
 				...partial,
@@ -495,6 +501,93 @@ describe("require-guards-on-endpoints", () => {
     `
 		);
 		expect(diags).toHaveLength(0);
+	});
+
+	it("stays quiet when a module registers a guard through APP_GUARD", () => {
+		const diags = runRule(
+			requireGuardsOnEndpoints,
+			`
+      import { Controller, Get } from '@nestjs/common';
+      @Controller('users')
+      export class UsersController {
+        @Get()
+        findAll() { return []; }
+      }
+    `,
+			"test.ts",
+			{ composedDecorators: new Set(), globallyRegistered: true }
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("accepts a decorator that composes UseGuards, on the method", () => {
+		const diags = runRule(
+			requireGuardsOnEndpoints,
+			`
+      import { Controller, Get } from '@nestjs/common';
+      @Controller('users')
+      export class UsersController {
+        @Get()
+        @Auth()
+        findAll() { return []; }
+      }
+    `,
+			"test.ts",
+			{ composedDecorators: new Set(["Auth"]), globallyRegistered: false }
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("accepts a decorator that composes UseGuards, on the class", () => {
+		const diags = runRule(
+			requireGuardsOnEndpoints,
+			`
+      import { Controller, Get } from '@nestjs/common';
+      @Auth()
+      @Controller('users')
+      export class UsersController {
+        @Get()
+        findAll() { return []; }
+      }
+    `,
+			"test.ts",
+			{ composedDecorators: new Set(["Auth"]), globallyRegistered: false }
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("still reports when the decorator is not a known guard", () => {
+		// Only a positive sighting suppresses; an unrecognised decorator is not one.
+		const diags = runRule(
+			requireGuardsOnEndpoints,
+			`
+      import { Controller, Get } from '@nestjs/common';
+      @Controller('users')
+      export class UsersController {
+        @Get()
+        @ApiOperation()
+        findAll() { return []; }
+      }
+    `,
+			"test.ts",
+			{ composedDecorators: new Set(["Auth"]), globallyRegistered: false }
+		);
+		expect(diags).toHaveLength(1);
+	});
+
+	it("reports when no guard facts were determined at all", () => {
+		const diags = runRule(
+			requireGuardsOnEndpoints,
+			`
+      import { Controller, Get } from '@nestjs/common';
+      @Controller('users')
+      export class UsersController {
+        @Get()
+        findAll() { return []; }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
 	});
 
 	it("does not flag non-handler methods", () => {
