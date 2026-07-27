@@ -367,6 +367,7 @@ runs:
 
           const MARKER = "<!-- nestjs-doctor:review -->";
           const KEY_RE = /<!-- nestjs-doctor:key ([A-Za-z0-9+/=]+) -->/;
+          const RETIRED = "<!-- nestjs-doctor:retired -->";
           const headSha = process.env.NESTJS_DOCTOR_HEAD_SHA || "";
           const shortSha = headSha.slice(0, 7);
           const directoryPrefix = (process.env.INPUT_DIRECTORY || ".")
@@ -466,7 +467,7 @@ runs:
                        nodes{
                          id
                          isResolved
-                         comments(first:1){ nodes{ databaseId body } }
+                         comments(first:1){ nodes{ id databaseId body isMinimized } }
                        }
                      }
                    }
@@ -486,11 +487,19 @@ runs:
           for (const thread of threads) {
             const first = thread.comments.nodes[0];
             if (!first?.body?.startsWith(MARKER)) continue;
+            const entry = {
+              threadId: thread.id,
+              commentId: first.databaseId,
+              commentNodeId: first.id,
+              isResolved: thread.isResolved,
+              isMinimized: first.isMinimized,
+              retired: first.body.includes(RETIRED),
+            };
             const match = first.body.match(KEY_RE);
             if (match) {
-              ours.set(match[1], { ...thread, commentId: first.databaseId });
-            } else if (!thread.isResolved) {
-              legacy.push({ ...thread, commentId: first.databaseId });
+              ours.set(match[1], entry);
+            } else if (!entry.retired) {
+              legacy.push(entry);
             }
           }
 
@@ -515,47 +524,113 @@ runs:
             }
           }
 
-          // A finding that stopped being reported is resolved, not deleted, and
-          // not called fixed: the scan cannot tell a fix from a suppression, a
-          // deletion, or a disabled rule, so it states only what it observed.
-          let resolved = 0;
-          for (const [key, thread] of ours) {
-            if (wanted.has(key) || thread.isResolved) continue;
+          // GitHub refuses resolveReviewThread to the default token, so a
+          // collapsed comment stands in when resolving is not permitted.
+          let collapseDenied = false;
+          const isDenied = (error) => /not accessible by integration/i.test(error.message);
+
+          const mutate = async (query, variables) => {
             try {
-              await github.rest.pulls.updateReviewComment({
-                ...context.repo,
-                comment_id: thread.commentId,
-                body: `${MARKER}\n<!-- nestjs-doctor:key ${key} -->\n_No longer reported as of \`${shortSha}\`._`,
-              });
-              await github.graphql(
-                `mutation($id:ID!){ resolveReviewThread(input:{threadId:$id}){ thread{ id } } }`,
-                { id: thread.id },
-              );
-              resolved += 1;
+              await github.graphql(query, variables);
+              return true;
             } catch (error) {
-              core.warning(`nestjs-doctor could not resolve a review thread: ${error.message}`);
+              if (!isDenied(error)) throw error;
+              return false;
+            }
+          };
+
+          const setBody = (entry, body) =>
+            github.rest.pulls.updateReviewComment({
+              ...context.repo,
+              comment_id: entry.commentId,
+              body,
+            });
+
+          const collapse = async (entry) => {
+            const resolvedNow =
+              entry.isResolved ||
+              (await mutate(
+                `mutation($id:ID!){ resolveReviewThread(input:{threadId:$id}){ thread{ id } } }`,
+                { id: entry.threadId },
+              ));
+            if (resolvedNow || entry.isMinimized) return;
+            const minimized = await mutate(
+              `mutation($id:ID!){ minimizeComment(input:{subjectId:$id,classifier:OUTDATED}){ clientMutationId } }`,
+              { id: entry.commentNodeId },
+            );
+            collapseDenied = collapseDenied || !minimized;
+          };
+
+          const reopen = async (entry) => {
+            if (entry.isResolved) {
+              const unresolved = await mutate(
+                `mutation($id:ID!){ unresolveReviewThread(input:{threadId:$id}){ thread{ id } } }`,
+                { id: entry.threadId },
+              );
+              collapseDenied = collapseDenied || !unresolved;
+            }
+            if (entry.isMinimized) {
+              const unminimized = await mutate(
+                `mutation($id:ID!){ unminimizeComment(input:{subjectId:$id}){ clientMutationId } }`,
+                { id: entry.commentNodeId },
+              );
+              collapseDenied = collapseDenied || !unminimized;
+            }
+          };
+
+          // A finding that comes back reuses its original thread, so the
+          // discussion under it survives the round trip.
+          let reopened = 0;
+          for (const [key, comment] of wanted) {
+            const entry = ours.get(key);
+            if (!entry?.retired) continue;
+            try {
+              await setBody(entry, comment.body);
+              await reopen(entry);
+              reopened += 1;
+            } catch (error) {
+              core.warning(`nestjs-doctor could not reopen a review thread: ${error.message}`);
             }
           }
 
-          for (const thread of legacy) {
+          // A finding that stopped being reported is retired, not deleted, and
+          // not called fixed: the scan cannot tell a fix from a suppression, a
+          // deletion, or a disabled rule, so it states only what it observed.
+          let retired = 0;
+          for (const [key, entry] of ours) {
+            if (wanted.has(key) || entry.retired) continue;
             try {
-              await github.rest.pulls.updateReviewComment({
-                ...context.repo,
-                comment_id: thread.commentId,
-                body: `${MARKER}\n_Superseded by an updated comment._`,
-              });
-              await github.graphql(
-                `mutation($id:ID!){ resolveReviewThread(input:{threadId:$id}){ thread{ id } } }`,
-                { id: thread.id },
+              await setBody(
+                entry,
+                `${MARKER}\n<!-- nestjs-doctor:key ${key} -->\n${RETIRED}\n_No longer reported as of \`${shortSha}\`._`,
               );
+              await collapse(entry);
+              retired += 1;
+            } catch (error) {
+              core.warning(`nestjs-doctor could not retire a review thread: ${error.message}`);
+            }
+          }
+
+          for (const entry of legacy) {
+            try {
+              await setBody(entry, `${MARKER}\n${RETIRED}\n_Superseded by an updated comment._`);
+              await collapse(entry);
             } catch (error) {
               core.warning(`nestjs-doctor could not retire a superseded comment: ${error.message}`);
             }
           }
 
+          if (collapseDenied) {
+            core.warning(
+              "nestjs-doctor marked stale comments but could not collapse them: GitHub refuses " +
+                "resolveReviewThread and minimizeComment to the default GITHUB_TOKEN. Pass a " +
+                "GitHub App installation token or a machine account's PAT as `github-token`.",
+            );
+          }
+
           core.info(
             `inline comments — posted ${fresh.length}, kept ${wanted.size - fresh.length}, ` +
-              `resolved ${resolved}, superseded ${legacy.length}`,
+              `reopened ${reopened}, retired ${retired}, superseded ${legacy.length}`,
           );
     - name: Publish commit status
       if: ${{ always() && inputs.commit-status == 'true' }}
