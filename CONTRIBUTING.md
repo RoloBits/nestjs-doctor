@@ -52,6 +52,8 @@ packages/
   nestjs-doctor-lsp/        # Language server, used by the VS Code extension
   nestjs-doctor-vscode/     # VS Code extension
   website/                  # Documentation site (Next.js + MDX)
+action.yml                  # The official GitHub Action (composite)
+scripts/action/             # Helper scripts the action invokes
 ```
 
 Full pipeline docs: [nestjs.doctor/docs](https://nestjs.doctor/docs)
@@ -200,6 +202,25 @@ pnpm build        # Build succeeds
 ```
 
 If all of those pass, the pre-commit hook will too.
+
+## Working on the GitHub Action
+
+`action.yml` at the repository root is the published composite action, and its
+helper scripts live in `scripts/action/`. Nothing else exercises it, so the
+`Action Self-Test` workflow runs it against a fixture on every change to
+`action.yml`, `scripts/action/**`, or the main package.
+
+Two things to keep in mind when editing it:
+
+- **Pin every nested action by commit SHA**, with the version as a trailing
+  comment. Dependabot keeps those pins current.
+- **The comment renderer is imported from the installed package**
+  (`buildMarkdownReport`), never reimplemented in the action. That is what keeps
+  the pull request comment, the job summary, and `--format markdown` identical.
+
+Consumers pin `RoloBits/nestjs-doctor@v1`, so a change to the action's inputs or
+outputs is a breaking change for them even when the npm package's version does
+not move.
 
 ## Docs
 

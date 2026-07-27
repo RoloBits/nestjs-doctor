@@ -9,7 +9,8 @@ const config: KnipConfig = {
 	],
 	workspaces: {
 		".": {
-			ignore: ["packages/website/**"],
+			// GitHub Action entry points: invoked by action.yml, not imported.
+			ignore: ["packages/website/**", "scripts/action/**"],
 		},
 		"packages/nestjs-doctor": {
 			project: ["src/**/*.ts"],

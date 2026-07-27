@@ -17,6 +17,8 @@ export interface ScopeInfo {
 	baseRef?: string;
 	/** Files the scope narrowed to, not the change's total file count. */
 	changedFiles?: number;
+	/** Files the change touched before filtering, when the caller knows it. */
+	changedFilesTotal?: number;
 	/** Set when the requested mode could not be honoured. */
 	degradedFrom?: ScopeMode;
 	/** Present in `changed` mode: findings the change resolved. */

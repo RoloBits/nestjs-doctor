@@ -24,6 +24,7 @@ import { buildSarifLog } from "../../src/formatters/sarif-report.js";
 
 const ROOT = "/repo";
 const SHA256_HEX_RE = /^[0-9a-f]{64}$/;
+const EMOJI_RE = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
 
 const code = (
 	overrides: Partial<CodeDiagnostic> & { line: number }
@@ -231,6 +232,80 @@ describe("buildMarkdownReport", () => {
 		});
 		expect(markdown).toContain("introduced by this change");
 		expect(markdown).toContain("resolved 2 existing findings");
+	});
+
+	it("shows both counts when the change had files it did not scan", () => {
+		const scope = {
+			mode: "changed" as const,
+			changedFiles: 5,
+			changedFilesTotal: 9,
+			baseRef: "main",
+		};
+		const markdown = buildMarkdownReport(
+			{ ...resultWith([]), scope },
+			{ ...options, scope }
+		);
+		expect(markdown).toContain("5 of 9 changed files scanned");
+	});
+
+	it("abbreviates a base given as a full sha but not a branch name", () => {
+		const sha = "13bb31aa5bf4b88f1da75375c0d1cfec6d022dd2";
+		const shaScope = {
+			mode: "changed" as const,
+			changedFiles: 5,
+			baseRef: sha,
+		};
+		const shaMarkdown = buildMarkdownReport(
+			{ ...resultWith([]), scope: shaScope },
+			{ ...options, scope: shaScope }
+		);
+		expect(shaMarkdown).toContain("vs `13bb31a`");
+		expect(shaMarkdown).not.toContain(sha);
+
+		const branchScope = {
+			mode: "changed" as const,
+			changedFiles: 5,
+			baseRef: "origin/release-1.2.3",
+		};
+		const branchMarkdown = buildMarkdownReport(
+			{ ...resultWith([]), scope: branchScope },
+			{ ...options, scope: branchScope }
+		);
+		expect(branchMarkdown).toContain("vs `origin/release-1.2.3`");
+	});
+
+	it("does not say 'of' when nothing was filtered out", () => {
+		const scope = {
+			mode: "files" as const,
+			changedFiles: 5,
+			changedFilesTotal: 5,
+			baseRef: "main",
+		};
+		const markdown = buildMarkdownReport(
+			{ ...resultWith([]), scope },
+			{ ...options, scope }
+		);
+		expect(markdown).toContain("5 files in scope");
+		expect(markdown).not.toContain(" of ");
+	});
+
+	it("brands the heading with the logo rather than an emoji", () => {
+		const markdown = buildMarkdownReport(resultWith([]), options);
+		expect(markdown).toContain("nestjs.doctor/logo.png");
+		expect(markdown).not.toMatch(EMOJI_RE);
+	});
+
+	it("names the severity instead of colouring it", () => {
+		// A screen reader announces a coloured circle as "red circle", not
+		// "error", so the word carries the meaning the colour used to.
+		const markdown = buildMarkdownReport(
+			resultWith([code({ line: 8 }), schemaDiagnostic]),
+			options
+		);
+		expect(markdown).toContain("| Severity |");
+		expect(markdown).toContain("| warning |");
+		expect(markdown).toContain("| error |");
+		expect(markdown).not.toMatch(EMOJI_RE);
 	});
 
 	it("counts files in scope, not files in the change", () => {

@@ -1,0 +1,93 @@
+name: Action Self-Test
+
+# The composite action is published straight from this repository, so nothing
+# else catches a broken step, a renamed output, or a helper script that stopped
+# parsing. This runs it against a fixture using the checkout's own build.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "action.yml"
+      - "scripts/action/**"
+      - "packages/nestjs-doctor/**"
+      - ".github/workflows/action-self-test.yml"
+  # No branch filter: the pull request that introduces or changes the action is
+  # the one that most needs this to run, and it is usually stacked rather than
+  # aimed at `main`. Filtered to `main`, the action's only test silently never
+  # ran on the pull request adding it.
+  pull_request:
+    paths:
+      - "action.yml"
+      - "scripts/action/**"
+      - "packages/nestjs-doctor/**"
+      - ".github/workflows/action-self-test.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: action-self-test-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  self-test:
+    name: Run the action against a fixture
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # `--scope changed` checks the base revision out into a worktree, so
+          # the full history has to be present.
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter nestjs-doctor build
+
+      # The fixture is deliberately unhealthy, so this asserts the action
+      # reports findings rather than that the fixture is clean. Reporting is
+      # switched off: a self-test must not comment on unrelated pull requests.
+      - id: doctor
+        uses: ./
+        with:
+          directory: packages/nestjs-doctor/tests/fixtures/bad-architecture
+          version: ${{ github.workspace }}/packages/nestjs-doctor
+          scope: full
+          blocking: none
+          comment: "false"
+          review-comments: "false"
+          commit-status: "false"
+          sarif: "true"
+          sarif-file: ${{ runner.temp }}/self-test.sarif
+
+      - name: Assert the action produced a usable result
+        shell: bash
+        env:
+          SCORE: ${{ steps.doctor.outputs.score }}
+          TOTAL: ${{ steps.doctor.outputs.total-issues }}
+          ERRORS: ${{ steps.doctor.outputs.error-count }}
+          SARIF: ${{ steps.doctor.outputs.sarif-file }}
+        run: |
+          set -euo pipefail
+          echo "score=$SCORE total=$TOTAL errors=$ERRORS sarif=$SARIF"
+
+          [ -n "$SCORE" ] || { echo "::error::no score output"; exit 1; }
+          [ "$TOTAL" -gt 0 ] || { echo "::error::expected findings in the fixture"; exit 1; }
+          [ "$ERRORS" -gt 0 ] || { echo "::error::expected error-severity findings in the fixture"; exit 1; }
+          [ -s "$SARIF" ] || { echo "::error::no SARIF written"; exit 1; }
+
+          node -e '
+            const log = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
+            if (log.version !== "2.1.0") throw new Error("unexpected SARIF version " + log.version);
+            if (!log.runs?.[0]?.results?.length) throw new Error("SARIF has no results");
+            for (const result of log.runs[0].results) {
+              if (!result.partialFingerprints?.["nestjsDoctor/v1"]) {
+                throw new Error("SARIF result is missing its partial fingerprint");
+              }
+            }
+            console.log("SARIF ok:", log.runs[0].results.length, "results");
+          ' "$SARIF"

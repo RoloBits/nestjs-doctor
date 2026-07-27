@@ -66,6 +66,113 @@ Use `NestJS Doctor: Scan Project` from the command palette to trigger a full sca
 
 ---
 
+## GitHub Action
+
+Reviews every pull request and reports **only what the change introduced**, not
+your existing backlog. Posts a sticky summary comment, inline review comments on
+the changed lines, and a commit status with the score.
+
+```yaml
+# .github/workflows/nestjs-doctor.yml
+name: NestJS Doctor
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+
+jobs:
+  doctor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # required for `scope: changed`
+      - uses: RoloBits/nestjs-doctor@v1
+```
+
+`fetch-depth: 0` matters. `scope: changed` compares against the **merge base**
+of your branch and its target, which a shallow checkout can't resolve — the
+action falls back to the base branch tip, or, if it can't reach that either, to
+reporting every finding in the changed files. It says which happened in the
+comment.
+
+### Inputs
+
+| Input | Default | Description |
+|-------|---------|-------------|
+| `directory` | `.` | Project directory to scan |
+| `scope` | `changed` | `changed` (only what the pull request introduced), `files` (everything in the changed files), `lines` (only the changed lines), `full` (the whole project) |
+| `blocking` | `none` | Severity that fails the workflow: `none`, `warning`, `error` |
+| `min-score` | — | Fail when the project's score drops below this |
+| `config` | — | Path to a config file |
+| `comment` | `true` | Sticky pull request summary comment |
+| `review-comments` | `true` | Inline review comments on changed lines |
+| `commit-status` | `true` | Commit status with the score |
+| `sarif` | `false` | Also write a SARIF report |
+| `sarif-file` | `nestjs-doctor.sarif` | Where the SARIF report goes |
+| `silence-missing-baseline-warning` | `false` | Hide the degraded-scope warning |
+| `github-token` | `${{ github.token }}` | Token used to comment and set the status |
+| `node-version` | `22` | Node.js version |
+| `version` | `latest` | nestjs-doctor version to run |
+
+### Failing the build
+
+Out of the box the action **never fails** — it comments and sets a status, and
+you decide what to do about it. Enforcement is opt-in through two independent
+gates, and either one failing fails the run.
+
+```yaml
+      - uses: RoloBits/nestjs-doctor@v1
+        with:
+          blocking: error # any error the change introduced fails the run
+          min-score: 80 # …and so does a project score below 80
+```
+
+`blocking` gates on the findings **actually reported**, so with the default
+`scope: changed` it fires only on what the pull request introduced — your
+existing backlog cannot fail somebody else's pull request. `none` (the default)
+never fails, `warning` fails on any error or warning, `error` on errors only.
+
+`min-score` gates on the **whole project**, always, whatever the scope. That is
+deliberate — narrowing a report must not make a codebase look healthier than it
+is — but it does mean a high enough threshold can fail a pull request for debt
+it did not create. Use `blocking` on its own to gate purely on the change.
+
+### Outputs
+
+`score`, `label`, `total-issues`, `fixed-issues`, `error-count`,
+`warning-count`, `affected-files`, `report-file`, `sarif-file`.
+
+Pushes to the default branch always scan the whole project and never fail the
+run — they are a health snapshot, surfaced through the job summary and the
+commit status, so `main` doesn't go red on pre-existing findings.
+
+### Code scanning
+
+Turn on `sarif` to send findings to the repository's Security tab:
+
+```yaml
+      - uses: RoloBits/nestjs-doctor@v1
+        id: doctor
+        with:
+          scope: full
+          sarif: "true"
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always() && steps.doctor.outputs.sarif-file != ''
+        with:
+          sarif_file: ${{ steps.doctor.outputs.sarif-file }}
+```
+
+Add `security-events: write` to the job's `permissions`.
+
+---
+
 ## CI
 
 Pin it as a devDependency:
