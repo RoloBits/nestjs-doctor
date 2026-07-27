@@ -1,24 +1,24 @@
 name: Move Action Major Tag
 
 # Consumers pin `RoloBits/nestjs-doctor@v1`, so that tag has to follow every
-# release. The action's major version tracks its own input/output contract, not
-# the npm package's version — a patch release of the CLI must not move a major.
+# release of the action. The action's major version tracks its own input and
+# output contract, not the npm package's — only its own `vX.Y.Z` releases move a
+# major. A changesets release tagged `nestjs-doctor@0.5.2` leaves `v1` alone.
 on:
   release:
     types: [published]
   workflow_dispatch:
     inputs:
-      major-tag:
-        description: "Major tag to move (e.g. v1)"
+      release-tag:
+        description: "Action release tag to point the major at (e.g. v1.0.0)"
         required: true
-        default: "v1"
 
 permissions:
   contents: write
 
 jobs:
   retag:
-    name: Point the major tag at the release commit
+    name: Point the major tag at the release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,15 +28,27 @@ jobs:
       - name: Move the tag
         shell: bash
         env:
-          MAJOR_TAG: ${{ inputs.major-tag || 'v1' }}
-          TARGET_SHA: ${{ github.event.release.target_commitish || github.sha }}
+          RELEASE_TAG: ${{ inputs.release-tag || github.event.release.tag_name }}
         run: |
           set -euo pipefail
-          # A branch name in `target_commitish` resolves through the fetched
-          # history; a SHA passes straight through.
-          SHA="$(git rev-parse "$TARGET_SHA^{commit}")"
+
+          # Anything not shaped like the action's own release tag belongs to a
+          # package. Every other release in this repository is a changesets one.
+          case "$RELEASE_TAG" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *)
+              echo "::notice::$RELEASE_TAG is not an action release; leaving major tags alone."
+              exit 0
+              ;;
+          esac
+
+          MAJOR_TAG="${RELEASE_TAG%%.*}"
+          # The release's own commit, never a branch tip: `v1` has to name code
+          # that was actually released, not whatever main drifted to since.
+          SHA="$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")"
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag --force "$MAJOR_TAG" "$SHA"
           git push --force origin "refs/tags/$MAJOR_TAG"
-          echo "Moved $MAJOR_TAG to $SHA"
+          echo "Moved $MAJOR_TAG to $SHA ($RELEASE_TAG)"

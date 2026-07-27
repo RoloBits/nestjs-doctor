@@ -1,8 +1,12 @@
 name: Publish VS Code Extension
 
+# Manual only. A changesets release already publishes the extension through the
+# `publish-vscode` job in release.yml, which knows whether anything was actually
+# released. This ran on every published release, including ones that have
+# nothing to do with the extension — and since it is in changesets' `ignore`
+# list its version is bumped by hand, so an unrelated release would push
+# whatever `packages/nestjs-doctor-vscode/package.json` happened to carry.
 on:
-  release:
-    types: [published]
   workflow_dispatch:
 
 permissions:
