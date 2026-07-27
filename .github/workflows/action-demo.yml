@@ -11,10 +11,7 @@ on:
       - "demo/**"
       - ".github/workflows/action-demo.yml"
 
-permissions:
-  contents: write
-  pull-requests: write
-  statuses: write
+permissions: write-all
 
 jobs:
   demo:
