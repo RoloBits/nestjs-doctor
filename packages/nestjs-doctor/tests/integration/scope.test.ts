@@ -14,8 +14,26 @@ import { applyScope, resolveScope } from "../../src/engine/scope.js";
 
 const PATH_SEPARATOR_RE = /[/\\]/;
 
+// The suite runs from a husky pre-commit hook, and git exports GIT_DIR and
+// friends to every hook. Inherited, they point these fixture repos at the outer
+// repository, so `add` and `commit` land in the wrong index.
+const CLEAN_GIT_ENV = { ...process.env };
+for (const name of [
+	"GIT_DIR",
+	"GIT_WORK_TREE",
+	"GIT_INDEX_FILE",
+	"GIT_OBJECT_DIRECTORY",
+	"GIT_ALTERNATE_OBJECT_DIRECTORIES",
+	"GIT_COMMON_DIR",
+	"GIT_NAMESPACE",
+	"GIT_PREFIX",
+	"GIT_CEILING_DIRECTORIES",
+]) {
+	delete CLEAN_GIT_ENV[name];
+}
+
 const git = (cwd: string, ...args: string[]): void => {
-	execFileSync("git", args, { cwd, stdio: "ignore" });
+	execFileSync("git", args, { cwd, env: CLEAN_GIT_ENV, stdio: "ignore" });
 };
 
 const service = (name: string, body: string): string =>
