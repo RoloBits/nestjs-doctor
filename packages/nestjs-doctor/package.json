@@ -50,8 +50,8 @@
     "url": "https://github.com/RoloBits/nestjs-doctor/issues"
   },
   "devDependencies": {
-    "tsdown": "^0.20.3",
-    "vitest": "^3.0.0"
+    "tsdown": "^0.22.14",
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "citty": "^0.2.2",
