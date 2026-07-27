@@ -99,7 +99,7 @@ function renderScopeNote(scope: ScopeInfo | undefined): string[] {
 	}
 	if (scope.changedFiles !== undefined) {
 		lines.push(
-			`<sub>Scope \`${scope.mode}\` over ${pluralize(scope.changedFiles, "changed file")}${scope.baseRef ? ` vs \`${scope.baseRef}\`` : ""}.</sub>`
+			`<sub>Scope \`${scope.mode}\` · ${pluralize(scope.changedFiles, "file")} in scope${scope.baseRef ? ` vs \`${scope.baseRef}\`` : ""}.</sub>`
 		);
 	}
 	return lines.length ? ["", ...lines] : [];
