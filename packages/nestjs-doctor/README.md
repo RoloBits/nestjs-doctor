@@ -116,8 +116,33 @@ comment.
 | `commit-status` | `true` | Commit status with the score |
 | `sarif` | `false` | Also write a SARIF report |
 | `sarif-file` | `nestjs-doctor.sarif` | Where the SARIF report goes |
+| `silence-missing-baseline-warning` | `false` | Hide the degraded-scope warning |
+| `github-token` | `${{ github.token }}` | Token used to comment and set the status |
 | `node-version` | `22` | Node.js version |
 | `version` | `latest` | nestjs-doctor version to run |
+
+### Failing the build
+
+Out of the box the action **never fails** — it comments and sets a status, and
+you decide what to do about it. Enforcement is opt-in through two independent
+gates, and either one failing fails the run.
+
+```yaml
+      - uses: RoloBits/nestjs-doctor@v1
+        with:
+          blocking: error # any error the change introduced fails the run
+          min-score: 80 # …and so does a project score below 80
+```
+
+`blocking` gates on the findings **actually reported**, so with the default
+`scope: changed` it fires only on what the pull request introduced — your
+existing backlog cannot fail somebody else's pull request. `none` (the default)
+never fails, `warning` fails on any error or warning, `error` on errors only.
+
+`min-score` gates on the **whole project**, always, whatever the scope. That is
+deliberate — narrowing a report must not make a codebase look healthier than it
+is — but it does mean a high enough threshold can fail a pull request for debt
+it did not create. Use `blocking` on its own to gate purely on the change.
 
 ### Outputs
 
