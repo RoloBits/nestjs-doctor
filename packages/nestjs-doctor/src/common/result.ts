@@ -1,6 +1,7 @@
 import type { Category, Diagnostic } from "./diagnostic.js";
 import type { EndpointGraph } from "./endpoint.js";
 import type { SerializedSchemaGraph } from "./schema.js";
+import type { ScopeInfo } from "./scope.js";
 
 export interface Score {
 	label: string;
@@ -36,6 +37,14 @@ export interface DiagnoseResult {
 	project: ProjectInfo;
 	ruleErrors: RuleErrorInfo[];
 	schema?: SerializedSchemaGraph;
+	/**
+	 * `score` always reflects the whole project — health is a property of the
+	 * codebase, not of how much of it a given run chose to report. `diagnostics`
+	 * and `summary` reflect the scope described here.
+	 *
+	 * Absent when the run reported everything.
+	 */
+	scope?: ScopeInfo;
 	score: Score;
 	summary: DiagnoseSummary;
 }

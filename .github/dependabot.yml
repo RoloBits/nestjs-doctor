@@ -1,0 +1,28 @@
+version: 2
+updates:
+  # The composite action pins every nested action by commit SHA, which is only
+  # safe if something keeps those pins current. Dependabot rewrites both the SHA
+  # and the trailing version comment.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      dev-dependencies:
+        dependency-type: development
+      production-dependencies:
+        dependency-type: production
+        update-types: ["minor", "patch"]
+    commit-message:
+      prefix: "chore(deps)"

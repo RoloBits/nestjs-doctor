@@ -22,6 +22,7 @@ pnpm test         # Run tests (Vitest)
 pnpm check        # Lint with Biome (via Ultracite)
 pnpm fix          # Auto-fix lint + formatting
 pnpm typecheck    # TypeScript type checking
+pnpm knip         # Find unused files, exports, and dependencies
 ```
 
 A pre-commit hook runs `pnpm check` and `pnpm test` automatically. If either fails, the commit is blocked.
@@ -32,17 +33,27 @@ This is a pnpm monorepo with two packages:
 
 ```
 packages/
-  nestjs-doctor/   # CLI tool + library (the main package)
+  nestjs-doctor/            # CLI tool + library (the main package)
     src/
-      cli/         # CLI entry point (citty)
-      core/        # Scanner pipeline
-      engine/      # AST parsing, module graph, rule runner
-      rules/       # All 40 built-in rules, organized by category
-      scorer/      # Scoring algorithm
-      types/       # Shared types (Diagnostic, Config, etc.)
+      api/                  # Public Node API surface
+      cli/                  # CLI entry point (citty), flags, console output
+      common/               # Shared types (Diagnostic, Config, Result, Scope)
+      engine/               # Scanner pipeline
+        config/             # Config resolution and custom rule loading
+        graph/              # AST parsing, module graph, providers, endpoints
+        rules/definitions/  # All 50 built-in rules, grouped by category
+        schema/             # ORM schema extractors (Prisma, TypeORM, ...)
+        scorer/             # Scoring algorithm
+      formatters/           # Markdown, SARIF, and GitLab report builders
+      report/               # Interactive HTML report
     tests/
-      unit/rules/  # Rule tests
-  website/         # Documentation site (Next.js + MDX)
+      unit/                 # Unit tests, including unit/rules/
+      integration/          # End-to-end scans over tests/fixtures/
+  nestjs-doctor-lsp/        # Language server, used by the VS Code extension
+  nestjs-doctor-vscode/     # VS Code extension
+  website/                  # Documentation site (Next.js + MDX)
+action.yml                  # The official GitHub Action (composite)
+scripts/action/             # Helper scripts the action invokes
 ```
 
 Full pipeline docs: [nestjs.doctor/docs](https://nestjs.doctor/docs)
@@ -64,12 +75,13 @@ This prompts you to pick a semver bump and write a short summary. The changeset 
 
 ## Creating a new rule
 
-Rules live in `packages/nestjs-doctor/src/rules/`, grouped by category: `security`, `performance`, `correctness`, `architecture`.
+Rules live in `packages/nestjs-doctor/src/engine/rules/definitions/`, grouped by category: `security`, `performance`, `correctness`, `architecture`, `schema`.
 
-There are two kinds of rules:
+There are three kinds of rules:
 
 - **File-scoped** (`Rule`) — runs once per source file. Has access to a single `SourceFile` AST.
 - **Project-scoped** (`ProjectRule`) — runs once for the entire project. Has access to the full `ts-morph` Project, the module graph, and the provider map.
+- **Schema-scoped** (`SchemaRule`) — runs once against the extracted ORM schema graph. Reports against an entity rather than a line.
 
 Most rules are file-scoped. Use project-scoped only when the rule needs cross-file information (circular dependencies, unused providers, etc.).
 
@@ -77,7 +89,7 @@ Most rules are file-scoped. Use project-scoped only when the rule needs cross-fi
 
 ```bash
 # Example: a new security rule
-touch packages/nestjs-doctor/src/rules/security/no-my-thing.ts
+touch packages/nestjs-doctor/src/engine/rules/definitions/security/no-my-thing.ts
 ```
 
 ### 2. Implement the rule
@@ -86,7 +98,7 @@ Every rule exports an object that satisfies `Rule` (or `ProjectRule`). Here's a 
 
 ```typescript
 import { SyntaxKind } from "ts-morph";
-import type { Rule } from "../types.js";
+import type { Rule } from "../../types.js";
 
 export const noMyThing: Rule = {
   meta: {
@@ -122,7 +134,7 @@ The `meta` fields:
 | Field | What it is |
 |---|---|
 | `id` | `"<category>/<kebab-case-name>"` — must be unique across all rules |
-| `category` | One of `"security"`, `"performance"`, `"correctness"`, `"architecture"` |
+| `category` | One of `"security"`, `"performance"`, `"correctness"`, `"architecture"`, `"schema"` |
 | `severity` | `"error"`, `"warning"`, or `"info"` |
 | `description` | One-liner shown in reports and docs |
 | `help` | Fix suggestion shown alongside the diagnostic |
@@ -133,13 +145,13 @@ For project-scoped rules, set `scope: "project"` in `meta` and implement `Projec
 
 ### 3. Register the rule
 
-Open `packages/nestjs-doctor/src/rules/index.ts` and:
+Open `packages/nestjs-doctor/src/engine/rules/index.ts` and:
 
 1. Add an import for your rule.
 2. Add it to the `allRules` array under the right category comment.
 
 ```typescript
-import { noMyThing } from "./security/no-my-thing.js";
+import { noMyThing } from "./definitions/security/no-my-thing.js";
 
 export const allRules: AnyRule[] = [
   // ...
@@ -185,10 +197,30 @@ Always test both directions: code that should trigger the rule and code that sho
 ```bash
 pnpm test         # All tests pass
 pnpm check        # Linting passes
+pnpm typecheck    # No type errors
 pnpm build        # Build succeeds
 ```
 
-If all three pass, the pre-commit hook will too.
+If all of those pass, the pre-commit hook will too.
+
+## Working on the GitHub Action
+
+`action.yml` at the repository root is the published composite action, and its
+helper scripts live in `scripts/action/`. Nothing else exercises it, so the
+`Action Self-Test` workflow runs it against a fixture on every change to
+`action.yml`, `scripts/action/**`, or the main package.
+
+Two things to keep in mind when editing it:
+
+- **Pin every nested action by commit SHA**, with the version as a trailing
+  comment. Dependabot keeps those pins current.
+- **The comment renderer is imported from the installed package**
+  (`buildMarkdownReport`), never reimplemented in the action. That is what keeps
+  the pull request comment, the job summary, and `--format markdown` identical.
+
+Consumers pin `RoloBits/nestjs-doctor@v1`, so a change to the action's inputs or
+outputs is a breaking change for them even when the npm package's version does
+not move.
 
 ## Docs
 

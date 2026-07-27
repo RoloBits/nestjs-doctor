@@ -40,6 +40,7 @@ export {
 	buildResult,
 	type EngineResult,
 	type MonorepoEngineResult,
+	withScopedDiagnostics,
 } from "./result-builder.js";
 
 // Facades that compose both

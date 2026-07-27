@@ -7,15 +7,16 @@ import {
 
 const CONFIG_FILENAMES = ["nestjs-doctor.config.json", ".nestjs-doctor.json"];
 
-export async function loadConfig(
-	targetPath: string,
-	configPath?: string
-): Promise<NestjsDoctorConfig> {
-	if (configPath) {
-		return readConfigFile(configPath);
-	}
-
-	// Try known config file names
+/**
+ * Reads the config a directory declares, or `null` when it declares none.
+ *
+ * The nullable return is what lets callers tell "this project opted into the
+ * defaults" apart from "this project said nothing" — a distinction sub-project
+ * resolution depends on.
+ */
+export async function findConfig(
+	targetPath: string
+): Promise<NestjsDoctorConfig | null> {
 	for (const filename of CONFIG_FILENAMES) {
 		try {
 			return await readConfigFile(join(targetPath, filename));
@@ -24,7 +25,6 @@ export async function loadConfig(
 		}
 	}
 
-	// Try package.json "nestjs-doctor" key
 	try {
 		const pkgRaw = await readFile(join(targetPath, "package.json"), "utf-8");
 		const pkg = JSON.parse(pkgRaw) as Record<string, unknown>;
@@ -35,7 +35,17 @@ export async function loadConfig(
 		// No package.json or no key
 	}
 
-	return { ...DEFAULT_CONFIG };
+	return null;
+}
+
+export async function loadConfig(
+	targetPath: string,
+	configPath?: string
+): Promise<NestjsDoctorConfig> {
+	if (configPath) {
+		return readConfigFile(configPath);
+	}
+	return (await findConfig(targetPath)) ?? { ...DEFAULT_CONFIG };
 }
 
 async function readConfigFile(path: string): Promise<NestjsDoctorConfig> {
@@ -62,12 +72,21 @@ function mergeConfig(userConfig: NestjsDoctorConfig): NestjsDoctorConfig {
 	};
 }
 
+/**
+ * Config for one package of a monorepo.
+ *
+ * A package that ships its own config keeps full control; one that ships none
+ * inherits the root's. Before this, a root `nestjs-doctor.config.json` (or
+ * `--config`) was loaded and then silently dropped for every sub-project,
+ * because `loadConfig` swallows a missing file and returns the defaults rather
+ * than throwing.
+ */
 export async function loadConfigWithFallback(
 	projectPath: string,
 	fallback: NestjsDoctorConfig
 ): Promise<NestjsDoctorConfig> {
 	try {
-		return await loadConfig(projectPath);
+		return (await findConfig(projectPath)) ?? fallback;
 	} catch {
 		return fallback;
 	}

@@ -1,0 +1,555 @@
+name: "NestJS Doctor"
+description: "Scan a NestJS codebase for security, performance, correctness, architecture, and schema issues"
+branding:
+  icon: "activity"
+  color: "red"
+
+inputs:
+  directory:
+    description: "Project directory to scan"
+    default: "."
+  scope:
+    description: "On pull requests, what to report (same meanings as the CLI --scope): 'changed' (only findings the pull request introduced vs its base — the default), 'files' (every finding in the changed files), 'lines' (only findings on the changed lines), or 'full' (the whole project). Other events always report the full project."
+    default: "changed"
+  blocking:
+    description: "Severity that fails the workflow: none (default; advisory), warning, or error."
+    default: "none"
+  min-score:
+    description: "Fail the workflow when the project's health score drops below this value (0-100). Empty to disable. The score always reflects the whole project, never just the changed files."
+    default: ""
+  config:
+    description: "Path to a nestjs-doctor config file. Empty to auto-detect."
+    default: ""
+  comment:
+    description: "Create or update a sticky pull request summary comment. Requires `pull-requests: write`."
+    default: "true"
+  review-comments:
+    description: "Post inline review comments on the changed lines that triggered findings (pull requests only). Requires `pull-requests: write`."
+    default: "true"
+  commit-status:
+    description: "Publish a commit status with the score and finding counts. Requires `statuses: write` (skipped with a warning otherwise)."
+    default: "true"
+  sarif:
+    description: "Also write a SARIF report to `sarif-file`, for upload to GitHub code scanning."
+    default: "false"
+  sarif-file:
+    description: "Where the SARIF report is written when `sarif` is enabled."
+    default: "nestjs-doctor.sarif"
+  silence-missing-baseline-warning:
+    description: "Hide the warning shown when a compare scope cannot reach the base commit (a shallow checkout) and falls back to reporting every finding in the changed files. Setting `fetch-depth: 0` on actions/checkout is the real remedy."
+    default: "false"
+  node-version:
+    description: "Node.js version to use"
+    default: "22"
+  version:
+    description: "nestjs-doctor npm version or package spec to run"
+    default: "latest"
+
+outputs:
+  score:
+    description: "Health score (0-100) for the whole project. Empty when the scan could not produce one."
+    value: ${{ steps.report.outputs.score }}
+  label:
+    description: "Score label: Excellent, Good, Fair, Poor, or Critical."
+    value: ${{ steps.report.outputs.label }}
+  total-issues:
+    description: "Findings in the reported scope. On a pull request with the default scope, the count the change introduced."
+    value: ${{ steps.report.outputs.total-issues }}
+  fixed-issues:
+    description: "Findings the change resolved. Only meaningful with `scope: changed`; 0 otherwise."
+    value: ${{ steps.report.outputs.fixed-issues }}
+  error-count:
+    description: "Error-severity findings in the reported scope."
+    value: ${{ steps.report.outputs.error-count }}
+  warning-count:
+    description: "Warning-severity findings in the reported scope."
+    value: ${{ steps.report.outputs.warning-count }}
+  affected-files:
+    description: "Number of files carrying at least one reported finding."
+    value: ${{ steps.report.outputs.affected-files }}
+  report-file:
+    description: "Path to the raw JSON report."
+    value: ${{ steps.scan.outputs.report-file }}
+  sarif-file:
+    description: "Path to the SARIF report, when `sarif` is enabled."
+    value: ${{ steps.scan.outputs.sarif-file }}
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+      with:
+        node-version: ${{ inputs.node-version }}
+        package-manager-cache: false
+
+    # Pin `latest` to the version it currently resolves to, so the install cache
+    # key is stable. Keying on the literal string "latest" would freeze whichever
+    # release a repository happened to cache first.
+    - id: resolve-version
+      shell: bash
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+      run: node "$GITHUB_ACTION_PATH/scripts/action/resolve-package-spec.mjs" "$INPUT_VERSION"
+
+    # The npm install dominates the cost of a small scan. Keyed on the exact
+    # resolved version plus the toolchain identity, with no `restore-keys`
+    # fallback: a partial restore from another version could leave a broken tree.
+    # Restore + explicit save rather than the combined action, because the
+    # combined post-job save is skipped when the job fails — and a blocking scan
+    # with findings fails the job BY DESIGN, which is exactly the run whose
+    # fix-and-push retry wants a warm cache.
+    - id: toolchain-cache
+      if: ${{ steps.resolve-version.outputs.cacheable == 'true' }}
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/nestjs-doctor-toolchain
+        key: nestjs-doctor-${{ steps.resolve-version.outputs.resolved }}-node${{ inputs.node-version }}-${{ runner.os }}-${{ runner.arch }}
+
+    # Resolve the pull request's changed files from git first: no API rate
+    # limit, and it works on forks where `pulls.listFiles` can be denied. The
+    # API step below is the fallback for a checkout too shallow to diff.
+    - id: base
+      if: ${{ github.event_name == 'pull_request' && inputs.scope != 'full' }}
+      shell: bash
+      env:
+        INPUT_DIRECTORY: ${{ inputs.directory }}
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        CHANGED_FILES_FILE: ${{ runner.temp }}/nestjs-doctor-changed-files.txt
+      run: |
+        # Best-effort fetch of the base commit. `--scope changed` needs its full
+        # tree to scan, so ask for enough history to check it out; `|| true`
+        # keeps an already-present base (fetch-depth: 0) from failing the step.
+        if [ -n "$BASE_SHA" ] && git -C "$INPUT_DIRECTORY" rev-parse --git-dir >/dev/null 2>&1; then
+          git -C "$INPUT_DIRECTORY" fetch --no-tags --depth=1 origin "$BASE_SHA" 2>/dev/null || true
+        fi
+
+        # The prefix mapping repo-root-relative diff paths onto scan-relative
+        # ones. Taken from git rather than the raw `directory` input so it stays
+        # correct for an absolute path, an actions/checkout `path:` layout, and a
+        # nested repository alike — a wrong prefix drops every changed file and
+        # the scan silently reports nothing.
+        if SCAN_PREFIX="$(git -C "$INPUT_DIRECTORY" rev-parse --show-prefix 2>/dev/null)"; then
+          # `--show-prefix` legitimately returns "" at the repo root; the `.`
+          # sentinel keeps GHA's `||` fallback from reading that as "unresolved".
+          SCAN_PREFIX="${SCAN_PREFIX:-.}"
+        else
+          SCAN_PREFIX="$INPUT_DIRECTORY"
+        fi
+        # A newline in the prefix would smuggle extra entries into
+        # $GITHUB_OUTPUT's line-oriented protocol. No real prefix contains one.
+        case "$SCAN_PREFIX" in
+          *$'\n'*) SCAN_PREFIX="." ;;
+        esac
+        echo "prefix=$SCAN_PREFIX" >> "$GITHUB_OUTPUT"
+
+        # Three-dot (merge-base) + AMR matches both the `pulls.listFiles`
+        # contract and the CLI's own baseline semantics.
+        RAW_CHANGED="${RUNNER_TEMP:-/tmp}/nestjs-doctor-raw-changed.txt"
+        if [ -n "$BASE_SHA" ] && git -C "$INPUT_DIRECTORY" diff --name-only --diff-filter=AMR "$BASE_SHA...HEAD" > "$RAW_CHANGED" 2>/dev/null; then
+          node "$GITHUB_ACTION_PATH/scripts/action/normalize-changed-files.mjs" "$SCAN_PREFIX" "$CHANGED_FILES_FILE" < "$RAW_CHANGED"
+          echo "path=$CHANGED_FILES_FILE" >> "$GITHUB_OUTPUT"
+        else
+          echo "::warning::nestjs-doctor could not derive the changed files from git — the base commit is not in this checkout. Set \`fetch-depth: 0\` on actions/checkout. Falling back to the GitHub API."
+        fi
+
+    # API fallback, used only when the local diff above could not run.
+    - id: pr-files
+      if: ${{ github.event_name == 'pull_request' && inputs.scope != 'full' && steps.base.outputs.path == '' }}
+      uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+      env:
+        NESTJS_DOCTOR_CHANGED_FILES: ${{ runner.temp }}/nestjs-doctor-changed-files.txt
+        INPUT_DIRECTORY: ${{ steps.base.outputs.prefix || inputs.directory }}
+        # `github.action_path` is THIS composite action's directory. Inside a
+        # nested github-script step the ambient GITHUB_ACTION_PATH points at
+        # github-script's own directory, so pass ours explicitly.
+        COMPOSITE_ACTION_PATH: ${{ github.action_path }}
+      with:
+        script: |
+          const fs = require("fs");
+          const { pathToFileURL } = require("url");
+          const { normalizeChangedFiles } = await import(
+            pathToFileURL(`${process.env.COMPOSITE_ACTION_PATH}/scripts/action/normalize-changed-files.mjs`).href,
+          );
+          const outputPath = process.env.NESTJS_DOCTOR_CHANGED_FILES;
+          const pullRequest = context.payload.pull_request;
+          if (!pullRequest || !outputPath) return;
+          let files;
+          try {
+            files = await github.paginate(github.rest.pulls.listFiles, {
+              ...context.repo,
+              pull_number: pullRequest.number,
+              per_page: 100,
+            });
+          } catch (error) {
+            core.warning(
+              `nestjs-doctor could not list pull request files (${error.message}). ` +
+                "Reporting the full project instead. Grant the workflow `pull-requests: read` to scope to the changed files.",
+            );
+            return;
+          }
+          const included = new Set(["added", "modified", "renamed"]);
+          const changed = normalizeChangedFiles(
+            files.filter((file) => included.has(file.status)).map((file) => file.filename),
+            process.env.INPUT_DIRECTORY,
+          );
+          fs.writeFileSync(outputPath, changed.length ? `${changed.join("\n")}\n` : "");
+          core.setOutput("path", outputPath);
+
+    - id: scan
+      shell: bash
+      env:
+        NO_COLOR: "1"
+        INPUT_DIRECTORY: ${{ inputs.directory }}
+        INPUT_SCOPE: ${{ inputs.scope }}
+        INPUT_BLOCKING: ${{ inputs.blocking }}
+        INPUT_MIN_SCORE: ${{ inputs.min-score }}
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_SARIF: ${{ inputs.sarif }}
+        INPUT_SARIF_FILE: ${{ inputs.sarif-file }}
+        PACKAGE_SPEC: ${{ steps.resolve-version.outputs.spec }}
+        CHANGED_FILES_FROM: ${{ steps.base.outputs.path || steps.pr-files.outputs.path }}
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        EVENT_NAME: ${{ github.event_name }}
+        RUNNER_TEMP: ${{ runner.temp }}
+      run: |
+        set -o pipefail
+        TOOLCHAIN_DIR="${RUNNER_TEMP:-/tmp}/nestjs-doctor-toolchain"
+        REPORT_FILE="${RUNNER_TEMP:-/tmp}/nestjs-doctor-report.json"
+        echo "report-file=$REPORT_FILE" >> "$GITHUB_OUTPUT"
+
+        # Install into a deterministic prefix (unlike npx's opaque _npx/<hash>
+        # directory) so actions/cache can carry it between runs and the render
+        # step can import the package's API entry by path. The version probe
+        # re-installs when the restore was empty or broken.
+        if ! "$TOOLCHAIN_DIR/node_modules/.bin/nestjs-doctor" --version >/dev/null 2>&1; then
+          mkdir -p "$TOOLCHAIN_DIR"
+          npm install --prefix "$TOOLCHAIN_DIR" --no-save --no-audit --no-fund "$PACKAGE_SPEC"
+        fi
+        DOCTOR_BIN="$TOOLCHAIN_DIR/node_modules/.bin/nestjs-doctor"
+        echo "api-entry=$TOOLCHAIN_DIR/node_modules/nestjs-doctor/dist/api/index.mjs" >> "$GITHUB_OUTPUT"
+        echo "cli-version=$("$DOCTOR_BIN" --version 2>/dev/null || echo unknown)" >> "$GITHUB_OUTPUT"
+
+        FLAGS=("--format" "json" "--output" "$REPORT_FILE" "--blocking" "$INPUT_BLOCKING")
+        if [ -n "$INPUT_MIN_SCORE" ]; then FLAGS+=("--min-score" "$INPUT_MIN_SCORE"); fi
+        if [ -n "$INPUT_CONFIG" ]; then FLAGS+=("--config" "$INPUT_CONFIG"); fi
+
+        # Lowercase so this bash test agrees with the case-insensitive `!= 'full'`
+        # comparisons the changed-file steps use; otherwise `scope: Full` would
+        # skip those steps yet still take the diff path here.
+        SCOPE="$(printf '%s' "$INPUT_SCOPE" | tr '[:upper:]' '[:lower:]')"
+        if [ "$EVENT_NAME" != "pull_request" ] || [ "$SCOPE" = "full" ]; then
+          FLAGS+=("--scope" "full")
+        else
+          case "$SCOPE" in
+            files|lines|changed) FLAGS+=("--scope" "$SCOPE") ;;
+            *) FLAGS+=("--scope" "changed") ;;
+          esac
+          if [ -n "$CHANGED_FILES_FROM" ]; then
+            FLAGS+=("--changed-files-from" "$CHANGED_FILES_FROM")
+          fi
+          # A branch name rarely resolves in a shallow pull request checkout, so
+          # hand the CLI the fetched SHA directly.
+          if [ -n "$BASE_SHA" ]; then FLAGS+=("--base" "$BASE_SHA"); fi
+        fi
+
+        set +e
+        "$DOCTOR_BIN" "$INPUT_DIRECTORY" "${FLAGS[@]}"
+        SCAN_STATUS=$?
+        set -e
+        echo "exit-code=$SCAN_STATUS" >> "$GITHUB_OUTPUT"
+
+        # A second render of the same scan would double the cost, so SARIF is
+        # produced from the JSON report rather than by scanning again.
+        if [ "$INPUT_SARIF" = "true" ]; then
+          SARIF_PATH="$INPUT_SARIF_FILE"
+          if node "$GITHUB_ACTION_PATH/scripts/action/render-sarif.mjs" \
+               "$TOOLCHAIN_DIR/node_modules/nestjs-doctor/dist/api/index.mjs" \
+               "$REPORT_FILE" "$SARIF_PATH" "$INPUT_DIRECTORY"; then
+            echo "sarif-file=$SARIF_PATH" >> "$GITHUB_OUTPUT"
+          fi
+        fi
+
+    - name: Save toolchain cache
+      if: ${{ always() && steps.resolve-version.outputs.cacheable == 'true' && steps.toolchain-cache.outputs.cache-hit != 'true' }}
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/nestjs-doctor-toolchain
+        key: nestjs-doctor-${{ steps.resolve-version.outputs.resolved }}-node${{ inputs.node-version }}-${{ runner.os }}-${{ runner.arch }}
+
+    - id: report
+      if: always()
+      shell: bash
+      env:
+        REPORT_FILE: ${{ steps.scan.outputs.report-file }}
+        COMMENT_FILE: ${{ runner.temp }}/nestjs-doctor-comment.md
+        API_ENTRY: ${{ steps.scan.outputs.api-entry }}
+        NESTJS_DOCTOR_TARGET_PATH: ${{ inputs.directory }}
+        NESTJS_DOCTOR_VERSION: ${{ steps.scan.outputs.cli-version }}
+        NESTJS_DOCTOR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        NESTJS_DOCTOR_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        NESTJS_DOCTOR_SILENCE_BASELINE_WARNING: ${{ inputs.silence-missing-baseline-warning }}
+      run: |
+        node "$GITHUB_ACTION_PATH/scripts/action/read-report.mjs" "$REPORT_FILE"
+        node "$GITHUB_ACTION_PATH/scripts/action/render-comment.mjs" "$API_ENTRY" "$REPORT_FILE" "$COMMENT_FILE"
+        echo "comment-file=$COMMENT_FILE" >> "$GITHUB_OUTPUT"
+
+    - name: Update sticky pull request comment
+      if: ${{ always() && github.event_name == 'pull_request' && inputs.comment == 'true' }}
+      uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+      env:
+        NESTJS_DOCTOR_COMMENT_FILE: ${{ steps.report.outputs.comment-file }}
+      with:
+        script: |
+          const fs = require("fs");
+          const commentPath = process.env.NESTJS_DOCTOR_COMMENT_FILE;
+          if (!commentPath || !fs.existsSync(commentPath)) return;
+          const body = fs.readFileSync(commentPath, "utf8").trim();
+          if (!body) return;
+
+          const marker = "<!-- nestjs-doctor:summary -->";
+          try {
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              ...context.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const previous = comments.find((comment) => comment.body?.startsWith(marker));
+            if (previous) {
+              await github.rest.issues.updateComment({
+                ...context.repo,
+                comment_id: previous.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                ...context.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+          } catch (error) {
+            core.warning(
+              `nestjs-doctor could not update the sticky pull request comment (${error.message}). ` +
+                "Grant the workflow `pull-requests: write` to enable it.",
+            );
+          }
+
+    - name: Post inline review comments
+      if: ${{ always() && github.event_name == 'pull_request' && inputs.review-comments == 'true' }}
+      uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+      env:
+        NESTJS_DOCTOR_REPORT_FILE: ${{ steps.scan.outputs.report-file }}
+        INPUT_DIRECTORY: ${{ steps.base.outputs.prefix || inputs.directory }}
+      with:
+        script: |
+          const fs = require("fs");
+          const path = require("path");
+          const reportPath = process.env.NESTJS_DOCTOR_REPORT_FILE;
+          const pullRequest = context.payload.pull_request;
+          if (!pullRequest || !reportPath || !fs.existsSync(reportPath)) return;
+
+          let report;
+          try {
+            report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
+          } catch {
+            // A crashed scan leaves a truncated report; leave existing feedback
+            // in place rather than wiping it on a transient failure.
+            return;
+          }
+          const diagnostics = Array.isArray(report.diagnostics) ? report.diagnostics : [];
+
+          const marker = "<!-- nestjs-doctor:review -->";
+          const directoryPrefix = (process.env.INPUT_DIRECTORY || ".")
+            .replace(/^\.\/?/, "")
+            .replace(/\/$/, "");
+
+          let files;
+          try {
+            files = await github.paginate(github.rest.pulls.listFiles, {
+              ...context.repo,
+              pull_number: pullRequest.number,
+              per_page: 100,
+            });
+          } catch (error) {
+            core.warning(`nestjs-doctor could not list pull request files for review comments (${error.message}).`);
+            return;
+          }
+
+          // The Reviews API accepts RIGHT-side comments on any line inside a
+          // hunk — added (`+`) and unchanged context (` `) alike, since a
+          // finding can land on a context line when the change that caused it
+          // is elsewhere in the hunk. Removed lines are not RIGHT-side lines.
+          const commentableByFile = new Map();
+          for (const file of files) {
+            if (!file.patch) continue;
+            const commentable = new Set();
+            let newLine = 0;
+            for (const patchLine of file.patch.split("\n")) {
+              const hunk = patchLine.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+              if (hunk) {
+                newLine = Number(hunk[1]);
+                continue;
+              }
+              if (patchLine.startsWith("+") || patchLine.startsWith(" ")) {
+                commentable.add(newLine);
+                newLine += 1;
+              }
+            }
+            commentableByFile.set(file.filename, commentable);
+          }
+
+          // Report paths are absolute; map them back onto repo-relative ones.
+          const workspace = (process.env.GITHUB_WORKSPACE || process.cwd()).replace(/\\/g, "/");
+          const toRepoPath = (filePath) => {
+            let normalized = String(filePath || "").replace(/\\/g, "/").replace(/^\.\//, "");
+            if (normalized.startsWith(`${workspace}/`)) {
+              normalized = normalized.slice(workspace.length + 1);
+            }
+            if (commentableByFile.has(normalized)) return normalized;
+            const prefixed = directoryPrefix ? `${directoryPrefix}/${normalized}` : normalized;
+            if (commentableByFile.has(prefixed)) return prefixed;
+            const suffixMatches = [...commentableByFile.keys()].filter((name) =>
+              name.endsWith(`/${normalized}`),
+            );
+            return suffixMatches.length === 1 ? suffixMatches[0] : null;
+          };
+
+          const seen = new Set();
+          const comments = [];
+          for (const diagnostic of diagnostics) {
+            if (!diagnostic || typeof diagnostic.line !== "number" || diagnostic.line <= 0) continue;
+            const repoPath = toRepoPath(diagnostic.filePath);
+            if (!repoPath) continue;
+            const commentable = commentableByFile.get(repoPath);
+            if (!commentable || !commentable.has(diagnostic.line)) continue;
+            const dedupeKey = `${repoPath}:${diagnostic.line}:${diagnostic.rule}`;
+            if (seen.has(dedupeKey)) continue;
+            seen.add(dedupeKey);
+            const fix = diagnostic.help ? `\n\n**Fix** → ${diagnostic.help}` : "";
+            comments.push({
+              path: repoPath,
+              line: diagnostic.line,
+              side: "RIGHT",
+              body: `${marker}\n**nestjs-doctor** · \`${diagnostic.rule}\` _(${diagnostic.severity})_\n\n${diagnostic.message}${fix}`,
+            });
+          }
+
+          // Findings that mapped onto no changed line must not wipe existing
+          // inline feedback — that would read as "all clear" when it isn't.
+          if (comments.length === 0 && diagnostics.length > 0) return;
+
+          // Capture the prior review comments up front, and delete them only
+          // after the new review posts, so a failed post leaves the last run's
+          // feedback rather than nothing at all.
+          let priorIds = [];
+          try {
+            const existing = await github.paginate(github.rest.pulls.listReviewComments, {
+              ...context.repo,
+              pull_number: pullRequest.number,
+              per_page: 100,
+            });
+            priorIds = existing
+              .filter((comment) => comment.body?.startsWith(marker))
+              .map((comment) => comment.id);
+          } catch (error) {
+            core.warning(`nestjs-doctor could not list prior review comments: ${error.message}`);
+          }
+
+          // Capped to stay inside GitHub's per-review size limits and to keep a
+          // large pull request readable; the sticky comment holds every finding.
+          const MAX_COMMENTS = 40;
+          if (comments.length > 0) {
+            try {
+              await github.rest.pulls.createReview({
+                ...context.repo,
+                pull_number: pullRequest.number,
+                event: "COMMENT",
+                comments: comments.slice(0, MAX_COMMENTS),
+              });
+            } catch (error) {
+              core.warning(
+                `nestjs-doctor could not post inline review comments (${error.message}). ` +
+                  "Grant the workflow `pull-requests: write` to enable them.",
+              );
+              return;
+            }
+          }
+
+          for (const commentId of priorIds) {
+            try {
+              await github.rest.pulls.deleteReviewComment({ ...context.repo, comment_id: commentId });
+            } catch (error) {
+              core.warning(`nestjs-doctor could not clear a prior review comment: ${error.message}`);
+            }
+          }
+
+    - name: Publish commit status
+      if: ${{ always() && inputs.commit-status == 'true' }}
+      uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+      env:
+        NESTJS_DOCTOR_SCORE: ${{ steps.report.outputs.score }}
+        NESTJS_DOCTOR_LABEL: ${{ steps.report.outputs.label }}
+        NESTJS_DOCTOR_ERROR_COUNT: ${{ steps.report.outputs.error-count }}
+        NESTJS_DOCTOR_WARNING_COUNT: ${{ steps.report.outputs.warning-count }}
+        NESTJS_DOCTOR_SCAN_EXIT: ${{ steps.scan.outputs.exit-code }}
+        NESTJS_DOCTOR_STATUS_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        NESTJS_DOCTOR_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      with:
+        script: |
+          const sha = process.env.NESTJS_DOCTOR_STATUS_SHA;
+          if (!sha) return;
+
+          const score = process.env.NESTJS_DOCTOR_SCORE;
+          const label = process.env.NESTJS_DOCTOR_LABEL;
+          const errors = Number(process.env.NESTJS_DOCTOR_ERROR_COUNT || "0");
+          const warnings = Number(process.env.NESTJS_DOCTOR_WARNING_COUNT || "0");
+          const scanExit = process.env.NESTJS_DOCTOR_SCAN_EXIT;
+          const isPullRequest = context.eventName === "pull_request";
+
+          const plural = (count, noun) => `${count} ${noun}${count === 1 ? "" : "s"}`;
+          const counts = `${plural(errors, "error")} · ${plural(warnings, "warning")}`;
+          // An empty exit code means the scan step never finished; treat that as
+          // a failure so this status cannot read green while the gate fails.
+          const scanFailed = scanExit !== "0";
+          const description = score
+            ? `Score: ${score}/100 (${label}) · ${counts}`
+            : scanFailed
+              ? "Scan could not complete"
+              : counts;
+
+          // Advisory on pushes — a default-branch health signal that must never
+          // turn the branch red. On a pull request it mirrors the gate.
+          const state = isPullRequest && scanFailed ? "failure" : "success";
+
+          try {
+            await github.rest.repos.createCommitStatus({
+              ...context.repo,
+              sha,
+              state,
+              context: "NestJS Doctor",
+              description: description.slice(0, 140),
+              target_url: process.env.NESTJS_DOCTOR_RUN_URL,
+            });
+          } catch (error) {
+            core.warning(
+              `nestjs-doctor could not publish the commit status (${error.message}). ` +
+                "Grant the workflow `statuses: write` to enable it.",
+            );
+          }
+
+    - name: Fail if nestjs-doctor found blocking issues
+      if: always()
+      shell: bash
+      env:
+        SCAN_STATUS: ${{ steps.scan.outputs.exit-code }}
+        EVENT_NAME: ${{ github.event_name }}
+      run: |
+        # Non-pull-request events run a whole-project health snapshot rather than
+        # a gate: the result is visible in the job summary and commit status, but
+        # the run never fails on pre-existing findings, so the default branch
+        # does not go red. Pull requests propagate the CLI's exit code, which
+        # already reflects `blocking` and `min-score`.
+        if [ "$EVENT_NAME" != "pull_request" ]; then
+          exit 0
+        fi
+        exit "${SCAN_STATUS:-1}"

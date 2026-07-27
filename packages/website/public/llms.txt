@@ -1,6 +1,6 @@
 # NestJS Doctor
 
-> Diagnose and fix your NestJS code in one command. 40 built-in rules across security, performance, correctness, and architecture. Outputs a 0-100 score with actionable diagnostics. Zero config. Monorepo support.
+> Diagnose and fix your NestJS code in one command. 50 built-in rules across security, performance, correctness, architecture, and schema. Outputs a 0-100 score with actionable diagnostics. Zero config. Monorepo support. Ships an official GitHub Action that reports only what a pull request introduced.
 
 ## Quick Start
 
@@ -21,17 +21,60 @@ npm install -D nestjs-doctor
 ```
 Usage: nestjs-doctor [directory] [options]
 
-  --verbose       Show file paths, line numbers, and source context per diagnostic
-  --score         Output only the numeric score (for CI)
-  --json          JSON output (for tooling)
-  --report        Generate an interactive HTML report (--graph also works)
-  --min-score <n> Minimum passing score (0-100). Exits with code 1 if below threshold
-  --config <p>    Path to config file
-  --init          Set up the /nestjs-doctor skill for AI coding agents
-  -h, --help      Show help
+  --verbose             Show file paths, line numbers, and source context per diagnostic
+  --score               Output only the numeric score (for CI)
+  --json                JSON output (for tooling)
+  --format <f>          console (default), json, sarif, gitlab, markdown, github
+  --output <path>       Write the formatted output to a file instead of stdout
+  --json-compact        Emit JSON-based formats without indentation
+  --scope <s>           full (default), files, lines, changed
+  --base <ref>          Git ref to compare against (auto-detected)
+  --staged              Scope to the staged files, for pre-commit hooks
+  --changed-files-from  Path to a newline-separated list of changed files
+  --blocking <level>    Severity that fails the run: none, warning, error
+  --min-score <n>       Minimum passing score (0-100). Exits with code 1 if below threshold
+  --report              Generate an interactive HTML report (--graph also works)
+  --config <p>          Path to config file
+  --list-rules          List every built-in rule and exit
+  --init                Set up the /nestjs-doctor skill for AI coding agents
+  -h, --help            Show help
 ```
 
-Exit codes: 0 = pass, 1 = score below threshold, 2 = bad input.
+Exit codes: 0 = pass, 1 = a gate failed (min-score or blocking), 2 = bad input.
+
+## Scoping to a change
+
+The whole project is always analysed — cross-file rules need it — so `--scope`
+only narrows what gets reported.
+
+- `full` — every finding in the project (the default)
+- `files` — findings in files the change touched
+- `lines` — findings on the lines the change touched
+- `changed` — findings the change introduced, measured against the base revision
+
+```bash
+npx nestjs-doctor . --scope changed --base origin/main
+npx nestjs-doctor . --staged --blocking error   # pre-commit hook
+```
+
+The score always reflects the whole project, whatever the scope. `--min-score`
+gates on that score; `--blocking` gates on the reported findings.
+
+## GitHub Action
+
+```yaml
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0        # required for scope: changed
+- uses: RoloBits/nestjs-doctor@v1
+```
+
+Reports only what the pull request introduced, posts a sticky summary comment,
+inline review comments on the changed lines, and a commit status. Inputs:
+`directory`, `scope`, `blocking`, `min-score`, `config`, `comment`,
+`review-comments`, `commit-status`, `sarif`, `sarif-file`, `node-version`,
+`version`. Outputs: `score`, `label`, `total-issues`, `fixed-issues`,
+`error-count`, `warning-count`, `affected-files`, `report-file`, `sarif-file`.
 
 ## Configuration
 

@@ -4,12 +4,19 @@ const writeLogLine = (text: string): void => {
 	console.log(text);
 };
 
+// Diagnostics about the run itself go to stderr so stdout stays a clean
+// machine-readable stream — `--format json > report.json` must not pick up a
+// warning line.
+const writeErrorLine = (text: string): void => {
+	console.error(text);
+};
+
 export const logger = {
 	error(...args: unknown[]) {
-		writeLogLine(highlighter.error(args.join(" ")));
+		writeErrorLine(highlighter.error(args.join(" ")));
 	},
 	warn(...args: unknown[]) {
-		writeLogLine(highlighter.warn(args.join(" ")));
+		writeErrorLine(highlighter.warn(args.join(" ")));
 	},
 	info(...args: unknown[]) {
 		writeLogLine(highlighter.info(args.join(" ")));

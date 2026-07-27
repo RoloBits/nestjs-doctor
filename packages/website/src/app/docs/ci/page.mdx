@@ -1,0 +1,231 @@
+import { BreadcrumbJsonLd } from "@/components/json-ld";
+import { docsMetadata } from "@/lib/docs-metadata";
+export const metadata = docsMetadata["/docs/ci"];
+
+<BreadcrumbJsonLd path="/docs/ci" />
+
+# CI & Pull Requests
+
+Running a linter on a codebase that predates it produces a wall of findings
+nobody reads. nestjs-doctor solves that by reporting only what a change
+introduced, and leaving the existing backlog to the score.
+
+## GitHub Action
+
+```yaml
+# .github/workflows/nestjs-doctor.yml
+name: NestJS Doctor
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+
+jobs:
+  doctor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # required for `scope: changed`
+      - uses: RoloBits/nestjs-doctor@v1
+```
+
+On a pull request the action reports in three places: a sticky summary comment
+that is rewritten in place on every push, inline review comments on the changed
+lines, and a commit status carrying the score. The full report is also mirrored
+into the run's job summary.
+
+`fetch-depth: 0` matters for the default scope. The action compares against the
+**merge base** of your branch and its target; a shallow checkout cannot resolve
+one, so it falls back to the base branch tip — and if it cannot reach that
+either, to reporting every finding in the changed files. The comment says which
+of those happened, and `silence-missing-baseline-warning` hides the notice if
+you would rather live with the fallback.
+
+### Inputs
+
+| Input | Default | Description |
+|-------|---------|-------------|
+| `directory` | `.` | Project directory to scan |
+| `scope` | `changed` | What a pull request reports — see below |
+| `blocking` | `none` | Severity that fails the workflow: `none`, `warning`, `error` |
+| `min-score` | — | Fail when the project's health score drops below this |
+| `config` | — | Path to a config file |
+| `comment` | `true` | Sticky pull request summary comment |
+| `review-comments` | `true` | Inline review comments on changed lines |
+| `commit-status` | `true` | Commit status with the score |
+| `sarif` | `false` | Also write a SARIF report |
+| `sarif-file` | `nestjs-doctor.sarif` | Where the SARIF report is written |
+| `silence-missing-baseline-warning` | `false` | Hide the degraded-scope warning |
+| `node-version` | `22` | Node.js version |
+| `version` | `latest` | nestjs-doctor version to run |
+
+### Outputs
+
+`score`, `label`, `total-issues`, `fixed-issues`, `error-count`,
+`warning-count`, `affected-files`, `report-file`, `sarif-file`.
+
+```yaml
+      - uses: RoloBits/nestjs-doctor@v1
+        id: doctor
+      - run: echo "Health is ${{ steps.doctor.outputs.score }}/100"
+```
+
+### Permissions
+
+The action degrades rather than failing when a permission is missing, and logs a
+warning naming the one it needs.
+
+| Feature | Permission |
+|---------|-----------|
+| Sticky comment, inline review comments | `pull-requests: write` |
+| Commit status | `statuses: write` |
+| Changed-file API fallback | `pull-requests: read` |
+| SARIF upload (via `github/codeql-action/upload-sarif`) | `security-events: write` |
+
+### Pushes to the default branch
+
+A push run always scans the whole project and never fails, whatever `blocking`
+says. It is a health snapshot — surfaced through the job summary and the commit
+status — so `main` does not go red on findings that were already there.
+
+## Scope
+
+The whole project is always analysed. Cross-file rules like
+`architecture/no-circular-module-deps` and `performance/no-unused-providers`
+would produce nonsense from a partial view, so `--scope` narrows only what gets
+**reported**.
+
+| Scope | Reports |
+|-------|---------|
+| `full` | Every finding in the project (the CLI default) |
+| `files` | Findings in files the change touched |
+| `lines` | Findings on the lines the change touched |
+| `changed` | Findings the change introduced, measured against the base (the action's default) |
+
+`changed` checks the base revision out into a temporary git worktree, scans it
+with the same rules and config, and subtracts what was already there. Findings
+are matched on rule, file, message, and source text — never on line number — so
+an unrelated edit higher up in a file does not make an old finding look new. The
+comment also reports how many findings the change **resolved**.
+
+`lines` reports only findings whose line falls inside a diff hunk. Schema
+findings describe an entity rather than a line, so they never appear at this
+scope; use `files` or `changed` if you want them.
+
+```bash
+# What did this branch introduce?
+npx nestjs-doctor . --scope changed --base origin/main
+
+# Pre-commit hook: only what you are about to commit
+npx nestjs-doctor . --staged --blocking error
+```
+
+## Gates
+
+Two gates run independently, and either one failing exits `1`.
+
+`--min-score` gates on the **project** score. The score always reflects the
+whole codebase regardless of scope — narrowing a report cannot make a project
+look healthier than it is.
+
+`--blocking` gates on the **reported** findings:
+
+| Level | Fails the run when |
+|-------|--------------------|
+| `none` | Never — advisory only |
+| `warning` | Any error or warning is reported |
+| `error` | Any error is reported |
+
+The default is `error` for the console report and `none` for `--json` and
+`--score`, which reproduces the behaviour that shipped before the flag existed.
+Pass `--blocking` explicitly and both paths behave identically.
+
+Exit codes: `0` pass, `1` a gate failed, `2` bad input.
+
+## Code scanning
+
+SARIF sends findings to the repository's Security tab, where they persist across
+runs as alerts rather than living only in a pull request comment.
+
+```yaml
+permissions:
+  contents: read
+  security-events: write
+
+steps:
+  - uses: actions/checkout@v4
+    with:
+      fetch-depth: 0
+  - uses: RoloBits/nestjs-doctor@v1
+    id: doctor
+    with:
+      scope: full
+      sarif: "true"
+  - uses: github/codeql-action/upload-sarif@v3
+    if: always() && steps.doctor.outputs.sarif-file != ''
+    with:
+      sarif_file: ${{ steps.doctor.outputs.sarif-file }}
+```
+
+Every result carries a `partialFingerprints` entry derived from the rule, path,
+message, and source text. Without it GitHub computes its own fingerprint from
+surrounding source, and an edit near a finding closes the old alert and opens an
+identical new one.
+
+## GitLab
+
+The `gitlab` format emits the CodeClimate subset GitLab's Code Quality widget
+reads, so findings appear on the merge request diff.
+
+```yaml
+nestjs-doctor:
+  image: node:22
+  script:
+    - npx nestjs-doctor@latest . --format gitlab --output gl-code-quality-report.json
+  artifacts:
+    reports:
+      codequality: gl-code-quality-report.json
+```
+
+## Other output formats
+
+| Format | Use |
+|--------|-----|
+| `console` | Human-readable report (default) |
+| `json` | The full result object, for tooling |
+| `sarif` | SARIF 2.1.0, for code scanning |
+| `gitlab` | GitLab Code Quality report |
+| `markdown` | A comment body for any pull or merge request |
+| `github` | Workflow annotations plus a job summary, alongside the console report |
+
+`--output <path>` writes the payload to a file instead of stdout, and
+`--json-compact` drops the indentation from the JSON-based formats.
+
+`github` is additive rather than a replacement: it prints annotations and
+appends the markdown report to `$GITHUB_STEP_SUMMARY` while still printing the
+readable console report to the log. GitHub caps annotations at ten errors and
+ten warnings per step and silently drops the rest, so the annotations are a
+convenience — the job summary carries every finding.
+
+## Pre-commit hook
+
+```bash
+# .husky/pre-commit
+npx nestjs-doctor . --staged --blocking error
+```
+
+`--staged` scopes to the files in the git index. The project is still analysed
+in full, so a change that breaks a cross-file rule is caught even when the file
+it is reported against is not part of the commit.
+
+Running from inside a hook is safe: git exports `GIT_DIR`, `GIT_INDEX_FILE`, and
+friends to every hook, and children inherit them, so nestjs-doctor clears those
+before shelling out to git and resolves everything against the directory it was
+pointed at.
