@@ -1,0 +1,10 @@
+{
+  "name": "demo-sample-api",
+  "private": true,
+  "description": "Throwaway NestJS app used to demo the GitHub Action on a live PR. Delete with the demo.",
+  "dependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "typeorm": "^0.3.0"
+  }
+}
