@@ -7,4 +7,11 @@ coverage/
 .env.*
 .next/
 out/
-.claude
+# Claude Code: the tooling is shared, the personal artifacts are not.
+.claude/settings.local.json
+.claude/worklog/
+.claude/specs/
+.claude/worktrees/
+.claude/agent-memory/
+
+CLAUDE.local.md

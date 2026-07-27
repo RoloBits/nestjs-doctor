@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "F=$(jq -r '.tool_input.file_path // empty'); [ -n \"$F\" ] && [ -f \"$F\" ] || exit 0; case \"$F\" in *packages/*) case \"$F\" in *.ts|*.tsx|*.json|*.jsonc) cd \"${CLAUDE_PROJECT_DIR:-$PWD}\"; pnpm exec biome check --write \"$F\" >/dev/null 2>&1 || true ;; esac ;; esac; exit 0",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}
