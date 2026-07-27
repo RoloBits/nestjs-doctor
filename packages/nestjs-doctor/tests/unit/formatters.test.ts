@@ -233,6 +233,21 @@ describe("buildMarkdownReport", () => {
 		expect(markdown).toContain("resolved 2 existing findings");
 	});
 
+	it("counts files in scope, not files in the change", () => {
+		// The narrowed set, always smaller than a pull request's own file count.
+		const scope = {
+			mode: "changed" as const,
+			changedFiles: 5,
+			baseRef: "main",
+		};
+		const markdown = buildMarkdownReport(
+			{ ...resultWith([]), scope },
+			{ ...options, scope }
+		);
+		expect(markdown).toContain("5 files in scope");
+		expect(markdown).not.toContain("changed file");
+	});
+
 	it("warns when the requested scope could not be honoured", () => {
 		const scope = {
 			mode: "files" as const,

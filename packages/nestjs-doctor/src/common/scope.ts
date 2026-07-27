@@ -15,6 +15,7 @@ export interface ScopeInfo {
 	/** Present in `changed` mode: whether the base revision could be scanned. */
 	baselineAvailable?: boolean;
 	baseRef?: string;
+	/** Files the scope narrowed to, not the change's total file count. */
 	changedFiles?: number;
 	/** Set when the requested mode could not be honoured. */
 	degradedFrom?: ScopeMode;
