@@ -369,6 +369,8 @@ runs:
           const KEY_RE = /<!-- nestjs-doctor:key ([A-Za-z0-9+/=]+) -->/;
           const RETIRED = "<!-- nestjs-doctor:retired -->";
           const REVIVED = "<!-- nestjs-doctor:revived -->";
+          // Sized to sit on the text baseline rather than tower over it.
+          const LOGO = '<img src="https://nestjs.doctor/logo.png" width="16" height="16" align="top" alt="">';
           const headSha = process.env.NESTJS_DOCTOR_HEAD_SHA || "";
           const shortSha = headSha.slice(0, 7);
           const directoryPrefix = (process.env.INPUT_DIRECTORY || ".")
@@ -448,7 +450,7 @@ runs:
               path: repoPath,
               line: diagnostic.line,
               side: "RIGHT",
-              body: `${MARKER}\n<!-- nestjs-doctor:key ${key} -->\n**nestjs-doctor** · \`${diagnostic.rule}\` _(${diagnostic.severity})_\n\n${diagnostic.message}${fix}`,
+              body: `${MARKER}\n<!-- nestjs-doctor:key ${key} -->\n${LOGO} **nestjs-doctor** · \`${diagnostic.rule}\` _(${diagnostic.severity})_\n\n${diagnostic.message}${fix}`,
             });
           }
 
@@ -485,13 +487,14 @@ runs:
           }
 
           // The newest status reply decides the thread's state, so a human
-          // replying afterwards does not change it.
+          // replying afterwards does not change it. "none" means this action has
+          // never said anything about the thread beyond the finding itself.
           const stateOf = (bodies) => {
             for (let index = bodies.length - 1; index >= 0; index -= 1) {
               if (bodies[index].includes(RETIRED)) return "retired";
-              if (bodies[index].includes(REVIVED)) return "live";
+              if (bodies[index].includes(REVIVED)) return "revived";
             }
-            return "live";
+            return "none";
           };
 
           const ours = new Map();
@@ -576,7 +579,7 @@ runs:
                 entry,
                 `${MARKER}\n${RETIRED}\n✅ **No longer reported** as of \`${shortSha}\`.`,
               );
-              await setResolved(entry, true);
+              entry.state = "retired";
               retired += 1;
             } catch (error) {
               core.warning(`nestjs-doctor could not retire a review thread: ${error.message}`);
@@ -594,11 +597,19 @@ runs:
                 entry,
                 `${MARKER}\n${REVIVED}\n⚠️ **Reported again** as of \`${shortSha}\`.`,
               );
-              await setResolved(entry, false);
+              entry.state = "revived";
               reopened += 1;
             } catch (error) {
               core.warning(`nestjs-doctor could not reopen a review thread: ${error.message}`);
             }
+          }
+
+          // Resolution is reconciled against what this action last said, so a
+          // resolve refused on an earlier run is retried rather than stranded.
+          // A thread it never spoke about is left exactly as a human left it.
+          for (const entry of ours.values()) {
+            if (entry.state === "retired") await setResolved(entry, true);
+            else if (entry.state === "revived") await setResolved(entry, false);
           }
 
           if (resolveDenied) {
