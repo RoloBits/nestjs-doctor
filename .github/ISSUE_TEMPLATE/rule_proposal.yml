@@ -1,0 +1,55 @@
+name: Rule proposal
+description: Suggest a new built-in rule
+labels: ["rule proposal"]
+body:
+  - type: input
+    id: rule-id
+    attributes:
+      label: Proposed rule ID
+      description: "`<category>/<kebab-case-name>` — see the existing rules for the categories."
+      placeholder: "correctness/no-my-thing"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Suggested severity
+      options: [error, warning, info]
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What goes wrong without it
+      description: >-
+        The concrete failure — a bug that reaches production, a security hole, a
+        performance cliff. "It is not idiomatic" is not enough on its own.
+    validations:
+      required: true
+
+  - type: textarea
+    id: flagged
+    attributes:
+      label: Code that should be flagged
+      render: typescript
+    validations:
+      required: true
+
+  - type: textarea
+    id: allowed
+    attributes:
+      label: Similar code that must NOT be flagged
+      description: >-
+        The false positives to avoid. A rule that cannot tell these apart costs
+        every user more than it saves them.
+      render: typescript
+    validations:
+      required: true
+
+  - type: textarea
+    id: detection
+    attributes:
+      label: How it could be detected
+      description: Which AST shapes, decorators, or graph facts identify it?

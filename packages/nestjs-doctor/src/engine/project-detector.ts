@@ -25,6 +25,12 @@ interface NestCliJson {
 	sourceRoot?: string;
 }
 
+const NATIVE_SEPARATOR_RE = /\\/g;
+
+/** Project roots are posix, whatever separators `relative()` returned. */
+const toProjectRoot = (path: string): string =>
+	path.replace(NATIVE_SEPARATOR_RE, "/");
+
 export interface MonorepoInfo {
 	projects: Map<string, string>; // name -> root path (relative)
 }
@@ -133,7 +139,7 @@ async function resolveWorkspaceProjects(
 
 			if (hasNestDependency(pkg)) {
 				const projectDir = dirname(pkgPath);
-				const relativePath = relative(targetPath, projectDir);
+				const relativePath = toProjectRoot(relative(targetPath, projectDir));
 				const name = pkg.name ?? relativePath;
 				projects.set(name, relativePath);
 			}
@@ -267,7 +273,7 @@ async function detectNxMonorepo(
 
 	for (const projectJsonPath of projectJsonPaths) {
 		const projectDir = dirname(projectJsonPath);
-		const relativePath = relative(targetPath, projectDir);
+		const relativePath = toProjectRoot(relative(targetPath, projectDir));
 
 		// Skip root-level project.json
 		if (relativePath === "") {
