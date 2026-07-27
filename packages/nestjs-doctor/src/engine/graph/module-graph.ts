@@ -1,4 +1,3 @@
-import { dirname, resolve } from "node:path";
 import type {
 	CallExpression,
 	ClassDeclaration,
@@ -11,6 +10,52 @@ import { SyntaxKind } from "ts-morph";
 import type { PathAliasMap } from "./tsconfig-paths.js";
 import { resolvePathAlias } from "./tsconfig-paths.js";
 import type { ProviderInfo } from "./type-resolver.js";
+
+const NATIVE_SEPARATOR_RE = /\\/g;
+const TRAILING_SEGMENT_RE = /\/[^/]*$/;
+
+const toPosix = (path: string): string =>
+	path.replace(NATIVE_SEPARATOR_RE, "/");
+
+/** The directory part of a posix path, without consulting the platform. */
+const posixDirname = (path: string): string => {
+	const trimmed = toPosix(path);
+	const cut = trimmed.replace(TRAILING_SEGMENT_RE, "");
+	return cut === "" && trimmed.startsWith("/") ? "/" : cut;
+};
+
+/**
+ * Resolves a relative import using posix rules only, keeping the base's own
+ * prefix so a posix root, a Windows drive root, and an in-memory `/` all work.
+ */
+function resolvePosix(fromDirectory: string, specifier: string): string {
+	const base = toPosix(fromDirectory);
+	const segments = `${base}/${toPosix(specifier)}`.split("/");
+	const resolved: string[] = [];
+
+	for (const segment of segments) {
+		if (segment === "" || segment === ".") {
+			// A leading empty segment is the posix root and has to survive.
+			if (resolved.length === 0 && segment === "") {
+				resolved.push("");
+			}
+			continue;
+		}
+		if (segment === "..") {
+			// Never pop the root marker or a `D:` drive prefix.
+			if (
+				resolved.length > 1 ||
+				(resolved.length === 1 && resolved[0] !== "")
+			) {
+				resolved.pop();
+			}
+			continue;
+		}
+		resolved.push(segment);
+	}
+
+	return resolved.length === 1 && resolved[0] === "" ? "/" : resolved.join("/");
+}
 
 const JS_EXT_REGEX = /\.js$/;
 
@@ -385,11 +430,12 @@ function resolveModuleSpecifier(
 			return undefined;
 		}
 		const project = sourceFile.getProject();
+		const aliasPath = toPosix(aliasResolved);
 		const candidates = [
-			`${aliasResolved}.ts`,
-			`${aliasResolved}/index.ts`,
-			aliasResolved,
-			aliasResolved.replace(JS_EXT_REGEX, ".ts"),
+			`${aliasPath}.ts`,
+			`${aliasPath}/index.ts`,
+			aliasPath,
+			aliasPath.replace(JS_EXT_REGEX, ".ts"),
 		];
 		for (const candidate of candidates) {
 			const target = project.getSourceFile(candidate);
@@ -400,8 +446,8 @@ function resolveModuleSpecifier(
 		return undefined;
 	}
 
-	const dir = dirname(sourceFile.getFilePath());
-	const resolved = resolve(dir, specifier);
+	const dir = posixDirname(sourceFile.getFilePath());
+	const resolved = resolvePosix(dir, specifier);
 	const project = sourceFile.getProject();
 
 	// Try .ts, /index.ts, exact match, and .js → .ts

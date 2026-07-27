@@ -1,0 +1,65 @@
+name: Bug report
+description: A rule misfires, the CLI crashes, or output is wrong
+labels: ["bug"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: nestjs-doctor version
+      description: Output of `npx nestjs-doctor --version`
+      placeholder: "0.5.1"
+    validations:
+      required: true
+
+  - type: input
+    id: rule
+    attributes:
+      label: Rule ID
+      description: Leave blank if this is not about a specific rule.
+      placeholder: "architecture/no-orm-in-services"
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did nestjs-doctor report, and what did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: >-
+        The smallest source file that triggers it. A false positive is much
+        faster to fix from a snippet than from a description.
+      render: typescript
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Config
+      description: Your `nestjs-doctor.config.json`, if you have one.
+      render: json
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Where did you run it?
+      multiple: true
+      options:
+        - CLI
+        - Node API
+        - VS Code extension
+        - GitHub Action
+        - CI (other)
+    validations:
+      required: true
+
+  - type: input
+    id: setup
+    attributes:
+      label: NestJS version, ORM, and layout
+      placeholder: "NestJS 11, Prisma, pnpm monorepo"

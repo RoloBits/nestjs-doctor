@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://nestjs.doctor/docs
+    about: Rules, configuration, scoring, and the scanning pipeline.
+  - name: Security vulnerability
+    url: https://github.com/RoloBits/nestjs-doctor/security/advisories/new
+    about: Report privately. Please do not open a public issue.

@@ -879,6 +879,49 @@ describe("module-graph", () => {
 	});
 
 	// Barrel file re-export: export { X } from './other' should resolve through
+	// Import resolution must not consult the host platform: ts-morph reports
+	// posix paths everywhere, so a Windows drive root, a posix root, and
+	// ts-morph's in-memory root all have to resolve by the same rules. These run
+	// identically on every platform, which is the point — the Windows-only
+	// breakage they cover was invisible until CI grew a Windows job.
+	it("resolves relative imports under a Windows drive root", () => {
+		const { project, paths } = createProject({
+			"D:/proj/src/app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { AuthModule } from './auth.module';
+        @Module({ imports: [AuthModule] })
+        export class AppModule {}
+      `,
+			"D:/proj/src/auth.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AuthModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		expect(graph.modules.get("AppModule")?.imports).toContain("AuthModule");
+	});
+
+	it("resolves parent-directory imports without escaping the root", () => {
+		const { project, paths } = createProject({
+			"/proj/src/features/app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { AuthModule } from '../shared/auth.module';
+        @Module({ imports: [AuthModule] })
+        export class AppModule {}
+      `,
+			"/proj/src/shared/auth.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AuthModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		expect(graph.modules.get("AppModule")?.imports).toContain("AuthModule");
+	});
+
 	it("resolves barrel file re-exports", () => {
 		const { project, paths } = createProject({
 			"/src/app.module.ts": `
