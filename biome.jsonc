@@ -27,6 +27,6 @@
     }
   },
   "files": {
-    "includes": ["!!**/tests/fixtures", "!!**/.changeset"]
+    "includes": ["!!**/tests/fixtures", "!!**/.changeset", "!!demo"]
   }
 }
