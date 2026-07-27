@@ -90,19 +90,84 @@ Or wire it into `package.json`:
 }
 ```
 
-Exit codes: `1` if the score is below threshold, `2` for bad input.
+Exit codes: `1` if a gate fails, `2` for bad input.
 
 ```
 Usage: nestjs-doctor [directory] [options]
 
-  --verbose       Show file paths and line numbers per diagnostic
-  --score         Output only the numeric score (for CI)
-  --json          JSON output (for tooling)
-  --report        Generate an interactive HTML report (--graph also works)
-  --min-score <n> Minimum passing score (0-100). Exits with code 1 if below threshold
-  --config <p>    Path to config file
-  --init          Set up the /nestjs-doctor skill for AI coding agents
-  -h, --help      Show help
+  --verbose             Show file paths and line numbers per diagnostic
+  --score               Output only the numeric score (for CI)
+  --json                JSON output (for tooling)
+  --format <f>          console (default), json, sarif, gitlab, markdown, github
+  --output <path>       Write the formatted output to a file instead of stdout
+  --json-compact        Emit JSON-based formats without indentation
+  --scope <s>           full (default), files, lines, changed
+  --base <ref>          Git ref to compare against (auto-detected)
+  --staged              Scope to the staged files, for pre-commit hooks
+  --changed-files-from  Path to a newline-separated list of changed files
+  --blocking <level>    Severity that fails the run: none, warning, error
+  --min-score <n>       Minimum passing score (0-100)
+  --report              Generate an interactive HTML report (--graph also works)
+  --config <p>          Path to config file
+  --list-rules          List every built-in rule and exit
+  --init                Set up the /nestjs-doctor skill for AI coding agents
+  -h, --help            Show help
+```
+
+### Scoping to a change
+
+The whole project is always analysed — cross-file rules like
+`no-circular-module-deps` and `no-unused-providers` need it — so `--scope` only
+narrows what gets **reported**.
+
+| Scope | Reports |
+|-------|---------|
+| `full` | Every finding in the project (the default) |
+| `files` | Findings in files the change touched |
+| `lines` | Findings on the lines the change touched |
+| `changed` | Findings the change introduced, measured against the base revision |
+
+```bash
+# What did this branch introduce?
+npx nestjs-doctor . --scope changed --base origin/main
+
+# Pre-commit hook: only what you are about to commit
+npx nestjs-doctor . --staged --blocking error
+```
+
+`changed` scans the base revision in a temporary git worktree and subtracts the
+findings that were already there. Findings are matched on rule, file, message,
+and source text rather than line number, so unrelated edits above a finding
+don't make it look new. If the base can't be reached the scan degrades to
+`files` and warns rather than reporting a delta it never measured.
+
+**The score always reflects the whole project**, whatever the scope — narrowing
+the report can't make a codebase look healthier than it is. `--min-score` gates
+on that project score; `--blocking` gates on the reported findings.
+
+### Blocking
+
+| Level | Fails the run when |
+|-------|--------------------|
+| `none` | Never — advisory only |
+| `warning` | Any error or warning is reported |
+| `error` | Any error is reported |
+
+The default preserves long-standing behaviour: `error` for the console report,
+`none` for `--json` and `--score`, which historically only failed on
+`--min-score`. Pass `--blocking` explicitly to make both paths behave the same.
+
+### Other CI systems
+
+```bash
+# GitLab Code Quality widget
+npx nestjs-doctor . --format gitlab --output gl-code-quality-report.json
+
+# SARIF, for any code-scanning backend
+npx nestjs-doctor . --format sarif --output nestjs-doctor.sarif
+
+# A markdown body to post as a merge request comment
+npx nestjs-doctor . --format markdown --output comment.md
 ```
 
 ---

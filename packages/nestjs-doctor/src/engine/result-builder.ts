@@ -12,6 +12,7 @@ import type {
 	SchemaRelation,
 	SerializedSchemaEntity,
 } from "../common/schema.js";
+import type { ScopeInfo } from "../common/scope.js";
 import type { AnalysisContext, MonorepoContext } from "./analysis-context.js";
 import type { RawDiagnosticOutput } from "./diagnostician.js";
 import type { ModuleGraph } from "./graph/module-graph.js";
@@ -32,6 +33,23 @@ export interface MonorepoEngineResult {
 	customRuleWarnings: string[];
 	moduleGraphs: Map<string, ModuleGraph>;
 	result: MonorepoResult;
+}
+
+/**
+ * Replaces a result's diagnostics and recomputes the summary. The score is
+ * carried over: it measures the project, not the reported subset.
+ */
+export function withScopedDiagnostics(
+	result: DiagnoseResult,
+	diagnostics: Diagnostic[],
+	scope: ScopeInfo | undefined
+): DiagnoseResult {
+	return {
+		...result,
+		diagnostics,
+		summary: buildSummary(diagnostics),
+		...(scope ? { scope } : {}),
+	};
 }
 
 function buildSummary(diagnostics: Diagnostic[]): DiagnoseSummary {

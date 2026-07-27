@@ -16,6 +16,44 @@ export const flags = {
 		description: "JSON output",
 		default: false,
 	},
+	format: {
+		type: "string",
+		description:
+			"Output format: console (default), json, sarif, gitlab, markdown, github",
+	},
+	output: {
+		type: "string",
+		description: "Write the formatted output to a file instead of stdout",
+	},
+	"json-compact": {
+		type: "boolean",
+		description: "Emit JSON-based formats without indentation",
+		default: false,
+	},
+	scope: {
+		type: "string",
+		description:
+			"What to report: full (default), files (changed files), lines (changed lines), changed (introduced by the change)",
+	},
+	base: {
+		type: "string",
+		description: "Git ref to compare against for --scope (auto-detected)",
+	},
+	staged: {
+		type: "boolean",
+		description: "Scope to the staged files, for pre-commit hooks",
+		default: false,
+	},
+	"changed-files-from": {
+		type: "string",
+		description:
+			"Path to a newline-separated list of changed files to scope to (for CI)",
+	},
+	blocking: {
+		type: "string",
+		description:
+			"Severity that fails the run: none, warning, or error (default: error; none with --json/--score)",
+	},
 	"min-score": {
 		type: "string",
 		description:
@@ -36,6 +74,11 @@ export const flags = {
 		type: "boolean",
 		description:
 			"Set up the nestjs-doctor skill for AI coding agents (Claude Code, Cursor, Codex, etc.)",
+		default: false,
+	},
+	"list-rules": {
+		type: "boolean",
+		description: "List every built-in rule and exit",
 		default: false,
 	},
 } satisfies ArgsDef;

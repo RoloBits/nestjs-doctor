@@ -16,8 +16,9 @@ reproduction you can manage. You can expect an initial response within a week.
 
 ## Scope
 
-nestjs-doctor is a static analysis tool. It reads source files and never
-executes the code it scans.
+nestjs-doctor is a static analysis tool. It reads source files and, in
+`--scope changed` mode, shells out to `git` and checks a base revision out into
+a temporary worktree. It never executes the code it scans.
 
 The one exception is **custom rules**: `customRulesDir` loads `.ts` files from
 your project and runs them in-process. Treat a config that points at a custom

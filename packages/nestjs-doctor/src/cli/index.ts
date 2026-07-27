@@ -5,6 +5,7 @@ import {
 	looksLikeMonorepo,
 } from "../engine/project-detector.js";
 import { flags } from "./flags.js";
+import { setCliVersion } from "./output.js";
 import { MonorepoPipeline, SingleProjectPipeline } from "./pipeline.js";
 import { type CliArgs, CliSetup } from "./setup.js";
 
@@ -28,11 +29,15 @@ const main = defineCommand({
 		...flags,
 	},
 	async run({ args }) {
+		setCliVersion(version);
+
 		const ctx = await new CliSetup(args as CliArgs, version)
 			.resolveTargetPath()
+			.handleListRules()
 			.handleInit()
 			.handleReport()
 			.validateMinScore()
+			.validateBlocking()
 			.run();
 
 		if (!ctx) {
@@ -48,6 +53,7 @@ const main = defineCommand({
 				.buildContext()
 				.runRules()
 				.buildResult()
+				.applyScope()
 				.warnCustomRules()
 				.output()
 				.run();
@@ -65,6 +71,7 @@ const main = defineCommand({
 			.buildContext()
 			.runRules()
 			.buildResult()
+			.applyScope()
 			.warnCustomRules()
 			.output()
 			.run();

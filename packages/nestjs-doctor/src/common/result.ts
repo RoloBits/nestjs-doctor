@@ -1,6 +1,7 @@
 import type { Category, Diagnostic } from "./diagnostic.js";
 import type { EndpointGraph } from "./endpoint.js";
 import type { SerializedSchemaGraph } from "./schema.js";
+import type { ScopeInfo } from "./scope.js";
 
 export interface Score {
 	label: string;
@@ -36,6 +37,8 @@ export interface DiagnoseResult {
 	project: ProjectInfo;
 	ruleErrors: RuleErrorInfo[];
 	schema?: SerializedSchemaGraph;
+	/** What `diagnostics` and `summary` cover. Absent when nothing was narrowed. */
+	scope?: ScopeInfo;
 	score: Score;
 	summary: DiagnoseSummary;
 }

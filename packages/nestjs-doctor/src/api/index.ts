@@ -54,6 +54,27 @@ export type {
 	SchemaRelation,
 	SerializedSchemaGraph,
 } from "../common/schema.js";
+export type { ScopeInfo, ScopeMode } from "../common/scope.js";
+export { isScopeMode, SCOPE_MODES } from "../common/scope.js";
+export type { BaselineDelta } from "../engine/baseline.js";
+export { computeBaselineDelta } from "../engine/baseline.js";
+export type { DiagnosticDelta } from "../engine/fingerprint.js";
+export {
+	countIdentities,
+	diagnosticIdentity,
+	diffDiagnostics,
+	fingerprint,
+	toRelativePath,
+} from "../engine/fingerprint.js";
+export type { BaseCheckout, GitRepo, LineRange } from "../engine/git.js";
+export {
+	checkoutBase,
+	findGitRepo,
+	getChangedFiles,
+	getChangedLineRanges,
+	getStagedFiles,
+	resolveBaseRef,
+} from "../engine/git.js";
 export {
 	buildEndpointGraph,
 	traceEndpointCalls,
@@ -90,8 +111,20 @@ export {
 	prepareAnalysis,
 	resolveScanConfig,
 	updateFile,
+	withScopedDiagnostics,
 } from "../engine/scanner.js";
 export { extractSchema } from "../engine/schema/extract.js";
+export type { ResolvedScope, ScopeOptions } from "../engine/scope.js";
+export { applyScope, buildScopeInfo, resolveScope } from "../engine/scope.js";
+export type { CodeQualityIssue } from "../formatters/gitlab-report.js";
+export { buildCodeQualityReport } from "../formatters/gitlab-report.js";
+export type { MarkdownReportOptions } from "../formatters/markdown-report.js";
+export {
+	buildMarkdownReport,
+	MARKDOWN_COMMENT_MARKER,
+} from "../formatters/markdown-report.js";
+export type { SarifLog } from "../formatters/sarif-report.js";
+export { buildSarifLog } from "../formatters/sarif-report.js";
 
 function validatePath(path: string): string {
 	if (!path || path.trim() === "") {
