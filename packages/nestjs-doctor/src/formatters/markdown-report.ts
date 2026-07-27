@@ -4,11 +4,14 @@ import type { DiagnoseResult, MonorepoResult } from "../common/result.js";
 import type { ScopeInfo } from "../common/scope.js";
 import { toRelativePath } from "../engine/fingerprint.js";
 
+/** Square logo, sized to sit on the heading's baseline. */
+const LOGO =
+	'<img src="https://nestjs.doctor/logo.png" width="20" height="20" align="top" alt="">';
+
 /** Lets a CI job find and rewrite its own comment instead of stacking new ones. */
 export const MARKDOWN_COMMENT_MARKER = "<!-- nestjs-doctor:summary -->";
 
 const MAX_TABLE_ROWS = 50;
-const SEVERITY_ICON = { error: "🔴", warning: "🟡", info: "🔵" } as const;
 const SEVERITY_ORDER = { error: 0, warning: 1, info: 2 } as const;
 const PIPE_RE = /\|/g;
 const NEWLINE_RE = /\r?\n/g;
@@ -25,16 +28,6 @@ export interface MarkdownReportOptions {
 
 const escapeCell = (text: string): string =>
 	text.replace(PIPE_RE, "\\|").replace(NEWLINE_RE, " ");
-
-const scoreEmoji = (score: number): string => {
-	if (score >= 75) {
-		return "🟢";
-	}
-	if (score >= 50) {
-		return "🟡";
-	}
-	return "🔴";
-};
 
 const pluralize = (count: number, noun: string): string =>
 	`${count} ${noun}${count === 1 ? "" : "s"}`;
@@ -73,9 +66,9 @@ function renderHeadline(
 		scope?.mode === "changed" ? "introduced by this change" : "reported";
 	const findings = summary.total
 		? `**${pluralize(summary.total, "finding")}** ${scopeNoun} (${counts}).`
-		: `No findings ${scopeNoun}. ✨`;
+		: `No findings ${scopeNoun}.`;
 
-	return `${scoreEmoji(score.value)} **Score ${score.value}/100 — ${score.label}** · ${findings}`;
+	return `**Score ${score.value}/100 — ${score.label}** · ${findings}`;
 }
 
 function renderScopeNote(scope: ScopeInfo | undefined): string[] {
@@ -93,7 +86,7 @@ function renderScopeNote(scope: ScopeInfo | undefined): string[] {
 	}
 	if (scope.mode === "changed" && scope.fixed) {
 		lines.push(
-			`> ✅ This change also resolved ${pluralize(scope.fixed, "existing finding")}.`,
+			`> This change also resolved ${pluralize(scope.fixed, "existing finding")}.`,
 			""
 		);
 	}
@@ -134,7 +127,7 @@ function renderFindingsTable(
 	const shown = sorted.slice(0, MAX_TABLE_ROWS);
 	const rows = shown.map(
 		(diagnostic) =>
-			`| ${SEVERITY_ICON[diagnostic.severity]} | \`${diagnostic.rule}\` | ${locationOf(diagnostic, targetPath)} | ${escapeCell(diagnostic.message)} |`
+			`| ${diagnostic.severity} | \`${diagnostic.rule}\` | ${locationOf(diagnostic, targetPath)} | ${escapeCell(diagnostic.message)} |`
 	);
 
 	const overflow =
@@ -149,8 +142,8 @@ function renderFindingsTable(
 		"",
 		`<details open><summary><b>Findings (${sorted.length})</b></summary>`,
 		"",
-		"| | Rule | Location | Message |",
-		"| :-: | --- | --- | --- |",
+		"| Severity | Rule | Location | Message |",
+		"| --- | --- | --- | --- |",
 		...rows,
 		...overflow,
 		"",
@@ -201,7 +194,7 @@ export function buildMarkdownReport(
 
 	return [
 		MARKDOWN_COMMENT_MARKER,
-		"## 🩺 nestjs-doctor",
+		`## ${LOGO} nestjs-doctor`,
 		"",
 		renderHeadline(result, options.scope),
 		...renderScopeNote(options.scope),
