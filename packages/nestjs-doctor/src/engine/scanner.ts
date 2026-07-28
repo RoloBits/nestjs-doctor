@@ -1,10 +1,7 @@
 import { performance } from "node:perf_hooks";
-import {
-	buildAnalysisContext,
-	buildMonorepoContext,
-} from "./analysis-context.js";
+import { buildAnalysisContext, reduceSubProjects } from "./analysis-context.js";
 import { resolveScanConfig, type ScanConfig } from "./config/scan-config.js";
-import { diagnose, type RawDiagnosticOutput } from "./diagnostician.js";
+import { diagnose } from "./diagnostician.js";
 import { detectMonorepo, type MonorepoInfo } from "./project-detector.js";
 import {
 	buildMonorepoResult,
@@ -17,9 +14,8 @@ import {
 export {
 	type AnalysisContext,
 	buildAnalysisContext,
-	buildMonorepoContext,
-	type MonorepoContext,
 	prepareAnalysis,
+	reduceSubProjects,
 	updateFile,
 } from "./analysis-context.js";
 
@@ -43,6 +39,8 @@ export {
 	withScopedDiagnostics,
 } from "./result-builder.js";
 
+import { detachModuleGraph } from "./graph/module-graph.js";
+
 // Facades that compose both
 export type AutoScanResult =
 	| { isMonorepo: true; monorepo: MonorepoEngineResult }
@@ -54,15 +52,22 @@ export async function scanMonorepo(
 	monorepo: MonorepoInfo
 ): Promise<MonorepoEngineResult> {
 	const startTime = performance.now();
-	const ctx = await buildMonorepoContext(targetPath, scanConfig, monorepo);
-	const rawOutputs = new Map<string, RawDiagnosticOutput>();
-	for (const [name, context] of ctx.subProjects) {
-		rawOutputs.set(name, diagnose(context));
-	}
+	const scanResults = await reduceSubProjects(
+		targetPath,
+		scanConfig,
+		monorepo,
+		(_name, context) => {
+			const scanResult = buildResult(context, diagnose(context));
+			return {
+				...scanResult,
+				moduleGraph: detachModuleGraph(scanResult.moduleGraph),
+				providers: new Map(),
+			};
+		}
+	);
 	const totalElapsedMs = performance.now() - startTime;
 	return buildMonorepoResult(
-		ctx,
-		rawOutputs,
+		scanResults,
 		scanConfig.customRuleWarnings,
 		totalElapsedMs
 	);

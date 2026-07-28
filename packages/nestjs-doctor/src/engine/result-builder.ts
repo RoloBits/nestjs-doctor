@@ -13,7 +13,7 @@ import type {
 	SerializedSchemaEntity,
 } from "../common/schema.js";
 import type { ScopeInfo } from "../common/scope.js";
-import type { AnalysisContext, MonorepoContext } from "./analysis-context.js";
+import type { AnalysisContext } from "./analysis-context.js";
 import type { RawDiagnosticOutput } from "./diagnostician.js";
 import type { ModuleGraph } from "./graph/module-graph.js";
 import type { ProviderInfo } from "./graph/type-resolver.js";
@@ -123,8 +123,7 @@ export function buildResult(
 }
 
 export function buildMonorepoResult(
-	monorepoCtx: MonorepoContext,
-	rawOutputs: Map<string, RawDiagnosticOutput>,
+	scanResults: Map<string, ReturnType<typeof buildResult>>,
 	customRuleWarnings: string[],
 	totalElapsedMs: number
 ): MonorepoEngineResult {
@@ -138,9 +137,7 @@ export function buildMonorepoResult(
 	const allSchemaRelations: SchemaRelation[] = [];
 	let detectedOrm = "";
 
-	for (const [name, context] of monorepoCtx.subProjects) {
-		const rawOutput = rawOutputs.get(name)!;
-		const scanResult = buildResult(context, rawOutput);
+	for (const [name, scanResult] of scanResults) {
 		subProjects.push({ name, result: scanResult.result });
 		moduleGraphs.set(name, scanResult.moduleGraph);
 		allDiagnostics.push(...scanResult.result.diagnostics);

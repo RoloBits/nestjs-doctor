@@ -1,22 +1,27 @@
 import { performance } from "node:perf_hooks";
 import { spinner } from "../cli/ui/spinner.js";
-import { mergeModuleGraphs } from "../engine/graph/module-graph.js";
-import type { ProviderInfo } from "../engine/graph/type-resolver.js";
+import {
+	detachModuleGraph,
+	mergeModuleGraphs,
+} from "../engine/graph/module-graph.js";
 import type { MonorepoInfo } from "../engine/project-detector.js";
 import {
 	type AnalysisContext,
 	buildAnalysisContext,
-	buildMonorepoContext,
 	buildMonorepoResult,
 	buildResult,
 	diagnose,
 	type EngineResult,
-	type MonorepoContext,
 	type MonorepoEngineResult,
 	type RawDiagnosticOutput,
+	reduceSubProjects,
 	resolveScanConfig,
 	type ScanConfig,
 } from "../engine/scanner.js";
+import {
+	type ReportProvider,
+	toReportProvider,
+} from "./formatters/report-data.js";
 import { buildHtmlReport } from "./html-report.js";
 
 type PipelineStep = () => void | Promise<void>;
@@ -106,7 +111,10 @@ export class SingleProjectReportPipeline extends ReportPipeline {
 	generateHtml(): this {
 		this.steps.push(() => {
 			const { moduleGraph, result, files, providers } = this._scanResult;
-			this._html = buildHtmlReport(moduleGraph, result, { files, providers });
+			this._html = buildHtmlReport(moduleGraph, result, {
+				files,
+				providers: [...providers.values()].map(toReportProvider),
+			});
 		});
 		return this;
 	}
@@ -115,8 +123,9 @@ export class SingleProjectReportPipeline extends ReportPipeline {
 /** Monorepo report pipeline */
 export class MonorepoReportPipeline extends ReportPipeline {
 	private readonly monorepo: MonorepoInfo;
-	private monorepoCtx!: MonorepoContext;
-	private readonly rawOutputs = new Map<string, RawDiagnosticOutput>();
+	private scanResults!: Map<string, EngineResult>;
+	private readonly allFiles: string[] = [];
+	private readonly allProviders: ReportProvider[] = [];
 	private _monoResult!: MonorepoEngineResult;
 	private scanStartTime!: number;
 
@@ -134,22 +143,31 @@ export class MonorepoReportPipeline extends ReportPipeline {
 	}
 
 	buildContext(): this {
-		this.steps.push(async () => {
+		this.steps.push(() => {
 			this.scanStartTime = performance.now();
-			this.monorepoCtx = await buildMonorepoContext(
-				this.targetPath,
-				this.scanConfig,
-				this.monorepo
-			);
 		});
 		return this;
 	}
 
 	runRules(): this {
-		this.steps.push(() => {
-			for (const [name, context] of this.monorepoCtx.subProjects) {
-				this.rawOutputs.set(name, diagnose(context));
-			}
+		this.steps.push(async () => {
+			this.scanResults = await reduceSubProjects(
+				this.targetPath,
+				this.scanConfig,
+				this.monorepo,
+				(_name, context: AnalysisContext) => {
+					this.allFiles.push(...context.files);
+					for (const provider of context.providers.values()) {
+						this.allProviders.push(toReportProvider(provider));
+					}
+					const scanResult = buildResult(context, diagnose(context));
+					return {
+						...scanResult,
+						moduleGraph: detachModuleGraph(scanResult.moduleGraph),
+						providers: new Map(),
+					};
+				}
+			);
 		});
 		return this;
 	}
@@ -158,8 +176,7 @@ export class MonorepoReportPipeline extends ReportPipeline {
 		this.steps.push(() => {
 			const totalElapsedMs = performance.now() - this.scanStartTime;
 			this._monoResult = buildMonorepoResult(
-				this.monorepoCtx,
-				this.rawOutputs,
+				this.scanResults,
 				this.scanConfig.customRuleWarnings,
 				totalElapsedMs
 			);
@@ -173,19 +190,10 @@ export class MonorepoReportPipeline extends ReportPipeline {
 			const merged = mergeModuleGraphs(moduleGraphs);
 			const projects = [...moduleGraphs.keys()];
 
-			const allFiles: string[] = [];
-			const allProviders = new Map<string, ProviderInfo>();
-			for (const context of this.monorepoCtx.subProjects.values()) {
-				allFiles.push(...context.files);
-				for (const [name, info] of context.providers) {
-					allProviders.set(name, info);
-				}
-			}
-
 			this._html = buildHtmlReport(merged, result.combined, {
 				projects,
-				files: allFiles,
-				providers: allProviders,
+				files: this.allFiles,
+				providers: this.allProviders,
 			});
 		});
 		return this;

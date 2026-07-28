@@ -2,7 +2,10 @@ import { Project } from "ts-morph";
 import { describe, expect, it } from "vitest";
 import type { NestjsDoctorConfig } from "../../../src/common/config.js";
 import type { Diagnostic } from "../../../src/common/diagnostic.js";
-import { buildModuleGraph } from "../../../src/engine/graph/module-graph.js";
+import {
+	buildModuleGraph,
+	detachModuleGraph,
+} from "../../../src/engine/graph/module-graph.js";
 import { resolveProviders } from "../../../src/engine/graph/type-resolver.js";
 import { noCircularModuleDeps } from "../../../src/engine/rules/definitions/architecture/no-circular-module-deps.js";
 import { noOrphanModules } from "../../../src/engine/rules/definitions/performance/no-orphan-modules.js";
@@ -543,5 +546,49 @@ describe("no-unused-module-exports", () => {
 		});
 		expect(diags).toHaveLength(1);
 		expect(diags[0].message).toContain("HelperService");
+	});
+});
+
+describe("project rules on a detached graph", () => {
+	it("reports without a class declaration to read a line from", () => {
+		const project = new Project({ useInMemoryFileSystem: true });
+		const paths: string[] = [];
+		for (const [name, code] of Object.entries({
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AppModule {}
+      `,
+			"forgotten.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class ForgottenModule {}
+      `,
+		})) {
+			project.createSourceFile(name, code);
+			paths.push(name);
+		}
+
+		const moduleGraph = detachModuleGraph(buildModuleGraph(project, paths));
+		const diagnostics: Diagnostic[] = [];
+		noOrphanModules.check({
+			project,
+			files: paths,
+			moduleGraph,
+			providers: resolveProviders(project, paths),
+			config: {},
+			report(partial) {
+				diagnostics.push({
+					...partial,
+					rule: noOrphanModules.meta.id,
+					category: noOrphanModules.meta.category,
+					severity: noOrphanModules.meta.severity,
+				});
+			},
+		});
+
+		expect(diagnostics).toHaveLength(1);
+		expect(diagnostics[0].message).toContain("ForgottenModule");
+		expect("line" in diagnostics[0] && diagnostics[0].line).toBe(1);
 	});
 });

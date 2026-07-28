@@ -60,7 +60,8 @@ export function resolvePosix(fromDirectory: string, specifier: string): string {
 const JS_EXT_REGEX = /\.js$/;
 
 export interface ModuleNode {
-	classDeclaration: ClassDeclaration;
+	/** Absent once the graph is detached. */
+	classDeclaration?: ClassDeclaration;
 	controllers: string[];
 	exports: string[];
 	filePath: string;
@@ -925,4 +926,29 @@ export function traceProviderEdges(
 	}
 
 	return edges;
+}
+
+/** A standalone copy of the graph, holding no ts-morph nodes and no shared state. */
+export function detachModuleGraph(graph: ModuleGraph): ModuleGraph {
+	const modules = new Map<string, ModuleNode>();
+	// Keyed by the original node, so the rebuild below survives any change to
+	// what `modules` is keyed by.
+	const detachedByOriginal = new Map<ModuleNode, ModuleNode>();
+	for (const [key, node] of graph.modules) {
+		const detached: ModuleNode = { ...node, classDeclaration: undefined };
+		modules.set(key, detached);
+		detachedByOriginal.set(node, detached);
+	}
+
+	const providerToModule = new Map<string, ModuleNode>();
+	for (const [provider, node] of graph.providerToModule) {
+		providerToModule.set(provider, detachedByOriginal.get(node) ?? node);
+	}
+
+	const edges = new Map<string, Set<string>>();
+	for (const [name, targets] of graph.edges) {
+		edges.set(name, new Set(targets));
+	}
+
+	return { modules, edges, providerToModule };
 }

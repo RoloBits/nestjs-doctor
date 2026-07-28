@@ -41,7 +41,11 @@ export const noOrmInControllers: Rule = {
 			}
 
 			for (const param of ctor.getParameters()) {
-				const typeText = param.getType().getText();
+				// Reads the written annotation, falling back to the checker.
+				const typeNode = param.getTypeNode();
+				const typeText = typeNode
+					? typeNode.getText()
+					: param.getType().getText();
 				const typeName = extractSimpleTypeName(typeText);
 
 				if (ORM_TYPES.has(typeName)) {
