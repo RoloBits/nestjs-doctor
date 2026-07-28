@@ -1,16 +1,18 @@
 import type { Rule } from "../../types.js";
 
-// Decorators that are intentionally used multiple times with different arguments
-const STACKABLE_DECORATORS = new Set([
-	"ApiResponse",
-	"ApiQuery",
-	"ApiParam",
-	"ApiHeader",
-	"ApiSecurity",
-	"SetMetadata",
-	"Roles",
-	"Header",
-	"Throttle",
+const WHITESPACE = /\s+/g;
+
+// A target can carry only one of these, so a second is an error whatever its
+// arguments. Everything else repeats legitimately unless written verbatim twice.
+const SINGLE_USE_DECORATORS = new Set([
+	"Catch",
+	"Controller",
+	"Entity",
+	"Global",
+	"Injectable",
+	"Module",
+	"Resolver",
+	"WebSocketGateway",
 ]);
 
 export const noDuplicateDecorators: Rule = {
@@ -48,7 +50,11 @@ export const noDuplicateDecorators: Rule = {
 };
 
 function checkDecorators(
-	decorators: { getName(): string; getStartLineNumber(): number }[],
+	decorators: {
+		getName(): string;
+		getStartLineNumber(): number;
+		getText(): string;
+	}[],
 	context: {
 		filePath: string;
 		report(diagnostic: {
@@ -64,13 +70,14 @@ function checkDecorators(
 	const seen = new Set<string>();
 
 	for (const decorator of decorators) {
+		// The whole decorator, so @UseInterceptors(A) and @UseInterceptors(B)
+		// are two interceptors rather than a repeat.
 		const name = decorator.getName();
+		const key = SINGLE_USE_DECORATORS.has(name)
+			? name
+			: decorator.getText().replace(WHITESPACE, " ");
 
-		if (STACKABLE_DECORATORS.has(name)) {
-			continue;
-		}
-
-		if (seen.has(name)) {
+		if (seen.has(key)) {
 			context.report({
 				filePath: context.filePath,
 				message: `Duplicate @${name}() decorator on the same target.`,
@@ -79,7 +86,7 @@ function checkDecorators(
 				column: 1,
 			});
 		} else {
-			seen.add(name);
+			seen.add(key);
 		}
 	}
 }

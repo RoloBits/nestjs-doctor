@@ -1,3 +1,5 @@
+import type { PropertyDeclaration, Type } from "ts-morph";
+import { SyntaxKind } from "ts-morph";
 import type { Rule } from "../../types.js";
 
 const CLASS_VALIDATOR_DECORATORS = new Set([
@@ -106,6 +108,29 @@ function isPrimitiveType(typeText: string): boolean {
 	return false;
 }
 
+/** True when the type, unwrapping arrays and unions, names a class. */
+function isClassType(type: Type | undefined): boolean {
+	if (!type) {
+		return false;
+	}
+	if (type.isArray()) {
+		return isClassType(type.getArrayElementType());
+	}
+	if (type.isUnion()) {
+		return type.getUnionTypes().some(isClassType);
+	}
+	return Boolean(
+		type
+			.getSymbol()
+			?.getDeclarations()
+			.some((declaration) => declaration.isKind(SyntaxKind.ClassDeclaration))
+	);
+}
+
+function resolvesToClass(prop: PropertyDeclaration): boolean {
+	return isClassType(prop.getType());
+}
+
 export const validatedNonPrimitiveNeedsType: Rule = {
 	meta: {
 		id: "correctness/validated-non-primitive-needs-type",
@@ -153,6 +178,11 @@ export const validatedNonPrimitiveNeedsType: Rule = {
 
 				const typeText = typeNode.getText();
 				if (isPrimitiveType(typeText)) {
+					continue;
+				}
+
+				// @Type() constructs a class. A union or alias has nothing to build.
+				if (!resolvesToClass(prop)) {
 					continue;
 				}
 
