@@ -1,4 +1,4 @@
-import { type CallExpression, SyntaxKind } from "ts-morph";
+import { type CallExpression, type Node, SyntaxKind } from "ts-morph";
 import { isHttpHandler } from "../../../nest-class-inspector.js";
 import type { Rule } from "../../types.js";
 
@@ -38,8 +38,33 @@ const ASYNC_PREFIXES = new Set([
 ]);
 
 /**
- * True when the chain ends in `.catch(h)` or a `.then(ok, err)`, so a rejection
- * already has somewhere to go.
+ * A handler that ends by throwing leaves the rejection unhandled. Only an
+ * inline function body is read, so a handler passed by name is left alone.
+ */
+function onlyRethrows(handler: Node | undefined): boolean {
+	if (!handler) {
+		return false;
+	}
+	const inner =
+		handler.asKind(SyntaxKind.ParenthesizedExpression)?.getExpression() ??
+		handler;
+	const fn =
+		inner.asKind(SyntaxKind.ArrowFunction) ??
+		inner.asKind(SyntaxKind.FunctionExpression);
+	if (!fn) {
+		return false;
+	}
+	const body = fn.getBody();
+	if (body.getKind() !== SyntaxKind.Block) {
+		return false;
+	}
+	const statements = body.asKindOrThrow(SyntaxKind.Block).getStatements();
+	return statements.at(-1)?.getKind() === SyntaxKind.ThrowStatement;
+}
+
+/**
+ * True when the chain ends in `.catch(h)` or a `.then(ok, err)`, unless the
+ * catch handler only rethrows.
  */
 function hasRejectionHandler(callExpr: CallExpression): boolean {
 	let current: CallExpression | undefined = callExpr;
@@ -54,10 +79,11 @@ function hasRejectionHandler(callExpr: CallExpression): boolean {
 		const name = access.getName();
 		// `.catch()` with no handler still rejects, so it handles nothing.
 		if (name === "catch") {
-			return current.getArguments().length > 0;
+			const handler = current.getArguments()[0];
+			return Boolean(handler) && !onlyRethrows(handler);
 		}
 		if (name === "then" && current.getArguments().length > 1) {
-			return true;
+			return !onlyRethrows(current.getArguments()[1]);
 		}
 		if (name !== "then" && name !== "finally") {
 			return false;

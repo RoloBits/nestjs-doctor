@@ -1,3 +1,4 @@
+import { HTTP_DECORATORS } from "../../../nest-class-inspector.js";
 import type { Rule } from "../../types.js";
 
 const WHITESPACE = /\s+/g;
@@ -13,6 +14,7 @@ const SINGLE_USE_DECORATORS = new Set([
 	"Module",
 	"Resolver",
 	"WebSocketGateway",
+	...HTTP_DECORATORS,
 ]);
 
 export const noDuplicateDecorators: Rule = {
@@ -21,7 +23,7 @@ export const noDuplicateDecorators: Rule = {
 		category: "correctness",
 		severity: "warning",
 		description: "Same decorator should not appear twice on a single target",
-		help: "Remove the duplicate decorator — it was likely copy-pasted by mistake.",
+		help: "Remove the second decorator. Only one of them takes effect, so the other is dropped without an error.",
 	},
 
 	check(context) {

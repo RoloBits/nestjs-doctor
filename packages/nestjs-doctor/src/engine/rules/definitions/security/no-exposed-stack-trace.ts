@@ -1,10 +1,9 @@
-import { type Node, SyntaxKind } from "ts-morph";
+import { type CallExpression, type Node, SyntaxKind } from "ts-morph";
 import type { Rule } from "../../types.js";
 
 const ERROR_VAR_PATTERN = /^(error|err|e|ex|exception)$/;
 
-// Standard log levels. Sending a stack to one of these is the remedy this rule
-// recommends, not the leak it looks for.
+// Standard log levels. A call also needs a logger receiver to count as logging.
 const LOG_METHODS = new Set([
 	"debug",
 	"error",
@@ -16,14 +15,49 @@ const LOG_METHODS = new Set([
 	"warning",
 ]);
 
-/** True when the stack is being handed to a logging call, at any depth. */
-function isLogged(access: Node): boolean {
-	const call = access.getFirstAncestorByKind(SyntaxKind.CallExpression);
-	if (!call) {
+// Words that name a logger. `catalog` and `dialog` end in "log" without any
+// word being it, so they are not loggers.
+const LOGGER_WORD =
+	/^(log|logs|logger|loggers|logging|console|winston|pino|bunyan)$/;
+const CAMEL_BOUNDARY = /([a-z0-9])([A-Z])/g;
+const NON_ALNUM = /[^a-zA-Z0-9]+/;
+
+/** True when any word of the receiver expression names a logger. */
+function looksLikeLogger(receiver: string): boolean {
+	return receiver
+		.replace(CAMEL_BOUNDARY, "$1 $2")
+		.split(NON_ALNUM)
+		.some((word) => LOGGER_WORD.test(word.toLowerCase()));
+}
+
+/** True when the call is a log method on a logger, not a same-named method. */
+function isLoggingCall(call: CallExpression): boolean {
+	const callee = call.getExpression();
+	// A standalone logger such as `debug(...)` carries no receiver to check.
+	const identifier = callee.asKind(SyntaxKind.Identifier);
+	if (identifier) {
+		return LOG_METHODS.has(identifier.getText());
+	}
+	const access = callee.asKind(SyntaxKind.PropertyAccessExpression);
+	if (!access) {
 		return false;
 	}
-	const callee = call.getExpression().getText().split(".").pop() ?? "";
-	return LOG_METHODS.has(callee);
+	if (!LOG_METHODS.has(access.getName())) {
+		return false;
+	}
+	return looksLikeLogger(access.getExpression().getText());
+}
+
+/** True when the stack is being handed to a logging call, at any depth. */
+function isLogged(access: Node): boolean {
+	let call = access.getFirstAncestorByKind(SyntaxKind.CallExpression);
+	while (call) {
+		if (isLoggingCall(call)) {
+			return true;
+		}
+		call = call.getFirstAncestorByKind(SyntaxKind.CallExpression);
+	}
+	return false;
 }
 
 export const noExposedStackTrace: Rule = {

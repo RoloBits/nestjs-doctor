@@ -247,6 +247,106 @@ describe("no-exposed-stack-trace", () => {
 		expect(diags).toHaveLength(1);
 	});
 
+	it("flags a stack sent through a response helper named error", () => {
+		const diags = runRule(
+			noExposedStackTrace,
+			`
+      function handle(res) {
+        try {} catch (error) {
+          res.error({ stack: error.stack });
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+	});
+
+	it("flags a stack pushed into an RxJS error channel", () => {
+		const diags = runRule(
+			noExposedStackTrace,
+			`
+      function handle(subscriber) {
+        try {} catch (error) {
+          subscriber.error(error.stack);
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+	});
+
+	it("does not flag a stack wrapped before reaching the logger", () => {
+		const diags = runRule(
+			noExposedStackTrace,
+			`
+      function handle() {
+        try {} catch (error) {
+          this.logger.error(redact(error.stack));
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag loggers whose names carry a prefix or suffix", () => {
+		for (const receiver of [
+			"this._logger",
+			"this.appLogger",
+			"this.loggerService",
+			"this.logService",
+			"this.loggingService",
+			"this.appLog",
+			"this.logs",
+			"winstonLogger",
+			"this.logger.child({})",
+			"new Logger('Ctx')",
+			"this.log",
+			"this.$log",
+			"this._log",
+		]) {
+			const diags = runRule(
+				noExposedStackTrace,
+				`
+      function handle() {
+        try {} catch (error) {
+          ${receiver}.error('failed', error.stack);
+        }
+      }
+    `
+			);
+			expect(diags, receiver).toHaveLength(0);
+		}
+	});
+
+	it("does not flag a standalone logger called without a receiver", () => {
+		const diags = runRule(
+			noExposedStackTrace,
+			`
+      function handle() {
+        try {} catch (error) {
+          debug('refresh failed %s', error.stack);
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("flags a receiver that merely ends in log", () => {
+		const diags = runRule(
+			noExposedStackTrace,
+			`
+      function handle() {
+        try {} catch (error) {
+          this.catalog.error(error.stack);
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+	});
+
 	it("does not flag unrelated .stack access", () => {
 		const diags = runRule(
 			noExposedStackTrace,
