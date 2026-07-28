@@ -52,8 +52,9 @@ function hasRejectionHandler(callExpr: CallExpression): boolean {
 			SyntaxKind.PropertyAccessExpression
 		);
 		const name = access.getName();
+		// `.catch()` with no handler still rejects, so it handles nothing.
 		if (name === "catch") {
-			return true;
+			return current.getArguments().length > 0;
 		}
 		if (name === "then" && current.getArguments().length > 1) {
 			return true;

@@ -78,8 +78,8 @@ function hasSuspiciousName(name: string): boolean {
 	return VARIABLE_NAME_PATTERNS.some((p) => p.test(name));
 }
 
-// A permission scope, not a credential: `password:update`, `user:read`.
-// Digits are excluded so `admin:secretpass123` stays a credential.
+// The shape of a permission scope. Digits are excluded so `admin:secretpass123`
+// stays a credential.
 const SCOPE_VALUE = /^[a-z]+(:[a-z]+)+$/;
 
 const WORD_SEGMENT = /^[a-z]{3,}$/;
@@ -97,6 +97,19 @@ function isWordSequence(value: string): boolean {
 const NON_ALNUM = /[^a-z0-9]/g;
 
 // True when the value only restates the name, as a config key does.
+/**
+ * True for `password: "password:update"`, where the first segment names the same
+ * thing as the binding. A colon value that does not is a credential, not a scope.
+ */
+function isPermissionScope(name: string, value: string): boolean {
+	if (!SCOPE_VALUE.test(value)) {
+		return false;
+	}
+	const flatName = name.toLowerCase().replace(NON_ALNUM, "");
+	const flatResource = value.split(":")[0].toLowerCase().replace(NON_ALNUM, "");
+	return flatName.startsWith(flatResource) || flatResource.startsWith(flatName);
+}
+
 function echoesName(name: string, value: string): boolean {
 	return (
 		name.toLowerCase().replace(NON_ALNUM, "") ===
@@ -174,7 +187,7 @@ export const noHardcodedSecrets: Rule = {
 
 				const value = initializer.getText().slice(1, -1);
 				if (
-					SCOPE_VALUE.test(value) ||
+					isPermissionScope(name, value) ||
 					echoesName(name, value) ||
 					(isThrownMessage(node) && isWordSequence(value))
 				) {

@@ -25,6 +25,22 @@ function runRule(code: string, filePath = "test.ts"): Diagnostic[] {
 }
 
 describe("no-hardcoded-secrets", () => {
+	it("flags a colon value that does not name the binding", () => {
+		const diags = runRule(`
+      export const authToken = "admin:supersecret";
+      export const dbPassword = "root:hunter";
+    `);
+		expect(diags).toHaveLength(2);
+	});
+
+	it("still ignores a permission scope that names the binding", () => {
+		const diags = runRule(`
+      export const password = "password:update";
+      export const apiKey = "apikey:rotate";
+    `);
+		expect(diags).toHaveLength(0);
+	});
+
 	it("flags a class property holding a secret", () => {
 		const diags = runRule(`
       export class SocketConstants {

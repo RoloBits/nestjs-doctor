@@ -1041,6 +1041,21 @@ describe("require-inject-decorator", () => {
 });
 
 describe("no-fire-and-forget-async", () => {
+	it("flags a bare .catch() with no handler", () => {
+		const diags = runRule(
+			noFireAndForgetAsync,
+			`
+      export class MyService {
+        async refresh() { return 1; }
+        run() {
+          this.refresh().catch();
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+	});
+
 	it("does not flag a chain that ends in .catch()", () => {
 		const diags = runRule(
 			noFireAndForgetAsync,
