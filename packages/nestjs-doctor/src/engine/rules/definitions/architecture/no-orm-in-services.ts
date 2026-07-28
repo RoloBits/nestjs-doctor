@@ -47,6 +47,8 @@ export const noOrmInServices: Rule = {
 				continue;
 			}
 
+			// The advice is about the service, so each reason is reported once.
+			const reported = new Set<string>();
 			for (const param of ctor.getParameters()) {
 				// Reads the written annotation, falling back to the checker.
 				const typeNode = param.getTypeNode();
@@ -55,7 +57,8 @@ export const noOrmInServices: Rule = {
 					: param.getType().getText();
 				const typeName = extractSimpleTypeName(typeText);
 
-				if (ORM_TYPES.has(typeName)) {
+				if (ORM_TYPES.has(typeName) && !reported.has(typeName)) {
+					reported.add(typeName);
 					const nameNode = param.getNameNode();
 					context.report({
 						filePath: context.filePath,
@@ -70,10 +73,12 @@ export const noOrmInServices: Rule = {
 				for (const decorator of param.getDecorators()) {
 					const name = decorator.getName();
 					if (
-						name === "InjectRepository" ||
-						name === "InjectModel" ||
-						name === "InjectEntityManager"
+						(name === "InjectRepository" ||
+							name === "InjectModel" ||
+							name === "InjectEntityManager") &&
+						!reported.has(name)
 					) {
+						reported.add(name);
 						context.report({
 							filePath: context.filePath,
 							message: `Service uses @${name}() directly. Consider wrapping in a repository class.`,
