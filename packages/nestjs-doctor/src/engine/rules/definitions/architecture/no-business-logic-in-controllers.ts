@@ -1,9 +1,28 @@
-import { SyntaxKind } from "ts-morph";
+import { type IfStatement, SyntaxKind } from "ts-morph";
 import {
 	HTTP_DECORATORS,
 	isController,
 } from "../../../nest-class-inspector.js";
 import type { Rule } from "../../types.js";
+
+/**
+ * An if with no else whose branch only throws. Rejecting a bad request is an
+ * HTTP concern, so it is not a branch in the method's logic.
+ */
+function isGuardClause(statement: IfStatement): boolean {
+	if (statement.getElseStatement()) {
+		return false;
+	}
+	const branch = statement.getThenStatement();
+	const statements =
+		branch.getKind() === SyntaxKind.Block
+			? branch.asKindOrThrow(SyntaxKind.Block).getStatements()
+			: [branch];
+	return (
+		statements.length > 0 &&
+		statements.every((s) => s.getKind() === SyntaxKind.ThrowStatement)
+	);
+}
 
 export const noBusinessLogicInControllers: Rule = {
 	meta: {
@@ -36,7 +55,9 @@ export const noBusinessLogicInControllers: Rule = {
 				}
 
 				// Count control flow statements
-				const ifStatements = body.getDescendantsOfKind(SyntaxKind.IfStatement);
+				const ifStatements = body
+					.getDescendantsOfKind(SyntaxKind.IfStatement)
+					.filter((statement) => !isGuardClause(statement));
 				const forStatements = body.getDescendantsOfKind(
 					SyntaxKind.ForStatement
 				);
