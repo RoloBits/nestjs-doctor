@@ -1,5 +1,4 @@
-import { SyntaxKind } from "ts-morph";
-import { isModule } from "../../../nest-class-inspector.js";
+import { collectProviderImplementations } from "../../../graph/custom-providers.js";
 import { INFRA_SUFFIXES } from "../../constants.js";
 import type { ProjectRule } from "../../types.js";
 
@@ -26,64 +25,11 @@ export const injectableMustBeProvided: ProjectRule = {
 			}
 		}
 
-		// Also collect useClass/useExisting targets from object-literal providers
-		for (const filePath of context.files) {
-			const sourceFile = context.project.getSourceFile(filePath);
-			if (!sourceFile) {
-				continue;
-			}
-			for (const cls of sourceFile.getClasses()) {
-				if (!isModule(cls)) {
-					continue;
-				}
-				const moduleDecorator = cls.getDecorator("Module");
-				if (!moduleDecorator) {
-					continue;
-				}
-				const args = moduleDecorator.getArguments()[0];
-				if (!args || args.getKind() !== SyntaxKind.ObjectLiteralExpression) {
-					continue;
-				}
-				const obj = args.asKind(SyntaxKind.ObjectLiteralExpression);
-				if (!obj) {
-					continue;
-				}
-				const providersProp = obj.getProperty("providers");
-				if (!providersProp) {
-					continue;
-				}
-				const providersArray = providersProp.getChildrenOfKind(
-					SyntaxKind.ArrayLiteralExpression
-				)[0];
-				if (!providersArray) {
-					continue;
-				}
-				for (const element of providersArray.getElements()) {
-					if (element.getKind() !== SyntaxKind.ObjectLiteralExpression) {
-						continue;
-					}
-					const providerObj = element.asKind(
-						SyntaxKind.ObjectLiteralExpression
-					);
-					if (!providerObj) {
-						continue;
-					}
-					for (const propName of ["useClass", "useExisting"]) {
-						const prop = providerObj.getProperty(propName);
-						if (!prop) {
-							continue;
-						}
-						const assignment = prop.asKind(SyntaxKind.PropertyAssignment);
-						if (!assignment) {
-							continue;
-						}
-						const initializer = assignment.getInitializer();
-						if (initializer) {
-							registeredProviders.add(initializer.getText());
-						}
-					}
-				}
-			}
+		for (const implementation of collectProviderImplementations(
+			context.project,
+			context.files
+		)) {
+			registeredProviders.add(implementation);
 		}
 
 		// Scan all files for @Injectable() classes
