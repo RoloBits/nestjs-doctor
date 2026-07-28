@@ -27,7 +27,9 @@ concern a controller exists for. A chain now counts as a guard when every one of
 its branches only throws. A branch that does anything else still counts, so an
 `else` that assigns or calls is a branch as before.
 
-Across 189 public projects this removes 21 findings in 7 files and adds none.
+Across 189 public projects this removes 21 findings and adds none. All 21 sit in
+one project, across 7 of its controllers, so the count is a weak signal of how
+often this happens; the argument is the shape rather than the frequency.
 
 The threshold is unchanged. One non-guard `if` per handler is still allowed,
 which was measured against two stricter alternatives: counting every remaining
