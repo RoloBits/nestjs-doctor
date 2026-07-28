@@ -45,22 +45,23 @@ export const noRepositoryInControllers: Rule = {
 					});
 				}
 			}
+		}
 
-			// Also check import declarations for repository imports
-			for (const imp of context.sourceFile.getImportDeclarations()) {
-				const moduleSpecifier = imp.getModuleSpecifierValue();
-				if (
-					moduleSpecifier.includes("/repositories/") ||
-					moduleSpecifier.includes("/repositories")
-				) {
-					context.report({
-						filePath: context.filePath,
-						message: `Controller imports from repository path '${moduleSpecifier}'.`,
-						help: this.meta.help,
-						line: imp.getStartLineNumber(),
-						column: 1,
-					});
-				}
+		if (!context.sourceFile.getClasses().some(declaresRoutes)) {
+			return;
+		}
+
+		// Imports belong to the file, so they are reported once, not once per class.
+		for (const imp of context.sourceFile.getImportDeclarations()) {
+			const moduleSpecifier = imp.getModuleSpecifierValue();
+			if (moduleSpecifier.includes("/repositories")) {
+				context.report({
+					filePath: context.filePath,
+					message: `Controller imports from repository path '${moduleSpecifier}'.`,
+					help: this.meta.help,
+					line: imp.getStartLineNumber(),
+					column: 1,
+				});
 			}
 		}
 	},

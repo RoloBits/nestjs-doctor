@@ -25,6 +25,38 @@ function runRule(code: string): Diagnostic[] {
 }
 
 describe("no-repository-in-controllers", () => {
+	it("reports a repository import once, not once per controller", () => {
+		const diags = runRule(`
+      import { Controller, Get } from '@nestjs/common';
+      import { UserRepo } from '../repositories/user.repo';
+
+      @Controller('one')
+      export class OneController {
+        constructor(private a: string) {}
+        @Get() one() { return 1; }
+      }
+
+      @Controller('two')
+      export class TwoController {
+        constructor(private b: string) {}
+        @Get() two() { return 2; }
+      }
+    `);
+		const imports = diags.filter((d) => d.message.includes("imports from"));
+		expect(imports).toHaveLength(1);
+	});
+
+	it("does not report a repository import with no controller in the file", () => {
+		const diags = runRule(`
+      import { Injectable } from '@nestjs/common';
+      import { UserRepo } from '../repositories/user.repo';
+
+      @Injectable()
+      export class UsersService {}
+    `);
+		expect(diags).toHaveLength(0);
+	});
+
 	it("matches a generic repository through the written annotation", () => {
 		const diags = runRule(`
       import { Controller } from '@nestjs/common';

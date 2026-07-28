@@ -1,4 +1,4 @@
-import { type Node, SyntaxKind } from "ts-morph";
+import { type ClassDeclaration, type Node, SyntaxKind } from "ts-morph";
 import {
 	declaresRoutes,
 	HTTP_DECORATORS,
@@ -13,6 +13,25 @@ const QUOTED = /^['"`][^'"`]*['"`]$/;
 function asStringLiteral(node: Node): string | undefined {
 	const text = node.getText();
 	return QUOTED.test(text) ? text.slice(1, -1) : undefined;
+}
+
+/**
+ * The route prefix a class decorator other than `@Controller` supplies, as with
+ * `@ApiController('users/:userId')`. A wrong guess only adds known parameters,
+ * so it can widen what matches but never invent a mismatch.
+ */
+function composedPrefix(cls: ClassDeclaration): string | undefined {
+	for (const decorator of cls.getDecorators()) {
+		const firstArg = decorator.getArguments()[0];
+		if (!firstArg) {
+			continue;
+		}
+		const literal = asStringLiteral(firstArg);
+		if (literal !== undefined) {
+			return literal;
+		}
+	}
+	return undefined;
 }
 
 export const paramDecoratorMatchesRoute: Rule = {
@@ -33,10 +52,12 @@ export const paramDecoratorMatchesRoute: Rule = {
 
 			// Extract controller-level prefix params
 			const controllerDecorator = cls.getDecorator("Controller");
-			let controllerPath = "";
-			// Without @Controller() on this class the prefix is declared by whatever
-			// subclass or composed decorator supplies it, so its params are unknown.
-			let controllerPathIsReadable = controllerDecorator !== undefined;
+			const composed = controllerDecorator ? undefined : composedPrefix(cls);
+			let controllerPath = composed ?? "";
+			// An undecorated class gets its prefix from whichever subclass carries
+			// @Controller(), so its parameters cannot be read here.
+			let controllerPathIsReadable =
+				controllerDecorator !== undefined || composed !== undefined;
 			if (controllerDecorator) {
 				const args = controllerDecorator.getArguments();
 				if (args.length > 0) {
