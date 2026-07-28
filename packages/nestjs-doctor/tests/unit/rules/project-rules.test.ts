@@ -620,6 +620,28 @@ describe("injectable-must-be-provided", () => {
 		);
 	});
 
+	it("does not let a stub in a test file exempt a production class", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AppModule {}
+      `,
+			"orphan.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class OrphanThing {}
+      `,
+			"orphan.spec.ts": `
+        import { OrphanThing } from './orphan';
+        class Stub extends OrphanThing {}
+      `,
+		});
+		expect(diags.filter((d) => d.message.includes("OrphanThing"))).toHaveLength(
+			1
+		);
+	});
+
 	it("still flags an unregistered class nobody extends", () => {
 		const diags = runProjectRule(injectableMustBeProvided, {
 			"app.module.ts": `

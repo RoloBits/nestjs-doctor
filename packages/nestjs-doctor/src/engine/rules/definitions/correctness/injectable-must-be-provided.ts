@@ -17,6 +17,12 @@ export const injectableMustBeProvided: ProjectRule = {
 	},
 
 	check(context) {
+		const isTestFile = (filePath: string): boolean =>
+			filePath.includes(".spec.") ||
+			filePath.includes(".test.") ||
+			filePath.includes("__test__") ||
+			filePath.includes("__tests__");
+
 		// Collect all provider names registered in module metadata
 		const registeredProviders = new Set<string>();
 		for (const mod of context.moduleGraph.modules.values()) {
@@ -35,18 +41,16 @@ export const injectableMustBeProvided: ProjectRule = {
 			registeredProviders.add(implementation);
 		}
 
-		// A base class is registered through its subclasses, not on its own.
-		const extended = collectExtendedClasses(context.project, context.files);
+		// A base class is registered through its subclasses, not on its own. Test
+		// files are left out so a stub cannot exempt a production class.
+		const extended = collectExtendedClasses(
+			context.project,
+			context.files.filter((filePath) => !isTestFile(filePath))
+		);
 
 		// Scan all files for @Injectable() classes
 		for (const filePath of context.files) {
-			// Skip test files
-			if (
-				filePath.includes(".spec.") ||
-				filePath.includes(".test.") ||
-				filePath.includes("__test__") ||
-				filePath.includes("__tests__")
-			) {
+			if (isTestFile(filePath)) {
 				continue;
 			}
 
