@@ -63,8 +63,8 @@ export async function buildAnalysisContext(
 		collectFiles(targetPath, config),
 		detectProject(targetPath),
 	]);
-	const astProject = createAstParser(files);
 	const pathAliases = loadPathAliases(targetPath);
+	const astProject = createAstParser(files, pathAliases);
 	const moduleGraph = buildModuleGraph(astProject, files, pathAliases);
 	const providers = resolveProviders(astProject, files);
 	const endpointGraph = buildEndpointGraph(astProject, files, providers);
@@ -159,8 +159,8 @@ export async function buildMonorepoContext(
 					loadConfigWithFallback(projectPath, rootConfig),
 				]);
 
-				const astProject = createAstParser(files);
 				const pathAliases = loadPathAliases(projectPath);
+				const astProject = createAstParser(files, pathAliases);
 				const moduleGraph = buildModuleGraph(astProject, files, pathAliases);
 				const providers = resolveProviders(astProject, files);
 				const endpointGraph = buildEndpointGraph(astProject, files, providers);
