@@ -17,6 +17,8 @@ function returnsPromise(callExpr: CallExpression): boolean | "unknown" {
 	return false;
 }
 
+// Only consulted when the return type is unresolvable. `emit` is absent on
+// purpose: EventEmitter2, socket.io and ClientProxy all return synchronously.
 const ASYNC_PREFIXES = new Set([
 	"save",
 	"create",
@@ -25,7 +27,6 @@ const ASYNC_PREFIXES = new Set([
 	"delete",
 	"remove",
 	"send",
-	"emit",
 	"publish",
 	"dispatch",
 	"execute",
@@ -35,6 +36,35 @@ const ASYNC_PREFIXES = new Set([
 	"download",
 	"process",
 ]);
+
+/**
+ * True when the chain ends in `.catch(h)` or a `.then(ok, err)`, so a rejection
+ * already has somewhere to go.
+ */
+function hasRejectionHandler(callExpr: CallExpression): boolean {
+	let current: CallExpression | undefined = callExpr;
+	while (current) {
+		const expression = current.getExpression();
+		if (expression.getKind() !== SyntaxKind.PropertyAccessExpression) {
+			return false;
+		}
+		const access = expression.asKindOrThrow(
+			SyntaxKind.PropertyAccessExpression
+		);
+		const name = access.getName();
+		if (name === "catch") {
+			return true;
+		}
+		if (name === "then" && current.getArguments().length > 1) {
+			return true;
+		}
+		if (name !== "then" && name !== "finally") {
+			return false;
+		}
+		current = access.getExpression().asKind(SyntaxKind.CallExpression);
+	}
+	return false;
+}
 
 export const noFireAndForgetAsync: Rule = {
 	meta: {
@@ -89,6 +119,10 @@ export const noFireAndForgetAsync: Rule = {
 
 					const callText = callExpr.getExpression().getText();
 					const methodName = callText.split(".").pop() ?? "";
+
+					if (hasRejectionHandler(callExpr)) {
+						continue;
+					}
 
 					const promiseCheck = returnsPromise(callExpr);
 
