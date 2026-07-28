@@ -8,6 +8,7 @@ import {
 } from "../../../src/engine/graph/module-graph.js";
 import { resolveProviders } from "../../../src/engine/graph/type-resolver.js";
 import { noCircularModuleDeps } from "../../../src/engine/rules/definitions/architecture/no-circular-module-deps.js";
+import { injectableMustBeProvided } from "../../../src/engine/rules/definitions/correctness/injectable-must-be-provided.js";
 import { noOrphanModules } from "../../../src/engine/rules/definitions/performance/no-orphan-modules.js";
 import { noUnusedModuleExports } from "../../../src/engine/rules/definitions/performance/no-unused-module-exports.js";
 import { noUnusedProviders } from "../../../src/engine/rules/definitions/performance/no-unused-providers.js";
@@ -590,5 +591,48 @@ describe("project rules on a detached graph", () => {
 		expect(diagnostics).toHaveLength(1);
 		expect(diagnostics[0].message).toContain("ForgottenModule");
 		expect("line" in diagnostics[0] && diagnostics[0].line).toBe(1);
+	});
+});
+
+describe("injectable-must-be-provided", () => {
+	it("does not flag a base class that subclasses extend", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { PhotoHandler } from './photo.handler';
+        @Module({ providers: [PhotoHandler] })
+        export class AppModule {}
+      `,
+			"base.handler.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class BaseHandler {}
+      `,
+			"photo.handler.ts": `
+        import { Injectable } from '@nestjs/common';
+        import { BaseHandler } from './base.handler';
+        @Injectable()
+        export class PhotoHandler extends BaseHandler {}
+      `,
+		});
+		expect(diags.filter((d) => d.message.includes("BaseHandler"))).toHaveLength(
+			0
+		);
+	});
+
+	it("still flags an unregistered class nobody extends", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AppModule {}
+      `,
+			"lonely.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class Lonely {}
+      `,
+		});
+		expect(diags.filter((d) => d.message.includes("Lonely"))).toHaveLength(1);
 	});
 });

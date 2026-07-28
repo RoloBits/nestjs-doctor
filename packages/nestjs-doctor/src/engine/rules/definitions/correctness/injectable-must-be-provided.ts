@@ -1,4 +1,7 @@
-import { collectProviderImplementations } from "../../../graph/custom-providers.js";
+import {
+	collectExtendedClasses,
+	collectProviderImplementations,
+} from "../../../graph/custom-providers.js";
 import { INFRA_SUFFIXES } from "../../constants.js";
 import type { ProjectRule } from "../../types.js";
 
@@ -31,6 +34,9 @@ export const injectableMustBeProvided: ProjectRule = {
 		)) {
 			registeredProviders.add(implementation);
 		}
+
+		// A base class is registered through its subclasses, not on its own.
+		const extended = collectExtendedClasses(context.project, context.files);
 
 		// Scan all files for @Injectable() classes
 		for (const filePath of context.files) {
@@ -67,6 +73,11 @@ export const injectableMustBeProvided: ProjectRule = {
 
 				// Skip if registered in any module
 				if (registeredProviders.has(className)) {
+					continue;
+				}
+
+				// Skip a base class: its subclasses carry the registration.
+				if (extended.has(className)) {
 					continue;
 				}
 
