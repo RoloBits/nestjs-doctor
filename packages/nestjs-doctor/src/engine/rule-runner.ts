@@ -35,12 +35,18 @@ export interface RunRulesOptions {
 	providers: Map<string, ProviderInfo>;
 }
 
+/** Project-wide facts handed to file rules that need more than one file. */
+export interface FileRuleFacts {
+	guards?: GuardFacts;
+	moduleDirectories?: ReadonlySet<string>;
+}
+
 function runFileRulesOnFile(
 	project: Project,
 	filePath: string,
 	rules: Rule[],
 	config?: NestjsDoctorConfig,
-	guards?: GuardFacts
+	facts?: FileRuleFacts
 ): RunRulesResult {
 	const diagnostics: CodeDiagnostic[] = [];
 	const errors: RuleError[] = [];
@@ -56,7 +62,8 @@ function runFileRulesOnFile(
 	for (const rule of rules) {
 		const context: CodeRuleContext = {
 			config,
-			guards,
+			guards: facts?.guards,
+			moduleDirectories: facts?.moduleDirectories,
 			sourceFile,
 			filePath,
 			report(partial) {
@@ -92,13 +99,13 @@ export function runFileRules(
 	files: string[],
 	rules: Rule[],
 	config?: NestjsDoctorConfig,
-	guards?: GuardFacts
+	facts?: FileRuleFacts
 ): RunRulesResult {
 	const diagnostics: Diagnostic[] = [];
 	const errors: RuleError[] = [];
 
 	for (const filePath of files) {
-		const result = runFileRulesOnFile(project, filePath, rules, config, guards);
+		const result = runFileRulesOnFile(project, filePath, rules, config, facts);
 		diagnostics.push(...result.diagnostics);
 		errors.push(...result.errors);
 	}
