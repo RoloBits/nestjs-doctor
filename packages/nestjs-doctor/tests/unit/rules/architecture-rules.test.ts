@@ -42,6 +42,109 @@ function runRule(
 }
 
 describe("no-business-logic-in-controllers", () => {
+	it("does not count guard clauses that only throw", () => {
+		const diags = runRule(
+			noBusinessLogicInControllers,
+			`
+      import { Controller, Get } from '@nestjs/common';
+      @Controller('items')
+      export class ItemsController {
+        @Get(':id')
+        async find(id: string) {
+          if (!id) {
+            throw new BadRequestException('id required');
+          }
+          const item = await this.service.find(id);
+          if (!item) {
+            throw new NotFoundException();
+          }
+          return item;
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("still flags two branching ifs", () => {
+		const diags = runRule(
+			noBusinessLogicInControllers,
+			`
+      import { Controller, Get } from '@nestjs/common';
+      @Controller('items')
+      export class ItemsController {
+        @Get(':id')
+        async find(id: string) {
+          let result = null;
+          if (id === 'a') {
+            result = 1;
+          }
+          if (id === 'b') {
+            result = 2;
+          }
+          return result;
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("2 if");
+	});
+
+	it("counts an if/else as a branch even when it throws", () => {
+		const diags = runRule(
+			noBusinessLogicInControllers,
+			`
+      import { Controller, Get } from '@nestjs/common';
+      @Controller('items')
+      export class ItemsController {
+        @Get(':id')
+        async find(id: string) {
+          if (!id) {
+            throw new BadRequestException();
+          } else {
+            this.log('a');
+          }
+          if (id === 'x') {
+            throw new BadRequestException();
+          } else {
+            this.log('b');
+          }
+          return this.service.find(id);
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("2 if");
+	});
+
+	it("does not count a guard clause that throws two different exceptions", () => {
+		const diags = runRule(
+			noBusinessLogicInControllers,
+			`
+      import { Controller, Get } from '@nestjs/common';
+      @Controller('items')
+      export class ItemsController {
+        @Get(':id')
+        async find(id: string) {
+          if (!id) {
+            throw new BadRequestException();
+          }
+          if (!this.user) {
+            throw new ForbiddenException();
+          }
+          if (id === 'x') {
+            throw new NotFoundException();
+          }
+          return this.service.find(id);
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
 	it("flags controllers with loops in handlers", () => {
 		const diags = runRule(
 			noBusinessLogicInControllers,
