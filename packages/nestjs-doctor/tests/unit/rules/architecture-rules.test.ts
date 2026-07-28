@@ -17,7 +17,8 @@ function runRule(
 	code: string,
 	filePath = "test.ts",
 	config: NestjsDoctorConfig = {},
-	moduleDirectories?: ReadonlySet<string>
+	moduleDirectories?: ReadonlySet<string>,
+	diProviders?: ReadonlySet<string>
 ): Diagnostic[] {
 	const project = new Project({ useInMemoryFileSystem: true });
 	const sourceFile = project.createSourceFile(filePath, code);
@@ -25,6 +26,7 @@ function runRule(
 
 	rule.check({
 		config,
+		diProviders,
 		moduleDirectories,
 		sourceFile,
 		filePath,
@@ -567,6 +569,46 @@ describe("no-orm-in-services", () => {
 });
 
 describe("no-manual-instantiation", () => {
+	const CODE = `
+    export class OrdersService {
+      run() {
+        const a = new UsersService();
+        const b = new ValidationPipe({ whitelist: true });
+        return [a, b];
+      }
+    }
+  `;
+
+	it("reports a class NestJS could inject", () => {
+		const diags = runRule(
+			noManualInstantiation,
+			CODE,
+			"test.ts",
+			{},
+			undefined,
+			new Set(["UsersService"])
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("UsersService");
+	});
+
+	it("does not report a class NestJS does not know", () => {
+		const diags = runRule(
+			noManualInstantiation,
+			CODE,
+			"test.ts",
+			{},
+			undefined,
+			new Set(["UsersService"])
+		);
+		expect(diags.some((d) => d.message.includes("ValidationPipe"))).toBe(false);
+	});
+
+	it("reports both when the DI facts are unavailable", () => {
+		const diags = runRule(noManualInstantiation, CODE);
+		expect(diags).toHaveLength(2);
+	});
+
 	it("flags new SomeService()", () => {
 		const diags = runRule(
 			noManualInstantiation,

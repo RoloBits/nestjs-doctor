@@ -8,6 +8,7 @@ import { filterIgnoredDiagnostics } from "./filter-diagnostics.js";
 import { guardDecoratorNames } from "./graph/guard-decorators.js";
 import { posixDirname } from "./graph/module-graph.js";
 import { filterSuppressedDiagnostics } from "./inline-suppressions.js";
+import { isInjectable } from "./nest-class-inspector.js";
 import type { FileRuleFacts } from "./rule-runner.js";
 import {
 	type RunRulesOptions,
@@ -131,7 +132,22 @@ function fileRuleFacts(context: AnalysisContext): FileRuleFacts {
 		moduleDirectories.add(posixDirname(module.filePath));
 	}
 
+	const diProviders = new Set<string>();
+	for (const filePath of context.files) {
+		const sourceFile = context.astProject.getSourceFile(filePath);
+		if (!sourceFile) {
+			continue;
+		}
+		for (const cls of sourceFile.getClasses()) {
+			const name = cls.getName();
+			if (name && isInjectable(cls)) {
+				diProviders.add(name);
+			}
+		}
+	}
+
 	return {
+		diProviders,
 		guards: {
 			composedDecorators: guardDecoratorNames(context.guardDecorators),
 			globallyRegistered: modules.some((module) =>

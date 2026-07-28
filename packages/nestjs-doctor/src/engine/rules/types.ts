@@ -35,6 +35,8 @@ export interface GuardFacts {
 
 export interface CodeRuleContext {
 	config?: NestjsDoctorConfig;
+	/** Classes NestJS instantiates itself, which one file cannot enumerate. */
+	diProviders?: ReadonlySet<string>;
 	filePath: string;
 	guards?: GuardFacts;
 	/** Directories that hold a module file, for boundary checks. */

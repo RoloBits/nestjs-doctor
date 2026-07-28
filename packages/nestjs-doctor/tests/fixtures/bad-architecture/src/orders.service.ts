@@ -15,6 +15,8 @@ export class OrdersService {
 	}
 }
 
+// Registered as a provider elsewhere; instantiating it by hand bypasses DI.
+@Injectable()
 class OrderValidatorService {
 	validate() {
 		return true;
