@@ -4,6 +4,13 @@ import type { Rule } from "../../types.js";
 const SECRET_PATTERNS = [
 	{ pattern: /^(?=.*\d)[A-Za-z0-9+/]{40,}={0,2}$/, name: "Base64 key" },
 	{ pattern: /^sk[-_][a-zA-Z0-9]{20,}$/, name: "Secret key" },
+	// Issued keys carry an environment segment the plain form misses:
+	// sk_live_…, pk_test_…, sk-proj-…, sk-ant-api03-….
+	{
+		pattern:
+			/^(?:sk|pk|rk)[-_](?:[a-z0-9]{2,6}[-_]){1,2}(?=[A-Za-z0-9]*\d)[A-Za-z0-9]{16,}$/,
+		name: "API secret key",
+	},
 	{ pattern: /^pk[-_][a-zA-Z0-9]{20,}$/, name: "Public key (in source)" },
 	{
 		pattern: /^ghp_[a-zA-Z0-9]{36,}$/,
