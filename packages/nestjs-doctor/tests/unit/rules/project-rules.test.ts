@@ -613,6 +613,24 @@ describe("no-orphan-modules", () => {
 		).toHaveLength(0);
 	});
 
+	it("still flags an orphan feature module named main.module.ts", () => {
+		const diags = runProjectRule(noOrphanModules, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AppModule {}
+      `,
+			"billing/main.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class BillingMainModule {}
+      `,
+		});
+		expect(
+			diags.filter((d) => d.message.includes("BillingMainModule"))
+		).toHaveLength(1);
+	});
+
 	it("still flags a module nobody imports", () => {
 		const diags = runProjectRule(noOrphanModules, {
 			"app.module.ts": `

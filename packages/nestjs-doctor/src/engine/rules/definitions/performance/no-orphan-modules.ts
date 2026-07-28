@@ -1,7 +1,7 @@
 import { collectBootstrappedModules } from "../../../graph/entry-points.js";
 
 /** A module declared here is the application root whatever its class is called. */
-const ROOT_MODULE_FILE = /(^|\/)(app|main|root)\.module\.[mc]?ts$/;
+const ROOT_MODULE_FILE = /(^|\/)(app|root)\.module\.[mc]?ts$/;
 
 import type { ProjectRule } from "../../types.js";
 
