@@ -289,6 +289,30 @@ describe("no-exposed-stack-trace", () => {
 		expect(diags).toHaveLength(0);
 	});
 
+	it("does not flag loggers whose names carry a prefix or suffix", () => {
+		for (const receiver of [
+			"this._logger",
+			"this.appLogger",
+			"this.loggerService",
+			"winstonLogger",
+			"this.logger.child({})",
+			"new Logger('Ctx')",
+			"this.log",
+		]) {
+			const diags = runRule(
+				noExposedStackTrace,
+				`
+      function handle() {
+        try {} catch (error) {
+          ${receiver}.error('failed', error.stack);
+        }
+      }
+    `
+			);
+			expect(diags, receiver).toHaveLength(0);
+		}
+	});
+
 	it("does not flag unrelated .stack access", () => {
 		const diags = runRule(
 			noExposedStackTrace,

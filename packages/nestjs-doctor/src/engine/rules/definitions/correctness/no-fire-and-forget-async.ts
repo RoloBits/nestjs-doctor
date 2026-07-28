@@ -38,10 +38,9 @@ const ASYNC_PREFIXES = new Set([
 ]);
 
 /**
- * True when the chain ends in `.catch(h)` or a `.then(ok, err)`, so a rejection
- * already has somewhere to go.
+ * A handler whose every statement throws leaves the rejection unhandled. Only
+ * an inline function body is read, so a handler passed by name is left alone.
  */
-/** A handler whose every path throws leaves the rejection unhandled. */
 function onlyRethrows(handler: Node | undefined): boolean {
 	if (!handler) {
 		return false;
@@ -63,6 +62,10 @@ function onlyRethrows(handler: Node | undefined): boolean {
 	);
 }
 
+/**
+ * True when the chain ends in `.catch(h)` or a `.then(ok, err)`, so a rejection
+ * already has somewhere to go.
+ */
 function hasRejectionHandler(callExpr: CallExpression): boolean {
 	let current: CallExpression | undefined = callExpr;
 	while (current) {

@@ -16,9 +16,11 @@ const LOG_METHODS = new Set([
 	"warning",
 ]);
 
-// Receivers that own the log methods above. `res.error()` and
-// `subscriber.error()` share the name but send the stack onwards.
-const LOGGER_RECEIVER = /(^|\.)(logger|log|console|winston|pino|bunyan)$/i;
+// Receivers that own the log methods above, matched anywhere in the expression
+// so `this._logger` and `new Logger('Ctx')` both count. `res.error()` and
+// `subscriber.error()` share the method name but send the stack onwards.
+const LOGGER_RECEIVER = /logger|console|winston|pino|bunyan/i;
+const BARE_LOG_RECEIVER = /(^|\.)log$/i;
 
 /** True when the call is a log method on a logger, not a same-named method. */
 function isLoggingCall(call: CallExpression): boolean {
@@ -30,7 +32,8 @@ function isLoggingCall(call: CallExpression): boolean {
 	if (!LOG_METHODS.has(access.getName())) {
 		return false;
 	}
-	return LOGGER_RECEIVER.test(access.getExpression().getText());
+	const receiver = access.getExpression().getText();
+	return LOGGER_RECEIVER.test(receiver) || BARE_LOG_RECEIVER.test(receiver);
 }
 
 /** True when the stack is being handed to a logging call, at any depth. */
