@@ -1,3 +1,4 @@
+import { collectBootstrappedModules } from "../../../graph/entry-points.js";
 import type { ProjectRule } from "../../types.js";
 
 export const noOrphanModules: ProjectRule = {
@@ -20,9 +21,15 @@ export const noOrphanModules: ProjectRule = {
 			}
 		}
 
+		// A bootstrapped module is an entry point, so nothing imports it. AppModule
+		// stays as a fallback for projects whose bootstrap is outside the scan.
+		const entryPoints = collectBootstrappedModules(
+			context.project,
+			context.files
+		);
+
 		for (const mod of context.moduleGraph.modules.values()) {
-			// Skip AppModule — it's the root and is never imported
-			if (mod.name === "AppModule") {
+			if (mod.name === "AppModule" || entryPoints.has(mod.name)) {
 				continue;
 			}
 
