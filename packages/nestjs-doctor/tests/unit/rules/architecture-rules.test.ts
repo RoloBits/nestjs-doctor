@@ -767,6 +767,19 @@ describe("require-module-boundaries", () => {
 		expect(diags).toHaveLength(1);
 	});
 
+	it("does not flag folders that share their only module", () => {
+		const diags = runRule(
+			requireModuleBoundaries,
+			`
+      import { OrderEntity } from '../orders/entities/order.entity';
+    `,
+			"/src/billing/billing.service.ts",
+			{},
+			new Set(["/src"])
+		);
+		expect(diags).toHaveLength(0);
+	});
+
 	it("still flags when no module directory contains the source file", () => {
 		const diags = runRule(
 			requireModuleBoundaries,
