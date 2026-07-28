@@ -110,6 +110,25 @@ describe("monorepo-detector", () => {
 		expect(info!.projects.has("@lerna/frontend")).toBe(false);
 	});
 
+	it("includes an Nx project that has no package.json of its own", async () => {
+		const info = await detectMonorepo(resolve(FIXTURES, "nx-root-deps"));
+		expect(info).not.toBeNull();
+		// Nx declares dependencies at the workspace root, so apps/worker has no
+		// package.json — its NestJS module file is what identifies it.
+		expect(info?.projects.get("worker")).toBe("apps/worker");
+	});
+
+	it("leaves out an Nx project whose module file is Angular", async () => {
+		const info = await detectMonorepo(resolve(FIXTURES, "nx-root-deps"));
+		expect(info?.projects.has("web")).toBe(false);
+	});
+
+	it("leaves out an Nx library with no NestJS module", async () => {
+		const info = await detectMonorepo(resolve(FIXTURES, "nx-root-deps"));
+		expect(info?.projects.has("util")).toBe(false);
+		expect(info?.projects.size).toBe(1);
+	});
+
 	it("detects Nx monorepo via nx.json and project.json files", async () => {
 		const info = await detectMonorepo(resolve(FIXTURES, "nx-app"));
 		expect(info).not.toBeNull();
