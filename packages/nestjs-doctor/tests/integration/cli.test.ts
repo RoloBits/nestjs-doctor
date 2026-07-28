@@ -233,6 +233,25 @@ describe("scanner integration", () => {
 		});
 	});
 
+	it("reports a shared workspace-root schema once", async () => {
+		const targetPath = resolve(FIXTURES, "nx-shared-schema");
+		const scanConfig = await resolveScanConfig(targetPath);
+		const monorepo = await detectMonorepo(targetPath);
+		expect(monorepo).not.toBeNull();
+		expect(monorepo!.projects.size).toBe(2);
+		const { result } = await scanMonorepo(targetPath, scanConfig, monorepo!);
+
+		const schemaDiags = result.combined.diagnostics.filter((d) =>
+			d.rule.startsWith("schema/")
+		);
+		expect(schemaDiags.length).toBeGreaterThan(0);
+		const keys = schemaDiags.map((d) => `${d.rule}|${d.message}`);
+		expect(new Set(keys).size).toBe(keys.length);
+		expect(result.combined.schema?.entities.map((e) => e.name)).toEqual([
+			"Order",
+		]);
+	});
+
 	it("scans monorepo with multiple sub-projects", async () => {
 		const targetPath = resolve(FIXTURES, "monorepo-app");
 		const scanConfig = await resolveScanConfig(targetPath);

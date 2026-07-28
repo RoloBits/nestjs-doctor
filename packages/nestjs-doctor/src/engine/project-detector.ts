@@ -4,9 +4,6 @@ import { dirname, join, relative, resolve } from "node:path";
 import { glob } from "tinyglobby";
 import type { ProjectInfo } from "../common/result.js";
 
-/** Module files read per Nx project when probing for a NestJS import. */
-const NEST_MODULE_PROBE_LIMIT = 20;
-
 interface PackageJson {
 	dependencies?: Record<string, string>;
 	devDependencies?: Record<string, string>;
@@ -144,8 +141,7 @@ async function resolveWorkspaceProjects(
 			if (hasNestDependency(pkg)) {
 				const projectDir = dirname(pkgPath);
 				const relativePath = toProjectRoot(relative(targetPath, projectDir));
-				const name = pkg.name ?? relativePath;
-				projects.set(name, relativePath);
+				setUniqueProject(projects, pkg.name ?? relativePath, relativePath);
 			}
 		} catch {
 			// Skip unreadable package.json
@@ -257,6 +253,19 @@ async function detectLernaMonorepo(
 }
 
 /**
+ * Records a project under `name`, falling back to its root when that name is
+ * taken. Two projects may share a name, and the root is unique by construction.
+ */
+function setUniqueProject(
+	projects: Map<string, string>,
+	name: string,
+	relativePath: string
+): void {
+	const key = projects.has(name) ? relativePath : name;
+	projects.set(key, relativePath);
+}
+
+/**
  * True when the directory holds a NestJS module file. Nx projects declare their
  * dependencies in the workspace root, so a package.json is often absent — and
  * Angular projects in the same workspace also use `*.module.ts`, so the import
@@ -269,7 +278,7 @@ async function containsNestModule(projectDir: string): Promise<boolean> {
 		ignore: ["**/node_modules/**"],
 	});
 
-	for (const file of moduleFiles.slice(0, NEST_MODULE_PROBE_LIMIT)) {
+	for (const file of moduleFiles) {
 		try {
 			const text = await readFile(file, "utf-8");
 			if (text.includes("@nestjs/common")) {
@@ -321,7 +330,7 @@ async function detectNxMonorepo(
 		}
 
 		if (pkg && hasNestDependency(pkg)) {
-			projects.set(pkg.name ?? relativePath, relativePath);
+			setUniqueProject(projects, pkg.name ?? relativePath, relativePath);
 			continue;
 		}
 
@@ -338,7 +347,11 @@ async function detectNxMonorepo(
 			} catch {
 				// Unreadable — fall back to the path
 			}
-			projects.set(pkg?.name ?? nxName ?? relativePath, relativePath);
+			setUniqueProject(
+				projects,
+				pkg?.name ?? nxName ?? relativePath,
+				relativePath
+			);
 		}
 	}
 

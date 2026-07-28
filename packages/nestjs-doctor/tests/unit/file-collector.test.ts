@@ -1,7 +1,12 @@
-import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { afterAll, describe, expect, it } from "vitest";
 import { DEFAULT_CONFIG } from "../../src/common/config.js";
-import { collectFiles } from "../../src/engine/file-collector.js";
+import {
+	collectFiles,
+	collectMonorepoFiles,
+} from "../../src/engine/file-collector.js";
 
 const FIXTURES = resolve(import.meta.dirname, "../fixtures");
 const TESTS_DIR_RE = /\/__tests__\//;
@@ -77,5 +82,38 @@ describe("file-collector", () => {
 			expect(f).not.toMatch(MOCKS_DIR_RE);
 			expect(f).not.toMatch(FIXTURES_DIR_RE);
 		}
+	});
+});
+
+const nestedRoot = mkdtempSync(join(tmpdir(), "nestjs-doctor-nested-roots-"));
+const PARENT_FILE_RE = /a\.service\.ts$/;
+const NESTED_FILE_RE = /b\.service\.ts$/;
+
+afterAll(() => {
+	rmSync(nestedRoot, { recursive: true, force: true });
+});
+
+describe("collectMonorepoFiles", () => {
+	it("leaves a nested project's files to the nested project", async () => {
+		for (const dir of ["apps/api/src", "apps/api/nested/src"]) {
+			mkdirSync(join(nestedRoot, dir), { recursive: true });
+		}
+		writeFileSync(join(nestedRoot, "apps/api/src/a.service.ts"), "export {};");
+		writeFileSync(
+			join(nestedRoot, "apps/api/nested/src/b.service.ts"),
+			"export {};"
+		);
+
+		const byProject = await collectMonorepoFiles(nestedRoot, {
+			projects: new Map([
+				["api", "apps/api"],
+				["nested", "apps/api/nested"],
+			]),
+		});
+
+		expect(byProject.get("api")).toHaveLength(1);
+		expect(byProject.get("api")?.[0]).toMatch(PARENT_FILE_RE);
+		expect(byProject.get("nested")).toHaveLength(1);
+		expect(byProject.get("nested")?.[0]).toMatch(NESTED_FILE_RE);
 	});
 });
