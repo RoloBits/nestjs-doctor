@@ -1,5 +1,195 @@
 # nestjs-doctor
 
+## 0.7.4
+
+### Patch Changes
+
+- 81a421f: Two defects found auditing the controller rules widened this week.
+
+  **`correctness/param-decorator-matches-route` stopped running on the classes it
+  was widened for.** When a class carries no literal `@Controller`, the route
+  prefix comes from elsewhere, so the rule marks it unreadable. It then skips
+  every method, which made the rule a no-op on exactly the composed-decorator
+  classes the previous release taught it to see:
+
+  ```ts
+  @ApiController("users/:userId")
+  export class UsersController {
+    @Get(":id")
+    find(@Param("nonexistent") x: string) {} // matched nothing, reported nothing
+  }
+  ```
+
+  The prefix now also comes from a composed decorator's string argument. A wrong
+  guess only adds known parameter names, so it can widen what matches and never
+  invent a mismatch. A class with no decorator at all still skips, since its
+  prefix genuinely lives on a subclass.
+
+  **`architecture/no-repository-in-controllers` reported a repository import once
+  per controller in the file.** The import scan sat inside the per-class loop, so
+  one `import { UserRepo } from '../repositories/user.repo'` in a file with three
+  controllers produced three identical diagnostics on the same line. Imports
+  belong to the file, so they are now scanned once.
+
+  Neither shows up across 189 public projects, which is why the earlier
+  measurements missed them. Both reproduce in a file with two controllers.
+
+- 7fb799f: Three rules missed cases they were written to catch. Found by working through
+  the audit backlog from this week's changes, each reproduced before it was
+  touched.
+
+  **`security/no-exposed-stack-trace` treated any `.error()` call as logging.**
+  The check took the last segment of the callee name, so `res.error(...)` and
+  `subscriber.error(...)` counted as logging and the stack went to the client
+  unreported:
+
+  ```ts
+  res.error({ stack: err.stack }); // silent
+  subscriber.error(err.stack); // silent
+  ```
+
+  It also looked only at the nearest enclosing call, so wrapping the stack on the
+  way to a real logger made it fire: `this.logger.error(redact(err.stack))` was
+  reported as a leak. A logging call is now identified by its receiver, split into
+  words so that `this._logger`, `this.logService`, `new Logger('Ctx')` and a bare
+  `debug(...)` all count while `this.catalog` does not, and the search walks out
+  through every enclosing call rather than stopping at the first.
+
+  **`correctness/no-duplicate-decorators` stopped seeing repeated route
+  decorators.** Non-single-use decorators are keyed by their full text so that
+  `@UseInterceptors(A)` and `@UseInterceptors(B)` read as two interceptors. Route
+  decorators fell into that bucket, but Nest stores one path per handler, so
+
+  ```ts
+  @Get('alpha')
+  @Get('beta')
+  handler() {}
+  ```
+
+  registers `alpha` and silently drops `beta`. HTTP method decorators are now
+  single-use.
+
+  **`correctness/no-fire-and-forget-async` accepted a `.catch()` that rethrows.**
+  `promise.catch((e) => { throw e; })` returns a promise that rejects, so the
+  rejection is still unhandled, and the same is true of the commoner shape that
+  logs first:
+
+  ```ts
+  .catch((e) => { this.logger.error(e); throw e; });
+  ```
+
+  A handler that ends by throwing no longer counts as handling it, on the `catch`
+  and on the second argument to `then` alike. An empty handler still does, because
+  swallowing an error deliberately is a different complaint.
+
+  Across 189 public projects this adds 9 findings, all of them rejections that
+  reach the process, and removes none. The stack trace rule comes out level at 8:
+  two earlier attempts at the receiver check fired on `this._logger.error(...)`,
+  `new Logger('Bootstrap').error(...)`, `this.logService.error(...)` and a bare
+  `debug(...)`, and the corpus caught each round. Neither a response helper
+  carrying a stack nor a repeated route decorator occurs anywhere in public code,
+  so those two are covered by tests rather than by a number.
+
+- 22d3ff5: Two false negatives found auditing this week's rule changes.
+
+  **A colon-separated value stopped being a credential.** The permission-scope
+  skip was written for `password: "password:update"`, and it excluded digits so
+  `admin:secretpass123` would survive. Anything else lowercase and colon-separated
+  went quiet:
+
+  ```ts
+  export const authToken = "admin:supersecret";
+  export const dbPassword = "root:hunter";
+  export const basicAuthPassword = "admin:admin";
+  ```
+
+  `user:pass` is how basic-auth and database credentials get pasted into source.
+  The skip now applies only when the first segment names the same thing as the
+  binding, which is the shape it was written for. `password: "password:update"`
+  and `apiKey: "apikey:rotate"` stay quiet.
+
+  **`.catch()` with no handler counted as handled.** `correctness/no-fire-and-forget-async`
+  accepted any `.catch` in the chain. A bare `.catch()` returns a promise that
+  rejects with the same reason, so the rejection still reaches the process:
+
+  ```ts
+  this.repo.save({}).catch();
+  ```
+
+  A `catch` now needs an argument. `.catch(() => {})` still counts, since swallowing
+  deliberately is not an unhandled rejection.
+
+  Neither moves across 189 public projects. Both reproduce in four lines.
+
+- 0862b0a: Scan a monorepo one sub-project at a time, and read written type names instead
+  of asking the checker.
+
+  Scanning a large Nx workspace died with `JavaScript heap out of memory`, on both
+  `--report` and a plain scan, and raising `--max-old-space-size` to 8 GB did not
+  save it.
+
+  Two causes, and both were needed.
+
+  **Every sub-project stayed alive.** `buildMonorepoContext` built all of them with
+  `Promise.all` and returned them in a Map, so 43 ts-morph projects were live at
+  once. Worse, `buildResult` returns the module graph and the provider map, and
+  both hold `ClassDeclaration` nodes — one node anchors its source file, and
+  through it the whole project and every type the checker ever resolved on it. So
+  even releasing the contexts kept the memory. Sub-projects are now built,
+  diagnosed and reduced one at a time, and what is kept is detached from ts-morph
+  first.
+
+  **Three rules forced full type resolution.** `no-orm-in-services`,
+  `no-orm-in-controllers` and `no-repository-in-controllers` called
+  `param.getType().getText()`, which makes the checker type the whole dependency
+  closure — exactly the work `createAstParser` sets `skipFileDependencyResolution`
+  to avoid. One 20-file sub-project cost 2.7 s and 679 MB. They now read the
+  declared type node, as `no-unused-providers` already did.
+
+  Reading the written name is also more accurate: across 194 scan targets this
+  recovers 19 findings the checker's expanded form had hidden, among them
+  `private readonly optionsModel: MongooseModel<Option>` and a
+  `Repository<Account>` injected straight into a controller.
+
+  The baseline scan behind `--scope changed` streams the same way, so the path
+  that runs two full monorepo scans no longer holds either of them.
+
+  A 9,800-file Nx workspace that could not be scanned at 8 GB now completes at
+  1.9 GB, and its report at 1.6 GB.
+
+- e117da8: Four ways an Nx workspace could report less than it should, all found auditing
+  the monorepo detection widened this week.
+
+  **A project whose NestJS module sorted past the twentieth was dropped.**
+  Detection read at most 20 `*.module.ts` files looking for a `@nestjs/common`
+  import, so a project with more module files than that could be excluded whole.
+  The cap saved nothing measurable: across 152 project directories in 15 public
+  Nx workspaces, no project that misses the probe has more than 20 module files.
+  It is gone, and the probe now reads until it finds one.
+
+  **Two projects declaring the same name collapsed into one.** Projects are
+  recorded in a `Map` keyed by `package.json` name, then `project.json` name, then
+  path. The first two are not unique, so the second project silently replaced the
+  first. The name is now used only when free, and the project root, which is
+  unique by construction, takes over when it is not.
+
+  **A project nested inside another had its files counted twice.** Each project
+  root is globbed independently, so `apps/api` absorbed everything under
+  `apps/api/nested` while `apps/api/nested` collected it too. Every finding in the
+  nested project was reported twice and the score denominator was inflated. A
+  parent now excludes the roots nested under it, so a file belongs to the
+  innermost project that claims it.
+
+  **A workspace-root schema was extracted once per sub-project.** Sub-projects
+  inherit the root `package.json`, so each detects the same ORM, finds no local
+  schema, and falls back to the root one. Two Nest sub-projects sharing a root
+  `prisma/schema.prisma` reported every entity twice. Schema entities and schema
+  findings are now deduplicated when sub-project results merge.
+
+  None of the four occurs across 189 public projects, and the corpus is unchanged
+  at 13,574 findings. Each reproduces on a fixture: the probe one hides 23 files
+  including a live GitHub token behind a score of 96, "Excellent".
+
 ## 0.7.3
 
 ### Patch Changes
