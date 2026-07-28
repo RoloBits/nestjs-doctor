@@ -1,5 +1,5 @@
 import { extractSimpleTypeName } from "../../../graph/type-resolver.js";
-import { isController } from "../../../nest-class-inspector.js";
+import { declaresRoutes } from "../../../nest-class-inspector.js";
 import { columnOf } from "../../../source-position.js";
 import type { Rule } from "../../types.js";
 
@@ -31,7 +31,7 @@ export const noOrmInControllers: Rule = {
 
 	check(context) {
 		for (const cls of context.sourceFile.getClasses()) {
-			if (!isController(cls)) {
+			if (!declaresRoutes(cls)) {
 				continue;
 			}
 

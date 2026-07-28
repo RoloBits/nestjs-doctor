@@ -1,4 +1,7 @@
-import { isController, isHttpHandler } from "../../../nest-class-inspector.js";
+import {
+	declaresRoutes,
+	isHttpHandler,
+} from "../../../nest-class-inspector.js";
 import type { Rule } from "../../types.js";
 
 const ENTITY_SUFFIXES = ["Entity", "Model"];
@@ -18,7 +21,7 @@ export const noRawEntityInResponse: Rule = {
 
 	check(context) {
 		for (const cls of context.sourceFile.getClasses()) {
-			if (!isController(cls)) {
+			if (!declaresRoutes(cls)) {
 				continue;
 			}
 

@@ -52,6 +52,21 @@ export function isController(cls: ClassDeclaration): boolean {
 	return hasDecorator(cls, "Controller");
 }
 
+/**
+ * True when the class carries `@Controller()`, or a decorator that composes it.
+ * `applyDecorators(Controller(path), ApiTags(...))` is common, and the composed
+ * name is all that survives in the source, so route handlers identify it.
+ */
+export function declaresRoutes(cls: ClassDeclaration): boolean {
+	if (isController(cls)) {
+		return true;
+	}
+	if (cls.getDecorators().length === 0) {
+		return false;
+	}
+	return cls.getMethods().some(isHttpHandler);
+}
+
 export function isService(cls: ClassDeclaration): boolean {
 	return hasDecorator(cls, "Injectable");
 }

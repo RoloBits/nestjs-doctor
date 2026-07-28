@@ -1,5 +1,5 @@
 import { SyntaxKind } from "ts-morph";
-import { isController } from "../../../nest-class-inspector.js";
+import { declaresRoutes } from "../../../nest-class-inspector.js";
 import type { Rule } from "../../types.js";
 
 export const noDangerousRedirects: Rule = {
@@ -14,7 +14,7 @@ export const noDangerousRedirects: Rule = {
 
 	check(context) {
 		for (const cls of context.sourceFile.getClasses()) {
-			if (!isController(cls)) {
+			if (!declaresRoutes(cls)) {
 				continue;
 			}
 
