@@ -1,4 +1,8 @@
 import { collectBootstrappedModules } from "../../../graph/entry-points.js";
+
+/** A module declared here is the application root whatever its class is called. */
+const ROOT_MODULE_FILE = /(^|\/)(app|main|root)\.module\.[mc]?ts$/;
+
 import type { ProjectRule } from "../../types.js";
 
 export const noOrphanModules: ProjectRule = {
@@ -29,7 +33,11 @@ export const noOrphanModules: ProjectRule = {
 		);
 
 		for (const mod of context.moduleGraph.modules.values()) {
-			if (mod.name === "AppModule" || entryPoints.has(mod.name)) {
+			if (
+				mod.name === "AppModule" ||
+				ROOT_MODULE_FILE.test(mod.filePath) ||
+				entryPoints.has(mod.name)
+			) {
 				continue;
 			}
 

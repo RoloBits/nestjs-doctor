@@ -592,3 +592,42 @@ describe("project rules on a detached graph", () => {
 		expect("line" in diagnostics[0] && diagnostics[0].line).toBe(1);
 	});
 });
+
+describe("no-orphan-modules", () => {
+	it("does not flag a root module named something other than AppModule", () => {
+		const diags = runProjectRule(noOrphanModules, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { UsersModule } from './users.module';
+        @Module({ imports: [UsersModule] })
+        export class ImmichAdminModule {}
+      `,
+			"users.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class UsersModule {}
+      `,
+		});
+		expect(
+			diags.filter((d) => d.message.includes("ImmichAdminModule"))
+		).toHaveLength(0);
+	});
+
+	it("still flags a module nobody imports", () => {
+		const diags = runProjectRule(noOrphanModules, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AppModule {}
+      `,
+			"lonely.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class LonelyModule {}
+      `,
+		});
+		expect(
+			diags.filter((d) => d.message.includes("LonelyModule"))
+		).toHaveLength(1);
+	});
+});
