@@ -1287,6 +1287,50 @@ describe("no-fire-and-forget-async", () => {
 });
 
 describe("param-decorator-matches-route", () => {
+	it("reads the prefix from a composed controller decorator", () => {
+		const diags = runRule(
+			paramDecoratorMatchesRoute,
+			`
+      import { Get, Param } from '@nestjs/common';
+      @ApiController('users/:userId')
+      export class UsersController {
+        @Get(':id')
+        find(@Param('nonexistent') x: string) { return x; }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+	});
+
+	it("accepts a param declared by the composed prefix", () => {
+		const diags = runRule(
+			paramDecoratorMatchesRoute,
+			`
+      import { Get, Param } from '@nestjs/common';
+      @ApiController('users/:userId')
+      export class UsersController {
+        @Get(':id')
+        find(@Param('userId') u: string, @Param('id') i: string) { return u + i; }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("stays quiet on a base class whose prefix it cannot read", () => {
+		const diags = runRule(
+			paramDecoratorMatchesRoute,
+			`
+      import { Get, Param } from '@nestjs/common';
+      export class DomainControllerBase {
+        @Get(':id')
+        find(@Param('organizationSlug') s: string) { return s; }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
 	it("stays quiet when the method path is a constant", () => {
 		const diags = runRule(
 			paramDecoratorMatchesRoute,
