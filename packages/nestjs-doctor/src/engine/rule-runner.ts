@@ -37,6 +37,7 @@ export interface RunRulesOptions {
 
 /** Project-wide facts handed to file rules that need more than one file. */
 export interface FileRuleFacts {
+	diProviders?: ReadonlySet<string>;
 	guards?: GuardFacts;
 	moduleDirectories?: ReadonlySet<string>;
 }
@@ -62,6 +63,7 @@ function runFileRulesOnFile(
 	for (const rule of rules) {
 		const context: CodeRuleContext = {
 			config,
+			diProviders: facts?.diProviders,
 			guards: facts?.guards,
 			moduleDirectories: facts?.moduleDirectories,
 			sourceFile,

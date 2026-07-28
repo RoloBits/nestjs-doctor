@@ -64,6 +64,18 @@ export const noManualInstantiation: Rule = {
 				continue;
 			}
 
+			// A name suffix is not a provider. Only a class NestJS instantiates can
+			// be injected instead; a plain class, or one from node_modules, cannot.
+			if (
+				context.diProviders &&
+				!(
+					context.diProviders.has(exprText) ||
+					context.diProviders.has(simpleExprText)
+				)
+			) {
+				continue;
+			}
+
 			const isDiOnly = DI_ONLY_SUFFIXES.some((s) => exprText.endsWith(s));
 			const isContextAware = CONTEXT_AWARE_SUFFIXES.some((s) =>
 				exprText.endsWith(s)
