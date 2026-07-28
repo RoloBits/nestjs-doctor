@@ -1,4 +1,4 @@
-import { SyntaxKind } from "ts-morph";
+import { type Node, SyntaxKind } from "ts-morph";
 import {
 	HTTP_DECORATORS,
 	isController,
@@ -6,6 +6,14 @@ import {
 import type { Rule } from "../../types.js";
 
 const ROUTE_PARAM_REGEX = /:(\w+)/g;
+
+const QUOTED = /^['"`][^'"`]*['"`]$/;
+
+/** The literal text of a route argument, or undefined when it is computed. */
+function asStringLiteral(node: Node): string | undefined {
+	const text = node.getText();
+	return QUOTED.test(text) ? text.slice(1, -1) : undefined;
+}
 
 export const paramDecoratorMatchesRoute: Rule = {
 	meta: {
@@ -26,6 +34,7 @@ export const paramDecoratorMatchesRoute: Rule = {
 			// Extract controller-level prefix params
 			const controllerDecorator = cls.getDecorator("Controller");
 			let controllerPath = "";
+			let controllerPathIsReadable = true;
 			if (controllerDecorator) {
 				const args = controllerDecorator.getArguments();
 				if (args.length > 0) {
@@ -50,7 +59,9 @@ export const paramDecoratorMatchesRoute: Rule = {
 							}
 						}
 					} else {
-						controllerPath = firstArg.getText().replace(/^['"`]|['"`]$/g, "");
+						const literal = asStringLiteral(firstArg);
+						controllerPathIsReadable = literal !== undefined;
+						controllerPath = literal ?? "";
 					}
 				}
 			}
@@ -64,18 +75,23 @@ export const paramDecoratorMatchesRoute: Rule = {
 				// Find the HTTP decorator and its route path
 				let routePath = "";
 				let isHttpMethod = false;
+				let pathIsReadable = true;
 				for (const decorator of method.getDecorators()) {
 					if (HTTP_DECORATORS.has(decorator.getName())) {
 						isHttpMethod = true;
 						const args = decorator.getArguments();
 						if (args.length > 0) {
-							routePath = args[0].getText().replace(/^['"`]|['"`]$/g, "");
+							const literal = asStringLiteral(args[0]);
+							pathIsReadable = literal !== undefined;
+							routePath = literal ?? "";
 						}
 						break;
 					}
 				}
 
-				if (!isHttpMethod) {
+				// A path built from a constant cannot be read, so its parameters
+				// are unknown and nothing here can be called a mismatch.
+				if (!(isHttpMethod && pathIsReadable && controllerPathIsReadable)) {
 					continue;
 				}
 

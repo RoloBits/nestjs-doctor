@@ -1104,6 +1104,51 @@ describe("no-fire-and-forget-async", () => {
 });
 
 describe("param-decorator-matches-route", () => {
+	it("stays quiet when the method path is a constant", () => {
+		const diags = runRule(
+			paramDecoratorMatchesRoute,
+			`
+      import { Controller, Delete, Param } from '@nestjs/common';
+      @Controller('ads')
+      export class AdController {
+        @Delete(AdApi.deleteById.server)
+        remove(@Param('id') id: string) { return id; }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("stays quiet when the controller path is a constant", () => {
+		const diags = runRule(
+			paramDecoratorMatchesRoute,
+			`
+      import { Controller, Get, Param } from '@nestjs/common';
+      @Controller(ROUTES.ads)
+      export class AdController {
+        @Get()
+        find(@Param('id') id: string) { return id; }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("still flags a mismatch when the path is a literal", () => {
+		const diags = runRule(
+			paramDecoratorMatchesRoute,
+			`
+      import { Controller, Get, Param } from '@nestjs/common';
+      @Controller('ads')
+      export class AdController {
+        @Get(':adId')
+        find(@Param('id') id: string) { return id; }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+	});
+
 	it("flags @Param name not in route path", () => {
 		const diags = runRule(
 			paramDecoratorMatchesRoute,
