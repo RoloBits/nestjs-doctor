@@ -109,8 +109,9 @@ export function loadBaseUrl(projectRoot: string): string | undefined {
 		}
 		const configDir = dirname(configPath);
 		const parsed = ts.parseJsonConfigFileContent(config, ts.sys, configDir);
-		const baseUrl = parsed.options.baseUrl;
-		return baseUrl ? resolve(baseUrl) : undefined;
+		// parseJsonConfigFileContent already returns this absolute, and it is
+		// posix; resolving again would put native separators back on Windows.
+		return parsed.options.baseUrl;
 	} catch {
 		return undefined;
 	}
