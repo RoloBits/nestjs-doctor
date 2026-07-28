@@ -1,7 +1,30 @@
-import { SyntaxKind } from "ts-morph";
+import { type Node, SyntaxKind } from "ts-morph";
 import type { Rule } from "../../types.js";
 
 const ERROR_VAR_PATTERN = /^(error|err|e|ex|exception)$/;
+
+// Standard log levels. Sending a stack to one of these is the remedy this rule
+// recommends, not the leak it looks for.
+const LOG_METHODS = new Set([
+	"debug",
+	"error",
+	"fatal",
+	"log",
+	"trace",
+	"verbose",
+	"warn",
+	"warning",
+]);
+
+/** True when the stack is being handed to a logging call, at any depth. */
+function isLogged(access: Node): boolean {
+	const call = access.getFirstAncestorByKind(SyntaxKind.CallExpression);
+	if (!call) {
+		return false;
+	}
+	const callee = call.getExpression().getText().split(".").pop() ?? "";
+	return LOG_METHODS.has(callee);
+}
 
 export const noExposedStackTrace: Rule = {
 	meta: {
@@ -38,6 +61,10 @@ export const noExposedStackTrace: Rule = {
 			// Check if it's being returned or passed to a response
 			const parent = access.getParent();
 			if (!parent) {
+				continue;
+			}
+
+			if (isLogged(access)) {
 				continue;
 			}
 

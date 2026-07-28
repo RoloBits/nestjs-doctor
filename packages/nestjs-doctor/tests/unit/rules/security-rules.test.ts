@@ -205,6 +205,48 @@ describe("no-exposed-stack-trace", () => {
 		expect(diags).toHaveLength(1);
 	});
 
+	it("does not flag a stack handed to a logger", () => {
+		const diags = runRule(
+			noExposedStackTrace,
+			`
+      function handle() {
+        try {} catch (error) {
+          this.logger.error('Upstream failed', error.stack);
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag a stack inside a logged object", () => {
+		const diags = runRule(
+			noExposedStackTrace,
+			`
+      function handle() {
+        try {} catch (error) {
+          this.logger.warn('Upstream failed', { stack: error.stack });
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("still flags a stack put into a response body", () => {
+		const diags = runRule(
+			noExposedStackTrace,
+			`
+      function handle() {
+        try {} catch (error) {
+          return { statusCode: 500, trace: error.stack };
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+	});
+
 	it("does not flag unrelated .stack access", () => {
 		const diags = runRule(
 			noExposedStackTrace,
