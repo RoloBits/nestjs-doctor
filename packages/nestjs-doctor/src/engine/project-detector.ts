@@ -4,6 +4,9 @@ import { dirname, join, relative, resolve } from "node:path";
 import { glob } from "tinyglobby";
 import type { ProjectInfo } from "../common/result.js";
 
+/** Module files read per Nx project when probing for a NestJS import. */
+const NEST_MODULE_PROBE_LIMIT = 20;
+
 interface PackageJson {
 	dependencies?: Record<string, string>;
 	devDependencies?: Record<string, string>;
@@ -253,6 +256,33 @@ async function detectLernaMonorepo(
 	return resolveWorkspaceProjects(targetPath, patterns);
 }
 
+/**
+ * True when the directory holds a NestJS module file. Nx projects declare their
+ * dependencies in the workspace root, so a package.json is often absent — and
+ * Angular projects in the same workspace also use `*.module.ts`, so the import
+ * is what tells them apart.
+ */
+async function containsNestModule(projectDir: string): Promise<boolean> {
+	const moduleFiles = await glob(["**/*.module.ts"], {
+		cwd: projectDir,
+		absolute: true,
+		ignore: ["**/node_modules/**"],
+	});
+
+	for (const file of moduleFiles.slice(0, NEST_MODULE_PROBE_LIMIT)) {
+		try {
+			const text = await readFile(file, "utf-8");
+			if (text.includes("@nestjs/common")) {
+				return true;
+			}
+		} catch {
+			// Unreadable — try the next one
+		}
+	}
+
+	return false;
+}
+
 async function detectNxMonorepo(
 	targetPath: string
 ): Promise<MonorepoInfo | null> {
@@ -281,17 +311,34 @@ async function detectNxMonorepo(
 			continue;
 		}
 
-		const pkgPath = join(projectDir, "package.json");
+		let pkg: PackageJson | undefined;
 		try {
-			const raw = await readFile(pkgPath, "utf-8");
-			const pkg = JSON.parse(raw) as PackageJson;
-
-			if (hasNestDependency(pkg)) {
-				const name = pkg.name ?? relativePath;
-				projects.set(name, relativePath);
-			}
+			pkg = JSON.parse(
+				await readFile(join(projectDir, "package.json"), "utf-8")
+			) as PackageJson;
 		} catch {
-			// No package.json or unreadable — skip
+			// Nx projects commonly have no package.json of their own
+		}
+
+		if (pkg && hasNestDependency(pkg)) {
+			projects.set(pkg.name ?? relativePath, relativePath);
+			continue;
+		}
+
+		if (await containsNestModule(projectDir)) {
+			// Nx names the project in project.json, which is the only name it has
+			// when there is no package.json.
+			let nxName: string | undefined;
+			try {
+				nxName = (
+					JSON.parse(await readFile(projectJsonPath, "utf-8")) as {
+						name?: string;
+					}
+				).name;
+			} catch {
+				// Unreadable — fall back to the path
+			}
+			projects.set(pkg?.name ?? nxName ?? relativePath, relativePath);
 		}
 	}
 

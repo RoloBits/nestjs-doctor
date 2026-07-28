@@ -5,6 +5,7 @@ import type { Diagnostic } from "../../../src/common/diagnostic.js";
 import { buildModuleGraph } from "../../../src/engine/graph/module-graph.js";
 import { resolveProviders } from "../../../src/engine/graph/type-resolver.js";
 import { noCircularModuleDeps } from "../../../src/engine/rules/definitions/architecture/no-circular-module-deps.js";
+import { noOrphanModules } from "../../../src/engine/rules/definitions/performance/no-orphan-modules.js";
 import { noUnusedModuleExports } from "../../../src/engine/rules/definitions/performance/no-unused-module-exports.js";
 import { noUnusedProviders } from "../../../src/engine/rules/definitions/performance/no-unused-providers.js";
 import type { ProjectRule } from "../../../src/engine/rules/types.js";
@@ -377,6 +378,65 @@ describe("no-unused-providers", () => {
 		});
 		expect(diags).toHaveLength(1);
 		expect(diags[0].message).toContain("OrphanService");
+	});
+});
+
+describe("no-orphan-modules", () => {
+	it("does not flag a module bootstrapped by NestFactory", () => {
+		const diags = runProjectRule(noOrphanModules, {
+			"main.ts": `
+        import { NestFactory } from '@nestjs/core';
+        async function bootstrap() {
+          const app = await NestFactory.create<NestExpressApplication>(ApiModule, { bufferLogs: true });
+          await app.listen(3000);
+        }
+      `,
+			"api.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ imports: [UsersModule] })
+        export class ApiModule {}
+      `,
+			"users.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class UsersModule {}
+      `,
+		});
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag a second entry point", () => {
+		const diags = runProjectRule(noOrphanModules, {
+			"microservices.ts": `
+        import { NestFactory } from '@nestjs/core';
+        async function bootstrap() {
+          await NestFactory.createMicroservice(MicroservicesModule, {});
+        }
+      `,
+			"microservices.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class MicroservicesModule {}
+      `,
+		});
+		expect(diags).toHaveLength(0);
+	});
+
+	it("still flags a module nothing imports or bootstraps", () => {
+		const diags = runProjectRule(noOrphanModules, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AppModule {}
+      `,
+			"forgotten.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class ForgottenModule {}
+      `,
+		});
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("ForgottenModule");
 	});
 });
 

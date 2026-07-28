@@ -952,6 +952,50 @@ describe("no-missing-module-decorator", () => {
 });
 
 describe("require-inject-decorator", () => {
+	it("accepts a token supplied by @InjectRepository", () => {
+		const diags = runRule(
+			requireInjectDecorator,
+			`
+      import { Injectable } from '@nestjs/common';
+      import { InjectRepository } from '@nestjs/typeorm';
+      @Injectable()
+      export class CompaniesService {
+        constructor(@InjectRepository(Company) repo) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("accepts a token supplied by @InjectQueue", () => {
+		const diags = runRule(
+			requireInjectDecorator,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class MailService {
+        constructor(@InjectQueue('mail') queue) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("still flags a parameter with @Optional() and no type", () => {
+		const diags = runRule(
+			requireInjectDecorator,
+			`
+      import { Injectable, Optional } from '@nestjs/common';
+      @Injectable()
+      export class MailService {
+        constructor(@Optional() options) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("options");
+	});
+
 	it("flags untyped constructor param without @Inject", () => {
 		const diags = runRule(
 			requireInjectDecorator,

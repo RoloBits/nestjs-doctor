@@ -1,4 +1,6 @@
 import { isInjectable } from "../../../nest-class-inspector.js";
+// Every Nest DI decorator that supplies a token is named Inject*: @Inject,
+// @InjectRepository, @InjectModel, @InjectQueue, @InjectDataSource, and so on.
 import type { Rule } from "../../types.js";
 
 export const requireInjectDecorator: Rule = {
@@ -26,7 +28,7 @@ export const requireInjectDecorator: Rule = {
 				const typeNode = param.getTypeNode();
 				const hasInject = param
 					.getDecorators()
-					.some((d) => d.getName() === "Inject");
+					.some((d) => d.getName().startsWith("Inject"));
 
 				if (!(typeNode || hasInject)) {
 					context.report({
