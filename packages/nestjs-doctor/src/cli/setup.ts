@@ -11,6 +11,7 @@ import {
 	validateFormatArg,
 } from "./formatters/render.js";
 import { validateMinScoreArg } from "./min-score.js";
+import { validateTargetPathArg } from "./target-path.js";
 import { logger } from "./ui/logger.js";
 
 export interface PipelineOptions {
@@ -104,6 +105,17 @@ export class CliSetup {
 	resolveTargetPath(): this {
 		this.steps.push(() => {
 			this.targetPath = resolve(this.args.path ?? ".");
+			return true;
+		});
+		return this;
+	}
+
+	validateTargetPath(): this {
+		this.steps.push(() => {
+			const error = validateTargetPathArg(this.targetPath);
+			if (error) {
+				failWith(error);
+			}
 			return true;
 		});
 		return this;

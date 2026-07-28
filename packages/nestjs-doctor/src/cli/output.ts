@@ -78,6 +78,12 @@ function emit(
 		logger.warn(warning);
 	}
 
+	if (result.project.fileCount === 0) {
+		logger.warn(
+			`No TypeScript files matched under ${targetPath}. The score describes nothing.`
+		);
+	}
+
 	const truncated =
 		result.endpoints?.endpoints.filter((e) => e.truncated).length ?? 0;
 	if (truncated > 0) {
