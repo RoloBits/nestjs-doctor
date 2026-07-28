@@ -1,19 +1,12 @@
-import { type IfStatement, SyntaxKind } from "ts-morph";
+import { type IfStatement, type Statement, SyntaxKind } from "ts-morph";
 import {
 	declaresRoutes,
 	HTTP_DECORATORS,
 } from "../../../nest-class-inspector.js";
 import type { Rule } from "../../types.js";
 
-/**
- * An if with no else whose branch only throws. Rejecting a bad request is an
- * HTTP concern, so it is not a branch in the method's logic.
- */
-function isGuardClause(statement: IfStatement): boolean {
-	if (statement.getElseStatement()) {
-		return false;
-	}
-	const branch = statement.getThenStatement();
+/** True when the branch is non-empty and every statement in it throws. */
+function onlyThrows(branch: Statement): boolean {
 	const statements =
 		branch.getKind() === SyntaxKind.Block
 			? branch.asKindOrThrow(SyntaxKind.Block).getStatements()
@@ -22,6 +15,22 @@ function isGuardClause(statement: IfStatement): boolean {
 		statements.length > 0 &&
 		statements.every((s) => s.getKind() === SyntaxKind.ThrowStatement)
 	);
+}
+
+/**
+ * An if whose every branch only throws, including an else-if chain. Rejecting a
+ * bad request is an HTTP concern, so it is not a branch in the method's logic.
+ */
+function isGuardClause(statement: IfStatement): boolean {
+	if (!onlyThrows(statement.getThenStatement())) {
+		return false;
+	}
+	const alternative = statement.getElseStatement();
+	if (!alternative) {
+		return true;
+	}
+	const chained = alternative.asKind(SyntaxKind.IfStatement);
+	return chained ? isGuardClause(chained) : onlyThrows(alternative);
 }
 
 export const noBusinessLogicInControllers: Rule = {
@@ -80,7 +89,8 @@ export const noBusinessLogicInControllers: Rule = {
 					forOfStatements.length +
 					whileStatements.length;
 
-				// Allow simple guard clauses (1 if), but flag complex logic
+				// One branch of the method's own logic is allowed. Guard clauses
+				// were filtered out above and do not count against it.
 				if (
 					ifStatements.length > 1 ||
 					loopCount > 0 ||
