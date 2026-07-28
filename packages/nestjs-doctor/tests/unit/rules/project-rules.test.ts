@@ -5,6 +5,7 @@ import type { Diagnostic } from "../../../src/common/diagnostic.js";
 import { buildModuleGraph } from "../../../src/engine/graph/module-graph.js";
 import { resolveProviders } from "../../../src/engine/graph/type-resolver.js";
 import { noCircularModuleDeps } from "../../../src/engine/rules/definitions/architecture/no-circular-module-deps.js";
+import { noUnusedProviders } from "../../../src/engine/rules/definitions/performance/no-unused-providers.js";
 import type { ProjectRule } from "../../../src/engine/rules/types.js";
 
 function createProjectContext(
@@ -317,5 +318,63 @@ describe("no-circular-module-deps", () => {
 			}
 		);
 		expect(diags.length).toBeGreaterThan(0);
+	});
+});
+
+describe("no-unused-providers", () => {
+	it("does not flag a class registered with useClass", () => {
+		const diags = runProjectRule(noUnusedProviders, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ providers: [{ provide: 'USER_REPO', useClass: UserRepository }] })
+        export class AppModule {}
+      `,
+			"user.repository.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class UserRepository {}
+      `,
+		});
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag a base class that a provider extends", () => {
+		const diags = runProjectRule(noUnusedProviders, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ providers: [BaseService, ArticleService] })
+        export class AppModule {}
+      `,
+			"base.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class BaseService {}
+      `,
+			"article.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class ArticleService extends BaseService {}
+      `,
+		});
+		expect(
+			diags.filter((d) => d.message.includes("'BaseService'"))
+		).toHaveLength(0);
+	});
+
+	it("still flags a provider nothing references", () => {
+		const diags = runProjectRule(noUnusedProviders, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ providers: [OrphanService] })
+        export class AppModule {}
+      `,
+			"orphan.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class OrphanService {}
+      `,
+		});
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("OrphanService");
 	});
 });
