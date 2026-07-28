@@ -159,7 +159,20 @@ function isLikelyCodeIdentifier(value: string): boolean {
 }
 
 // A permission scope, not a credential: `password:update`, `user:read`.
-const SCOPE_VALUE = /^[a-z][a-z0-9]*(:[a-z][a-z0-9]*)+$/;
+// Digits are excluded so `admin:secretpass123` stays a credential.
+const SCOPE_VALUE = /^[a-z]+(:[a-z]+)+$/;
+
+const WORD_SEGMENT = /^[a-z]{3,}$/;
+const SEGMENT_SPLIT = /[-_:/.]|(?<=[a-z])(?=[A-Z])/;
+
+// True when every part is a plain word, the shape of a message key.
+function isWordSequence(value: string): boolean {
+	const parts = value.split(SEGMENT_SPLIT);
+	return (
+		parts.length >= 2 &&
+		parts.every((part) => WORD_SEGMENT.test(part.toLowerCase()))
+	);
+}
 
 const NON_ALNUM = /[^a-z0-9]/g;
 
@@ -263,7 +276,7 @@ export const noHardcodedSecrets: Rule = {
 			if (
 				SCOPE_VALUE.test(value) ||
 				echoesName(name, value) ||
-				isThrownMessage(decl)
+				(isThrownMessage(decl) && isWordSequence(value))
 			) {
 				continue;
 			}
@@ -297,7 +310,7 @@ export const noHardcodedSecrets: Rule = {
 			if (
 				SCOPE_VALUE.test(value) ||
 				echoesName(name, value) ||
-				isThrownMessage(prop)
+				(isThrownMessage(prop) && isWordSequence(value))
 			) {
 				continue;
 			}

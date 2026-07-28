@@ -245,4 +245,20 @@ describe("no-hardcoded-secrets", () => {
     `);
 		expect(diags.length).toBeGreaterThan(0);
 	});
+
+	it("still flags a credential nested inside a thrown payload", () => {
+		const diags = runRule(`
+      function boom() {
+        throw new InternalServerErrorException({
+          message: 'Upstream call failed',
+          debug: { apiKey: 'AKIAIOSFODNN7EXAMPLE1234567890AB' },
+        });
+      }
+    `);
+		expect(diags).toHaveLength(1);
+	});
+
+	it("still flags a colon-separated credential pair", () => {
+		expect(runRule("const authToken = 'admin:secretpass123';")).toHaveLength(1);
+	});
 });

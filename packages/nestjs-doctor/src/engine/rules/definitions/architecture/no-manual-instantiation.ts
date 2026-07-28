@@ -73,10 +73,17 @@ export const noManualInstantiation: Rule = {
 				continue;
 			}
 
-			// A decorator argument is configuration, not construction:
-			// @UseGuards(new AuthGuard()), useValue: new X(), Module.forRoot({...}).
-			if (expr.getFirstAncestorByKind(SyntaxKind.Decorator)) {
-				continue;
+			const decorator = expr.getFirstAncestorByKind(SyntaxKind.Decorator);
+			if (decorator) {
+				// Handing a pipe or guard to a decorator is the documented API.
+				if (isContextAware) {
+					continue;
+				}
+				// Configuration sits on a class or method; a parameter token
+				// like @Inject(new UserService()) is still a bypass.
+				if (decorator.getParent()?.getKind() !== SyntaxKind.Parameter) {
+					continue;
+				}
 			}
 
 			if (isContextAware) {

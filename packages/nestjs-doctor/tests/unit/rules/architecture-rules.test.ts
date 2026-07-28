@@ -680,6 +680,21 @@ describe("no-manual-instantiation", () => {
 		expect(diags).toHaveLength(0);
 	});
 
+	it("still flags construction inside a parameter decorator", () => {
+		const diags = runRule(
+			noManualInstantiation,
+			`
+      import { Inject, Injectable } from '@nestjs/common';
+
+      @Injectable()
+      export class ReportService {
+        constructor(@Inject(new ConfigService()) private readonly config: unknown) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+	});
+
 	it("does not flag a useValue provider instance", () => {
 		const diags = runRule(
 			noManualInstantiation,
