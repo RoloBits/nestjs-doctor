@@ -1,4 +1,4 @@
-import { type Node, SyntaxKind } from "ts-morph";
+import { type CallExpression, type Node, SyntaxKind } from "ts-morph";
 import type { Rule } from "../../types.js";
 
 const ERROR_VAR_PATTERN = /^(error|err|e|ex|exception)$/;
@@ -16,14 +16,33 @@ const LOG_METHODS = new Set([
 	"warning",
 ]);
 
-/** True when the stack is being handed to a logging call, at any depth. */
-function isLogged(access: Node): boolean {
-	const call = access.getFirstAncestorByKind(SyntaxKind.CallExpression);
-	if (!call) {
+// Receivers that own the log methods above. `res.error()` and
+// `subscriber.error()` share the name but send the stack onwards.
+const LOGGER_RECEIVER = /(^|\.)(logger|log|console|winston|pino|bunyan)$/i;
+
+/** True when the call is a log method on a logger, not a same-named method. */
+function isLoggingCall(call: CallExpression): boolean {
+	const callee = call.getExpression();
+	if (callee.getKind() !== SyntaxKind.PropertyAccessExpression) {
 		return false;
 	}
-	const callee = call.getExpression().getText().split(".").pop() ?? "";
-	return LOG_METHODS.has(callee);
+	const access = callee.asKindOrThrow(SyntaxKind.PropertyAccessExpression);
+	if (!LOG_METHODS.has(access.getName())) {
+		return false;
+	}
+	return LOGGER_RECEIVER.test(access.getExpression().getText());
+}
+
+/** True when the stack is being handed to a logging call, at any depth. */
+function isLogged(access: Node): boolean {
+	let call = access.getFirstAncestorByKind(SyntaxKind.CallExpression);
+	while (call) {
+		if (isLoggingCall(call)) {
+			return true;
+		}
+		call = call.getFirstAncestorByKind(SyntaxKind.CallExpression);
+	}
+	return false;
 }
 
 export const noExposedStackTrace: Rule = {

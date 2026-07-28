@@ -1,3 +1,4 @@
+import { HTTP_DECORATORS } from "../../../nest-class-inspector.js";
 import type { Rule } from "../../types.js";
 
 const WHITESPACE = /\s+/g;
@@ -13,6 +14,8 @@ const SINGLE_USE_DECORATORS = new Set([
 	"Module",
 	"Resolver",
 	"WebSocketGateway",
+	// Nest stores one route path per handler, so a second overwrites the first.
+	...HTTP_DECORATORS,
 ]);
 
 export const noDuplicateDecorators: Rule = {

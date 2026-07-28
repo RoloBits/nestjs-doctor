@@ -1056,6 +1056,36 @@ describe("no-fire-and-forget-async", () => {
 		expect(diags).toHaveLength(1);
 	});
 
+	it("flags a .catch() whose handler only rethrows", () => {
+		const diags = runRule(
+			noFireAndForgetAsync,
+			`
+      export class MyService {
+        async refresh() { return 1; }
+        run() {
+          this.refresh().catch((e) => { throw e; });
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+	});
+
+	it("does not flag a .catch() that logs before rethrowing nothing", () => {
+		const diags = runRule(
+			noFireAndForgetAsync,
+			`
+      export class MyService {
+        async refresh() { return 1; }
+        run() {
+          this.refresh().catch((e) => { console.error(e); });
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
 	it("does not flag a chain that ends in .catch()", () => {
 		const diags = runRule(
 			noFireAndForgetAsync,
@@ -1805,6 +1835,37 @@ describe("validated-non-primitive-needs-type", () => {
 });
 
 describe("no-duplicate-decorators", () => {
+	it("flags two route decorators of the same method on one handler", () => {
+		const diags = runRule(
+			noDuplicateDecorators,
+			`
+      @Controller('r')
+      class C {
+        @Get('alpha')
+        @Get('beta')
+        handler() {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("@Get()");
+	});
+
+	it("does not flag different route decorators on one handler", () => {
+		const diags = runRule(
+			noDuplicateDecorators,
+			`
+      @Controller('r')
+      class C {
+        @Get('alpha')
+        @Post('alpha')
+        handler() {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
 	it("does not flag stacked interceptors with different arguments", () => {
 		const diags = runRule(
 			noDuplicateDecorators,
