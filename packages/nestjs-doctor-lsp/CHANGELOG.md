@@ -1,5 +1,12 @@
 # nestjs-doctor-lsp
 
+## 2.0.1
+
+### Patch Changes
+
+- 293fa1d: Rebuild against nestjs-doctor 0.6.1, picking up the guard and module-boundary
+  detection fixes so editor diagnostics match the CLI's.
+
 ## 2.0.0
 
 ### Patch Changes
