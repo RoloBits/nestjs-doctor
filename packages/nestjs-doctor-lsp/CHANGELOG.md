@@ -1,5 +1,15 @@
 # nestjs-doctor-lsp
 
+## 3.0.0
+
+### Patch Changes
+
+- Updated dependencies [7157408]
+- Updated dependencies [faa9f28]
+- Updated dependencies [38ec6dd]
+- Updated dependencies [2bdc2c9]
+  - nestjs-doctor@0.7.0
+
 ## 2.0.1
 
 ### Patch Changes
