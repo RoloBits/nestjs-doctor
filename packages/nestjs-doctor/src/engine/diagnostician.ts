@@ -5,6 +5,7 @@ import type { Diagnostic } from "../common/diagnostic.js";
 import type { RuleErrorInfo } from "../common/result.js";
 import type { AnalysisContext } from "./analysis-context.js";
 import { filterIgnoredDiagnostics } from "./filter-diagnostics.js";
+import { guardDecoratorNames } from "./graph/guard-decorators.js";
 import { filterSuppressedDiagnostics } from "./inline-suppressions.js";
 import {
 	type RunRulesOptions,
@@ -12,6 +13,7 @@ import {
 	runProjectRules,
 	runSchemaRules,
 } from "./rule-runner.js";
+import type { GuardFacts } from "./rules/types.js";
 
 function formatRuleError(error: unknown): string {
 	if (error instanceof Error) {
@@ -112,6 +114,17 @@ function processResults(
 	return { diagnostics, errors: ruleErrors };
 }
 
+/** Guard facts for the file rules, gathered from the whole project. */
+function guardFacts(context: AnalysisContext): GuardFacts {
+	const globallyRegistered = [...context.moduleGraph.modules.values()].some(
+		(module) => module.providerTokens.includes("APP_GUARD")
+	);
+	return {
+		composedDecorators: guardDecoratorNames(context.guardDecorators),
+		globallyRegistered,
+	};
+}
+
 export function checkFile(
 	context: AnalysisContext,
 	filePath: string
@@ -120,7 +133,8 @@ export function checkFile(
 		context.astProject,
 		[filePath],
 		context.fileRules,
-		context.config
+		context.config,
+		guardFacts(context)
 	);
 	return processResults(result.diagnostics, result.errors, context);
 }
@@ -133,7 +147,8 @@ export function checkAllFiles(context: AnalysisContext): {
 		context.astProject,
 		context.files,
 		context.fileRules,
-		context.config
+		context.config,
+		guardFacts(context)
 	);
 	return processResults(result.diagnostics, result.errors, context);
 }

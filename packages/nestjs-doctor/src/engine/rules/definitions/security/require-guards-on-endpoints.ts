@@ -1,5 +1,6 @@
+import type { ClassDeclaration, MethodDeclaration } from "ts-morph";
 import { isController, isHttpHandler } from "../../../nest-class-inspector.js";
-import type { Rule } from "../../types.js";
+import type { GuardFacts, Rule } from "../../types.js";
 
 const PUBLIC_DECORATORS = new Set([
 	"Public",
@@ -8,6 +9,20 @@ const PUBLIC_DECORATORS = new Set([
 	"IsPublic",
 ]);
 
+/** True for `@UseGuards()` or a decorator known to compose it. */
+function hasGuard(
+	node: ClassDeclaration | MethodDeclaration,
+	guards: GuardFacts | undefined
+): boolean {
+	return node
+		.getDecorators()
+		.some(
+			(decorator) =>
+				decorator.getName() === "UseGuards" ||
+				guards?.composedDecorators.has(decorator.getName())
+		);
+}
+
 export const requireGuardsOnEndpoints: Rule = {
 	meta: {
 		id: "security/require-guards-on-endpoints",
@@ -15,18 +30,20 @@ export const requireGuardsOnEndpoints: Rule = {
 		severity: "warning",
 		description:
 			"Controller endpoints should be protected by @UseGuards() at class or method level",
-		help: "Add @UseGuards(AuthGuard) to the controller class or individual route handlers, or mark routes as @Public(). If you use a global guard via APP_GUARD, you can disable this rule.",
+		help: "Add @UseGuards(AuthGuard) to the controller class or individual route handlers, or mark routes as @Public(). A guard bound through APP_GUARD, or applied by a decorator built with applyDecorators(UseGuards(...)), already counts — but only when the token is written as APP_GUARD, not through an aliased import.",
 	},
 
 	check(context) {
+		if (context.guards?.globallyRegistered) {
+			return;
+		}
+
 		for (const cls of context.sourceFile.getClasses()) {
 			if (!isController(cls)) {
 				continue;
 			}
 
-			// Check for class-level @UseGuards()
-			const hasClassGuard = cls.getDecorator("UseGuards") !== undefined;
-			if (hasClassGuard) {
+			if (hasGuard(cls, context.guards)) {
 				continue;
 			}
 
@@ -43,9 +60,7 @@ export const requireGuardsOnEndpoints: Rule = {
 					continue;
 				}
 
-				// Check for method-level @UseGuards()
-				const hasMethodGuard = method.getDecorator("UseGuards") !== undefined;
-				if (hasMethodGuard) {
+				if (hasGuard(method, context.guards)) {
 					continue;
 				}
 

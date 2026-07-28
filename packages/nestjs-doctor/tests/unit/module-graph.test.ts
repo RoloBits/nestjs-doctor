@@ -19,6 +19,40 @@ function createProject(files: Record<string, string>) {
 }
 
 describe("module-graph", () => {
+	it("records the tokens of object-literal providers", () => {
+		const { project, paths } = createProject({
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { APP_GUARD } from '@nestjs/core';
+        @Module({
+          providers: [
+            AppService,
+            { provide: APP_GUARD, useClass: JwtAuthGuard },
+            { provide: 'TOKEN', useExisting: RealService },
+          ],
+        })
+        export class AppModule {}
+      `,
+		});
+		const graph = buildModuleGraph(project, paths);
+		expect(graph.modules.get("AppModule")?.providerTokens).toEqual([
+			"APP_GUARD",
+			"'TOKEN'",
+		]);
+	});
+
+	it("leaves providerTokens empty when there are no object literals", () => {
+		const { project, paths } = createProject({
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ providers: [AppService] })
+        export class AppModule {}
+      `,
+		});
+		const graph = buildModuleGraph(project, paths);
+		expect(graph.modules.get("AppModule")?.providerTokens).toEqual([]);
+	});
+
 	// @Module() decorator metadata should populate imports, exports, providers, and controllers
 	it("builds a graph from @Module decorators", () => {
 		const { project, paths } = createProject({

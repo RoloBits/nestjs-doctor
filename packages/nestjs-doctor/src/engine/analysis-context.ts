@@ -13,6 +13,11 @@ import {
 	updateEndpointGraphForFile,
 } from "./graph/endpoint-graph.js";
 import {
+	buildGuardDecoratorIndex,
+	type GuardDecoratorIndex,
+	updateGuardDecoratorIndexForFile,
+} from "./graph/guard-decorators.js";
+import {
 	buildModuleGraph,
 	type ModuleGraph,
 	updateModuleGraphForFile,
@@ -34,6 +39,7 @@ export interface AnalysisContext {
 	endpointGraph: EndpointGraph;
 	fileRules: Rule[];
 	files: string[];
+	guardDecorators: GuardDecoratorIndex;
 	moduleGraph: ModuleGraph;
 	pathAliases: PathAliasMap;
 	project: ProjectInfo;
@@ -70,6 +76,7 @@ export async function buildAnalysisContext(
 		endpointGraph,
 		fileRules,
 		files,
+		guardDecorators: buildGuardDecoratorIndex(astProject, files),
 		moduleGraph,
 		pathAliases,
 		project,
@@ -107,6 +114,11 @@ export function updateFile(context: AnalysisContext, filePath: string): void {
 		context.astProject,
 		filePath,
 		context.pathAliases
+	);
+	updateGuardDecoratorIndexForFile(
+		context.guardDecorators,
+		context.astProject,
+		filePath
 	);
 	updateProvidersForFile(context.providers, context.astProject, filePath);
 	updateEndpointGraphForFile(
@@ -169,6 +181,7 @@ export async function buildMonorepoContext(
 						endpointGraph,
 						fileRules,
 						files,
+						guardDecorators: buildGuardDecoratorIndex(astProject, files),
 						moduleGraph,
 						pathAliases,
 						project,

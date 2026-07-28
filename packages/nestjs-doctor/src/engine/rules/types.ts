@@ -25,9 +25,18 @@ export interface RuleMeta {
 
 // ── Contexts ──
 
+/** Guard facts a single file cannot see. Absent means "not determined". */
+export interface GuardFacts {
+	/** Decorator names whose implementation composes `UseGuards`. */
+	composedDecorators: ReadonlySet<string>;
+	/** Some module registers a guard through `APP_GUARD`. */
+	globallyRegistered: boolean;
+}
+
 export interface CodeRuleContext {
 	config?: NestjsDoctorConfig;
 	filePath: string;
+	guards?: GuardFacts;
 	report(
 		diagnostic: Omit<CodeDiagnostic, "rule" | "category" | "severity" | "scope">
 	): void;

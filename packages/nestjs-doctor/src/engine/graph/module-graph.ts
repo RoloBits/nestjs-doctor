@@ -68,6 +68,8 @@ export interface ModuleNode {
 	imports: string[];
 	name: string;
 	providers: string[];
+	/** `provide` tokens of object-literal providers, which `providers` keeps as raw text. */
+	providerTokens: string[];
 }
 
 export interface ModuleGraph {
@@ -99,6 +101,7 @@ function extractModulesFromFile(
 			forwardRefImports: new Set<string>(),
 			exports: [],
 			providers: [],
+			providerTokens: [],
 			controllers: [],
 		};
 
@@ -126,6 +129,7 @@ function extractModulesFromFile(
 					"providers",
 					pathAliases
 				).map((t) => t.name);
+				node.providerTokens = extractProviderTokens(obj);
 				node.controllers = extractArrayPropertyNames(
 					obj,
 					"controllers",
@@ -207,22 +211,43 @@ function plain(name: string): ExtractedName {
 	return { name, viaForwardRef: false };
 }
 
+/** The initializer of `obj.propertyName`, if it is a plain assignment. */
+function propertyInitializer(
+	obj: ObjectLiteralExpression,
+	propertyName: string
+): Node | undefined {
+	return obj
+		.getProperty(propertyName)
+		?.asKind(SyntaxKind.PropertyAssignment)
+		?.getInitializer();
+}
+
+/** `provide` tokens of the object-literal entries in a module's `providers`. */
+function extractProviderTokens(obj: ObjectLiteralExpression): string[] {
+	const initializer = propertyInitializer(obj, "providers")?.asKind(
+		SyntaxKind.ArrayLiteralExpression
+	);
+	if (!initializer) {
+		return [];
+	}
+
+	const tokens: string[] = [];
+	for (const element of initializer.getElements()) {
+		const literal = element.asKind(SyntaxKind.ObjectLiteralExpression);
+		const token = literal && propertyInitializer(literal, "provide")?.getText();
+		if (token) {
+			tokens.push(token.split(".").pop() as string);
+		}
+	}
+	return tokens;
+}
+
 function extractArrayPropertyNames(
 	obj: ObjectLiteralExpression,
 	propertyName: string,
 	pathAliases: PathAliasMap
 ): ExtractedName[] {
-	const prop = obj.getProperty(propertyName);
-	if (!prop) {
-		return [];
-	}
-
-	const assignment = prop.asKind(SyntaxKind.PropertyAssignment);
-	if (!assignment) {
-		return [];
-	}
-
-	const initializer = assignment.getInitializer();
+	const initializer = propertyInitializer(obj, propertyName);
 	if (!initializer) {
 		return [];
 	}

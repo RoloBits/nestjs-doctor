@@ -11,6 +11,7 @@ import type { ModuleGraph } from "./graph/module-graph.js";
 import type { ProviderInfo } from "./graph/type-resolver.js";
 import type {
 	CodeRuleContext,
+	GuardFacts,
 	ProjectRule,
 	ProjectRuleContext,
 	Rule,
@@ -38,7 +39,8 @@ function runFileRulesOnFile(
 	project: Project,
 	filePath: string,
 	rules: Rule[],
-	config?: NestjsDoctorConfig
+	config?: NestjsDoctorConfig,
+	guards?: GuardFacts
 ): RunRulesResult {
 	const diagnostics: CodeDiagnostic[] = [];
 	const errors: RuleError[] = [];
@@ -54,6 +56,7 @@ function runFileRulesOnFile(
 	for (const rule of rules) {
 		const context: CodeRuleContext = {
 			config,
+			guards,
 			sourceFile,
 			filePath,
 			report(partial) {
@@ -88,13 +91,14 @@ export function runFileRules(
 	project: Project,
 	files: string[],
 	rules: Rule[],
-	config?: NestjsDoctorConfig
+	config?: NestjsDoctorConfig,
+	guards?: GuardFacts
 ): RunRulesResult {
 	const diagnostics: Diagnostic[] = [];
 	const errors: RuleError[] = [];
 
 	for (const filePath of files) {
-		const result = runFileRulesOnFile(project, filePath, rules, config);
+		const result = runFileRulesOnFile(project, filePath, rules, config, guards);
 		diagnostics.push(...result.diagnostics);
 		errors.push(...result.errors);
 	}
