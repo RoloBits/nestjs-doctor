@@ -1,0 +1,10 @@
+model Account {
+  id    String @id @default(uuid())
+  email String @unique
+}
+
+model Session {
+  id        String  @id @default(uuid())
+  accountId String
+  account   Account @relation(fields: [accountId], references: [id])
+}
