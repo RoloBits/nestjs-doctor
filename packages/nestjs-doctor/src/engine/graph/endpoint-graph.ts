@@ -20,6 +20,7 @@ import type {
 	StepStatement,
 	SwaggerMetadata,
 } from "../../common/endpoint.js";
+import { MAX_DEPENDENCY_NODES } from "../../common/endpoint.js";
 import {
 	HTTP_DECORATORS,
 	hasDecorator,
@@ -1377,16 +1378,63 @@ function classifyDependency(name: string): DependencyType {
 	return "service";
 }
 
+/**
+ * Node allowance for one endpoint's trace, shared by every recursion below it.
+ * A diamond in the call graph is re-expanded once per path, so the tree can grow
+ * far beyond the number of distinct classes it covers.
+ */
+interface NodeBudget {
+	exhausted: boolean;
+	/** Classes whose subtree has already been expanded somewhere in this endpoint. */
+	expanded: Set<string>;
+	remaining: number;
+}
+
+/** Takes `n` nodes from the budget. False once nothing is left. */
+function claim(budget: NodeBudget, n = 1): boolean {
+	if (budget.remaining < n) {
+		budget.exhausted = true;
+		return false;
+	}
+	budget.remaining -= n;
+	return true;
+}
+
+/**
+ * Nodes a subtree serialises to, stopping once `limit` is passed. Shared child
+ * arrays are one object in memory but a full copy each in the JSON.
+ */
+function serialisedSize(nodes: MethodDependencyNode[], limit: number): number {
+	let total = 0;
+	const stack = [...nodes];
+	while (stack.length > 0) {
+		const node = stack.pop();
+		if (!node) {
+			break;
+		}
+		total++;
+		if (total > limit) {
+			return total;
+		}
+		stack.push(...node.dependencies);
+	}
+	return total;
+}
+
 function buildMethodDependencyTree(
 	scanResult: ScanResult,
 	parentClassName: string,
 	providers: Map<string, ProviderInfo>,
 	visited: Set<string>,
+	budget: NodeBudget,
 	cache?: ScanCache
 ): MethodDependencyNode[] {
 	const nodes: MethodDependencyNode[] = [];
 	const firstSeenClass = new Set<string>();
-	const computedChildNodes = new Map<string, MethodDependencyNode[]>();
+	const computedChildNodes = new Map<
+		string,
+		{ nodes: MethodDependencyNode[]; size: number }
+	>();
 	const usedDeps = scanResult.deps;
 
 	// Build a flat list of all individual method calls across all deps
@@ -1418,6 +1466,9 @@ function buildMethodDependencyTree(
 		if (visited.has(dep.className) || firstSeenClass.has(dep.className)) {
 			continue;
 		}
+		if (!claim(budget)) {
+			break;
+		}
 		firstSeenClass.add(dep.className);
 		visited.add(dep.className);
 
@@ -1448,6 +1499,7 @@ function buildMethodDependencyTree(
 				dep.className,
 				providers,
 				new Set(visited),
+				budget,
 				cache
 			),
 			endLine: 0,
@@ -1482,6 +1534,9 @@ function buildMethodDependencyTree(
 		if (visited.has(className)) {
 			continue;
 		}
+		if (!claim(budget)) {
+			break;
+		}
 
 		const provider = providers.get(className);
 		const isFirst = !firstSeenClass.has(className);
@@ -1490,8 +1545,19 @@ function buildMethodDependencyTree(
 		}
 
 		let childNodes: MethodDependencyNode[] = [];
+		let collapsed = false;
 
-		if (isFirst && provider) {
+		if (!isFirst) {
+			const cached = computedChildNodes.get(className);
+			if (cached && claim(budget, cached.size)) {
+				childNodes = cached.nodes;
+			} else {
+				collapsed = true;
+			}
+		} else if (budget.expanded.has(className)) {
+			collapsed = true;
+		} else if (provider) {
+			budget.expanded.add(className);
 			const childVisited = new Set(visited);
 			childVisited.add(className);
 			const injMap = buildInjectionMap(
@@ -1632,11 +1698,13 @@ function buildMethodDependencyTree(
 				className,
 				providers,
 				childVisited,
+				budget,
 				cache
 			);
-			computedChildNodes.set(className, childNodes);
-		} else if (!isFirst) {
-			childNodes = computedChildNodes.get(className) ?? [];
+			computedChildNodes.set(className, {
+				nodes: childNodes,
+				size: serialisedSize(childNodes, budget.remaining),
+			});
 		}
 
 		let line = 0;
@@ -1682,12 +1750,16 @@ function buildMethodDependencyTree(
 			throwMessage: null,
 			totalMethods: provider?.publicMethodCount ?? 0,
 			type: classifyDependency(className),
+			...(collapsed ? { expandedElsewhere: true as const } : {}),
 		});
 	}
 
 	// Process same-class helper calls as intermediate nodes
 	const parentProvider = providers.get(parentClassName);
 	for (const scc of scanResult.sameClassCalls) {
+		if (!claim(budget)) {
+			break;
+		}
 		let line = 0;
 		let endLine = 0;
 		let sccReturnType: string | null = null;
@@ -1712,6 +1784,7 @@ function buildMethodDependencyTree(
 			parentClassName,
 			providers,
 			new Set(visited),
+			budget,
 			cache
 		);
 
@@ -1744,6 +1817,9 @@ function buildMethodDependencyTree(
 
 	// Process throw statements as leaf nodes
 	for (const t of scanResult.throws) {
+		if (!claim(budget)) {
+			break;
+		}
 		nodes.push({
 			assignedTo: null,
 			branchGroupId: t.branchGroupId,
@@ -1773,6 +1849,9 @@ function buildMethodDependencyTree(
 
 	// Process inline logic step nodes
 	for (const s of scanResult.steps) {
+		if (!claim(budget)) {
+			break;
+		}
 		nodes.push({
 			assignedTo: null,
 			branchGroupId: s.branchGroupId,
@@ -1858,11 +1937,17 @@ function extractEndpointsFromFile(
 				undefined,
 				cache
 			);
+			const budget: NodeBudget = {
+				expanded: new Set(),
+				exhausted: false,
+				remaining: MAX_DEPENDENCY_NODES,
+			};
 			const dependencies = buildMethodDependencyTree(
 				scanResult,
 				controllerName,
 				providers,
 				new Set(),
+				budget,
 				cache
 			);
 
@@ -1880,6 +1965,7 @@ function extractEndpointsFromFile(
 				returnType,
 				routePath: fullPath,
 				swagger,
+				...(budget.exhausted ? { truncated: true as const } : {}),
 			});
 		}
 	}
