@@ -1,6 +1,5 @@
 import { type Node, SyntaxKind } from "ts-morph";
 import {
-	isController,
 	isFrameworkHandler,
 	isHttpHandler,
 } from "../../../nest-class-inspector.js";
@@ -40,8 +39,9 @@ export const noAsyncWithoutAwait: Rule = {
 					continue;
 				}
 
-				// Skip controller HTTP handlers — NestJS resolves returned Promises automatically; async without await is valid
-				if (isController(cls) && isHttpHandler(method)) {
+				// Skip HTTP handlers — NestJS resolves returned Promises automatically; async without await is valid.
+				// Route metadata is inherited, so the handler counts wherever it is declared.
+				if (isHttpHandler(method)) {
 					continue;
 				}
 

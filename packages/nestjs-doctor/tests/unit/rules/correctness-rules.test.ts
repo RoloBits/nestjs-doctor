@@ -707,6 +707,39 @@ describe("no-async-without-await", () => {
 		expect(diags).toHaveLength(1);
 	});
 
+	it("allows a handler on a base class that carries no @Controller()", () => {
+		const diags = runRule(
+			noAsyncWithoutAwait,
+			`
+      import { Get } from '@nestjs/common';
+      export class DomainControllerBase {
+        @Get()
+        async getItems() {
+          return this.repo.find();
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("still flags a non-handler method on a controller", () => {
+		const diags = runRule(
+			noAsyncWithoutAwait,
+			`
+      import { Controller } from '@nestjs/common';
+      @Controller('cats')
+      export class CatsController {
+        async buildLabel() {
+          return 'cat';
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("buildLabel");
+	});
+
 	it("shows specific message when returning new Promise", () => {
 		const diags = runRule(
 			noAsyncWithoutAwait,
