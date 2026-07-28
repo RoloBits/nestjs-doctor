@@ -997,6 +997,95 @@ describe("require-inject-decorator", () => {
 });
 
 describe("no-fire-and-forget-async", () => {
+	it("does not flag a chain that ends in .catch()", () => {
+		const diags = runRule(
+			noFireAndForgetAsync,
+			`
+      export class MyService {
+        async refresh() { return 1; }
+        run() {
+          this.refresh().catch((error) => this.record(error));
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag .catch() followed by .finally()", () => {
+		const diags = runRule(
+			noFireAndForgetAsync,
+			`
+      export class MyService {
+        async refresh() { return 1; }
+        run() {
+          this.refresh().catch(handle).finally(cleanup);
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("flags a .then() with no rejection handler", () => {
+		const diags = runRule(
+			noFireAndForgetAsync,
+			`
+      export class MyService {
+        async refresh() { return 1; }
+        run() {
+          this.refresh().then((result) => this.record(result));
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+	});
+
+	it("does not flag a .then() that takes a rejection handler", () => {
+		const diags = runRule(
+			noFireAndForgetAsync,
+			`
+      export class MyService {
+        async refresh() { return 1; }
+        run() {
+          this.refresh().then(ok, fail);
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("still flags a bare unawaited promise", () => {
+		const diags = runRule(
+			noFireAndForgetAsync,
+			`
+      export class MyService {
+        async refresh() { return 1; }
+        run() {
+          this.refresh();
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+	});
+
+	it("does not flag eventEmitter.emit(), which is synchronous", () => {
+		const diags = runRule(
+			noFireAndForgetAsync,
+			`
+      export class MyService {
+        run(payload) {
+          this.eventEmitter.emit('article.created', payload);
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
 	it("flags unawaited async-like calls in service methods", () => {
 		const diags = runRule(
 			noFireAndForgetAsync,
