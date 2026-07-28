@@ -60,7 +60,7 @@ export function resolvePosix(fromDirectory: string, specifier: string): string {
 const JS_EXT_REGEX = /\.js$/;
 
 export interface ModuleNode {
-	/** Absent once the graph is detached from its ts-morph project. */
+	/** Absent once the graph is detached. */
 	classDeclaration?: ClassDeclaration;
 	controllers: string[];
 	exports: string[];
@@ -928,24 +928,27 @@ export function traceProviderEdges(
 	return edges;
 }
 
-/**
- * A copy holding no ts-morph nodes. One node reference anchors its source file,
- * and through it the whole project and every type the checker resolved, so a
- * graph kept past its scan keeps the memory too.
- */
+/** A standalone copy of the graph, holding no ts-morph nodes and no shared state. */
 export function detachModuleGraph(graph: ModuleGraph): ModuleGraph {
 	const modules = new Map<string, ModuleNode>();
-	for (const [name, node] of graph.modules) {
-		modules.set(name, { ...node, classDeclaration: undefined });
+	// Keyed by the original node, so the rebuild below survives any change to
+	// what `modules` is keyed by.
+	const detachedByOriginal = new Map<ModuleNode, ModuleNode>();
+	for (const [key, node] of graph.modules) {
+		const detached: ModuleNode = { ...node, classDeclaration: undefined };
+		modules.set(key, detached);
+		detachedByOriginal.set(node, detached);
 	}
 
 	const providerToModule = new Map<string, ModuleNode>();
 	for (const [provider, node] of graph.providerToModule) {
-		const detached = modules.get(node.name);
-		if (detached) {
-			providerToModule.set(provider, detached);
-		}
+		providerToModule.set(provider, detachedByOriginal.get(node) ?? node);
 	}
 
-	return { modules, edges: graph.edges, providerToModule };
+	const edges = new Map<string, Set<string>>();
+	for (const [name, targets] of graph.edges) {
+		edges.set(name, new Set(targets));
+	}
+
+	return { modules, edges, providerToModule };
 }

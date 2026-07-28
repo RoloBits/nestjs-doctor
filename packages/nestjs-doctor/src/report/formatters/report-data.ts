@@ -10,18 +10,21 @@ function safeJsonForScript(json: string): string {
 	return json.replace(/<\/script/gi, "<\\/script").replace(/<!--/g, "<\\!--");
 }
 
-function serializeProviders(providers: Map<string, ProviderInfo>): Array<{
-	name: string;
-	filePath: string;
+/** A provider as the report needs it: no ts-morph node, safe to keep and serialise. */
+export interface ReportProvider {
 	dependencies: string[];
+	filePath: string;
+	name: string;
 	publicMethodCount: number;
-}> {
-	return [...providers.values()].map((p) => ({
-		name: p.name,
-		filePath: p.filePath,
-		dependencies: p.dependencies,
-		publicMethodCount: p.publicMethodCount,
-	}));
+}
+
+export function toReportProvider(provider: ProviderInfo): ReportProvider {
+	return {
+		dependencies: provider.dependencies,
+		filePath: provider.filePath,
+		name: provider.name,
+		publicMethodCount: provider.publicMethodCount,
+	};
 }
 
 function buildFileSources(files: string[]): Record<string, string> {
@@ -42,7 +45,7 @@ export function prepareReportData(
 	options?: {
 		files?: string[];
 		projects?: string[];
-		providers?: Map<string, ProviderInfo>;
+		providers?: ReportProvider[];
 	}
 ): ReportScriptData {
 	const graph = serializeModuleGraph(moduleGraph, result, options?.projects);
@@ -79,9 +82,7 @@ export function prepareReportData(
 	const examplesJson = safeJsonForScript(JSON.stringify(getRuleExamples()));
 	const fileSources = buildFileSources(options?.files ?? []);
 	const fileSourcesJson = safeJsonForScript(JSON.stringify(fileSources));
-	const serializedProviders = serializeProviders(
-		options?.providers ?? new Map()
-	);
+	const serializedProviders = options?.providers ?? [];
 	const providersJson = safeJsonForScript(JSON.stringify(serializedProviders));
 	const schemaJson = safeJsonForScript(
 		JSON.stringify(result.schema ?? { entities: [], relations: [], orm: "" })

@@ -1,8 +1,5 @@
 import type { Diagnostic } from "../common/diagnostic.js";
-import {
-	buildAnalysisContext,
-	buildMonorepoContext,
-} from "./analysis-context.js";
+import { buildAnalysisContext, reduceSubProjects } from "./analysis-context.js";
 import type { ScanConfig } from "./config/scan-config.js";
 import { diagnose } from "./diagnostician.js";
 import { diffDiagnostics } from "./fingerprint.js";
@@ -27,16 +24,13 @@ async function scanBaseline(
 	monorepo: MonorepoInfo | undefined
 ): Promise<Diagnostic[]> {
 	if (monorepo) {
-		const context = await buildMonorepoContext(
+		const perProject = await reduceSubProjects(
 			baseTargetPath,
 			scanConfig,
-			monorepo
+			monorepo,
+			(_name, context) => diagnose(context).diagnostics
 		);
-		const diagnostics: Diagnostic[] = [];
-		for (const subProject of context.subProjects.values()) {
-			diagnostics.push(...diagnose(subProject).diagnostics);
-		}
-		return diagnostics;
+		return [...perProject.values()].flat();
 	}
 
 	const context = await buildAnalysisContext(baseTargetPath, scanConfig);

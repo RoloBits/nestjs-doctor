@@ -32,5 +32,8 @@ recovers 19 findings the checker's expanded form had hidden, among them
 `private readonly optionsModel: MongooseModel<Option>` and a
 `Repository<Account>` injected straight into a controller.
 
+The baseline scan behind `--scope changed` streams the same way, so the path
+that runs two full monorepo scans no longer holds either of them.
+
 A 9,800-file Nx workspace that could not be scanned at 8 GB now completes at
-2.9 GB, and its report at 2.2 GB.
+1.9 GB, and its report at 1.6 GB.

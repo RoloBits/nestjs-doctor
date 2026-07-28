@@ -194,9 +194,6 @@ export class MonorepoPipeline extends ScanPipeline {
 
 	runRules(): this {
 		this.steps.push(async () => {
-			// Build, diagnose and reduce each sub-project in turn. Holding all of
-			// their ts-morph projects at once is what runs a large workspace out of
-			// memory, because every type a rule asks the checker for stays on them.
 			this.scanResults = await reduceSubProjects(
 				this.targetPath,
 				this.scanConfig,
@@ -206,7 +203,6 @@ export class MonorepoPipeline extends ScanPipeline {
 					return {
 						...scanResult,
 						moduleGraph: detachModuleGraph(scanResult.moduleGraph),
-						// ProviderInfo holds a ts-morph node, which anchors the project
 						providers: new Map(),
 					};
 				}

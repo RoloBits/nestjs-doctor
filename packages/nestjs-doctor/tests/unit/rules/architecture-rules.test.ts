@@ -445,6 +445,35 @@ describe("no-orm-in-controllers", () => {
 });
 
 describe("no-orm-in-services", () => {
+	it("matches an ORM type through the written annotation", () => {
+		const diags = runRule(
+			noOrmInServices,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class OptionsService {
+        constructor(private readonly optionsModel: MongooseModel<Option>) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("MongooseModel");
+	});
+
+	it("still ignores a service wrapping a repository", () => {
+		const diags = runRule(
+			noOrmInServices,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class UsersService {
+        constructor(private readonly users: Repository<User>) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
 	it("flags PrismaService injection in services", () => {
 		const diags = runRule(
 			noOrmInServices,

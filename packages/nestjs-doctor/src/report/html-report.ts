@@ -1,7 +1,9 @@
 import type { DiagnoseResult } from "../common/result.js";
 import type { ModuleGraph } from "../engine/graph/module-graph.js";
-import type { ProviderInfo } from "../engine/graph/type-resolver.js";
-import { prepareReportData } from "./formatters/report-data.js";
+import {
+	prepareReportData,
+	type ReportProvider,
+} from "./formatters/report-data.js";
 import {
 	getCodeMirrorImportMap,
 	getCodeMirrorScript,
@@ -16,7 +18,7 @@ export function buildHtmlReport(
 	options?: {
 		files?: string[];
 		projects?: string[];
-		providers?: Map<string, ProviderInfo>;
+		providers?: ReportProvider[];
 	}
 ): string {
 	const data = prepareReportData(moduleGraph, result, options);

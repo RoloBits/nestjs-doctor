@@ -50,10 +50,6 @@ export interface AnalysisContext {
 	targetPath: string;
 }
 
-interface MonorepoContext {
-	subProjects: Map<string, AnalysisContext>;
-}
-
 export async function buildAnalysisContext(
 	targetPath: string,
 	scanConfig: ScanConfig
@@ -137,11 +133,7 @@ export function updateFile(context: AnalysisContext, filePath: string): void {
 	}
 }
 
-/**
- * One sub-project's context. Kept separate so callers can build, use and drop
- * them one at a time — a ts-morph project holds every type the rules ask the
- * checker for, and 40 of them at once is gigabytes.
- */
+/** Builds the context for a single sub-project. */
 async function buildSubProjectContext(
 	targetPath: string,
 	scanConfig: ScanConfig,
@@ -161,8 +153,7 @@ async function buildSubProjectContext(
 	const moduleGraph = buildModuleGraph(astProject, files, pathAliases);
 	const providers = resolveProviders(astProject, files);
 	const endpointGraph = buildEndpointGraph(astProject, files, providers);
-	// A monorepo usually keeps one schema, at the workspace root, outside
-	// every sub-project. Fall back to it rather than report no schema.
+	// Falls back to the workspace root, where a monorepo usually keeps its schema.
 	let schemaGraph = extractSchema(astProject, files, project.orm, projectPath);
 	if (project.orm && schemaGraph.entities.size === 0) {
 		schemaGraph = extractSchema(astProject, files, project.orm, targetPath);
@@ -189,8 +180,8 @@ async function buildSubProjectContext(
 }
 
 /**
- * Builds each sub-project in turn, hands it to `consume`, and lets it go before
- * building the next. Only what `consume` returns is retained.
+ * Builds each sub-project in turn, hands it to `consume`, and drops it before
+ * the next. Only what `consume` returns is retained.
  */
 export async function reduceSubProjects<T>(
 	targetPath: string,
@@ -219,18 +210,4 @@ export async function reduceSubProjects<T>(
 		results.set(name, consume(name, context));
 	}
 	return results;
-}
-
-export async function buildMonorepoContext(
-	targetPath: string,
-	scanConfig: ScanConfig,
-	monorepo: MonorepoInfo
-): Promise<MonorepoContext> {
-	const subProjects = await reduceSubProjects(
-		targetPath,
-		scanConfig,
-		monorepo,
-		(_name, context) => context
-	);
-	return { subProjects };
 }

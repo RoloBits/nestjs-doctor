@@ -25,6 +25,18 @@ function runRule(code: string): Diagnostic[] {
 }
 
 describe("no-repository-in-controllers", () => {
+	it("matches a generic repository through the written annotation", () => {
+		const diags = runRule(`
+      import { Controller } from '@nestjs/common';
+      @Controller('users')
+      export class UsersController {
+        constructor(private usersRepository: Repository<Account>) {}
+      }
+    `);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("Repository");
+	});
+
 	it("flags Repository injection in controllers", () => {
 		const diags = runRule(`
       import { Controller } from '@nestjs/common';

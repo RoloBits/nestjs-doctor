@@ -14,7 +14,6 @@ import {
 export {
 	type AnalysisContext,
 	buildAnalysisContext,
-	buildMonorepoContext,
 	prepareAnalysis,
 	reduceSubProjects,
 	updateFile,
@@ -53,8 +52,6 @@ export async function scanMonorepo(
 	monorepo: MonorepoInfo
 ): Promise<MonorepoEngineResult> {
 	const startTime = performance.now();
-	// One sub-project at a time: each carries a ts-morph project holding every
-	// type the rules made the checker resolve, so they must not all stay alive.
 	const scanResults = await reduceSubProjects(
 		targetPath,
 		scanConfig,
@@ -64,7 +61,6 @@ export async function scanMonorepo(
 			return {
 				...scanResult,
 				moduleGraph: detachModuleGraph(scanResult.moduleGraph),
-				// ProviderInfo holds a ts-morph node, which anchors the project
 				providers: new Map(),
 			};
 		}

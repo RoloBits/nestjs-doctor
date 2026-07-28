@@ -48,8 +48,7 @@ export const noOrmInServices: Rule = {
 			}
 
 			for (const param of ctor.getParameters()) {
-				// The syntax node, not the checker: createAstParser skips dependency
-				// resolution, and getType() forces the whole closure to be typed.
+				// Reads the written annotation, falling back to the checker.
 				const typeNode = param.getTypeNode();
 				const typeText = typeNode
 					? typeNode.getText()

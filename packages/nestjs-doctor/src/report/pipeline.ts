@@ -4,7 +4,6 @@ import {
 	detachModuleGraph,
 	mergeModuleGraphs,
 } from "../engine/graph/module-graph.js";
-import type { ProviderInfo } from "../engine/graph/type-resolver.js";
 import type { MonorepoInfo } from "../engine/project-detector.js";
 import {
 	type AnalysisContext,
@@ -19,6 +18,10 @@ import {
 	resolveScanConfig,
 	type ScanConfig,
 } from "../engine/scanner.js";
+import {
+	type ReportProvider,
+	toReportProvider,
+} from "./formatters/report-data.js";
 import { buildHtmlReport } from "./html-report.js";
 
 type PipelineStep = () => void | Promise<void>;
@@ -108,7 +111,10 @@ export class SingleProjectReportPipeline extends ReportPipeline {
 	generateHtml(): this {
 		this.steps.push(() => {
 			const { moduleGraph, result, files, providers } = this._scanResult;
-			this._html = buildHtmlReport(moduleGraph, result, { files, providers });
+			this._html = buildHtmlReport(moduleGraph, result, {
+				files,
+				providers: [...providers.values()].map(toReportProvider),
+			});
 		});
 		return this;
 	}
@@ -119,7 +125,7 @@ export class MonorepoReportPipeline extends ReportPipeline {
 	private readonly monorepo: MonorepoInfo;
 	private scanResults!: Map<string, EngineResult>;
 	private readonly allFiles: string[] = [];
-	private readonly allProviders = new Map<string, ProviderInfo>();
+	private readonly allProviders: ReportProvider[] = [];
 	private _monoResult!: MonorepoEngineResult;
 	private scanStartTime!: number;
 
@@ -150,22 +156,14 @@ export class MonorepoReportPipeline extends ReportPipeline {
 				this.scanConfig,
 				this.monorepo,
 				(_name, context: AnalysisContext) => {
-					// Copy out what the report needs before the context is dropped.
-					// ProviderInfo holds a ts-morph node, so keep only plain fields.
 					this.allFiles.push(...context.files);
-					for (const [name, info] of context.providers) {
-						this.allProviders.set(name, {
-							name: info.name,
-							filePath: info.filePath,
-							dependencies: info.dependencies,
-							publicMethodCount: info.publicMethodCount,
-						} as ProviderInfo);
+					for (const provider of context.providers.values()) {
+						this.allProviders.push(toReportProvider(provider));
 					}
 					const scanResult = buildResult(context, diagnose(context));
 					return {
 						...scanResult,
 						moduleGraph: detachModuleGraph(scanResult.moduleGraph),
-						// ProviderInfo holds a ts-morph node, which anchors the project
 						providers: new Map(),
 					};
 				}

@@ -5,9 +5,9 @@ import { diagnoseMonorepo } from "../../src/api/index.js";
 import { detectMonorepo } from "../../src/engine/project-detector.js";
 import {
 	buildAnalysisContext,
-	buildMonorepoContext,
 	buildResult,
 	diagnose,
+	reduceSubProjects,
 	resolveScanConfig,
 	scanMonorepo,
 } from "../../src/engine/scanner.js";
@@ -559,14 +559,14 @@ describe("scanner integration", () => {
 			expect(monorepo).not.toBeNull();
 
 			const scanConfig = await resolveScanConfig(targetPath);
-			const context = await buildMonorepoContext(
+			const entitiesByProject = await reduceSubProjects(
 				targetPath,
 				scanConfig,
-				monorepo!
+				monorepo!,
+				(_name, context) => [...(context.schemaGraph?.entities.keys() ?? [])]
 			);
 
-			for (const [name, subProject] of context.subProjects) {
-				const entities = [...(subProject.schemaGraph?.entities.keys() ?? [])];
+			for (const [name, entities] of entitiesByProject) {
 				expect(entities, name).toEqual(
 					expect.arrayContaining(["Account", "Session"])
 				);
@@ -577,14 +577,14 @@ describe("scanner integration", () => {
 			const targetPath = resolve(FIXTURES, "turborepo-app");
 			const monorepo = await detectMonorepo(targetPath);
 			const scanConfig = await resolveScanConfig(targetPath);
-			const context = await buildMonorepoContext(
+			const sizes = await reduceSubProjects(
 				targetPath,
 				scanConfig,
-				monorepo!
+				monorepo!,
+				(_name, context) => context.schemaGraph?.entities.size ?? 0
 			);
 
-			const db = context.subProjects.get("@acme/db");
-			expect(db?.schemaGraph?.entities.size).toBeGreaterThan(0);
+			expect(sizes.get("@acme/db")).toBeGreaterThan(0);
 		});
 	});
 
