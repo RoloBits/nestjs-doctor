@@ -215,6 +215,23 @@ describe("no-missing-injectable", () => {
 		expect(diags).toHaveLength(0);
 	});
 
+	it("does not flag a provider decorated only on a constructor parameter", () => {
+		const diags = runProjectRule(noMissingInjectable, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ providers: [NotificationRepository] })
+        export class AppModule {}
+      `,
+			"notification.repository.ts": `
+        import { InjectKysely } from 'nestjs-kysely';
+        export class NotificationRepository {
+          constructor(@InjectKysely() private db: unknown) {}
+        }
+      `,
+		});
+		expect(diags).toHaveLength(0);
+	});
+
 	it("still flags a provider whose only decorator is on a method", () => {
 		const diags = runProjectRule(noMissingInjectable, {
 			"app.module.ts": `

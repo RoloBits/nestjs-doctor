@@ -68,10 +68,18 @@ export function isInjectable(cls: ClassDeclaration): boolean {
 
 /**
  * True when TypeScript emits `design:paramtypes` for the class, which is what
- * the injector reads. Any class-level decorator triggers the emit.
+ * the injector reads. A class decorator triggers it, and so does a decorator on
+ * any constructor parameter.
  */
 export function emitsConstructorMetadata(cls: ClassDeclaration): boolean {
-	return cls.getDecorators().length > 0;
+	if (cls.getDecorators().length > 0) {
+		return true;
+	}
+	return cls
+		.getConstructors()
+		.some((ctor) =>
+			ctor.getParameters().some((param) => param.getDecorators().length > 0)
+		);
 }
 
 export function isModule(cls: ClassDeclaration): boolean {
