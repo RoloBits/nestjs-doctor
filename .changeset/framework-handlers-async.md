@@ -23,4 +23,7 @@ async messages(@Args('roomId') roomId: string): Promise<Message[]> {
 now count the same way `@Get` does. A plain method with no await is still
 reported.
 
+The rule's own comment and help text said only ts-rest and gRPC, and only HTTP
+handlers; both now name what is actually exempt.
+
 Across 189 public projects this removes 141 findings and adds none.

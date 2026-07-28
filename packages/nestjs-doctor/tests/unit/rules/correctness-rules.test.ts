@@ -1046,6 +1046,8 @@ describe("no-async-without-await framework handlers", () => {
 		["Mutation", "@Mutation()"],
 		["Subscription", "@Subscription()"],
 		["ResolveField", "@ResolveField()"],
+		["ResolveProperty", "@ResolveProperty()"],
+		["ResolveReference", "@ResolveReference()"],
 		["SubscribeMessage", "@SubscribeMessage('event')"],
 		["MessagePattern", "@MessagePattern({ cmd: 'x' })"],
 		["EventPattern", "@EventPattern('created')"],
