@@ -6,6 +6,7 @@ import { buildModuleGraph } from "../../../src/engine/graph/module-graph.js";
 import { resolveProviders } from "../../../src/engine/graph/type-resolver.js";
 import { noCircularModuleDeps } from "../../../src/engine/rules/definitions/architecture/no-circular-module-deps.js";
 import { noOrphanModules } from "../../../src/engine/rules/definitions/performance/no-orphan-modules.js";
+import { noUnusedModuleExports } from "../../../src/engine/rules/definitions/performance/no-unused-module-exports.js";
 import { noUnusedProviders } from "../../../src/engine/rules/definitions/performance/no-unused-providers.js";
 import type { ProjectRule } from "../../../src/engine/rules/types.js";
 
@@ -436,5 +437,111 @@ describe("no-orphan-modules", () => {
 		});
 		expect(diags).toHaveLength(1);
 		expect(diags[0].message).toContain("ForgottenModule");
+	});
+});
+
+describe("no-unused-module-exports", () => {
+	it("does not flag a @Global() module's token injected without an import", () => {
+		const diags = runProjectRule(noUnusedModuleExports, {
+			"database.module.ts": `
+        import { Global, Module } from '@nestjs/common';
+        @Global()
+        @Module({
+          providers: [{ provide: DRIZZLE, useFactory: () => ({}) }],
+          exports: [DRIZZLE],
+        })
+        export class DatabaseModule {}
+      `,
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ imports: [DatabaseModule], providers: [] })
+        export class AppModule {}
+      `,
+			"customers.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ providers: [CustomersRepository] })
+        export class CustomersModule {}
+      `,
+			"customers.repository.ts": `
+        import { Inject, Injectable } from '@nestjs/common';
+        @Injectable()
+        export class CustomersRepository {
+          constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
+        }
+      `,
+		});
+		expect(diags).toHaveLength(0);
+	});
+
+	it("still flags a @Global() export nothing injects", () => {
+		const diags = runProjectRule(noUnusedModuleExports, {
+			"database.module.ts": `
+        import { Global, Module } from '@nestjs/common';
+        @Global()
+        @Module({ providers: [UnusedService], exports: [UnusedService] })
+        export class DatabaseModule {}
+      `,
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ imports: [DatabaseModule], providers: [OtherService] })
+        export class AppModule {}
+      `,
+			"other.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class OtherService {
+          constructor(private readonly nothing: SomethingElse) {}
+        }
+      `,
+		});
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("UnusedService");
+	});
+
+	it("counts an @Inject() token used by an importing module", () => {
+		const diags = runProjectRule(noUnusedModuleExports, {
+			"config.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ providers: [], exports: ['CONFIG_TOKEN'] })
+        export class ConfigModule {}
+      `,
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ imports: [ConfigModule], providers: [AppService] })
+        export class AppModule {}
+      `,
+			"app.service.ts": `
+        import { Inject, Injectable } from '@nestjs/common';
+        @Injectable()
+        export class AppService {
+          constructor(@Inject('CONFIG_TOKEN') private readonly config: Config) {}
+        }
+      `,
+		});
+		expect(diags).toHaveLength(0);
+	});
+
+	it("still flags a plain export no importer uses", () => {
+		const diags = runProjectRule(noUnusedModuleExports, {
+			"shared.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ providers: [HelperService], exports: [HelperService] })
+        export class SharedModule {}
+      `,
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ imports: [SharedModule], providers: [AppService] })
+        export class AppModule {}
+      `,
+			"app.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class AppService {
+          constructor(private readonly other: OtherService) {}
+        }
+      `,
+		});
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("HelperService");
 	});
 });

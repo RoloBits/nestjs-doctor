@@ -1,4 +1,50 @@
-import type { ProjectRule } from "../../types.js";
+import type { ClassDeclaration } from "ts-morph";
+import type { ModuleNode } from "../../../graph/module-graph.js";
+import { hasDecorator } from "../../../nest-class-inspector.js";
+import type { ProjectRule, ProjectRuleContext } from "../../types.js";
+
+const QUOTES = /^['"`]|['"`]$/g;
+
+/** Constructor parameter types plus any `@Inject(TOKEN)` argument. */
+function collectInjectedNames(cls: ClassDeclaration, into: Set<string>): void {
+	const ctor = cls.getConstructors()[0];
+	if (!ctor) {
+		return;
+	}
+
+	for (const param of ctor.getParameters()) {
+		const typeNode = param.getTypeNode();
+		const typeText = typeNode ? typeNode.getText() : param.getType().getText();
+		into.add(typeText.split(".").pop()?.split("<")[0] ?? typeText);
+
+		for (const decorator of param.getDecorators()) {
+			if (decorator.getName() !== "Inject") {
+				continue;
+			}
+			const token = decorator.getArguments()[0]?.getText();
+			if (token) {
+				into.add(token);
+				into.add(token.replace(QUOTES, ""));
+			}
+		}
+	}
+}
+
+/** Modules that can see this one's exports. A `@Global()` module is visible to all. */
+function resolveConsumers(
+	mod: ModuleNode,
+	context: ProjectRuleContext
+): ModuleNode[] {
+	const all = [...context.moduleGraph.modules.values()].filter(
+		(other) => other.name !== mod.name
+	);
+
+	if (hasDecorator(mod.classDeclaration, "Global")) {
+		return all;
+	}
+
+	return all.filter((other) => other.imports.includes(mod.name));
+}
 
 export const noUnusedModuleExports: ProjectRule = {
 	meta: {
@@ -12,79 +58,46 @@ export const noUnusedModuleExports: ProjectRule = {
 	},
 
 	check(context) {
-		// For each module, check if its exports are actually used by importing modules
+		const classesByName = new Map<string, ClassDeclaration>();
+		for (const filePath of context.files) {
+			const sourceFile = context.project.getSourceFile(filePath);
+			if (!sourceFile) {
+				continue;
+			}
+			for (const cls of sourceFile.getClasses()) {
+				const name = cls.getName();
+				if (name && !classesByName.has(name)) {
+					classesByName.set(name, cls);
+				}
+			}
+		}
+
 		for (const mod of context.moduleGraph.modules.values()) {
 			if (mod.exports.length === 0) {
 				continue;
 			}
 
-			// Find modules that import this one
-			const importingModules: string[] = [];
-			for (const otherMod of context.moduleGraph.modules.values()) {
-				if (otherMod.name === mod.name) {
-					continue;
-				}
-				if (otherMod.imports.includes(mod.name)) {
-					importingModules.push(otherMod.name);
-				}
+			const consumers = resolveConsumers(mod, context);
+			if (consumers.length === 0) {
+				// no-orphan-modules handles a module nothing can reach
+				continue;
 			}
 
-			// If no module imports this one, all exports are unused
-			if (importingModules.length === 0) {
-				continue; // no-orphan-modules handles this case
-			}
-
-			// Collect all provider dependencies from importing modules
 			const usedProviders = new Set<string>();
-			for (const importerName of importingModules) {
-				const importer = context.moduleGraph.modules.get(importerName);
-				if (!importer) {
-					continue;
-				}
-
-				// Check which providers in the importing module depend on exported providers
-				for (const providerName of importer.providers) {
-					const provider = context.providers.get(providerName);
-					if (!provider) {
-						continue;
-					}
-					for (const dep of provider.dependencies) {
-						usedProviders.add(dep);
+			for (const consumer of consumers) {
+				for (const name of [...consumer.providers, ...consumer.controllers]) {
+					const cls =
+						context.providers.get(name)?.classDeclaration ??
+						classesByName.get(name);
+					if (cls) {
+						collectInjectedNames(cls, usedProviders);
 					}
 				}
 
-				// If the importing module re-exports this module, all exports are "used"
-				if (importer.exports.includes(mod.name)) {
-					for (const exp of mod.exports) {
-						usedProviders.add(exp);
-					}
-				}
-
-				// Check controllers too
-				for (const controllerName of importer.controllers) {
-					for (const filePath of context.files) {
-						const sourceFile = context.project.getSourceFile(filePath);
-						if (!sourceFile) {
-							continue;
-						}
-						for (const cls of sourceFile.getClasses()) {
-							if (cls.getName() !== controllerName) {
-								continue;
-							}
-							const ctor = cls.getConstructors()[0];
-							if (!ctor) {
-								continue;
-							}
-							for (const param of ctor.getParameters()) {
-								const typeNode = param.getTypeNode();
-								const typeText = typeNode
-									? typeNode.getText()
-									: param.getType().getText();
-								const simpleName =
-									typeText.split(".").pop()?.split("<")[0] ?? typeText;
-								usedProviders.add(simpleName);
-							}
-						}
+				// A re-export makes every export reachable one level further out
+				if (consumer.exports.includes(mod.name)) {
+					for (const exported of mod.exports) {
+						usedProviders.add(exported);
 					}
 				}
 			}
