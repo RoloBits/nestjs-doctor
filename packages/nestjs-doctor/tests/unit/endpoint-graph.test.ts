@@ -2325,6 +2325,55 @@ describe("endpoint-graph", () => {
 		expect(second?.expandedElsewhere).toBe(true);
 	});
 
+	it("does not mark repeats of a class that has no subtree anywhere", () => {
+		const { project, paths } = createProject({
+			"bills.controller.ts": `
+				import { Controller, Post } from '@nestjs/common';
+				@Controller('bills')
+				export class BillsController {
+					constructor(private readonly bills: BillsService) {}
+
+					@Post()
+					update() {
+						return this.bills.update();
+					}
+				}
+			`,
+			"bills.service.ts": `
+				import { Injectable } from '@nestjs/common';
+				@Injectable()
+				export class BillsService {
+					constructor(private readonly commandBus: CommandBus) {}
+					update() {
+						this.commandBus.execute('a');
+						this.commandBus.execute('b');
+						return this.commandBus.execute('c');
+					}
+				}
+			`,
+		});
+
+		const graph = buildEndpointGraph(
+			project,
+			paths,
+			resolveProviders(project, paths)
+		);
+		const service = graph.endpoints[0]?.dependencies.find(
+			(d) => d.className === "BillsService"
+		);
+		const busCalls = service?.dependencies.filter(
+			(d) => d.className === "CommandBus"
+		);
+
+		// CommandBus has no provider, so nothing was ever expanded for it and
+		// there is no subtree elsewhere for a later call site to point at.
+		expect(busCalls).toHaveLength(3);
+		for (const call of busCalls ?? []) {
+			expect(call.dependencies).toHaveLength(0);
+			expect(call.expandedElsewhere).toBeUndefined();
+		}
+	});
+
 	it("repeated method nodes share the same children", () => {
 		const { project, paths } = createProject({
 			"items.controller.ts": `

@@ -2,18 +2,29 @@
 "nestjs-doctor": patch
 ---
 
-The endpoint graph in the HTML report now says when a node's calls are drawn
-somewhere else.
+`expandedElsewhere` now means what it says, and the report shows it.
 
-When a trace reaches a class it has already expanded at an earlier call site, it
-collapses the repeat and marks the node `expandedElsewhere`. Nothing read that
-flag, so the node was drawn with no children and no explanation, which is
-exactly how a genuine leaf is drawn. A reader had no way to tell "this service
-calls nothing" from "this service's calls are up there".
+The endpoint trace collapses a class it has already expanded and marks the node
+so a reader can be told the calls are drawn somewhere else. Two things were
+wrong with that.
 
-A marked node now carries a `SHOWN ABOVE` badge, and hovering it says "Calls
-drawn at an earlier call site" beneath the existing "Conditionally called". One
-report generated from a mid-sized public project has six such nodes.
+**The flag was set on classes that were never expanded.** It is written in the
+branch that runs when a repeat finds no cached subtree, and the cache is only
+written for a class that has a provider. So `CommandBus`, `ConfigService`, a
+TypeORM `Repository`, anything the scan has no source for, got flagged on every
+occurrence after the first, pointing at a subtree that does not exist. In one
+report of a mid-sized public project, all six flagged nodes were `CommandBus`,
+which has no children anywhere in it. Across two larger projects the flag fell
+from 946 to 520 and from 6 to 0. The remaining ones are real: a class expanded
+once, reached again by another path.
+
+**Nothing read the flag.** A collapsed node was drawn with no children and no
+explanation, which is how a genuine leaf is drawn too. A marked node now carries
+a `↱` on the info row and says "Calls drawn at another call site" on hover. The
+marker is a glyph rather than a label because a label wide enough to read did
+not fit beside a `REPOSITORY` or `CONTROLLER` type badge, and it says "another"
+rather than "above" because the layout puts roughly a fifth of them level with
+or below the node.
 
 Also adds the first test over the report's client script. It is a template
 string, so `tsc` never sees it and a syntax error would only surface in a

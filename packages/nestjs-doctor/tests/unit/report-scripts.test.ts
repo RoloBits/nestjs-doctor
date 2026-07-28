@@ -29,13 +29,13 @@ describe("report scripts", () => {
 		expect(scripts).toContain("expandedElsewhere: dep.expandedElsewhere");
 	});
 
-	it("marks a node whose subtree was expanded earlier", () => {
+	it("marks a node whose subtree is drawn elsewhere", () => {
 		expect(scripts).toContain("n.expandedElsewhere");
-		expect(scripts).toContain("SHOWN ABOVE");
+		expect(scripts).toContain("\u21B1");
 	});
 
 	it("says so in the tooltip", () => {
 		expect(scripts).toContain("node.expandedElsewhere");
-		expect(scripts).toContain("Calls drawn at an earlier call site");
+		expect(scripts).toContain("Calls drawn at another call site");
 	});
 });

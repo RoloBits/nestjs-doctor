@@ -3500,20 +3500,14 @@ function epDraw() {
       epCtx.fillText(orderLabel, badgeRight + 8, infoY + 6);
     }
 
-    // Repeat marker: this class's calls are drawn at an earlier call site
+    // Repeat marker, right-aligned so it fits whatever the type badge is wide
     if (n.expandedElsewhere) {
-      var repeatLabel = "\u21B1 SHOWN ABOVE";
-      epCtx.font = "bold 8px -apple-system, BlinkMacSystemFont, sans-serif";
-      var repeatW = epCtx.measureText(repeatLabel).width + 8;
-      var repeatX = n.order >= 0 ? badgeRight + 4 + orderW + 4 : badgeRight + 4;
-      if (repeatX + repeatW <= x + n.w - 8) {
-        epRoundRect(epCtx, repeatX, infoY, repeatW, 12, 3);
-        epCtx.fillStyle = "rgba(255,255,255,0.08)";
-        epCtx.fill();
-        epCtx.fillStyle = "#888";
-        epCtx.textBaseline = "middle";
-        epCtx.fillText(repeatLabel, repeatX + 4, infoY + 6);
-      }
+      epCtx.font = "bold 10px -apple-system, BlinkMacSystemFont, sans-serif";
+      epCtx.fillStyle = "#888";
+      epCtx.textAlign = "right";
+      epCtx.textBaseline = "middle";
+      epCtx.fillText("\u21B1", x + n.w - 8, infoY + 6);
+      epCtx.textAlign = "left";
     }
 
     // Method name
@@ -3565,7 +3559,7 @@ function epShowTooltip(node, screenX, screenY) {
   }
   var repeatLabel = "";
   if (node.expandedElsewhere) {
-    repeatLabel = '<div style="font-size:9px;color:#888;margin-top:4px">Calls drawn at an earlier call site</div>';
+    repeatLabel = '<div style="font-size:9px;color:#888;margin-top:4px">\u21B1 Calls drawn at another call site</div>';
   }
   epTooltipEl.innerHTML = '<div class="tt-name">' + escHtml(node.className) + '</div>' +
     '<div class="tt-table" style="color:' + color + '">' + escHtml(node.type) + '</div>' +
