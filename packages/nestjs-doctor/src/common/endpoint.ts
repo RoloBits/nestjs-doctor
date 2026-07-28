@@ -52,6 +52,8 @@ export interface MethodDependencyNode {
 	dependencies: MethodDependencyNode[];
 	/** Last line of the method declaration (for full-function highlighting) */
 	endLine: number;
+	/** Set when this class's subtree was already expanded at an earlier call site */
+	expandedElsewhere?: true;
 	filePath: string;
 	/** Merged guard-throw for call nodes (fetch + null-check + throw pattern) */
 	guardThrow: GuardThrow | null;
@@ -124,6 +126,8 @@ export interface EndpointNode {
 	routePath: string;
 	/** Swagger/OpenAPI metadata, null when no swagger decorators present */
 	swagger: SwaggerMetadata | null;
+	/** Set when the trace hit MAX_DEPENDENCY_NODES, so `dependencies` is incomplete */
+	truncated?: true;
 }
 
 /**
@@ -146,3 +150,6 @@ export interface MethodCallNode {
 export interface EndpointGraph {
 	endpoints: EndpointNode[];
 }
+
+/** Most dependency nodes traced for a single endpoint before the trace is cut short. */
+export const MAX_DEPENDENCY_NODES = 5000;

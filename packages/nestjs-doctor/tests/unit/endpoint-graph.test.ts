@@ -2245,6 +2245,86 @@ describe("endpoint-graph", () => {
 		expect(throwNode!.branchKind).toBe("catch");
 	});
 
+	it("expands a shared class once per endpoint and marks the later path", () => {
+		const { project, paths } = createProject({
+			"orders.controller.ts": `
+				import { Controller, Get } from '@nestjs/common';
+				@Controller('orders')
+				export class OrdersController {
+					constructor(
+						private readonly billing: BillingService,
+						private readonly shipping: ShippingService,
+					) {}
+
+					@Get()
+					list() {
+						this.billing.charge();
+						return this.shipping.send();
+					}
+				}
+			`,
+			"billing.service.ts": `
+				import { Injectable } from '@nestjs/common';
+				@Injectable()
+				export class BillingService {
+					constructor(private readonly audit: AuditService) {}
+					charge() { return this.audit.record('charge'); }
+				}
+			`,
+			"shipping.service.ts": `
+				import { Injectable } from '@nestjs/common';
+				@Injectable()
+				export class ShippingService {
+					constructor(private readonly audit: AuditService) {}
+					send() { return this.audit.record('send'); }
+				}
+			`,
+			"audit.service.ts": `
+				import { Injectable } from '@nestjs/common';
+				@Injectable()
+				export class AuditService {
+					constructor(private readonly db: DatabaseService) {}
+					record(what: string) { return this.db.write(what); }
+				}
+			`,
+			"database.service.ts": `
+				import { Injectable } from '@nestjs/common';
+				@Injectable()
+				export class DatabaseService {
+					write(what: string) { return {}; }
+				}
+			`,
+		});
+
+		const graph = buildEndpointGraph(
+			project,
+			paths,
+			resolveProviders(project, paths)
+		);
+		const ep = graph.endpoints[0];
+		const billing = ep.dependencies.find(
+			(d) => d.className === "BillingService"
+		);
+		const shipping = ep.dependencies.find(
+			(d) => d.className === "ShippingService"
+		);
+
+		// Both call sites survive, so the call flow is intact.
+		expect(billing).toBeDefined();
+		expect(shipping).toBeDefined();
+
+		const first = billing?.dependencies[0];
+		const second = shipping?.dependencies[0];
+		expect(first?.className).toBe("AuditService");
+		expect(second?.className).toBe("AuditService");
+
+		// Only the first path carries AuditService's subtree.
+		expect(first?.dependencies.length).toBeGreaterThan(0);
+		expect(first?.expandedElsewhere).toBeUndefined();
+		expect(second?.dependencies).toHaveLength(0);
+		expect(second?.expandedElsewhere).toBe(true);
+	});
+
 	it("repeated method nodes share the same children", () => {
 		const { project, paths } = createProject({
 			"items.controller.ts": `

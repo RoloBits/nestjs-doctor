@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { MAX_DEPENDENCY_NODES } from "../common/endpoint.js";
 import type { DiagnoseResult, MonorepoResult } from "../common/result.js";
 import type { EngineResult, MonorepoEngineResult } from "../engine/scanner.js";
 import { shouldBlock } from "./blocking.js";
@@ -75,6 +76,14 @@ function emit(
 	// makes a report look cleaner than the code actually is.
 	for (const warning of scopeWarnings) {
 		logger.warn(warning);
+	}
+
+	const truncated =
+		result.endpoints?.endpoints.filter((e) => e.truncated).length ?? 0;
+	if (truncated > 0) {
+		logger.warn(
+			`Dependency trace stopped at ${MAX_DEPENDENCY_NODES} nodes for ${truncated} endpoint(s); those traces are incomplete.`
+		);
 	}
 
 	if (options.score) {
