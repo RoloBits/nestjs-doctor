@@ -30,11 +30,10 @@ export const requireGuardsOnEndpoints: Rule = {
 		severity: "warning",
 		description:
 			"Controller endpoints should be protected by @UseGuards() at class or method level",
-		help: "Add @UseGuards(AuthGuard) to the controller class or individual route handlers, or mark routes as @Public(). If you use a global guard via APP_GUARD, you can disable this rule.",
+		help: "Add @UseGuards(AuthGuard) to the controller class or individual route handlers, or mark routes as @Public(). A guard bound through APP_GUARD, or applied by a decorator built with applyDecorators(UseGuards(...)), already counts — but only when the token is written as APP_GUARD, not through an aliased import.",
 	},
 
 	check(context) {
-		// Only a positive sighting suppresses. Not knowing still reports.
 		if (context.guards?.globallyRegistered) {
 			return;
 		}

@@ -557,7 +557,6 @@ describe("require-guards-on-endpoints", () => {
 	});
 
 	it("still reports when the decorator is not a known guard", () => {
-		// Only a positive sighting suppresses; an unrecognised decorator is not one.
 		const diags = runRule(
 			requireGuardsOnEndpoints,
 			`

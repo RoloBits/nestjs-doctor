@@ -1,14 +1,19 @@
 import { Project } from "ts-morph";
 import { describe, expect, it } from "vitest";
-import { buildGuardDecoratorNames } from "../../src/engine/graph/guard-decorators.js";
+import {
+	buildGuardDecoratorIndex,
+	guardDecoratorNames,
+} from "../../src/engine/graph/guard-decorators.js";
 
 function index(code: string): Set<string> {
 	const project = new Project({ useInMemoryFileSystem: true });
 	project.createSourceFile("/decorators.ts", code);
-	return buildGuardDecoratorNames(project, ["/decorators.ts"]);
+	return new Set(
+		guardDecoratorNames(buildGuardDecoratorIndex(project, ["/decorators.ts"]))
+	);
 }
 
-describe("buildGuardDecoratorNames", () => {
+describe("buildGuardDecoratorIndex", () => {
 	it("indexes a function returning applyDecorators(UseGuards(...))", () => {
 		const names = index(`
       import { applyDecorators, UseGuards } from '@nestjs/common';
@@ -58,12 +63,37 @@ describe("buildGuardDecoratorNames", () => {
 		expect(names.size).toBe(0);
 	});
 
+	it("does not credit a function for a guard its nested function applies", () => {
+		const names = index(`
+      import { applyDecorators, SetMetadata, UseGuards } from '@nestjs/common';
+      export function Auth() {
+        function withRoles() {
+          return applyDecorators(UseGuards(RolesGuard));
+        }
+        return SetMetadata('auth', true);
+      }
+    `);
+		expect(names.size).toBe(0);
+	});
+
+	it("still credits the outer function when it returns the composition itself", () => {
+		const names = index(`
+      import { applyDecorators, UseGuards } from '@nestjs/common';
+      export function Auth() {
+        const extra = () => SetMetadata('x', 1);
+        return applyDecorators(extra(), UseGuards(AuthGuard));
+      }
+    `);
+		expect([...names]).toEqual(["Auth"]);
+	});
+
 	it("returns an empty set for a file it was not given", () => {
 		const project = new Project({ useInMemoryFileSystem: true });
 		project.createSourceFile(
 			"/other.ts",
 			"export function Auth() { return applyDecorators(UseGuards(G)); }"
 		);
-		expect(buildGuardDecoratorNames(project, ["/missing.ts"]).size).toBe(0);
+		const empty = buildGuardDecoratorIndex(project, ["/missing.ts"]);
+		expect(guardDecoratorNames(empty).size).toBe(0);
 	});
 });

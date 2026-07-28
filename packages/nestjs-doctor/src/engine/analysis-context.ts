@@ -12,7 +12,11 @@ import {
 	buildEndpointGraph,
 	updateEndpointGraphForFile,
 } from "./graph/endpoint-graph.js";
-import { buildGuardDecoratorNames } from "./graph/guard-decorators.js";
+import {
+	buildGuardDecoratorIndex,
+	type GuardDecoratorIndex,
+	updateGuardDecoratorIndexForFile,
+} from "./graph/guard-decorators.js";
 import {
 	buildModuleGraph,
 	type ModuleGraph,
@@ -35,8 +39,7 @@ export interface AnalysisContext {
 	endpointGraph: EndpointGraph;
 	fileRules: Rule[];
 	files: string[];
-	/** Decorator names that compose `UseGuards`, for the guard rule. */
-	guardDecoratorNames: Set<string>;
+	guardDecorators: GuardDecoratorIndex;
 	moduleGraph: ModuleGraph;
 	pathAliases: PathAliasMap;
 	project: ProjectInfo;
@@ -73,7 +76,7 @@ export async function buildAnalysisContext(
 		endpointGraph,
 		fileRules,
 		files,
-		guardDecoratorNames: buildGuardDecoratorNames(astProject, files),
+		guardDecorators: buildGuardDecoratorIndex(astProject, files),
 		moduleGraph,
 		pathAliases,
 		project,
@@ -112,9 +115,10 @@ export function updateFile(context: AnalysisContext, filePath: string): void {
 		filePath,
 		context.pathAliases
 	);
-	context.guardDecoratorNames = buildGuardDecoratorNames(
+	updateGuardDecoratorIndexForFile(
+		context.guardDecorators,
 		context.astProject,
-		context.files
+		filePath
 	);
 	updateProvidersForFile(context.providers, context.astProject, filePath);
 	updateEndpointGraphForFile(
@@ -177,7 +181,7 @@ export async function buildMonorepoContext(
 						endpointGraph,
 						fileRules,
 						files,
-						guardDecoratorNames: buildGuardDecoratorNames(astProject, files),
+						guardDecorators: buildGuardDecoratorIndex(astProject, files),
 						moduleGraph,
 						pathAliases,
 						project,

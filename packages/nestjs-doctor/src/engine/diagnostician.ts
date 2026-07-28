@@ -5,6 +5,7 @@ import type { Diagnostic } from "../common/diagnostic.js";
 import type { RuleErrorInfo } from "../common/result.js";
 import type { AnalysisContext } from "./analysis-context.js";
 import { filterIgnoredDiagnostics } from "./filter-diagnostics.js";
+import { guardDecoratorNames } from "./graph/guard-decorators.js";
 import { filterSuppressedDiagnostics } from "./inline-suppressions.js";
 import {
 	type RunRulesOptions,
@@ -116,13 +117,10 @@ function processResults(
 /** Guard facts for the file rules, gathered from the whole project. */
 function guardFacts(context: AnalysisContext): GuardFacts {
 	const globallyRegistered = [...context.moduleGraph.modules.values()].some(
-		(module) =>
-			module.providerRegistrations.some(
-				(registration) => registration.token === "APP_GUARD"
-			)
+		(module) => module.providerTokens.includes("APP_GUARD")
 	);
 	return {
-		composedDecorators: context.guardDecoratorNames,
+		composedDecorators: guardDecoratorNames(context.guardDecorators),
 		globallyRegistered,
 	};
 }

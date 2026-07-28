@@ -17,8 +17,6 @@ async function scan(fixture: string) {
 }
 
 describe("global guard detection", () => {
-	// Exercises the whole wiring, not the rule alone: the facts are optional all
-	// the way down, so a missed hand-off degrades silently to over-reporting.
 	it("reports no unguarded endpoint when a module registers APP_GUARD", async () => {
 		const { output } = await scan("global-guard-app/src");
 		const guardFindings = output.diagnostics.filter(
@@ -27,16 +25,12 @@ describe("global guard detection", () => {
 		expect(guardFindings).toEqual([]);
 	});
 
-	it("records the APP_GUARD provider structurally on the module graph", async () => {
+	it("records the APP_GUARD token on the module graph", async () => {
 		const { context } = await scan("global-guard-app/src");
-		const registrations = [...context.moduleGraph.modules.values()].flatMap(
-			(module) => module.providerRegistrations
+		const tokens = [...context.moduleGraph.modules.values()].flatMap(
+			(module) => module.providerTokens
 		);
-		expect(registrations).toContainEqual({
-			token: "APP_GUARD",
-			useClass: "JwtAuthGuard",
-			useExisting: undefined,
-		});
+		expect(tokens).toContain("APP_GUARD");
 	});
 
 	it("still reports an unguarded endpoint in a project with no global guard", async () => {

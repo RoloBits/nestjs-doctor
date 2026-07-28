@@ -19,7 +19,7 @@ function createProject(files: Record<string, string>) {
 }
 
 describe("module-graph", () => {
-	it("records object-literal providers structurally", () => {
+	it("records the tokens of object-literal providers", () => {
 		const { project, paths } = createProject({
 			"app.module.ts": `
         import { Module } from '@nestjs/common';
@@ -35,15 +35,13 @@ describe("module-graph", () => {
       `,
 		});
 		const graph = buildModuleGraph(project, paths);
-		const registrations = graph.modules.get("AppModule")?.providerRegistrations;
-
-		expect(registrations).toEqual([
-			{ token: "APP_GUARD", useClass: "JwtAuthGuard", useExisting: undefined },
-			{ token: "'TOKEN'", useClass: undefined, useExisting: "RealService" },
+		expect(graph.modules.get("AppModule")?.providerTokens).toEqual([
+			"APP_GUARD",
+			"'TOKEN'",
 		]);
 	});
 
-	it("leaves providerRegistrations empty when there are no object literals", () => {
+	it("leaves providerTokens empty when there are no object literals", () => {
 		const { project, paths } = createProject({
 			"app.module.ts": `
         import { Module } from '@nestjs/common';
@@ -52,7 +50,7 @@ describe("module-graph", () => {
       `,
 		});
 		const graph = buildModuleGraph(project, paths);
-		expect(graph.modules.get("AppModule")?.providerRegistrations).toEqual([]);
+		expect(graph.modules.get("AppModule")?.providerTokens).toEqual([]);
 	});
 
 	// @Module() decorator metadata should populate imports, exports, providers, and controllers

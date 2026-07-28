@@ -59,13 +59,6 @@ function resolvePosix(fromDirectory: string, specifier: string): string {
 
 const JS_EXT_REGEX = /\.js$/;
 
-/** An object-literal provider: `{ provide: TOKEN, useClass: X }`. */
-interface ProviderRegistration {
-	token: string;
-	useClass?: string;
-	useExisting?: string;
-}
-
 export interface ModuleNode {
 	classDeclaration: ClassDeclaration;
 	controllers: string[];
@@ -74,9 +67,9 @@ export interface ModuleNode {
 	forwardRefImports: Set<string>;
 	imports: string[];
 	name: string;
-	/** Object-literal entries of `providers`, which `providers` keeps as raw text. */
-	providerRegistrations: ProviderRegistration[];
 	providers: string[];
+	/** `provide` tokens of object-literal providers, which `providers` keeps as raw text. */
+	providerTokens: string[];
 }
 
 export interface ModuleGraph {
@@ -108,7 +101,7 @@ function extractModulesFromFile(
 			forwardRefImports: new Set<string>(),
 			exports: [],
 			providers: [],
-			providerRegistrations: [],
+			providerTokens: [],
 			controllers: [],
 		};
 
@@ -136,7 +129,7 @@ function extractModulesFromFile(
 					"providers",
 					pathAliases
 				).map((t) => t.name);
-				node.providerRegistrations = extractProviderRegistrations(obj);
+				node.providerTokens = extractProviderTokens(obj);
 				node.controllers = extractArrayPropertyNames(
 					obj,
 					"controllers",
@@ -218,45 +211,35 @@ function plain(name: string): ExtractedName {
 	return { name, viaForwardRef: false };
 }
 
-/** Text of a property's initializer, reduced to its last dotted segment. */
-function bareInitializerText(
+/** The initializer of `obj.propertyName`, if it is a plain assignment. */
+function propertyInitializer(
 	obj: ObjectLiteralExpression,
 	propertyName: string
-): string | undefined {
-	const assignment = obj
+): Node | undefined {
+	return obj
 		.getProperty(propertyName)
-		?.asKind(SyntaxKind.PropertyAssignment);
-	const text = assignment?.getInitializer()?.getText();
-	return text ? text.split(".").pop() : undefined;
+		?.asKind(SyntaxKind.PropertyAssignment)
+		?.getInitializer();
 }
 
-/** Object-literal entries of a module's `providers` array. */
-function extractProviderRegistrations(
-	obj: ObjectLiteralExpression
-): ProviderRegistration[] {
-	const initializer = obj
-		.getProperty("providers")
-		?.asKind(SyntaxKind.PropertyAssignment)
-		?.getInitializer()
-		?.asKind(SyntaxKind.ArrayLiteralExpression);
+/** `provide` tokens of the object-literal entries in a module's `providers`. */
+function extractProviderTokens(obj: ObjectLiteralExpression): string[] {
+	const initializer = propertyInitializer(obj, "providers")?.asKind(
+		SyntaxKind.ArrayLiteralExpression
+	);
 	if (!initializer) {
 		return [];
 	}
 
-	const registrations: ProviderRegistration[] = [];
+	const tokens: string[] = [];
 	for (const element of initializer.getElements()) {
 		const literal = element.asKind(SyntaxKind.ObjectLiteralExpression);
-		const token = literal && bareInitializerText(literal, "provide");
-		if (!(literal && token)) {
-			continue;
+		const token = literal && propertyInitializer(literal, "provide")?.getText();
+		if (token) {
+			tokens.push(token.split(".").pop() as string);
 		}
-		registrations.push({
-			token,
-			useClass: bareInitializerText(literal, "useClass"),
-			useExisting: bareInitializerText(literal, "useExisting"),
-		});
 	}
-	return registrations;
+	return tokens;
 }
 
 function extractArrayPropertyNames(
@@ -264,17 +247,7 @@ function extractArrayPropertyNames(
 	propertyName: string,
 	pathAliases: PathAliasMap
 ): ExtractedName[] {
-	const prop = obj.getProperty(propertyName);
-	if (!prop) {
-		return [];
-	}
-
-	const assignment = prop.asKind(SyntaxKind.PropertyAssignment);
-	if (!assignment) {
-		return [];
-	}
-
-	const initializer = assignment.getInitializer();
+	const initializer = propertyInitializer(obj, propertyName);
 	if (!initializer) {
 		return [];
 	}
