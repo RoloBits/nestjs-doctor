@@ -1,5 +1,63 @@
 # nestjs-doctor
 
+## 0.7.1
+
+### Patch Changes
+
+- 166f35d: Two rules were reporting working code, found by scanning ten public NestJS
+  projects — ghostfolio, vendure, novu, twenty, immich, amplication and four
+  starters.
+
+  `correctness/no-duplicate-decorators` flagged stacked interceptors:
+
+  ```ts
+  @UseInterceptors(RedactValuesInResponseInterceptor)
+  @UseInterceptors(TransformDataSourceInRequestInterceptor)
+  @UseInterceptors(TransformDataSourceInResponseInterceptor)
+  ```
+
+  Three different interceptors. `@UseInterceptors` accumulates, so stacking is the
+  same as passing them in one call. The rule compared decorator names and kept an
+  allowlist of things it knew repeat, which could never be complete. It now
+  compares the whole decorator, so a repeat means the identical text — which is
+  what a copy-paste mistake looks like. The allowlist is replaced by the opposite
+  and much smaller list: the decorators a target can only carry once, like
+  `@Controller` and `@Module`, where a second is wrong whatever its arguments.
+
+  `correctness/validated-non-primitive-needs-type` asked for `@Type()` on any
+  property whose type was not a primitive, including string unions:
+
+  ```ts
+  export type Granularity = "day" | "month";
+  granularity: Granularity; // reported
+  ```
+
+  `@Type()` constructs a class, so a union or alias has nothing to build. The rule
+  now requires the type to resolve to a class declaration, unwrapping arrays and
+  unions so `AddressDto | undefined` and `Tag[]` still report.
+
+  Across the ten projects this removes 550 findings and leaves the real ones: 44
+  properties genuinely typed as a nested class with no `@Type()`.
+
+- 6fea026: Find the project's `package.json` when scanning a subdirectory.
+
+  `detectProject` read `package.json` from the scanned directory and nowhere else.
+  Point the scanner at `apps/api/src`, which is where the code lives in a
+  monorepo, and there is nothing beside it — so the ORM came back null, the Nest
+  version came back null, and every schema rule was skipped without a word. All
+  ten public projects used to test this hit it.
+
+  It now reads the nearest `package.json` at or above the scanned directory,
+  stopping at the repository root so a scan never adopts an unrelated parent's
+  manifest.
+
+  Seven of the ten projects now report their ORM, and five of those gain no
+  findings at all — it is metadata that was missing. Two gain schema findings that
+  were always there and never ran: three on `twentyhq/twenty`, and 95 on
+  `vendurehq/vendure`, of which 64 are `require-primary-key` on entities that
+  declare their key through a custom decorator resolved at runtime. Static
+  analysis cannot see that one; it is tracked separately.
+
 ## 0.7.0
 
 ### Minor Changes
