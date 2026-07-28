@@ -1,5 +1,8 @@
 import type { ClassDeclaration, MethodDeclaration } from "ts-morph";
-import { isController, isHttpHandler } from "../../../nest-class-inspector.js";
+import {
+	declaresRoutes,
+	isHttpHandler,
+} from "../../../nest-class-inspector.js";
 import type { GuardFacts, Rule } from "../../types.js";
 
 const PUBLIC_DECORATORS = new Set([
@@ -39,7 +42,7 @@ export const requireGuardsOnEndpoints: Rule = {
 		}
 
 		for (const cls of context.sourceFile.getClasses()) {
-			if (!isController(cls)) {
+			if (!declaresRoutes(cls)) {
 				continue;
 			}
 

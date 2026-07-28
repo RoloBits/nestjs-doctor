@@ -42,6 +42,65 @@ function runRule(
 }
 
 describe("no-business-logic-in-controllers", () => {
+	it("examines a class whose @Controller() is behind a composed decorator", () => {
+		const diags = runRule(
+			noBusinessLogicInControllers,
+			`
+      import { Get } from '@nestjs/common';
+      import { ApiController } from './api-controller.decorator';
+      @ApiController('items')
+      export class ItemsController {
+        @Get()
+        list(type: string) {
+          switch (type) {
+            case 'a': return 1;
+            default: return 2;
+          }
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+	});
+
+	it("leaves an undecorated class alone even when it declares handlers", () => {
+		const diags = runRule(
+			noBusinessLogicInControllers,
+			`
+      import { Get } from '@nestjs/common';
+      export class DomainControllerBase {
+        @Get()
+        list(type: string) {
+          switch (type) {
+            case 'a': return 1;
+            default: return 2;
+          }
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("leaves a decorated class with no route handler alone", () => {
+		const diags = runRule(
+			noBusinessLogicInControllers,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class ItemsService {
+        list(type: string) {
+          switch (type) {
+            case 'a': return 1;
+            default: return 2;
+          }
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
 	it("does not count guard clauses that only throw", () => {
 		const diags = runRule(
 			noBusinessLogicInControllers,
