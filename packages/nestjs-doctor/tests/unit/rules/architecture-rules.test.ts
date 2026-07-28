@@ -16,7 +16,8 @@ function runRule(
 	rule: Rule,
 	code: string,
 	filePath = "test.ts",
-	config: NestjsDoctorConfig = {}
+	config: NestjsDoctorConfig = {},
+	moduleDirectories?: ReadonlySet<string>
 ): Diagnostic[] {
 	const project = new Project({ useInMemoryFileSystem: true });
 	const sourceFile = project.createSourceFile(filePath, code);
@@ -24,6 +25,7 @@ function runRule(
 
 	rule.check({
 		config,
+		moduleDirectories,
 		sourceFile,
 		filePath,
 		report(partial) {
@@ -721,6 +723,61 @@ describe("require-module-boundaries", () => {
     `
 		);
 		expect(diags).toHaveLength(0);
+	});
+	it("does not flag an import that stays inside its own module", () => {
+		const diags = runRule(
+			requireModuleBoundaries,
+			`
+      import { FileEntity } from '../entities/file.entity';
+    `,
+			"/src/files/mappers/file.mapper.ts",
+			{},
+			new Set(["/src/files", "/src"])
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("still flags a cross-module import when directories are known", () => {
+		const diags = runRule(
+			requireModuleBoundaries,
+			`
+      import { OrderEntity } from '../orders/entities/order.entity';
+    `,
+			"/src/billing/billing.service.ts",
+			{},
+			new Set(["/src/billing", "/src/orders", "/src"])
+		);
+		expect(diags).toHaveLength(1);
+	});
+
+	it("flags an import crossing between nested sibling modules", () => {
+		const diags = runRule(
+			requireModuleBoundaries,
+			`
+      import { FileEntity } from '../../relational/entities/file.entity';
+    `,
+			"/src/files/persistence/document/mappers/file.mapper.ts",
+			{},
+			new Set([
+				"/src/files",
+				"/src/files/persistence/document",
+				"/src/files/persistence/relational",
+			])
+		);
+		expect(diags).toHaveLength(1);
+	});
+
+	it("still flags when no module directory contains the source file", () => {
+		const diags = runRule(
+			requireModuleBoundaries,
+			`
+      import { UsersRepository } from '../users/repositories/users.repository';
+    `,
+			"/elsewhere/tool.ts",
+			{},
+			new Set(["/src/users"])
+		);
+		expect(diags).toHaveLength(1);
 	});
 });
 

@@ -37,6 +37,8 @@ export interface CodeRuleContext {
 	config?: NestjsDoctorConfig;
 	filePath: string;
 	guards?: GuardFacts;
+	/** Directories that hold a module file, for boundary checks. */
+	moduleDirectories?: ReadonlySet<string>;
 	report(
 		diagnostic: Omit<CodeDiagnostic, "rule" | "category" | "severity" | "scope">
 	): void;

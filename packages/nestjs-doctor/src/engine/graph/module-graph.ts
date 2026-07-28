@@ -18,7 +18,7 @@ const toPosix = (path: string): string =>
 	path.replace(NATIVE_SEPARATOR_RE, "/");
 
 /** The directory part of a posix path, without consulting the platform. */
-const posixDirname = (path: string): string => {
+export const posixDirname = (path: string): string => {
 	const trimmed = toPosix(path);
 	const cut = trimmed.replace(TRAILING_SEGMENT_RE, "");
 	return cut === "" && trimmed.startsWith("/") ? "/" : cut;
@@ -28,7 +28,7 @@ const posixDirname = (path: string): string => {
  * Resolves a relative import using posix rules only, keeping the base's own
  * prefix so a posix root, a Windows drive root, and an in-memory `/` all work.
  */
-function resolvePosix(fromDirectory: string, specifier: string): string {
+export function resolvePosix(fromDirectory: string, specifier: string): string {
 	const base = toPosix(fromDirectory);
 	const segments = `${base}/${toPosix(specifier)}`.split("/");
 	const resolved: string[] = [];

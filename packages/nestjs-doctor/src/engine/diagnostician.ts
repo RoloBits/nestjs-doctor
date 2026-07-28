@@ -6,14 +6,15 @@ import type { RuleErrorInfo } from "../common/result.js";
 import type { AnalysisContext } from "./analysis-context.js";
 import { filterIgnoredDiagnostics } from "./filter-diagnostics.js";
 import { guardDecoratorNames } from "./graph/guard-decorators.js";
+import { posixDirname } from "./graph/module-graph.js";
 import { filterSuppressedDiagnostics } from "./inline-suppressions.js";
+import type { FileRuleFacts } from "./rule-runner.js";
 import {
 	type RunRulesOptions,
 	runFileRules,
 	runProjectRules,
 	runSchemaRules,
 } from "./rule-runner.js";
-import type { GuardFacts } from "./rules/types.js";
 
 function formatRuleError(error: unknown): string {
 	if (error instanceof Error) {
@@ -114,14 +115,30 @@ function processResults(
 	return { diagnostics, errors: ruleErrors };
 }
 
-/** Guard facts for the file rules, gathered from the whole project. */
-function guardFacts(context: AnalysisContext): GuardFacts {
-	const globallyRegistered = [...context.moduleGraph.modules.values()].some(
-		(module) => module.providerTokens.includes("APP_GUARD")
-	);
+const MODULE_FILE_RE = /\.module\.[mc]?ts$/;
+
+/** Project-wide facts for the file rules, gathered once per run. */
+function fileRuleFacts(context: AnalysisContext): FileRuleFacts {
+	const modules = [...context.moduleGraph.modules.values()];
+
+	const moduleDirectories = new Set<string>();
+	for (const filePath of context.files) {
+		if (MODULE_FILE_RE.test(filePath)) {
+			moduleDirectories.add(posixDirname(filePath));
+		}
+	}
+	for (const module of modules) {
+		moduleDirectories.add(posixDirname(module.filePath));
+	}
+
 	return {
-		composedDecorators: guardDecoratorNames(context.guardDecorators),
-		globallyRegistered,
+		guards: {
+			composedDecorators: guardDecoratorNames(context.guardDecorators),
+			globallyRegistered: modules.some((module) =>
+				module.providerTokens.includes("APP_GUARD")
+			),
+		},
+		moduleDirectories,
 	};
 }
 
@@ -134,7 +151,7 @@ export function checkFile(
 		[filePath],
 		context.fileRules,
 		context.config,
-		guardFacts(context)
+		fileRuleFacts(context)
 	);
 	return processResults(result.diagnostics, result.errors, context);
 }
@@ -148,7 +165,7 @@ export function checkAllFiles(context: AnalysisContext): {
 		context.files,
 		context.fileRules,
 		context.config,
-		guardFacts(context)
+		fileRuleFacts(context)
 	);
 	return processResults(result.diagnostics, result.errors, context);
 }
