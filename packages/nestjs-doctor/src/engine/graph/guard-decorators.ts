@@ -11,20 +11,28 @@ const FUNCTION_KINDS = new Set([
 	SyntaxKind.MethodDeclaration,
 ]);
 
+function isUseGuardsCall(node: Node): boolean {
+	return (
+		node.asKind(SyntaxKind.CallExpression)?.getExpression().getText() ===
+		"UseGuards"
+	);
+}
+
 /** True for `applyDecorators(..., UseGuards(...), ...)`. */
 function appliesGuards(expression: Node | undefined): boolean {
 	const call = expression?.asKind(SyntaxKind.CallExpression);
 	if (call?.getExpression().getText() !== "applyDecorators") {
 		return false;
 	}
+	// A guard can sit inside a ternary or a spread, so the whole argument is read.
 	return call
 		.getArguments()
 		.some(
 			(argument) =>
+				isUseGuardsCall(argument) ||
 				argument
-					.asKind(SyntaxKind.CallExpression)
-					?.getExpression()
-					.getText() === "UseGuards"
+					.getDescendantsOfKind(SyntaxKind.CallExpression)
+					.some(isUseGuardsCall)
 		);
 }
 

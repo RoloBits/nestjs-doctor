@@ -87,6 +87,41 @@ describe("buildGuardDecoratorIndex", () => {
 		expect([...names]).toEqual(["Auth"]);
 	});
 
+	it("finds a guard chosen by a ternary", () => {
+		const names = index(`
+      import { applyDecorators, SetMetadata, UseGuards } from '@nestjs/common';
+      export function Auth(allowApiKey = false) {
+        return applyDecorators(
+          SetMetadata('optional', false),
+          allowApiKey
+            ? UseGuards(MultiAuthGuard, RateLimitGuard)
+            : UseGuards(JwtAccessTokenGuard),
+        );
+      }
+    `);
+		expect([...names]).toEqual(["Auth"]);
+	});
+
+	it("finds a guard spread into the argument list", () => {
+		const names = index(`
+      import { applyDecorators, UseGuards } from '@nestjs/common';
+      export function Auth() {
+        return applyDecorators(...[UseGuards(AuthGuard)], SetMetadata('x', 1));
+      }
+    `);
+		expect([...names]).toEqual(["Auth"]);
+	});
+
+	it("does not treat an unrelated nested call as a guard", () => {
+		const names = index(`
+      import { applyDecorators, SetMetadata } from '@nestjs/common';
+      export function Meta(flag = false) {
+        return applyDecorators(flag ? SetMetadata('a', 1) : SetMetadata('b', 2));
+      }
+    `);
+		expect([...names]).toEqual([]);
+	});
+
 	it("returns an empty set for a file it was not given", () => {
 		const project = new Project({ useInMemoryFileSystem: true });
 		project.createSourceFile(
