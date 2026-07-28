@@ -1384,6 +1384,8 @@ function classifyDependency(name: string): DependencyType {
  * far beyond the number of distinct classes it covers.
  */
 interface NodeBudget {
+	/** Classes expanded into at least one child, so a subtree is drawn for them. */
+	drawn: Set<string>;
 	exhausted: boolean;
 	/** Classes whose subtree has already been expanded somewhere in this endpoint. */
 	expanded: Set<string>;
@@ -1552,10 +1554,10 @@ function buildMethodDependencyTree(
 			if (cached && claim(budget, cached.size)) {
 				childNodes = cached.nodes;
 			} else {
-				collapsed = true;
+				collapsed = budget.drawn.has(className);
 			}
 		} else if (budget.expanded.has(className)) {
-			collapsed = true;
+			collapsed = budget.drawn.has(className);
 		} else if (provider) {
 			budget.expanded.add(className);
 			const childVisited = new Set(visited);
@@ -1705,6 +1707,9 @@ function buildMethodDependencyTree(
 				nodes: childNodes,
 				size: serialisedSize(childNodes, budget.remaining),
 			});
+			if (childNodes.length > 0) {
+				budget.drawn.add(className);
+			}
 		}
 
 		let line = 0;
@@ -1938,6 +1943,7 @@ function extractEndpointsFromFile(
 				cache
 			);
 			const budget: NodeBudget = {
+				drawn: new Set(),
 				expanded: new Set(),
 				exhausted: false,
 				remaining: MAX_DEPENDENCY_NODES,

@@ -3254,6 +3254,7 @@ function epBuildGraph(ep) {
         totalMethods: dep.totalMethods,
         filePath: dep.filePath,
         line: dep.line,
+        expandedElsewhere: dep.expandedElsewhere,
         x: 0, y: 0, w: 180, h: 60
       };
       epNodes.push(n);
@@ -3486,16 +3487,27 @@ function epDraw() {
 
     // Order badge (#N)
     var badgeRight = x + 8 + badgeW;
+    var orderW = 0;
     if (n.order >= 0) {
       var orderLabel = "#" + (n.order + 1);
       epCtx.font = "bold 8px -apple-system, BlinkMacSystemFont, sans-serif";
-      var orderW = epCtx.measureText(orderLabel).width + 8;
+      orderW = epCtx.measureText(orderLabel).width + 8;
       epRoundRect(epCtx, badgeRight + 4, infoY, orderW, 12, 3);
       epCtx.fillStyle = "rgba(255,255,255,0.08)";
       epCtx.fill();
       epCtx.fillStyle = "#999";
       epCtx.textBaseline = "middle";
       epCtx.fillText(orderLabel, badgeRight + 8, infoY + 6);
+    }
+
+    // Repeat marker, right-aligned so it fits whatever the type badge is wide
+    if (n.expandedElsewhere) {
+      epCtx.font = "bold 10px -apple-system, BlinkMacSystemFont, sans-serif";
+      epCtx.fillStyle = "#888";
+      epCtx.textAlign = "right";
+      epCtx.textBaseline = "middle";
+      epCtx.fillText("\u21B1", x + n.w - 8, infoY + 6);
+      epCtx.textAlign = "left";
     }
 
     // Method name
@@ -3545,9 +3557,13 @@ function epShowTooltip(node, screenX, screenY) {
   if (node.conditional) {
     condLabel = '<div style="font-size:9px;color:#f59e0b;margin-top:4px">Conditionally called</div>';
   }
+  var repeatLabel = "";
+  if (node.expandedElsewhere) {
+    repeatLabel = '<div style="font-size:9px;color:#888;margin-top:4px">\u21B1 Calls drawn at another call site</div>';
+  }
   epTooltipEl.innerHTML = '<div class="tt-name">' + escHtml(node.className) + '</div>' +
     '<div class="tt-table" style="color:' + color + '">' + escHtml(node.type) + '</div>' +
-    methodHtml + condLabel;
+    methodHtml + condLabel + repeatLabel;
   epTooltipEl.style.display = "block";
 
   var mainRect = epCanvas.parentElement.getBoundingClientRect();
