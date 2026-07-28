@@ -34,7 +34,9 @@ export const paramDecoratorMatchesRoute: Rule = {
 			// Extract controller-level prefix params
 			const controllerDecorator = cls.getDecorator("Controller");
 			let controllerPath = "";
-			let controllerPathIsReadable = true;
+			// Without @Controller() on this class the prefix is declared by whatever
+			// subclass or composed decorator supplies it, so its params are unknown.
+			let controllerPathIsReadable = controllerDecorator !== undefined;
 			if (controllerDecorator) {
 				const args = controllerDecorator.getArguments();
 				if (args.length > 0) {

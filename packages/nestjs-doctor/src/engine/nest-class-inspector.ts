@@ -53,18 +53,13 @@ export function isController(cls: ClassDeclaration): boolean {
 }
 
 /**
- * True when the class carries `@Controller()`, or a decorator that composes it.
- * `applyDecorators(Controller(path), ApiTags(...))` is common, and the composed
- * name is all that survives in the source, so route handlers identify it.
+ * True when the class carries `@Controller()` or declares a route handler. Both
+ * a decorator composing `Controller()` and an undecorated base class whose
+ * concrete subclass carries it end up here, because Nest reads route metadata
+ * off the prototype chain.
  */
 export function declaresRoutes(cls: ClassDeclaration): boolean {
-	if (isController(cls)) {
-		return true;
-	}
-	if (cls.getDecorators().length === 0) {
-		return false;
-	}
-	return cls.getMethods().some(isHttpHandler);
+	return isController(cls) || cls.getMethods().some(isHttpHandler);
 }
 
 export function isService(cls: ClassDeclaration): boolean {

@@ -146,13 +146,38 @@ function fileRuleFacts(context: AnalysisContext): FileRuleFacts {
 		}
 	}
 
+	const composedDecorators = guardDecoratorNames(context.guardDecorators);
+	const guardedBaseClasses = new Set<string>();
+	for (const filePath of context.files) {
+		const sourceFile = context.astProject.getSourceFile(filePath);
+		if (!sourceFile) {
+			continue;
+		}
+		for (const cls of sourceFile.getClasses()) {
+			const base = cls.getExtends()?.getExpression().getText();
+			if (!base) {
+				continue;
+			}
+			const guarded = cls
+				.getDecorators()
+				.some(
+					(d) =>
+						d.getName() === "UseGuards" || composedDecorators.has(d.getName())
+				);
+			if (guarded) {
+				guardedBaseClasses.add(base.split("<")[0].split(".").pop() ?? base);
+			}
+		}
+	}
+
 	return {
 		diProviders,
 		guards: {
-			composedDecorators: guardDecoratorNames(context.guardDecorators),
+			composedDecorators,
 			globallyRegistered: modules.some((module) =>
 				module.providerTokens.includes("APP_GUARD")
 			),
+			guardedBaseClasses,
 		},
 		moduleDirectories,
 	};

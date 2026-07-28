@@ -31,6 +31,8 @@ export interface GuardFacts {
 	composedDecorators: ReadonlySet<string>;
 	/** Some module registers a guard through `APP_GUARD`. */
 	globallyRegistered: boolean;
+	/** Base classes some subclass guards, so the base's handlers are covered. */
+	guardedBaseClasses: ReadonlySet<string>;
 }
 
 export interface CodeRuleContext {

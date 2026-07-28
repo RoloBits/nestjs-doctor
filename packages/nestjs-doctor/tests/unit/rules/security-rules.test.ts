@@ -447,6 +447,47 @@ describe("no-raw-entity-in-response", () => {
 });
 
 describe("require-guards-on-endpoints", () => {
+	it("reports a base class whose handlers nothing guards", () => {
+		const diags = runRule(
+			requireGuardsOnEndpoints,
+			`
+      import { Get } from '@nestjs/common';
+      export class DomainControllerBase {
+        @Get()
+        getItems() { return []; }
+      }
+    `,
+			"base.ts",
+			{
+				composedDecorators: new Set<string>(),
+				globallyRegistered: false,
+				guardedBaseClasses: new Set<string>(),
+			}
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("getItems");
+	});
+
+	it("does not report a base class a subclass guards", () => {
+		const diags = runRule(
+			requireGuardsOnEndpoints,
+			`
+      import { Get } from '@nestjs/common';
+      export class DomainControllerBase {
+        @Get()
+        getItems() { return []; }
+      }
+    `,
+			"base.ts",
+			{
+				composedDecorators: new Set<string>(),
+				globallyRegistered: false,
+				guardedBaseClasses: new Set(["DomainControllerBase"]),
+			}
+		);
+		expect(diags).toHaveLength(0);
+	});
+
 	it("flags unguarded endpoint", () => {
 		const diags = runRule(
 			requireGuardsOnEndpoints,
