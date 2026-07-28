@@ -309,7 +309,7 @@ function extractEntityFromClass(cls: ClassDeclaration): SchemaEntity | null {
 	// child properties take precedence over same-named properties on a base class.
 	const seenProps = new Set<string>();
 	let current: ClassDeclaration | undefined = cls;
-	while (current) {
+	while (current && !current.getSourceFile().isInNodeModules()) {
 		collectPropsFromClass(
 			current,
 			name,

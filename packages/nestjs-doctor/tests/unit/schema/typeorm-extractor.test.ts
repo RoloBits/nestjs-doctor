@@ -811,4 +811,34 @@ export class Review {
 		// Total relations
 		expect(graph.relations.length).toBeGreaterThanOrEqual(10);
 	});
+
+	it("stops the inheritance walk at node_modules declarations", () => {
+		const { project, paths } = createProject({
+			"/proj/node_modules/typeorm/index.d.ts": `
+        export declare class BaseEntity {
+          save(): Promise<this>;
+        }
+        export declare function Entity(): ClassDecorator;
+        export declare function Column(): PropertyDecorator;
+        export declare function PrimaryGeneratedColumn(): PropertyDecorator;
+      `,
+			"/proj/src/user.entity.ts": `
+        import { BaseEntity, Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+
+        @Entity()
+        export class User extends BaseEntity {
+          @PrimaryGeneratedColumn()
+          id: number;
+
+          @Column()
+          email: string;
+        }
+      `,
+		});
+		const schema = extractSchema(project, paths, "typeorm", "/proj");
+		const user = schema.entities.get("User");
+
+		expect(user).toBeDefined();
+		expect(user?.columns.map((c) => c.name)).toEqual(["id", "email"]);
+	});
 });
