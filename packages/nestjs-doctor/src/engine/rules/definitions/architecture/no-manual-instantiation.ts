@@ -73,12 +73,13 @@ export const noManualInstantiation: Rule = {
 				continue;
 			}
 
-			if (isContextAware) {
-				// Skip if inside a decorator argument (e.g. @UseGuards(new AuthGuard()))
-				if (expr.getFirstAncestorByKind(SyntaxKind.Decorator)) {
-					continue;
-				}
+			// A decorator argument is configuration, not construction:
+			// @UseGuards(new AuthGuard()), useValue: new X(), Module.forRoot({...}).
+			if (expr.getFirstAncestorByKind(SyntaxKind.Decorator)) {
+				continue;
+			}
 
+			if (isContextAware) {
 				// Only flag if inside a method body or constructor body
 				const inMethod = expr.getFirstAncestorByKind(
 					SyntaxKind.MethodDeclaration

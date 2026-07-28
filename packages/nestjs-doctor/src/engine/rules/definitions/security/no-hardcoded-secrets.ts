@@ -158,6 +158,24 @@ function isLikelyCodeIdentifier(value: string): boolean {
 	return false;
 }
 
+// A permission scope, not a credential: `password:update`, `user:read`.
+const SCOPE_VALUE = /^[a-z][a-z0-9]*(:[a-z][a-z0-9]*)+$/;
+
+const NON_ALNUM = /[^a-z0-9]/g;
+
+// True when the value only restates the name, as a config key does.
+function echoesName(name: string, value: string): boolean {
+	return (
+		name.toLowerCase().replace(NON_ALNUM, "") ===
+		value.toLowerCase().replace(NON_ALNUM, "")
+	);
+}
+
+// A string handed to `throw` is a message or a field name.
+function isThrownMessage(node: Node): boolean {
+	return node.getFirstAncestorByKind(SyntaxKind.ThrowStatement) !== undefined;
+}
+
 function isPaginationContext(literal: Node): boolean {
 	const parent = literal.getParent();
 	if (!parent) {
@@ -242,6 +260,13 @@ export const noHardcodedSecrets: Rule = {
 			}
 
 			const value = initializer.getText().slice(1, -1);
+			if (
+				SCOPE_VALUE.test(value) ||
+				echoesName(name, value) ||
+				isThrownMessage(decl)
+			) {
+				continue;
+			}
 			if (isSuspiciousValue(value)) {
 				context.report({
 					filePath: context.filePath,
@@ -269,6 +294,13 @@ export const noHardcodedSecrets: Rule = {
 			}
 
 			const value = initializer.getText().slice(1, -1);
+			if (
+				SCOPE_VALUE.test(value) ||
+				echoesName(name, value) ||
+				isThrownMessage(prop)
+			) {
+				continue;
+			}
 			if (isSuspiciousValue(value)) {
 				context.report({
 					filePath: context.filePath,

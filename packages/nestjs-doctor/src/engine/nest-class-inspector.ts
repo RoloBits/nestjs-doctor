@@ -56,8 +56,7 @@ export function isService(cls: ClassDeclaration): boolean {
 	return hasDecorator(cls, "Injectable");
 }
 
-// NestJS treats @Resolver and @WebSocketGateway as implicit @Injectable —
-// they participate in dependency injection without requiring an explicit @Injectable() decorator.
+// Classes NestJS treats as DI participants, controllers included.
 export function isInjectable(cls: ClassDeclaration): boolean {
 	return (
 		hasDecorator(cls, "Injectable") ||
@@ -65,6 +64,14 @@ export function isInjectable(cls: ClassDeclaration): boolean {
 		hasDecorator(cls, "Resolver") ||
 		hasDecorator(cls, "WebSocketGateway")
 	);
+}
+
+/**
+ * True when TypeScript emits `design:paramtypes` for the class, which is what
+ * the injector reads. Any class-level decorator triggers the emit.
+ */
+export function emitsConstructorMetadata(cls: ClassDeclaration): boolean {
+	return cls.getDecorators().length > 0;
 }
 
 export function isModule(cls: ClassDeclaration): boolean {
