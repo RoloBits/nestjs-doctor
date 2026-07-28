@@ -358,6 +358,23 @@ describe("no-unused-providers", () => {
 		});
 	}
 
+	it("does not flag a provider implementing a namespace-qualified contract", () => {
+		const diags = runProjectRule(noUnusedProviders, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { DataSync } from './data-sync.js';
+        @Module({ providers: [DataSync] })
+        export class AppModule {}
+      `,
+			"data-sync.ts": `
+        import * as common from '@nestjs/common';
+        @common.Injectable()
+        export class DataSync implements common.PipeTransform<string, number> {}
+      `,
+		});
+		expect(diags.filter((d) => d.message.includes("DataSync"))).toHaveLength(0);
+	});
+
 	it("still flags a provider that implements nothing and is never injected", () => {
 		const diags = runProjectRule(noUnusedProviders, {
 			"app.module.ts": `

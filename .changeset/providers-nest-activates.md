@@ -26,4 +26,9 @@ A class implementing `OnModuleInit`, `OnApplicationBootstrap`, `OnModuleDestroy`
 counts as self-activating. A provider implementing an unrelated interface is
 still reported.
 
+A namespace-qualified clause such as `implements common.PipeTransform<A, B>`
+counts too. A class that only inherits the hook from a base it extends, without
+an `implements` clause of its own, is still reported; that shape does not occur
+in the corpus.
+
 Across 189 public projects this removes 65 findings and adds none.
