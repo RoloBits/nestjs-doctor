@@ -1,5 +1,7 @@
-import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { afterAll, describe, expect, it } from "vitest";
 import {
 	detectMonorepo,
 	detectProject,
@@ -246,5 +248,80 @@ describe("looksLikeMonorepo", () => {
 	it("returns false for nonexistent path", async () => {
 		const result = await looksLikeMonorepo("/tmp/nonexistent-path-xyz");
 		expect(result).toBe(false);
+	});
+});
+
+const NEST_MODULE = `import { Module } from '@nestjs/common';\n@Module({})\nexport class AppModule {}\n`;
+const ANGULAR_MODULE = "export class SomeModule {}\n";
+
+const tempRoot = mkdtempSync(join(tmpdir(), "nestjs-doctor-nx-detect-"));
+
+afterAll(() => {
+	rmSync(tempRoot, { recursive: true, force: true });
+});
+
+function writeNxWorkspace(name: string): string {
+	const root = join(tempRoot, name);
+	mkdirSync(root, { recursive: true });
+	writeFileSync(join(root, "nx.json"), "{}");
+	writeFileSync(
+		join(root, "package.json"),
+		JSON.stringify({ dependencies: { "@nestjs/common": "^10.0.0" } })
+	);
+	return root;
+}
+
+function writeNxProject(
+	root: string,
+	projectPath: string,
+	projectName: string
+): string {
+	const dir = join(root, projectPath, "src");
+	mkdirSync(dir, { recursive: true });
+	writeFileSync(
+		join(root, projectPath, "project.json"),
+		JSON.stringify({ name: projectName })
+	);
+	return dir;
+}
+
+describe("Nx project detection", () => {
+	it("finds a NestJS module that sorts past the first twenty", async () => {
+		const root = writeNxWorkspace("deep-module");
+		const src = writeNxProject(root, "apps/api", "api");
+		for (let i = 1; i <= 21; i++) {
+			const index = String(i).padStart(2, "0");
+			writeFileSync(join(src, `a${index}.module.ts`), ANGULAR_MODULE);
+		}
+		writeFileSync(join(src, "zz-app.module.ts"), NEST_MODULE);
+		// A second project keeps the workspace in monorepo mode, so a miss on the
+		// first would drop it instead of falling back to a whole-tree scan.
+		const other = writeNxProject(root, "apps/ok", "ok");
+		writeFileSync(join(other, "app.module.ts"), NEST_MODULE);
+
+		const info = await detectMonorepo(root);
+
+		expect(info).not.toBeNull();
+		expect([...info!.projects.values()].sort()).toEqual([
+			"apps/api",
+			"apps/ok",
+		]);
+	});
+
+	it("keeps both projects when two declare the same name", async () => {
+		const root = writeNxWorkspace("same-name");
+		for (const dir of ["apps/one", "apps/two"]) {
+			const src = writeNxProject(root, dir, "api");
+			writeFileSync(join(src, "app.module.ts"), NEST_MODULE);
+		}
+
+		const info = await detectMonorepo(root);
+
+		expect(info).not.toBeNull();
+		expect(info!.projects.size).toBe(2);
+		expect([...info!.projects.values()].sort()).toEqual([
+			"apps/one",
+			"apps/two",
+		]);
 	});
 });

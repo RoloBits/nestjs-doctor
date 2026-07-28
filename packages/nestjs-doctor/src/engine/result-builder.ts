@@ -1,4 +1,4 @@
-import type { Diagnostic } from "../common/diagnostic.js";
+import { type Diagnostic, isSchemaDiagnostic } from "../common/diagnostic.js";
 import type { EndpointNode } from "../common/endpoint.js";
 import type {
 	DiagnoseResult,
@@ -137,18 +137,39 @@ export function buildMonorepoResult(
 	const allSchemaRelations: SchemaRelation[] = [];
 	let detectedOrm = "";
 
+	// Drops the repeats when sub-projects share one workspace-root schema and
+	// each extracts it.
+	const seenSchemaEntities = new Set<string>();
+	const seenSchemaDiagnostics = new Set<string>();
+
 	for (const [name, scanResult] of scanResults) {
 		subProjects.push({ name, result: scanResult.result });
 		moduleGraphs.set(name, scanResult.moduleGraph);
-		allDiagnostics.push(...scanResult.result.diagnostics);
+		for (const diagnostic of scanResult.result.diagnostics) {
+			if (isSchemaDiagnostic(diagnostic)) {
+				const key = `${diagnostic.rule}\0${diagnostic.filePath}\0${diagnostic.entity}\0${diagnostic.message}`;
+				if (seenSchemaDiagnostics.has(key)) {
+					continue;
+				}
+				seenSchemaDiagnostics.add(key);
+			}
+			allDiagnostics.push(diagnostic);
+		}
 		allRuleErrors.push(...scanResult.result.ruleErrors);
 		totalFiles += scanResult.result.project.fileCount;
 		if (scanResult.result.endpoints) {
 			allEndpoints.push(...scanResult.result.endpoints.endpoints);
 		}
 		if (scanResult.result.schema) {
-			allSchemaEntities.push(...scanResult.result.schema.entities);
-			allSchemaRelations.push(...scanResult.result.schema.relations);
+			for (const entity of scanResult.result.schema.entities) {
+				const key = `${entity.filePath}\0${entity.name}`;
+				if (seenSchemaEntities.has(key)) {
+					continue;
+				}
+				seenSchemaEntities.add(key);
+				allSchemaEntities.push(entity);
+				allSchemaRelations.push(...entity.relations);
+			}
 			if (
 				scanResult.result.schema.orm &&
 				scanResult.result.schema.orm !== "unknown"
