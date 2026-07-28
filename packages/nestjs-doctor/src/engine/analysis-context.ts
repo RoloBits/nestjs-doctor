@@ -164,12 +164,22 @@ export async function buildMonorepoContext(
 				const moduleGraph = buildModuleGraph(astProject, files, pathAliases);
 				const providers = resolveProviders(astProject, files);
 				const endpointGraph = buildEndpointGraph(astProject, files, providers);
-				const schemaGraph = extractSchema(
+				// A monorepo usually keeps one schema, at the workspace root, outside
+				// every sub-project. Fall back to it rather than report no schema.
+				let schemaGraph = extractSchema(
 					astProject,
 					files,
 					project.orm,
 					projectPath
 				);
+				if (project.orm && schemaGraph.entities.size === 0) {
+					schemaGraph = extractSchema(
+						astProject,
+						files,
+						project.orm,
+						targetPath
+					);
+				}
 				const rules = filterRules(projectConfig, combinedRules);
 				const { fileRules, projectRules, schemaRules } = separateRules(rules);
 

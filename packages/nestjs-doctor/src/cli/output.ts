@@ -78,6 +78,12 @@ function emit(
 		logger.warn(warning);
 	}
 
+	if (result.project.orm && result.schema?.entities.length === 0) {
+		logger.warn(
+			`Detected ${result.project.orm} but found no schema to analyse. The schema rules reported nothing because they read nothing.`
+		);
+	}
+
 	if (result.project.fileCount === 0) {
 		logger.warn(
 			`No TypeScript files matched under ${targetPath}. The score describes nothing.`

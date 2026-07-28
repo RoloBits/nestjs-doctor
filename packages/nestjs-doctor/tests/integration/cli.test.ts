@@ -5,6 +5,7 @@ import { diagnoseMonorepo } from "../../src/api/index.js";
 import { detectMonorepo } from "../../src/engine/project-detector.js";
 import {
 	buildAnalysisContext,
+	buildMonorepoContext,
 	buildResult,
 	diagnose,
 	resolveScanConfig,
@@ -549,6 +550,42 @@ describe("scanner integration", () => {
 		expect(result.isMonorepo).toBe(false);
 		expect(result.subProjects.length).toBe(1);
 		expect(result.subProjects[0].name).toBe("default");
+	});
+
+	describe("root-schema-monorepo fixture", () => {
+		it("falls back to the workspace-root schema for every sub-project", async () => {
+			const targetPath = resolve(FIXTURES, "root-schema-monorepo");
+			const monorepo = await detectMonorepo(targetPath);
+			expect(monorepo).not.toBeNull();
+
+			const scanConfig = await resolveScanConfig(targetPath);
+			const context = await buildMonorepoContext(
+				targetPath,
+				scanConfig,
+				monorepo!
+			);
+
+			for (const [name, subProject] of context.subProjects) {
+				const entities = [...(subProject.schemaGraph?.entities.keys() ?? [])];
+				expect(entities, name).toEqual(
+					expect.arrayContaining(["Account", "Session"])
+				);
+			}
+		});
+
+		it("still prefers a schema the sub-project owns", async () => {
+			const targetPath = resolve(FIXTURES, "turborepo-app");
+			const monorepo = await detectMonorepo(targetPath);
+			const scanConfig = await resolveScanConfig(targetPath);
+			const context = await buildMonorepoContext(
+				targetPath,
+				scanConfig,
+				monorepo!
+			);
+
+			const db = context.subProjects.get("@acme/db");
+			expect(db?.schemaGraph?.entities.size).toBeGreaterThan(0);
+		});
 	});
 
 	describe("turborepo-app fixture", () => {
