@@ -46,9 +46,9 @@ logs first:
 .catch((e) => { this.logger.error(e); throw e; });
 ```
 
-A handler that ends by throwing no longer counts as handling it. An empty
-handler still does, because swallowing an error deliberately is a different
-complaint.
+A handler that ends by throwing no longer counts as handling it, on the `catch`
+and on the second argument to `then` alike. An empty handler still does, because
+swallowing an error deliberately is a different complaint.
 
 Across 189 public projects this adds 9 findings, all of them rejections that
 reach the process, and removes none. The stack trace rule comes out level at 8:

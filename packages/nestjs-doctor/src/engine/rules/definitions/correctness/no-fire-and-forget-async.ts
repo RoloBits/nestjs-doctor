@@ -83,7 +83,7 @@ function hasRejectionHandler(callExpr: CallExpression): boolean {
 			return Boolean(handler) && !onlyRethrows(handler);
 		}
 		if (name === "then" && current.getArguments().length > 1) {
-			return true;
+			return !onlyRethrows(current.getArguments()[1]);
 		}
 		if (name !== "then" && name !== "finally") {
 			return false;

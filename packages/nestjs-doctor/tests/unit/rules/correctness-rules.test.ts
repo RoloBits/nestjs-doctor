@@ -1086,6 +1086,21 @@ describe("no-fire-and-forget-async", () => {
 		expect(diags).toHaveLength(1);
 	});
 
+	it("flags a .then() whose rejection handler rethrows", () => {
+		const diags = runRule(
+			noFireAndForgetAsync,
+			`
+      export class MyService {
+        async refresh() { return 1; }
+        run() {
+          this.refresh().then((v) => v, (e) => { throw e; });
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+	});
+
 	it("does not flag a .catch() that swallows on purpose", () => {
 		const diags = runRule(
 			noFireAndForgetAsync,
