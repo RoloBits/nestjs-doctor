@@ -253,6 +253,64 @@ function extractIndexes(
 	return indexes;
 }
 
+/**
+ * Column names of a composite key declared in the extras callback, as
+ * `primaryKey({ columns: [t.a, t.b] })` or the legacy `primaryKey(t.a, t.b)`.
+ */
+function extractCompositePrimaryKey(thirdArg: Node): string[] {
+	for (const call of thirdArg.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+		const expr = call.getExpression();
+		if (
+			expr.getKind() !== SyntaxKind.Identifier ||
+			expr.getText() !== "primaryKey"
+		) {
+			continue;
+		}
+
+		const named: string[] = [];
+		for (const arg of call.getArguments()) {
+			if (arg.getKind() === SyntaxKind.PropertyAccessExpression) {
+				named.push(
+					arg.asKindOrThrow(SyntaxKind.PropertyAccessExpression).getName()
+				);
+				continue;
+			}
+			if (arg.getKind() !== SyntaxKind.ObjectLiteralExpression) {
+				continue;
+			}
+			const obj = arg.asKindOrThrow(SyntaxKind.ObjectLiteralExpression);
+			for (const prop of obj.getProperties()) {
+				if (prop.getKind() !== SyntaxKind.PropertyAssignment) {
+					continue;
+				}
+				const pa = prop.asKindOrThrow(SyntaxKind.PropertyAssignment);
+				if (pa.getName() !== "columns") {
+					continue;
+				}
+				const init = pa.getInitializer();
+				if (!init || init.getKind() !== SyntaxKind.ArrayLiteralExpression) {
+					continue;
+				}
+				for (const el of init
+					.asKindOrThrow(SyntaxKind.ArrayLiteralExpression)
+					.getElements()) {
+					if (el.getKind() === SyntaxKind.PropertyAccessExpression) {
+						named.push(
+							el.asKindOrThrow(SyntaxKind.PropertyAccessExpression).getName()
+						);
+					}
+				}
+			}
+		}
+
+		if (named.length > 0) {
+			return named;
+		}
+	}
+
+	return [];
+}
+
 function extractTablesFromFile(sourceFile: SourceFile): SchemaEntity[] {
 	const entities: SchemaEntity[] = [];
 	const filePath = sourceFile.getFilePath();
@@ -302,6 +360,12 @@ function extractTablesFromFile(sourceFile: SourceFile): SchemaEntity[] {
 
 		let indexes: { columns: string[]; isUnique: boolean }[] | undefined;
 		if (args.length >= 3) {
+			for (const colName of extractCompositePrimaryKey(args[2])) {
+				const col = columns.find((c) => c.name === colName);
+				if (col) {
+					col.isPrimary = true;
+				}
+			}
 			indexes = extractIndexes(args[2]);
 			if (indexes) {
 				for (const idx of indexes) {

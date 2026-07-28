@@ -31,6 +31,7 @@ const FORWARD_REF_REGEX = /=>\s*(\w+)/;
 
 const COLUMN_DECORATORS = new Set([
 	"Column",
+	"ObjectIdColumn",
 	"PrimaryColumn",
 	"PrimaryGeneratedColumn",
 	"CreateDateColumn",
@@ -109,7 +110,9 @@ function extractColumn(
 	decorator: Decorator
 ): SchemaColumn {
 	const decoratorName = decorator.getName();
+	// The Mongo driver declares the key as @ObjectIdColumn() on _id.
 	const isPrimary =
+		decoratorName === "ObjectIdColumn" ||
 		decoratorName === "PrimaryColumn" ||
 		decoratorName === "PrimaryGeneratedColumn";
 	const isGenerated =
@@ -151,6 +154,8 @@ function extractColumn(
 	if (type === "unknown") {
 		if (decoratorName === "PrimaryGeneratedColumn") {
 			type = "integer";
+		} else if (decoratorName === "ObjectIdColumn") {
+			type = "objectId";
 		} else if (
 			decoratorName === "CreateDateColumn" ||
 			decoratorName === "UpdateDateColumn" ||
