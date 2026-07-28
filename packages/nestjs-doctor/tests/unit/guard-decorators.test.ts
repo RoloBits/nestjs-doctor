@@ -112,6 +112,26 @@ describe("buildGuardDecoratorIndex", () => {
 		expect([...names]).toEqual(["Auth"]);
 	});
 
+	it("does not treat a guard merely mentioned inside an argument as applied", () => {
+		const names = index(`
+      import { applyDecorators, SetMetadata, UseGuards } from '@nestjs/common';
+      export function Meta() {
+        return applyDecorators(SetMetadata('factory', () => UseGuards(AuthGuard)));
+      }
+    `);
+		expect([...names]).toEqual([]);
+	});
+
+	it("does not count a ternary that guards on only one branch", () => {
+		const names = index(`
+      import { applyDecorators, SetMetadata, UseGuards } from '@nestjs/common';
+      export function Maybe(on = false) {
+        return applyDecorators(on ? UseGuards(AuthGuard) : SetMetadata('x', 1));
+      }
+    `);
+		expect([...names]).toEqual([]);
+	});
+
 	it("does not treat an unrelated nested call as a guard", () => {
 		const names = index(`
       import { applyDecorators, SetMetadata } from '@nestjs/common';

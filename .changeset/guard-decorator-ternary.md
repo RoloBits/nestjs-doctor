@@ -22,8 +22,14 @@ export function Auth(allowApiKeyAuth = false, isOptionalAuth = false) {
 
 Both branches apply a guard, but the argument is a conditional expression rather
 than a call, so `Auth` was not recorded and every `@Auth()` endpoint was
-reported as having no guard. A spread such as `applyDecorators(...guards)` fell
-out the same way. The argument's whole subtree is now searched.
+reported as having no guard.
+
+An argument now counts when it is a `UseGuards` call, when it is a ternary whose
+**both** branches apply one, or when it spreads an inline array holding one. A
+ternary that guards only one way round does not count, and neither does an
+argument that merely mentions `UseGuards` somewhere inside it, such as
+`SetMetadata('factory', () => UseGuards(G))`. Spreading a variable rather than
+an array literal is still not followed.
 
 This is the worst direction for a security rule to be wrong in: it says an
 endpoint is unprotected when it is protected. Across 189 public projects it
