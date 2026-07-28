@@ -63,8 +63,9 @@ export const requireModuleBoundaries: Rule = {
 			}
 
 			// An import that stays inside its own module crosses nothing.
+			// An empty set means no module was found at all, not that nothing is one.
 			const directories = context.moduleDirectories;
-			if (directories) {
+			if (directories?.size) {
 				const target = resolvePosix(
 					posixDirname(context.filePath),
 					moduleSpecifier
@@ -76,14 +77,10 @@ export const requireModuleBoundaries: Rule = {
 				const targetModule = nearestModuleDirectory(target, directories);
 				// A target outside every module, or one whose module contains the
 				// source's module, is shared or root code rather than a neighbour.
-				const shared =
-					sourceModule !== undefined &&
-					targetModule !== undefined &&
-					sourceModule.startsWith(`${targetModule}/`);
 				if (targetModule === undefined || sourceModule === targetModule) {
 					continue;
 				}
-				if (shared) {
+				if (sourceModule?.startsWith(`${targetModule}/`)) {
 					continue;
 				}
 			}

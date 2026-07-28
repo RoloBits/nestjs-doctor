@@ -1207,6 +1207,19 @@ describe("require-module-boundaries", () => {
 		expect(diags).toHaveLength(1);
 	});
 
+	it("still flags when the scan found no module at all", () => {
+		const diags = runRule(
+			requireModuleBoundaries,
+			`
+      import { UsersRepository } from '../users/repositories/users.repository';
+    `,
+			"/src/orders/orders.service.ts",
+			{},
+			new Set()
+		);
+		expect(diags).toHaveLength(1);
+	});
+
 	it("does not flag an import into a directory that holds no module", () => {
 		const diags = runRule(
 			requireModuleBoundaries,
@@ -1248,6 +1261,19 @@ describe("require-module-boundaries", () => {
 });
 
 describe("no-barrel-export-internals", () => {
+	it("still flags a barrel when the scan found no module at all", () => {
+		const diags = runRule(
+			noBarrelExportInternals,
+			`
+      export * from './users.repository';
+    `,
+			"/src/users/index.ts",
+			{},
+			new Set()
+		);
+		expect(diags.length).toBeGreaterThan(0);
+	});
+
 	it("does not flag a folder barrel that has no module beside it", () => {
 		const diags = runRule(
 			noBarrelExportInternals,

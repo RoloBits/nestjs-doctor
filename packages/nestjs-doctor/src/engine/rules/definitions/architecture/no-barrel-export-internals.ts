@@ -31,8 +31,9 @@ export const noBarrelExportInternals: Rule = {
 
 		// A folder barrel re-exports its own siblings by design. Only a barrel
 		// sitting beside a module file is that module's public surface.
+		// An empty set means no module was found at all, not that nothing is one.
 		const directories = context.moduleDirectories;
-		if (directories && !directories.has(posixDirname(context.filePath))) {
+		if (directories?.size && !directories.has(posixDirname(context.filePath))) {
 			return;
 		}
 
