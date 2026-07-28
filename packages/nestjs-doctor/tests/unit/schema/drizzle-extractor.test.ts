@@ -13,6 +13,68 @@ function createProject(files: Record<string, string>) {
 }
 
 describe("Drizzle Extractor", () => {
+	it("marks a composite primary key from the extras callback", () => {
+		const { project, paths } = createProject({
+			"perms.ts": `
+import { pgTable, integer, varchar, primaryKey } from "drizzle-orm/pg-core";
+
+export const userPermissions = pgTable(
+  'user_permissions',
+  {
+    userId: integer('user_id').notNull(),
+    permissionName: varchar('permission_name', { length: 100 }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.permissionName] })],
+);`,
+		});
+
+		const graph = extractSchema(project, paths, "drizzle", "/test");
+		const entity = graph.entities.get("userPermissions");
+		const primary = entity?.columns
+			.filter((c) => c.isPrimary)
+			.map((c) => c.name);
+		expect(primary).toEqual(["userId", "permissionName"]);
+	});
+
+	it("marks a composite primary key from the legacy positional form", () => {
+		const { project, paths } = createProject({
+			"joins.ts": `
+import { pgTable, integer, primaryKey } from "drizzle-orm/pg-core";
+
+export const bookTags = pgTable(
+  'book_tags',
+  {
+    bookId: integer('book_id').notNull(),
+    tagId: integer('tag_id').notNull(),
+  },
+  (t) => ({ pk: primaryKey(t.bookId, t.tagId) }),
+);`,
+		});
+
+		const graph = extractSchema(project, paths, "drizzle", "/test");
+		const entity = graph.entities.get("bookTags");
+		const primary = entity?.columns
+			.filter((c) => c.isPrimary)
+			.map((c) => c.name);
+		expect(primary).toEqual(["bookId", "tagId"]);
+	});
+
+	it("leaves a table with no primary key alone", () => {
+		const { project, paths } = createProject({
+			"logs.ts": `
+import { pgTable, integer, varchar } from "drizzle-orm/pg-core";
+
+export const logs = pgTable('logs', {
+  level: varchar('level').notNull(),
+  count: integer('count').notNull(),
+});`,
+		});
+
+		const graph = extractSchema(project, paths, "drizzle", "/test");
+		const entity = graph.entities.get("logs");
+		expect(entity?.columns.some((c) => c.isPrimary)).toBe(false);
+	});
+
 	it("should extract a basic pgTable with columns", () => {
 		const { project, paths } = createProject({
 			"users.ts": `

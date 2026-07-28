@@ -13,6 +13,29 @@ function createProject(files: Record<string, string>) {
 }
 
 describe("TypeORM Extractor", () => {
+	it("treats @ObjectIdColumn as the primary key", () => {
+		const { project, paths } = createProject({
+			"city.entity.ts": `
+import { Entity, ObjectIdColumn, Column } from 'typeorm';
+
+@Entity({ name: 'cities' })
+export class City {
+  @ObjectIdColumn()
+  _id: string;
+
+  @Column()
+  name: string;
+}`,
+		});
+
+		const graph = extractSchema(project, paths, "typeorm", "/test");
+		const entity = graph.entities.get("City");
+		const primary = entity?.columns
+			.filter((c) => c.isPrimary)
+			.map((c) => c.name);
+		expect(primary).toEqual(["_id"]);
+	});
+
 	it("should extract a basic entity with columns", () => {
 		const { project, paths } = createProject({
 			"user.entity.ts": `
