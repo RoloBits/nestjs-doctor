@@ -1,5 +1,6 @@
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { glob } from "tinyglobby";
 import type { ProjectInfo } from "../common/result.js";
 
@@ -375,16 +376,37 @@ export async function looksLikeMonorepo(targetPath: string): Promise<boolean> {
 	return false;
 }
 
-export async function detectProject(targetPath: string): Promise<ProjectInfo> {
-	const pkgPath = join(targetPath, "package.json");
-	let pkg: PackageJson = {};
+/**
+ * Reads the nearest `package.json` at or above `targetPath`, stopping at the
+ * repository root so a scan never adopts an unrelated parent's manifest.
+ */
+async function readNearestPackageJson(
+	targetPath: string
+): Promise<PackageJson> {
+	let current = resolve(targetPath);
 
-	try {
-		const raw = await readFile(pkgPath, "utf-8");
-		pkg = JSON.parse(raw) as PackageJson;
-	} catch {
-		// No package.json found — use defaults
+	for (;;) {
+		try {
+			const raw = await readFile(join(current, "package.json"), "utf-8");
+			return JSON.parse(raw) as PackageJson;
+		} catch {
+			// Keep walking.
+		}
+
+		if (existsSync(join(current, ".git"))) {
+			return {};
+		}
+
+		const parent = dirname(current);
+		if (parent === current) {
+			return {};
+		}
+		current = parent;
 	}
+}
+
+export async function detectProject(targetPath: string): Promise<ProjectInfo> {
+	const pkg = await readNearestPackageJson(targetPath);
 
 	const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
 
