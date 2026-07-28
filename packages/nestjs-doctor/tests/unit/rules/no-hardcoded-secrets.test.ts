@@ -77,22 +77,6 @@ describe("no-hardcoded-secrets", () => {
 		expect(diags.length).toBeGreaterThan(0);
 	});
 
-	it("flags real base64 strings containing digits", () => {
-		const diags = runRule(`
-      const data = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop1234';
-    `);
-		expect(diags.length).toBeGreaterThan(0);
-	});
-
-	it("does not flag long camelCase identifier strings as base64", () => {
-		const diags = runRule(`
-      const config = {
-        id: 'rentalRestrictionAgreementCoapplicantDoc',
-      };
-    `);
-		expect(diags).toHaveLength(0);
-	});
-
 	it("does not flag human-readable text with suspicious property names", () => {
 		const diags = runRule(`
       export const ActivityLogEvents = {
@@ -113,46 +97,6 @@ describe("no-hardcoded-secrets", () => {
 		expect(diags).toHaveLength(0);
 	});
 
-	it("does not flag Base64-encoded JSON pagination cursors", () => {
-		const diags = runRule(`
-      const page = {
-        cursor: 'eyJpZCI6IjQ2MDJCNjI5LTg3N0QtNEVCNC1CQzhELTREM0NGNzkzQkM2NSJ9',
-        size: 10,
-      };
-    `);
-		expect(diags).toHaveLength(0);
-	});
-
-	it("does not flag Base64 strings in pagination property names", () => {
-		const diags = runRule(`
-      const nextPageToken = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop1234';
-    `);
-		expect(diags).toHaveLength(0);
-	});
-
-	it("does not flag Base64-encoded JSON in non-pagination property", () => {
-		const diags = runRule(`
-      const config = {
-        payload: 'eyJpZCI6IjQ2MDJCNjI5LTg3N0QtNEVCNC1CQzhELTREM0NGNzkzQkM2NSJ9',
-      };
-    `);
-		expect(diags).toHaveLength(0);
-	});
-
-	it("does not flag migration class names with timestamps", () => {
-		const diags = runRule(`
-      const name = 'CreateUsersTable1700000000000abcdef1234567890ab';
-    `);
-		expect(diags).toHaveLength(0);
-	});
-
-	it("does not flag migration identifiers with word-like segments", () => {
-		const diags = runRule(`
-      const name = 'AddEmailMigration1700000000000abcdef1234567890ab';
-    `);
-		expect(diags).toHaveLength(0);
-	});
-
 	it("still flags real secrets regardless of file path", () => {
 		const diags = runRule(`
       const token = 'sk-abcdefghijklmnopqrstuvwxyz1234567890';
@@ -160,41 +104,11 @@ describe("no-hardcoded-secrets", () => {
 		expect(diags.length).toBeGreaterThan(0);
 	});
 
-	it("still flags real Base64 secrets not in pagination context", () => {
-		const diags = runRule(`
-      const config = {
-        apiCredential: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop1234',
-      };
-    `);
-		expect(diags.length).toBeGreaterThan(0);
-	});
-
-	it("does not flag PascalCase identifiers with timestamps", () => {
-		const diags = runRule(`
-      const name = 'CreateUsersTable1700000000000abcdef1234567890ab';
-    `);
-		expect(diags).toHaveLength(0);
-	});
-
 	it("does not flag snake_case DB constraint names", () => {
 		const diags = runRule(`
       const idx = 'IDX_user_email_constraint_abc123def456ghi789jkl';
     `);
 		expect(diags).toHaveLength(0);
-	});
-
-	it("does not flag camelCase identifiers with digits", () => {
-		const diags = runRule(`
-      const handler = 'handleUserAuthenticationSessionTimeout12345678ab';
-    `);
-		expect(diags).toHaveLength(0);
-	});
-
-	it("still flags actual Base64 encoded data", () => {
-		const diags = runRule(`
-      const data = 'aGVsbG8gd29ybGQgdGhpcyBpcyBhIHRlc3Qga2V5MTIz';
-    `);
-		expect(diags.length).toBeGreaterThan(0);
 	});
 
 	it("does not flag a message key inside a thrown exception", () => {

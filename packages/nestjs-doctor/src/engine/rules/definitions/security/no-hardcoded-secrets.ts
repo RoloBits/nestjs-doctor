@@ -2,7 +2,6 @@ import { type Node, SyntaxKind } from "ts-morph";
 import type { Rule } from "../../types.js";
 
 const SECRET_PATTERNS = [
-	{ pattern: /^(?=.*\d)[A-Za-z0-9+/]{40,}={0,2}$/, name: "Base64 key" },
 	{ pattern: /^sk[-_][a-zA-Z0-9]{20,}$/, name: "Secret key" },
 	// Issued keys carry an environment segment the plain form misses:
 	// sk_live_…, pk_test_…, sk-proj-…, sk-ant-api03-….
@@ -53,22 +52,6 @@ const PLACEHOLDER_VALUES = new Set([
 const DOT_SEPARATED_CONSTANT =
 	/^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*)+$/;
 
-const PAGINATION_PROPERTY_NAMES = new Set([
-	"cursor",
-	"nextCursor",
-	"prevCursor",
-	"previousCursor",
-	"startCursor",
-	"endCursor",
-	"pageToken",
-	"nextPageToken",
-	"continuationToken",
-	"continuation",
-	"nextPage",
-	"afterCursor",
-	"beforeCursor",
-]);
-
 function isSuspiciousValue(value: string): boolean {
 	if (value.length < 8) {
 		return false;
@@ -93,76 +76,6 @@ function isSuspiciousValue(value: string): boolean {
 
 function hasSuspiciousName(name: string): boolean {
 	return VARIABLE_NAME_PATTERNS.some((p) => p.test(name));
-}
-
-function isStructuredBase64(value: string): boolean {
-	try {
-		const decoded = Buffer.from(value, "base64").toString("utf-8");
-		JSON.parse(decoded);
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-function shannonEntropy(value: string): number {
-	const freq = new Map<string, number>();
-	for (const ch of value) {
-		freq.set(ch, (freq.get(ch) ?? 0) + 1);
-	}
-	let entropy = 0;
-	for (const count of freq.values()) {
-		const p = count / value.length;
-		entropy -= p * Math.log2(p);
-	}
-	return entropy;
-}
-
-const VOWELS = new Set([..."aeiouyAEIOUY"]);
-const DB_PREFIX = /^[A-Z]{2,4}_/;
-const CAMEL_BOUNDARY =
-	/(?<=[a-z])(?=[A-Z])|(?<=[A-Za-z])(?=\d)|(?<=\d)(?=[A-Za-z])|_/;
-const HAS_LETTER = /[a-zA-Z]/;
-
-function isLikelyCodeIdentifier(value: string): boolean {
-	const hasUnderscores = value.includes("_");
-
-	// Split on camelCase boundaries (lower→upper), digit↔letter, and underscores
-	const segments = value.split(CAMEL_BOUNDARY).filter((s) => s.length > 0);
-
-	const letterSegments = segments.filter((s) => HAS_LETTER.test(s));
-	const wordLike = letterSegments.filter(
-		(s) => s.length >= 4 && [...s].some((ch) => VOWELS.has(ch))
-	);
-
-	// If ≥2 word-like segments among the first 6 letter-segments → code identifier
-	const first6 = letterSegments.slice(0, 6);
-	const wordLikeInFirst6 = first6.filter(
-		(s) => s.length >= 4 && [...s].some((ch) => VOWELS.has(ch))
-	);
-	if (wordLikeInFirst6.length >= 2) {
-		return true;
-	}
-
-	// snake_case: underscores with ≥2 segments of 3+ chars
-	if (hasUnderscores) {
-		const underscoreSegments = value.split("_").filter((s) => s.length >= 3);
-		if (underscoreSegments.length >= 2) {
-			return true;
-		}
-	}
-
-	// DB prefix pattern (PK_, IDX_, FK_, etc.)
-	if (DB_PREFIX.test(value)) {
-		return true;
-	}
-
-	// High entropy with no word-like segments and no underscores → random data
-	if (shannonEntropy(value) > 4.9 && !hasUnderscores && wordLike.length === 0) {
-		return false;
-	}
-
-	return false;
 }
 
 // A permission scope, not a credential: `password:update`, `user:read`.
@@ -196,22 +109,6 @@ function isThrownMessage(node: Node): boolean {
 	return node.getFirstAncestorByKind(SyntaxKind.ThrowStatement) !== undefined;
 }
 
-function isPaginationContext(literal: Node): boolean {
-	const parent = literal.getParent();
-	if (!parent) {
-		return false;
-	}
-	const pa = parent.asKind(SyntaxKind.PropertyAssignment);
-	if (pa) {
-		return PAGINATION_PROPERTY_NAMES.has(pa.getName());
-	}
-	const vd = parent.asKind(SyntaxKind.VariableDeclaration);
-	if (vd) {
-		return PAGINATION_PROPERTY_NAMES.has(vd.getName());
-	}
-	return false;
-}
-
 export const noHardcodedSecrets: Rule = {
 	meta: {
 		id: "security/no-hardcoded-secrets",
@@ -241,16 +138,6 @@ export const noHardcodedSecrets: Rule = {
 
 			for (const { pattern, name } of SECRET_PATTERNS) {
 				if (pattern.test(value)) {
-					// Skip Base64 strings that decode to structured data, pagination cursors, or code identifiers
-					if (
-						name === "Base64 key" &&
-						(isStructuredBase64(value) ||
-							isPaginationContext(literal) ||
-							isLikelyCodeIdentifier(value))
-					) {
-						break;
-					}
-
 					context.report({
 						filePath: context.filePath,
 						message: `Possible hardcoded ${name} detected.`,
