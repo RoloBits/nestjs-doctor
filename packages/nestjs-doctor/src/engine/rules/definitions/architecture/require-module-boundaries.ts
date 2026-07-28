@@ -74,7 +74,16 @@ export const requireModuleBoundaries: Rule = {
 					directories
 				);
 				const targetModule = nearestModuleDirectory(target, directories);
-				if (sourceModule !== undefined && sourceModule === targetModule) {
+				// A target outside every module, or one whose module contains the
+				// source's module, is shared or root code rather than a neighbour.
+				const shared =
+					sourceModule !== undefined &&
+					targetModule !== undefined &&
+					sourceModule.startsWith(`${targetModule}/`);
+				if (targetModule === undefined || sourceModule === targetModule) {
+					continue;
+				}
+				if (shared) {
 					continue;
 				}
 			}

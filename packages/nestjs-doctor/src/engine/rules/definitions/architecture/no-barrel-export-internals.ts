@@ -1,3 +1,4 @@
+import { posixDirname } from "../../../graph/module-graph.js";
 import type { Rule } from "../../types.js";
 
 const INTERNAL_PATTERNS = [
@@ -25,6 +26,13 @@ export const noBarrelExportInternals: Rule = {
 	check(context) {
 		// Only check barrel files (index.ts)
 		if (!context.filePath.endsWith("/index.ts")) {
+			return;
+		}
+
+		// A folder barrel re-exports its own siblings by design. Only a barrel
+		// sitting beside a module file is that module's public surface.
+		const directories = context.moduleDirectories;
+		if (directories && !directories.has(posixDirname(context.filePath))) {
 			return;
 		}
 
