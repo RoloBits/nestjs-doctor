@@ -39,7 +39,7 @@ function resolveConsumers(
 		(other) => other.name !== mod.name
 	);
 
-	if (hasDecorator(mod.classDeclaration, "Global")) {
+	if (mod.classDeclaration && hasDecorator(mod.classDeclaration, "Global")) {
 		return all;
 	}
 
@@ -112,7 +112,7 @@ export const noUnusedModuleExports: ProjectRule = {
 						filePath: mod.filePath,
 						message: `Module '${mod.name}' exports '${exportedName}' but no importing module uses it.`,
 						help: this.meta.help,
-						line: mod.classDeclaration.getStartLineNumber(),
+						line: mod.classDeclaration?.getStartLineNumber() ?? 1,
 						column: 1,
 					});
 				}

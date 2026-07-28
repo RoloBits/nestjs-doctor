@@ -50,7 +50,7 @@ export interface AnalysisContext {
 	targetPath: string;
 }
 
-export interface MonorepoContext {
+interface MonorepoContext {
 	subProjects: Map<string, AnalysisContext>;
 }
 
@@ -137,73 +137,100 @@ export function updateFile(context: AnalysisContext, filePath: string): void {
 	}
 }
 
+/**
+ * One sub-project's context. Kept separate so callers can build, use and drop
+ * them one at a time — a ts-morph project holds every type the rules ask the
+ * checker for, and 40 of them at once is gigabytes.
+ */
+async function buildSubProjectContext(
+	targetPath: string,
+	scanConfig: ScanConfig,
+	monorepo: MonorepoInfo,
+	name: string,
+	files: string[]
+): Promise<AnalysisContext> {
+	const { config: rootConfig, combinedRules } = scanConfig;
+	const projectPath = join(targetPath, monorepo.projects.get(name)!);
+	const [project, projectConfig] = await Promise.all([
+		detectProject(projectPath),
+		loadConfigWithFallback(projectPath, rootConfig),
+	]);
+
+	const pathAliases = loadPathAliases(projectPath);
+	const astProject = createAstParser(files, pathAliases);
+	const moduleGraph = buildModuleGraph(astProject, files, pathAliases);
+	const providers = resolveProviders(astProject, files);
+	const endpointGraph = buildEndpointGraph(astProject, files, providers);
+	// A monorepo usually keeps one schema, at the workspace root, outside
+	// every sub-project. Fall back to it rather than report no schema.
+	let schemaGraph = extractSchema(astProject, files, project.orm, projectPath);
+	if (project.orm && schemaGraph.entities.size === 0) {
+		schemaGraph = extractSchema(astProject, files, project.orm, targetPath);
+	}
+	const rules = filterRules(projectConfig, combinedRules);
+	const { fileRules, projectRules, schemaRules } = separateRules(rules);
+
+	return {
+		astProject,
+		config: projectConfig,
+		endpointGraph,
+		fileRules,
+		files,
+		guardDecorators: buildGuardDecoratorIndex(astProject, files),
+		moduleGraph,
+		pathAliases,
+		project,
+		projectRules,
+		providers,
+		schemaGraph,
+		schemaRules,
+		targetPath: projectPath,
+	};
+}
+
+/**
+ * Builds each sub-project in turn, hands it to `consume`, and lets it go before
+ * building the next. Only what `consume` returns is retained.
+ */
+export async function reduceSubProjects<T>(
+	targetPath: string,
+	scanConfig: ScanConfig,
+	monorepo: MonorepoInfo,
+	consume: (name: string, context: AnalysisContext) => T
+): Promise<Map<string, T>> {
+	const filesByProject = await collectMonorepoFiles(
+		targetPath,
+		monorepo,
+		scanConfig.config
+	);
+
+	const results = new Map<string, T>();
+	for (const [name, files] of filesByProject) {
+		if (files.length === 0) {
+			continue;
+		}
+		const context = await buildSubProjectContext(
+			targetPath,
+			scanConfig,
+			monorepo,
+			name,
+			files
+		);
+		results.set(name, consume(name, context));
+	}
+	return results;
+}
+
 export async function buildMonorepoContext(
 	targetPath: string,
 	scanConfig: ScanConfig,
 	monorepo: MonorepoInfo
 ): Promise<MonorepoContext> {
-	const { config: rootConfig, combinedRules } = scanConfig;
-	const filesByProject = await collectMonorepoFiles(
+	const subProjects = await reduceSubProjects(
 		targetPath,
+		scanConfig,
 		monorepo,
-		rootConfig
+		(_name, context) => context
 	);
-
-	const entries = await Promise.all(
-		[...filesByProject.entries()]
-			.filter(([, files]) => files.length > 0)
-			.map(async ([name, files]): Promise<[string, AnalysisContext]> => {
-				const projectPath = join(targetPath, monorepo.projects.get(name)!);
-				const [project, projectConfig] = await Promise.all([
-					detectProject(projectPath),
-					loadConfigWithFallback(projectPath, rootConfig),
-				]);
-
-				const pathAliases = loadPathAliases(projectPath);
-				const astProject = createAstParser(files, pathAliases);
-				const moduleGraph = buildModuleGraph(astProject, files, pathAliases);
-				const providers = resolveProviders(astProject, files);
-				const endpointGraph = buildEndpointGraph(astProject, files, providers);
-				// A monorepo usually keeps one schema, at the workspace root, outside
-				// every sub-project. Fall back to it rather than report no schema.
-				let schemaGraph = extractSchema(
-					astProject,
-					files,
-					project.orm,
-					projectPath
-				);
-				if (project.orm && schemaGraph.entities.size === 0) {
-					schemaGraph = extractSchema(
-						astProject,
-						files,
-						project.orm,
-						targetPath
-					);
-				}
-				const rules = filterRules(projectConfig, combinedRules);
-				const { fileRules, projectRules, schemaRules } = separateRules(rules);
-
-				return [
-					name,
-					{
-						astProject,
-						config: projectConfig,
-						endpointGraph,
-						fileRules,
-						files,
-						guardDecorators: buildGuardDecoratorIndex(astProject, files),
-						moduleGraph,
-						pathAliases,
-						project,
-						projectRules,
-						providers,
-						schemaGraph,
-						schemaRules,
-						targetPath: projectPath,
-					},
-				];
-			})
-	);
-
-	return { subProjects: new Map(entries) };
+	return { subProjects };
 }

@@ -160,7 +160,7 @@ export const noCircularModuleDeps: ProjectRule = {
 				filePath: firstModule?.filePath ?? "unknown",
 				message: `Circular module dependency detected: ${cycleStr}`,
 				help,
-				line: firstModule?.classDeclaration.getStartLineNumber() ?? 1,
+				line: firstModule?.classDeclaration?.getStartLineNumber() ?? 1,
 				column: 1,
 			});
 		}

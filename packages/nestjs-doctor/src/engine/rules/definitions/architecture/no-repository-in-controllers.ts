@@ -27,7 +27,12 @@ export const noRepositoryInControllers: Rule = {
 			}
 
 			for (const param of ctor.getParameters()) {
-				const typeText = param.getType().getText();
+				// The syntax node, not the checker: createAstParser skips dependency
+				// resolution, and getType() forces the whole closure to be typed.
+				const typeNode = param.getTypeNode();
+				const typeText = typeNode
+					? typeNode.getText()
+					: param.getType().getText();
 				const typeName = extractSimpleTypeName(typeText);
 
 				if (REPOSITORY_PATTERNS.some((p) => p.test(typeName))) {

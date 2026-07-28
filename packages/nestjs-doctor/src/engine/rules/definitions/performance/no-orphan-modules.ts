@@ -38,7 +38,7 @@ export const noOrphanModules: ProjectRule = {
 					filePath: mod.filePath,
 					message: `Module '${mod.name}' is never imported by any other module.`,
 					help: this.meta.help,
-					line: mod.classDeclaration.getStartLineNumber(),
+					line: mod.classDeclaration?.getStartLineNumber() ?? 1,
 					column: 1,
 				});
 			}

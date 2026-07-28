@@ -2,19 +2,19 @@ import { performance } from "node:perf_hooks";
 import type { Diagnostic } from "../common/diagnostic.js";
 import type { DiagnoseResult } from "../common/result.js";
 import { computeBaselineDelta } from "../engine/baseline.js";
+import { detachModuleGraph } from "../engine/graph/module-graph.js";
 import type { MonorepoInfo } from "../engine/project-detector.js";
 import { withScopedDiagnostics } from "../engine/result-builder.js";
 import {
 	type AnalysisContext,
 	buildAnalysisContext,
-	buildMonorepoContext,
 	buildMonorepoResult,
 	buildResult,
 	diagnose,
 	type EngineResult,
-	type MonorepoContext,
 	type MonorepoEngineResult,
 	type RawDiagnosticOutput,
+	reduceSubProjects,
 	resolveScanConfig,
 	type ScanConfig,
 } from "../engine/scanner.js";
@@ -172,8 +172,7 @@ const restrictToKept = (
 /** Monorepo scan builder — resolveConfig, buildContext, runRules, buildResult, applyScope, warn, output */
 export class MonorepoPipeline extends ScanPipeline {
 	private readonly monorepo: MonorepoInfo;
-	private monorepoCtx!: MonorepoContext;
-	private readonly rawOutputs = new Map<string, RawDiagnosticOutput>();
+	private scanResults!: Map<string, EngineResult>;
 	private result!: MonorepoEngineResult;
 	private scanStartTime!: number;
 
@@ -187,22 +186,31 @@ export class MonorepoPipeline extends ScanPipeline {
 	}
 
 	buildContext(): this {
-		this.steps.push(async () => {
+		this.steps.push(() => {
 			this.scanStartTime = performance.now();
-			this.monorepoCtx = await buildMonorepoContext(
-				this.targetPath,
-				this.scanConfig,
-				this.monorepo
-			);
 		});
 		return this;
 	}
 
 	runRules(): this {
-		this.steps.push(() => {
-			for (const [name, context] of this.monorepoCtx.subProjects) {
-				this.rawOutputs.set(name, diagnose(context));
-			}
+		this.steps.push(async () => {
+			// Build, diagnose and reduce each sub-project in turn. Holding all of
+			// their ts-morph projects at once is what runs a large workspace out of
+			// memory, because every type a rule asks the checker for stays on them.
+			this.scanResults = await reduceSubProjects(
+				this.targetPath,
+				this.scanConfig,
+				this.monorepo,
+				(_name, context: AnalysisContext) => {
+					const scanResult = buildResult(context, diagnose(context));
+					return {
+						...scanResult,
+						moduleGraph: detachModuleGraph(scanResult.moduleGraph),
+						// ProviderInfo holds a ts-morph node, which anchors the project
+						providers: new Map(),
+					};
+				}
+			);
 		});
 		return this;
 	}
@@ -211,8 +219,7 @@ export class MonorepoPipeline extends ScanPipeline {
 		this.steps.push(() => {
 			const totalElapsedMs = performance.now() - this.scanStartTime;
 			this.result = buildMonorepoResult(
-				this.monorepoCtx,
-				this.rawOutputs,
+				this.scanResults,
 				this.scanConfig.customRuleWarnings,
 				totalElapsedMs
 			);
