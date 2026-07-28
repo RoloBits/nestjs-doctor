@@ -1303,6 +1303,52 @@ describe("factory-inject-matches-params", () => {
 });
 
 describe("validated-non-primitive-needs-type", () => {
+	it("does not flag a union type alias", () => {
+		const diags = runRule(
+			validatedNonPrimitiveNeedsType,
+			`
+      import { IsIn, IsOptional } from 'class-validator';
+      type Granularity = 'day' | 'month';
+      export class Dto {
+        @IsIn(['day', 'month'])
+        @IsOptional()
+        granularity: Granularity;
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("flags a property typed as a class", () => {
+		const diags = runRule(
+			validatedNonPrimitiveNeedsType,
+			`
+      import { IsDefined } from 'class-validator';
+      export class Branding { color: string; }
+      export class Dto {
+        @IsDefined()
+        branding: Branding;
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+	});
+
+	it("flags an array of a class", () => {
+		const diags = runRule(
+			validatedNonPrimitiveNeedsType,
+			`
+      import { IsArray } from 'class-validator';
+      export class Tag { id: string; }
+      export class Dto {
+        @IsArray()
+        tags: Tag[];
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+	});
+
 	it("flags non-primitive property with validator but no @Type()", () => {
 		const diags = runRule(
 			validatedNonPrimitiveNeedsType,
@@ -1472,6 +1518,52 @@ describe("validated-non-primitive-needs-type", () => {
 });
 
 describe("no-duplicate-decorators", () => {
+	it("does not flag stacked interceptors with different arguments", () => {
+		const diags = runRule(
+			noDuplicateDecorators,
+			`
+      import { Controller, Get, UseInterceptors } from '@nestjs/common';
+      @Controller('a')
+      export class AController {
+        @Get()
+        @UseInterceptors(RedactInterceptor)
+        @UseInterceptors(TransformRequestInterceptor)
+        @UseInterceptors(TransformResponseInterceptor)
+        list() { return []; }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag the same decorator with different arguments", () => {
+		const diags = runRule(
+			noDuplicateDecorators,
+			`
+      export class A {
+        @ApiResponse({ status: 200 })
+        @ApiResponse({ status: 404 })
+        find() {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("flags a decorator repeated verbatim", () => {
+		const diags = runRule(
+			noDuplicateDecorators,
+			`
+      export class A {
+        @UseInterceptors(LoggingInterceptor)
+        @UseInterceptors(LoggingInterceptor)
+        find() {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+	});
+
 	it("flags duplicate decorator on a method", () => {
 		const diags = runRule(
 			noDuplicateDecorators,
