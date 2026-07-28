@@ -150,72 +150,45 @@ export const noHardcodedSecrets: Rule = {
 			}
 		}
 
-		// Check variable declarations and property assignments with suspicious names
-		const variableDeclarations = context.sourceFile.getDescendantsOfKind(
-			SyntaxKind.VariableDeclaration
-		);
+		// A named binding holding a string literal, wherever it is declared.
+		const NAMED_BINDINGS = [
+			{ kind: SyntaxKind.VariableDeclaration, noun: "Variable" },
+			{ kind: SyntaxKind.PropertyAssignment, noun: "Property" },
+			{ kind: SyntaxKind.PropertyDeclaration, noun: "Property" },
+		] as const;
 
-		for (const decl of variableDeclarations) {
-			const name = decl.getName();
-			const initializer = decl.getInitializer();
-			if (!initializer || initializer.getKind() !== SyntaxKind.StringLiteral) {
-				continue;
-			}
+		for (const { kind, noun } of NAMED_BINDINGS) {
+			for (const node of context.sourceFile.getDescendantsOfKind(kind)) {
+				const name = node.getName();
+				const initializer = node.getInitializer();
+				if (
+					!initializer ||
+					initializer.getKind() !== SyntaxKind.StringLiteral
+				) {
+					continue;
+				}
 
-			if (!hasSuspiciousName(name)) {
-				continue;
-			}
+				if (!hasSuspiciousName(name)) {
+					continue;
+				}
 
-			const value = initializer.getText().slice(1, -1);
-			if (
-				SCOPE_VALUE.test(value) ||
-				echoesName(name, value) ||
-				(isThrownMessage(decl) && isWordSequence(value))
-			) {
-				continue;
-			}
-			if (isSuspiciousValue(value)) {
-				context.report({
-					filePath: context.filePath,
-					message: `Variable '${name}' appears to contain a hardcoded secret.`,
-					help: this.meta.help,
-					line: decl.getStartLineNumber(),
-					column: 1,
-				});
-			}
-		}
-
-		const propertyAssignments = context.sourceFile.getDescendantsOfKind(
-			SyntaxKind.PropertyAssignment
-		);
-
-		for (const prop of propertyAssignments) {
-			const name = prop.getName();
-			const initializer = prop.getInitializer();
-			if (!initializer || initializer.getKind() !== SyntaxKind.StringLiteral) {
-				continue;
-			}
-
-			if (!hasSuspiciousName(name)) {
-				continue;
-			}
-
-			const value = initializer.getText().slice(1, -1);
-			if (
-				SCOPE_VALUE.test(value) ||
-				echoesName(name, value) ||
-				(isThrownMessage(prop) && isWordSequence(value))
-			) {
-				continue;
-			}
-			if (isSuspiciousValue(value)) {
-				context.report({
-					filePath: context.filePath,
-					message: `Property '${name}' appears to contain a hardcoded secret.`,
-					help: this.meta.help,
-					line: prop.getStartLineNumber(),
-					column: 1,
-				});
+				const value = initializer.getText().slice(1, -1);
+				if (
+					SCOPE_VALUE.test(value) ||
+					echoesName(name, value) ||
+					(isThrownMessage(node) && isWordSequence(value))
+				) {
+					continue;
+				}
+				if (isSuspiciousValue(value)) {
+					context.report({
+						filePath: context.filePath,
+						message: `${noun} '${name}' appears to contain a hardcoded secret.`,
+						help: this.meta.help,
+						line: node.getStartLineNumber(),
+						column: 1,
+					});
+				}
 			}
 		}
 	},

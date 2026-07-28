@@ -25,6 +25,46 @@ function runRule(code: string, filePath = "test.ts"): Diagnostic[] {
 }
 
 describe("no-hardcoded-secrets", () => {
+	it("flags a class property holding a secret", () => {
+		const diags = runRule(`
+      export class SocketConstants {
+        public static readonly AUTH_TOKEN = 'FutureIsComing';
+      }
+    `);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("AUTH_TOKEN");
+	});
+
+	it("flags a private readonly password field", () => {
+		const diags = runRule(`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class MailService {
+        private readonly password = 'hunter2hunter2hunter2';
+      }
+    `);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("password");
+	});
+
+	it("does not flag a class property read from the environment", () => {
+		const diags = runRule(`
+      export class Config {
+        private readonly apiSecret = process.env.API_SECRET;
+      }
+    `);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag a class property whose value echoes its name", () => {
+		const diags = runRule(`
+      export class Fields {
+        readonly passwordField = 'password';
+      }
+    `);
+		expect(diags).toHaveLength(0);
+	});
+
 	it("flags hardcoded secret key patterns", () => {
 		const diags = runRule(`
       const token = 'sk-abcdefghijklmnopqrstuvwxyz1234567890';
