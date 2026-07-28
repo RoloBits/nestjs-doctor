@@ -1,5 +1,96 @@
 # nestjs-doctor
 
+## 0.7.0
+
+### Minor Changes
+
+- 7157408: Remove the base64 shape detector from `security/no-hardcoded-secrets`.
+
+  Every other pattern in that rule recognises a format someone issues: a GitHub
+  token, an AWS access key, a Slack token, a JWT. This one recognised a shape —
+  any forty characters of the base64 alphabet containing a digit — so everything
+  base64-ish matched, and three guards had to be bolted on to make it usable:
+  decode-to-JSON, a pagination-property allowlist, and an identifier heuristic.
+
+  Those guards were the rule's two worst failures. The identifier heuristic
+  cleared about a third of genuinely random keys, measured over 20,000 samples,
+  and its entropy check was dead code that could not change the outcome. In the
+  other direction, nine of the twelve tests covering the pattern existed only to
+  suppress something it wrongly reported: migration class names, camelCase
+  identifiers, pagination cursors, encoded JSON.
+
+  Across three public repositories it found nothing at all. Every secret those
+  codebases do contain is reported either by a real format pattern or by the
+  property-name path, both untouched.
+
+  What you lose: a base64 secret stored under a name that does not look like a
+  secret. Under `secret`, `password` or `apiKey` the name path still catches it.
+
+### Patch Changes
+
+- faa9f28: Stop three rules reporting working NestJS code, all found by scanning public
+  repositories.
+
+  `correctness/no-missing-injectable` flagged CQRS handlers and queue processors.
+  The rule modelled a list of decorators that "imply @Injectable", which is not
+  how NestJS works: the injector reads `design:paramtypes`, and TypeScript emits
+  that for a class carrying any class-level decorator. The rule now asks that
+  question instead of consulting a list, so `@CommandHandler`, `@Processor` and
+  every third-party or project decorator work without being enumerated. A
+  provider with constructor parameters and no class decorator — the shape that
+  actually fails at boot — still reports, and so does one whose only decorator is
+  on a method.
+
+  `architecture/no-manual-instantiation` flagged `new HeaderResolver(['x-lang'])`
+  inside `I18nModule.forRootAsync(...)`. A `new` inside a decorator argument is
+  configuration; `useValue: new X()` is documented NestJS. The skip that already
+  covered guards and interceptors now covers every suffix.
+
+  `security/no-hardcoded-secrets` flagged message keys and permission constants:
+  `throw new UnprocessableEntityException({ errors: { password: 'incorrectPassword' } })`,
+  `PASSWORD_UPDATE: 'password:update'`, and `SYS_USER_INITPASSWORD = 'sys_user_initPassword'`.
+  Three narrow skips on the name-based path: a string handed to `throw`, a
+  lowercase colon-separated scope, and a value that only restates its own name. A
+  credential never matches any of the three; `correct-horse-battery-staple` and
+  `super-secret-key` under a `password` property still report, and the
+  pattern-based detection is untouched.
+
+  Twelve false errors removed across the three repositories.
+
+- 38ec6dd: Resolve base entities imported through tsconfig path aliases.
+
+  The analysis project was built without `compilerOptions.paths`, so a base class
+  imported through an alias like `~/common/entity/common.entity` resolved to
+  nothing and the inheritance walk stopped before reaching it. An abstract base
+  carrying `@PrimaryGeneratedColumn()` and the timestamp columns was invisible to
+  every entity extending it: on `buqiyuan/nest-admin` that meant 13 false
+  `schema/require-primary-key` errors and 13 false `schema/require-timestamps`
+  warnings. The same gap affected MikroORM inheritance; Drizzle and Prisma never
+  resolve TypeScript imports and were unaffected.
+
+  The parser now receives the aliases the engine already loads per project. The
+  TypeORM inheritance walk also stops at `node_modules`, since with aliases
+  resolving the compiler can now reach `typeorm`'s own `BaseEntity` declaration.
+
+  Better resolution cuts both ways: types the checker could not see before can
+  now surface findings that were wrongly hidden. On the same repository this
+  revealed four unawaited async calls and two raw-entity responses, all real.
+
+  Projects without a tsconfig or without `paths` are untouched.
+
+- 2bdc2c9: Detect API keys that carry an environment segment.
+
+  `security/no-hardcoded-secrets` matched `sk` or `pk`, one separator, then
+  alphanumerics. Every key Stripe issues is `sk_live_…` or `sk_test_…`, with a
+  second underscore, so none of them matched — nor did OpenAI's `sk-proj-…` or
+  Anthropic's `sk-ant-api03-…`. A committed Stripe key was blocked by GitHub's
+  push protection and missed here.
+
+  An added pattern allows up to two lowercase prefix segments and requires a digit
+  in the tail, so `sk_some_long_variable_name_here` and
+  `sk_module_config_provider_token` are still ignored. The existing patterns are
+  unchanged, so no current finding changes its message.
+
 ## 0.6.1
 
 ### Patch Changes
