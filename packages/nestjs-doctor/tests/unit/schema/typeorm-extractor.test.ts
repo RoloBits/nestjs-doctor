@@ -812,10 +812,13 @@ export class Review {
 		expect(graph.relations.length).toBeGreaterThanOrEqual(10);
 	});
 
-	it("stops the inheritance walk at node_modules declarations", () => {
+	it("should stop the inheritance walk at node_modules declarations", () => {
 		const { project, paths } = createProject({
 			"/proj/node_modules/typeorm/index.d.ts": `
+        export declare function Column(): PropertyDecorator;
         export declare class BaseEntity {
+          @Column()
+          internalFlag: string;
           save(): Promise<this>;
         }
         export declare function Entity(): ClassDecorator;
@@ -840,5 +843,6 @@ export class Review {
 
 		expect(user).toBeDefined();
 		expect(user?.columns.map((c) => c.name)).toEqual(["id", "email"]);
+		expect(user?.columns.map((c) => c.name)).not.toContain("internalFlag");
 	});
 });

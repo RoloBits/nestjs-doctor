@@ -5,18 +5,16 @@ export function createAstParser(
 	files: string[],
 	pathAliases?: PathAliasMap
 ): Project {
-	const paths =
-		pathAliases && pathAliases.size > 0
-			? Object.fromEntries(pathAliases)
-			: undefined;
-
 	const project = new Project({
 		compilerOptions: {
 			strict: true,
 			target: 99, // ESNext
 			module: 99, // ESNext
 			skipFileDependencyResolution: true,
-			...(paths ? { paths } : {}),
+			paths:
+				pathAliases && pathAliases.size > 0
+					? Object.fromEntries(pathAliases)
+					: undefined,
 		},
 		skipAddingFilesFromTsConfig: true,
 	});

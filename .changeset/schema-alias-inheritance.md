@@ -17,4 +17,8 @@ The parser now receives the aliases the engine already loads per project. The
 TypeORM inheritance walk also stops at `node_modules`, since with aliases
 resolving the compiler can now reach `typeorm`'s own `BaseEntity` declaration.
 
+Better resolution cuts both ways: types the checker could not see before can
+now surface findings that were wrongly hidden. On the same repository this
+revealed four unawaited async calls and two raw-entity responses, all real.
+
 Projects without a tsconfig or without `paths` are untouched.
