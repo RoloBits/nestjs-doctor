@@ -1,5 +1,6 @@
 import { extractSimpleTypeName } from "../../../graph/type-resolver.js";
 import { isController } from "../../../nest-class-inspector.js";
+import { columnOf } from "../../../source-position.js";
 import type { Rule } from "../../types.js";
 
 const ORM_TYPES = new Set([
@@ -50,7 +51,7 @@ export const noOrmInControllers: Rule = {
 						message: `Controller injects ORM type '${typeName}' directly. Use a service layer.`,
 						help: this.meta.help,
 						line: nameNode.getStartLineNumber(),
-						column: nameNode.getStartLinePos() + 1,
+						column: columnOf(nameNode),
 					});
 				}
 			}

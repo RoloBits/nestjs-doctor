@@ -25,6 +25,26 @@ function runRule(code: string): Diagnostic[] {
 }
 
 describe("prefer-readonly-injection", () => {
+	it("reports the column of the parameter, not a file offset", () => {
+		const code = [
+			"import { Injectable } from '@nestjs/common';",
+			"",
+			"@Injectable()",
+			"export class UsersService {",
+			"  constructor(private repo: any) {}",
+			"}",
+		].join("\n");
+		const diags = runRule(code);
+		expect(diags).toHaveLength(1);
+		const diag = diags[0];
+		if (!("line" in diag)) {
+			throw new Error("expected a code diagnostic");
+		}
+		const declLine = code.split("\n")[diag.line - 1];
+		expect(diag.column).toBe(declLine.indexOf("repo") + 1);
+		expect(diag.column).toBeLessThanOrEqual(declLine.length);
+	});
+
 	it("flags non-readonly constructor params in @Injectable classes", () => {
 		const diags = runRule(`
       import { Injectable } from '@nestjs/common';

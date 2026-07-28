@@ -1,5 +1,6 @@
 import { extractSimpleTypeName } from "../../../graph/type-resolver.js";
 import { isController } from "../../../nest-class-inspector.js";
+import { columnOf } from "../../../source-position.js";
 import type { Rule } from "../../types.js";
 
 const REPOSITORY_PATTERNS = [/Repository$/, /Repo$/];
@@ -36,7 +37,7 @@ export const noRepositoryInControllers: Rule = {
 						message: `Controller injects repository '${typeName}' directly. Use a service layer instead.`,
 						help: this.meta.help,
 						line: nameNode.getStartLineNumber(),
-						column: nameNode.getStartLinePos() + 1,
+						column: columnOf(nameNode),
 					});
 				}
 			}
