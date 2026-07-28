@@ -14,7 +14,6 @@ const SINGLE_USE_DECORATORS = new Set([
 	"Module",
 	"Resolver",
 	"WebSocketGateway",
-	// Nest stores one route path per handler, so a second overwrites the first.
 	...HTTP_DECORATORS,
 ]);
 
@@ -24,7 +23,7 @@ export const noDuplicateDecorators: Rule = {
 		category: "correctness",
 		severity: "warning",
 		description: "Same decorator should not appear twice on a single target",
-		help: "Remove the duplicate decorator — it was likely copy-pasted by mistake.",
+		help: "Remove the second decorator. Only one of them takes effect, so the other is dropped without an error.",
 	},
 
 	check(context) {

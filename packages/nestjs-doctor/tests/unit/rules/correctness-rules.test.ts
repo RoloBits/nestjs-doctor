@@ -1071,6 +1071,36 @@ describe("no-fire-and-forget-async", () => {
 		expect(diags).toHaveLength(1);
 	});
 
+	it("flags a .catch() that logs and then rethrows", () => {
+		const diags = runRule(
+			noFireAndForgetAsync,
+			`
+      export class MyService {
+        async refresh() { return 1; }
+        run() {
+          this.refresh().catch((e) => { console.error(e); throw e; });
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+	});
+
+	it("does not flag a .catch() that swallows on purpose", () => {
+		const diags = runRule(
+			noFireAndForgetAsync,
+			`
+      export class MyService {
+        async refresh() { return 1; }
+        run() {
+          this.refresh().catch(() => {});
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
 	it("does not flag a .catch() that logs before rethrowing nothing", () => {
 		const diags = runRule(
 			noFireAndForgetAsync,

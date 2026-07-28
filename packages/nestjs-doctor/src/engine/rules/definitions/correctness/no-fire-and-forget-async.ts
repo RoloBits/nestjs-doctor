@@ -38,16 +38,19 @@ const ASYNC_PREFIXES = new Set([
 ]);
 
 /**
- * A handler whose every statement throws leaves the rejection unhandled. Only
- * an inline function body is read, so a handler passed by name is left alone.
+ * A handler that ends by throwing leaves the rejection unhandled. Only an
+ * inline function body is read, so a handler passed by name is left alone.
  */
 function onlyRethrows(handler: Node | undefined): boolean {
 	if (!handler) {
 		return false;
 	}
+	const inner =
+		handler.asKind(SyntaxKind.ParenthesizedExpression)?.getExpression() ??
+		handler;
 	const fn =
-		handler.asKind(SyntaxKind.ArrowFunction) ??
-		handler.asKind(SyntaxKind.FunctionExpression);
+		inner.asKind(SyntaxKind.ArrowFunction) ??
+		inner.asKind(SyntaxKind.FunctionExpression);
 	if (!fn) {
 		return false;
 	}
@@ -56,15 +59,12 @@ function onlyRethrows(handler: Node | undefined): boolean {
 		return false;
 	}
 	const statements = body.asKindOrThrow(SyntaxKind.Block).getStatements();
-	return (
-		statements.length > 0 &&
-		statements.every((st) => st.getKind() === SyntaxKind.ThrowStatement)
-	);
+	return statements.at(-1)?.getKind() === SyntaxKind.ThrowStatement;
 }
 
 /**
- * True when the chain ends in `.catch(h)` or a `.then(ok, err)`, so a rejection
- * already has somewhere to go.
+ * True when the chain ends in `.catch(h)` or a `.then(ok, err)`, unless the
+ * catch handler only rethrows.
  */
 function hasRejectionHandler(callExpr: CallExpression): boolean {
 	let current: CallExpression | undefined = callExpr;
