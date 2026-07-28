@@ -24,14 +24,23 @@ recognised an `if` with no `else`. The commonest way to reject a request in a
 That counted as three branches and was reported as business logic, which is the
 opposite of true: translating a domain error into a status code is the HTTP
 concern a controller exists for. A chain now counts as a guard when every one of
-its branches only throws. A branch that does anything else still counts, so an
-`else` that assigns or calls is a branch as before.
+its branches only throws, written either `else if` or `else { if }`. A branch
+that does anything else still counts, so an `else` that assigns or calls is a
+branch as before.
 
-Across 189 public projects this removes 21 findings and adds none. All 21 sit in
-one project, across 7 of its controllers, so the count is a weak signal of how
-often this happens; the argument is the shape rather than the frequency.
+A chain also counts as **one** branch rather than one per link. It used to be
+counted per link, so adding a rejection made the rule likelier to fire:
+`if (a) throw; else { r = 5 }` was clean while
+`if (a) throw; else if (b) throw; else { r = 5 }` reported "2 if". More ways to
+reject a request should never read as more business logic.
+
+Across 189 public projects this takes the rule from 223 findings to 196 and adds
+none. 21 of the 27 are error mapping in one project, across 7 of its
+controllers, so the count is a weak signal of how often this happens; the
+argument is the shape rather than the frequency.
 
 The threshold is unchanged. One non-guard `if` per handler is still allowed,
 which was measured against two stricter alternatives: counting every remaining
-`if` adds 226 findings, and counting only branches that assign churns 49 out and
-67 in, among them header parsing that belongs in a controller.
+`if` takes the rule to 424, and counting only branches that assign takes it to
+241 while silencing cases that should fire, among them header parsing that
+belongs in a controller.

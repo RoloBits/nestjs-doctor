@@ -179,6 +179,81 @@ describe("no-business-logic-in-controllers", () => {
 		expect(diags).toHaveLength(0);
 	});
 
+	it("does not count a braced else that holds only a throwing chain", () => {
+		const diags = runRule(
+			noBusinessLogicInControllers,
+			`
+      import { Controller, Get } from '@nestjs/common';
+      @Controller('bills')
+      export class BillsController {
+        @Get(':id')
+        async find(id: string) {
+          if (!id) {
+            throw new BadRequestException();
+          } else {
+            if (id === 'x') {
+              throw new NotFoundException();
+            } else {
+              throw new BadRequestException();
+            }
+          }
+          if (id === 'y') {
+            this.rate = 5;
+          }
+          return this.service.find(id);
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("counts a chain once however many links it has", () => {
+		const twoLinks = runRule(
+			noBusinessLogicInControllers,
+			`
+      import { Controller, Get } from '@nestjs/common';
+      @Controller('bills')
+      export class BillsController {
+        @Get(':id')
+        async find(id: string, kind: string) {
+          if (kind === 'a') {
+            throw new BadRequestException();
+          } else {
+            this.rate = 5;
+          }
+          return this.service.find(id);
+        }
+      }
+    `
+		);
+		const fourLinks = runRule(
+			noBusinessLogicInControllers,
+			`
+      import { Controller, Get } from '@nestjs/common';
+      @Controller('bills')
+      export class BillsController {
+        @Get(':id')
+        async find(id: string, kind: string) {
+          if (kind === 'a') {
+            throw new BadRequestException();
+          } else if (kind === 'b') {
+            throw new BadRequestException();
+          } else if (kind === 'c') {
+            throw new BadRequestException();
+          } else {
+            this.rate = 5;
+          }
+          return this.service.find(id);
+        }
+      }
+    `
+		);
+		// Adding rejection branches must not turn one branch into several.
+		expect(twoLinks).toHaveLength(0);
+		expect(fourLinks).toHaveLength(0);
+	});
+
 	it("counts an if/else chain whose last branch does work", () => {
 		const diags = runRule(
 			noBusinessLogicInControllers,
