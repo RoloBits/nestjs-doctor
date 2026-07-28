@@ -24,6 +24,28 @@ const SELF_ACTIVATING_DECORATORS = new Set([
 	"WebSocketGateway",
 ]);
 
+// Contracts the framework calls without anyone injecting the class: lifecycle
+// hooks, and the guard/interceptor/filter/pipe/middleware roles.
+const SELF_ACTIVATING_INTERFACES = new Set([
+	"BeforeApplicationShutdown",
+	"CanActivate",
+	"ExceptionFilter",
+	"NestInterceptor",
+	"NestMiddleware",
+	"OnApplicationBootstrap",
+	"OnApplicationShutdown",
+	"OnModuleDestroy",
+	"OnModuleInit",
+	"PipeTransform",
+]);
+
+function implementsSelfActivating(cls: ClassDeclaration): boolean {
+	return cls.getImplements().some((clause) => {
+		const name = clause.getExpression().getText().split("<")[0];
+		return SELF_ACTIVATING_INTERFACES.has(name);
+	});
+}
+
 function hasSelfActivatingDecorator(cls: ClassDeclaration): boolean {
 	// Check class-level decorators
 	for (const decorator of cls.getDecorators()) {
@@ -122,7 +144,10 @@ export const noUnusedProviders: ProjectRule = {
 			}
 
 			// Skip self-activating providers (e.g. @Cron, @OnEvent, @Process)
-			if (hasSelfActivatingDecorator(provider.classDeclaration)) {
+			if (
+				hasSelfActivatingDecorator(provider.classDeclaration) ||
+				implementsSelfActivating(provider.classDeclaration)
+			) {
 				continue;
 			}
 

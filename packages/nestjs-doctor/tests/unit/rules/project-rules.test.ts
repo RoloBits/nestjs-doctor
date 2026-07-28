@@ -327,6 +327,54 @@ describe("no-circular-module-deps", () => {
 });
 
 describe("no-unused-providers", () => {
+	const selfActivating: [string, string][] = [
+		["OnModuleInit", "OnModuleInit"],
+		["OnApplicationBootstrap", "OnApplicationBootstrap"],
+		["CanActivate", "CanActivate"],
+		["NestInterceptor", "NestInterceptor"],
+		["ExceptionFilter", "ExceptionFilter"],
+		["PipeTransform", "PipeTransform"],
+		["NestMiddleware", "NestMiddleware"],
+	];
+
+	for (const [name, iface] of selfActivating) {
+		it(`does not flag a provider implementing ${name}`, () => {
+			const diags = runProjectRule(noUnusedProviders, {
+				"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { DataSync } from './data-sync.js';
+        @Module({ providers: [DataSync] })
+        export class AppModule {}
+      `,
+				"data-sync.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class DataSync implements ${iface} {}
+      `,
+			});
+			expect(diags.filter((d) => d.message.includes("DataSync"))).toHaveLength(
+				0
+			);
+		});
+	}
+
+	it("still flags a provider that implements nothing and is never injected", () => {
+		const diags = runProjectRule(noUnusedProviders, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { Idle } from './idle.service';
+        @Module({ providers: [Idle] })
+        export class AppModule {}
+      `,
+			"idle.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class Idle {}
+      `,
+		});
+		expect(diags.filter((d) => d.message.includes("Idle"))).toHaveLength(1);
+	});
+
 	it("does not flag a class registered with useClass", () => {
 		const diags = runProjectRule(noUnusedProviders, {
 			"app.module.ts": `
