@@ -307,7 +307,7 @@ describe("scanner integration", () => {
 		expect(secretDiags).toHaveLength(0);
 	});
 
-	it("produces a clean result for graphql-app (resolvers are implicit injectables)", async () => {
+	it("produces a clean result for graphql-app (decorated classes emit constructor metadata)", async () => {
 		const targetPath = resolve(FIXTURES, "graphql-app/src");
 		const scanConfig = await resolveScanConfig(targetPath);
 		const context = await buildAnalysisContext(targetPath, scanConfig);
@@ -901,7 +901,7 @@ describe("scanner integration", () => {
 		).toHaveLength(1);
 	});
 
-	it("does not flag migration identifiers as secrets in false-positives fixture", async () => {
+	it("reports nothing on the false-positives fixture", async () => {
 		const targetPath = resolve(FIXTURES, "false-positives/src");
 		const scanConfig = await resolveScanConfig(targetPath);
 		const context = await buildAnalysisContext(targetPath, scanConfig);

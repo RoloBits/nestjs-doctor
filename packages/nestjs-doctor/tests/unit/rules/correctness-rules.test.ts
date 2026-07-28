@@ -179,6 +179,62 @@ describe("no-missing-injectable", () => {
 		expect(diags[0].message).toContain("MyService");
 	});
 
+	it("does not flag a CQRS handler, whose decorator emits the metadata", () => {
+		const diags = runProjectRule(noMissingInjectable, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ providers: [CreatePostHandler] })
+        export class AppModule {}
+      `,
+			"create-post.handler.ts": `
+        import { CommandHandler } from '@nestjs/cqrs';
+        @CommandHandler(CreatePostCommand)
+        export class CreatePostHandler {
+          constructor(private readonly repo: PostRepository) {}
+        }
+      `,
+		});
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag a queue processor", () => {
+		const diags = runProjectRule(noMissingInjectable, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ providers: [TaskConsumer] })
+        export class AppModule {}
+      `,
+			"task.processor.ts": `
+        import { Processor } from '@nestjs/bull';
+        @Processor('tasks')
+        export class TaskConsumer {
+          constructor(private readonly tasks: TaskService) {}
+        }
+      `,
+		});
+		expect(diags).toHaveLength(0);
+	});
+
+	it("still flags a provider whose only decorator is on a method", () => {
+		const diags = runProjectRule(noMissingInjectable, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ providers: [CronRunner] })
+        export class AppModule {}
+      `,
+			"cron.runner.ts": `
+        import { Cron } from '@nestjs/schedule';
+        export class CronRunner {
+          constructor(private readonly dep: OtherService) {}
+
+          @Cron('0 * * * *')
+          run() {}
+        }
+      `,
+		});
+		expect(diags).toHaveLength(1);
+	});
+
 	it("does not flag provider without constructor dependencies", () => {
 		const diags = runProjectRule(noMissingInjectable, {
 			"app.module.ts": `

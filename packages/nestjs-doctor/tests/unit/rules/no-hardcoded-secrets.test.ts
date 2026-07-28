@@ -196,4 +196,53 @@ describe("no-hardcoded-secrets", () => {
     `);
 		expect(diags.length).toBeGreaterThan(0);
 	});
+
+	it("does not flag a message key inside a thrown exception", () => {
+		const diags = runRule(`
+      function check() {
+        throw new UnprocessableEntityException({
+          errors: { password: 'incorrectPassword' },
+        });
+      }
+    `);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag a permission scope value", () => {
+		const diags = runRule(`
+      export const permissions = {
+        PASSWORD_UPDATE: 'password:update',
+        PASSWORD_RESET: 'pass:reset',
+      };
+    `);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag a value that only restates its own name", () => {
+		const diags = runRule(
+			"export const SYS_USER_INITPASSWORD = 'sys_user_initPassword';"
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("still flags a word-shaped credential outside a throw", () => {
+		const diags = runRule(`
+      const config = { password: 'correct-horse-battery-staple' };
+    `);
+		expect(diags).toHaveLength(1);
+	});
+
+	it("still flags a credential pair and a hyphenated secret", () => {
+		expect(runRule("const password = 'admin/administrator';")).toHaveLength(1);
+		expect(runRule("const apiKey = 'super-secret-key-value';")).toHaveLength(1);
+	});
+
+	it("still flags a real secret assigned inside a throw", () => {
+		const diags = runRule(`
+      function boom() {
+        throw new Error('AKIA1234567890ABCDEF');
+      }
+    `);
+		expect(diags.length).toBeGreaterThan(0);
+	});
 });

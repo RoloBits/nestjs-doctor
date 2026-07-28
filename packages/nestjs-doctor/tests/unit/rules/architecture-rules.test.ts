@@ -659,6 +659,41 @@ describe("no-manual-instantiation", () => {
 		expect(diags).toHaveLength(1);
 		expect(diags[0].message).toContain("UserService");
 	});
+
+	it("does not flag construction inside a dynamic module's options", () => {
+		const diags = runRule(
+			noManualInstantiation,
+			`
+	      import { Module } from '@nestjs/common';
+	      import { HeaderResolver, I18nModule } from 'nestjs-i18n';
+
+	      @Module({
+	        imports: [
+	          I18nModule.forRootAsync({
+	            resolvers: [new HeaderResolver(['x-lang'])],
+	          }),
+	        ],
+	      })
+	      export class AppModule {}
+	    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag a useValue provider instance", () => {
+		const diags = runRule(
+			noManualInstantiation,
+			`
+	      import { Module } from '@nestjs/common';
+
+	      @Module({
+	        providers: [{ provide: 'TOKEN', useValue: new MailerService() }],
+	      })
+	      export class AppModule {}
+	    `
+		);
+		expect(diags).toHaveLength(0);
+	});
 });
 
 describe("prefer-constructor-injection", () => {
