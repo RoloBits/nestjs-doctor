@@ -65,7 +65,7 @@ describe("no-business-logic-in-controllers", () => {
 		expect(diags).toHaveLength(1);
 	});
 
-	it("leaves an undecorated class alone even when it declares handlers", () => {
+	it("examines a base class that declares handlers without @Controller()", () => {
 		const diags = runRule(
 			noBusinessLogicInControllers,
 			`
@@ -81,7 +81,7 @@ describe("no-business-logic-in-controllers", () => {
       }
     `
 		);
-		expect(diags).toHaveLength(0);
+		expect(diags).toHaveLength(1);
 	});
 
 	it("leaves a decorated class with no route handler alone", () => {

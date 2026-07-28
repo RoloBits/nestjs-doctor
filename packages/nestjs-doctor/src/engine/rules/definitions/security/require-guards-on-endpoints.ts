@@ -1,6 +1,7 @@
 import type { ClassDeclaration, MethodDeclaration } from "ts-morph";
 import {
 	declaresRoutes,
+	isController,
 	isHttpHandler,
 } from "../../../nest-class-inspector.js";
 import type { GuardFacts, Rule } from "../../types.js";
@@ -47,6 +48,17 @@ export const requireGuardsOnEndpoints: Rule = {
 			}
 
 			if (hasGuard(cls, context.guards)) {
+				continue;
+			}
+
+			// A base class carries handlers but no @Controller(); the subclass that
+			// registers it may be where the guard lives.
+			const name = cls.getName();
+			if (
+				!isController(cls) &&
+				name &&
+				context.guards?.guardedBaseClasses.has(name)
+			) {
 				continue;
 			}
 
