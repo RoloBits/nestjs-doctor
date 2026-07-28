@@ -3,7 +3,8 @@ import type { PathAliasMap } from "./tsconfig-paths.js";
 
 export function createAstParser(
 	files: string[],
-	pathAliases?: PathAliasMap
+	pathAliases?: PathAliasMap,
+	baseUrl?: string
 ): Project {
 	const project = new Project({
 		compilerOptions: {
@@ -11,6 +12,7 @@ export function createAstParser(
 			target: 99, // ESNext
 			module: 99, // ESNext
 			skipFileDependencyResolution: true,
+			baseUrl,
 			paths:
 				pathAliases && pathAliases.size > 0
 					? Object.fromEntries(pathAliases)

@@ -22,7 +22,11 @@ import {
 	type ModuleGraph,
 	updateModuleGraphForFile,
 } from "./graph/module-graph.js";
-import { loadPathAliases, type PathAliasMap } from "./graph/tsconfig-paths.js";
+import {
+	loadBaseUrl,
+	loadPathAliases,
+	type PathAliasMap,
+} from "./graph/tsconfig-paths.js";
 import type { ProviderInfo } from "./graph/type-resolver.js";
 import {
 	resolveProviders,
@@ -60,7 +64,11 @@ export async function buildAnalysisContext(
 		detectProject(targetPath),
 	]);
 	const pathAliases = loadPathAliases(targetPath);
-	const astProject = createAstParser(files, pathAliases);
+	const astProject = createAstParser(
+		files,
+		pathAliases,
+		loadBaseUrl(targetPath)
+	);
 	const moduleGraph = buildModuleGraph(astProject, files, pathAliases);
 	const providers = resolveProviders(astProject, files);
 	const endpointGraph = buildEndpointGraph(astProject, files, providers);
@@ -149,7 +157,11 @@ async function buildSubProjectContext(
 	]);
 
 	const pathAliases = loadPathAliases(projectPath);
-	const astProject = createAstParser(files, pathAliases);
+	const astProject = createAstParser(
+		files,
+		pathAliases,
+		loadBaseUrl(projectPath)
+	);
 	const moduleGraph = buildModuleGraph(astProject, files, pathAliases);
 	const providers = resolveProviders(astProject, files);
 	const endpointGraph = buildEndpointGraph(astProject, files, providers);

@@ -88,3 +88,30 @@ export function resolvePathAlias(
 
 	return undefined;
 }
+
+/**
+ * The tsconfig `baseUrl`, resolved absolute. TypeScript resolves a bare
+ * specifier against it, so the checker needs it to follow `src/foo/bar`.
+ */
+export function loadBaseUrl(projectRoot: string): string | undefined {
+	try {
+		const configPath = ts.findConfigFile(
+			projectRoot,
+			ts.sys.fileExists,
+			"tsconfig.json"
+		);
+		if (!configPath) {
+			return undefined;
+		}
+		const { config, error } = ts.readConfigFile(configPath, ts.sys.readFile);
+		if (error || !config) {
+			return undefined;
+		}
+		const configDir = dirname(configPath);
+		const parsed = ts.parseJsonConfigFileContent(config, ts.sys, configDir);
+		const baseUrl = parsed.options.baseUrl;
+		return baseUrl ? resolve(baseUrl) : undefined;
+	} catch {
+		return undefined;
+	}
+}
