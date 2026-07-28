@@ -1,5 +1,6 @@
 import { extractSimpleTypeName } from "../../../graph/type-resolver.js";
 import { isService } from "../../../nest-class-inspector.js";
+import { columnOf } from "../../../source-position.js";
 import type { Rule } from "../../types.js";
 
 // Note: `Repository` (TypeORM) AND `EntityRepository` (MikroORM) are
@@ -57,7 +58,7 @@ export const noOrmInServices: Rule = {
 						message: `Service injects ORM type '${typeName}' directly. Consider using a repository abstraction.`,
 						help: this.meta.help,
 						line: nameNode.getStartLineNumber(),
-						column: nameNode.getStartLinePos() + 1,
+						column: columnOf(nameNode),
 					});
 				}
 

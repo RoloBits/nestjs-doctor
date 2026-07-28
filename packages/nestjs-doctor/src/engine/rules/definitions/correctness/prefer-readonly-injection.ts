@@ -1,4 +1,5 @@
 import { isController, isService } from "../../../nest-class-inspector.js";
+import { columnOf } from "../../../source-position.js";
 import type { Rule } from "../../types.js";
 
 export const preferReadonlyInjection: Rule = {
@@ -41,7 +42,7 @@ export const preferReadonlyInjection: Rule = {
 						message: `Constructor parameter '${param.getName()}' should be readonly.`,
 						help: this.meta.help,
 						line: nameNode.getStartLineNumber(),
-						column: nameNode.getStartLinePos() + 1,
+						column: columnOf(nameNode),
 					});
 				}
 			}
