@@ -100,10 +100,21 @@ export function isHttpHandler(method: MethodDeclaration): boolean {
 	return method.getDecorators().some((d) => HTTP_DECORATORS.has(d.getName()));
 }
 
+// Entry points the framework awaits for you, the same way it awaits a route
+// handler: GraphQL, WebSockets, microservice patterns, ts-rest and gRPC.
 const FRAMEWORK_HANDLER_DECORATORS = new Set([
-	"TsRestHandler",
+	"EventPattern",
 	"GrpcMethod",
 	"GrpcStreamMethod",
+	"MessagePattern",
+	"Mutation",
+	"Query",
+	"ResolveField",
+	"ResolveProperty",
+	"ResolveReference",
+	"SubscribeMessage",
+	"Subscription",
+	"TsRestHandler",
 ]);
 
 export function isFrameworkHandler(method: MethodDeclaration): boolean {

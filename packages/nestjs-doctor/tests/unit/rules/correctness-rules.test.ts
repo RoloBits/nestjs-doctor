@@ -1040,6 +1040,49 @@ describe("require-inject-decorator", () => {
 	});
 });
 
+describe("no-async-without-await framework handlers", () => {
+	const shapes: [string, string][] = [
+		["Query", "@Query()"],
+		["Mutation", "@Mutation()"],
+		["Subscription", "@Subscription()"],
+		["ResolveField", "@ResolveField()"],
+		["SubscribeMessage", "@SubscribeMessage('event')"],
+		["MessagePattern", "@MessagePattern({ cmd: 'x' })"],
+		["EventPattern", "@EventPattern('created')"],
+	];
+
+	for (const [name, decorator] of shapes) {
+		it(`does not flag a ${name} handler`, () => {
+			const diags = runRule(
+				noAsyncWithoutAwait,
+				`
+      export class Handler {
+        ${decorator}
+        async handle() {
+          return this.service.find();
+        }
+      }
+    `
+			);
+			expect(diags).toHaveLength(0);
+		});
+	}
+
+	it("still flags a plain async method with no await", () => {
+		const diags = runRule(
+			noAsyncWithoutAwait,
+			`
+      export class Handler {
+        async helper() {
+          return this.service.find();
+        }
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+	});
+});
+
 describe("no-fire-and-forget-async", () => {
 	it("flags a bare .catch() with no handler", () => {
 		const diags = runRule(
