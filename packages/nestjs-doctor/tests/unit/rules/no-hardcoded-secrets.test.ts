@@ -261,4 +261,26 @@ describe("no-hardcoded-secrets", () => {
 	it("still flags a colon-separated credential pair", () => {
 		expect(runRule("const authToken = 'admin:secretpass123';")).toHaveLength(1);
 	});
+
+	it("flags keys that carry an environment segment", () => {
+		for (const key of [
+			"sk_live_51H8xQ2LmNpQrStUvWxYz0123456789",
+			"pk_live_51H8xQ2LmNpQrStUvWxYz0123456789",
+			"rk_test_51H8xQ2LmNpQrStUvWxYz0123456789",
+			"sk-proj-abc123XYZdef456GHIjkl789MNO",
+			"sk-ant-api03-Abc123XYZdef456GHIjkl789MNO",
+		]) {
+			expect(runRule(`const client = '${key}';`).length).toBeGreaterThan(0);
+		}
+	});
+
+	it("does not flag prefixed identifiers that carry no digits", () => {
+		for (const value of [
+			"sk_some_long_variable_name_here",
+			"sk-config-default-value-name",
+			"sk_module_config_provider_token",
+		]) {
+			expect(runRule(`const name = '${value}';`)).toHaveLength(0);
+		}
+	});
 });
