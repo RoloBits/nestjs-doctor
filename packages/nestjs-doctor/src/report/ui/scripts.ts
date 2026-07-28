@@ -3254,6 +3254,7 @@ function epBuildGraph(ep) {
         totalMethods: dep.totalMethods,
         filePath: dep.filePath,
         line: dep.line,
+        expandedElsewhere: dep.expandedElsewhere,
         x: 0, y: 0, w: 180, h: 60
       };
       epNodes.push(n);
@@ -3486,16 +3487,33 @@ function epDraw() {
 
     // Order badge (#N)
     var badgeRight = x + 8 + badgeW;
+    var orderW = 0;
     if (n.order >= 0) {
       var orderLabel = "#" + (n.order + 1);
       epCtx.font = "bold 8px -apple-system, BlinkMacSystemFont, sans-serif";
-      var orderW = epCtx.measureText(orderLabel).width + 8;
+      orderW = epCtx.measureText(orderLabel).width + 8;
       epRoundRect(epCtx, badgeRight + 4, infoY, orderW, 12, 3);
       epCtx.fillStyle = "rgba(255,255,255,0.08)";
       epCtx.fill();
       epCtx.fillStyle = "#999";
       epCtx.textBaseline = "middle";
       epCtx.fillText(orderLabel, badgeRight + 8, infoY + 6);
+    }
+
+    // Repeat marker: this class's calls are drawn at an earlier call site
+    if (n.expandedElsewhere) {
+      var repeatLabel = "\u21B1 SHOWN ABOVE";
+      epCtx.font = "bold 8px -apple-system, BlinkMacSystemFont, sans-serif";
+      var repeatW = epCtx.measureText(repeatLabel).width + 8;
+      var repeatX = n.order >= 0 ? badgeRight + 4 + orderW + 4 : badgeRight + 4;
+      if (repeatX + repeatW <= x + n.w - 8) {
+        epRoundRect(epCtx, repeatX, infoY, repeatW, 12, 3);
+        epCtx.fillStyle = "rgba(255,255,255,0.08)";
+        epCtx.fill();
+        epCtx.fillStyle = "#888";
+        epCtx.textBaseline = "middle";
+        epCtx.fillText(repeatLabel, repeatX + 4, infoY + 6);
+      }
     }
 
     // Method name
@@ -3545,9 +3563,13 @@ function epShowTooltip(node, screenX, screenY) {
   if (node.conditional) {
     condLabel = '<div style="font-size:9px;color:#f59e0b;margin-top:4px">Conditionally called</div>';
   }
+  var repeatLabel = "";
+  if (node.expandedElsewhere) {
+    repeatLabel = '<div style="font-size:9px;color:#888;margin-top:4px">Calls drawn at an earlier call site</div>';
+  }
   epTooltipEl.innerHTML = '<div class="tt-name">' + escHtml(node.className) + '</div>' +
     '<div class="tt-table" style="color:' + color + '">' + escHtml(node.type) + '</div>' +
-    methodHtml + condLabel;
+    methodHtml + condLabel + repeatLabel;
   epTooltipEl.style.display = "block";
 
   var mainRect = epCanvas.parentElement.getBoundingClientRect();
