@@ -25,8 +25,9 @@ export const noOrphanModules: ProjectRule = {
 			}
 		}
 
-		// A bootstrapped module is an entry point, so nothing imports it. AppModule
-		// stays as a fallback for projects whose bootstrap is outside the scan.
+		// A bootstrapped module is an entry point, so nothing imports it. The name
+		// AppModule and a root filename are fallbacks when the bootstrap is
+		// outside the scan.
 		const entryPoints = collectBootstrappedModules(
 			context.project,
 			context.files
