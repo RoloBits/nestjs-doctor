@@ -16,14 +16,16 @@
  *       → fieldToColumn()         — map scalar fields to SchemaColumn (primary, nullable, default, generated)
  *       → extractOnDelete()       — extract onDelete action from @relation attribute
  */
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { globSync } from "tinyglobby";
 import type { Project } from "ts-morph";
 import type {
 	SchemaColumn,
 	SchemaEntity,
 	SchemaRelation,
 } from "../../common/schema.js";
+import { posixDirname } from "../graph/module-graph.js";
 import type { OrmSchemaExtractor } from "./extract.js";
 
 const MODEL_REGEX = /^model\s+(\w+)\s*\{/;
@@ -55,41 +57,149 @@ interface ParsedModel {
 	tableName?: string;
 }
 
-function findPrismaSchemaFiles(targetPath: string): string[] {
-	// Check prisma/schema.prisma (standard)
-	const standard = join(targetPath, "prisma", "schema.prisma");
-	if (existsSync(standard)) {
-		// Also check for multi-file schemas (prisma/*.prisma since Prisma v5.15)
-		const prismaDir = join(targetPath, "prisma");
-		const files = readdirSync(prismaDir).filter((f) => f.endsWith(".prisma"));
-		if (files.length > 1) {
-			return files.map((f) => join(prismaDir, f));
+// Directories whose .prisma files describe something other than this project:
+// scaffolding, vendored copies, generated client output, build artefacts.
+const NOT_THIS_PROJECT = [
+	"**/node_modules/**",
+	"**/dist/**",
+	"**/build/**",
+	"**/out/**",
+	"**/.next/**",
+	"**/coverage/**",
+	"**/generated/**",
+	"**/templates/**",
+	"**/template/**",
+	"**/examples/**",
+	"**/example/**",
+	"**/samples/**",
+	"**/sample/**",
+	"**/fixtures/**",
+	"**/__fixtures__/**",
+	"**/test/**",
+	"**/tests/**",
+	"**/__tests__/**",
+	"**/e2e/**",
+];
+
+const PRISMA_CONFIG_FILES = [
+	"prisma.config.ts",
+	"prisma.config.mts",
+	"prisma.config.js",
+	"prisma.config.mjs",
+];
+
+const CONFIG_SCHEMA_VALUE = /\bschema\s*:\s*["'`]([^"'`]+)["'`]/;
+
+/**
+ * Every `.prisma` file directly inside `directory`. Prisma merges siblings, so
+ * they are all part of one schema.
+ */
+function prismaFilesIn(directory: string): string[] {
+	try {
+		return readdirSync(directory)
+			.filter((name) => name.endsWith(".prisma"))
+			.map((name) => join(directory, name))
+			.sort();
+	} catch {
+		return [];
+	}
+}
+
+/** The `schema` path a `prisma.config.*` declares, if one is readable. */
+function schemaFromPrismaConfig(targetPath: string): string[] {
+	for (const name of PRISMA_CONFIG_FILES) {
+		const configPath = join(targetPath, name);
+		if (!existsSync(configPath)) {
+			continue;
 		}
-		return [standard];
+		try {
+			const declared = CONFIG_SCHEMA_VALUE.exec(
+				readFileSync(configPath, "utf-8")
+			)?.[1];
+			if (!declared) {
+				continue;
+			}
+			const resolved = join(targetPath, declared);
+			if (!existsSync(resolved)) {
+				continue;
+			}
+			return statSync(resolved).isDirectory()
+				? prismaFilesIn(resolved)
+				: [resolved];
+		} catch {
+			// Unreadable config — try the next name
+		}
+	}
+	return [];
+}
+
+/**
+ * The `.prisma` files nearest the project root, when no convention located
+ * them. Nx and similar layouts keep the schema inside a library.
+ */
+function searchForPrismaSchema(targetPath: string): string[] {
+	let found: string[];
+	try {
+		found = globSync(["**/*.prisma"], {
+			cwd: targetPath,
+			absolute: true,
+			ignore: NOT_THIS_PROJECT,
+		});
+	} catch {
+		return [];
+	}
+	if (found.length === 0) {
+		return [];
+	}
+	// Shallowest wins, then a directory named `prisma`, then alphabetical.
+	const depth = (path: string) => path.split("/").length;
+	const best = found.sort((a, b) => {
+		const byDepth = depth(a) - depth(b);
+		if (byDepth !== 0) {
+			return byDepth;
+		}
+		const aPrisma = posixDirname(a).endsWith("/prisma") ? 0 : 1;
+		const bPrisma = posixDirname(b).endsWith("/prisma") ? 0 : 1;
+		return aPrisma - bPrisma || a.localeCompare(b);
+	})[0];
+	return prismaFilesIn(posixDirname(best));
+}
+
+function findPrismaSchemaFiles(targetPath: string): string[] {
+	// prisma/schema.prisma, plus the folder form Prisma has allowed since 5.15
+	const conventional = prismaFilesIn(join(targetPath, "prisma"));
+	if (conventional.length > 0) {
+		return conventional;
 	}
 
-	// Check schema.prisma in root
 	const root = join(targetPath, "schema.prisma");
 	if (existsSync(root)) {
 		return [root];
 	}
 
-	// Check package.json for custom path
 	try {
-		const pkgPath = join(targetPath, "package.json");
-		const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+		const pkg = JSON.parse(
+			readFileSync(join(targetPath, "package.json"), "utf-8")
+		);
 		const customPath = pkg.prisma?.schema;
 		if (customPath) {
 			const resolved = join(targetPath, customPath);
 			if (existsSync(resolved)) {
-				return [resolved];
+				return statSync(resolved).isDirectory()
+					? prismaFilesIn(resolved)
+					: [resolved];
 			}
 		}
 	} catch {
 		// package.json not found or unreadable
 	}
 
-	return [];
+	const declared = schemaFromPrismaConfig(targetPath);
+	if (declared.length > 0) {
+		return declared;
+	}
+
+	return searchForPrismaSchema(targetPath);
 }
 
 function parseSchemaFiles(filePaths: string[]): {

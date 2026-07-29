@@ -687,3 +687,84 @@ model Review {
 		expect(graph.relations.length).toBeGreaterThanOrEqual(10);
 	});
 });
+
+describe("Prisma schema discovery", () => {
+	const MODEL = `
+model Widget {
+  id   Int    @id @default(autoincrement())
+  name String
+}
+`;
+
+	function writeAt(relative: string, content = MODEL): void {
+		const full = join(testDir, relative);
+		mkdirSync(join(full, ".."), { recursive: true });
+		writeFileSync(full, content, "utf-8");
+	}
+
+	function entities(): string[] {
+		const graph = extractSchema(
+			new Project({ useInMemoryFileSystem: true }),
+			[],
+			"prisma",
+			testDir
+		);
+		return [...graph.entities.keys()];
+	}
+
+	it("finds a schema nested inside a library", () => {
+		writeAt("libs/database/src/lib/prisma/schema.prisma");
+		expect(entities()).toEqual(["Widget"]);
+	});
+
+	it("reads the path a prisma.config.ts declares", () => {
+		writeAt("apps/api/src/db/schema.prisma");
+		writeFileSync(
+			join(testDir, "prisma.config.ts"),
+			`export default { schema: "apps/api/src/db/schema.prisma" };`,
+			"utf-8"
+		);
+		expect(entities()).toEqual(["Widget"]);
+	});
+
+	it("reads a folder a prisma.config.ts declares", () => {
+		writeAt("db/schema/widget.prisma");
+		writeFileSync(
+			join(testDir, "prisma.config.ts"),
+			`export default { schema: "db/schema" };`,
+			"utf-8"
+		);
+		expect(entities()).toEqual(["Widget"]);
+	});
+
+	it("prefers the conventional directory over anything nested", () => {
+		writeAt("prisma/schema.prisma");
+		writeAt(
+			"libs/other/prisma/schema.prisma",
+			"model Decoy {\n  id Int @id\n}\n"
+		);
+		expect(entities()).toEqual(["Widget"]);
+	});
+
+	const ignored = [
+		"node_modules/.prisma/client/schema.prisma",
+		"generators/prisma/templates/mysql/prisma/schema.prisma",
+		"examples/fastify/prisma/schema.prisma",
+		"sample/22-graphql-prisma/prisma/schema.prisma",
+		"test/prisma/schema.prisma",
+		"e2e/prisma/schema.prisma",
+		"apps/server/generated/prisma/schema.prisma",
+		"dist/prisma/schema.prisma",
+	];
+
+	for (const location of ignored) {
+		it(`does not treat ${location.split("/")[0]}/ as the project's schema`, () => {
+			writeAt(location);
+			expect(entities()).toEqual([]);
+		});
+	}
+
+	it("finds nothing when the project has no schema", () => {
+		expect(entities()).toEqual([]);
+	});
+});
