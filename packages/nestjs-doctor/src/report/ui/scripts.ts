@@ -170,7 +170,7 @@ let W, H;
 // The graph is laid out after the nodes exist; resize does nothing before that.
 let graphReady = false;
 function resize() {
-  const sameSize = W === window.innerWidth - 340 && H === window.innerHeight - 96;
+  const prevW = W, prevH = H;
   W = window.innerWidth - 340;
   H = window.innerHeight - 96;
   canvas.width = W * dpr;
@@ -179,8 +179,11 @@ function resize() {
   canvas.style.height = H + "px";
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   if (graphReady) {
-    // Refit only when the canvas actually changed size.
-    if (!sameSize) centerGraph();
+    // Hold whatever was in the middle of the viewport in the middle of it.
+    if (prevW && prevH) {
+      camX += (W - prevW) / 2;
+      camY += (H - prevH) / 2;
+    }
     scheduleGraphDraw();
   }
 }
@@ -278,9 +281,9 @@ function layoutModules() {
   }
 }
 
-/** Fits the laid-out graph into the viewport. */
-function centerGraph() {
-  const visible = nodes.filter(isNodeVisible);
+/** Fits the given nodes, or the whole visible graph, into the viewport. */
+function centerGraph(subset) {
+  const visible = subset && subset.length > 0 ? subset : nodes.filter(isNodeVisible);
   if (visible.length === 0) return;
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   for (const n of visible) {
@@ -360,6 +363,9 @@ function enterFocus(n) {
   focusSet = getRelatedNames(n.name);
   document.getElementById("focus-btn").classList.add("visible");
   document.getElementById("focus-hint").style.display = "block";
+  centerGraph(nodes.filter((m) => isNodeVisible(m) && focusSet.has(m.name)));
+  syncModulesZoomUi();
+  scheduleGraphDraw();
 }
 
 function exitFocus() {
@@ -367,6 +373,8 @@ function exitFocus() {
   focusSet = null;
   document.getElementById("focus-btn").classList.remove("visible");
   document.getElementById("focus-hint").style.display = "none";
+  centerGraph();
+  syncModulesZoomUi();
   scheduleGraphDraw();
 }
 
@@ -649,10 +657,10 @@ function draw() {
     ctx.font = "bold 12px -apple-system, BlinkMacSystemFont, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(n.labelStr || getDisplayName(n), n.x, n.y - 5);
+    ctx.fillText(n.labelStr, n.x, n.y - 5);
     ctx.fillStyle = "#888";
     ctx.font = "10px -apple-system, BlinkMacSystemFont, sans-serif";
-    ctx.fillText(n.subStr || "", n.x, n.y + 10);
+    ctx.fillText(n.subStr, n.x, n.y + 10);
   }
   if (isolatedHeading && !focusNode) {
     ctx.globalAlpha = 1;
@@ -668,9 +676,18 @@ function draw() {
 
 // ── Hover tooltip ──
 const modulesTooltip = document.getElementById("modules-tooltip");
+let tooltipFor = null;
 
 function showModuleTooltip(n, sx, sy) {
   if (!modulesTooltip) return;
+  if (tooltipFor !== n) {
+    tooltipFor = n;
+    fillModuleTooltip(n);
+  }
+  placeModuleTooltip(sx, sy);
+}
+
+function fillModuleTooltip(n) {
   const imports = n.imports.length;
   const exports = n.exports.length;
   modulesTooltip.innerHTML =
@@ -680,14 +697,19 @@ function showModuleTooltip(n, sx, sy) {
     '<ul class="tt-cols"><li><span class="col-name">imports</span><span>' + imports +
     '</span></li><li><span class="col-name">exports</span><span>' + exports + "</span></li></ul>";
   modulesTooltip.style.display = "block";
+}
+
+/** Places the tooltip in viewport coordinates, kept on screen. */
+function placeModuleTooltip(clientX, clientY) {
   const box = modulesTooltip.getBoundingClientRect();
-  const left = Math.min(sx + 16, Math.max(0, W - box.width - 8));
-  const top = Math.min(Math.max(0, sy - 10), Math.max(0, H - box.height - 8));
+  const left = Math.min(clientX + 16, Math.max(0, window.innerWidth - box.width - 8));
+  const top = Math.min(Math.max(0, clientY - 10), Math.max(0, window.innerHeight - box.height - 8));
   modulesTooltip.style.left = left + "px";
   modulesTooltip.style.top = top + "px";
 }
 
 function hideModuleTooltip() {
+  tooltipFor = null;
   if (modulesTooltip) modulesTooltip.style.display = "none";
 }
 
@@ -697,9 +719,7 @@ canvas.addEventListener("mousemove", (e) => {
     return;
   }
   const rect = canvas.getBoundingClientRect();
-  const sx = e.clientX - rect.left;
-  const sy = e.clientY - rect.top;
-  const pos = screenToWorld(sx, sy);
+  const pos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
   let hit = null;
   for (const n of nodes) {
     if (!isNodeVisible(n)) continue;
@@ -710,7 +730,7 @@ canvas.addEventListener("mousemove", (e) => {
   }
   canvas.style.cursor = hit ? "pointer" : "";
   if (hit) {
-    showModuleTooltip(hit, sx, sy);
+    showModuleTooltip(hit, e.clientX, e.clientY);
   } else {
     hideModuleTooltip();
   }

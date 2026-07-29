@@ -22,4 +22,10 @@ prefix can no longer push it out of view. The old code measured a short count
 string while drawing a longer one, so boxes were sized for text narrower than
 what went into them.
 
-The tab also gains the zoom bar and re-center control the schema diagram has.
+The tab also gains the zoom bar and re-center control the schema diagram has,
+a hover tooltip with the full module name, and focusing a module now brings it
+and its neighbours into view rather than only dimming everything else.
+
+One caveat: dagre is loaded from a CDN, so a report opened without network access
+falls back to a plain grid per group and loses the top-down ordering. The old
+simulation ran offline. That tradeoff already applied to the schema diagram.

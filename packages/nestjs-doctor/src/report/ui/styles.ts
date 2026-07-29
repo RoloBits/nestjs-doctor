@@ -839,7 +839,7 @@ canvas:active { cursor: grabbing; }
   cursor: grab; display: block;
 }
 #schema-canvas:active { cursor: grabbing; }
-#modules-tooltip { position: absolute; z-index: 20; }
+#modules-tooltip { position: fixed; z-index: 25; }
 /* Left, because the detail panel is fixed over the right edge. */
 #modules-toolbar {
   position: absolute; top: 12px; left: 12px; z-index: 10;
