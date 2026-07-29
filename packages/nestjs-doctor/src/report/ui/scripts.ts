@@ -299,7 +299,14 @@ function centerGraph(subset) {
     : 0;
   const usableW = covered > W / 2 ? W : W - covered;
   const fit = Math.min(1.2, Math.min((usableW * 0.9) / (maxX - minX || 1), (H * 0.9) / (maxY - minY || 1)));
-  zoom = Math.max(0.05, fit);
+  zoom = fit < FIT_TOO_SMALL ? READABLE_ZOOM : fit;
+  if (fit < FIT_TOO_SMALL) {
+    // Start at the top of the hierarchy, centred, and pan down from there.
+    const pad = 40;
+    camX = (usableW / 2 - W / 2) / zoom + W / 2 - (minX + maxX) / 2;
+    camY = (pad - H / 2) / zoom + H / 2 - minY;
+    return;
+  }
   camX = (usableW / 2 - W / 2) / zoom + W / 2 - (minX + maxX) / 2;
   camY = H / 2 - (minY + maxY) / 2;
 }
@@ -314,6 +321,10 @@ function relayoutGraph() {
 
 ctx.font = "12px -apple-system, BlinkMacSystemFont, sans-serif";
 const NODE_MAX_W = 220;
+// Below this a fit is too small to read, so the graph is shown readable and
+// panned instead. Above it, fitting everything still says more than zooming in.
+const FIT_TOO_SMALL = 0.4;
+const READABLE_ZOOM = 0.55;
 
 function clipToWidth(text, maxW) {
   if (ctx.measureText(text).width <= maxW) return text;

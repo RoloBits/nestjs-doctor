@@ -26,6 +26,10 @@ The tab also gains the zoom bar and re-center control the schema diagram has,
 a hover tooltip with the full module name, and focusing a module now brings it
 and its neighbours into view rather than only dimming everything else.
 
+A graph too wide to fit and still be read opens at a readable zoom instead,
+anchored at the top so the root module is where you start, and is panned from
+there. A graph that fits legibly still opens whole.
+
 One caveat: dagre is loaded from a CDN, so a report opened without network access
 falls back to a plain grid per group and loses the top-down ordering. The old
 simulation ran offline. That tradeoff already applied to the schema diagram.
