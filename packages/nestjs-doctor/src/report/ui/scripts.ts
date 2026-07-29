@@ -325,8 +325,14 @@ canvas.addEventListener("click", (e) => {
 
 canvas.addEventListener("wheel", (e) => {
   e.preventDefault();
-  const factor = e.deltaY > 0 ? 0.92 : 1.08;
-  zoom = Math.max(0.1, Math.min(5, zoom * factor));
+  // ctrlKey or metaKey means a pinch, which zooms; anything else pans.
+  if (e.ctrlKey || e.metaKey) {
+    const factor = e.deltaY > 0 ? 0.92 : 1.08;
+    zoom = Math.max(0.1, Math.min(5, zoom * factor));
+  } else {
+    camX -= e.deltaX / zoom;
+    camY -= e.deltaY / zoom;
+  }
 }, { passive: false });
 
 document.getElementById("close-detail").addEventListener("click", () => {
@@ -1830,6 +1836,11 @@ var sAllNodes = [];
 var sAllNodeMap = {};
 var sFocusedMode = false;
 var sShowCols = null;
+var sShowAllCols = false;
+// When on, picking a table in the diagram drives the list beside it.
+var sSyncSidebar = true;
+// The fit zoom of the current layout.
+var sMinZoom = 0.2;
 
 // Schema tooltip element
 var sTooltipEl = null;
@@ -1841,6 +1852,26 @@ function sScheduleRedraw() {
   if (!sSchemaDirty) {
     sSchemaDirty = true;
     requestAnimationFrame(function() { sSchemaDirty = false; schemaDraw(); });
+  }
+}
+
+/** Lowest zoom either control allows, low enough to fit a large diagram. */
+function sZoomFloor() {
+  return Math.min(sMinZoom, 0.05);
+}
+
+var sLastZoomUi = null;
+/** Keeps the zoom bar in step with the camera, whatever changed it. */
+function sSyncZoomUi() {
+  var pct = Math.round(sZoom * 100);
+  if (pct === sLastZoomUi) return;
+  sLastZoomUi = pct;
+  var range = document.getElementById("schema-zoom-range");
+  var label = document.getElementById("schema-zoom-value");
+  if (range) range.value = String(Math.max(5, Math.min(500, pct)));
+  if (label) {
+    label.textContent = pct + "%";
+    label.setAttribute("aria-label", pct + "% \\u00b7 fit to view");
   }
 }
 
@@ -2110,45 +2141,175 @@ function sPolylineMidpoint(points) {
   return { x: points[points.length - 1].x, y: points[points.length - 1].y };
 }
 
-// dagre layout computation
-function sComputeDagreLayout() {
-  if (typeof dagre === "undefined") {
-    // Fallback: simple grid layout
-    var cols = Math.max(1, Math.ceil(Math.sqrt(sNodes.length)));
-    for (var i = 0; i < sNodes.length; i++) {
-      sNodes[i].x = 300 + (i % cols) * 250;
-      sNodes[i].y = 200 + Math.floor(i / cols) * 120;
+/** Groups nodes into connected components using the relation edges. */
+function sComputeComponents(nodes) {
+  var index = {};
+  var parent = [];
+  for (var i = 0; i < nodes.length; i++) {
+    index[nodes[i].name] = i;
+    parent.push(i);
+  }
+  function find(a) {
+    while (parent[a] !== a) {
+      parent[a] = parent[parent[a]];
+      a = parent[a];
     }
-    sRouteAllEdges();
-    return;
+    return a;
   }
-
-  var g = new dagre.graphlib.Graph();
-  g.setGraph({ rankdir: "LR", nodesep: 60, ranksep: 120, marginx: 40, marginy: 40 });
-  g.setDefaultEdgeLabel(function() { return {}; });
-
-  for (var i = 0; i < sNodes.length; i++) {
-    g.setNode(sNodes[i].name, { width: sNodes[i].w, height: sNodes[i].h });
-  }
-
-  var seenEdge = {};
   for (var i = 0; i < schema.relations.length; i++) {
     var rel = schema.relations[i];
     if (rel.fromEntity === rel.toEntity) continue;
-    if (!sNodeMap[rel.fromEntity] || !sNodeMap[rel.toEntity]) continue;
-    var ek = sEdgeKey(rel.fromEntity, rel.toEntity);
+    var a = index[rel.fromEntity];
+    var b = index[rel.toEntity];
+    if (a === undefined || b === undefined) continue;
+    var ra = find(a), rb = find(b);
+    if (ra !== rb) parent[rb] = ra;
+  }
+  var groups = {};
+  for (var i = 0; i < nodes.length; i++) {
+    var root = find(i);
+    if (!groups[root]) groups[root] = [];
+    groups[root].push(nodes[i]);
+  }
+  var out = [];
+  for (var key in groups) {
+    if (Object.prototype.hasOwnProperty.call(groups, key)) out.push(groups[key]);
+  }
+  return out;
+}
+
+/** Positions one component from its own origin, with dagre or a grid. */
+function sLayoutComponent(nodes) {
+  var i;
+  if (nodes.length === 1 || typeof dagre === "undefined") {
+    var cols = Math.max(1, Math.ceil(Math.sqrt(nodes.length)));
+    var cellW = 0, cellH = 0;
+    for (i = 0; i < nodes.length; i++) {
+      if (nodes[i].w > cellW) cellW = nodes[i].w;
+      if (nodes[i].h > cellH) cellH = nodes[i].h;
+    }
+    var rows = Math.ceil(nodes.length / cols);
+    for (i = 0; i < nodes.length; i++) {
+      nodes[i].x = (i % cols) * (cellW + 60) + cellW / 2;
+      nodes[i].y = Math.floor(i / cols) * (cellH + 60) + cellH / 2;
+    }
+    return {
+      w: cols * cellW + (cols - 1) * 60,
+      h: rows * cellH + (rows - 1) * 60
+    };
+  }
+
+  var g = new dagre.graphlib.Graph();
+  g.setGraph({ rankdir: "LR", nodesep: 60, ranksep: 120, marginx: 0, marginy: 0 });
+  g.setDefaultEdgeLabel(function() { return {}; });
+
+  var present = {};
+  for (i = 0; i < nodes.length; i++) {
+    present[nodes[i].name] = true;
+    g.setNode(nodes[i].name, { width: nodes[i].w, height: nodes[i].h });
+  }
+
+  var seenEdge = {};
+  for (i = 0; i < schema.relations.length; i++) {
+    var edge = schema.relations[i];
+    if (edge.fromEntity === edge.toEntity) continue;
+    if (!present[edge.fromEntity] || !present[edge.toEntity]) continue;
+    var ek = sEdgeKey(edge.fromEntity, edge.toEntity);
     if (seenEdge[ek]) continue;
     seenEdge[ek] = true;
-    g.setEdge(rel.fromEntity, rel.toEntity);
+    g.setEdge(edge.fromEntity, edge.toEntity);
   }
 
   dagre.layout(g);
 
-  for (var i = 0; i < sNodes.length; i++) {
-    var laid = g.node(sNodes[i].name);
-    if (laid) {
-      sNodes[i].x = laid.x;
-      sNodes[i].y = laid.y;
+  var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (i = 0; i < nodes.length; i++) {
+    var laid = g.node(nodes[i].name);
+    if (!laid) continue;
+    nodes[i].x = laid.x;
+    nodes[i].y = laid.y;
+    minX = Math.min(minX, laid.x - nodes[i].w / 2);
+    maxX = Math.max(maxX, laid.x + nodes[i].w / 2);
+    minY = Math.min(minY, laid.y - nodes[i].h / 2);
+    maxY = Math.max(maxY, laid.y + nodes[i].h / 2);
+  }
+  if (minX === Infinity) return { w: 0, h: 0 };
+  for (i = 0; i < nodes.length; i++) {
+    nodes[i].x -= minX;
+    nodes[i].y -= minY;
+  }
+  return { w: maxX - minX, h: maxY - minY };
+}
+
+/** Packs unrelated tables into a compact grid instead of one long rank. */
+function sLayoutIsolatedBlock(nodes, gutter) {
+  var cols = Math.max(1, Math.ceil(Math.sqrt(nodes.length)));
+  var cellW = 0, cellH = 0;
+  for (var i = 0; i < nodes.length; i++) {
+    if (nodes[i].w > cellW) cellW = nodes[i].w;
+    if (nodes[i].h > cellH) cellH = nodes[i].h;
+  }
+  var rows = Math.ceil(nodes.length / cols);
+  for (var j = 0; j < nodes.length; j++) {
+    nodes[j].x = (j % cols) * (cellW + gutter) + cellW / 2;
+    nodes[j].y = Math.floor(j / cols) * (cellH + gutter) + cellH / 2;
+  }
+  return {
+    w: cols * cellW + (cols - 1) * gutter,
+    h: rows * cellH + (rows - 1) * gutter
+  };
+}
+
+/** Shelf-packs component boxes into a roughly square area. */
+function sPackBoxes(boxes, targetW, gutter) {
+  var x = 0, y = 0, shelfH = 0;
+  for (var i = 0; i < boxes.length; i++) {
+    var box = boxes[i];
+    if (x > 0 && x + box.w > targetW) {
+      x = 0;
+      y += shelfH + gutter;
+      shelfH = 0;
+    }
+    box.ox = x;
+    box.oy = y;
+    x += box.w + gutter;
+    if (box.h > shelfH) shelfH = box.h;
+  }
+}
+
+function sComputeOverviewLayout() {
+  var GUTTER = 80;
+  var components = sComputeComponents(sNodes);
+  var boxes = [];
+  var isolated = [];
+  var i;
+
+  for (i = 0; i < components.length; i++) {
+    if (components[i].length === 1) {
+      isolated.push(components[i][0]);
+      continue;
+    }
+    var size = sLayoutComponent(components[i]);
+    boxes.push({ nodes: components[i], w: size.w, h: size.h });
+  }
+
+  boxes.sort(function(a, b) { return b.h - a.h || b.w - a.w; });
+
+  if (isolated.length > 0) {
+    var isoSize = sLayoutIsolatedBlock(isolated, 28);
+    boxes.push({ nodes: isolated, w: isoSize.w, h: isoSize.h });
+  }
+
+  var area = 0;
+  for (i = 0; i < boxes.length; i++) area += boxes[i].w * boxes[i].h;
+  var targetW = Math.max(900, Math.sqrt(area) * 1.6);
+  sPackBoxes(boxes, targetW, GUTTER);
+
+  for (i = 0; i < boxes.length; i++) {
+    var placed = boxes[i];
+    for (var j = 0; j < placed.nodes.length; j++) {
+      placed.nodes[j].x += placed.ox;
+      placed.nodes[j].y += placed.oy;
     }
   }
 
@@ -2221,6 +2382,145 @@ function sComputeStarLayout(centerName) {
   }
 }
 
+/** Columns drawn per table before the "+N more" line, unless all are shown. */
+var S_DEFAULT_MAX_COLS = 7;
+
+var S_PK_COLOR = "#ea2845";
+var S_FK_COLOR = "#8b5cf6";
+var S_IDX_COLOR = "#f59e0b";
+
+/** Names a relation's property and that property with an Id suffix. */
+function sKeyName(text) {
+  return String(text).toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function sForeignKeyColumns(entity) {
+  var names = Object.create(null);
+  for (var i = 0; i < entity.relations.length; i++) {
+    var prop = entity.relations[i].propertyName;
+    if (!prop) continue;
+    names[sKeyName(prop)] = true;
+    names[sKeyName(prop) + "id"] = true;
+  }
+  return names;
+}
+
+function sColumnKind(column, foreignKeys) {
+  if (column.isPrimary) return "pk";
+  if (foreignKeys[sKeyName(column.name)]) return "fk";
+  if (column.isUnique || column.hasIndex) return "idx";
+  return null;
+}
+
+/** Draws the key, link or index glyph that marks what a column is. */
+function sDrawColumnIcon(ctx, kind, cx, cy) {
+  ctx.save();
+  ctx.lineWidth = 1.1;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  if (kind === "pk") {
+    ctx.strokeStyle = S_PK_COLOR;
+    ctx.beginPath();
+    ctx.arc(cx - 2, cy, 2.1, 0, Math.PI * 2);
+    ctx.moveTo(cx + 0.1, cy);
+    ctx.lineTo(cx + 4, cy);
+    ctx.moveTo(cx + 2.4, cy);
+    ctx.lineTo(cx + 2.4, cy + 1.8);
+    ctx.moveTo(cx + 4, cy);
+    ctx.lineTo(cx + 4, cy + 1.8);
+    ctx.stroke();
+  } else if (kind === "fk") {
+    ctx.strokeStyle = S_FK_COLOR;
+    ctx.beginPath();
+    ctx.arc(cx - 2.4, cy, 2, 0, Math.PI * 2);
+    ctx.moveTo(cx - 0.4, cy);
+    ctx.lineTo(cx + 4, cy);
+    ctx.moveTo(cx + 2.2, cy - 1.7);
+    ctx.lineTo(cx + 4, cy);
+    ctx.lineTo(cx + 2.2, cy + 1.7);
+    ctx.stroke();
+  } else if (kind === "idx") {
+    ctx.strokeStyle = S_IDX_COLOR;
+    ctx.beginPath();
+    ctx.moveTo(cx - 4, cy - 2.4);
+    ctx.lineTo(cx + 4, cy - 2.4);
+    ctx.moveTo(cx - 4, cy);
+    ctx.lineTo(cx + 1.6, cy);
+    ctx.moveTo(cx - 4, cy + 2.4);
+    ctx.lineTo(cx - 0.6, cy + 2.4);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function sVisibleColCount(node, showCols) {
+  if (!showCols) return 0;
+  var total = node.entity.columns.length;
+  return sShowAllCols ? total : Math.min(total, S_DEFAULT_MAX_COLS);
+}
+
+function sNodeHeight(node, showCols) {
+  if (!showCols) return 52;
+  var visible = sVisibleColCount(node, showCols);
+  var hidden = node.entity.columns.length - visible;
+  return 24 + visible * 16 + (hidden > 0 ? 16 : 0) + 8;
+}
+
+/** The overview shows columns; a focused star shows them for a small set. */
+function sColumnsShown(count) {
+  if (sShowCols !== null) return sShowCols;
+  return !sFocusedMode || count <= 5;
+}
+
+/** Single source of truth for box size, used by both layout and drawing. */
+function sApplyNodeSizes(nodes) {
+  var showCols = sColumnsShown(nodes.length);
+  for (var i = 0; i < nodes.length; i++) {
+    nodes[i].w = 180;
+    nodes[i].h = sNodeHeight(nodes[i], showCols);
+  }
+  return showCols;
+}
+
+/**
+ * Truncation depends only on the fixed box width and font, never on zoom, so
+ * every label is measured once here instead of on every frame.
+ */
+function sCacheNodeLabels(nodes) {
+  if (!sCtx) return;
+  var BOX_W = 180;
+  var maxNameW = BOX_W - 20 - 8;
+  var maxMetaW = BOX_W - 16;
+  function clip(text, maxW) {
+    if (sCtx.measureText(text).width <= maxW) return text;
+    var out = text;
+    while (sCtx.measureText(out).width > maxW && out.length > 3) {
+      out = out.slice(0, -1);
+    }
+    return out + "\\u2026";
+  }
+  for (var i = 0; i < nodes.length; i++) {
+    var n = nodes[i];
+    sCtx.font = "bold 12px -apple-system, BlinkMacSystemFont, sans-serif";
+    n.nameStr = clip(n.name, maxNameW);
+    sCtx.font = "11px -apple-system, BlinkMacSystemFont, sans-serif";
+    n.metaStr = clip(n.entity.columns.length + " cols  \\u00b7  " + n.sizeLabel, maxMetaW);
+    sCtx.font = "10px monospace";
+    n.colTypes = [];
+    for (var c = 0; c < n.entity.columns.length; c++) {
+      n.colTypes.push(clip(n.entity.columns[c].type, 60));
+    }
+    var foreignKeys = sForeignKeyColumns(n.entity);
+    sCtx.font = "11px -apple-system, BlinkMacSystemFont, sans-serif";
+    n.colNames = [];
+    n.colKinds = [];
+    for (var k = 0; k < n.entity.columns.length; k++) {
+      n.colNames.push(clip(n.entity.columns[k].name, 83));
+      n.colKinds.push(sColumnKind(n.entity.columns[k], foreignKeys));
+    }
+  }
+}
+
 function sSetVisibleSubset(entityName) {
   if (!sFocusedMode) return;
 
@@ -2249,14 +2549,7 @@ function sSetVisibleSubset(entityName) {
     }
   }
 
-  var showCols = sShowCols !== null ? sShowCols : sNodes.length <= 5;
-  for (var i = 0; i < sNodes.length; i++) {
-    var cols = sNodes[i].entity.columns;
-    var visCount = showCols ? Math.min(cols.length, 7) : 0;
-    var hasMore = showCols && cols.length > 7;
-    sNodes[i].h = showCols ? 24 + visCount * 16 + (hasMore ? 16 : 0) + 8 : 52;
-    sNodes[i].w = 180;
-  }
+  sApplyNodeSizes(sNodes);
 
   sComputeStarLayout(entityName);
   sRouteAllEdges();
@@ -2281,8 +2574,20 @@ function sCenterCamera() {
 
   var padW = sW * 0.85;
   var padH = sH * 0.85;
-  sZoom = Math.min(1.5, Math.min(padW / (graphW || 1), padH / (graphH || 1)));
-  sZoom = Math.max(0.2, sZoom);
+  var fit = Math.min(1.5, Math.min(padW / (graphW || 1), padH / (graphH || 1)));
+  // Records the fit so the controls can zoom out this far.
+  sMinZoom = Math.min(0.2, fit);
+  sZoom = Math.max(sMinZoom, fit);
+  // Stops the fit at the zoom where 11px column text is still legible.
+  var showingCols = sColumnsShown(sNodes.length);
+  if (showingCols && sZoom < 0.75) {
+    sZoom = 0.75;
+    // Anchors the top left of the diagram instead of centring it.
+    var pad = 40;
+    sCamX = (pad - sW / 2) / sZoom + sW / 2 - minX;
+    sCamY = (pad - sH / 2) / sZoom + sH / 2 - minY;
+    return;
+  }
   sCamX = sW / 2 - cx;
   sCamY = sH / 2 - cy;
 }
@@ -2304,6 +2609,7 @@ function sRoundRect(ctx, x, y, w, h, r) {
 
 // Drawing
 function schemaDraw() {
+  sSyncZoomUi();
   if (sNodes.length === 0) return;
   sCtx.save();
   sCtx.clearRect(0, 0, sW, sH);
@@ -2362,13 +2668,15 @@ function schemaDraw() {
     }
 
     // Cardinality label at polyline midpoint
-    var mid = sPolylineMidpoint(points);
-    var labelStr = sRelLabel(rel.type);
-    sCtx.font = (10 / sZoom) + "px monospace";
-    sCtx.textAlign = "center";
-    sCtx.textBaseline = "bottom";
-    sCtx.fillStyle = isHovered ? "#ffffff" : "#666";
-    sCtx.fillText(labelStr, mid.x, mid.y - 4 / sZoom);
+    if (sZoom >= 0.35) {
+      var mid = sPolylineMidpoint(points);
+      var labelStr = sRelLabel(rel.type);
+      sCtx.font = (10 / sZoom) + "px monospace";
+      sCtx.textAlign = "center";
+      sCtx.textBaseline = "bottom";
+      sCtx.fillStyle = isHovered ? "#ffffff" : "#666";
+      sCtx.fillText(labelStr, mid.x, mid.y - 4 / sZoom);
+    }
   }
   sCtx.globalAlpha = 1;
 
@@ -2377,19 +2685,14 @@ function schemaDraw() {
   var R = 6;
   var HDR_H = 24;
   var COL_ROW_H = 16;
-  var MAX_VISIBLE_COLS = 7;
-  var showCols = sShowCols !== null ? sShowCols : sNodes.length <= 5;
+  var showCols = sApplyNodeSizes(sNodes);
 
   for (var i = 0; i < sNodes.length; i++) {
     var n = sNodes[i];
     var cols = n.entity.columns;
-    var visibleColCount = showCols ? Math.min(cols.length, MAX_VISIBLE_COLS) : 0;
-    var hasMore = showCols && cols.length > MAX_VISIBLE_COLS;
-    var BOX_H = showCols
-      ? HDR_H + visibleColCount * COL_ROW_H + (hasMore ? COL_ROW_H : 0) + 8
-      : 52;
-    n.w = BOX_W;
-    n.h = BOX_H;
+    var visibleColCount = sVisibleColCount(n, showCols);
+    var hasMore = cols.length > visibleColCount;
+    var BOX_H = n.h;
 
     var x = n.x - BOX_W / 2;
     var y = n.y - BOX_H / 2;
@@ -2450,41 +2753,37 @@ function schemaDraw() {
     sCtx.fillStyle = "#ea2845";
     sCtx.fillRect(iconX, iconY, iconSize, iconSize);
 
-    // Entity name (after icon)
-    sCtx.fillStyle = "#e0e0e0";
-    sCtx.font = "bold 12px -apple-system, BlinkMacSystemFont, sans-serif";
-    sCtx.textAlign = "left";
-    sCtx.textBaseline = "middle";
-    var nameStr = n.name;
-    var nameStartX = iconX + iconSize + 6;
-    var maxNameW = BOX_W - (nameStartX - x) - 8;
-    while (sCtx.measureText(nameStr).width > maxNameW && nameStr.length > 3) {
-      nameStr = nameStr.slice(0, -1);
+    // Entity name (after icon). Below this zoom the glyphs are sub-pixel mush.
+    if (sZoom >= 0.15) {
+      sCtx.fillStyle = "#e0e0e0";
+      sCtx.font = "bold 12px -apple-system, BlinkMacSystemFont, sans-serif";
+      sCtx.textAlign = "left";
+      sCtx.textBaseline = "middle";
+      sCtx.fillText(n.nameStr || n.name, iconX + iconSize + 6, y + HDR_H / 2);
     }
-    if (nameStr !== n.name) nameStr += "\\u2026";
-    sCtx.fillText(nameStr, nameStartX, y + HDR_H / 2);
 
-    if (showCols) {
+    // Body text is skipped below this zoom, where a row is about one pixel tall.
+    var showBodyText = sZoom >= 0.35;
+    if (showCols && showBodyText) {
       // Draw column rows below header
       var colY = y + HDR_H;
       for (var c = 0; c < visibleColCount; c++) {
         var col = cols[c];
-        // Column name (left-aligned)
-        sCtx.fillStyle = "#ccc";
+        // Key, link or index glyph, then the column name beside it
+        var kind = n.colKinds ? n.colKinds[c] : null;
+        if (kind) {
+          sDrawColumnIcon(sCtx, kind, x + 13, colY + COL_ROW_H / 2);
+        }
+        sCtx.fillStyle = kind === "pk" ? "#e0e0e0" : "#ccc";
         sCtx.font = "11px -apple-system, BlinkMacSystemFont, sans-serif";
         sCtx.textAlign = "left";
         sCtx.textBaseline = "middle";
-        sCtx.fillText(col.name, x + 10, colY + COL_ROW_H / 2);
+        sCtx.fillText(n.colNames ? n.colNames[c] : col.name, x + 21, colY + COL_ROW_H / 2);
         // Column type (right-aligned, dimmer)
         sCtx.fillStyle = "#3b82f6";
         sCtx.font = "10px monospace";
         sCtx.textAlign = "right";
-        var typeStr = col.type;
-        while (sCtx.measureText(typeStr).width > 60 && typeStr.length > 3) {
-          typeStr = typeStr.slice(0, -1);
-        }
-        if (typeStr !== col.type) typeStr += "\\u2026";
-        sCtx.fillText(typeStr, x + BOX_W - 10, colY + COL_ROW_H / 2);
+        sCtx.fillText(n.colTypes ? n.colTypes[c] : col.type, x + BOX_W - 10, colY + COL_ROW_H / 2);
         colY += COL_ROW_H;
       }
       // "+N more" indicator
@@ -2492,21 +2791,13 @@ function schemaDraw() {
         sCtx.fillStyle = "#666";
         sCtx.font = "10px -apple-system, BlinkMacSystemFont, sans-serif";
         sCtx.textAlign = "left";
-        sCtx.fillText("+" + (cols.length - MAX_VISIBLE_COLS) + " more", x + 10, colY + COL_ROW_H / 2);
+        sCtx.fillText("+" + (cols.length - visibleColCount) + " more", x + 10, colY + COL_ROW_H / 2);
       }
-    } else {
+    } else if (!showCols && showBodyText) {
       // Meta line: "N cols · ~X KB"
       sCtx.fillStyle = "#666";
       sCtx.font = "11px -apple-system, BlinkMacSystemFont, sans-serif";
-      var metaStr = n.entity.columns.length + " cols  \\u00b7  " + n.sizeLabel;
-      var metaFull = metaStr;
-      var metaX = x + 8;
-      var maxMetaW = BOX_W - 16;
-      while (sCtx.measureText(metaStr).width > maxMetaW && metaStr.length > 3) {
-        metaStr = metaStr.slice(0, -1);
-      }
-      if (metaStr.length < metaFull.length) metaStr += "\\u2026";
-      sCtx.fillText(metaStr, metaX, y + HDR_H + (BOX_H - HDR_H) / 2);
+      sCtx.fillText(n.metaStr || "", x + 8, y + HDR_H + (BOX_H - HDR_H) / 2);
     }
   }
   sCtx.globalAlpha = 1;
@@ -2584,8 +2875,14 @@ function sHideRelBadge() {
 // Canvas resize for schema
 function sResize() {
   var container = sCanvas.parentElement;
+  var prevW = sW, prevH = sH;
   sW = container.clientWidth;
   sH = container.clientHeight;
+  // Keep whatever was in the middle of the viewport in the middle of it.
+  if (prevW && prevH) {
+    sCamX += (sW - prevW) / 2;
+    sCamY += (sH - prevH) / 2;
+  }
   sCanvas.width = sW * sDpr;
   sCanvas.height = sH * sDpr;
   sCanvas.style.width = sW + "px";
@@ -2649,6 +2946,8 @@ function renderSchema() {
   for (var i = 0; i < sAllNodes.length; i++) {
     sAllNodeMap[sAllNodes[i].name] = sAllNodes[i];
   }
+  sCacheNodeLabels(sAllNodes);
+  // Starting mode only. The toolbar toggle switches it from here on.
   sFocusedMode = schema.entities.length > 7;
 
   // Set count badge
@@ -2671,7 +2970,7 @@ function renderSchema() {
   var ICON_INDEX = '<svg viewBox="0 0 16 16" fill="none" stroke="var(--cat-performance)" stroke-width="1.2"><line x1="3" y1="4" x2="13" y2="4"/><line x1="3" y1="8" x2="10" y2="8"/><line x1="3" y1="12" x2="7" y2="12"/></svg>';
 
   // Tree row builder
-  function sBuildTreeRow(depth, toggleId, icon, labelHtml, extra, classes, dataAttrs) {
+  function sBuildTreeRow(depth, toggleId, icon, labelHtml, extra, classes, dataAttrs, iconTip) {
     var h = '<div class="st-row' + (classes ? " " + classes : "") + '"' + (dataAttrs || "") + '>';
     for (var d = 0; d < depth; d++) h += '<span class="st-indent"></span>';
     if (toggleId) {
@@ -2679,12 +2978,18 @@ function renderSchema() {
     } else {
       h += '<span class="st-indent"></span>';
     }
-    h += '<span class="st-icon">' + icon + '</span>';
+    h += iconTip
+      ? '<span class="st-icon has-tip" data-tip="' + escHtml(iconTip) + '">' + icon + '</span>'
+      : '<span class="st-icon">' + icon + '</span>';
     h += '<span class="st-label">' + labelHtml + '</span>';
     if (extra) h += extra;
     h += '</div>';
     return h;
   }
+
+  var TIP_PK = "Primary key \\u00b7 identifies the row";
+  var TIP_FK = "Foreign key \\u00b7 points at another table";
+  var TIP_IDX = "Indexed \\u00b7 unique or carries an index";
 
   // Build sidebar tree
   var sidebarHtml = "";
@@ -2704,9 +3009,14 @@ function renderSchema() {
       var colGroupId = entityId + "-cols";
       sidebarHtml += sBuildTreeRow(2, colGroupId, ICON_FOLDER_CLOSED, '<span class="st-group-name">columns</span>', '<span class="st-count">' + entity.columns.length + '</span>', "", "");
       sidebarHtml += '<div class="st-children" id="st-' + colGroupId + '">';
+      var entityForeignKeys = sForeignKeyColumns(entity);
       for (var c = 0; c < entity.columns.length; c++) {
         var col = entity.columns[c];
-        var colIcon = col.isPrimary ? ICON_KEY : ICON_COLUMN;
+        var colKind = sColumnKind(col, entityForeignKeys);
+        var colIcon = colKind === "pk" ? ICON_KEY
+          : colKind === "fk" ? ICON_FK
+          : colKind === "idx" ? ICON_INDEX
+          : ICON_COLUMN;
         var colExtra = '<span class="st-col-type">' + escHtml(col.type) + '</span>';
         if (col.defaultValue) {
           colExtra += '<span class="st-col-default">= ' + escHtml(col.defaultValue) + '</span>';
@@ -2715,10 +3025,15 @@ function renderSchema() {
         if (col.isNullable) colTags.push("null");
         if (col.isGenerated) colTags.push("gen");
         if (col.isUnique && !col.isPrimary) colTags.push("uniq");
+        if (col.hasIndex && !(col.isPrimary || col.isUnique)) colTags.push("idx");
         if (colTags.length > 0) {
           colExtra += '<span class="st-col-tags">' + colTags.join(" \\u00B7 ") + '</span>';
         }
-        sidebarHtml += sBuildTreeRow(3, null, colIcon, escHtml(col.name), colExtra, "", "");
+        var colTip = colKind === "pk" ? TIP_PK
+          : colKind === "fk" ? TIP_FK
+          : colKind === "idx" ? TIP_IDX
+          : "";
+        sidebarHtml += sBuildTreeRow(3, null, colIcon, escHtml(col.name), colExtra, "", "", colTip);
       }
       sidebarHtml += '</div>';
     }
@@ -2735,7 +3050,7 @@ function renderSchema() {
       var pkColNames = [];
       for (var p = 0; p < pks.length; p++) { pkColNames.push(pks[p].name); }
       var pkLabel = escHtml((entity.tableName || entity.name).toLowerCase() + '_pkey');
-      sidebarHtml += sBuildTreeRow(3, null, ICON_KEY, pkLabel, '<span class="st-col-type">(' + escHtml(pkColNames.join(", ")) + ')</span>', "", "");
+      sidebarHtml += sBuildTreeRow(3, null, ICON_KEY, pkLabel, '<span class="st-col-type">(' + escHtml(pkColNames.join(", ")) + ')</span>', "", "", TIP_PK);
       sidebarHtml += '</div>';
     }
 
@@ -2748,7 +3063,7 @@ function renderSchema() {
         var rel = entity.relations[r];
         var relLabel = sRelLabel(rel.type);
         var fkName = escHtml((entity.tableName || entity.name).toLowerCase() + '_' + rel.propertyName + '_fkey');
-        sidebarHtml += sBuildTreeRow(3, null, ICON_FK, fkName, '<span class="st-col-type">(' + escHtml(rel.propertyName) + ')</span>' + '<span class="st-rel-type">' + relLabel + '</span>', "", "");
+        sidebarHtml += sBuildTreeRow(3, null, ICON_FK, fkName, '<span class="st-col-type">(' + escHtml(rel.propertyName) + ')</span>' + '<span class="st-rel-type">' + relLabel + '</span>', "", "", TIP_FK);
       }
       sidebarHtml += '</div>';
     }
@@ -2756,14 +3071,15 @@ function renderSchema() {
     // Indexes group (unique non-PK columns)
     var indexes = [];
     for (var c = 0; c < entity.columns.length; c++) {
-      if (entity.columns[c].isUnique && !entity.columns[c].isPrimary) indexes.push(entity.columns[c]);
+      var idxCol = entity.columns[c];
+      if (!idxCol.isPrimary && (idxCol.isUnique || idxCol.hasIndex)) indexes.push(idxCol);
     }
     if (indexes.length > 0) {
       var idxGroupId = entityId + "-idx";
       sidebarHtml += sBuildTreeRow(2, idxGroupId, ICON_FOLDER_CLOSED, '<span class="st-group-name">indexes</span>', '<span class="st-count">' + indexes.length + '</span>', "", "");
       sidebarHtml += '<div class="st-children" id="st-' + idxGroupId + '">';
       for (var x = 0; x < indexes.length; x++) {
-        sidebarHtml += sBuildTreeRow(3, null, ICON_INDEX, escHtml(indexes[x].name), '<span class="st-col-type">' + escHtml(indexes[x].type) + '</span>', "", "");
+        sidebarHtml += sBuildTreeRow(3, null, ICON_INDEX, escHtml(indexes[x].name), '<span class="st-col-type">' + escHtml(indexes[x].type) + '</span>', "", "", TIP_IDX);
       }
       sidebarHtml += '</div>';
     }
@@ -2831,7 +3147,7 @@ function renderSchema() {
 
     // Always select clicked entity (never deselect on close)
     sSelectedEntity = entityName;
-    sSyncSidebarHighlight(sSelectedEntity);
+    if (sSyncSidebar) sSyncSidebarHighlight(sSelectedEntity);
 
     // Toggle entity subtree open/closed (skip if arrow already handled it)
     if (!toggleAlreadyHandled) {
@@ -2861,6 +3177,101 @@ function renderSchema() {
   var collapseAllBtn = document.getElementById("schema-collapse-all");
   var entityListEl = document.getElementById("schema-entity-list");
 
+  /** Closes every table, leaving the root list itself open. */
+  function sCollapseTree() {
+    if (!entityListEl) return;
+    var children = entityListEl.querySelectorAll(".st-children");
+    for (var i = 0; i < children.length; i++) {
+      var isRoot = children[i].id && children[i].id.indexOf("st-root-") === 0;
+      if (isRoot) continue;
+      children[i].classList.remove("st-open");
+    }
+    var toggles = entityListEl.querySelectorAll(".st-toggle");
+    for (var j = 0; j < toggles.length; j++) {
+      var owned = document.getElementById("st-" + toggles[j].dataset.toggle);
+      var open = owned ? owned.classList.contains("st-open") : false;
+      toggles[j].textContent = open ? "\\u25BE" : "\\u25B8";
+    }
+    var entityRows = entityListEl.querySelectorAll(".st-row[data-entity]");
+    for (var k = 0; k < entityRows.length; k++) {
+      var ico = entityRows[k].querySelector(".st-icon");
+      if (ico) ico.innerHTML = ICON_TABLE;
+    }
+  }
+
+  /** Opens one table and its columns, and scrolls the list to it. */
+  function sRevealEntity(name) {
+    if (!entityListEl) return;
+    var rows = entityListEl.querySelectorAll(".st-row[data-entity]");
+    var row = null;
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].dataset.entity === name) { row = rows[i]; break; }
+    }
+    if (!row) return;
+    var toggle = row.querySelector(".st-toggle");
+    var subtree = toggle ? document.getElementById("st-" + toggle.dataset.toggle) : null;
+    if (subtree) {
+      subtree.classList.add("st-open");
+      toggle.textContent = "\\u25BE";
+      var icon = row.querySelector(".st-icon");
+      if (icon) icon.innerHTML = ICON_TABLE_OPEN;
+      var groupRow = subtree.querySelector(".st-row");
+      var groupToggle = groupRow ? groupRow.querySelector(".st-toggle") : null;
+      if (groupToggle) {
+        var group = document.getElementById("st-" + groupToggle.dataset.toggle);
+        if (group) {
+          group.classList.add("st-open");
+          groupToggle.textContent = "\\u25BE";
+          var groupIcon = groupRow.querySelector(".st-icon");
+          if (groupIcon) groupIcon.innerHTML = ICON_FOLDER_OPEN;
+        }
+      }
+    }
+    // Put the table at the top of the list, just under the sticky header, so
+    // its own columns are what follows it.
+    var panel = document.getElementById("schema-sidebar");
+    if (!panel) return;
+    var sticky = panel.querySelector(".schema-sidebar-sticky");
+    var stickyH = sticky ? sticky.getBoundingClientRect().height : 0;
+    var delta = row.getBoundingClientRect().top - panel.getBoundingClientRect().top - stickyH;
+    panel.scrollTop = panel.scrollTop + delta;
+  }
+
+  /** Mirrors the diagram's selection into the list, when asked to. */
+  function sReflectSelection() {
+    if (!sSyncSidebar) return;
+    sSyncSidebarHighlight(sSelectedEntity);
+    if (sSelectedEntity) {
+      sRevealEntity(sSelectedEntity);
+    } else {
+      sCollapseTree();
+    }
+  }
+
+  var syncBox = document.getElementById("schema-sync-sidebar");
+  if (syncBox) {
+    sSyncSidebar = syncBox.checked;
+    syncBox.addEventListener("change", function() {
+      sSyncSidebar = syncBox.checked;
+      if (sSyncSidebar) sReflectSelection();
+    });
+  }
+
+  var sidebarCollapseBtn = document.getElementById("schema-sidebar-collapse");
+  var sidebarShowBtn = document.getElementById("schema-sidebar-show");
+  var schemaTab = document.getElementById("tab-schema");
+  function sSetSidebarCollapsed(collapsed) {
+    if (!schemaTab) return;
+    schemaTab.classList.toggle("sidebar-collapsed", collapsed);
+    sResize();
+  }
+  if (sidebarCollapseBtn) {
+    sidebarCollapseBtn.addEventListener("click", function() { sSetSidebarCollapsed(true); });
+  }
+  if (sidebarShowBtn) {
+    sidebarShowBtn.addEventListener("click", function() { sSetSidebarCollapsed(false); });
+  }
+
   if (expandAllBtn && entityListEl) {
     expandAllBtn.addEventListener("click", function() {
       var children = entityListEl.querySelectorAll(".st-children");
@@ -2880,41 +3291,128 @@ function renderSchema() {
   }
 
   if (collapseAllBtn && entityListEl) {
-    collapseAllBtn.addEventListener("click", function() {
-      var children = entityListEl.querySelectorAll(".st-children");
-      for (var i = 0; i < children.length; i++) {
-        // Keep root-level groups open so entity list stays visible
-        if (children[i].id && children[i].id.indexOf("st-root-") === 0) continue;
-        children[i].classList.remove("st-open");
-      }
-      var toggles = entityListEl.querySelectorAll(".st-toggle");
-      for (var j = 0; j < toggles.length; j++) {
-        toggles[j].textContent = "\\u25B8";
-      }
-      var entityRows = entityListEl.querySelectorAll(".st-row[data-entity]");
-      for (var k = 0; k < entityRows.length; k++) {
-        var ico = entityRows[k].querySelector(".st-icon");
-        if (ico) ico.innerHTML = ICON_TABLE;
-      }
-    });
+    collapseAllBtn.addEventListener("click", sCollapseTree);
   }
 
   // Diagram control buttons
   function sRecalcNodeSizes() {
-    var showCols = sShowCols !== null ? sShowCols : sNodes.length <= 5;
+    sApplyNodeSizes(sNodes);
+  }
+
+  var viewToggleBtn = document.getElementById("schema-toggle-view");
+
+  function sSyncViewToggle() {
+    if (!viewToggleBtn) return;
+    viewToggleBtn.classList.toggle("active", !sFocusedMode);
+    viewToggleBtn.setAttribute("aria-pressed", String(!sFocusedMode));
+    viewToggleBtn.setAttribute("aria-label", sFocusedMode ? "Show all tables" : "Focus one table");
+    viewToggleBtn.setAttribute("data-tip", sFocusedMode
+      ? "All tables \\u00b7 lay out the whole schema at once"
+      : "Focus \\u00b7 show one table and what it relates to");
+  }
+
+  function sShowAllTables() {
+    sFocusedMode = false;
+    var emptyState = document.getElementById("schema-empty-state");
+    if (emptyState) emptyState.style.display = "none";
+    sCanvas.style.display = "block";
+    sNodes = sAllNodes.slice();
+    sNodeMap = {};
     for (var i = 0; i < sNodes.length; i++) {
-      var cols = sNodes[i].entity.columns;
-      var visCount = showCols ? Math.min(cols.length, 7) : 0;
-      var hasMore = showCols && cols.length > 7;
-      sNodes[i].h = showCols ? 24 + visCount * 16 + (hasMore ? 16 : 0) + 8 : 52;
-      sNodes[i].w = 180;
+      sNodeMap[sNodes[i].name] = sNodes[i];
     }
+    sRecalcNodeSizes();
+    sComputeOverviewLayout();
+    sCenterCamera();
+    sSyncViewToggle();
+    sScheduleRedraw();
+  }
+
+  function sFocusOneTable() {
+    sFocusedMode = true;
+    sSetVisibleSubset(sSelectedEntity);
+    sSyncViewToggle();
+    sScheduleRedraw();
+  }
+
+  if (viewToggleBtn) {
+    viewToggleBtn.addEventListener("click", function() {
+      if (sFocusedMode) {
+        sShowAllTables();
+      } else {
+        sFocusOneTable();
+      }
+    });
+  }
+
+  var showAllBtn = document.getElementById("schema-show-all");
+  if (showAllBtn) {
+    showAllBtn.addEventListener("click", sShowAllTables);
   }
 
   var recenterBtn = document.getElementById("schema-recenter");
   if (recenterBtn) {
     recenterBtn.addEventListener("click", function() {
       sCenterCamera();
+      sScheduleRedraw();
+    });
+  }
+
+  // Relayout after a size change so the taller boxes do not overlap.
+  function sRelayoutForSizeChange() {
+    sRecalcNodeSizes();
+    if (sFocusedMode && sSelectedEntity) {
+      sSetVisibleSubset(sSelectedEntity);
+    } else if (!sFocusedMode) {
+      sComputeOverviewLayout();
+      sCenterCamera();
+      sScheduleRedraw();
+    }
+  }
+
+  var toggleColsBtn = document.getElementById("schema-toggle-cols");
+  if (toggleColsBtn) {
+    toggleColsBtn.addEventListener("click", function() {
+      sShowAllCols = !sShowAllCols;
+      if (sShowAllCols) sShowCols = true;
+      toggleColsBtn.classList.toggle("active", sShowAllCols);
+      toggleColsBtn.setAttribute("aria-pressed", String(sShowAllCols));
+      toggleColsBtn.setAttribute("aria-label", sShowAllCols
+        ? "Show the first " + S_DEFAULT_MAX_COLS + " columns"
+        : "Show every column");
+      toggleColsBtn.setAttribute("data-tip", sShowAllCols
+        ? "First " + S_DEFAULT_MAX_COLS + " \\u00b7 go back to a short column list"
+        : "Every column \\u00b7 stop cutting the list at seven");
+      sRelayoutForSizeChange();
+    });
+  }
+
+  var zoomRange = document.getElementById("schema-zoom-range");
+  var zoomInBtn = document.getElementById("schema-zoom-in");
+  var zoomOutBtn = document.getElementById("schema-zoom-out");
+  var zoomValueBtn = document.getElementById("schema-zoom-value");
+
+  function sSetZoom(next) {
+    sZoom = Math.max(sZoomFloor(), Math.min(5, next));
+    sSyncZoomUi();
+    sScheduleRedraw();
+  }
+
+  if (zoomRange) {
+    zoomRange.addEventListener("input", function() {
+      sSetZoom(Number(zoomRange.value) / 100);
+    });
+  }
+  if (zoomInBtn) {
+    zoomInBtn.addEventListener("click", function() { sSetZoom(sZoom * 1.2); });
+  }
+  if (zoomOutBtn) {
+    zoomOutBtn.addEventListener("click", function() { sSetZoom(sZoom / 1.2); });
+  }
+  if (zoomValueBtn) {
+    zoomValueBtn.addEventListener("click", function() {
+      sCenterCamera();
+      sSyncZoomUi();
       sScheduleRedraw();
     });
   }
@@ -2927,8 +3425,7 @@ function renderSchema() {
       if (sFocusedMode && sSelectedEntity) {
         sSetVisibleSubset(sSelectedEntity);
       } else {
-        sRouteAllEdges();
-        if (typeof dagre !== "undefined") sComputeDagreLayout();
+        sComputeOverviewLayout();
         sCenterCamera();
         sScheduleRedraw();
       }
@@ -2943,8 +3440,7 @@ function renderSchema() {
       if (sFocusedMode && sSelectedEntity) {
         sSetVisibleSubset(sSelectedEntity);
       } else {
-        sRouteAllEdges();
-        if (typeof dagre !== "undefined") sComputeDagreLayout();
+        sComputeOverviewLayout();
         sCenterCamera();
         sScheduleRedraw();
       }
@@ -2958,6 +3454,7 @@ function renderSchema() {
   });
 
   // Layout initialization
+  sSyncViewToggle();
   if (sFocusedMode) {
     var emptyState = document.getElementById("schema-empty-state");
     if (emptyState) emptyState.style.display = "flex";
@@ -2967,7 +3464,8 @@ function renderSchema() {
     sEdgeRoutes = {};
     sEdgeKeys = [];
   } else {
-    sComputeDagreLayout();
+    sApplyNodeSizes(sNodes);
+    sComputeOverviewLayout();
     sCenterCamera();
   }
 
@@ -3050,9 +3548,18 @@ function renderSchema() {
   sCanvas.addEventListener("mouseup", function() {
     if (sDragging && !sDragMoved) {
       sSelectedEntity = sSelectedEntity === sDragging.name ? null : sDragging.name;
-      sSyncSidebarHighlight(sSelectedEntity);
+      sReflectSelection();
       if (sFocusedMode) {
         sSetVisibleSubset(sSelectedEntity);
+      } else {
+        sScheduleRedraw();
+      }
+    } else if (sPanning && !sDragMoved && sSelectedEntity) {
+      // A click on empty canvas clears the selection.
+      sSelectedEntity = null;
+      sReflectSelection();
+      if (sFocusedMode) {
+        sSetVisibleSubset(null);
       } else {
         sScheduleRedraw();
       }
@@ -3072,8 +3579,16 @@ function renderSchema() {
 
   sCanvas.addEventListener("wheel", function(e) {
     e.preventDefault();
-    var factor = e.deltaY > 0 ? 0.92 : 1.08;
-    sZoom = Math.max(0.2, Math.min(5, sZoom * factor));
+    // ctrlKey or metaKey means a pinch, which zooms; anything else pans.
+    if (e.ctrlKey || e.metaKey) {
+      var factor = e.deltaY > 0 ? 0.92 : 1.08;
+      sZoom = Math.max(sZoomFloor(), Math.min(5, sZoom * factor));
+    } else {
+      sCamX -= e.deltaX / sZoom;
+      sCamY -= e.deltaY / sZoom;
+      sHideTooltip();
+      sHideRelBadge();
+    }
     sScheduleRedraw();
   }, { passive: false });
 
@@ -3796,6 +4311,14 @@ function renderEndpoints() {
 
   epCanvas.addEventListener("wheel", function(e) {
     e.preventDefault();
+    // ctrlKey or metaKey means a pinch, which zooms; anything else pans.
+    if (!(e.ctrlKey || e.metaKey)) {
+      epCamX -= e.deltaX / epZoom;
+      epCamY -= e.deltaY / epZoom;
+      epHideTooltip();
+      epScheduleRedraw();
+      return;
+    }
     var zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
     var newZoom = epZoom * zoomFactor;
     newZoom = Math.max(0.2, Math.min(3, newZoom));

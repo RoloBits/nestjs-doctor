@@ -783,7 +783,7 @@ canvas:active { cursor: grabbing; }
 }
 #schema-entity-list { padding: 4px 0; }
 .st-row {
-  display: flex; align-items: center; padding: 3px 0; cursor: pointer;
+  display: flex; align-items: center; padding: 3px 12px 3px 0; cursor: pointer;
   line-height: 20px; font-size: 12px; white-space: nowrap;
 }
 .st-row:hover { background: rgba(255,255,255,0.04); }
@@ -798,31 +798,31 @@ canvas:active { cursor: grabbing; }
   align-items: center; justify-content: center; margin-right: 4px;
 }
 .st-icon svg { width: 14px; height: 14px; }
-.st-label { flex: 1; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+.st-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
 .st-entity-name { font-weight: 600; color: var(--white); }
 .st-group-name { color: var(--text-muted); font-weight: 500; }
 .st-count {
-  font-size: 10px; color: var(--text-dim); margin-left: 6px; margin-right: 8px;
-  opacity: 0.7;
+  font-size: 10px; color: var(--text-dim); margin-left: 6px;
+  opacity: 0.7; flex-shrink: 0;
 }
 .st-col-type {
   font-size: 11px; color: var(--cat-correctness); font-family: monospace;
-  margin-left: 6px; margin-right: 8px;
+  margin-left: 6px; flex-shrink: 0;
 }
 .st-rel-type {
   font-size: 9px; font-weight: 600; color: var(--cat-architecture);
   background: rgba(139,92,246,0.1); padding: 1px 5px; border-radius: 3px;
-  margin-left: 6px; margin-right: 8px; font-family: monospace;
+  margin-left: 6px; font-family: monospace; flex-shrink: 0;
 }
 .st-col-default {
   font-size: 10px; color: var(--text-dim); margin-left: 4px;
   font-family: monospace; max-width: 120px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  display: inline-block; vertical-align: middle;
+  display: inline-block; vertical-align: middle; flex-shrink: 0;
 }
 .st-col-tags {
   font-size: 9px; color: var(--cat-architecture);
-  margin-left: 6px; opacity: 0.7;
+  margin-left: 6px; opacity: 0.7; flex-shrink: 0;
 }
 .st-children { display: none; }
 .st-open { display: block; }
@@ -841,8 +841,45 @@ canvas:active { cursor: grabbing; }
 #schema-canvas:active { cursor: grabbing; }
 #schema-toolbar {
   position: absolute; top: 12px; right: 12px; z-index: 10;
-  display: flex; gap: 4px;
+  display: flex; align-items: center; gap: 4px;
 }
+#tab-schema.sidebar-collapsed #schema-sidebar { display: none; }
+#schema-sidebar-show { display: none; }
+#tab-schema.sidebar-collapsed #schema-sidebar-show {
+  display: flex; position: absolute; top: 12px; left: 12px; z-index: 10;
+  width: 28px; height: 28px; justify-content: center;
+  background: rgba(50,50,50,0.9);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255,255,255,0.22);
+  color: rgba(255,255,255,0.7);
+}
+#tab-schema.sidebar-collapsed #schema-sidebar-show:hover {
+  background: rgba(70,70,70,0.95); color: #fff;
+}
+#schema-sidebar-show:is(:hover, :focus-visible)::after { left: 0; right: auto; }
+.schema-sync {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 16px; cursor: pointer;
+  font-size: 11px; color: var(--text-dim); user-select: none;
+}
+.schema-sync:hover { color: var(--text); }
+.schema-sync input { accent-color: var(--nest-red); cursor: pointer; margin: 0; }
+.schema-sync:is(:hover, :focus-visible)::after { left: 16px; right: auto; }
+.has-tip { position: relative; }
+.has-tip:is(:hover, :focus-visible)::after {
+  content: attr(data-tip);
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 40;
+  white-space: nowrap; pointer-events: none;
+  background: #1a1a1a; border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 4px; padding: 4px 8px;
+  font-size: 11px; font-family: var(--font); color: var(--text);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+#schema-sidebar .has-tip:is(:hover, :focus-visible)::after {
+  white-space: normal; width: max-content; max-width: 240px;
+}
+/* An icon sits near the left edge, so its tip has to open rightwards. */
+.st-icon.has-tip:is(:hover, :focus-visible)::after { left: 0; right: auto; top: calc(100% + 2px); }
 .schema-diagram-btn {
   width: 28px; height: 28px; justify-content: center;
   background: rgba(50,50,50,0.9);
@@ -855,6 +892,44 @@ canvas:active { cursor: grabbing; }
   border-color: rgba(255,255,255,0.35);
   color: #fff;
 }
+.schema-diagram-btn.active {
+  background: rgba(234,40,69,0.22);
+  border-color: rgba(234,40,69,0.7);
+  color: #fff;
+}
+#schema-zoombar {
+  display: flex; align-items: center; gap: 6px;
+  height: 28px; padding: 0 8px; border-radius: 6px;
+  background: rgba(50,50,50,0.9);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255,255,255,0.22);
+}
+.schema-zoom-btn {
+  width: 20px; height: 20px; justify-content: center; padding: 0;
+  background: none; border: none; color: rgba(255,255,255,0.7);
+}
+.schema-zoom-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+.schema-zoom-btn svg { width: 14px; height: 14px; }
+#schema-zoom-range {
+  -webkit-appearance: none; appearance: none;
+  width: 110px; height: 3px; border-radius: 2px;
+  background: rgba(255,255,255,0.25); outline: none; cursor: pointer;
+}
+#schema-zoom-range::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 11px; height: 11px; border-radius: 50%;
+  background: var(--nest-red); cursor: pointer;
+}
+#schema-zoom-range::-moz-range-thumb {
+  width: 11px; height: 11px; border: none; border-radius: 50%;
+  background: var(--nest-red); cursor: pointer;
+}
+.schema-zoom-value {
+  min-width: 38px; text-align: right; cursor: pointer;
+  font-size: 11px; font-family: var(--font); color: rgba(255,255,255,0.7);
+  background: none; border: none; padding: 0;
+}
+.schema-zoom-value:hover { color: #fff; }
 .schema-tooltip {
   position: absolute; z-index: 20; pointer-events: none;
   background: #1a1a1a; border: 1px solid rgba(255,255,255,0.12);
@@ -889,6 +964,11 @@ canvas:active { cursor: grabbing; }
   color: var(--text-muted); gap: 12px; text-align: center; z-index: 5;
 }
 #schema-empty-state p { font-size: 14px; color: var(--text-dim); margin: 0; }
+.schema-empty-action {
+  padding: 6px 14px; font-size: 12px; font-family: var(--font);
+  color: var(--text); border-color: rgba(255,255,255,0.18);
+}
+.schema-empty-action:hover { color: var(--white); }
 
 /* ── Schema diagnostics panel ── */
 #schema-diag-panel {
