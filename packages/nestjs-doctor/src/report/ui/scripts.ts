@@ -2958,7 +2958,7 @@ function renderSchema() {
   var ICON_INDEX = '<svg viewBox="0 0 16 16" fill="none" stroke="var(--cat-performance)" stroke-width="1.2"><line x1="3" y1="4" x2="13" y2="4"/><line x1="3" y1="8" x2="10" y2="8"/><line x1="3" y1="12" x2="7" y2="12"/></svg>';
 
   // Tree row builder
-  function sBuildTreeRow(depth, toggleId, icon, labelHtml, extra, classes, dataAttrs) {
+  function sBuildTreeRow(depth, toggleId, icon, labelHtml, extra, classes, dataAttrs, iconTip) {
     var h = '<div class="st-row' + (classes ? " " + classes : "") + '"' + (dataAttrs || "") + '>';
     for (var d = 0; d < depth; d++) h += '<span class="st-indent"></span>';
     if (toggleId) {
@@ -2966,12 +2966,18 @@ function renderSchema() {
     } else {
       h += '<span class="st-indent"></span>';
     }
-    h += '<span class="st-icon">' + icon + '</span>';
+    h += iconTip
+      ? '<span class="st-icon has-tip" data-tip="' + escHtml(iconTip) + '">' + icon + '</span>'
+      : '<span class="st-icon">' + icon + '</span>';
     h += '<span class="st-label">' + labelHtml + '</span>';
     if (extra) h += extra;
     h += '</div>';
     return h;
   }
+
+  var TIP_PK = "Primary key \u00b7 identifies the row";
+  var TIP_FK = "Foreign key \u00b7 points at another table";
+  var TIP_IDX = "Indexed \u00b7 unique or carries an index";
 
   // Build sidebar tree
   var sidebarHtml = "";
@@ -3011,7 +3017,11 @@ function renderSchema() {
         if (colTags.length > 0) {
           colExtra += '<span class="st-col-tags">' + colTags.join(" \\u00B7 ") + '</span>';
         }
-        sidebarHtml += sBuildTreeRow(3, null, colIcon, escHtml(col.name), colExtra, "", "");
+        var colTip = colKind === "pk" ? TIP_PK
+          : colKind === "fk" ? TIP_FK
+          : colKind === "idx" ? TIP_IDX
+          : "";
+        sidebarHtml += sBuildTreeRow(3, null, colIcon, escHtml(col.name), colExtra, "", "", colTip);
       }
       sidebarHtml += '</div>';
     }
@@ -3028,7 +3038,7 @@ function renderSchema() {
       var pkColNames = [];
       for (var p = 0; p < pks.length; p++) { pkColNames.push(pks[p].name); }
       var pkLabel = escHtml((entity.tableName || entity.name).toLowerCase() + '_pkey');
-      sidebarHtml += sBuildTreeRow(3, null, ICON_KEY, pkLabel, '<span class="st-col-type">(' + escHtml(pkColNames.join(", ")) + ')</span>', "", "");
+      sidebarHtml += sBuildTreeRow(3, null, ICON_KEY, pkLabel, '<span class="st-col-type">(' + escHtml(pkColNames.join(", ")) + ')</span>', "", "", TIP_PK);
       sidebarHtml += '</div>';
     }
 
@@ -3041,7 +3051,7 @@ function renderSchema() {
         var rel = entity.relations[r];
         var relLabel = sRelLabel(rel.type);
         var fkName = escHtml((entity.tableName || entity.name).toLowerCase() + '_' + rel.propertyName + '_fkey');
-        sidebarHtml += sBuildTreeRow(3, null, ICON_FK, fkName, '<span class="st-col-type">(' + escHtml(rel.propertyName) + ')</span>' + '<span class="st-rel-type">' + relLabel + '</span>', "", "");
+        sidebarHtml += sBuildTreeRow(3, null, ICON_FK, fkName, '<span class="st-col-type">(' + escHtml(rel.propertyName) + ')</span>' + '<span class="st-rel-type">' + relLabel + '</span>', "", "", TIP_FK);
       }
       sidebarHtml += '</div>';
     }
@@ -3057,7 +3067,7 @@ function renderSchema() {
       sidebarHtml += sBuildTreeRow(2, idxGroupId, ICON_FOLDER_CLOSED, '<span class="st-group-name">indexes</span>', '<span class="st-count">' + indexes.length + '</span>', "", "");
       sidebarHtml += '<div class="st-children" id="st-' + idxGroupId + '">';
       for (var x = 0; x < indexes.length; x++) {
-        sidebarHtml += sBuildTreeRow(3, null, ICON_INDEX, escHtml(indexes[x].name), '<span class="st-col-type">' + escHtml(indexes[x].type) + '</span>', "", "");
+        sidebarHtml += sBuildTreeRow(3, null, ICON_INDEX, escHtml(indexes[x].name), '<span class="st-col-type">' + escHtml(indexes[x].type) + '</span>', "", "", TIP_IDX);
       }
       sidebarHtml += '</div>';
     }
@@ -3205,7 +3215,14 @@ function renderSchema() {
         }
       }
     }
-    row.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    // Put the table at the top of the list, just under the sticky header, so
+    // its own columns are what follows it.
+    var panel = document.getElementById("schema-sidebar");
+    if (!panel) return;
+    var sticky = panel.querySelector(".schema-sidebar-sticky");
+    var stickyH = sticky ? sticky.getBoundingClientRect().height : 0;
+    var delta = row.getBoundingClientRect().top - panel.getBoundingClientRect().top - stickyH;
+    panel.scrollTop = panel.scrollTop + delta;
   }
 
   /** Mirrors the diagram's selection into the list, when asked to. */

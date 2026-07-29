@@ -878,6 +878,8 @@ canvas:active { cursor: grabbing; }
 #schema-sidebar .has-tip:hover::after {
   white-space: normal; width: max-content; max-width: 240px;
 }
+/* An icon sits near the left edge, so its tip has to open rightwards. */
+.st-icon.has-tip:hover::after { left: 0; right: auto; top: calc(100% + 2px); }
 .schema-diagram-btn {
   width: 28px; height: 28px; justify-content: center;
   background: rgba(50,50,50,0.9);
