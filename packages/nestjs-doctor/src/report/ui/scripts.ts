@@ -2448,6 +2448,9 @@ function sCenterCamera() {
   // A wide overview has to shrink past the normal floor to fit on screen.
   sMinZoom = Math.min(0.2, fit);
   sZoom = Math.max(sMinZoom, fit);
+  // Fitting everything is pointless when it shrinks the columns out of sight.
+  var showingCols = sShowCols !== null ? sShowCols : sNodes.length <= 5;
+  if (showingCols && sZoom < 0.35) sZoom = 0.35;
   sCamX = sW / 2 - cx;
   sCamY = sH / 2 - cy;
 }
