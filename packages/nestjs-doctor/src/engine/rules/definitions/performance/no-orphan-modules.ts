@@ -1,5 +1,9 @@
 import { collectBootstrappedModules } from "../../../graph/entry-points.js";
+
 import type { ProjectRule } from "../../types.js";
+
+/** A module declared here is the application root whatever its class is called. */
+const ROOT_MODULE_FILE = /(^|\/)(app|root)\.module\.[mc]?ts$/;
 
 export const noOrphanModules: ProjectRule = {
 	meta: {
@@ -21,15 +25,20 @@ export const noOrphanModules: ProjectRule = {
 			}
 		}
 
-		// A bootstrapped module is an entry point, so nothing imports it. AppModule
-		// stays as a fallback for projects whose bootstrap is outside the scan.
+		// A bootstrapped module is an entry point, so nothing imports it. The name
+		// AppModule and a root filename are fallbacks when the bootstrap is
+		// outside the scan.
 		const entryPoints = collectBootstrappedModules(
 			context.project,
 			context.files
 		);
 
 		for (const mod of context.moduleGraph.modules.values()) {
-			if (mod.name === "AppModule" || entryPoints.has(mod.name)) {
+			if (
+				mod.name === "AppModule" ||
+				ROOT_MODULE_FILE.test(mod.filePath) ||
+				entryPoints.has(mod.name)
+			) {
 				continue;
 			}
 

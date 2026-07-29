@@ -507,6 +507,43 @@ describe("no-orphan-modules", () => {
 		expect(diags).toHaveLength(1);
 		expect(diags[0].message).toContain("ForgottenModule");
 	});
+
+	it("does not flag a root module named something other than AppModule", () => {
+		const diags = runProjectRule(noOrphanModules, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { UsersModule } from './users.module';
+        @Module({ imports: [UsersModule] })
+        export class ImmichAdminModule {}
+      `,
+			"users.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class UsersModule {}
+      `,
+		});
+		expect(
+			diags.filter((d) => d.message.includes("ImmichAdminModule"))
+		).toHaveLength(0);
+	});
+
+	it("still flags an orphan feature module named main.module.ts", () => {
+		const diags = runProjectRule(noOrphanModules, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AppModule {}
+      `,
+			"billing/main.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class BillingMainModule {}
+      `,
+		});
+		expect(
+			diags.filter((d) => d.message.includes("BillingMainModule"))
+		).toHaveLength(1);
+	});
 });
 
 describe("no-unused-module-exports", () => {
