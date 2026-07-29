@@ -1838,6 +1838,8 @@ var sAllNodeMap = {};
 var sFocusedMode = false;
 var sShowCols = null;
 var sShowAllCols = false;
+// When on, picking a table in the diagram drives the list beside it.
+var sSyncSidebar = true;
 // Lowest zoom the wheel allows. Fitting a big overview can need less than this.
 var sMinZoom = 0.2;
 
@@ -2861,8 +2863,14 @@ function sHideRelBadge() {
 // Canvas resize for schema
 function sResize() {
   var container = sCanvas.parentElement;
+  var prevW = sW, prevH = sH;
   sW = container.clientWidth;
   sH = container.clientHeight;
+  // Keep whatever was in the middle of the viewport in the middle of it.
+  if (prevW && prevH) {
+    sCamX += (sW - prevW) / 2;
+    sCamY += (sH - prevH) / 2;
+  }
   sCanvas.width = sW * sDpr;
   sCanvas.height = sH * sDpr;
   sCanvas.style.width = sW + "px";
@@ -3117,7 +3125,7 @@ function renderSchema() {
 
     // Always select clicked entity (never deselect on close)
     sSelectedEntity = entityName;
-    sSyncSidebarHighlight(sSelectedEntity);
+    if (sSyncSidebar) sSyncSidebarHighlight(sSelectedEntity);
 
     // Toggle entity subtree open/closed (skip if arrow already handled it)
     if (!toggleAlreadyHandled) {
@@ -3147,6 +3155,94 @@ function renderSchema() {
   var collapseAllBtn = document.getElementById("schema-collapse-all");
   var entityListEl = document.getElementById("schema-entity-list");
 
+  /** Closes every table, leaving the root list itself open. */
+  function sCollapseTree() {
+    if (!entityListEl) return;
+    var children = entityListEl.querySelectorAll(".st-children");
+    for (var i = 0; i < children.length; i++) {
+      var isRoot = children[i].id && children[i].id.indexOf("st-root-") === 0;
+      if (isRoot) continue;
+      children[i].classList.remove("st-open");
+    }
+    var toggles = entityListEl.querySelectorAll(".st-toggle");
+    for (var j = 0; j < toggles.length; j++) {
+      var owned = document.getElementById("st-" + toggles[j].dataset.toggle);
+      var open = owned ? owned.classList.contains("st-open") : false;
+      toggles[j].textContent = open ? "\\u25BE" : "\\u25B8";
+    }
+    var entityRows = entityListEl.querySelectorAll(".st-row[data-entity]");
+    for (var k = 0; k < entityRows.length; k++) {
+      var ico = entityRows[k].querySelector(".st-icon");
+      if (ico) ico.innerHTML = ICON_TABLE;
+    }
+  }
+
+  /** Opens one table and its columns, and scrolls the list to it. */
+  function sRevealEntity(name) {
+    if (!entityListEl) return;
+    var rows = entityListEl.querySelectorAll(".st-row[data-entity]");
+    var row = null;
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].dataset.entity === name) { row = rows[i]; break; }
+    }
+    if (!row) return;
+    var toggle = row.querySelector(".st-toggle");
+    var subtree = toggle ? document.getElementById("st-" + toggle.dataset.toggle) : null;
+    if (subtree) {
+      subtree.classList.add("st-open");
+      toggle.textContent = "\\u25BE";
+      var icon = row.querySelector(".st-icon");
+      if (icon) icon.innerHTML = ICON_TABLE_OPEN;
+      var groupRow = subtree.querySelector(".st-row");
+      var groupToggle = groupRow ? groupRow.querySelector(".st-toggle") : null;
+      if (groupToggle) {
+        var group = document.getElementById("st-" + groupToggle.dataset.toggle);
+        if (group) {
+          group.classList.add("st-open");
+          groupToggle.textContent = "\\u25BE";
+          var groupIcon = groupRow.querySelector(".st-icon");
+          if (groupIcon) groupIcon.innerHTML = ICON_FOLDER_OPEN;
+        }
+      }
+    }
+    row.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+
+  /** Mirrors the diagram's selection into the list, when asked to. */
+  function sReflectSelection() {
+    if (!sSyncSidebar) return;
+    sSyncSidebarHighlight(sSelectedEntity);
+    if (sSelectedEntity) {
+      sRevealEntity(sSelectedEntity);
+    } else {
+      sCollapseTree();
+    }
+  }
+
+  var syncBox = document.getElementById("schema-sync-sidebar");
+  if (syncBox) {
+    sSyncSidebar = syncBox.checked;
+    syncBox.addEventListener("change", function() {
+      sSyncSidebar = syncBox.checked;
+      if (sSyncSidebar) sReflectSelection();
+    });
+  }
+
+  var sidebarCollapseBtn = document.getElementById("schema-sidebar-collapse");
+  var sidebarShowBtn = document.getElementById("schema-sidebar-show");
+  var schemaTab = document.getElementById("tab-schema");
+  function sSetSidebarCollapsed(collapsed) {
+    if (!schemaTab) return;
+    schemaTab.classList.toggle("sidebar-collapsed", collapsed);
+    sResize();
+  }
+  if (sidebarCollapseBtn) {
+    sidebarCollapseBtn.addEventListener("click", function() { sSetSidebarCollapsed(true); });
+  }
+  if (sidebarShowBtn) {
+    sidebarShowBtn.addEventListener("click", function() { sSetSidebarCollapsed(false); });
+  }
+
   if (expandAllBtn && entityListEl) {
     expandAllBtn.addEventListener("click", function() {
       var children = entityListEl.querySelectorAll(".st-children");
@@ -3166,23 +3262,7 @@ function renderSchema() {
   }
 
   if (collapseAllBtn && entityListEl) {
-    collapseAllBtn.addEventListener("click", function() {
-      var children = entityListEl.querySelectorAll(".st-children");
-      for (var i = 0; i < children.length; i++) {
-        // Keep root-level groups open so entity list stays visible
-        if (children[i].id && children[i].id.indexOf("st-root-") === 0) continue;
-        children[i].classList.remove("st-open");
-      }
-      var toggles = entityListEl.querySelectorAll(".st-toggle");
-      for (var j = 0; j < toggles.length; j++) {
-        toggles[j].textContent = "\\u25B8";
-      }
-      var entityRows = entityListEl.querySelectorAll(".st-row[data-entity]");
-      for (var k = 0; k < entityRows.length; k++) {
-        var ico = entityRows[k].querySelector(".st-icon");
-        if (ico) ico.innerHTML = ICON_TABLE;
-      }
-    });
+    collapseAllBtn.addEventListener("click", sCollapseTree);
   }
 
   // Diagram control buttons
@@ -3434,7 +3514,7 @@ function renderSchema() {
   sCanvas.addEventListener("mouseup", function() {
     if (sDragging && !sDragMoved) {
       sSelectedEntity = sSelectedEntity === sDragging.name ? null : sDragging.name;
-      sSyncSidebarHighlight(sSelectedEntity);
+      sReflectSelection();
       if (sFocusedMode) {
         sSetVisibleSubset(sSelectedEntity);
       } else {
@@ -3443,7 +3523,7 @@ function renderSchema() {
     } else if (sPanning && !sDragMoved && sSelectedEntity) {
       // A click on empty canvas clears the selection.
       sSelectedEntity = null;
-      sSyncSidebarHighlight(null);
+      sReflectSelection();
       if (sFocusedMode) {
         sSetVisibleSubset(null);
       } else {

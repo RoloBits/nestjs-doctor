@@ -196,13 +196,27 @@ for (let i = 0; i < lines.length; i++) {
             <path d="M11 11l2.5-3L16 11"/>
           </svg>
         </button>
+        <button class="st-btn has-tip" id="schema-sidebar-collapse" aria-label="Hide the table list" data-tip="Hide list \u00b7 give the diagram the whole width">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 3 4 8 9 13"/><line x1="13" y1="3" x2="13" y2="13"/>
+          </svg>
+        </button>
       </div>
+      <label class="schema-sync has-tip" data-tip="Sync \u00b7 the list follows the table you pick in the diagram">
+        <input type="checkbox" id="schema-sync-sidebar" checked>
+        <span>Sync with diagram</span>
+      </label>
       <div class="schema-disclaimer">Schema inferred from source code — may not reflect the actual database.</div>
     </div>
     <div id="schema-entity-list"></div>
   </div>
   <div id="schema-main">
     <div id="schema-canvas-wrap">
+      <button class="st-btn has-tip" id="schema-sidebar-show" aria-label="Show the table list" data-tip="Show list \u00b7 bring the table list back">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="7 3 12 8 7 13"/><line x1="3" y1="3" x2="3" y2="13"/>
+        </svg>
+      </button>
       <div id="schema-empty-state">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
