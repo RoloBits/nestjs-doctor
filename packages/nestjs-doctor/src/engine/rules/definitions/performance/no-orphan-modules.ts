@@ -1,9 +1,9 @@
 import { collectBootstrappedModules } from "../../../graph/entry-points.js";
 
+import type { ProjectRule } from "../../types.js";
+
 /** A module declared here is the application root whatever its class is called. */
 const ROOT_MODULE_FILE = /(^|\/)(app|root)\.module\.[mc]?ts$/;
-
-import type { ProjectRule } from "../../types.js";
 
 export const noOrphanModules: ProjectRule = {
 	meta: {
