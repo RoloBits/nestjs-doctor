@@ -282,7 +282,7 @@ function layoutModules() {
   }
 }
 
-/** Fits the given nodes, or the whole visible graph, into the viewport. */
+/** Fits nodes into the part of the canvas the detail panel leaves free. */
 function centerGraph(subset) {
   const visible = subset && subset.length > 0 ? subset : nodes.filter(isNodeVisible);
   if (visible.length === 0) return;
@@ -297,7 +297,7 @@ function centerGraph(subset) {
   const covered = panel && getComputedStyle(panel).display !== "none"
     ? panel.getBoundingClientRect().width
     : 0;
-  const usableW = Math.max(120, W - covered);
+  const usableW = covered > W / 2 ? W : W - covered;
   const fit = Math.min(1.2, Math.min((usableW * 0.9) / (maxX - minX || 1), (H * 0.9) / (maxY - minY || 1)));
   zoom = Math.max(0.05, fit);
   camX = (usableW / 2 - W / 2) / zoom + W / 2 - (minX + maxX) / 2;
@@ -499,12 +499,12 @@ document.addEventListener("keydown", (e) => {
 
 document.getElementById("project-filter").addEventListener("change", (e) => {
   activeProject = e.target.value;
-  relayoutGraph();
-  if (focusNode) exitFocus();
   if (selectedNode && !isNodeVisible(selectedNode)) {
     document.getElementById("detail").style.display = "none";
     selectedNode = null;
   }
+  if (focusNode) exitFocus();
+  relayoutGraph();
 });
 
 function showDetail(n) {

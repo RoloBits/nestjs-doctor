@@ -353,7 +353,7 @@ describe("modules graph layout", () => {
 	) {
 		const scripts = getReportScripts(EMPTY);
 		const start = scripts.indexOf("function layoutModules()");
-		const end = scripts.indexOf("/** Fits the given nodes");
+		const end = scripts.indexOf("function centerGraph");
 		const helperStart = scripts.indexOf("function sComputeComponents");
 		const helperEnd = scripts.indexOf("function sComputeStarLayout");
 		if (start < 0 || end <= start || helperStart < 0) {
