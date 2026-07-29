@@ -1,3 +1,4 @@
+import type { SourceFile } from "ts-morph";
 import { posixDirname, resolvePosix } from "../../../graph/module-graph.js";
 import type { Rule } from "../../types.js";
 
@@ -12,6 +13,14 @@ const INTERNAL_PATHS = [
 	"/pipes/",
 	"/strategies/",
 ];
+
+/** True when the specifier resolves to a file the scan actually holds. */
+function targetIsScanned(sourceFile: SourceFile, target: string): boolean {
+	const project = sourceFile.getProject();
+	return [`${target}.ts`, `${target}/index.ts`, target].some((candidate) =>
+		project.getSourceFile(candidate)
+	);
+}
 
 /** The deepest module directory containing `path`, if any is known. */
 function nearestModuleDirectory(
@@ -75,12 +84,16 @@ export const requireModuleBoundaries: Rule = {
 					directories
 				);
 				const targetModule = nearestModuleDirectory(target, directories);
-				// A target outside every module, or one whose module contains the
-				// source's module, is shared or root code rather than a neighbour.
-				if (targetModule === undefined || sourceModule === targetModule) {
-					continue;
-				}
-				if (sourceModule?.startsWith(`${targetModule}/`)) {
+				if (targetModule === undefined) {
+					// A target the scan holds is positively outside every module. One
+					// it does not hold is unknown, and unknown still reports.
+					if (targetIsScanned(context.sourceFile, target)) {
+						continue;
+					}
+				} else if (
+					sourceModule === targetModule ||
+					sourceModule?.startsWith(`${targetModule}/`)
+				) {
 					continue;
 				}
 			}

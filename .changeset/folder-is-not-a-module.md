@@ -31,16 +31,20 @@ across the corpus, **50 sat in a directory with no module file at all** —
 `guards/`, `filters/`, `entities/`, `interceptors/`. The rule now runs only on a
 barrel beside a module file.
 
-Both rules treat an empty `moduleDirectories` as "no module was found", not as
-"nothing is a module", so a scan that turns up no `*.module.ts` at all still
-reports exactly what it did before rather than going quiet.
+Suppression needs a positive sighting, which is the invariant #150 recorded:
+"only two sides positively resolving to the same module skip the report;
+anything unknown reports as before". So an empty `moduleDirectories` means no
+module was found rather than nothing being one, and a target outside every
+module is skipped only when the scan actually holds that file. An import whose
+specifier resolves nowhere is unknown and still reported, which costs 6 findings
+against the looser version.
 
-Across 189 public projects: module boundaries 867 to 596, barrel exports 186 to
+Across 189 public projects: module boundaries 867 to 602, barrel exports 186 to
 26, nothing added by either.
 
-Of the 271 boundary findings removed, 188 target a shared folder holding no
+Of the 265 boundary findings removed, most target a shared folder holding no
 module and no provider, and about 67 are a nested module importing its parent's
-`dto/` or `entities/`. The remaining 16 target a folder that holds a service or
+`dto/` or `entities/`. Around 16 target a folder that holds a service or
 controller but no module file. That shape is arguably a feature folder missing
 its module, which is how the `config-disable-rules` fixture below is read, and
 the rule now says nothing about it either way.

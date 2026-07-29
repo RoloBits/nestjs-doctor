@@ -18,9 +18,13 @@ function runRule(
 	filePath = "test.ts",
 	config: NestjsDoctorConfig = {},
 	moduleDirectories?: ReadonlySet<string>,
-	diProviders?: ReadonlySet<string>
+	diProviders?: ReadonlySet<string>,
+	alsoPresent: string[] = []
 ): Diagnostic[] {
 	const project = new Project({ useInMemoryFileSystem: true });
+	for (const present of alsoPresent) {
+		project.createSourceFile(present, "export {};");
+	}
 	const sourceFile = project.createSourceFile(filePath, code);
 	const diagnostics: Diagnostic[] = [];
 
@@ -1207,6 +1211,19 @@ describe("require-module-boundaries", () => {
 		expect(diags).toHaveLength(1);
 	});
 
+	it("still flags when the target does not resolve to a scanned file", () => {
+		const diags = runRule(
+			requireModuleBoundaries,
+			`
+      import { UsersRepository } from '../../../../users/repositories/users.repository';
+    `,
+			"/src/orders/orders.service.ts",
+			{},
+			new Set(["/src/orders", "/src/users"])
+		);
+		expect(diags).toHaveLength(1);
+	});
+
 	it("still flags when the scan found no module at all", () => {
 		const diags = runRule(
 			requireModuleBoundaries,
@@ -1228,7 +1245,9 @@ describe("require-module-boundaries", () => {
     `,
 			"/src/modules/sessions/sessions.controller.ts",
 			{},
-			new Set(["/src/modules/sessions"])
+			new Set(["/src/modules/sessions"]),
+			undefined,
+			["/src/pipes/where.pipe.ts"]
 		);
 		expect(diags).toHaveLength(0);
 	});
@@ -1241,7 +1260,9 @@ describe("require-module-boundaries", () => {
     `,
 			"/src/auth/auth.service.ts",
 			{},
-			new Set(["/src", "/src/auth"])
+			new Set(["/src", "/src/auth"]),
+			undefined,
+			["/src/common/dto/api-response.dto.ts"]
 		);
 		expect(diags).toHaveLength(0);
 	});

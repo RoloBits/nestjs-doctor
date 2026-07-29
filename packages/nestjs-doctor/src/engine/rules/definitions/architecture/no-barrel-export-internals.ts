@@ -19,8 +19,8 @@ export const noBarrelExportInternals: Rule = {
 		category: "architecture",
 		severity: "info",
 		description:
-			"Don't re-export internal implementation details from barrel files",
-		help: "Only export the module's public API (services, DTOs, interfaces) from index.ts files.",
+			"Don't re-export internal implementation details from a module's barrel file",
+		help: "Only export the module's public API (services, DTOs, interfaces) from the index.ts beside its module file.",
 	},
 
 	check(context) {
@@ -29,9 +29,8 @@ export const noBarrelExportInternals: Rule = {
 			return;
 		}
 
-		// A folder barrel re-exports its own siblings by design. Only a barrel
-		// sitting beside a module file is that module's public surface.
-		// An empty set means no module was found at all, not that nothing is one.
+		// Only a barrel beside a module file is that module's public surface.
+		// An empty set means no module was found, not that nothing is one.
 		const directories = context.moduleDirectories;
 		if (directories?.size && !directories.has(posixDirname(context.filePath))) {
 			return;
