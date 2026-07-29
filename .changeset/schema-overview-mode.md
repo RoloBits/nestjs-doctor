@@ -1,5 +1,5 @@
 ---
-"nestjs-doctor": minor
+"nestjs-doctor": patch
 ---
 
 The HTML report's schema diagram can now show every table at once.

@@ -1,5 +1,5 @@
 ---
-"nestjs-doctor": minor
+"nestjs-doctor": patch
 ---
 
 The schema tab's table list can be hidden, and it follows the diagram by default.

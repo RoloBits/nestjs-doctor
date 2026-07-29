@@ -1,5 +1,5 @@
 ---
-"nestjs-doctor": minor
+"nestjs-doctor": patch
 ---
 
 Three additions to the schema diagram: deselecting by clicking away, a zoom bar,
