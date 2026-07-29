@@ -28,6 +28,14 @@ const extractors: Record<string, OrmSchemaExtractor> = {
 	"mikro-orm": mikroOrmExtractor,
 };
 
+/**
+ * ORMs whose schema is a file the extractor locates from the target path. The
+ * others read the source files they are handed, so the path changes nothing.
+ */
+export const ORMS_READ_FROM_TARGET_PATH: ReadonlySet<string> = new Set([
+	"prisma",
+]);
+
 export function extractSchema(
 	project: Project,
 	files: string[],
