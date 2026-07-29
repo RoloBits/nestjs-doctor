@@ -103,6 +103,7 @@ function switchTab(name) {
   if (name !== "modules") {
     document.getElementById("detail").style.display = "none";
     selectedNode = null;
+    hideModuleTooltip();
     if (focusNode) exitFocus();
   }
 
@@ -232,6 +233,7 @@ function scheduleGraphDraw() {
  */
 function layoutModules() {
   const GUTTER = 90;
+  isolatedHeading = null;
   const visible = nodes.filter(isNodeVisible);
   if (visible.length === 0) return;
   const components = sComputeComponents(visible, graph.edges, "from", "to");
@@ -266,8 +268,7 @@ function layoutModules() {
     for (const n of b.nodes) { n.x += b.ox; n.y += b.oy; }
   }
 
-  // The heading needs a connected group to contrast against.
-  isolatedHeading = null;
+  // A heading only reads against a connected group, and only for the whole graph.
   if (isolatedBox && anyConnected && activeProject === "all") {
     let top = Infinity;
     for (const n of isolatedBox.nodes) top = Math.min(top, n.y - n.h / 2);
@@ -292,9 +293,14 @@ function centerGraph(subset) {
     minY = Math.min(minY, n.y - n.h / 2);
     maxY = Math.max(maxY, n.y + n.h / 2);
   }
-  const fit = Math.min(1.2, Math.min((W * 0.9) / (maxX - minX || 1), (H * 0.9) / (maxY - minY || 1)));
+  const panel = document.getElementById("detail");
+  const covered = panel && getComputedStyle(panel).display !== "none"
+    ? panel.getBoundingClientRect().width
+    : 0;
+  const usableW = Math.max(120, W - covered);
+  const fit = Math.min(1.2, Math.min((usableW * 0.9) / (maxX - minX || 1), (H * 0.9) / (maxY - minY || 1)));
   zoom = Math.max(0.05, fit);
-  camX = W / 2 - (minX + maxX) / 2;
+  camX = (usableW / 2 - W / 2) / zoom + W / 2 - (minX + maxX) / 2;
   camY = H / 2 - (minY + maxY) / 2;
 }
 
@@ -428,8 +434,7 @@ canvas.addEventListener("mouseup", () => {
   panning = false;
 });
 
-// A release outside the canvas never reaches it, which would leave a node stuck
-// to the pointer.
+// Catches the release when it lands outside the canvas.
 window.addEventListener("mouseup", () => {
   if (!(dragging || panning)) return;
   dragging = null;
@@ -466,6 +471,7 @@ canvas.addEventListener("wheel", (e) => {
     camX -= e.deltaX / zoom;
     camY -= e.deltaY / zoom;
   }
+  hideModuleTooltip();
   scheduleGraphDraw();
 }, { passive: false });
 
@@ -780,6 +786,7 @@ function syncModulesZoomUi() {
 
 function setModulesZoom(next) {
   zoom = Math.max(0.05, Math.min(5, next));
+  hideModuleTooltip();
   syncModulesZoomUi();
   scheduleGraphDraw();
 }
