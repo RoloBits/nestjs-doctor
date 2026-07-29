@@ -2983,9 +2983,14 @@ function renderSchema() {
       var colGroupId = entityId + "-cols";
       sidebarHtml += sBuildTreeRow(2, colGroupId, ICON_FOLDER_CLOSED, '<span class="st-group-name">columns</span>', '<span class="st-count">' + entity.columns.length + '</span>', "", "");
       sidebarHtml += '<div class="st-children" id="st-' + colGroupId + '">';
+      var entityForeignKeys = sForeignKeyColumns(entity);
       for (var c = 0; c < entity.columns.length; c++) {
         var col = entity.columns[c];
-        var colIcon = col.isPrimary ? ICON_KEY : ICON_COLUMN;
+        var colKind = sColumnKind(col, entityForeignKeys);
+        var colIcon = colKind === "pk" ? ICON_KEY
+          : colKind === "fk" ? ICON_FK
+          : colKind === "idx" ? ICON_INDEX
+          : ICON_COLUMN;
         var colExtra = '<span class="st-col-type">' + escHtml(col.type) + '</span>';
         if (col.defaultValue) {
           colExtra += '<span class="st-col-default">= ' + escHtml(col.defaultValue) + '</span>';
@@ -2994,6 +2999,7 @@ function renderSchema() {
         if (col.isNullable) colTags.push("null");
         if (col.isGenerated) colTags.push("gen");
         if (col.isUnique && !col.isPrimary) colTags.push("uniq");
+        if (col.hasIndex && !(col.isPrimary || col.isUnique)) colTags.push("idx");
         if (colTags.length > 0) {
           colExtra += '<span class="st-col-tags">' + colTags.join(" \\u00B7 ") + '</span>';
         }
@@ -3035,7 +3041,8 @@ function renderSchema() {
     // Indexes group (unique non-PK columns)
     var indexes = [];
     for (var c = 0; c < entity.columns.length; c++) {
-      if (entity.columns[c].isUnique && !entity.columns[c].isPrimary) indexes.push(entity.columns[c]);
+      var idxCol = entity.columns[c];
+      if (!idxCol.isPrimary && (idxCol.isUnique || idxCol.hasIndex)) indexes.push(idxCol);
     }
     if (indexes.length > 0) {
       var idxGroupId = entityId + "-idx";
