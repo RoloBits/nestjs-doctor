@@ -1208,6 +1208,79 @@ describe("require-module-boundaries", () => {
 	});
 });
 
+describe("no-orm-in-services duplicates", () => {
+	it("reports one diagnostic however many repositories are injected", () => {
+		const diags = runRule(
+			noOrmInServices,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class UserService {
+        constructor(
+          @InjectRepository(User) private a: Repository<User>,
+          @InjectRepository(Role) private b: Repository<Role>,
+          @InjectRepository(Team) private c: Repository<Team>,
+        ) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+	});
+
+	it("reports one diagnostic for two parameters of the same ORM type", () => {
+		const diags = runRule(
+			noOrmInServices,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class ReportService {
+        constructor(
+          private readonly primary: PrismaService,
+          private readonly replica: PrismaService,
+        ) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+	});
+
+	it("still reports two different ORM types", () => {
+		const diags = runRule(
+			noOrmInServices,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class ReportService {
+        constructor(
+          private readonly prisma: PrismaService,
+          private readonly source: DataSource,
+        ) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(2);
+	});
+
+	it("still reports each distinct reason once", () => {
+		const diags = runRule(
+			noOrmInServices,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class UserService {
+        constructor(
+          @InjectRepository(User) private a: Repository<User>,
+          @InjectRepository(Role) private b: Repository<Role>,
+          @InjectModel(Doc.name) private c: Model<Doc>,
+          private d: PrismaService,
+        ) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(3);
+	});
+});
+
 describe("no-barrel-export-internals", () => {
 	it("flags re-exporting repositories from barrel files", () => {
 		const diags = runRule(
