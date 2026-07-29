@@ -325,8 +325,15 @@ canvas.addEventListener("click", (e) => {
 
 canvas.addEventListener("wheel", (e) => {
   e.preventDefault();
-  const factor = e.deltaY > 0 ? 0.92 : 1.08;
-  zoom = Math.max(0.1, Math.min(5, zoom * factor));
+  // A trackpad pinch arrives as a wheel event with ctrlKey set. Everything
+  // else is a two-finger scroll, which pans.
+  if (e.ctrlKey || e.metaKey) {
+    const factor = e.deltaY > 0 ? 0.92 : 1.08;
+    zoom = Math.max(0.1, Math.min(5, zoom * factor));
+  } else {
+    camX -= e.deltaX / zoom;
+    camY -= e.deltaY / zoom;
+  }
 }, { passive: false });
 
 document.getElementById("close-detail").addEventListener("click", () => {
@@ -3284,8 +3291,17 @@ function renderSchema() {
 
   sCanvas.addEventListener("wheel", function(e) {
     e.preventDefault();
-    var factor = e.deltaY > 0 ? 0.92 : 1.08;
-    sZoom = Math.max(sMinZoom, Math.min(5, sZoom * factor));
+    // A trackpad pinch arrives as a wheel event with ctrlKey set. Everything
+    // else is a two-finger scroll, which pans.
+    if (e.ctrlKey || e.metaKey) {
+      var factor = e.deltaY > 0 ? 0.92 : 1.08;
+      sZoom = Math.max(sMinZoom, Math.min(5, sZoom * factor));
+    } else {
+      sCamX -= e.deltaX / sZoom;
+      sCamY -= e.deltaY / sZoom;
+      sHideTooltip();
+      sHideRelBadge();
+    }
     sScheduleRedraw();
   }, { passive: false });
 
@@ -4008,6 +4024,15 @@ function renderEndpoints() {
 
   epCanvas.addEventListener("wheel", function(e) {
     e.preventDefault();
+    // A trackpad pinch arrives as a wheel event with ctrlKey set. Everything
+    // else is a two-finger scroll, which pans.
+    if (!(e.ctrlKey || e.metaKey)) {
+      epCamX -= e.deltaX / epZoom;
+      epCamY -= e.deltaY / epZoom;
+      epHideTooltip();
+      epScheduleRedraw();
+      return;
+    }
     var zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
     var newZoom = epZoom * zoomFactor;
     newZoom = Math.max(0.2, Math.min(3, newZoom));
