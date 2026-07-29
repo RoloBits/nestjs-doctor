@@ -459,6 +459,25 @@ describe("modules graph layout", () => {
 		expect(api.heading()).toBeNull();
 	});
 
+	it("survives a module named after an Object member", () => {
+		const moduleNodes: ModuleNode[] = [
+			{ h: 36, name: "toString", project: "app", w: 180, x: 0, y: 0 },
+			{ h: 36, name: "constructor", project: "app", w: 180, x: 0, y: 0 },
+			{ h: 36, name: "AppModule", project: "app", w: 180, x: 0, y: 0 },
+		];
+		const api = loadLayout(moduleNodes, [
+			{ from: "AppModule", to: "toString" },
+			// An edge naming something that is not a module at all.
+			{ from: "AppModule", to: "valueOf" },
+		]);
+
+		expect(() => api.layoutModules()).not.toThrow();
+		expect(findOverlap(moduleNodes)).toBeNull();
+		expect(
+			moduleNodes.every((n) => Number.isFinite(n.x) && Number.isFinite(n.y))
+		).toBe(true);
+	});
+
 	it("does nothing when there are no modules", () => {
 		const api = loadLayout([], []);
 

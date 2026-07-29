@@ -2308,7 +2308,7 @@ function sPolylineMidpoint(points) {
 
 /** Groups nodes into connected components using the given edges. */
 function sComputeComponents(nodes, edges, fromKey, toKey) {
-  var index = {};
+  var index = Object.create(null);
   var parent = [];
   for (var i = 0; i < nodes.length; i++) {
     index[nodes[i].name] = i;
@@ -2330,16 +2330,14 @@ function sComputeComponents(nodes, edges, fromKey, toKey) {
     var ra = find(a), rb = find(b);
     if (ra !== rb) parent[rb] = ra;
   }
-  var groups = {};
+  var groups = Object.create(null);
   for (var i = 0; i < nodes.length; i++) {
     var root = find(i);
     if (!groups[root]) groups[root] = [];
     groups[root].push(nodes[i]);
   }
   var out = [];
-  for (var key in groups) {
-    if (Object.prototype.hasOwnProperty.call(groups, key)) out.push(groups[key]);
-  }
+  for (var key in groups) out.push(groups[key]);
   return out;
 }
 
@@ -2368,13 +2366,13 @@ function sLayoutComponent(nodes, edges, fromKey, toKey, rankdir) {
   g.setGraph({ rankdir: rankdir || "LR", nodesep: 60, ranksep: 120, marginx: 0, marginy: 0 });
   g.setDefaultEdgeLabel(function() { return {}; });
 
-  var present = {};
+  var present = Object.create(null);
   for (i = 0; i < nodes.length; i++) {
     present[nodes[i].name] = true;
     g.setNode(nodes[i].name, { width: nodes[i].w, height: nodes[i].h });
   }
 
-  var seenEdge = {};
+  var seenEdge = Object.create(null);
   for (i = 0; i < edges.length; i++) {
     var edge = edges[i];
     if (edge[fromKey] === edge[toKey]) continue;
