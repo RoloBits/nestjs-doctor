@@ -144,7 +144,7 @@ export const noUnusedProviders: ProjectRule = {
 				continue;
 			}
 
-			// Skip self-activating providers (e.g. @Cron, @OnEvent, @Process)
+			// Skip providers the framework activates, by decorator or by contract.
 			if (
 				hasSelfActivatingDecorator(provider.classDeclaration) ||
 				implementsSelfActivating(provider.classDeclaration)
