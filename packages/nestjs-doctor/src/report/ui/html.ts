@@ -209,8 +209,15 @@ for (let i = 0; i < lines.length; i++) {
           <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
         </svg>
         <p>Select an entity from the sidebar to explore its schema</p>
+        <button class="st-btn schema-empty-action" id="schema-show-all">Show all tables</button>
       </div>
       <div id="schema-toolbar">
+        <button class="st-btn schema-diagram-btn" id="schema-toggle-view" title="Show all tables">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+            <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+          </svg>
+        </button>
         <button class="st-btn schema-diagram-btn" id="schema-recenter" title="Re-center diagram">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>

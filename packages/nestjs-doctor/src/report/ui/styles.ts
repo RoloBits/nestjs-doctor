@@ -855,6 +855,11 @@ canvas:active { cursor: grabbing; }
   border-color: rgba(255,255,255,0.35);
   color: #fff;
 }
+.schema-diagram-btn.active {
+  background: rgba(234,40,69,0.22);
+  border-color: rgba(234,40,69,0.7);
+  color: #fff;
+}
 .schema-tooltip {
   position: absolute; z-index: 20; pointer-events: none;
   background: #1a1a1a; border: 1px solid rgba(255,255,255,0.12);
@@ -889,6 +894,11 @@ canvas:active { cursor: grabbing; }
   color: var(--text-muted); gap: 12px; text-align: center; z-index: 5;
 }
 #schema-empty-state p { font-size: 14px; color: var(--text-dim); margin: 0; }
+.schema-empty-action {
+  padding: 6px 14px; font-size: 12px; font-family: var(--font);
+  color: var(--text); border-color: rgba(255,255,255,0.18);
+}
+.schema-empty-action:hover { color: var(--white); }
 
 /* ── Schema diagnostics panel ── */
 #schema-diag-panel {
