@@ -103,7 +103,7 @@ function switchTab(name) {
   if (name !== "modules") {
     document.getElementById("detail").style.display = "none";
     selectedNode = null;
-    exitFocus();
+    if (focusNode) exitFocus();
   }
 
   if (name === "diagnosis" && !diagnosisRendered) { renderDiagnosis(); diagnosisRendered = true; }
@@ -167,7 +167,7 @@ const ctx = canvas.getContext("2d");
 const dpr = window.devicePixelRatio || 1;
 
 let W, H;
-// The graph is laid out after the nodes exist; resize does nothing before that.
+// True once the nodes have been laid out at least once.
 let graphReady = false;
 function resize() {
   const prevW = W, prevH = H;
@@ -266,7 +266,7 @@ function layoutModules() {
     for (const n of b.nodes) { n.x += b.ox; n.y += b.oy; }
   }
 
-  // Headed only when there is something connected to contrast against.
+  // The heading needs a connected group to contrast against.
   isolatedHeading = null;
   if (isolatedBox && anyConnected && activeProject === "all") {
     let top = Infinity;
@@ -343,6 +343,8 @@ function remeasureNodes() {
 let camX = 0, camY = 0, zoom = 1;
 let dragging = null;
 let panning = false;
+let pointerMoved = false;
+let clickHandled = false;
 let panStart = { x: 0, y: 0 };
 let selectedNode = null;
 let focusNode = null;
@@ -383,6 +385,8 @@ function screenToWorld(sx, sy) {
 }
 
 canvas.addEventListener("mousedown", (e) => {
+  pointerMoved = false;
+  clickHandled = false;
   const rect = canvas.getBoundingClientRect();
   const pos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
   for (const n of nodes) {
@@ -399,12 +403,14 @@ canvas.addEventListener("mousedown", (e) => {
 
 canvas.addEventListener("mousemove", (e) => {
   if (dragging) {
+    pointerMoved = true;
     const rect = canvas.getBoundingClientRect();
     const pos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
     dragging.x = pos.x;
     dragging.y = pos.y;
     scheduleGraphDraw();
   } else if (panning) {
+    pointerMoved = true;
     camX += (e.clientX - panStart.x) / zoom;
     camY += (e.clientY - panStart.y) / zoom;
     panStart = { x: e.clientX, y: e.clientY };
@@ -413,8 +419,9 @@ canvas.addEventListener("mousemove", (e) => {
 });
 
 canvas.addEventListener("mouseup", () => {
-  if (dragging && !panning) {
+  if (dragging && !panning && !pointerMoved) {
     showDetail(dragging);
+    clickHandled = true;
   }
   scheduleGraphDraw();
   dragging = null;
@@ -422,6 +429,11 @@ canvas.addEventListener("mouseup", () => {
 });
 
 canvas.addEventListener("click", (e) => {
+  if (clickHandled) {
+    clickHandled = false;
+    return;
+  }
+  if (pointerMoved) return;
   const rect = canvas.getBoundingClientRect();
   const pos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
   for (const n of nodes) {
@@ -463,8 +475,10 @@ document.getElementById("focus-btn").addEventListener("click", () => {
 });
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") {
-    if (focusNode) exitFocus();
+  if (e.key === "Escape" && focusNode) {
+    exitFocus();
+    document.getElementById("detail").style.display = "none";
+    selectedNode = null;
   }
 });
 
