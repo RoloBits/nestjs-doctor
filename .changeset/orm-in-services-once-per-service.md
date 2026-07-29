@@ -20,5 +20,9 @@ Each distinct reason is now reported once per service. A service that injects
 repositories, a Mongoose model and `PrismaService` still gets three findings,
 because those are three different things to say.
 
-Across 189 public projects this removes 196 findings and adds none. The number
-of services flagged is unchanged.
+Across 189 public projects this removes 196 findings and adds none. The set of
+services flagged is unchanged, not merely its size.
+
+One consequence worth knowing: the surviving diagnostic sits on the first
+matching parameter, so an inline `nestjs-doctor-ignore-next-line` on that line
+now silences the service rather than one of its repositories.

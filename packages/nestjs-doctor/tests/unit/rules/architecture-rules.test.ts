@@ -1227,6 +1227,40 @@ describe("no-orm-in-services duplicates", () => {
 		expect(diags).toHaveLength(1);
 	});
 
+	it("reports one diagnostic for two parameters of the same ORM type", () => {
+		const diags = runRule(
+			noOrmInServices,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class ReportService {
+        constructor(
+          private readonly primary: PrismaService,
+          private readonly replica: PrismaService,
+        ) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+	});
+
+	it("still reports two different ORM types", () => {
+		const diags = runRule(
+			noOrmInServices,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class ReportService {
+        constructor(
+          private readonly prisma: PrismaService,
+          private readonly source: DataSource,
+        ) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(2);
+	});
+
 	it("still reports each distinct reason once", () => {
 		const diags = runRule(
 			noOrmInServices,
