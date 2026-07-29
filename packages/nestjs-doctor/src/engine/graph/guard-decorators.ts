@@ -19,8 +19,8 @@ function isUseGuardsCall(node: Node): boolean {
 }
 
 /**
- * True for an argument that always applies a guard. A ternary counts only when
- * both of its branches do, so a decorator guarding one way round does not.
+ * True for an argument that always applies a guard: the call itself, a ternary
+ * whose both branches do, or a spread of an inline array holding one.
  */
 function argumentApplies(argument: Node): boolean {
 	if (isUseGuardsCall(argument)) {
@@ -41,7 +41,7 @@ function argumentApplies(argument: Node): boolean {
 	return elements ? elements.some(argumentApplies) : false;
 }
 
-/** True for `applyDecorators(..., UseGuards(...), ...)`. */
+/** True when an argument of `applyDecorators(...)` always applies a guard. */
 function appliesGuards(expression: Node | undefined): boolean {
 	const call = expression?.asKind(SyntaxKind.CallExpression);
 	if (call?.getExpression().getText() !== "applyDecorators") {
