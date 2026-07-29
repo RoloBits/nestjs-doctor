@@ -230,11 +230,11 @@ for (let i = 0; i < lines.length; i++) {
         <button class="st-btn schema-zoom-btn has-tip" id="schema-zoom-out" aria-label="Zoom out" data-tip="Zoom out">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
-        <input type="range" id="schema-zoom-range" min="5" max="300" step="1" value="100" aria-label="Zoom">
+        <input type="range" id="schema-zoom-range" min="5" max="500" step="1" value="100" aria-label="Zoom">
         <button class="st-btn schema-zoom-btn has-tip" id="schema-zoom-in" aria-label="Zoom in" data-tip="Zoom in">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
-        <button class="schema-zoom-value has-tip" id="schema-zoom-value" aria-label="Fit to view" data-tip="Fit \u00b7 size the diagram to the window">100%</button>
+        <button class="schema-zoom-value has-tip" id="schema-zoom-value" aria-label="100% \u00b7 fit to view" data-tip="Fit \u00b7 size the diagram to the window">100%</button>
       </div>
         <button class="st-btn schema-diagram-btn has-tip" id="schema-toggle-view" aria-label="Show all tables" data-tip="All tables \u00b7 lay out the whole schema at once">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

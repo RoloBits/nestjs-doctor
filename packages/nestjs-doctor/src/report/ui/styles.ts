@@ -856,7 +856,7 @@ canvas:active { cursor: grabbing; }
 #tab-schema.sidebar-collapsed #schema-sidebar-show:hover {
   background: rgba(70,70,70,0.95); color: #fff;
 }
-#schema-sidebar-show:hover::after { left: 0; right: auto; }
+#schema-sidebar-show:is(:hover, :focus-visible)::after { left: 0; right: auto; }
 .schema-sync {
   display: flex; align-items: center; gap: 6px;
   padding: 10px 16px; cursor: pointer;
@@ -864,9 +864,9 @@ canvas:active { cursor: grabbing; }
 }
 .schema-sync:hover { color: var(--text); }
 .schema-sync input { accent-color: var(--nest-red); cursor: pointer; margin: 0; }
-.schema-sync:hover::after { left: 16px; right: auto; }
+.schema-sync:is(:hover, :focus-visible)::after { left: 16px; right: auto; }
 .has-tip { position: relative; }
-.has-tip:hover::after {
+.has-tip:is(:hover, :focus-visible)::after {
   content: attr(data-tip);
   position: absolute; top: calc(100% + 6px); right: 0; z-index: 40;
   white-space: nowrap; pointer-events: none;
@@ -875,11 +875,11 @@ canvas:active { cursor: grabbing; }
   font-size: 11px; font-family: var(--font); color: var(--text);
   box-shadow: 0 4px 12px rgba(0,0,0,0.5);
 }
-#schema-sidebar .has-tip:hover::after {
+#schema-sidebar .has-tip:is(:hover, :focus-visible)::after {
   white-space: normal; width: max-content; max-width: 240px;
 }
 /* An icon sits near the left edge, so its tip has to open rightwards. */
-.st-icon.has-tip:hover::after { left: 0; right: auto; top: calc(100% + 2px); }
+.st-icon.has-tip:is(:hover, :focus-visible)::after { left: 0; right: auto; top: calc(100% + 2px); }
 .schema-diagram-btn {
   width: 28px; height: 28px; justify-content: center;
   background: rgba(50,50,50,0.9);

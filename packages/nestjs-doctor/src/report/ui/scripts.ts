@@ -325,8 +325,7 @@ canvas.addEventListener("click", (e) => {
 
 canvas.addEventListener("wheel", (e) => {
   e.preventDefault();
-  // A trackpad pinch arrives as a wheel event with ctrlKey set. Everything
-  // else is a two-finger scroll, which pans.
+  // ctrlKey or metaKey means a pinch, which zooms; anything else pans.
   if (e.ctrlKey || e.metaKey) {
     const factor = e.deltaY > 0 ? 0.92 : 1.08;
     zoom = Math.max(0.1, Math.min(5, zoom * factor));
@@ -1840,7 +1839,7 @@ var sShowCols = null;
 var sShowAllCols = false;
 // When on, picking a table in the diagram drives the list beside it.
 var sSyncSidebar = true;
-// Lowest zoom the wheel allows. Fitting a big overview can need less than this.
+// The fit zoom of the current layout.
 var sMinZoom = 0.2;
 
 // Schema tooltip element
@@ -1856,6 +1855,11 @@ function sScheduleRedraw() {
   }
 }
 
+/** Lowest zoom either control allows, low enough to fit a large diagram. */
+function sZoomFloor() {
+  return Math.min(sMinZoom, 0.05);
+}
+
 var sLastZoomUi = null;
 /** Keeps the zoom bar in step with the camera, whatever changed it. */
 function sSyncZoomUi() {
@@ -1864,8 +1868,11 @@ function sSyncZoomUi() {
   sLastZoomUi = pct;
   var range = document.getElementById("schema-zoom-range");
   var label = document.getElementById("schema-zoom-value");
-  if (range) range.value = String(Math.max(5, Math.min(300, pct)));
-  if (label) label.textContent = pct + "%";
+  if (range) range.value = String(Math.max(5, Math.min(500, pct)));
+  if (label) {
+    label.textContent = pct + "%";
+    label.setAttribute("aria-label", pct + "% \\u00b7 fit to view");
+  }
 }
 
 function sScreenToWorld(sx, sy) {
@@ -2171,7 +2178,7 @@ function sComputeComponents(nodes) {
   return out;
 }
 
-/** Lays one component out with dagre, positioned from its own origin. */
+/** Positions one component from its own origin, with dagre or a grid. */
 function sLayoutComponent(nodes) {
   var i;
   if (nodes.length === 1 || typeof dagre === "undefined") {
@@ -2382,24 +2389,25 @@ var S_PK_COLOR = "#ea2845";
 var S_FK_COLOR = "#8b5cf6";
 var S_IDX_COLOR = "#f59e0b";
 
-/**
- * A relation names the property, so the column holding the key is either that
- * name or that name with an Id suffix.
- */
+/** Names a relation's property and that property with an Id suffix. */
+function sKeyName(text) {
+  return String(text).toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 function sForeignKeyColumns(entity) {
-  var names = {};
+  var names = Object.create(null);
   for (var i = 0; i < entity.relations.length; i++) {
     var prop = entity.relations[i].propertyName;
     if (!prop) continue;
-    names[prop.toLowerCase()] = true;
-    names[prop.toLowerCase() + "id"] = true;
+    names[sKeyName(prop)] = true;
+    names[sKeyName(prop) + "id"] = true;
   }
   return names;
 }
 
 function sColumnKind(column, foreignKeys) {
   if (column.isPrimary) return "pk";
-  if (foreignKeys[column.name.toLowerCase()]) return "fk";
+  if (foreignKeys[sKeyName(column.name)]) return "fk";
   if (column.isUnique || column.hasIndex) return "idx";
   return null;
 }
@@ -2458,9 +2466,15 @@ function sNodeHeight(node, showCols) {
   return 24 + visible * 16 + (hidden > 0 ? 16 : 0) + 8;
 }
 
+/** The overview shows columns; a focused star shows them for a small set. */
+function sColumnsShown(count) {
+  if (sShowCols !== null) return sShowCols;
+  return !sFocusedMode || count <= 5;
+}
+
 /** Single source of truth for box size, used by both layout and drawing. */
 function sApplyNodeSizes(nodes) {
-  var showCols = sShowCols !== null ? sShowCols : nodes.length <= 5;
+  var showCols = sColumnsShown(nodes.length);
   for (var i = 0; i < nodes.length; i++) {
     nodes[i].w = 180;
     nodes[i].h = sNodeHeight(nodes[i], showCols);
@@ -2496,7 +2510,6 @@ function sCacheNodeLabels(nodes) {
     for (var c = 0; c < n.entity.columns.length; c++) {
       n.colTypes.push(clip(n.entity.columns[c].type, 60));
     }
-    // The icon column narrows the space a name can occupy.
     var foreignKeys = sForeignKeyColumns(n.entity);
     sCtx.font = "11px -apple-system, BlinkMacSystemFont, sans-serif";
     n.colNames = [];
@@ -2562,15 +2575,14 @@ function sCenterCamera() {
   var padW = sW * 0.85;
   var padH = sH * 0.85;
   var fit = Math.min(1.5, Math.min(padW / (graphW || 1), padH / (graphH || 1)));
-  // A wide overview has to shrink past the normal floor to fit on screen.
+  // Records the fit so the controls can zoom out this far.
   sMinZoom = Math.min(0.2, fit);
   sZoom = Math.max(sMinZoom, fit);
-  // Column text is 11px in world units, so anything under this renders too
-  // small to read. Better to stop fitting and let the user pan.
-  var showingCols = sShowCols !== null ? sShowCols : sNodes.length <= 5;
+  // Stops the fit at the zoom where 11px column text is still legible.
+  var showingCols = sColumnsShown(sNodes.length);
   if (showingCols && sZoom < 0.75) {
     sZoom = 0.75;
-    // Too big to fit, so start at the top left rather than mid-diagram.
+    // Anchors the top left of the diagram instead of centring it.
     var pad = 40;
     sCamX = (pad - sW / 2) / sZoom + sW / 2 - minX;
     sCamY = (pad - sH / 2) / sZoom + sH / 2 - minY;
@@ -2975,9 +2987,9 @@ function renderSchema() {
     return h;
   }
 
-  var TIP_PK = "Primary key \u00b7 identifies the row";
-  var TIP_FK = "Foreign key \u00b7 points at another table";
-  var TIP_IDX = "Indexed \u00b7 unique or carries an index";
+  var TIP_PK = "Primary key \\u00b7 identifies the row";
+  var TIP_FK = "Foreign key \\u00b7 points at another table";
+  var TIP_IDX = "Indexed \\u00b7 unique or carries an index";
 
   // Build sidebar tree
   var sidebarHtml = "";
@@ -3292,9 +3304,11 @@ function renderSchema() {
   function sSyncViewToggle() {
     if (!viewToggleBtn) return;
     viewToggleBtn.classList.toggle("active", !sFocusedMode);
+    viewToggleBtn.setAttribute("aria-pressed", String(!sFocusedMode));
+    viewToggleBtn.setAttribute("aria-label", sFocusedMode ? "Show all tables" : "Focus one table");
     viewToggleBtn.setAttribute("data-tip", sFocusedMode
-      ? "All tables \u00b7 lay out the whole schema at once"
-      : "Focus \u00b7 show one table and what it relates to");
+      ? "All tables \\u00b7 lay out the whole schema at once"
+      : "Focus \\u00b7 show one table and what it relates to");
   }
 
   function sShowAllTables() {
@@ -3307,8 +3321,6 @@ function renderSchema() {
     for (var i = 0; i < sNodes.length; i++) {
       sNodeMap[sNodes[i].name] = sNodes[i];
     }
-    // Show columns unless the user has already chosen otherwise.
-    if (sShowCols === null) sShowCols = true;
     sRecalcNodeSizes();
     sComputeOverviewLayout();
     sCenterCamera();
@@ -3364,9 +3376,13 @@ function renderSchema() {
       sShowAllCols = !sShowAllCols;
       if (sShowAllCols) sShowCols = true;
       toggleColsBtn.classList.toggle("active", sShowAllCols);
+      toggleColsBtn.setAttribute("aria-pressed", String(sShowAllCols));
+      toggleColsBtn.setAttribute("aria-label", sShowAllCols
+        ? "Show the first " + S_DEFAULT_MAX_COLS + " columns"
+        : "Show every column");
       toggleColsBtn.setAttribute("data-tip", sShowAllCols
-        ? "First " + S_DEFAULT_MAX_COLS + " \u00b7 go back to a short column list"
-        : "Every column \u00b7 stop cutting the list at seven");
+        ? "First " + S_DEFAULT_MAX_COLS + " \\u00b7 go back to a short column list"
+        : "Every column \\u00b7 stop cutting the list at seven");
       sRelayoutForSizeChange();
     });
   }
@@ -3377,7 +3393,7 @@ function renderSchema() {
   var zoomValueBtn = document.getElementById("schema-zoom-value");
 
   function sSetZoom(next) {
-    sZoom = Math.max(Math.min(sMinZoom, 0.05), Math.min(5, next));
+    sZoom = Math.max(sZoomFloor(), Math.min(5, next));
     sSyncZoomUi();
     sScheduleRedraw();
   }
@@ -3448,6 +3464,7 @@ function renderSchema() {
     sEdgeRoutes = {};
     sEdgeKeys = [];
   } else {
+    sApplyNodeSizes(sNodes);
     sComputeOverviewLayout();
     sCenterCamera();
   }
@@ -3562,11 +3579,10 @@ function renderSchema() {
 
   sCanvas.addEventListener("wheel", function(e) {
     e.preventDefault();
-    // A trackpad pinch arrives as a wheel event with ctrlKey set. Everything
-    // else is a two-finger scroll, which pans.
+    // ctrlKey or metaKey means a pinch, which zooms; anything else pans.
     if (e.ctrlKey || e.metaKey) {
       var factor = e.deltaY > 0 ? 0.92 : 1.08;
-      sZoom = Math.max(sMinZoom, Math.min(5, sZoom * factor));
+      sZoom = Math.max(sZoomFloor(), Math.min(5, sZoom * factor));
     } else {
       sCamX -= e.deltaX / sZoom;
       sCamY -= e.deltaY / sZoom;
@@ -4295,8 +4311,7 @@ function renderEndpoints() {
 
   epCanvas.addEventListener("wheel", function(e) {
     e.preventDefault();
-    // A trackpad pinch arrives as a wheel event with ctrlKey set. Everything
-    // else is a two-finger scroll, which pans.
+    // ctrlKey or metaKey means a pinch, which zooms; anything else pans.
     if (!(e.ctrlKey || e.metaKey)) {
       epCamX -= e.deltaX / epZoom;
       epCamY -= e.deltaY / epZoom;
