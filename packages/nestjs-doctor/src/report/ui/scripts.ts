@@ -213,6 +213,7 @@ const nodes = graph.modules.map((m) => ({ ...m, x: 0, y: 0, w: 0, h: 36 }));
 const nodeMap = new Map();
 for (const n of nodes) nodeMap.set(n.name, n);
 
+let isolatedHeading = null;
 let graphDirty = false;
 function scheduleGraphDraw() {
   if (graphDirty) return;
@@ -239,17 +240,41 @@ function layoutModules() {
   }
   boxes.sort((a, b) => b.h - a.h || b.w - a.w);
 
-  if (isolated.length > 0) {
-    isolated.sort((a, b) => (a.project || "").localeCompare(b.project || "") || a.name.localeCompare(b.name));
-    const size = sLayoutIsolatedBlock(isolated, 28);
-    boxes.push({ nodes: isolated, w: size.w, h: size.h });
-  }
-
   let area = 0;
   for (const b of boxes) area += b.w * b.h;
-  sPackBoxes(boxes, Math.max(900, Math.sqrt(area) * 1.7), GUTTER);
+  const targetW = Math.max(900, Math.sqrt(area) * 1.7);
+  sPackBoxes(boxes, targetW, GUTTER);
+
+  // The unconnected modules get their own row under everything else, so the
+  // heading above them has somewhere to sit.
+  // With nothing connected there is no contrast to draw, so no heading either.
+  let isolatedBox = null;
+  if (isolated.length > 0 && boxes.length > 0) {
+    isolated.sort((a, b) => (a.project || "").localeCompare(b.project || "") || a.name.localeCompare(b.name));
+    const size = sLayoutIsolatedBlock(isolated, 28);
+    let below = 0;
+    for (const b of boxes) below = Math.max(below, b.oy + b.h);
+    isolatedBox = { nodes: isolated, w: size.w, h: size.h, ox: 0, oy: below + GUTTER };
+    boxes.push(isolatedBox);
+  }
+
   for (const b of boxes) {
     for (const n of b.nodes) { n.x += b.ox; n.y += b.oy; }
+  }
+
+  isolatedHeading = null;
+  if (isolatedBox) {
+    let top = Infinity, left = Infinity;
+    for (const n of isolatedBox.nodes) {
+      top = Math.min(top, n.y - n.h / 2);
+      left = Math.min(left, n.x - n.w / 2);
+    }
+    const many = isolatedBox.nodes.length !== 1;
+    isolatedHeading = {
+      x: left,
+      y: top - 16,
+      text: isolatedBox.nodes.length + (many ? " modules" : " module") + " with no import links"
+    };
   }
 }
 
@@ -546,6 +571,7 @@ function getEdgeEndpoints(a, b) {
 }
 
 function draw() {
+  syncModulesZoomUi();
   ctx.save();
   ctx.clearRect(0, 0, W, H);
   ctx.translate(W / 2, H / 2);
@@ -626,9 +652,51 @@ function draw() {
     ctx.font = "10px -apple-system, BlinkMacSystemFont, sans-serif";
     ctx.fillText(n.subStr || "", n.x, n.y + 10);
   }
+  if (isolatedHeading && !focusNode) {
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#666";
+    ctx.font = "11px -apple-system, BlinkMacSystemFont, sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText(isolatedHeading.text, isolatedHeading.x, isolatedHeading.y);
+  }
   ctx.globalAlpha = 1;
   ctx.restore();
 }
+
+// ── Modules toolbar ──
+let modulesZoomUi = null;
+function syncModulesZoomUi() {
+  const pct = Math.round(zoom * 100);
+  if (pct === modulesZoomUi) return;
+  modulesZoomUi = pct;
+  const range = document.getElementById("modules-zoom-range");
+  const label = document.getElementById("modules-zoom-value");
+  if (range) range.value = String(Math.max(5, Math.min(500, pct)));
+  if (label) {
+    label.textContent = pct + "%";
+    label.setAttribute("aria-label", pct + "% \u00b7 fit to view");
+  }
+}
+
+function setModulesZoom(next) {
+  zoom = Math.max(0.05, Math.min(5, next));
+  syncModulesZoomUi();
+  scheduleGraphDraw();
+}
+
+const modulesZoomRange = document.getElementById("modules-zoom-range");
+if (modulesZoomRange) {
+  modulesZoomRange.addEventListener("input", () => setModulesZoom(Number(modulesZoomRange.value) / 100));
+}
+const modulesZoomIn = document.getElementById("modules-zoom-in");
+if (modulesZoomIn) modulesZoomIn.addEventListener("click", () => setModulesZoom(zoom * 1.2));
+const modulesZoomOut = document.getElementById("modules-zoom-out");
+if (modulesZoomOut) modulesZoomOut.addEventListener("click", () => setModulesZoom(zoom / 1.2));
+const modulesFit = document.getElementById("modules-zoom-value");
+if (modulesFit) modulesFit.addEventListener("click", () => { centerGraph(); syncModulesZoomUi(); scheduleGraphDraw(); });
+const modulesRecenter = document.getElementById("modules-recenter");
+if (modulesRecenter) modulesRecenter.addEventListener("click", () => { centerGraph(); syncModulesZoomUi(); scheduleGraphDraw(); });
 
 relayoutGraph();
 

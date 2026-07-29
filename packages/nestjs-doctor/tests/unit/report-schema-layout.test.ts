@@ -205,6 +205,38 @@ describe("schema overview layout", () => {
 		expect(all.sNodeHeight(wide, false)).toBe(52);
 	});
 
+	it("groups by whatever edge shape it is handed", () => {
+		// The module graph uses from/to, the schema uses fromEntity/toEntity.
+		const scripts = getReportScripts(EMPTY);
+		const start = scripts.indexOf("function sComputeComponents");
+		const end = scripts.indexOf("function sComputeStarLayout");
+		if (start < 0 || end <= start) {
+			throw new Error(
+				"layout functions not found in the emitted report script"
+			);
+		}
+		const factory = new Function(
+			"sEdgeKey",
+			`${scripts.slice(start, end)}\nreturn sComputeComponents;`
+		);
+		const computeComponents = factory(edgeKey);
+		const nodes = [
+			{ name: "a", x: 0, y: 0, w: 180, h: 52 },
+			{ name: "b", x: 0, y: 0, w: 180, h: 52 },
+			{ name: "c", x: 0, y: 0, w: 180, h: 52 },
+		];
+
+		const grouped = computeComponents(
+			nodes,
+			[{ from: "a", to: "b" }],
+			"from",
+			"to"
+		);
+
+		expect(grouped).toHaveLength(2);
+		expect(grouped.map((g: Node[]) => g.length).sort()).toEqual([1, 2]);
+	});
+
 	it("keeps a single connected schema in one block", () => {
 		const nodes: Node[] = [
 			{ name: "a", x: 0, y: 0, w: 180, h: 52 },

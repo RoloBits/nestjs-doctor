@@ -839,6 +839,27 @@ canvas:active { cursor: grabbing; }
   cursor: grab; display: block;
 }
 #schema-canvas:active { cursor: grabbing; }
+#modules-toolbar {
+  position: absolute; top: 12px; right: 12px; z-index: 10;
+  display: flex; align-items: center; gap: 4px;
+}
+#modules-zoombar {
+  display: flex; align-items: center; gap: 6px;
+  height: 28px; padding: 0 8px; border-radius: 6px;
+  background: rgba(50,50,50,0.9);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255,255,255,0.22);
+}
+#modules-zoom-range {
+  -webkit-appearance: none; appearance: none;
+  width: 110px; height: 3px; border-radius: 2px;
+  background: rgba(255,255,255,0.25); outline: none; cursor: pointer;
+}
+#modules-zoom-range::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 11px; height: 11px; border-radius: 50%;
+  background: var(--nest-red); cursor: pointer;
+}
 #schema-toolbar {
   position: absolute; top: 12px; right: 12px; z-index: 10;
   display: flex; align-items: center; gap: 4px;
