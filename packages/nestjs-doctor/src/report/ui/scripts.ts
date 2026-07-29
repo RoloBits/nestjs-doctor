@@ -673,6 +673,60 @@ function draw() {
   ctx.restore();
 }
 
+// ── Hover tooltip ──
+const modulesTooltip = document.getElementById("modules-tooltip");
+let hoveredNode = null;
+
+function showModuleTooltip(n, sx, sy) {
+  if (!modulesTooltip) return;
+  const imports = n.imports.length;
+  const exports = n.exports.length;
+  modulesTooltip.innerHTML =
+    '<div class="tt-name">' + escHtml(n.name) + "</div>" +
+    '<div class="tt-table">' + n.providers.length + " providers \u00b7 " +
+    n.controllers.length + " controllers</div>" +
+    '<ul class="tt-cols"><li><span class="col-name">imports</span><span>' + imports +
+    '</span></li><li><span class="col-name">exports</span><span>' + exports + "</span></li></ul>";
+  modulesTooltip.style.display = "block";
+  modulesTooltip.style.left = sx + 16 + "px";
+  modulesTooltip.style.top = sy - 10 + "px";
+}
+
+function hideModuleTooltip() {
+  if (modulesTooltip) modulesTooltip.style.display = "none";
+}
+
+canvas.addEventListener("mousemove", (e) => {
+  if (dragging || panning) {
+    hideModuleTooltip();
+    return;
+  }
+  const rect = canvas.getBoundingClientRect();
+  const sx = e.clientX - rect.left;
+  const sy = e.clientY - rect.top;
+  const pos = screenToWorld(sx, sy);
+  let hit = null;
+  for (const n of nodes) {
+    if (!isNodeVisible(n)) continue;
+    if (Math.abs(pos.x - n.x) <= n.w / 2 && Math.abs(pos.y - n.y) <= n.h / 2) {
+      hit = n;
+      break;
+    }
+  }
+  canvas.style.cursor = hit ? "pointer" : "grab";
+  if (hit) {
+    showModuleTooltip(hit, sx, sy);
+  } else {
+    hideModuleTooltip();
+  }
+  if (hit !== hoveredNode) hoveredNode = hit;
+});
+
+canvas.addEventListener("mouseleave", () => {
+  hoveredNode = null;
+  hideModuleTooltip();
+});
+
 // ── Modules toolbar ──
 let modulesZoomUi = null;
 function syncModulesZoomUi() {

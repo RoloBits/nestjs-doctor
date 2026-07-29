@@ -839,6 +839,7 @@ canvas:active { cursor: grabbing; }
   cursor: grab; display: block;
 }
 #schema-canvas:active { cursor: grabbing; }
+#modules-tooltip { position: absolute; z-index: 20; }
 #modules-toolbar {
   position: absolute; top: 12px; right: 12px; z-index: 10;
   display: flex; align-items: center; gap: 4px;

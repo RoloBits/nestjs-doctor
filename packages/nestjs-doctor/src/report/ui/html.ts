@@ -347,6 +347,7 @@ for (let i = 0; i < lines.length; i++) {
     </button>
   </div>
   <button id="focus-btn">Unfocus</button>
+  <div id="modules-tooltip" class="schema-tooltip" style="display:none"></div>
 </div>
 
 <!-- ── Sidebar (Graph tab) ── -->
