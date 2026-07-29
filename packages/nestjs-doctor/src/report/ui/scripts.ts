@@ -165,13 +165,10 @@ function getDisplayName(n) {
 const canvas = document.getElementById("graph");
 const ctx = canvas.getContext("2d");
 const dpr = window.devicePixelRatio || 1;
-let simulationHeat = 1;
-
-function wakeSimulation(heat = 1) {
-  simulationHeat = Math.max(simulationHeat, heat);
-}
 
 let W, H;
+// The graph is laid out after the nodes exist; resize does nothing before that.
+let graphReady = false;
 function resize() {
   W = window.innerWidth - 340;
   H = window.innerHeight - 96;
@@ -180,7 +177,10 @@ function resize() {
   canvas.style.width = W + "px";
   canvas.style.height = H + "px";
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  wakeSimulation(0.4);
+  if (graphReady) {
+    centerGraph();
+    scheduleGraphDraw();
+  }
 }
 resize();
 window.addEventListener("resize", resize);
@@ -208,29 +208,109 @@ for (const m of graph.modules) {
 }
 
 // ── Create nodes with physics ──
-const nodes = graph.modules.map((m, i) => {
-  const angle = (2 * Math.PI * i) / graph.modules.length;
-  const radius = Math.min(W, H) * 0.3;
-  return {
-    ...m,
-    x: W / 2 + Math.cos(angle) * radius,
-    y: H / 2 + Math.sin(angle) * radius,
-    vx: 0, vy: 0,
-    w: 0, h: 36,
-  };
-});
+const nodes = graph.modules.map((m) => ({ ...m, x: 0, y: 0, w: 0, h: 36 }));
 
 const nodeMap = new Map();
 for (const n of nodes) nodeMap.set(n.name, n);
 
+let graphDirty = false;
+function scheduleGraphDraw() {
+  if (graphDirty) return;
+  graphDirty = true;
+  requestAnimationFrame(() => { graphDirty = false; draw(); });
+}
+
+/**
+ * Lays each connected group out top down and packs the groups together, with
+ * modules that import nothing and are imported by nothing in one block.
+ */
+function layoutModules() {
+  const GUTTER = 90;
+  const visible = nodes.filter(isNodeVisible);
+  if (visible.length === 0) return;
+  const components = sComputeComponents(visible, graph.edges, "from", "to");
+  const boxes = [];
+  const isolated = [];
+
+  for (const comp of components) {
+    if (comp.length === 1) { isolated.push(comp[0]); continue; }
+    const size = sLayoutComponent(comp, graph.edges, "from", "to", "TB");
+    boxes.push({ nodes: comp, w: size.w, h: size.h });
+  }
+  boxes.sort((a, b) => b.h - a.h || b.w - a.w);
+
+  if (isolated.length > 0) {
+    isolated.sort((a, b) => (a.project || "").localeCompare(b.project || "") || a.name.localeCompare(b.name));
+    const size = sLayoutIsolatedBlock(isolated, 28);
+    boxes.push({ nodes: isolated, w: size.w, h: size.h });
+  }
+
+  let area = 0;
+  for (const b of boxes) area += b.w * b.h;
+  sPackBoxes(boxes, Math.max(900, Math.sqrt(area) * 1.7), GUTTER);
+  for (const b of boxes) {
+    for (const n of b.nodes) { n.x += b.ox; n.y += b.oy; }
+  }
+}
+
+/** Fits the laid-out graph into the viewport. */
+function centerGraph() {
+  const visible = nodes.filter(isNodeVisible);
+  if (visible.length === 0) return;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const n of visible) {
+    minX = Math.min(minX, n.x - n.w / 2);
+    maxX = Math.max(maxX, n.x + n.w / 2);
+    minY = Math.min(minY, n.y - n.h / 2);
+    maxY = Math.max(maxY, n.y + n.h / 2);
+  }
+  const fit = Math.min(1.2, Math.min((W * 0.9) / (maxX - minX || 1), (H * 0.9) / (maxY - minY || 1)));
+  zoom = Math.max(0.05, fit);
+  camX = W / 2 - (minX + maxX) / 2;
+  camY = H / 2 - (minY + maxY) / 2;
+}
+
+function relayoutGraph() {
+  remeasureNodes();
+  layoutModules();
+  centerGraph();
+  graphReady = true;
+  scheduleGraphDraw();
+}
+
 ctx.font = "12px -apple-system, BlinkMacSystemFont, sans-serif";
+const NODE_MAX_W = 220;
+
+function clipToWidth(text, maxW) {
+  if (ctx.measureText(text).width <= maxW) return text;
+  let out = text;
+  while (out.length > 3 && ctx.measureText(out).width > maxW) out = out.slice(0, -1);
+  return out + "\u2026";
+}
+
+/**
+ * The module name goes on its own line so the project prefix cannot crowd it
+ * out; the project moves to the second line, where colour already hints at it.
+ */
 function remeasureNodes() {
+  const room = NODE_MAX_W - 24;
   for (const n of nodes) {
-    const label = getDisplayName(n);
-    const sub = (n.providers.length || 0) + "p " + (n.controllers.length || 0) + "c";
-    const lw = ctx.measureText(label).width;
-    const sw = ctx.measureText(sub).width;
-    n.w = Math.max(lw, sw) + 24;
+    const shown = getDisplayName(n);
+    const cut = shown.lastIndexOf("/");
+    const moduleName = cut === -1 ? shown : shown.slice(cut + 1);
+    const counts = n.providers.length + "p " + n.controllers.length + "c";
+    const project = cut === -1 ? "" : shown.slice(0, cut);
+
+    ctx.font = "bold 12px -apple-system, BlinkMacSystemFont, sans-serif";
+    n.labelStr = clipToWidth(moduleName, room);
+    const lw = Math.min(ctx.measureText(moduleName).width, room);
+
+    ctx.font = "10px -apple-system, BlinkMacSystemFont, sans-serif";
+    const sub = project ? project + " \u00b7 " + counts : counts;
+    n.subStr = clipToWidth(sub, room);
+    const sw = Math.min(ctx.measureText(sub).width, room);
+
+    n.w = Math.min(Math.max(lw, sw) + 24, NODE_MAX_W);
   }
 }
 remeasureNodes();
@@ -278,7 +358,7 @@ canvas.addEventListener("mousedown", (e) => {
   for (const n of nodes) {
     if (pos.x >= n.x - n.w / 2 && pos.x <= n.x + n.w / 2 && pos.y >= n.y - n.h / 2 && pos.y <= n.y + n.h / 2) {
       dragging = n;
-      wakeSimulation(0.35);
+      scheduleGraphDraw();
       return;
     }
   }
@@ -292,8 +372,7 @@ canvas.addEventListener("mousemove", (e) => {
     const pos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
     dragging.x = pos.x;
     dragging.y = pos.y;
-    dragging.vx = 0;
-    dragging.vy = 0;
+    scheduleGraphDraw();
   } else if (panning) {
     camX += (e.clientX - panStart.x) / zoom;
     camY += (e.clientY - panStart.y) / zoom;
@@ -305,7 +384,7 @@ canvas.addEventListener("mouseup", () => {
   if (dragging && !panning) {
     showDetail(dragging);
   }
-  wakeSimulation(0.25);
+  scheduleGraphDraw();
   dragging = null;
   panning = false;
 });
@@ -355,12 +434,7 @@ document.addEventListener("keydown", (e) => {
 
 document.getElementById("project-filter").addEventListener("change", (e) => {
   activeProject = e.target.value;
-  remeasureNodes();
-  for (const n of nodes) {
-    n.vx = (Math.random() - 0.5) * 0.8;
-    n.vy = (Math.random() - 0.5) * 0.8;
-  }
-  wakeSimulation();
+  relayoutGraph();
   if (focusNode) exitFocus();
   if (selectedNode && !isNodeVisible(selectedNode)) {
     document.getElementById("detail").style.display = "none";
@@ -420,73 +494,6 @@ function showDetail(n) {
 }
 
 // ── Physics simulation ──
-const REPULSION = 2400;
-const SPRING_LENGTH = 180;
-const SPRING_K = 0.0035;
-const DAMPING = 0.8;
-const CENTER_PULL = 0.00035;
-const HEAT_DECAY = 0.985;
-const HEAT_SLEEP_THRESHOLD = 0.02;
-const SPEED_SLEEP_THRESHOLD = 0.03;
-
-function simulate() {
-  if (simulationHeat <= 0 && !dragging && !panning) {
-    return;
-  }
-
-  const forceScale = Math.max(simulationHeat, HEAT_SLEEP_THRESHOLD);
-
-  for (const a of nodes) {
-    if (!isNodeVisible(a)) continue;
-    for (const b of nodes) {
-      if (a === b || !isNodeVisible(b)) continue;
-      let dx = a.x - b.x;
-      let dy = a.y - b.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-      const force = (REPULSION * forceScale) / (dist * dist);
-      a.vx += (dx / dist) * force;
-      a.vy += (dy / dist) * force;
-    }
-    a.vx += (W / 2 - a.x) * CENTER_PULL * forceScale;
-    a.vy += (H / 2 - a.y) * CENTER_PULL * forceScale;
-  }
-  for (const edge of graph.edges) {
-    const a = nodeMap.get(edge.from);
-    const b = nodeMap.get(edge.to);
-    if (!a || !b) continue;
-    if (!isNodeVisible(a) || !isNodeVisible(b)) continue;
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-    const force = (dist - SPRING_LENGTH) * SPRING_K * forceScale;
-    const fx = (dx / dist) * force;
-    const fy = (dy / dist) * force;
-    a.vx += fx; a.vy += fy;
-    b.vx -= fx; b.vy -= fy;
-  }
-
-  let maxSpeed = 0;
-  for (const n of nodes) {
-    if (n === dragging || !isNodeVisible(n)) continue;
-    n.vx *= DAMPING;
-    n.vy *= DAMPING;
-    n.x += n.vx;
-    n.y += n.vy;
-    const speed = Math.abs(n.vx) + Math.abs(n.vy);
-    if (speed > maxSpeed) maxSpeed = speed;
-  }
-
-  if (!dragging && !panning) {
-    simulationHeat *= HEAT_DECAY;
-    if (simulationHeat < HEAT_SLEEP_THRESHOLD && maxSpeed < SPEED_SLEEP_THRESHOLD) {
-      simulationHeat = 0;
-      for (const n of nodes) {
-        n.vx = 0;
-        n.vy = 0;
-      }
-    }
-  }
-}
 
 function drawArrow(fromX, fromY, toX, toY, color, dashed) {
   const dx = toX - fromX;
@@ -610,28 +617,20 @@ function draw() {
     ctx.lineWidth = isSelected ? 2 : 1;
     ctx.stroke();
 
-    const displayName = getDisplayName(n);
     ctx.fillStyle = "#fff";
     ctx.font = "bold 12px -apple-system, BlinkMacSystemFont, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(displayName, n.x, n.y - 5);
+    ctx.fillText(n.labelStr || getDisplayName(n), n.x, n.y - 5);
     ctx.fillStyle = "#888";
     ctx.font = "10px -apple-system, BlinkMacSystemFont, sans-serif";
-    ctx.fillText(n.providers.length + " providers, " + n.controllers.length + " controllers", n.x, n.y + 10);
+    ctx.fillText(n.subStr || "", n.x, n.y + 10);
   }
   ctx.globalAlpha = 1;
   ctx.restore();
 }
 
-function loop() {
-  if (activeTab === "modules") {
-    simulate();
-    draw();
-  }
-  requestAnimationFrame(loop);
-}
-loop();
+relayoutGraph();
 
 // ── Diagnosis Tab rendering ──
 const SEV_ORDER = { error: 0, warning: 1, info: 2 };
@@ -1466,7 +1465,6 @@ function renderLab() {
     }
   });
 
-
   function showPgFile(filePath) {
     const findings = currentPgFileMap[filePath];
     if (!findings) return;
@@ -2141,8 +2139,8 @@ function sPolylineMidpoint(points) {
   return { x: points[points.length - 1].x, y: points[points.length - 1].y };
 }
 
-/** Groups nodes into connected components using the relation edges. */
-function sComputeComponents(nodes) {
+/** Groups nodes into connected components using the given edges. */
+function sComputeComponents(nodes, edges, fromKey, toKey) {
   var index = {};
   var parent = [];
   for (var i = 0; i < nodes.length; i++) {
@@ -2156,11 +2154,11 @@ function sComputeComponents(nodes) {
     }
     return a;
   }
-  for (var i = 0; i < schema.relations.length; i++) {
-    var rel = schema.relations[i];
-    if (rel.fromEntity === rel.toEntity) continue;
-    var a = index[rel.fromEntity];
-    var b = index[rel.toEntity];
+  for (var i = 0; i < edges.length; i++) {
+    var rel = edges[i];
+    if (rel[fromKey] === rel[toKey]) continue;
+    var a = index[rel[fromKey]];
+    var b = index[rel[toKey]];
     if (a === undefined || b === undefined) continue;
     var ra = find(a), rb = find(b);
     if (ra !== rb) parent[rb] = ra;
@@ -2179,7 +2177,7 @@ function sComputeComponents(nodes) {
 }
 
 /** Positions one component from its own origin, with dagre or a grid. */
-function sLayoutComponent(nodes) {
+function sLayoutComponent(nodes, edges, fromKey, toKey, rankdir) {
   var i;
   if (nodes.length === 1 || typeof dagre === "undefined") {
     var cols = Math.max(1, Math.ceil(Math.sqrt(nodes.length)));
@@ -2200,7 +2198,7 @@ function sLayoutComponent(nodes) {
   }
 
   var g = new dagre.graphlib.Graph();
-  g.setGraph({ rankdir: "LR", nodesep: 60, ranksep: 120, marginx: 0, marginy: 0 });
+  g.setGraph({ rankdir: rankdir || "LR", nodesep: 60, ranksep: 120, marginx: 0, marginy: 0 });
   g.setDefaultEdgeLabel(function() { return {}; });
 
   var present = {};
@@ -2210,14 +2208,14 @@ function sLayoutComponent(nodes) {
   }
 
   var seenEdge = {};
-  for (i = 0; i < schema.relations.length; i++) {
-    var edge = schema.relations[i];
-    if (edge.fromEntity === edge.toEntity) continue;
-    if (!present[edge.fromEntity] || !present[edge.toEntity]) continue;
-    var ek = sEdgeKey(edge.fromEntity, edge.toEntity);
+  for (i = 0; i < edges.length; i++) {
+    var edge = edges[i];
+    if (edge[fromKey] === edge[toKey]) continue;
+    if (!present[edge[fromKey]] || !present[edge[toKey]]) continue;
+    var ek = sEdgeKey(edge[fromKey], edge[toKey]);
     if (seenEdge[ek]) continue;
     seenEdge[ek] = true;
-    g.setEdge(edge.fromEntity, edge.toEntity);
+    g.setEdge(edge[fromKey], edge[toKey]);
   }
 
   dagre.layout(g);
@@ -2279,7 +2277,7 @@ function sPackBoxes(boxes, targetW, gutter) {
 
 function sComputeOverviewLayout() {
   var GUTTER = 80;
-  var components = sComputeComponents(sNodes);
+  var components = sComputeComponents(sNodes, schema.relations, "fromEntity", "toEntity");
   var boxes = [];
   var isolated = [];
   var i;
@@ -2289,7 +2287,7 @@ function sComputeOverviewLayout() {
       isolated.push(components[i][0]);
       continue;
     }
-    var size = sLayoutComponent(components[i]);
+    var size = sLayoutComponent(components[i], schema.relations, "fromEntity", "toEntity", "LR");
     boxes.push({ nodes: components[i], w: size.w, h: size.h });
   }
 
