@@ -428,6 +428,15 @@ canvas.addEventListener("mouseup", () => {
   panning = false;
 });
 
+// A release outside the canvas never reaches it, which would leave a node stuck
+// to the pointer.
+window.addEventListener("mouseup", () => {
+  if (!(dragging || panning)) return;
+  dragging = null;
+  panning = false;
+  scheduleGraphDraw();
+});
+
 canvas.addEventListener("click", (e) => {
   if (clickHandled) {
     clickHandled = false;
