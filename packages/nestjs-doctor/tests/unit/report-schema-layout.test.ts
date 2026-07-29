@@ -335,3 +335,133 @@ describe("schema overview layout", () => {
 		expect(findOverlap(nodes)).toBeNull();
 	});
 });
+
+describe("modules graph layout", () => {
+	interface ModuleNode {
+		h: number;
+		name: string;
+		project?: string;
+		w: number;
+		x: number;
+		y: number;
+	}
+
+	function loadLayout(
+		moduleNodes: ModuleNode[],
+		edges: { from: string; to: string }[],
+		activeProject = "all"
+	) {
+		const scripts = getReportScripts(EMPTY);
+		const start = scripts.indexOf("function layoutModules()");
+		const end = scripts.indexOf("/** Fits the given nodes");
+		const helperStart = scripts.indexOf("function sComputeComponents");
+		const helperEnd = scripts.indexOf("function sComputeStarLayout");
+		if (start < 0 || end <= start || helperStart < 0) {
+			throw new Error(
+				"layout functions not found in the emitted report script"
+			);
+		}
+		const factory = new Function(
+			"nodes",
+			"graph",
+			"activeProject",
+			"sEdgeKey",
+			"dagre",
+			`${scripts.slice(helperStart, helperEnd)}
+			 let isolatedHeading = null;
+			 function isNodeVisible(n) {
+			   return activeProject === "all" || n.project === activeProject;
+			 }
+			 ${scripts.slice(start, end)}
+			 return { layoutModules: layoutModules, heading: () => isolatedHeading };`
+		);
+		return factory(moduleNodes, { edges }, activeProject, edgeKey, fakeDagre);
+	}
+
+	function build(connected: number, alone: number): ModuleNode[] {
+		const out: ModuleNode[] = [];
+		for (let i = 0; i < connected; i++) {
+			out.push({
+				h: 36,
+				name: `linked${i}`,
+				project: "app",
+				w: 180,
+				x: 0,
+				y: 0,
+			});
+		}
+		for (let i = 0; i < alone; i++) {
+			out.push({
+				h: 36,
+				name: `alone${i}`,
+				project: "lib",
+				w: 180,
+				x: 0,
+				y: 0,
+			});
+		}
+		return out;
+	}
+
+	it("puts the unconnected modules below the connected ones", () => {
+		const moduleNodes = build(4, 5);
+		const edges = [
+			{ from: "linked0", to: "linked1" },
+			{ from: "linked1", to: "linked2" },
+			{ from: "linked2", to: "linked3" },
+		];
+		const api = loadLayout(moduleNodes, edges);
+
+		api.layoutModules();
+
+		const linked = moduleNodes.filter((n) => n.name.startsWith("linked"));
+		const alone = moduleNodes.filter((n) => n.name.startsWith("alone"));
+		expect(findOverlap(moduleNodes)).toBeNull();
+		expect(Math.min(...alone.map((n) => n.y))).toBeGreaterThan(
+			Math.max(...linked.map((n) => n.y))
+		);
+		expect(api.heading()).toEqual(
+			expect.objectContaining({ text: "5 modules with no import links" })
+		);
+	});
+
+	it("says module once when only one has no links", () => {
+		const moduleNodes = build(2, 1);
+		const api = loadLayout(moduleNodes, [{ from: "linked0", to: "linked1" }]);
+
+		api.layoutModules();
+
+		expect(api.heading().text).toBe("1 module with no import links");
+	});
+
+	it("lays out a graph with no edges at all, without a heading", () => {
+		const moduleNodes = build(0, 4);
+		const api = loadLayout(moduleNodes, []);
+
+		api.layoutModules();
+
+		expect(api.heading()).toBeNull();
+		expect(findOverlap(moduleNodes)).toBeNull();
+		// Every module was positioned rather than left stacked on the origin.
+		expect(new Set(moduleNodes.map((n) => `${n.x},${n.y}`)).size).toBe(4);
+	});
+
+	it("drops the heading while a project filter narrows the edges", () => {
+		const moduleNodes = build(3, 2);
+		const api = loadLayout(
+			moduleNodes,
+			[{ from: "linked0", to: "linked1" }],
+			"lib"
+		);
+
+		api.layoutModules();
+
+		expect(api.heading()).toBeNull();
+	});
+
+	it("does nothing when there are no modules", () => {
+		const api = loadLayout([], []);
+
+		expect(() => api.layoutModules()).not.toThrow();
+	});
+});
