@@ -3,7 +3,18 @@ import { ts } from "ts-morph";
 
 export type PathAliasMap = Map<string, string[]>;
 
-export function loadPathAliases(projectRoot: string): PathAliasMap {
+interface TsconfigResolution {
+	aliases: PathAliasMap;
+	baseUrl?: string;
+}
+
+/**
+ * The `paths` aliases and the `baseUrl` a tsconfig declares, read in one parse.
+ * Both are absolute, as `parseJsonConfigFileContent` returns them.
+ */
+export function loadTsconfigResolution(
+	projectRoot: string
+): TsconfigResolution {
 	const aliases: PathAliasMap = new Map();
 
 	try {
@@ -13,32 +24,35 @@ export function loadPathAliases(projectRoot: string): PathAliasMap {
 			"tsconfig.json"
 		);
 		if (!configPath) {
-			return aliases;
+			return { aliases };
 		}
 
 		const { config, error } = ts.readConfigFile(configPath, ts.sys.readFile);
 		if (error || !config) {
-			return aliases;
+			return { aliases };
 		}
 
 		const configDir = dirname(configPath);
 		const parsed = ts.parseJsonConfigFileContent(config, ts.sys, configDir);
-		const paths = parsed.options.paths;
-		if (!paths) {
-			return aliases;
+		const baseUrl = parsed.options.baseUrl;
+
+		for (const [pattern, targets] of Object.entries(
+			parsed.options.paths ?? {}
+		)) {
+			aliases.set(
+				pattern,
+				targets.map((target) => resolve(baseUrl ?? configDir, target))
+			);
 		}
 
-		const baseUrl = parsed.options.baseUrl ?? configDir;
-
-		for (const [pattern, targets] of Object.entries(paths)) {
-			const resolved = targets.map((target) => resolve(baseUrl, target));
-			aliases.set(pattern, resolved);
-		}
+		return { aliases, baseUrl };
 	} catch {
-		return aliases;
+		return { aliases };
 	}
+}
 
-	return aliases;
+export function loadPathAliases(projectRoot: string): PathAliasMap {
+	return loadTsconfigResolution(projectRoot).aliases;
 }
 
 export function resolvePathAlias(
