@@ -1,4 +1,7 @@
-import { collectProviderImplementations } from "../../../graph/custom-providers.js";
+import {
+	collectExtendedClasses,
+	collectProviderImplementations,
+} from "../../../graph/custom-providers.js";
 import { INFRA_SUFFIXES } from "../../constants.js";
 import type { ProjectRule } from "../../types.js";
 
@@ -14,6 +17,12 @@ export const injectableMustBeProvided: ProjectRule = {
 	},
 
 	check(context) {
+		const isTestFile = (filePath: string): boolean =>
+			filePath.includes(".spec.") ||
+			filePath.includes(".test.") ||
+			filePath.includes("__test__") ||
+			filePath.includes("__tests__");
+
 		// Collect all provider names registered in module metadata
 		const registeredProviders = new Set<string>();
 		for (const mod of context.moduleGraph.modules.values()) {
@@ -32,15 +41,16 @@ export const injectableMustBeProvided: ProjectRule = {
 			registeredProviders.add(implementation);
 		}
 
+		// A base class is registered through its subclasses, not on its own. Test
+		// files are left out so a stub cannot exempt a production class.
+		const extended = collectExtendedClasses(
+			context.project,
+			context.files.filter((filePath) => !isTestFile(filePath))
+		);
+
 		// Scan all files for @Injectable() classes
 		for (const filePath of context.files) {
-			// Skip test files
-			if (
-				filePath.includes(".spec.") ||
-				filePath.includes(".test.") ||
-				filePath.includes("__test__") ||
-				filePath.includes("__tests__")
-			) {
+			if (isTestFile(filePath)) {
 				continue;
 			}
 
@@ -67,6 +77,11 @@ export const injectableMustBeProvided: ProjectRule = {
 
 				// Skip if registered in any module
 				if (registeredProviders.has(className)) {
+					continue;
+				}
+
+				// Skip a base class: its subclasses carry the registration.
+				if (extended.has(className)) {
 					continue;
 				}
 

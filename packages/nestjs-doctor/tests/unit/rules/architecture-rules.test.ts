@@ -18,9 +18,13 @@ function runRule(
 	filePath = "test.ts",
 	config: NestjsDoctorConfig = {},
 	moduleDirectories?: ReadonlySet<string>,
-	diProviders?: ReadonlySet<string>
+	diProviders?: ReadonlySet<string>,
+	alsoPresent: string[] = []
 ): Diagnostic[] {
 	const project = new Project({ useInMemoryFileSystem: true });
+	for (const present of alsoPresent) {
+		project.createSourceFile(present, "export {};");
+	}
 	const sourceFile = project.createSourceFile(filePath, code);
 	const diagnostics: Diagnostic[] = [];
 
@@ -1200,15 +1204,184 @@ describe("require-module-boundaries", () => {
 			`
       import { UsersRepository } from '../users/repositories/users.repository';
     `,
-			"/elsewhere/tool.ts",
+			"/src/tools/tool.ts",
 			{},
 			new Set(["/src/users"])
 		);
 		expect(diags).toHaveLength(1);
 	});
+
+	it("still flags when the target does not resolve to a scanned file", () => {
+		const diags = runRule(
+			requireModuleBoundaries,
+			`
+      import { UsersRepository } from '../../../../users/repositories/users.repository';
+    `,
+			"/src/orders/orders.service.ts",
+			{},
+			new Set(["/src/orders", "/src/users"])
+		);
+		expect(diags).toHaveLength(1);
+	});
+
+	it("still flags when the scan found no module at all", () => {
+		const diags = runRule(
+			requireModuleBoundaries,
+			`
+      import { UsersRepository } from '../users/repositories/users.repository';
+    `,
+			"/src/orders/orders.service.ts",
+			{},
+			new Set()
+		);
+		expect(diags).toHaveLength(1);
+	});
+
+	it("does not flag an import into a directory that holds no module", () => {
+		const diags = runRule(
+			requireModuleBoundaries,
+			`
+      import { WherePipe } from '../../pipes/where.pipe';
+    `,
+			"/src/modules/sessions/sessions.controller.ts",
+			{},
+			new Set(["/src/modules/sessions"]),
+			undefined,
+			["/src/pipes/where.pipe.ts"]
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("does not flag an import into the module that contains this one", () => {
+		const diags = runRule(
+			requireModuleBoundaries,
+			`
+      import { ApiResponse } from '../common/dto/api-response.dto';
+    `,
+			"/src/auth/auth.service.ts",
+			{},
+			new Set(["/src", "/src/auth"]),
+			undefined,
+			["/src/common/dto/api-response.dto.ts"]
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("still flags an import into a sibling module", () => {
+		const diags = runRule(
+			requireModuleBoundaries,
+			`
+      import { Verification } from '../auth/entities/verification.entity';
+    `,
+			"/src/db/db.module.ts",
+			{},
+			new Set(["/src", "/src/db", "/src/auth"])
+		);
+		expect(diags).toHaveLength(1);
+	});
+});
+
+describe("no-orm-in-services duplicates", () => {
+	it("reports one diagnostic however many repositories are injected", () => {
+		const diags = runRule(
+			noOrmInServices,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class UserService {
+        constructor(
+          @InjectRepository(User) private a: Repository<User>,
+          @InjectRepository(Role) private b: Repository<Role>,
+          @InjectRepository(Team) private c: Repository<Team>,
+        ) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+	});
+
+	it("reports one diagnostic for two parameters of the same ORM type", () => {
+		const diags = runRule(
+			noOrmInServices,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class ReportService {
+        constructor(
+          private readonly primary: PrismaService,
+          private readonly replica: PrismaService,
+        ) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+	});
+
+	it("still reports two different ORM types", () => {
+		const diags = runRule(
+			noOrmInServices,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class ReportService {
+        constructor(
+          private readonly prisma: PrismaService,
+          private readonly source: DataSource,
+        ) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(2);
+	});
+
+	it("still reports each distinct reason once", () => {
+		const diags = runRule(
+			noOrmInServices,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class UserService {
+        constructor(
+          @InjectRepository(User) private a: Repository<User>,
+          @InjectRepository(Role) private b: Repository<Role>,
+          @InjectModel(Doc.name) private c: Model<Doc>,
+          private d: PrismaService,
+        ) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(3);
+	});
 });
 
 describe("no-barrel-export-internals", () => {
+	it("still flags a barrel when the scan found no module at all", () => {
+		const diags = runRule(
+			noBarrelExportInternals,
+			`
+      export * from './users.repository';
+    `,
+			"/src/users/index.ts",
+			{},
+			new Set()
+		);
+		expect(diags.length).toBeGreaterThan(0);
+	});
+
+	it("does not flag a folder barrel that has no module beside it", () => {
+		const diags = runRule(
+			noBarrelExportInternals,
+			`
+      export * from './jwt.guard';
+      export * from './roles.guard';
+    `,
+			"/src/common/guards/index.ts",
+			{},
+			new Set(["/src"])
+		);
+		expect(diags).toHaveLength(0);
+	});
+
 	it("flags re-exporting repositories from barrel files", () => {
 		const diags = runRule(
 			noBarrelExportInternals,

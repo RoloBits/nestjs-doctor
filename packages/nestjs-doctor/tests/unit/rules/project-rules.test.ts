@@ -8,6 +8,7 @@ import {
 } from "../../../src/engine/graph/module-graph.js";
 import { resolveProviders } from "../../../src/engine/graph/type-resolver.js";
 import { noCircularModuleDeps } from "../../../src/engine/rules/definitions/architecture/no-circular-module-deps.js";
+import { injectableMustBeProvided } from "../../../src/engine/rules/definitions/correctness/injectable-must-be-provided.js";
 import { noOrphanModules } from "../../../src/engine/rules/definitions/performance/no-orphan-modules.js";
 import { noUnusedModuleExports } from "../../../src/engine/rules/definitions/performance/no-unused-module-exports.js";
 import { noUnusedProviders } from "../../../src/engine/rules/definitions/performance/no-unused-providers.js";
@@ -327,6 +328,71 @@ describe("no-circular-module-deps", () => {
 });
 
 describe("no-unused-providers", () => {
+	const selfActivating: [string, string][] = [
+		["OnModuleInit", "OnModuleInit"],
+		["OnApplicationBootstrap", "OnApplicationBootstrap"],
+		["CanActivate", "CanActivate"],
+		["NestInterceptor", "NestInterceptor"],
+		["ExceptionFilter", "ExceptionFilter"],
+		["PipeTransform", "PipeTransform"],
+		["NestMiddleware", "NestMiddleware"],
+	];
+
+	for (const [name, iface] of selfActivating) {
+		it(`does not flag a provider implementing ${name}`, () => {
+			const diags = runProjectRule(noUnusedProviders, {
+				"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { DataSync } from './data-sync.js';
+        @Module({ providers: [DataSync] })
+        export class AppModule {}
+      `,
+				"data-sync.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class DataSync implements ${iface} {}
+      `,
+			});
+			expect(diags.filter((d) => d.message.includes("DataSync"))).toHaveLength(
+				0
+			);
+		});
+	}
+
+	it("does not flag a provider implementing a namespace-qualified contract", () => {
+		const diags = runProjectRule(noUnusedProviders, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { DataSync } from './data-sync.js';
+        @Module({ providers: [DataSync] })
+        export class AppModule {}
+      `,
+			"data-sync.ts": `
+        import * as common from '@nestjs/common';
+        @common.Injectable()
+        export class DataSync implements common.PipeTransform<string, number> {}
+      `,
+		});
+		expect(diags.filter((d) => d.message.includes("DataSync"))).toHaveLength(0);
+	});
+
+	it("still flags a provider that implements nothing and is never injected", () => {
+		const diags = runProjectRule(noUnusedProviders, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { Idle } from './idle.service';
+        @Module({ providers: [Idle] })
+        export class AppModule {}
+      `,
+			"idle.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class Idle {}
+      `,
+		});
+		expect(diags.filter((d) => d.message.includes("Idle"))).toHaveLength(1);
+	});
+
 	it("does not flag a class registered with useClass", () => {
 		const diags = runProjectRule(noUnusedProviders, {
 			"app.module.ts": `
@@ -440,6 +506,43 @@ describe("no-orphan-modules", () => {
 		});
 		expect(diags).toHaveLength(1);
 		expect(diags[0].message).toContain("ForgottenModule");
+	});
+
+	it("does not flag a root module named something other than AppModule", () => {
+		const diags = runProjectRule(noOrphanModules, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { UsersModule } from './users.module';
+        @Module({ imports: [UsersModule] })
+        export class ImmichAdminModule {}
+      `,
+			"users.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class UsersModule {}
+      `,
+		});
+		expect(
+			diags.filter((d) => d.message.includes("ImmichAdminModule"))
+		).toHaveLength(0);
+	});
+
+	it("still flags an orphan feature module named main.module.ts", () => {
+		const diags = runProjectRule(noOrphanModules, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AppModule {}
+      `,
+			"billing/main.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class BillingMainModule {}
+      `,
+		});
+		expect(
+			diags.filter((d) => d.message.includes("BillingMainModule"))
+		).toHaveLength(1);
 	});
 });
 
@@ -593,59 +696,67 @@ describe("project rules on a detached graph", () => {
 	});
 });
 
-describe("no-orphan-modules", () => {
-	it("does not flag a root module named something other than AppModule", () => {
-		const diags = runProjectRule(noOrphanModules, {
+describe("injectable-must-be-provided", () => {
+	it("does not flag a base class that subclasses extend", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
 			"app.module.ts": `
         import { Module } from '@nestjs/common';
-        import { UsersModule } from './users.module';
-        @Module({ imports: [UsersModule] })
-        export class ImmichAdminModule {}
+        import { PhotoHandler } from './photo.handler';
+        @Module({ providers: [PhotoHandler] })
+        export class AppModule {}
       `,
-			"users.module.ts": `
-        import { Module } from '@nestjs/common';
-        @Module({})
-        export class UsersModule {}
+			"base.handler.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class BaseHandler {}
+      `,
+			"photo.handler.ts": `
+        import { Injectable } from '@nestjs/common';
+        import { BaseHandler } from './base.handler';
+        @Injectable()
+        export class PhotoHandler extends BaseHandler {}
       `,
 		});
-		expect(
-			diags.filter((d) => d.message.includes("ImmichAdminModule"))
-		).toHaveLength(0);
+		expect(diags.filter((d) => d.message.includes("BaseHandler"))).toHaveLength(
+			0
+		);
 	});
 
-	it("still flags an orphan feature module named main.module.ts", () => {
-		const diags = runProjectRule(noOrphanModules, {
+	it("does not let a stub in a test file exempt a production class", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
 			"app.module.ts": `
         import { Module } from '@nestjs/common';
         @Module({})
         export class AppModule {}
       `,
-			"billing/main.module.ts": `
-        import { Module } from '@nestjs/common';
-        @Module({})
-        export class BillingMainModule {}
+			"orphan.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class OrphanThing {}
+      `,
+			"orphan.spec.ts": `
+        import { OrphanThing } from './orphan';
+        class Stub extends OrphanThing {}
       `,
 		});
-		expect(
-			diags.filter((d) => d.message.includes("BillingMainModule"))
-		).toHaveLength(1);
+		expect(diags.filter((d) => d.message.includes("OrphanThing"))).toHaveLength(
+			1
+		);
 	});
 
-	it("still flags a module nobody imports", () => {
-		const diags = runProjectRule(noOrphanModules, {
+	it("still flags an unregistered class nobody extends", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
 			"app.module.ts": `
         import { Module } from '@nestjs/common';
         @Module({})
         export class AppModule {}
       `,
-			"lonely.module.ts": `
-        import { Module } from '@nestjs/common';
-        @Module({})
-        export class LonelyModule {}
+			"lonely.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class Lonely {}
       `,
 		});
-		expect(
-			diags.filter((d) => d.message.includes("LonelyModule"))
-		).toHaveLength(1);
+		expect(diags.filter((d) => d.message.includes("Lonely"))).toHaveLength(1);
 	});
 });
