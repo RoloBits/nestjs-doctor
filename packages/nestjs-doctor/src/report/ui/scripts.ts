@@ -2448,9 +2448,17 @@ function sCenterCamera() {
   // A wide overview has to shrink past the normal floor to fit on screen.
   sMinZoom = Math.min(0.2, fit);
   sZoom = Math.max(sMinZoom, fit);
-  // Fitting everything is pointless when it shrinks the columns out of sight.
+  // Column text is 11px in world units, so anything under this renders too
+  // small to read. Better to stop fitting and let the user pan.
   var showingCols = sShowCols !== null ? sShowCols : sNodes.length <= 5;
-  if (showingCols && sZoom < 0.35) sZoom = 0.35;
+  if (showingCols && sZoom < 0.75) {
+    sZoom = 0.75;
+    // Too big to fit, so start at the top left rather than mid-diagram.
+    var pad = 40;
+    sCamX = (pad - sW / 2) / sZoom + sW / 2 - minX;
+    sCamY = (pad - sH / 2) / sZoom + sH / 2 - minY;
+    return;
+  }
   sCamX = sW / 2 - cx;
   sCamY = sH / 2 - cy;
 }
@@ -3085,6 +3093,8 @@ function renderSchema() {
     for (var i = 0; i < sNodes.length; i++) {
       sNodeMap[sNodes[i].name] = sNodes[i];
     }
+    // Show columns unless the user has already chosen otherwise.
+    if (sShowCols === null) sShowCols = true;
     sRecalcNodeSizes();
     sComputeOverviewLayout();
     sCenterCamera();

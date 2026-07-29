@@ -16,9 +16,12 @@ the empty state itself, which is where a large schema lands.
 Tables are laid out per connected component and the components are packed
 together, because one dagre pass puts every unrelated table in a single rank. The
 same 34-table schema is 18 components with 12 tables that have no relation at
-all, so that rank was most of the diagram. Fitting the result also meant letting
-the camera zoom past the old hard floor, though not so far that column text stops
-being readable.
+all, so that rank was most of the diagram.
+
+The overview opens with columns showing, at a zoom where they are readable,
+anchored at the top left so you pan through the diagram rather than starting in
+the middle of it. Minimising the tables switches back to the fit-everything
+bird's eye view, which can now zoom out further than the old hard floor allowed.
 
 Node labels are now measured once when the layout is built instead of on every
 frame, which makes panning cheaper in both modes.
