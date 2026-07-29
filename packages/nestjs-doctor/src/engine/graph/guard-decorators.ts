@@ -11,21 +11,43 @@ const FUNCTION_KINDS = new Set([
 	SyntaxKind.MethodDeclaration,
 ]);
 
-/** True for `applyDecorators(..., UseGuards(...), ...)`. */
+function isUseGuardsCall(node: Node): boolean {
+	return (
+		node.asKind(SyntaxKind.CallExpression)?.getExpression().getText() ===
+		"UseGuards"
+	);
+}
+
+/**
+ * True for an argument that always applies a guard: the call itself, a ternary
+ * whose both branches do, or a spread of an inline array holding one.
+ */
+function argumentApplies(argument: Node): boolean {
+	if (isUseGuardsCall(argument)) {
+		return true;
+	}
+	const conditional = argument.asKind(SyntaxKind.ConditionalExpression);
+	if (conditional) {
+		return (
+			argumentApplies(conditional.getWhenTrue()) &&
+			argumentApplies(conditional.getWhenFalse())
+		);
+	}
+	const spread = argument.asKind(SyntaxKind.SpreadElement);
+	const elements = spread
+		?.getExpression()
+		.asKind(SyntaxKind.ArrayLiteralExpression)
+		?.getElements();
+	return elements ? elements.some(argumentApplies) : false;
+}
+
+/** True when an argument of `applyDecorators(...)` always applies a guard. */
 function appliesGuards(expression: Node | undefined): boolean {
 	const call = expression?.asKind(SyntaxKind.CallExpression);
 	if (call?.getExpression().getText() !== "applyDecorators") {
 		return false;
 	}
-	return call
-		.getArguments()
-		.some(
-			(argument) =>
-				argument
-					.asKind(SyntaxKind.CallExpression)
-					?.getExpression()
-					.getText() === "UseGuards"
-		);
+	return call.getArguments().some(argumentApplies);
 }
 
 /**
