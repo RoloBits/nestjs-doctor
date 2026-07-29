@@ -170,6 +170,7 @@ let W, H;
 // The graph is laid out after the nodes exist; resize does nothing before that.
 let graphReady = false;
 function resize() {
+  const sameSize = W === window.innerWidth - 340 && H === window.innerHeight - 96;
   W = window.innerWidth - 340;
   H = window.innerHeight - 96;
   canvas.width = W * dpr;
@@ -178,7 +179,8 @@ function resize() {
   canvas.style.height = H + "px";
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   if (graphReady) {
-    centerGraph();
+    // Only a real size change refits; switching tabs keeps the reader's view.
+    if (!sameSize) centerGraph();
     scheduleGraphDraw();
   }
 }
@@ -247,9 +249,9 @@ function layoutModules() {
 
   // The unconnected modules get their own row under everything else, so the
   // heading above them has somewhere to sit.
-  // With nothing connected there is no contrast to draw, so no heading either.
+  const anyConnected = boxes.length > 0;
   let isolatedBox = null;
-  if (isolated.length > 0 && boxes.length > 0) {
+  if (isolated.length > 0) {
     isolated.sort((a, b) => (a.project || "").localeCompare(b.project || "") || a.name.localeCompare(b.name));
     const size = sLayoutIsolatedBlock(isolated, 28);
     let below = 0;
@@ -262,8 +264,9 @@ function layoutModules() {
     for (const n of b.nodes) { n.x += b.ox; n.y += b.oy; }
   }
 
+  // With nothing connected there is no contrast to draw, so no heading either.
   isolatedHeading = null;
-  if (isolatedBox) {
+  if (isolatedBox && anyConnected) {
     let top = Infinity, left = Infinity;
     for (const n of isolatedBox.nodes) {
       top = Math.min(top, n.y - n.h / 2);
@@ -371,6 +374,7 @@ function exitFocus() {
   focusSet = null;
   document.getElementById("focus-btn").classList.remove("visible");
   document.getElementById("focus-hint").style.display = "none";
+  scheduleGraphDraw();
 }
 
 function screenToWorld(sx, sy) {
@@ -402,6 +406,7 @@ canvas.addEventListener("mousemove", (e) => {
     camX += (e.clientX - panStart.x) / zoom;
     camY += (e.clientY - panStart.y) / zoom;
     panStart = { x: e.clientX, y: e.clientY };
+    scheduleGraphDraw();
   }
 });
 
@@ -433,22 +438,26 @@ canvas.addEventListener("wheel", (e) => {
   if (e.ctrlKey || e.metaKey) {
     const factor = e.deltaY > 0 ? 0.92 : 1.08;
     zoom = Math.max(0.1, Math.min(5, zoom * factor));
+    syncModulesZoomUi();
   } else {
     camX -= e.deltaX / zoom;
     camY -= e.deltaY / zoom;
   }
+  scheduleGraphDraw();
 }, { passive: false });
 
 document.getElementById("close-detail").addEventListener("click", () => {
   document.getElementById("detail").style.display = "none";
   selectedNode = null;
   exitFocus();
+  scheduleGraphDraw();
 });
 
 document.getElementById("focus-btn").addEventListener("click", () => {
   exitFocus();
   document.getElementById("detail").style.display = "none";
   selectedNode = null;
+  scheduleGraphDraw();
 });
 
 document.addEventListener("keydown", (e) => {

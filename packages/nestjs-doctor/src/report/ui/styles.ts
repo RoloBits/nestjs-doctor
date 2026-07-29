@@ -860,6 +860,10 @@ canvas:active { cursor: grabbing; }
   width: 11px; height: 11px; border-radius: 50%;
   background: var(--nest-red); cursor: pointer;
 }
+#modules-zoom-range::-moz-range-thumb {
+  width: 11px; height: 11px; border: none; border-radius: 50%;
+  background: var(--nest-red); cursor: pointer;
+}
 #schema-toolbar {
   position: absolute; top: 12px; right: 12px; z-index: 10;
   display: flex; align-items: center; gap: 4px;
