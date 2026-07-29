@@ -668,7 +668,6 @@ function draw() {
 
 // ── Hover tooltip ──
 const modulesTooltip = document.getElementById("modules-tooltip");
-let hoveredNode = null;
 
 function showModuleTooltip(n, sx, sy) {
   if (!modulesTooltip) return;
@@ -681,8 +680,11 @@ function showModuleTooltip(n, sx, sy) {
     '<ul class="tt-cols"><li><span class="col-name">imports</span><span>' + imports +
     '</span></li><li><span class="col-name">exports</span><span>' + exports + "</span></li></ul>";
   modulesTooltip.style.display = "block";
-  modulesTooltip.style.left = sx + 16 + "px";
-  modulesTooltip.style.top = sy - 10 + "px";
+  const box = modulesTooltip.getBoundingClientRect();
+  const left = Math.min(sx + 16, Math.max(0, W - box.width - 8));
+  const top = Math.min(Math.max(0, sy - 10), Math.max(0, H - box.height - 8));
+  modulesTooltip.style.left = left + "px";
+  modulesTooltip.style.top = top + "px";
 }
 
 function hideModuleTooltip() {
@@ -706,17 +708,15 @@ canvas.addEventListener("mousemove", (e) => {
       break;
     }
   }
-  canvas.style.cursor = hit ? "pointer" : "grab";
+  canvas.style.cursor = hit ? "pointer" : "";
   if (hit) {
     showModuleTooltip(hit, sx, sy);
   } else {
     hideModuleTooltip();
   }
-  if (hit !== hoveredNode) hoveredNode = hit;
 });
 
 canvas.addEventListener("mouseleave", () => {
-  hoveredNode = null;
   hideModuleTooltip();
 });
 
