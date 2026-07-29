@@ -841,8 +841,19 @@ canvas:active { cursor: grabbing; }
 #schema-canvas:active { cursor: grabbing; }
 #schema-toolbar {
   position: absolute; top: 12px; right: 12px; z-index: 10;
-  display: flex; gap: 4px;
+  display: flex; align-items: center; gap: 4px;
 }
+.has-tip { position: relative; }
+.has-tip:hover::after {
+  content: attr(data-tip);
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 40;
+  white-space: nowrap; pointer-events: none;
+  background: #1a1a1a; border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 4px; padding: 4px 8px;
+  font-size: 11px; font-family: var(--font); color: var(--text);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+.schema-sidebar-header .has-tip:hover::after { right: auto; left: 0; }
 .schema-diagram-btn {
   width: 28px; height: 28px; justify-content: center;
   background: rgba(50,50,50,0.9);
@@ -861,9 +872,8 @@ canvas:active { cursor: grabbing; }
   color: #fff;
 }
 #schema-zoombar {
-  position: absolute; top: 48px; right: 12px; z-index: 10;
   display: flex; align-items: center; gap: 6px;
-  padding: 4px 8px; border-radius: 6px;
+  height: 28px; padding: 0 8px; border-radius: 6px;
   background: rgba(50,50,50,0.9);
   backdrop-filter: blur(4px);
   border: 1px solid rgba(255,255,255,0.22);

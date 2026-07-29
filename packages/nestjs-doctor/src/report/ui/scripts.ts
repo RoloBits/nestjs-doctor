@@ -2376,6 +2376,73 @@ function sComputeStarLayout(centerName) {
 /** Columns drawn per table before the "+N more" line, unless all are shown. */
 var S_DEFAULT_MAX_COLS = 7;
 
+var S_PK_COLOR = "#ea2845";
+var S_FK_COLOR = "#8b5cf6";
+var S_IDX_COLOR = "#f59e0b";
+
+/**
+ * A relation names the property, so the column holding the key is either that
+ * name or that name with an Id suffix.
+ */
+function sForeignKeyColumns(entity) {
+  var names = {};
+  for (var i = 0; i < entity.relations.length; i++) {
+    var prop = entity.relations[i].propertyName;
+    if (!prop) continue;
+    names[prop.toLowerCase()] = true;
+    names[prop.toLowerCase() + "id"] = true;
+  }
+  return names;
+}
+
+function sColumnKind(column, foreignKeys) {
+  if (column.isPrimary) return "pk";
+  if (foreignKeys[column.name.toLowerCase()]) return "fk";
+  if (column.isUnique || column.hasIndex) return "idx";
+  return null;
+}
+
+/** Draws the key, link or index glyph that marks what a column is. */
+function sDrawColumnIcon(ctx, kind, cx, cy) {
+  ctx.save();
+  ctx.lineWidth = 1.1;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  if (kind === "pk") {
+    ctx.strokeStyle = S_PK_COLOR;
+    ctx.beginPath();
+    ctx.arc(cx - 2, cy, 2.1, 0, Math.PI * 2);
+    ctx.moveTo(cx + 0.1, cy);
+    ctx.lineTo(cx + 4, cy);
+    ctx.moveTo(cx + 2.4, cy);
+    ctx.lineTo(cx + 2.4, cy + 1.8);
+    ctx.moveTo(cx + 4, cy);
+    ctx.lineTo(cx + 4, cy + 1.8);
+    ctx.stroke();
+  } else if (kind === "fk") {
+    ctx.strokeStyle = S_FK_COLOR;
+    ctx.beginPath();
+    ctx.arc(cx - 2.4, cy, 2, 0, Math.PI * 2);
+    ctx.moveTo(cx - 0.4, cy);
+    ctx.lineTo(cx + 4, cy);
+    ctx.moveTo(cx + 2.2, cy - 1.7);
+    ctx.lineTo(cx + 4, cy);
+    ctx.lineTo(cx + 2.2, cy + 1.7);
+    ctx.stroke();
+  } else if (kind === "idx") {
+    ctx.strokeStyle = S_IDX_COLOR;
+    ctx.beginPath();
+    ctx.moveTo(cx - 4, cy - 2.4);
+    ctx.lineTo(cx + 4, cy - 2.4);
+    ctx.moveTo(cx - 4, cy);
+    ctx.lineTo(cx + 1.6, cy);
+    ctx.moveTo(cx - 4, cy + 2.4);
+    ctx.lineTo(cx - 0.6, cy + 2.4);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function sVisibleColCount(node, showCols) {
   if (!showCols) return 0;
   var total = node.entity.columns.length;
@@ -2426,6 +2493,15 @@ function sCacheNodeLabels(nodes) {
     n.colTypes = [];
     for (var c = 0; c < n.entity.columns.length; c++) {
       n.colTypes.push(clip(n.entity.columns[c].type, 60));
+    }
+    // The icon column narrows the space a name can occupy.
+    var foreignKeys = sForeignKeyColumns(n.entity);
+    sCtx.font = "11px -apple-system, BlinkMacSystemFont, sans-serif";
+    n.colNames = [];
+    n.colKinds = [];
+    for (var k = 0; k < n.entity.columns.length; k++) {
+      n.colNames.push(clip(n.entity.columns[k].name, 83));
+      n.colKinds.push(sColumnKind(n.entity.columns[k], foreignKeys));
     }
   }
 }
@@ -2679,12 +2755,16 @@ function schemaDraw() {
       var colY = y + HDR_H;
       for (var c = 0; c < visibleColCount; c++) {
         var col = cols[c];
-        // Column name (left-aligned)
-        sCtx.fillStyle = "#ccc";
+        // Key, link or index glyph, then the column name beside it
+        var kind = n.colKinds ? n.colKinds[c] : null;
+        if (kind) {
+          sDrawColumnIcon(sCtx, kind, x + 13, colY + COL_ROW_H / 2);
+        }
+        sCtx.fillStyle = kind === "pk" ? "#e0e0e0" : "#ccc";
         sCtx.font = "11px -apple-system, BlinkMacSystemFont, sans-serif";
         sCtx.textAlign = "left";
         sCtx.textBaseline = "middle";
-        sCtx.fillText(col.name, x + 10, colY + COL_ROW_H / 2);
+        sCtx.fillText(n.colNames ? n.colNames[c] : col.name, x + 21, colY + COL_ROW_H / 2);
         // Column type (right-aligned, dimmer)
         sCtx.fillStyle = "#3b82f6";
         sCtx.font = "10px monospace";
@@ -3108,7 +3188,9 @@ function renderSchema() {
   function sSyncViewToggle() {
     if (!viewToggleBtn) return;
     viewToggleBtn.classList.toggle("active", !sFocusedMode);
-    viewToggleBtn.title = sFocusedMode ? "Show all tables" : "Focus one table";
+    viewToggleBtn.setAttribute("data-tip", sFocusedMode
+      ? "All tables \u00b7 lay out the whole schema at once"
+      : "Focus \u00b7 show one table and what it relates to");
   }
 
   function sShowAllTables() {
@@ -3178,9 +3260,9 @@ function renderSchema() {
       sShowAllCols = !sShowAllCols;
       if (sShowAllCols) sShowCols = true;
       toggleColsBtn.classList.toggle("active", sShowAllCols);
-      toggleColsBtn.title = sShowAllCols
-        ? "Show the first " + S_DEFAULT_MAX_COLS + " columns"
-        : "Show every column";
+      toggleColsBtn.setAttribute("data-tip", sShowAllCols
+        ? "First " + S_DEFAULT_MAX_COLS + " \u00b7 go back to a short column list"
+        : "Every column \u00b7 stop cutting the list at seven");
       sRelayoutForSizeChange();
     });
   }
