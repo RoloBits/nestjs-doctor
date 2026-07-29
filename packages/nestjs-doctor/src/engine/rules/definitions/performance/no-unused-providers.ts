@@ -24,6 +24,29 @@ const SELF_ACTIVATING_DECORATORS = new Set([
 	"WebSocketGateway",
 ]);
 
+// Contracts the framework calls without anyone injecting the class: lifecycle
+// hooks, and the guard/interceptor/filter/pipe/middleware roles.
+const SELF_ACTIVATING_INTERFACES = new Set([
+	"BeforeApplicationShutdown",
+	"CanActivate",
+	"ExceptionFilter",
+	"NestInterceptor",
+	"NestMiddleware",
+	"OnApplicationBootstrap",
+	"OnApplicationShutdown",
+	"OnModuleDestroy",
+	"OnModuleInit",
+	"PipeTransform",
+]);
+
+function implementsSelfActivating(cls: ClassDeclaration): boolean {
+	return cls.getImplements().some((clause) => {
+		const text = clause.getExpression().getText();
+		const name = text.split(".").pop()?.split("<")[0] ?? text;
+		return SELF_ACTIVATING_INTERFACES.has(name);
+	});
+}
+
 function hasSelfActivatingDecorator(cls: ClassDeclaration): boolean {
 	// Check class-level decorators
 	for (const decorator of cls.getDecorators()) {
@@ -50,8 +73,8 @@ export const noUnusedProviders: ProjectRule = {
 		category: "performance",
 		severity: "warning",
 		description:
-			"Injectable providers that are never injected and have no self-activating decorators may be dead code",
-		help: "Remove the unused provider, inject it where needed, or verify it is activated by a framework decorator (e.g. @Cron, @OnEvent).",
+			"Injectable providers that are never injected and that the framework does not activate may be dead code",
+		help: "Remove the unused provider, inject it where needed, or verify the framework activates it, through a decorator such as @Cron or @OnEvent or a contract such as OnModuleInit or CanActivate.",
 		scope: "project",
 	},
 
@@ -121,8 +144,11 @@ export const noUnusedProviders: ProjectRule = {
 				continue;
 			}
 
-			// Skip self-activating providers (e.g. @Cron, @OnEvent, @Process)
-			if (hasSelfActivatingDecorator(provider.classDeclaration)) {
+			// Skip providers the framework activates, by decorator or by contract.
+			if (
+				hasSelfActivatingDecorator(provider.classDeclaration) ||
+				implementsSelfActivating(provider.classDeclaration)
+			) {
 				continue;
 			}
 
