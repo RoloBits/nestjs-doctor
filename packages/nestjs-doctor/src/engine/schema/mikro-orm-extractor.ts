@@ -447,6 +447,7 @@ function extractEntityFromClass(cls: ClassDeclaration): SchemaEntity | null {
 
 export const mikroOrmExtractor: OrmSchemaExtractor = {
 	supportsIncrementalUpdate: true,
+	readsFromTargetPath: false,
 	extract(project: Project, files: string[]): SchemaEntity[] {
 		const entities: SchemaEntity[] = [];
 

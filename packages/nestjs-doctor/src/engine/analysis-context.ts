@@ -36,7 +36,7 @@ import { filterRules, separateRules } from "./rules/rule-pipeline.js";
 import type { ProjectRule, Rule, SchemaRule } from "./rules/types.js";
 import {
 	extractSchema,
-	ORMS_READ_FROM_TARGET_PATH,
+	ormReadsFromTargetPath,
 	updateSchemaForFile,
 } from "./schema/extract.js";
 
@@ -140,14 +140,14 @@ export function updateFile(context: AnalysisContext, filePath: string): void {
 	}
 }
 
-/** Builds the context for a single sub-project. */
-/** Resolves the workspace-root schema for an ORM, computing it at most once. */
+/** Resolves the workspace-root schema for an ORM. */
 type RootSchemaLookup = (
 	orm: string,
 	astProject: Project,
 	files: string[]
 ) => SchemaGraph;
 
+/** Builds the context for a single sub-project. */
 async function buildSubProjectContext(
 	targetPath: string,
 	scanConfig: ScanConfig,
@@ -168,12 +168,11 @@ async function buildSubProjectContext(
 	const moduleGraph = buildModuleGraph(astProject, files, pathAliases);
 	const providers = resolveProviders(astProject, files);
 	const endpointGraph = buildEndpointGraph(astProject, files, providers);
-	// Falls back to the workspace root, where a monorepo usually keeps its schema.
-	// Only an ORM read from the target path can answer differently there.
 	let schemaGraph = extractSchema(astProject, files, project.orm, projectPath);
+	// Falls back to the workspace root, where a monorepo usually keeps its schema.
 	if (
 		project.orm &&
-		ORMS_READ_FROM_TARGET_PATH.has(project.orm) &&
+		ormReadsFromTargetPath(project.orm) &&
 		schemaGraph.entities.size === 0
 	) {
 		schemaGraph = rootSchemaFor(project.orm, astProject, files);

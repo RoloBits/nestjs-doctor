@@ -394,6 +394,7 @@ function extractTablesFromFile(sourceFile: SourceFile): SchemaEntity[] {
 
 export const drizzleExtractor: OrmSchemaExtractor = {
 	supportsIncrementalUpdate: true,
+	readsFromTargetPath: false,
 	extract(project: Project, files: string[]): SchemaEntity[] {
 		const entities: SchemaEntity[] = [];
 
