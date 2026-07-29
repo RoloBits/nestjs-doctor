@@ -14,8 +14,8 @@ Each connected group is now laid out top down, so a module sits above what it
 imports, and the groups are packed together. Modules with no import links are
 gathered into one labelled block under the rest, rather than scattered. The
 simulation, its constants and the per-frame animation loop are gone; dragging a
-module still moves it, and the layout no longer changes shape when the project
-filter is touched.
+module still moves it. Filtering to a project and back reproduces the same
+layout, where the old code re-scrambled it with random jitter every time.
 
 Boxes are capped at 220px with the module name on its own line, so a long project
 prefix can no longer push it out of view. The old code measured a short count

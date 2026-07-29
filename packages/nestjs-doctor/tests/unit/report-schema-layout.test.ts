@@ -205,6 +205,89 @@ describe("schema overview layout", () => {
 		expect(all.sNodeHeight(wide, false)).toBe(52);
 	});
 
+	it("separates module-shaped nodes, connected and not", () => {
+		// Mirrors what the modules graph does: dagre per group, top down, with the
+		// unconnected ones packed into a block.
+		const scripts = getReportScripts(EMPTY);
+		const start = scripts.indexOf("function sComputeComponents");
+		const end = scripts.indexOf("function sComputeStarLayout");
+		if (start < 0 || end <= start) {
+			throw new Error(
+				"layout functions not found in the emitted report script"
+			);
+		}
+		const factory = new Function(
+			"sEdgeKey",
+			"dagre",
+			`${scripts.slice(start, end)}\nreturn { sComputeComponents, sLayoutComponent, sLayoutIsolatedBlock, sPackBoxes };`
+		);
+		const api = factory(edgeKey, fakeDagre);
+
+		const nodes: Node[] = [];
+		const relations: Relation[] = [];
+		for (let i = 0; i < 6; i++) {
+			nodes.push({ name: `linked${i}`, x: 0, y: 0, w: 180, h: 36 });
+			if (i > 0) {
+				relations.push({ fromEntity: "linked0", toEntity: `linked${i}` });
+			}
+		}
+		for (let i = 0; i < 9; i++) {
+			nodes.push({ name: `alone${i}`, x: 0, y: 0, w: 180, h: 36 });
+		}
+		const edges = relations.map((r) => ({
+			from: r.fromEntity,
+			to: r.toEntity,
+		}));
+
+		const groups = api.sComputeComponents(nodes, edges, "from", "to");
+		const boxes: {
+			h: number;
+			nodes: Node[];
+			ox?: number;
+			oy?: number;
+			w: number;
+		}[] = [];
+		const alone: Node[] = [];
+		for (const group of groups) {
+			if (group.length === 1) {
+				alone.push(group[0]);
+				continue;
+			}
+			const size = api.sLayoutComponent(group, edges, "from", "to", "TB");
+			boxes.push({ h: size.h, nodes: group, w: size.w });
+		}
+		api.sPackBoxes(boxes, 900, 90);
+		let below = 0;
+		for (const box of boxes) {
+			below = Math.max(below, (box.oy ?? 0) + box.h);
+		}
+		const aloneSize = api.sLayoutIsolatedBlock(alone, 28);
+		boxes.push({
+			h: aloneSize.h,
+			nodes: alone,
+			ox: 0,
+			oy: below + 90,
+			w: aloneSize.w,
+		});
+		for (const box of boxes) {
+			for (const node of box.nodes) {
+				node.x += box.ox ?? 0;
+				node.y += box.oy ?? 0;
+			}
+		}
+
+		expect(alone).toHaveLength(9);
+		expect(findOverlap(nodes)).toBeNull();
+		// The unconnected block sits under everything it was packed beneath.
+		const lowestLinked = Math.max(
+			...nodes.filter((n) => n.name.startsWith("linked")).map((n) => n.y)
+		);
+		const highestAlone = Math.min(
+			...nodes.filter((n) => n.name.startsWith("alone")).map((n) => n.y)
+		);
+		expect(highestAlone).toBeGreaterThan(lowestLinked);
+	});
+
 	it("groups by whatever edge shape it is handed", () => {
 		// The module graph uses from/to, the schema uses fromEntity/toEntity.
 		const scripts = getReportScripts(EMPTY);

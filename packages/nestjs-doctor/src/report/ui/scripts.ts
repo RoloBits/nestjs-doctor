@@ -179,7 +179,7 @@ function resize() {
   canvas.style.height = H + "px";
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   if (graphReady) {
-    // Only a real size change refits; switching tabs keeps the reader's view.
+    // Refit only when the canvas actually changed size.
     if (!sameSize) centerGraph();
     scheduleGraphDraw();
   }
@@ -209,7 +209,7 @@ for (const m of graph.modules) {
   if (m.name === "AppModule") rootModules.add(m.name);
 }
 
-// ── Create nodes with physics ──
+// ── Nodes ──
 const nodes = graph.modules.map((m) => ({ ...m, x: 0, y: 0, w: 0, h: 36 }));
 
 const nodeMap = new Map();
@@ -247,8 +247,7 @@ function layoutModules() {
   const targetW = Math.max(900, Math.sqrt(area) * 1.7);
   sPackBoxes(boxes, targetW, GUTTER);
 
-  // The unconnected modules get their own row under everything else, so the
-  // heading above them has somewhere to sit.
+  // The unconnected modules take their own row under everything else.
   const anyConnected = boxes.length > 0;
   let isolatedBox = null;
   if (isolated.length > 0) {
@@ -264,14 +263,12 @@ function layoutModules() {
     for (const n of b.nodes) { n.x += b.ox; n.y += b.oy; }
   }
 
-  // With nothing connected there is no contrast to draw, so no heading either.
+  // Headed only when there is something connected to contrast against.
   isolatedHeading = null;
-  if (isolatedBox && anyConnected) {
-    let top = Infinity, left = Infinity;
-    for (const n of isolatedBox.nodes) {
-      top = Math.min(top, n.y - n.h / 2);
-      left = Math.min(left, n.x - n.w / 2);
-    }
+  if (isolatedBox && anyConnected && activeProject === "all") {
+    let top = Infinity;
+    for (const n of isolatedBox.nodes) top = Math.min(top, n.y - n.h / 2);
+    const left = isolatedBox.ox;
     const many = isolatedBox.nodes.length !== 1;
     isolatedHeading = {
       x: left,
@@ -316,10 +313,7 @@ function clipToWidth(text, maxW) {
   return out + "\u2026";
 }
 
-/**
- * The module name goes on its own line so the project prefix cannot crowd it
- * out; the project moves to the second line, where colour already hints at it.
- */
+/** Sizes each box and caches its two lines: module name, then project. */
 function remeasureNodes() {
   const room = NODE_MAX_W - 24;
   for (const n of nodes) {
@@ -341,7 +335,6 @@ function remeasureNodes() {
     n.w = Math.min(Math.max(lw, sw) + 24, NODE_MAX_W);
   }
 }
-remeasureNodes();
 
 // ── Camera & interaction state ──
 let camX = 0, camY = 0, zoom = 1;
@@ -385,6 +378,7 @@ canvas.addEventListener("mousedown", (e) => {
   const rect = canvas.getBoundingClientRect();
   const pos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
   for (const n of nodes) {
+    if (!isNodeVisible(n)) continue;
     if (pos.x >= n.x - n.w / 2 && pos.x <= n.x + n.w / 2 && pos.y >= n.y - n.h / 2 && pos.y <= n.y + n.h / 2) {
       dragging = n;
       scheduleGraphDraw();
@@ -437,7 +431,7 @@ canvas.addEventListener("wheel", (e) => {
   // ctrlKey or metaKey means a pinch, which zooms; anything else pans.
   if (e.ctrlKey || e.metaKey) {
     const factor = e.deltaY > 0 ? 0.92 : 1.08;
-    zoom = Math.max(0.1, Math.min(5, zoom * factor));
+    zoom = Math.max(0.05, Math.min(5, zoom * factor));
     syncModulesZoomUi();
   } else {
     camX -= e.deltaX / zoom;
@@ -527,7 +521,6 @@ function showDetail(n) {
   enterFocus(n);
 }
 
-// ── Physics simulation ──
 
 function drawArrow(fromX, fromY, toX, toY, color, dashed) {
   const dx = toX - fromX;
