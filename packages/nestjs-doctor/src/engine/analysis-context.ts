@@ -23,8 +23,7 @@ import {
 	updateModuleGraphForFile,
 } from "./graph/module-graph.js";
 import {
-	loadBaseUrl,
-	loadPathAliases,
+	loadTsconfigResolution,
 	type PathAliasMap,
 } from "./graph/tsconfig-paths.js";
 import type { ProviderInfo } from "./graph/type-resolver.js";
@@ -63,12 +62,8 @@ export async function buildAnalysisContext(
 		collectFiles(targetPath, config),
 		detectProject(targetPath),
 	]);
-	const pathAliases = loadPathAliases(targetPath);
-	const astProject = createAstParser(
-		files,
-		pathAliases,
-		loadBaseUrl(targetPath)
-	);
+	const { aliases: pathAliases, baseUrl } = loadTsconfigResolution(targetPath);
+	const astProject = createAstParser(files, pathAliases, baseUrl);
 	const moduleGraph = buildModuleGraph(astProject, files, pathAliases);
 	const providers = resolveProviders(astProject, files);
 	const endpointGraph = buildEndpointGraph(astProject, files, providers);
@@ -156,12 +151,8 @@ async function buildSubProjectContext(
 		loadConfigWithFallback(projectPath, rootConfig),
 	]);
 
-	const pathAliases = loadPathAliases(projectPath);
-	const astProject = createAstParser(
-		files,
-		pathAliases,
-		loadBaseUrl(projectPath)
-	);
+	const { aliases: pathAliases, baseUrl } = loadTsconfigResolution(projectPath);
+	const astProject = createAstParser(files, pathAliases, baseUrl);
 	const moduleGraph = buildModuleGraph(astProject, files, pathAliases);
 	const providers = resolveProviders(astProject, files);
 	const endpointGraph = buildEndpointGraph(astProject, files, providers);

@@ -33,6 +33,10 @@ through `resolvePathAlias`, which has no `baseUrl` fallback, so cycles, unused
 providers and unused exports stay blind on these projects: no architecture rule
 moved anywhere in the corpus. That is a separate change.
 
-Peak RSS and elapsed are unchanged, measured over five projects: `baseUrl` only
-widens a probe within the scanned tree, so `skipFileDependencyResolution` still
-holds.
+`paths` and `baseUrl` are read in one parse rather than two, so a monorepo does
+not pay for the same tsconfig twice per sub-project.
+
+Peak RSS and elapsed are unchanged. Measured on the 9,836-file Nx workspace that
+motivated #198's memory work: **2,684 MB and 54.8 s before, 2,591 MB and 50.3 s
+after**, with identical findings. `baseUrl` only widens a probe within the
+scanned tree, so `skipFileDependencyResolution` still holds.
