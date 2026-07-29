@@ -171,10 +171,12 @@ function searchForPrismaSchema(targetPath: string): string[] {
 		}
 		return a < b ? -1 : 1;
 	});
-	// Shallowest first, but a directory wins only by declaring a model, so a
-	// stray enums-only file does not shadow the real schema below it.
+	// Shallowest first. A guessed directory must also look like a schema's own,
+	// which keeps a vendored reference schema from standing in for the project's.
 	for (const directory of directories) {
-		const files = prismaFilesIn(directory);
+		const files = prismaFilesIn(directory).filter(
+			(file) => directory.endsWith("/prisma") || file.endsWith("/schema.prisma")
+		);
 		if (declaresModels(files)) {
 			return files;
 		}

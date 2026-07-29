@@ -804,6 +804,23 @@ model Widget {
 		expect(entities()).toEqual(["Widget"]);
 	});
 
+	it("does not adopt a vendored reference schema", () => {
+		writeAt(
+			"src/core/dbSchemaImport/predefinedSchemes/abby/abby.prisma",
+			"model Vendored {\n  id Int @id\n}\n"
+		);
+		expect(entities()).toEqual([]);
+	});
+
+	it("still finds one beside a vendored collection", () => {
+		writeAt(
+			"src/core/dbSchemaImport/predefinedSchemes/abby/abby.prisma",
+			"model Vendored {\n  id Int @id\n}\n"
+		);
+		writeAt("libs/database/src/lib/prisma/schema.prisma");
+		expect(entities()).toEqual(["Widget"]);
+	});
+
 	it("finds nothing when the project has no schema", () => {
 		expect(entities()).toEqual([]);
 	});
