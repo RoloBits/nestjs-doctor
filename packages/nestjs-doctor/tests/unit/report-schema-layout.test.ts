@@ -178,6 +178,33 @@ describe("schema overview layout", () => {
 		expect(columns.size).toBeGreaterThan(1);
 	});
 
+	it("sizes a table to every column only when all columns are shown", () => {
+		const scripts = getReportScripts(EMPTY);
+		const start = scripts.indexOf("var S_DEFAULT_MAX_COLS");
+		const end = scripts.indexOf("function sCacheNodeLabels");
+		if (start < 0 || end <= start) {
+			throw new Error("sizing helpers not found in the emitted report script");
+		}
+		const factory = new Function(
+			"sShowAllCols",
+			"sShowCols",
+			`${scripts.slice(start, end)}\nreturn { sNodeHeight: sNodeHeight, sVisibleColCount: sVisibleColCount };`
+		);
+		const wide = {
+			entity: { columns: new Array(24).fill({ type: "String" }) },
+		};
+
+		const capped = factory(false, true);
+		const all = factory(true, true);
+
+		expect(capped.sVisibleColCount(wide, true)).toBe(7);
+		expect(all.sVisibleColCount(wide, true)).toBe(24);
+		// Header, one row per column, the "+N more" row only while capped.
+		expect(capped.sNodeHeight(wide, true)).toBe(24 + 7 * 16 + 16 + 8);
+		expect(all.sNodeHeight(wide, true)).toBe(24 + 24 * 16 + 8);
+		expect(all.sNodeHeight(wide, false)).toBe(52);
+	});
+
 	it("keeps a single connected schema in one block", () => {
 		const nodes: Node[] = [
 			{ name: "a", x: 0, y: 0, w: 180, h: 52 },

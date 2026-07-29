@@ -233,6 +233,22 @@ for (let i = 0; i < lines.length; i++) {
             <polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/>
           </svg>
         </button>
+        <button class="st-btn schema-diagram-btn" id="schema-toggle-cols" title="Show every column">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="10" x2="20" y2="10"/>
+            <line x1="4" y1="14" x2="20" y2="14"/><line x1="4" y1="18" x2="20" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div id="schema-zoombar">
+        <button class="st-btn schema-zoom-btn" id="schema-zoom-out" title="Zoom out">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <input type="range" id="schema-zoom-range" min="5" max="300" step="1" value="100" title="Zoom">
+        <button class="st-btn schema-zoom-btn" id="schema-zoom-in" title="Zoom in">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <button class="schema-zoom-value" id="schema-zoom-value" title="Fit to view">100%</button>
       </div>
       <canvas id="schema-canvas"></canvas>
       <div id="schema-tooltip" class="schema-tooltip" style="display:none"></div>

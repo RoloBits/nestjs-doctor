@@ -860,6 +860,40 @@ canvas:active { cursor: grabbing; }
   border-color: rgba(234,40,69,0.7);
   color: #fff;
 }
+#schema-zoombar {
+  position: absolute; top: 48px; right: 12px; z-index: 10;
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 8px; border-radius: 6px;
+  background: rgba(50,50,50,0.9);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255,255,255,0.22);
+}
+.schema-zoom-btn {
+  width: 20px; height: 20px; justify-content: center; padding: 0;
+  background: none; border: none; color: rgba(255,255,255,0.7);
+}
+.schema-zoom-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+.schema-zoom-btn svg { width: 14px; height: 14px; }
+#schema-zoom-range {
+  -webkit-appearance: none; appearance: none;
+  width: 110px; height: 3px; border-radius: 2px;
+  background: rgba(255,255,255,0.25); outline: none; cursor: pointer;
+}
+#schema-zoom-range::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 11px; height: 11px; border-radius: 50%;
+  background: var(--nest-red); cursor: pointer;
+}
+#schema-zoom-range::-moz-range-thumb {
+  width: 11px; height: 11px; border: none; border-radius: 50%;
+  background: var(--nest-red); cursor: pointer;
+}
+.schema-zoom-value {
+  min-width: 38px; text-align: right; cursor: pointer;
+  font-size: 11px; font-family: var(--font); color: rgba(255,255,255,0.7);
+  background: none; border: none; padding: 0;
+}
+.schema-zoom-value:hover { color: #fff; }
 .schema-tooltip {
   position: absolute; z-index: 20; pointer-events: none;
   background: #1a1a1a; border: 1px solid rgba(255,255,255,0.12);

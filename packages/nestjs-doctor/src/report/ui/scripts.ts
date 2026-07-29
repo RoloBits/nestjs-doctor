@@ -1837,6 +1837,7 @@ var sAllNodes = [];
 var sAllNodeMap = {};
 var sFocusedMode = false;
 var sShowCols = null;
+var sShowAllCols = false;
 // Lowest zoom the wheel allows. Fitting a big overview can need less than this.
 var sMinZoom = 0.2;
 
@@ -1851,6 +1852,18 @@ function sScheduleRedraw() {
     sSchemaDirty = true;
     requestAnimationFrame(function() { sSchemaDirty = false; schemaDraw(); });
   }
+}
+
+var sLastZoomUi = null;
+/** Keeps the zoom bar in step with the camera, whatever changed it. */
+function sSyncZoomUi() {
+  var pct = Math.round(sZoom * 100);
+  if (pct === sLastZoomUi) return;
+  sLastZoomUi = pct;
+  var range = document.getElementById("schema-zoom-range");
+  var label = document.getElementById("schema-zoom-value");
+  if (range) range.value = String(Math.max(5, Math.min(300, pct)));
+  if (label) label.textContent = pct + "%";
 }
 
 function sScreenToWorld(sx, sy) {
@@ -2360,6 +2373,32 @@ function sComputeStarLayout(centerName) {
   }
 }
 
+/** Columns drawn per table before the "+N more" line, unless all are shown. */
+var S_DEFAULT_MAX_COLS = 7;
+
+function sVisibleColCount(node, showCols) {
+  if (!showCols) return 0;
+  var total = node.entity.columns.length;
+  return sShowAllCols ? total : Math.min(total, S_DEFAULT_MAX_COLS);
+}
+
+function sNodeHeight(node, showCols) {
+  if (!showCols) return 52;
+  var visible = sVisibleColCount(node, showCols);
+  var hidden = node.entity.columns.length - visible;
+  return 24 + visible * 16 + (hidden > 0 ? 16 : 0) + 8;
+}
+
+/** Single source of truth for box size, used by both layout and drawing. */
+function sApplyNodeSizes(nodes) {
+  var showCols = sShowCols !== null ? sShowCols : nodes.length <= 5;
+  for (var i = 0; i < nodes.length; i++) {
+    nodes[i].w = 180;
+    nodes[i].h = sNodeHeight(nodes[i], showCols);
+  }
+  return showCols;
+}
+
 /**
  * Truncation depends only on the fixed box width and font, never on zoom, so
  * every label is measured once here instead of on every frame.
@@ -2419,14 +2458,7 @@ function sSetVisibleSubset(entityName) {
     }
   }
 
-  var showCols = sShowCols !== null ? sShowCols : sNodes.length <= 5;
-  for (var i = 0; i < sNodes.length; i++) {
-    var cols = sNodes[i].entity.columns;
-    var visCount = showCols ? Math.min(cols.length, 7) : 0;
-    var hasMore = showCols && cols.length > 7;
-    sNodes[i].h = showCols ? 24 + visCount * 16 + (hasMore ? 16 : 0) + 8 : 52;
-    sNodes[i].w = 180;
-  }
+  sApplyNodeSizes(sNodes);
 
   sComputeStarLayout(entityName);
   sRouteAllEdges();
@@ -2487,6 +2519,7 @@ function sRoundRect(ctx, x, y, w, h, r) {
 
 // Drawing
 function schemaDraw() {
+  sSyncZoomUi();
   if (sNodes.length === 0) return;
   sCtx.save();
   sCtx.clearRect(0, 0, sW, sH);
@@ -2562,19 +2595,14 @@ function schemaDraw() {
   var R = 6;
   var HDR_H = 24;
   var COL_ROW_H = 16;
-  var MAX_VISIBLE_COLS = 7;
-  var showCols = sShowCols !== null ? sShowCols : sNodes.length <= 5;
+  var showCols = sApplyNodeSizes(sNodes);
 
   for (var i = 0; i < sNodes.length; i++) {
     var n = sNodes[i];
     var cols = n.entity.columns;
-    var visibleColCount = showCols ? Math.min(cols.length, MAX_VISIBLE_COLS) : 0;
-    var hasMore = showCols && cols.length > MAX_VISIBLE_COLS;
-    var BOX_H = showCols
-      ? HDR_H + visibleColCount * COL_ROW_H + (hasMore ? COL_ROW_H : 0) + 8
-      : 52;
-    n.w = BOX_W;
-    n.h = BOX_H;
+    var visibleColCount = sVisibleColCount(n, showCols);
+    var hasMore = cols.length > visibleColCount;
+    var BOX_H = n.h;
 
     var x = n.x - BOX_W / 2;
     var y = n.y - BOX_H / 2;
@@ -2669,7 +2697,7 @@ function schemaDraw() {
         sCtx.fillStyle = "#666";
         sCtx.font = "10px -apple-system, BlinkMacSystemFont, sans-serif";
         sCtx.textAlign = "left";
-        sCtx.fillText("+" + (cols.length - MAX_VISIBLE_COLS) + " more", x + 10, colY + COL_ROW_H / 2);
+        sCtx.fillText("+" + (cols.length - visibleColCount) + " more", x + 10, colY + COL_ROW_H / 2);
       }
     } else if (!showCols && showBodyText) {
       // Meta line: "N cols · ~X KB"
@@ -3072,14 +3100,7 @@ function renderSchema() {
 
   // Diagram control buttons
   function sRecalcNodeSizes() {
-    var showCols = sShowCols !== null ? sShowCols : sNodes.length <= 5;
-    for (var i = 0; i < sNodes.length; i++) {
-      var cols = sNodes[i].entity.columns;
-      var visCount = showCols ? Math.min(cols.length, 7) : 0;
-      var hasMore = showCols && cols.length > 7;
-      sNodes[i].h = showCols ? 24 + visCount * 16 + (hasMore ? 16 : 0) + 8 : 52;
-      sNodes[i].w = 180;
-    }
+    sApplyNodeSizes(sNodes);
   }
 
   var viewToggleBtn = document.getElementById("schema-toggle-view");
@@ -3135,6 +3156,61 @@ function renderSchema() {
   if (recenterBtn) {
     recenterBtn.addEventListener("click", function() {
       sCenterCamera();
+      sScheduleRedraw();
+    });
+  }
+
+  // Relayout after a size change so the taller boxes do not overlap.
+  function sRelayoutForSizeChange() {
+    sRecalcNodeSizes();
+    if (sFocusedMode && sSelectedEntity) {
+      sSetVisibleSubset(sSelectedEntity);
+    } else if (!sFocusedMode) {
+      sComputeOverviewLayout();
+      sCenterCamera();
+      sScheduleRedraw();
+    }
+  }
+
+  var toggleColsBtn = document.getElementById("schema-toggle-cols");
+  if (toggleColsBtn) {
+    toggleColsBtn.addEventListener("click", function() {
+      sShowAllCols = !sShowAllCols;
+      if (sShowAllCols) sShowCols = true;
+      toggleColsBtn.classList.toggle("active", sShowAllCols);
+      toggleColsBtn.title = sShowAllCols
+        ? "Show the first " + S_DEFAULT_MAX_COLS + " columns"
+        : "Show every column";
+      sRelayoutForSizeChange();
+    });
+  }
+
+  var zoomRange = document.getElementById("schema-zoom-range");
+  var zoomInBtn = document.getElementById("schema-zoom-in");
+  var zoomOutBtn = document.getElementById("schema-zoom-out");
+  var zoomValueBtn = document.getElementById("schema-zoom-value");
+
+  function sSetZoom(next) {
+    sZoom = Math.max(Math.min(sMinZoom, 0.05), Math.min(5, next));
+    sSyncZoomUi();
+    sScheduleRedraw();
+  }
+
+  if (zoomRange) {
+    zoomRange.addEventListener("input", function() {
+      sSetZoom(Number(zoomRange.value) / 100);
+    });
+  }
+  if (zoomInBtn) {
+    zoomInBtn.addEventListener("click", function() { sSetZoom(sZoom * 1.2); });
+  }
+  if (zoomOutBtn) {
+    zoomOutBtn.addEventListener("click", function() { sSetZoom(sZoom / 1.2); });
+  }
+  if (zoomValueBtn) {
+    zoomValueBtn.addEventListener("click", function() {
+      sCenterCamera();
+      sSyncZoomUi();
       sScheduleRedraw();
     });
   }
@@ -3272,6 +3348,15 @@ function renderSchema() {
       sSyncSidebarHighlight(sSelectedEntity);
       if (sFocusedMode) {
         sSetVisibleSubset(sSelectedEntity);
+      } else {
+        sScheduleRedraw();
+      }
+    } else if (sPanning && !sDragMoved && sSelectedEntity) {
+      // A click on empty canvas clears the selection.
+      sSelectedEntity = null;
+      sSyncSidebarHighlight(null);
+      if (sFocusedMode) {
+        sSetVisibleSubset(null);
       } else {
         sScheduleRedraw();
       }
