@@ -483,17 +483,17 @@ document.getElementById("close-detail").addEventListener("click", () => {
 });
 
 document.getElementById("focus-btn").addEventListener("click", () => {
-  exitFocus();
   document.getElementById("detail").style.display = "none";
   selectedNode = null;
+  exitFocus();
   scheduleGraphDraw();
 });
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && focusNode) {
-    exitFocus();
     document.getElementById("detail").style.display = "none";
     selectedNode = null;
+    exitFocus();
   }
 });
 
