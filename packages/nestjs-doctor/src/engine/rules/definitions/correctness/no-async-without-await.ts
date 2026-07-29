@@ -28,7 +28,7 @@ export const noAsyncWithoutAwait: Rule = {
 		severity: "warning",
 		description:
 			"Async functions/methods should contain at least one await expression",
-		help: "Either add an await expression or remove the async keyword. HTTP handlers with route decorators are exempted, as async is conventional for controller methods.",
+		help: "Either add an await expression or remove the async keyword. Framework entry points are exempted, since Nest awaits what they return: route handlers, GraphQL resolvers, WebSocket, microservice, ts-rest and gRPC handlers.",
 	},
 
 	check(context) {
@@ -45,7 +45,8 @@ export const noAsyncWithoutAwait: Rule = {
 					continue;
 				}
 
-				// Skip framework handler decorators (ts-rest, gRPC) where async is conventional
+				// The other entry points the framework awaits: GraphQL, WebSockets,
+				// microservice patterns, ts-rest and gRPC.
 				if (isFrameworkHandler(method)) {
 					continue;
 				}
