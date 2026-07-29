@@ -759,10 +759,50 @@ model Widget {
 
 	for (const location of ignored) {
 		it(`does not treat ${location.split("/")[0]}/ as the project's schema`, () => {
-			writeAt(location);
-			expect(entities()).toEqual([]);
+			writeAt(location, "model Decoy {\n  id Int @id\n}\n");
+			writeAt("libs/database/src/lib/prisma/schema.prisma");
+			expect(entities()).toEqual(["Widget"]);
 		});
 	}
+
+	it("ignores a schema path that only a comment mentions", () => {
+		writeAt("legacy/schema.prisma", "model Stale {\n  id Int @id\n}\n");
+		writeAt("db/schema.prisma");
+		writeFileSync(
+			join(testDir, "prisma.config.ts"),
+			`// schema: "legacy/schema.prisma" — old location\nexport default { schema: "db/schema.prisma" };`,
+			"utf-8"
+		);
+		expect(entities()).toEqual(["Widget"]);
+	});
+
+	it("skips a config key that names no models", () => {
+		writeAt("shared/notes.prisma", "// no models here\n");
+		writeAt("db/schema.prisma");
+		writeFileSync(
+			join(testDir, "prisma.config.ts"),
+			`export default { datasource: { schema: "shared" }, schema: "db/schema.prisma" };`,
+			"utf-8"
+		);
+		expect(entities()).toEqual(["Widget"]);
+	});
+
+	it("prefers a declared path over the conventional directory", () => {
+		writeAt("prisma/schema.prisma", "model Conventional {\n  id Int @id\n}\n");
+		writeAt("db/real.prisma");
+		writeFileSync(
+			join(testDir, "prisma.config.ts"),
+			`export default { schema: "db/real.prisma" };`,
+			"utf-8"
+		);
+		expect(entities()).toEqual(["Widget"]);
+	});
+
+	it("is not shadowed by a shallower file that declares no model", () => {
+		writeAt("enums.prisma", "enum Colour {\n  RED\n}\n");
+		writeAt("libs/db/prisma/schema.prisma");
+		expect(entities()).toEqual(["Widget"]);
+	});
 
 	it("finds nothing when the project has no schema", () => {
 		expect(entities()).toEqual([]);

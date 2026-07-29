@@ -88,7 +88,9 @@ const PRISMA_CONFIG_FILES = [
 	"prisma.config.mjs",
 ];
 
-const CONFIG_SCHEMA_VALUE = /\bschema\s*:\s*["'`]([^"'`]+)["'`]/;
+const CONFIG_SCHEMA_VALUE = /\bschema\s*:\s*["'`]([^"'`]+)["'`]/g;
+const LINE_COMMENT = /\/\/[^\n]*/g;
+const BLOCK_COMMENT = /\/\*[\s\S]*?\*\//g;
 
 /**
  * Every `.prisma` file directly inside `directory`. Prisma merges siblings, so
@@ -105,7 +107,23 @@ function prismaFilesIn(directory: string): string[] {
 	}
 }
 
-/** The `schema` path a `prisma.config.*` declares, if one is readable. */
+/** The `.prisma` files a declared path names, whether it is a file or a folder. */
+function filesAtDeclaredPath(targetPath: string, declared: string): string[] {
+	const resolved = join(targetPath, declared);
+	if (!existsSync(resolved)) {
+		return [];
+	}
+	return statSync(resolved).isDirectory()
+		? prismaFilesIn(resolved)
+		: [resolved];
+}
+
+/** True when these files hold at least one model, so they are a real schema. */
+function declaresModels(files: string[]): boolean {
+	return files.length > 0 && parseSchemaFiles(files).models.length > 0;
+}
+
+/** The `.prisma` files a `prisma.config.*` declares, if one is readable. */
 function schemaFromPrismaConfig(targetPath: string): string[] {
 	for (const name of PRISMA_CONFIG_FILES) {
 		const configPath = join(targetPath, name);
@@ -113,19 +131,17 @@ function schemaFromPrismaConfig(targetPath: string): string[] {
 			continue;
 		}
 		try {
-			const declared = CONFIG_SCHEMA_VALUE.exec(
-				readFileSync(configPath, "utf-8")
-			)?.[1];
-			if (!declared) {
-				continue;
+			const source = readFileSync(configPath, "utf-8")
+				.replace(BLOCK_COMMENT, "")
+				.replace(LINE_COMMENT, "");
+			// A config can hold more than one `schema` key, so each candidate is
+			// tried and the first that declares a model is taken.
+			for (const match of source.matchAll(CONFIG_SCHEMA_VALUE)) {
+				const files = filesAtDeclaredPath(targetPath, match[1]);
+				if (declaresModels(files)) {
+					return files;
+				}
 			}
-			const resolved = join(targetPath, declared);
-			if (!existsSync(resolved)) {
-				continue;
-			}
-			return statSync(resolved).isDirectory()
-				? prismaFilesIn(resolved)
-				: [resolved];
 		} catch {
 			// Unreadable config — try the next name
 		}
@@ -148,24 +164,46 @@ function searchForPrismaSchema(targetPath: string): string[] {
 	} catch {
 		return [];
 	}
-	if (found.length === 0) {
-		return [];
-	}
-	// Shallowest wins, then a directory named `prisma`, then alphabetical.
-	const depth = (path: string) => path.split("/").length;
-	const best = found.sort((a, b) => {
-		const byDepth = depth(a) - depth(b);
+	const directories = [...new Set(found.map(posixDirname))].sort((a, b) => {
+		const byDepth = a.split("/").length - b.split("/").length;
 		if (byDepth !== 0) {
 			return byDepth;
 		}
-		const aPrisma = posixDirname(a).endsWith("/prisma") ? 0 : 1;
-		const bPrisma = posixDirname(b).endsWith("/prisma") ? 0 : 1;
-		return aPrisma - bPrisma || a.localeCompare(b);
-	})[0];
-	return prismaFilesIn(posixDirname(best));
+		return a < b ? -1 : 1;
+	});
+	// Shallowest first, but a directory wins only by declaring a model, so a
+	// stray enums-only file does not shadow the real schema below it.
+	for (const directory of directories) {
+		const files = prismaFilesIn(directory);
+		if (declaresModels(files)) {
+			return files;
+		}
+	}
+	return [];
 }
 
 function findPrismaSchemaFiles(targetPath: string): string[] {
+	// Prisma reads prisma.config.* first and ignores the package.json key when
+	// one exists, so a declared path wins over both conventional locations.
+	const declared = schemaFromPrismaConfig(targetPath);
+	if (declared.length > 0) {
+		return declared;
+	}
+
+	try {
+		const pkg = JSON.parse(
+			readFileSync(join(targetPath, "package.json"), "utf-8")
+		);
+		if (pkg.prisma?.schema) {
+			const files = filesAtDeclaredPath(targetPath, pkg.prisma.schema);
+			if (files.length > 0) {
+				return files;
+			}
+		}
+	} catch {
+		// package.json not found or unreadable
+	}
+
 	// prisma/schema.prisma, plus the folder form Prisma has allowed since 5.15
 	const conventional = prismaFilesIn(join(targetPath, "prisma"));
 	if (conventional.length > 0) {
@@ -175,28 +213,6 @@ function findPrismaSchemaFiles(targetPath: string): string[] {
 	const root = join(targetPath, "schema.prisma");
 	if (existsSync(root)) {
 		return [root];
-	}
-
-	try {
-		const pkg = JSON.parse(
-			readFileSync(join(targetPath, "package.json"), "utf-8")
-		);
-		const customPath = pkg.prisma?.schema;
-		if (customPath) {
-			const resolved = join(targetPath, customPath);
-			if (existsSync(resolved)) {
-				return statSync(resolved).isDirectory()
-					? prismaFilesIn(resolved)
-					: [resolved];
-			}
-		}
-	} catch {
-		// package.json not found or unreadable
-	}
-
-	const declared = schemaFromPrismaConfig(targetPath);
-	if (declared.length > 0) {
-		return declared;
 	}
 
 	return searchForPrismaSchema(targetPath);
