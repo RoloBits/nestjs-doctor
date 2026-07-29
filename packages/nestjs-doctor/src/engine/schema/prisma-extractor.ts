@@ -492,6 +492,7 @@ function buildEntities(
 
 export const prismaExtractor: OrmSchemaExtractor = {
 	supportsIncrementalUpdate: false,
+	readsFromTargetPath: true,
 	extract(
 		_project: Project,
 		_files: string[],

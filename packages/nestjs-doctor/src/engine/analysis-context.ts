@@ -34,7 +34,11 @@ import {
 import { detectProject, type MonorepoInfo } from "./project-detector.js";
 import { filterRules, separateRules } from "./rules/rule-pipeline.js";
 import type { ProjectRule, Rule, SchemaRule } from "./rules/types.js";
-import { extractSchema, updateSchemaForFile } from "./schema/extract.js";
+import {
+	extractSchema,
+	ormReadsFromTargetPath,
+	updateSchemaForFile,
+} from "./schema/extract.js";
 
 export interface AnalysisContext {
 	astProject: Project;
@@ -136,13 +140,21 @@ export function updateFile(context: AnalysisContext, filePath: string): void {
 	}
 }
 
+/** Resolves the workspace-root schema for an ORM. */
+type RootSchemaLookup = (
+	orm: string,
+	astProject: Project,
+	files: string[]
+) => SchemaGraph;
+
 /** Builds the context for a single sub-project. */
 async function buildSubProjectContext(
 	targetPath: string,
 	scanConfig: ScanConfig,
 	monorepo: MonorepoInfo,
 	name: string,
-	files: string[]
+	files: string[],
+	rootSchemaFor: RootSchemaLookup
 ): Promise<AnalysisContext> {
 	const { config: rootConfig, combinedRules } = scanConfig;
 	const projectPath = join(targetPath, monorepo.projects.get(name)!);
@@ -156,10 +168,14 @@ async function buildSubProjectContext(
 	const moduleGraph = buildModuleGraph(astProject, files, pathAliases);
 	const providers = resolveProviders(astProject, files);
 	const endpointGraph = buildEndpointGraph(astProject, files, providers);
-	// Falls back to the workspace root, where a monorepo usually keeps its schema.
 	let schemaGraph = extractSchema(astProject, files, project.orm, projectPath);
-	if (project.orm && schemaGraph.entities.size === 0) {
-		schemaGraph = extractSchema(astProject, files, project.orm, targetPath);
+	// Falls back to the workspace root, where a monorepo usually keeps its schema.
+	if (
+		project.orm &&
+		ormReadsFromTargetPath(project.orm) &&
+		schemaGraph.entities.size === 0
+	) {
+		schemaGraph = rootSchemaFor(project.orm, astProject, files);
 	}
 	const rules = filterRules(projectConfig, combinedRules);
 	const { fileRules, projectRules, schemaRules } = separateRules(rules);
@@ -198,6 +214,19 @@ export async function reduceSubProjects<T>(
 		scanConfig.config
 	);
 
+	// One workspace root, so one answer; every sub-project that needs it reuses
+	// the same extraction instead of repeating the file lookup.
+	const rootSchemas = new Map<string, SchemaGraph>();
+	const rootSchemaFor: RootSchemaLookup = (orm, astProject, files) => {
+		const cached = rootSchemas.get(orm);
+		if (cached) {
+			return cached;
+		}
+		const graph = extractSchema(astProject, files, orm, targetPath);
+		rootSchemas.set(orm, graph);
+		return graph;
+	};
+
 	const results = new Map<string, T>();
 	for (const [name, files] of filesByProject) {
 		if (files.length === 0) {
@@ -208,7 +237,8 @@ export async function reduceSubProjects<T>(
 			scanConfig,
 			monorepo,
 			name,
-			files
+			files,
+			rootSchemaFor
 		);
 		results.set(name, consume(name, context));
 	}

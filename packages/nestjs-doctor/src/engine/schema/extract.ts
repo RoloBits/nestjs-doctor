@@ -16,6 +16,11 @@ export interface OrmSchemaExtractor {
 		files: string[],
 		targetPath: string
 	): SchemaEntity[];
+	/**
+	 * Whether the schema is a file this extractor locates from the target path.
+	 * The others read the source files they are handed, so the path changes nothing.
+	 */
+	readsFromTargetPath: boolean;
 	/** Whether this extractor supports incremental per-file updates (LSP path). */
 	supportsIncrementalUpdate: boolean;
 }
@@ -27,6 +32,11 @@ const extractors: Record<string, OrmSchemaExtractor> = {
 	drizzle: drizzleExtractor,
 	"mikro-orm": mikroOrmExtractor,
 };
+
+/** True when re-running this ORM's extraction from another path can differ. */
+export function ormReadsFromTargetPath(orm: string): boolean {
+	return extractors[orm]?.readsFromTargetPath === true;
+}
 
 export function extractSchema(
 	project: Project,

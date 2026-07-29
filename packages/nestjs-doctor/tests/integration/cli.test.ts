@@ -592,6 +592,23 @@ describe("scanner integration", () => {
 			}
 		});
 
+		it("extracts the root schema once and shares it", async () => {
+			const targetPath = resolve(FIXTURES, "root-schema-monorepo");
+			const monorepo = await detectMonorepo(targetPath);
+			const scanConfig = await resolveScanConfig(targetPath);
+			const graphs = await reduceSubProjects(
+				targetPath,
+				scanConfig,
+				monorepo!,
+				(_name, context) => context.schemaGraph
+			);
+
+			// Every sub-project falls back, so they all hold the same extraction.
+			const distinct = new Set(graphs.values());
+			expect(graphs.size).toBeGreaterThan(1);
+			expect(distinct.size).toBe(1);
+		});
+
 		it("still prefers a schema the sub-project owns", async () => {
 			const targetPath = resolve(FIXTURES, "turborepo-app");
 			const monorepo = await detectMonorepo(targetPath);
