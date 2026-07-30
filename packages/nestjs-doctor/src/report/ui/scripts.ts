@@ -4211,7 +4211,14 @@ function epEdgePoints(fromN, toN, kind) {
     var toIsRight = toN.x >= fromN.x;
     var vfx = toIsRight ? fromN.x + fromN.w / 2 : fromN.x - fromN.w / 2;
     var vtx = toIsRight ? toN.x - toN.w / 2 : toN.x + toN.w / 2;
-    return [{ x: vfx, y: fromN.y }, { x: vtx, y: toN.y }];
+    var vfy = fromN.y;
+    var vty = toN.y;
+    // Same-rank boxes can differ in centre Y; route with 90-degree turns, never a diagonal.
+    if (Math.abs(vfy - vty) > 2) {
+      var midX = vfx + (vtx - vfx) / 2;
+      return [{ x: vfx, y: vfy }, { x: midX, y: vfy }, { x: midX, y: vty }, { x: vtx, y: vty }];
+    }
+    return [{ x: vfx, y: vfy }, { x: vtx, y: vty }];
   }
   var fx = fromN.x;
   var fy = fromN.y + fromN.h / 2;
@@ -4367,6 +4374,9 @@ function epBuildBreakNodeExtras(n) {
 function epBuildGraph(ep) {
   epNodes = [];
   epEdges = [];
+  // Node ids restart per graph, so hover refs from the previous graph must not survive.
+  epHoveredNode = null;
+  epHoveredEdge = null;
   var nodeId = 0;
 
   // Root node for the endpoint (controller method). Starts expanded so its
@@ -4608,8 +4618,9 @@ function epDraw() {
 /**
  * One edge's line, arrowhead, and (for value edges) label. The arrowhead is always
  * solid — drawn after the dash pattern is reset — so it reads as an arrow instead of
- * dissolving into the line's own dots/dashes. A hovered edge overrides color/width/
- * dash with a white glow so it stands out from whatever else it overlaps.
+ * dissolving into the line's own dots/dashes. A hovered edge keeps its own color
+ * (never overridden to white) but gets a matching glow, solid stroke, and extra
+ * width so it stands out from whatever else it overlaps.
  */
 function epDrawOneEdge(edge, fromN, toN, isHovered) {
   var pts = epEdgePoints(fromN, toN, edge.kind);
@@ -4617,12 +4628,16 @@ function epDrawOneEdge(edge, fromN, toN, isHovered) {
   var baseColor = isValueEdge
     ? EP_VALUE_EDGE_COLOR
     : (edge.conditional ? "rgba(245, 158, 11, 0.6)" : "#555");
-  var edgeColor = isHovered ? "#ffffff" : baseColor;
+  // A plain structural edge is grey — a grey glow on a grey line barely reads as
+  // a highlight, so hovering one goes white, same as the schema diagram. A value
+  // or conditional edge already has a color worth keeping, so hovering keeps it.
+  var hoverColor = (isValueEdge || edge.conditional) ? baseColor : "#ffffff";
+  var edgeColor = isHovered ? hoverColor : baseColor;
   var edgeLineW = (isHovered ? 2.5 : (isValueEdge ? 1 : 1.5)) / epZoom;
 
   if (isHovered) {
     epCtx.save();
-    epCtx.shadowColor = "#ffffff";
+    epCtx.shadowColor = hoverColor;
     epCtx.shadowBlur = 8;
   } else if (isValueEdge) {
     epCtx.setLineDash([2 / epZoom, 3 / epZoom]);
@@ -4665,14 +4680,13 @@ function epDrawOneEdge(edge, fromN, toN, isHovered) {
 
   if (isHovered) epCtx.restore();
 
-  // Label the value edge with the producer's assigned variable, at the midpoint of
-  // its (usually horizontal, same-rank) middle segment.
+  // Value-edge label: the producer's assigned variable, centred over the horizontal
+  // run, just above the first leg (pts[0]..pts[1] is horizontal on every path shape).
   if (isValueEdge && fromN.assignedTo) {
-    var segStart = pts.length === 4 ? 1 : 0;
-    var labelX = (pts[segStart].x + pts[segStart + 1].x) / 2;
-    var labelY = (pts[segStart].y + pts[segStart + 1].y) / 2;
+    var labelX = (pts[0].x + pts[pts.length - 1].x) / 2;
+    var labelY = Math.min(pts[0].y, pts[1].y);
     epCtx.font = "9px monospace";
-    epCtx.fillStyle = isHovered ? "#ffffff" : EP_VALUE_EDGE_COLOR;
+    epCtx.fillStyle = EP_VALUE_EDGE_COLOR;
     epCtx.textAlign = "center";
     epCtx.textBaseline = "bottom";
     epCtx.fillText(fromN.assignedTo, labelX, labelY - 2 / epZoom);
