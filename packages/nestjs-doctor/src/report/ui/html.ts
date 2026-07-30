@@ -302,6 +302,9 @@ for (let i = 0; i < lines.length; i++) {
         <span class="schema-entity-count" id="endpoints-count"></span>
         <span style="flex:1"></span>
       </div>
+      <div class="endpoints-sidebar-search">
+        <input type="text" id="endpoints-search" placeholder="Filter by route, controller, handler, module…" spellcheck="false">
+      </div>
     </div>
     <div id="endpoints-list"></div>
   </div>

@@ -3684,7 +3684,29 @@ var epNodes = [];
 var epEdges = [];
 var epTooltipEl = null;
 var epDirty = false;
-var epSelectedEndpoint = null;
+var epSelectedIndex = -1;
+
+// Auth shield for one endpoint. Reused by the endpoints overview canvas.
+function epAuthShield(ep) {
+  var auth = ep.auth;
+  var state = auth ? auth.state : "unknown";
+  var SHIELD_INFO = {
+    guarded: { glyph: "\\u2713", cls: "ep-auth-guarded", text: "Guarded" },
+    "declared-public": { glyph: "\\u25CB", cls: "ep-auth-public", text: "Declared public" },
+    unguarded: { glyph: "\\u26A0", cls: "ep-auth-unguarded", text: "Unguarded" },
+    unknown: { glyph: "?", cls: "ep-auth-unknown", text: "Unknown" }
+  };
+  var info = SHIELD_INFO[state] || SHIELD_INFO.unknown;
+  var labelParts = [info.text];
+  if (auth && auth.guardNames && auth.guardNames.length > 0) {
+    labelParts.push("guards: " + auth.guardNames.join(", "));
+  }
+  var isGraphQL = ep.httpMethod === "QUERY" || ep.httpMethod === "MUTATION" || ep.httpMethod === "SUBSCRIPTION";
+  if (auth && auth.globalGuard && !isGraphQL) {
+    labelParts.push("global guard registered");
+  }
+  return { glyph: info.glyph, cls: info.cls, label: labelParts.join(" \\u00b7 ") };
+}
 
 var EP_TYPE_COLORS = {
   controller: "#ea2845",
@@ -4139,90 +4161,186 @@ function renderEndpoints() {
   epCtx = epCanvas.getContext("2d");
   epDpr = window.devicePixelRatio || 1;
 
-  // Group endpoints by controller
-  var controllers = {};
-  var controllerOrder = [];
+  var NO_MODULE_LABEL = "(no module)";
+
+  // Group endpoints by module, then controller. Module labels are used as stored.
+  var moduleGroups = {};
+  var moduleOrder = [];
   for (var i = 0; i < endpoints.endpoints.length; i++) {
     var ep = endpoints.endpoints[i];
-    if (!controllers[ep.controllerClass]) {
-      controllers[ep.controllerClass] = [];
-      controllerOrder.push(ep.controllerClass);
+    var moduleLabel = ep.module ? ep.module : NO_MODULE_LABEL;
+    if (!moduleGroups[moduleLabel]) {
+      moduleGroups[moduleLabel] = { controllers: {}, controllerOrder: [], count: 0 };
+      moduleOrder.push(moduleLabel);
     }
-    controllers[ep.controllerClass].push(ep);
+    var moduleGroup = moduleGroups[moduleLabel];
+    moduleGroup.count++;
+    if (!moduleGroup.controllers[ep.controllerClass]) {
+      moduleGroup.controllers[ep.controllerClass] = [];
+      moduleGroup.controllerOrder.push(ep.controllerClass);
+    }
+    moduleGroup.controllers[ep.controllerClass].push(i);
   }
+
+  // Alphabetical by module; "(no module)" always sorts last.
+  var sortedModules = moduleOrder.slice().sort(function(a, b) {
+    if (a === NO_MODULE_LABEL) return b === NO_MODULE_LABEL ? 0 : 1;
+    if (b === NO_MODULE_LABEL) return -1;
+    return a < b ? -1 : (a > b ? 1 : 0);
+  });
 
   // Set count
   document.getElementById("endpoints-count").textContent = endpoints.endpoints.length;
 
-  // HTTP method badge colors
+  // HTTP method badge colors. GraphQL entries are visually distinct from REST.
+  // No fallback to GET: an unrecognized method gets a neutral grey chip.
   var METHOD_COLORS = {
     GET: "ep-method-get",
     POST: "ep-method-post",
     PUT: "ep-method-put",
     PATCH: "ep-method-patch",
-    DELETE: "ep-method-delete"
+    DELETE: "ep-method-delete",
+    ALL: "ep-method-all",
+    HEAD: "ep-method-head",
+    OPTIONS: "ep-method-options",
+    QUERY: "ep-method-query",
+    MUTATION: "ep-method-mutation",
+    SUBSCRIPTION: "ep-method-subscription"
   };
 
-  // Build sidebar
-  var html = "";
-  for (var c = 0; c < controllerOrder.length; c++) {
-    var ctrlName = controllerOrder[c];
-    var ctrlEndpoints = controllers[ctrlName];
-    var ctrlId = "ep-ctrl-" + c;
-    html += '<div class="st-row" data-toggle="' + ctrlId + '">';
-    html += '<span class="st-toggle" data-toggle="' + ctrlId + '">\\u25BE</span>';
-    html += '<span class="st-icon"><svg viewBox="0 0 16 16" fill="none" stroke="var(--nest-red)" stroke-width="1.2"><rect x="2" y="2" width="12" height="12" rx="2"/><line x1="5" y1="6" x2="11" y2="6"/><line x1="5" y1="10" x2="9" y2="10"/></svg></span>';
-    html += '<span class="st-label"><span class="st-entity-name">' + escHtml(ctrlName) + '</span></span>';
-    html += '<span class="st-count">' + ctrlEndpoints.length + '</span>';
-    html += '</div>';
-    html += '<div class="st-children st-open" id="st-' + ctrlId + '">';
+  // Diagnostic count badge for one endpoint index, colored by highest severity present.
+  function epDiagBadgeHtml(index) {
+    var counts = endpointDiagnostics.perEndpoint[String(index)];
+    if (!counts) return "";
+    var total = counts.error + counts.warning + counts.info;
+    if (total === 0) return "";
+    var color = counts.error > 0 ? "var(--sev-error)" : (counts.warning > 0 ? "var(--sev-warning)" : "var(--sev-info)");
+    var parts = [];
+    if (counts.error > 0) parts.push(counts.error + " error" + (counts.error !== 1 ? "s" : ""));
+    if (counts.warning > 0) parts.push(counts.warning + " warning" + (counts.warning !== 1 ? "s" : ""));
+    if (counts.info > 0) parts.push(counts.info + " info");
+    return '<span class="ep-diag-badge" title="' + escHtml(parts.join(", ")) + '"><span class="ep-diag-dot" style="background:' + color + '"></span>' + total + '</span>';
+  }
 
-    for (var e = 0; e < ctrlEndpoints.length; e++) {
-      var ep = ctrlEndpoints[e];
-      var method = (ep.httpMethod || "GET").toUpperCase();
-      var badgeClass = METHOD_COLORS[method] || "ep-method-get";
-      html += '<div class="st-row ep-endpoint-row" data-ep-ctrl="' + escHtml(ctrlName) + '" data-ep-handler="' + escHtml(ep.handlerMethod) + '">';
-      html += '<span class="st-indent"></span><span class="st-indent"></span>';
-      html += '<span class="ep-method-badge ' + badgeClass + '">' + escHtml(method) + '</span>';
-      html += '<span class="st-label">' + escHtml(ep.routePath || "/") + '</span>';
-      html += '</div>';
-    }
+  // Build sidebar: module → controller → endpoint
+  var html = "";
+  for (var m = 0; m < sortedModules.length; m++) {
+    var moduleLabel = sortedModules[m];
+    var moduleGroup = moduleGroups[moduleLabel];
+    var modId = "ep-mod-" + m;
+    html += '<div class="st-row ep-module-row" data-toggle="' + modId + '">';
+    html += '<span class="st-toggle" data-toggle="' + modId + '">\\u25BE</span>';
+    html += '<span class="st-icon"><svg viewBox="0 0 16 16" fill="none" stroke="var(--text-muted)" stroke-width="1.2"><path d="M2 4.5h4l1.5-1.5H14v2H4L2 13V4.5z"/><path d="M4 7h11l-2 6H2z"/></svg></span>';
+    html += '<span class="st-label"><span class="st-group-name">' + escHtml(moduleLabel) + '</span></span>';
+    html += '<span class="st-count">' + moduleGroup.count + '</span>';
     html += '</div>';
+    html += '<div class="st-children st-open" id="st-' + modId + '">';
+
+    for (var c = 0; c < moduleGroup.controllerOrder.length; c++) {
+      var ctrlName = moduleGroup.controllerOrder[c];
+      var ctrlIndices = moduleGroup.controllers[ctrlName];
+      var ctrlId = modId + "-ctrl-" + c;
+      html += '<div class="st-row ep-ctrl-row" data-toggle="' + ctrlId + '">';
+      html += '<span class="st-indent"></span>';
+      html += '<span class="st-toggle" data-toggle="' + ctrlId + '">\\u25BE</span>';
+      html += '<span class="st-icon"><svg viewBox="0 0 16 16" fill="none" stroke="var(--nest-red)" stroke-width="1.2"><rect x="2" y="2" width="12" height="12" rx="2"/><line x1="5" y1="6" x2="11" y2="6"/><line x1="5" y1="10" x2="9" y2="10"/></svg></span>';
+      html += '<span class="st-label"><span class="st-entity-name">' + escHtml(ctrlName) + '</span></span>';
+      html += '<span class="st-count">' + ctrlIndices.length + '</span>';
+      html += '</div>';
+      html += '<div class="st-children st-open" id="st-' + ctrlId + '">';
+
+      for (var e = 0; e < ctrlIndices.length; e++) {
+        var epIndex = ctrlIndices[e];
+        var endpoint = endpoints.endpoints[epIndex];
+        var method = (endpoint.httpMethod || "GET").toUpperCase();
+        var badgeClass = METHOD_COLORS[method] || "ep-method-unknown";
+        var shield = epAuthShield(endpoint);
+        html += '<div class="st-row ep-endpoint-row" data-ep-index="' + epIndex + '">';
+        html += '<span class="st-indent"></span><span class="st-indent"></span>';
+        html += '<span class="ep-method-badge ' + badgeClass + '">' + escHtml(method) + '</span>';
+        html += '<span class="st-label">' + escHtml(endpoint.routePath || "/") + '</span>';
+        html += '<span class="ep-auth-shield ' + shield.cls + '" title="' + escHtml(shield.label) + '">' + shield.glyph + '</span>';
+        html += epDiagBadgeHtml(epIndex);
+        html += '</div>';
+      }
+      html += '</div>'; // close controller children
+    }
+    html += '</div>'; // close module children
   }
   sidebarEl.innerHTML = html;
 
+  // Search filter: case-insensitive substring over routePath, controllerClass,
+  // handlerMethod, module. Hides non-matching rows and empties groups.
+  var searchInput = document.getElementById("endpoints-search");
+  if (searchInput) {
+    searchInput.addEventListener("input", function() {
+      var q = searchInput.value.trim().toLowerCase();
+      var endpointRows = sidebarEl.querySelectorAll(".ep-endpoint-row");
+      for (var r = 0; r < endpointRows.length; r++) {
+        var row = endpointRows[r];
+        var rowIndex = Number(row.dataset.epIndex);
+        var rowEp = endpoints.endpoints[rowIndex];
+        var haystack = (
+          (rowEp.routePath || "") + " " +
+          (rowEp.controllerClass || "") + " " +
+          (rowEp.handlerMethod || "") + " " +
+          (rowEp.module || "")
+        ).toLowerCase();
+        row.style.display = (q === "" || haystack.indexOf(q) !== -1) ? "" : "none";
+      }
+
+      var ctrlRows = sidebarEl.querySelectorAll(".ep-ctrl-row");
+      for (var r2 = 0; r2 < ctrlRows.length; r2++) {
+        var ctrlRow = ctrlRows[r2];
+        var ctrlChildren = document.getElementById("st-" + ctrlRow.dataset.toggle);
+        var anyEndpointVisible = false;
+        if (ctrlChildren) {
+          var childEndpointRows = ctrlChildren.querySelectorAll(".ep-endpoint-row");
+          for (var k = 0; k < childEndpointRows.length; k++) {
+            if (childEndpointRows[k].style.display !== "none") { anyEndpointVisible = true; break; }
+          }
+        }
+        ctrlRow.style.display = anyEndpointVisible ? "" : "none";
+      }
+
+      var modRows = sidebarEl.querySelectorAll(".ep-module-row");
+      for (var r3 = 0; r3 < modRows.length; r3++) {
+        var modRow = modRows[r3];
+        var modChildren = document.getElementById("st-" + modRow.dataset.toggle);
+        var anyCtrlVisible = false;
+        if (modChildren) {
+          var childCtrlRows = modChildren.querySelectorAll(".ep-ctrl-row");
+          for (var k2 = 0; k2 < childCtrlRows.length; k2++) {
+            if (childCtrlRows[k2].style.display !== "none") { anyCtrlVisible = true; break; }
+          }
+        }
+        modRow.style.display = anyCtrlVisible ? "" : "none";
+      }
+    });
+  }
+
   // Sidebar click handlers
   sidebarEl.addEventListener("click", function(e) {
-    // Toggle handling
-    var toggleEl = e.target.closest(".st-toggle");
-    if (toggleEl) {
-      var toggleId = toggleEl.dataset.toggle;
-      var childDiv = document.getElementById("st-" + toggleId);
-      if (childDiv) {
-        var isOpen = childDiv.classList.toggle("st-open");
-        toggleEl.textContent = isOpen ? "\\u25BE" : "\\u25B8";
+    // Clicking anywhere on a module or controller header row toggles its group.
+    var groupRow = e.target.closest(".ep-module-row, .ep-ctrl-row");
+    if (groupRow) {
+      var rowToggle = groupRow.querySelector(".st-toggle");
+      if (rowToggle) {
+        var childDiv = document.getElementById("st-" + rowToggle.dataset.toggle);
+        if (childDiv) {
+          var isOpen = childDiv.classList.toggle("st-open");
+          rowToggle.textContent = isOpen ? "\\u25BE" : "\\u25B8";
+        }
       }
-      // If not an endpoint row, stop
-      var row = e.target.closest(".ep-endpoint-row");
-      if (!row) return;
+      return;
     }
 
-    // Endpoint selection
+    // Endpoint selection, keyed by index into endpoints.endpoints.
     var epRow = e.target.closest(".ep-endpoint-row");
     if (!epRow) return;
-    var ctrlName = epRow.dataset.epCtrl;
-    var handlerName = epRow.dataset.epHandler;
-
-    // Find matching endpoint
-    var found = null;
-    for (var i = 0; i < endpoints.endpoints.length; i++) {
-      var ep = endpoints.endpoints[i];
-      if (ep.controllerClass === ctrlName && ep.handlerMethod === handlerName) {
-        found = ep;
-        break;
-      }
-    }
-    if (!found) return;
+    var epIndex = Number(epRow.dataset.epIndex);
+    if (!(epIndex >= 0 && epIndex < endpoints.endpoints.length)) return;
+    var found = endpoints.endpoints[epIndex];
 
     // Highlight selected
     var allRows = sidebarEl.querySelectorAll(".ep-endpoint-row");
@@ -4230,7 +4348,7 @@ function renderEndpoints() {
       allRows[i].classList.toggle("st-selected", allRows[i] === epRow);
     }
 
-    epSelectedEndpoint = found;
+    epSelectedIndex = epIndex;
 
     // Build graph and render
     var emptyState = document.getElementById("endpoints-empty-state");
