@@ -3731,6 +3731,9 @@ var epDirty = false;
 var epSelectedIndex = -1;
 var epLastZoomUi = null;
 var epBannerDismissedIndex = -1;
+// Set once the problems drawer is wired up in renderEndpoints(); epShowFocused/epShowOverview
+// call it with the selected index (or null for overview) to keep the drawer in scope.
+var epDiagPanelRender = null;
 var EP_CHIP_W = 34, EP_CHIP_H = 15;
 var EP_NODE_HDR_H = 22;
 
@@ -4813,6 +4816,7 @@ function epShowOverview() {
   epSyncLegendMode();
   epSyncFocusedToolbar();
   epSyncTruncatedBanner(null);
+  if (epDiagPanelRender) epDiagPanelRender(null);
   epResize();
 }
 
@@ -4829,6 +4833,7 @@ function epShowFocused(index) {
   epSyncLegendMode();
   epSyncFocusedToolbar();
   epSyncTruncatedBanner(found);
+  if (epDiagPanelRender) epDiagPanelRender(index);
   epResize();
   // A new endpoint has a different graph, so fit it — epResize alone only
   // preserves the camera across container resizes, not endpoint changes.
@@ -5325,11 +5330,12 @@ function renderEndpoints() {
   // ── Endpoint diagnostics drawer ──
   var epDiagCountEl = document.getElementById("endpoints-diag-count");
   var epDiagHeaderEl = document.getElementById("endpoints-diag-header");
+  var epDiagScopeEl = document.getElementById("endpoints-diag-scope");
   var epDiagBodyEl = document.getElementById("endpoints-diag-body");
   var epDiagListEl = document.getElementById("endpoints-diag-list");
   var epDiagChevronEl = document.getElementById("endpoints-diag-chevron");
 
-  if (epDiagCountEl && epDiagHeaderEl && epDiagBodyEl && epDiagListEl && epDiagChevronEl) {
+  if (epDiagCountEl && epDiagHeaderEl && epDiagScopeEl && epDiagBodyEl && epDiagListEl && epDiagChevronEl) {
     var epEndpointsByFile = {};
     for (var fi = 0; fi < endpoints.endpoints.length; fi++) {
       var fep = endpoints.endpoints[fi];
@@ -5338,6 +5344,7 @@ function renderEndpoints() {
     }
 
     // Joins diagnostics to endpoints by filePath + line range, mirroring endpoint-diagnostics.ts.
+    // Computed once — epRenderDiagPanel below just filters/aggregates this on every mode switch.
     var epDiagRows = [];
     for (var di = 0; di < diagnostics.length; di++) {
       var d = diagnostics[di];
@@ -5352,53 +5359,88 @@ function renderEndpoints() {
       }
     }
 
-    var epSumCounts = function(c) { return c.error + c.warning + c.info; };
-    var epFileKeys = Object.keys(endpointDiagnostics.perFile);
-    var epEndpointKeys = Object.keys(endpointDiagnostics.perEndpoint);
-    var epDiagTotal = 0;
-    for (var pek = 0; pek < epEndpointKeys.length; pek++) {
-      epDiagTotal += epSumCounts(endpointDiagnostics.perEndpoint[epEndpointKeys[pek]]);
-    }
-    for (var pfk = 0; pfk < epFileKeys.length; pfk++) {
-      epDiagTotal += epSumCounts(endpointDiagnostics.perFile[epFileKeys[pfk]]);
+    var epSumCounts = function(c) { return c ? c.error + c.warning + c.info : 0; };
+
+    function epDiagRowHtml(row) {
+      var rd = row.diagnostic;
+      var rep = endpoints.endpoints[row.epIndex];
+      var sevColor = rd.severity === "error" ? "var(--sev-error)" : rd.severity === "warning" ? "var(--sev-warning)" : "var(--sev-info)";
+      return '<div class="sd-item">' +
+        '<span class="sev-dot" style="background:' + sevColor + '"></span>' +
+        '<span class="sd-rule">' + escHtml(rd.rule) + '</span>' +
+        '<span class="sd-entity" data-ep-index="' + row.epIndex + '" data-line="' + rd.line + '">' + escHtml(rep.controllerClass + "." + rep.handlerMethod) + '</span>' +
+        '<span class="sd-msg">' + escHtml(rd.message) + '</span>' +
+        '</div>';
     }
 
-    epDiagCountEl.textContent = epDiagTotal + (epDiagTotal === 1 ? " issue" : " issues");
-    if (epDiagTotal > 0) epDiagCountEl.classList.add("has-issues");
+    function epFileRollupHtml(filePath) {
+      var counts = endpointDiagnostics.perFile[filePath];
+      var frTotal = epSumCounts(counts);
+      var frColor = counts.error > 0 ? "var(--sev-error)" : (counts.warning > 0 ? "var(--sev-warning)" : "var(--sev-info)");
+      var frParts = [];
+      if (counts.error > 0) frParts.push(counts.error + " error" + (counts.error !== 1 ? "s" : ""));
+      if (counts.warning > 0) frParts.push(counts.warning + " warning" + (counts.warning !== 1 ? "s" : ""));
+      if (counts.info > 0) frParts.push(counts.info + " info");
+      return '<div class="sd-item">' +
+        '<span class="sev-dot" style="background:' + frColor + '"></span>' +
+        '<span class="sd-entity">' + escHtml(epRelPath(filePath)) + '</span>' +
+        '<span class="sd-msg">' + frTotal + (frTotal === 1 ? " issue" : " issues") + ' outside any handler \\u00b7 ' + escHtml(frParts.join(", ")) + '</span>' +
+        '</div>';
+    }
 
-    if (epDiagTotal === 0) {
-      epDiagListEl.innerHTML = '<div class="sd-empty">No endpoint issues found</div>';
-    } else {
+    /**
+     * Renders the drawer badge/title/list. scopeIndex null scopes to the whole project
+     * (overview); a number scopes to just that endpoint's joined rows — no per-file
+     * "outside any handler" rollup, since those aren't attributable to one endpoint.
+     */
+    function epRenderDiagPanel(scopeIndex) {
+      var scoped = typeof scopeIndex === "number";
+      var total;
+
+      if (scoped) {
+        total = epSumCounts(endpointDiagnostics.perEndpoint[String(scopeIndex)]);
+      } else {
+        var epFileKeys = Object.keys(endpointDiagnostics.perFile);
+        var epEndpointKeys = Object.keys(endpointDiagnostics.perEndpoint);
+        total = 0;
+        for (var pek = 0; pek < epEndpointKeys.length; pek++) {
+          total += epSumCounts(endpointDiagnostics.perEndpoint[epEndpointKeys[pek]]);
+        }
+        for (var pfk = 0; pfk < epFileKeys.length; pfk++) {
+          total += epSumCounts(endpointDiagnostics.perFile[epFileKeys[pfk]]);
+        }
+      }
+
+      if (scoped) {
+        var scopedEp = endpoints.endpoints[scopeIndex];
+        epDiagScopeEl.textContent = "\\u00b7 " + (scopedEp.httpMethod || "").toUpperCase() + " " + (scopedEp.routePath || "/");
+      } else {
+        epDiagScopeEl.textContent = "";
+      }
+
+      epDiagCountEl.textContent = total + (total === 1 ? " issue" : " issues");
+      epDiagCountEl.classList.toggle("has-issues", total > 0);
+
+      if (total === 0) {
+        epDiagListEl.innerHTML = '<div class="sd-empty">' + (scoped ? "No issues for this endpoint" : "No endpoint issues found") + '</div>';
+        return;
+      }
+
       var epDiagHtml = "";
       for (var ri = 0; ri < epDiagRows.length; ri++) {
-        var row = epDiagRows[ri];
-        var rd = row.diagnostic;
-        var rep = endpoints.endpoints[row.epIndex];
-        var sevColor = rd.severity === "error" ? "var(--sev-error)" : rd.severity === "warning" ? "var(--sev-warning)" : "var(--sev-info)";
-        epDiagHtml += '<div class="sd-item">';
-        epDiagHtml += '<span class="sev-dot" style="background:' + sevColor + '"></span>';
-        epDiagHtml += '<span class="sd-rule">' + escHtml(rd.rule) + '</span>';
-        epDiagHtml += '<span class="sd-entity" data-ep-index="' + row.epIndex + '" data-line="' + rd.line + '">' + escHtml(rep.controllerClass + "." + rep.handlerMethod) + '</span>';
-        epDiagHtml += '<span class="sd-msg">' + escHtml(rd.message) + '</span>';
-        epDiagHtml += '</div>';
+        if (scoped && epDiagRows[ri].epIndex !== scopeIndex) continue;
+        epDiagHtml += epDiagRowHtml(epDiagRows[ri]);
       }
-      for (var rj = 0; rj < epFileKeys.length; rj++) {
-        var filePath = epFileKeys[rj];
-        var counts = endpointDiagnostics.perFile[filePath];
-        var frTotal = epSumCounts(counts);
-        var frColor = counts.error > 0 ? "var(--sev-error)" : (counts.warning > 0 ? "var(--sev-warning)" : "var(--sev-info)");
-        var frParts = [];
-        if (counts.error > 0) frParts.push(counts.error + " error" + (counts.error !== 1 ? "s" : ""));
-        if (counts.warning > 0) frParts.push(counts.warning + " warning" + (counts.warning !== 1 ? "s" : ""));
-        if (counts.info > 0) frParts.push(counts.info + " info");
-        epDiagHtml += '<div class="sd-item">';
-        epDiagHtml += '<span class="sev-dot" style="background:' + frColor + '"></span>';
-        epDiagHtml += '<span class="sd-entity">' + escHtml(epRelPath(filePath)) + '</span>';
-        epDiagHtml += '<span class="sd-msg">' + frTotal + (frTotal === 1 ? " issue" : " issues") + ' outside any handler \\u00b7 ' + escHtml(frParts.join(", ")) + '</span>';
-        epDiagHtml += '</div>';
+      if (!scoped) {
+        var rollupFileKeys = Object.keys(endpointDiagnostics.perFile);
+        for (var rj = 0; rj < rollupFileKeys.length; rj++) {
+          epDiagHtml += epFileRollupHtml(rollupFileKeys[rj]);
+        }
       }
       epDiagListEl.innerHTML = epDiagHtml;
     }
+
+    epDiagPanelRender = epRenderDiagPanel;
 
     epDiagHeaderEl.addEventListener("click", function() {
       var isOpen = epDiagBodyEl.style.display !== "none";

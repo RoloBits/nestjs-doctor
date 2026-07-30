@@ -374,6 +374,7 @@ for (let i = 0; i < lines.length; i++) {
       <div id="endpoints-diag-header">
         <svg class="schema-diag-chevron" id="endpoints-diag-chevron" width="10" height="10" viewBox="0 0 10 10"><path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span class="schema-diag-title">Problems</span>
+        <span class="ep-diag-scope" id="endpoints-diag-scope"></span>
         <span class="schema-diag-count" id="endpoints-diag-count">0</span>
       </div>
       <div class="ep-diag-caveat">Counts reflect this report's diagnostics; a narrowed scan scope reports fewer, not cleaner.</div>

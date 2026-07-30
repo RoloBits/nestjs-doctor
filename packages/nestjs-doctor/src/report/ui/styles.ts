@@ -1138,6 +1138,11 @@ canvas:active { cursor: grabbing; }
   transition: background 0.15s;
 }
 #endpoints-diag-header:hover { background: var(--surface-hover); }
+.ep-diag-scope {
+  font-size: 11px; color: var(--text-dim); font-family: monospace;
+  text-transform: none; margin-left: -4px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
 .ep-diag-caveat {
   padding: 0 12px 6px; font-size: 10px; color: var(--text-dim);
 }
