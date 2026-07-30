@@ -5079,9 +5079,7 @@ function renderEndpoints() {
       epEndpointsByFile[fep.filePath].push(fi);
     }
 
-    // Re-joins diagnostics to endpoints by filePath and line range — the same
-    // rule report-data.ts used to build endpointDiagnostics.perEndpoint — so
-    // each row can show the rule and message the counts summarize.
+    // Joins diagnostics to endpoints by filePath + line range, mirroring endpoint-diagnostics.ts.
     var epDiagRows = [];
     for (var di = 0; di < diagnostics.length; di++) {
       var d = diagnostics[di];

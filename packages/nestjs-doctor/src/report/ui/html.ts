@@ -315,7 +315,7 @@ for (let i = 0; i < lines.length; i++) {
           <button class="st-btn schema-zoom-btn has-tip" id="endpoints-zoom-out" aria-label="Zoom out" data-tip="Zoom out">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
           </button>
-          <input type="range" id="endpoints-zoom-range" min="5" max="500" step="1" value="100" aria-label="Zoom">
+          <input type="range" id="endpoints-zoom-range" min="5" max="300" step="1" value="100" aria-label="Zoom">
           <button class="st-btn schema-zoom-btn has-tip" id="endpoints-zoom-in" aria-label="Zoom in" data-tip="Zoom in">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           </button>
