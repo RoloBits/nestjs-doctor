@@ -3781,28 +3781,48 @@ function epPackOverviewBoxes(boxes, targetW, gutter) {
   return y + shelfH;
 }
 
-/** Packs each module's controller boxes into a shelf, then stacks modules vertically. */
+/**
+ * Packs each module's controller boxes into a shelf sized to its own content,
+ * then shelf-packs the module rectangles themselves onto rows — the same
+ * epPackOverviewBoxes call used at both levels, so a project with hundreds of
+ * one-controller modules fills the canvas instead of stacking into one column.
+ */
 function epComputeOverviewLayout(groups, boxWidth) {
   var GUTTER = 32;
   var MODULE_HEADER_H = 28;
   var MODULE_GAP = 56;
-  var top = 0;
-  for (var g = 0; g < groups.length; g++) {
+  var g, i, j;
+
+  for (g = 0; g < groups.length; g++) {
     var group = groups[g];
     var boxes = group.boxes;
     var area = 0;
-    for (var i = 0; i < boxes.length; i++) area += boxes[i].w * boxes[i].h;
-    var targetW = Math.max(boxWidth * 3, Math.sqrt(area) * 1.6);
-    var packH = epPackOverviewBoxes(boxes, targetW, GUTTER);
-    group.headerY = top;
-    var contentTop = top + MODULE_HEADER_H;
-    for (var j = 0; j < boxes.length; j++) {
-      boxes[j].x = boxes[j].ox + boxes[j].w / 2;
-      boxes[j].y = contentTop + boxes[j].oy + boxes[j].h / 2;
+    for (i = 0; i < boxes.length; i++) area += boxes[i].w * boxes[i].h;
+    var innerTargetW = Math.max(boxWidth * 3, Math.sqrt(area) * 1.6);
+    var packH = epPackOverviewBoxes(boxes, innerTargetW, GUTTER);
+    var contentW = 0;
+    for (j = 0; j < boxes.length; j++) {
+      var right = boxes[j].ox + boxes[j].w;
+      if (right > contentW) contentW = right;
     }
-    group.w = targetW;
+    group.w = contentW;
     group.h = MODULE_HEADER_H + packH;
-    top += group.h + MODULE_GAP;
+  }
+
+  var groupArea = 0;
+  for (g = 0; g < groups.length; g++) groupArea += groups[g].w * groups[g].h;
+  var outerTargetW = Math.max(boxWidth * 3, Math.sqrt(groupArea) * 1.6);
+  epPackOverviewBoxes(groups, outerTargetW, MODULE_GAP);
+
+  for (g = 0; g < groups.length; g++) {
+    var placed = groups[g];
+    placed.headerY = placed.oy;
+    var contentTop = placed.oy + MODULE_HEADER_H;
+    for (j = 0; j < placed.boxes.length; j++) {
+      var pbox = placed.boxes[j];
+      pbox.x = placed.ox + pbox.ox + pbox.w / 2;
+      pbox.y = contentTop + pbox.oy + pbox.h / 2;
+    }
   }
 }
 // ep-overview-layout-end
@@ -4066,7 +4086,7 @@ function epDrawOverview() {
     epCtx.fillStyle = "#e0e0e0";
     epCtx.textAlign = "left";
     epCtx.textBaseline = "top";
-    epCtx.fillText(group.label, 0, group.headerY + 6);
+    epCtx.fillText(group.label, group.ox, group.headerY + 6);
 
     for (var b = 0; b < group.boxes.length; b++) {
       epDrawOverviewBox(group.boxes[b]);

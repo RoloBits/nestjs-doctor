@@ -160,6 +160,33 @@ function buildFixture(epBoxHeight: (count: number) => number): {
 	return { groups, totalEndpoints };
 }
 
+/** 40 modules, each with one controller and 1-2 endpoints — Twenty-shaped: lots of tiny modules. */
+function buildManySmallModulesFixture(
+	epBoxHeight: (count: number) => number
+): Group[] {
+	const groups: Group[] = [];
+	for (let m = 0; m < 40; m++) {
+		const count = m % 2 === 0 ? 1 : 2;
+		groups.push({
+			boxes: [
+				{
+					controllerClass: `Controller${m}`,
+					endpointIndices: Array.from({ length: count }, (_, i) => i),
+					h: epBoxHeight(count),
+					w: EP_BOX_W,
+					x: 0,
+					y: 0,
+				},
+			],
+			h: 0,
+			headerY: 0,
+			label: `Module${m}`,
+			w: 0,
+		});
+	}
+	return groups;
+}
+
 describe("endpoints overview box sizing", () => {
 	it("caps visible rows at 12 and adds one +N more row only once past the cap", () => {
 		const {
@@ -241,6 +268,60 @@ describe("endpoints overview layout", () => {
 		const { epBoxHeight } = getSizingHelpers();
 		const first = buildFixture(epBoxHeight).groups;
 		const second = buildFixture(epBoxHeight).groups;
+
+		runOverviewLayout(first, EP_BOX_W);
+		runOverviewLayout(second, EP_BOX_W);
+
+		const strip = (groups: Group[]) =>
+			groups.map((g) => ({
+				headerY: g.headerY,
+				w: g.w,
+				h: g.h,
+				boxes: g.boxes.map((b) => ({ x: b.x, y: b.y, w: b.w, h: b.h })),
+			}));
+
+		expect(strip(first)).toEqual(strip(second));
+	});
+});
+
+describe("endpoints overview layout — many small modules (real-project shape)", () => {
+	it("packs one-controller modules onto shared rows instead of one per row", () => {
+		const { epBoxHeight } = getSizingHelpers();
+		const groups = buildManySmallModulesFixture(epBoxHeight);
+		runOverviewLayout(groups, EP_BOX_W);
+
+		const allBoxes = groups.flatMap((g) => g.boxes);
+		expect(findOverlap(allBoxes)).toBeNull();
+
+		// (b) more than one group per row: some pair of groups' headerY..headerY+h
+		// ranges overlap, instead of every group getting its own vertical band.
+		const bands = groups.map((g) => ({ min: g.headerY, max: g.headerY + g.h }));
+		let sharedRow = false;
+		for (let i = 0; i < bands.length && !sharedRow; i++) {
+			for (let j = i + 1; j < bands.length; j++) {
+				if (bands[i].max > bands[j].min && bands[j].max > bands[i].min) {
+					sharedRow = true;
+					break;
+				}
+			}
+		}
+		expect(sharedRow).toBe(true);
+
+		// (c) bounded aspect ratio: a skyscraper of 40 one-per-row modules would be
+		// far taller than wide; packed onto rows it stays close to square-ish.
+		const minX = Math.min(...allBoxes.map((b) => b.x - b.w / 2));
+		const maxX = Math.max(...allBoxes.map((b) => b.x + b.w / 2));
+		const minY = Math.min(...groups.map((g) => g.headerY));
+		const maxY = Math.max(...allBoxes.map((b) => b.y + b.h / 2));
+		const width = maxX - minX;
+		const height = maxY - minY;
+		expect(height).toBeLessThanOrEqual(width * 3);
+	});
+
+	it("produces an identical layout across repeated runs", () => {
+		const { epBoxHeight } = getSizingHelpers();
+		const first = buildManySmallModulesFixture(epBoxHeight);
+		const second = buildManySmallModulesFixture(epBoxHeight);
 
 		runOverviewLayout(first, EP_BOX_W);
 		runOverviewLayout(second, EP_BOX_W);
