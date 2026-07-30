@@ -3724,6 +3724,7 @@ var epDragMoved = false;
 var epDragStartX = 0, epDragStartY = 0;
 var EP_DRAG_THRESHOLD_PX = 4;
 var epHoveredNode = null;
+var epHoveredEdge = null;
 var epNodes = [];
 var epEdges = [];
 var epTooltipEl = null;
@@ -4197,6 +4198,51 @@ function epHitTest(wx, wy) {
   return null;
 }
 
+/**
+ * The polyline points one edge is drawn along — shared by the draw loop and the
+ * hit-test below so they can never drift apart. Value edges connect same-rank
+ * siblings, so they anchor to the near box SIDES at box-center height instead of
+ * the parent/child top-bottom anchors every other edge uses — otherwise a value
+ * edge lands on exactly the same point as the structural edge into the same box
+ * and its arrowhead is indistinguishable from (or hidden behind) that one's.
+ */
+function epEdgePoints(fromN, toN, kind) {
+  if (kind === "value") {
+    var toIsRight = toN.x >= fromN.x;
+    var vfx = toIsRight ? fromN.x + fromN.w / 2 : fromN.x - fromN.w / 2;
+    var vtx = toIsRight ? toN.x - toN.w / 2 : toN.x + toN.w / 2;
+    return [{ x: vfx, y: fromN.y }, { x: vtx, y: toN.y }];
+  }
+  var fx = fromN.x;
+  var fy = fromN.y + fromN.h / 2;
+  var tx = toN.x;
+  var ty = toN.y - toN.h / 2;
+  if (Math.abs(fx - tx) > 2) {
+    var midY = fy + (ty - fy) / 2;
+    return [{ x: fx, y: fy }, { x: fx, y: midY }, { x: tx, y: midY }, { x: tx, y: ty }];
+  }
+  return [{ x: fx, y: fy }, { x: tx, y: ty }];
+}
+
+/** Nearest edge to a point, within a small on-screen threshold — lets overlapping lines be told apart by hovering one. */
+function epHitTestEdge(wx, wy) {
+  var threshold = 6 / epZoom;
+  var nodeById = {};
+  for (var i = 0; i < epNodes.length; i++) nodeById[epNodes[i].id] = epNodes[i];
+  for (var i = 0; i < epEdges.length; i++) {
+    var fromN = nodeById[epEdges[i].from];
+    var toN = nodeById[epEdges[i].to];
+    if (!fromN || !toN || !fromN.visible || !toN.visible) continue;
+    var pts = epEdgePoints(fromN, toN, epEdges[i].kind);
+    for (var p = 0; p < pts.length - 1; p++) {
+      if (sPointToSegmentDist(wx, wy, pts[p].x, pts[p].y, pts[p + 1].x, pts[p + 1].y) < threshold) {
+        return epEdges[i];
+      }
+    }
+  }
+  return null;
+}
+
 function epRoundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
@@ -4559,6 +4605,81 @@ function epDraw() {
   }
 }
 
+/**
+ * One edge's line, arrowhead, and (for value edges) label. The arrowhead is always
+ * solid — drawn after the dash pattern is reset — so it reads as an arrow instead of
+ * dissolving into the line's own dots/dashes. A hovered edge overrides color/width/
+ * dash with a white glow so it stands out from whatever else it overlaps.
+ */
+function epDrawOneEdge(edge, fromN, toN, isHovered) {
+  var pts = epEdgePoints(fromN, toN, edge.kind);
+  var isValueEdge = edge.kind === "value";
+  var baseColor = isValueEdge
+    ? EP_VALUE_EDGE_COLOR
+    : (edge.conditional ? "rgba(245, 158, 11, 0.6)" : "#555");
+  var edgeColor = isHovered ? "#ffffff" : baseColor;
+  var edgeLineW = (isHovered ? 2.5 : (isValueEdge ? 1 : 1.5)) / epZoom;
+
+  if (isHovered) {
+    epCtx.save();
+    epCtx.shadowColor = "#ffffff";
+    epCtx.shadowBlur = 8;
+  } else if (isValueEdge) {
+    epCtx.setLineDash([2 / epZoom, 3 / epZoom]);
+  } else if (edge.conditional) {
+    epCtx.setLineDash([6 / epZoom, 4 / epZoom]);
+  }
+
+  epCtx.beginPath();
+  epCtx.moveTo(pts[0].x, pts[0].y);
+  for (var p = 1; p < pts.length; p++) epCtx.lineTo(pts[p].x, pts[p].y);
+  epCtx.strokeStyle = edgeColor;
+  epCtx.lineWidth = edgeLineW;
+  epCtx.stroke();
+  epCtx.setLineDash([]);
+
+  // Arrow — solid regardless of the line's own dash style (drawn after the reset
+  // above), oriented along the final segment's own direction of travel rather than
+  // assumed-vertical. For every existing top-down edge that final segment is still
+  // vertical, so this draws the exact same chevron as before; for a value edge's
+  // horizontal side-to-side approach it correctly points sideways instead of down.
+  var tip = pts[pts.length - 1];
+  var prev = pts[pts.length - 2];
+  var dx = tip.x - prev.x;
+  var dy = tip.y - prev.y;
+  var dlen = Math.sqrt(dx * dx + dy * dy) || 1;
+  dx /= dlen;
+  dy /= dlen;
+  var px = -dy;
+  var py = dx;
+  var arrowSize = 5 / epZoom;
+  var backX = tip.x - dx * arrowSize;
+  var backY = tip.y - dy * arrowSize;
+  epCtx.beginPath();
+  epCtx.moveTo(backX + px * arrowSize, backY + py * arrowSize);
+  epCtx.lineTo(tip.x, tip.y);
+  epCtx.lineTo(backX - px * arrowSize, backY - py * arrowSize);
+  epCtx.strokeStyle = edgeColor;
+  epCtx.lineWidth = edgeLineW;
+  epCtx.stroke();
+
+  if (isHovered) epCtx.restore();
+
+  // Label the value edge with the producer's assigned variable, at the midpoint of
+  // its (usually horizontal, same-rank) middle segment.
+  if (isValueEdge && fromN.assignedTo) {
+    var segStart = pts.length === 4 ? 1 : 0;
+    var labelX = (pts[segStart].x + pts[segStart + 1].x) / 2;
+    var labelY = (pts[segStart].y + pts[segStart + 1].y) / 2;
+    epCtx.font = "9px monospace";
+    epCtx.fillStyle = isHovered ? "#ffffff" : EP_VALUE_EDGE_COLOR;
+    epCtx.textAlign = "center";
+    epCtx.textBaseline = "bottom";
+    epCtx.fillText(fromN.assignedTo, labelX, labelY - 2 / epZoom);
+    epCtx.textAlign = "left";
+  }
+}
+
 function epDrawFocusedGraph() {
   epCtx.save();
   epCtx.clearRect(0, 0, epW, epH);
@@ -4577,67 +4698,21 @@ function epDrawFocusedGraph() {
   for (var i = 0; i < epNodes.length; i++) nodeById[epNodes[i].id] = epNodes[i];
 
   // Draw edges — only between visible nodes; a collapsed node's whole subtree drops out here.
+  // The hovered edge (if any) is skipped here and redrawn last, on top of every other edge,
+  // so it stays easy to tell apart when several lines overlap.
   for (var i = 0; i < epEdges.length; i++) {
-    var fromN = nodeById[epEdges[i].from];
-    var toN = nodeById[epEdges[i].to];
+    var edge = epEdges[i];
+    if (edge === epHoveredEdge) continue;
+    var fromN = nodeById[edge.from];
+    var toN = nodeById[edge.to];
     if (!fromN || !toN || !fromN.visible || !toN.visible) continue;
-
-    var fx = fromN.x;
-    var fy = fromN.y + fromN.h / 2;
-    var tx = toN.x;
-    var ty = toN.y - toN.h / 2;
-
-    // Value edges (a guarded call's return value flowing into its break step) draw
-    // thinner and dotted in a muted blue, distinct from the amber conditional dash.
-    var isValueEdge = epEdges[i].kind === "value";
-    var edgeColor = isValueEdge
-      ? EP_VALUE_EDGE_COLOR
-      : (epEdges[i].conditional ? "rgba(245, 158, 11, 0.6)" : "#555");
-    var edgeLineW = isValueEdge ? 1 / epZoom : 1.5 / epZoom;
-    if (isValueEdge) {
-      epCtx.setLineDash([2 / epZoom, 3 / epZoom]);
-    } else if (epEdges[i].conditional) {
-      epCtx.setLineDash([6 / epZoom, 4 / epZoom]);
-    }
-
-    epCtx.beginPath();
-    epCtx.moveTo(fx, fy);
-    // L-shaped edge if not aligned
-    var bent = Math.abs(fx - tx) > 2;
-    var midY = fy;
-    if (bent) {
-      midY = fy + (ty - fy) / 2;
-      epCtx.lineTo(fx, midY);
-      epCtx.lineTo(tx, midY);
-    }
-    epCtx.lineTo(tx, ty);
-    epCtx.strokeStyle = edgeColor;
-    epCtx.lineWidth = edgeLineW;
-    epCtx.stroke();
-
-    // Arrow
-    var arrowSize = 5 / epZoom;
-    epCtx.beginPath();
-    epCtx.moveTo(tx - arrowSize, ty - arrowSize);
-    epCtx.lineTo(tx, ty);
-    epCtx.lineTo(tx + arrowSize, ty - arrowSize);
-    epCtx.strokeStyle = edgeColor;
-    epCtx.lineWidth = edgeLineW;
-    epCtx.stroke();
-
-    epCtx.setLineDash([]);
-
-    // Label the value edge with the producer's assigned variable, at the midpoint
-    // of its (usually horizontal, same-rank) segment.
-    if (isValueEdge && fromN.assignedTo) {
-      var labelX = bent ? (fx + tx) / 2 : fx;
-      var labelY = bent ? midY : (fy + ty) / 2;
-      epCtx.font = "9px monospace";
-      epCtx.fillStyle = EP_VALUE_EDGE_COLOR;
-      epCtx.textAlign = "center";
-      epCtx.textBaseline = "bottom";
-      epCtx.fillText(fromN.assignedTo, labelX, labelY - 2 / epZoom);
-      epCtx.textAlign = "left";
+    epDrawOneEdge(edge, fromN, toN, false);
+  }
+  if (epHoveredEdge) {
+    var hFromN = nodeById[epHoveredEdge.from];
+    var hToN = nodeById[epHoveredEdge.to];
+    if (hFromN && hToN && hFromN.visible && hToN.visible) {
+      epDrawOneEdge(epHoveredEdge, hFromN, hToN, true);
     }
   }
 
@@ -5462,6 +5537,13 @@ function renderEndpoints() {
       } else if (hit) {
         epShowTooltip(hit, sx, sy);
       }
+
+      // Edge hover only when no node is under the cursor — a node's own hover wins.
+      var hitEdge = hit ? null : epHitTestEdge(pos.x, pos.y);
+      if (hitEdge !== epHoveredEdge) {
+        epHoveredEdge = hitEdge;
+        epScheduleRedraw();
+      }
     }
   });
 
@@ -5491,6 +5573,7 @@ function renderEndpoints() {
     epDragging = null;
     epPanning = false;
     epHoveredNode = null;
+    epHoveredEdge = null;
     epOvHoveredRow = null;
     epOvHitRowPending = null;
     epHideTooltip();
