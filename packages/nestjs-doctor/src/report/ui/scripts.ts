@@ -4140,6 +4140,7 @@ function epScreenToWorld(sx, sy) {
 function epHitTest(wx, wy) {
   for (var i = epNodes.length - 1; i >= 0; i--) {
     var n = epNodes[i];
+    if (!n.visible) continue;
     if (wx >= n.x - n.w / 2 && wx <= n.x + n.w / 2 &&
         wy >= n.y - n.h / 2 && wy <= n.y + n.h / 2) return n;
   }
