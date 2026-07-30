@@ -5,7 +5,7 @@ import type { Diagnostic } from "../common/diagnostic.js";
 import type { RuleErrorInfo } from "../common/result.js";
 import type { AnalysisContext } from "./analysis-context.js";
 import { filterIgnoredDiagnostics } from "./filter-diagnostics.js";
-import { guardDecoratorNames } from "./graph/guard-decorators.js";
+import { buildGuardFacts } from "./graph/guard-facts.js";
 import { posixDirname } from "./graph/module-graph.js";
 import { filterSuppressedDiagnostics } from "./inline-suppressions.js";
 import { isInjectable } from "./nest-class-inspector.js";
@@ -146,39 +146,16 @@ function fileRuleFacts(context: AnalysisContext): FileRuleFacts {
 		}
 	}
 
-	const composedDecorators = guardDecoratorNames(context.guardDecorators);
-	const guardedBaseClasses = new Set<string>();
-	for (const filePath of context.files) {
-		const sourceFile = context.astProject.getSourceFile(filePath);
-		if (!sourceFile) {
-			continue;
-		}
-		for (const cls of sourceFile.getClasses()) {
-			const base = cls.getExtends()?.getExpression().getText();
-			if (!base) {
-				continue;
-			}
-			const guarded = cls
-				.getDecorators()
-				.some(
-					(d) =>
-						d.getName() === "UseGuards" || composedDecorators.has(d.getName())
-				);
-			if (guarded) {
-				guardedBaseClasses.add(base.split("<")[0].split(".").pop() ?? base);
-			}
-		}
-	}
+	const guards = buildGuardFacts(
+		context.astProject,
+		context.files,
+		context.moduleGraph,
+		context.guardDecorators
+	);
 
 	return {
 		diProviders,
-		guards: {
-			composedDecorators,
-			globallyRegistered: modules.some((module) =>
-				module.providerTokens.includes("APP_GUARD")
-			),
-			guardedBaseClasses,
-		},
+		guards,
 		moduleDirectories,
 	};
 }
