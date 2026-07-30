@@ -4224,6 +4224,11 @@ function epComputeTreeVisibility(nodes, edges) {
   var i;
   for (i = 0; i < edges.length; i++) {
     var e = edges[i];
+    // Value edges aren't tree structure — they're an extra annotation between
+    // siblings, not a parent/child relationship. Counting them here would inflate
+    // childCount (and the "N direct calls" tooltip that reads it) and give a
+    // childless guarded call a spurious expand chip.
+    if (e.kind === "value") continue;
     if (!childrenOf[e.from]) childrenOf[e.from] = [];
     childrenOf[e.from].push(e.to);
     hasParent[e.to] = true;
@@ -4412,6 +4417,7 @@ function epBuildGraph(ep) {
 }
 // ep-build-graph-end
 
+// ep-layout-start
 /** Lays out visible nodes only — collapsed subtrees don't take up graph space. */
 function epLayout() {
   var visible = [];
@@ -4433,6 +4439,10 @@ function epLayout() {
     }
     for (var j = 0; j < epEdges.length; j++) {
       var e = epEdges[j];
+      // Value edges aren't tree structure — feeding them to dagre adds a rank
+      // constraint that pushes the break step below its guarded call instead of
+      // beside it.
+      if (e.kind === "value") continue;
       if (byId[e.from] && byId[e.to]) g.setEdge(e.from, e.to);
     }
 
@@ -4453,6 +4463,7 @@ function epLayout() {
     }
   }
 }
+// ep-layout-end
 
 function epCenterCamera() {
   if (epNodes.length === 0) return;

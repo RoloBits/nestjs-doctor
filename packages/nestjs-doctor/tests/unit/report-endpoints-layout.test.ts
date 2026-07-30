@@ -164,12 +164,18 @@ interface EndpointFixture {
 
 interface BuildGraphNode {
 	assignedTo?: string | null;
+	childCount?: number;
 	className: string;
 	displayOrder?: number;
 	expanded: boolean;
+	h?: number;
 	id: number;
 	kind?: string;
 	methodName: string | null;
+	visible?: boolean;
+	w?: number;
+	x?: number;
+	y?: number;
 }
 
 interface BuildGraphEdge {
@@ -209,6 +215,89 @@ function runBuildGraph(ep: EndpointFixture): {
 		measureText: (text: string) => ({ width: text.length }),
 	};
 	return factory(ep, stubCtx);
+}
+
+interface FakeDagreEdge {
+	from: number;
+	to: number;
+}
+
+/**
+ * Minimal stand-in for dagre's graphlib.Graph, just enough of the API epLayout
+ * calls (setGraph/setDefaultEdgeLabel/setNode/setEdge/node, dagre.layout). Ranks
+ * nodes by longest path over the edges actually passed to setEdge — the same
+ * rule real dagre uses — so a value edge that leaks through still visibly pushes
+ * its target a rank deeper, the way it did against real dagre 0.8.5.
+ */
+function makeFakeDagre(): { dagre: unknown; recordedEdges: FakeDagreEdge[] } {
+	const recordedEdges: FakeDagreEdge[] = [];
+	const sizes = new Map<number, unknown>();
+	let positions = new Map<number, { x: number; y: number }>();
+
+	function FakeGraph(this: Record<string, unknown>) {
+		this.setGraph = () => undefined;
+		this.setDefaultEdgeLabel = () => undefined;
+		this.setNode = (id: number, opts: unknown) => sizes.set(id, opts);
+		this.setEdge = (from: number, to: number) =>
+			recordedEdges.push({ from, to });
+		this.node = (id: number) => positions.get(id);
+	}
+
+	const dagre = {
+		graphlib: { Graph: FakeGraph },
+		layout: () => {
+			const rank = new Map<number, number>();
+			const rankOf = (id: number): number => {
+				const cached = rank.get(id);
+				if (cached !== undefined) {
+					return cached;
+				}
+				const parents = recordedEdges
+					.filter((e) => e.to === id)
+					.map((e) => e.from);
+				const r =
+					parents.length === 0 ? 0 : Math.max(...parents.map(rankOf)) + 1;
+				rank.set(id, r);
+				return r;
+			};
+			for (const id of sizes.keys()) {
+				rankOf(id);
+			}
+			positions = new Map();
+			for (const id of sizes.keys()) {
+				positions.set(id, { x: 0, y: (rank.get(id) ?? 0) * 100 });
+			}
+		},
+	};
+
+	return { dagre, recordedEdges };
+}
+
+/**
+ * Pulls epLayout out of the emitted script and runs it against nodes/edges
+ * already produced by runBuildGraph, with the fake dagre standing in for the
+ * real CDN-loaded one (this repo has no dagre npm dependency to import).
+ */
+function runLayout(
+	nodes: BuildGraphNode[],
+	edges: BuildGraphEdge[]
+): { recordedEdges: FakeDagreEdge[] } {
+	const scripts = getReportScripts(EMPTY);
+	const start = scripts.indexOf("// ep-layout-start");
+	const end = scripts.indexOf("// ep-layout-end");
+	if (start < 0 || end <= start) {
+		throw new Error("epLayout not found in the emitted report script");
+	}
+
+	const { dagre, recordedEdges } = makeFakeDagre();
+	const factory = new Function(
+		"epNodes",
+		"epEdges",
+		"dagre",
+		`${scripts.slice(start, end)}\nepLayout();`
+	);
+	factory(nodes, edges, dagre);
+	return { recordedEdges };
 }
 
 /**
@@ -748,5 +837,30 @@ describe("endpoints focused-tree value edges", () => {
 		for (const e of nonValueEdges) {
 			expect(e.kind).toBeUndefined();
 		}
+	});
+
+	it("does not count the value edge toward the guarded call's childCount", () => {
+		const { nodes } = runBuildGraph(buildGuardThrowFixture());
+
+		const accessNode = nodes.find((n) => n.methodName === "access");
+		// access() has exactly one real child (findUnique) — the value edge to the
+		// break step must not inflate this to 2.
+		expect(accessNode?.childCount).toBe(1);
+	});
+
+	it("does not feed the value edge to dagre, so the break step lands on the same rank as its guarded call", () => {
+		const { nodes, edges } = runBuildGraph(buildGuardThrowFixture());
+		const { recordedEdges } = runLayout(nodes, edges);
+
+		const accessNode = nodes.find((n) => n.methodName === "access");
+		const breakNode = nodes.find((n) => n.kind === "break");
+
+		expect(
+			recordedEdges.some(
+				(e) => e.from === accessNode?.id && e.to === breakNode?.id
+			)
+		).toBe(false);
+
+		expect(breakNode?.y).toBe(accessNode?.y);
 	});
 });
