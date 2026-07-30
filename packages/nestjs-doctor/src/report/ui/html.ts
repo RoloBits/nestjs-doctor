@@ -376,8 +376,9 @@ for (let i = 0; i < lines.length; i++) {
         <div class="ep-legend-row"><span class="ep-legend-order">#N</span> Call order</div>
         <div class="ep-legend-row"><span class="ep-legend-swatch ep-legend-dashed"></span> Conditional call</div>
         <div class="ep-legend-row"><span class="ep-legend-glyph">&#8625;</span> Calls drawn at another call site</div>
-        <div class="ep-legend-row"><span class="ep-legend-glyph" style="color:#f59e0b">&#9888;</span> Guard-throw strip — fetch checked, then thrown</div>
+        <div class="ep-legend-row"><span class="ep-legend-swatch ep-legend-break"></span> Break step — caller checks a result and may throw; handler stops here</div>
         <div class="ep-legend-row"><span class="ep-legend-glyph" style="color:#f87171">&#9888;</span> Throw message (on THROW nodes)</div>
+        <div class="ep-legend-row"><span class="ep-legend-glyph">&#8594;</span> variable — return value assigned to</div>
         <div class="ep-legend-row"><span class="ep-legend-glyph">&#8635;</span> Iteration chip, e.g. &#8635; map — called inside a loop/callback</div>
         <div id="endpoints-legend-overview" style="display:none">
           <div class="ep-legend-divider"></div>

@@ -4256,7 +4256,7 @@ function epGuardThrowFullText(gt) {
 
 /**
  * Precomputes truncated label text, chip width, and box height for one node's optional
- * content (guard-throw strip, throw message, condition line, iteration chip) — all text
+ * content (dataflow line, throw message, condition line, iteration chip) — all text
  * measurement happens here, once per node, never in the draw loop.
  */
 function epBuildNodeExtras(n) {
@@ -4264,9 +4264,9 @@ function epBuildNodeExtras(n) {
   var extraRows = 0;
   var innerW = n.w - 16;
 
-  if (n.guardThrow) {
-    epCtx.font = "9px -apple-system, BlinkMacSystemFont, sans-serif";
-    n.guardThrowText = epClipText("⚠ " + epGuardThrowFullText(n.guardThrow), innerW);
+  if (n.assignedTo) {
+    epCtx.font = "9px monospace";
+    n.assignedToText = epClipText("→ " + n.assignedTo, innerW);
     extraRows++;
   }
   if (n.type === "throw" && n.throwMessage) {
@@ -4286,6 +4286,26 @@ function epBuildNodeExtras(n) {
   }
 
   n.h = 60 + extraRows * 14;
+}
+
+/**
+ * Precomputes the two label lines for a break-step node (caller-side guard-throw).
+ * Same text-once-not-in-draw-loop rule as epBuildNodeExtras.
+ */
+function epBuildBreakNodeExtras(n) {
+  if (!epCtx) return;
+  var innerW = n.w - 20;
+  var lines = 0;
+  epCtx.font = "9px monospace";
+  if (n.guardThrow.conditionText) {
+    n.breakLine1Text = epClipText("if (" + n.guardThrow.conditionText + ")", innerW);
+    lines++;
+  }
+  var throwText = "throw " + n.guardThrow.className;
+  if (n.guardThrow.message) throwText += ": " + n.guardThrow.message;
+  n.breakLine2Text = epClipText(throwText, innerW);
+  lines++;
+  n.h = 30 + lines * 14 + 6;
 }
 
 function epBuildGraph(ep) {
@@ -4333,12 +4353,40 @@ function epBuildGraph(ep) {
         throwMessage: dep.throwMessage,
         iterationKind: dep.iterationKind,
         iterationLabel: dep.iterationLabel,
+        assignedTo: dep.assignedTo,
+        parameters: dep.parameters,
         expanded: false,
         x: 0, y: 0, w: 180, h: 60
       };
       epBuildNodeExtras(n);
       epNodes.push(n);
       epEdges.push({ from: parentNode.id, to: n.id, conditional: dep.conditional });
+
+      // Guard-throw belongs to the caller, not the callee: synthesize a break-step leaf
+      // right after the guarded call, same parent, so the tree reads check-then-throw at
+      // the call site. Fractional order sorts it directly after dep in the flat #N sequence
+      // without needing a reserved integer gap.
+      if (dep.guardThrow) {
+        var bn = {
+          id: nodeId++,
+          kind: "break",
+          className: parentNode.className,
+          methodName: null,
+          conditional: false,
+          order: dep.order + 0.5,
+          filePath: parentNode.filePath,
+          line: dep.guardThrow.callSiteLine,
+          endLine: dep.guardThrow.callSiteLine,
+          guardThrow: dep.guardThrow,
+          consumedVar: dep.assignedTo,
+          expanded: false,
+          x: 0, y: 0, w: 180, h: 60
+        };
+        epBuildBreakNodeExtras(bn);
+        epNodes.push(bn);
+        epEdges.push({ from: parentNode.id, to: bn.id, conditional: false });
+      }
+
       if (dep.dependencies && dep.dependencies.length > 0) {
         walkDeps(n, dep.dependencies);
       }
@@ -4567,6 +4615,59 @@ function epDrawFocusedGraph() {
     var color = EP_TYPE_COLORS[n.type] || EP_TYPE_COLORS.unknown;
     var isHovered = (epHoveredNode && epHoveredNode.id === n.id);
 
+    // Break step — caller-owned guard-throw. Its own small draw path: amber border,
+    // controller-red left accent, order badge, two label lines. No header, no chip.
+    if (n.kind === "break") {
+      if (isHovered) {
+        epCtx.save();
+        epCtx.shadowColor = "rgba(255,255,255,0.2)";
+        epCtx.shadowBlur = 10;
+      }
+      epRoundRect(epCtx, x, y, n.w, n.h, BOX_R);
+      epCtx.fillStyle = "#1a1408";
+      epCtx.fill();
+      epCtx.strokeStyle = isHovered ? "#f59e0b" : "rgba(245,158,11,0.6)";
+      epCtx.lineWidth = isHovered ? 2 : 1;
+      epCtx.stroke();
+      if (isHovered) epCtx.restore();
+
+      epCtx.save();
+      epRoundRect(epCtx, x, y, n.w, n.h, BOX_R);
+      epCtx.clip();
+      epCtx.fillStyle = "#ea2845";
+      epCtx.fillRect(x, y, 3, n.h);
+      epCtx.restore();
+
+      if (n.displayOrder !== undefined) {
+        var bOrderLabel = "#" + (n.displayOrder + 1);
+        epCtx.font = "bold 8px -apple-system, BlinkMacSystemFont, sans-serif";
+        var bOrderW = epCtx.measureText(bOrderLabel).width + 8;
+        epRoundRect(epCtx, x + 10, y + 8, bOrderW, 12, 3);
+        epCtx.fillStyle = "rgba(255,255,255,0.08)";
+        epCtx.fill();
+        epCtx.fillStyle = "#999";
+        epCtx.textAlign = "left";
+        epCtx.textBaseline = "middle";
+        epCtx.fillText(bOrderLabel, x + 14, y + 14);
+      }
+
+      var bY = y + 30;
+      epCtx.textAlign = "left";
+      epCtx.textBaseline = "middle";
+      if (n.breakLine1Text) {
+        epCtx.font = "9px monospace";
+        epCtx.fillStyle = "#f59e0b";
+        epCtx.fillText(n.breakLine1Text, x + 10, bY);
+        bY += 14;
+      }
+      if (n.breakLine2Text) {
+        epCtx.font = "9px monospace";
+        epCtx.fillStyle = "#f87171";
+        epCtx.fillText(n.breakLine2Text, x + 10, bY);
+      }
+      continue;
+    }
+
     var isCond = n.conditional;
     var headerColor = isCond ? "#f59e0b" : color;
 
@@ -4734,16 +4835,16 @@ function epDrawFocusedGraph() {
       epCtx.fillText(mText, x + 8, methodY);
     }
 
-    // Extra rows below whatever content just drew — guard-throw strip, throw message,
+    // Extra rows below whatever content just drew — dataflow line, throw message,
     // condition text. Text is precomputed in epBuildNodeExtras; box height already
     // accounts for however many of these apply, so nothing here measures text.
     var rowY = infoY + (n.methodName ? 18 : 0) + 14;
     epCtx.textAlign = "left";
     epCtx.textBaseline = "middle";
-    if (n.guardThrowText) {
-      epCtx.font = "9px -apple-system, BlinkMacSystemFont, sans-serif";
-      epCtx.fillStyle = "#f59e0b";
-      epCtx.fillText(n.guardThrowText, x + 8, rowY);
+    if (n.assignedToText) {
+      epCtx.font = "9px monospace";
+      epCtx.fillStyle = "#777";
+      epCtx.fillText(n.assignedToText, x + 8, rowY);
       rowY += 14;
     }
     if (n.throwMsgText) {
@@ -4786,46 +4887,68 @@ function epResize() {
   epScheduleRedraw();
 }
 
+/** Joins parameter names into a call-args string, e.g. "id, userId". */
+function epFormatParams(params) {
+  if (!params || params.length === 0) return "";
+  var names = [];
+  for (var i = 0; i < params.length; i++) names.push(params[i].name);
+  return names.join(", ");
+}
+
 function epShowTooltip(node, screenX, screenY) {
   if (!epTooltipEl) return;
-  var color = EP_TYPE_COLORS[node.type] || EP_TYPE_COLORS.unknown;
-  var methodHtml = "";
-  if (node.methodName) {
-    var mColor = node.conditional ? "#f59e0b" : "#ccc";
-    methodHtml = '<div style="font-family:monospace;font-size:11px;color:' + mColor + ';margin-top:4px">.' + escHtml(node.methodName) + '()</div>';
+
+  if (node.kind === "break") {
+    var gt = node.guardThrow;
+    var breakHtml = '<div style="font-size:9px;color:#f59e0b;margin-top:4px">\u26A0 ' + escHtml(epGuardThrowFullText(gt)) + '</div>' +
+      '<div style="font-size:9px;color:#888;margin-top:4px">Handler stops here when the condition holds.</div>';
+    if (node.consumedVar) {
+      breakHtml += '<div style="font-size:9px;color:#888;margin-top:4px">Checks ' + escHtml(node.consumedVar) + '</div>';
+    }
+    epTooltipEl.innerHTML = '<div class="tt-name">Break step</div>' +
+      '<div class="tt-table" style="color:#f59e0b">caller check</div>' + breakHtml;
+    epTooltipEl.style.display = "block";
+  } else {
+    var color = EP_TYPE_COLORS[node.type] || EP_TYPE_COLORS.unknown;
+    var methodHtml = "";
+    if (node.methodName) {
+      var mColor = node.conditional ? "#f59e0b" : "#ccc";
+      var callText = node.methodName + "(" + epFormatParams(node.parameters) + ")";
+      methodHtml = '<div style="font-family:monospace;font-size:11px;color:' + mColor + ';margin-top:4px">.' + escHtml(callText) + '</div>';
+    }
+    var assignedLabel = "";
+    if (node.assignedTo) {
+      assignedLabel = '<div style="font-size:9px;color:#888;margin-top:4px">\u2192 ' + escHtml(node.assignedTo) + '</div>';
+    }
+    var condLabel = "";
+    if (node.conditional) {
+      var condText = "Conditionally called";
+      if (node.branchKind) condText += " (" + node.branchKind + ")";
+      if (node.conditionText) condText += " \u2014 when " + node.conditionText;
+      condLabel = '<div style="font-size:9px;color:#f59e0b;margin-top:4px">' + escHtml(condText) + '</div>';
+    }
+    var throwMsgLabel = "";
+    if (node.type === "throw" && node.throwMessage) {
+      throwMsgLabel = '<div style="font-size:9px;color:#f87171;margin-top:4px">' + escHtml(node.throwMessage) + '</div>';
+    }
+    var iterLabel = "";
+    if (node.iterationKind) {
+      var iterText = "Called inside " + (node.iterationLabel ? "." + node.iterationLabel + "()" : node.iterationKind);
+      iterLabel = '<div style="font-size:9px;color:#888;margin-top:4px">\u21BB ' + escHtml(iterText) + '</div>';
+    }
+    var repeatLabel = "";
+    if (node.expandedElsewhere) {
+      repeatLabel = '<div style="font-size:9px;color:#888;margin-top:4px">\u21B1 Calls drawn at another call site</div>';
+    }
+    var childLabel = "";
+    if (node.childCount > 0) {
+      childLabel = '<div style="font-size:9px;color:#888;margin-top:4px">' + node.childCount + ' direct call' + (node.childCount === 1 ? "" : "s") + '</div>';
+    }
+    epTooltipEl.innerHTML = '<div class="tt-name">' + escHtml(node.className) + '</div>' +
+      '<div class="tt-table" style="color:' + color + '">' + escHtml(node.type) + '</div>' +
+      methodHtml + assignedLabel + condLabel + throwMsgLabel + iterLabel + repeatLabel + childLabel;
+    epTooltipEl.style.display = "block";
   }
-  var condLabel = "";
-  if (node.conditional) {
-    var condText = "Conditionally called";
-    if (node.branchKind) condText += " (" + node.branchKind + ")";
-    if (node.conditionText) condText += " \u2014 when " + node.conditionText;
-    condLabel = '<div style="font-size:9px;color:#f59e0b;margin-top:4px">' + escHtml(condText) + '</div>';
-  }
-  var guardThrowLabel = "";
-  if (node.guardThrow) {
-    guardThrowLabel = '<div style="font-size:9px;color:#f59e0b;margin-top:4px">\u26A0 ' + escHtml(epGuardThrowFullText(node.guardThrow)) + '</div>';
-  }
-  var throwMsgLabel = "";
-  if (node.type === "throw" && node.throwMessage) {
-    throwMsgLabel = '<div style="font-size:9px;color:#f87171;margin-top:4px">' + escHtml(node.throwMessage) + '</div>';
-  }
-  var iterLabel = "";
-  if (node.iterationKind) {
-    var iterText = "Called inside " + (node.iterationLabel ? "." + node.iterationLabel + "()" : node.iterationKind);
-    iterLabel = '<div style="font-size:9px;color:#888;margin-top:4px">\u21BB ' + escHtml(iterText) + '</div>';
-  }
-  var repeatLabel = "";
-  if (node.expandedElsewhere) {
-    repeatLabel = '<div style="font-size:9px;color:#888;margin-top:4px">\u21B1 Calls drawn at another call site</div>';
-  }
-  var childLabel = "";
-  if (node.childCount > 0) {
-    childLabel = '<div style="font-size:9px;color:#888;margin-top:4px">' + node.childCount + ' direct call' + (node.childCount === 1 ? "" : "s") + '</div>';
-  }
-  epTooltipEl.innerHTML = '<div class="tt-name">' + escHtml(node.className) + '</div>' +
-    '<div class="tt-table" style="color:' + color + '">' + escHtml(node.type) + '</div>' +
-    methodHtml + condLabel + guardThrowLabel + throwMsgLabel + iterLabel + repeatLabel + childLabel;
-  epTooltipEl.style.display = "block";
 
   var mainRect = epCanvas.parentElement.getBoundingClientRect();
   var tx = screenX + 16;
