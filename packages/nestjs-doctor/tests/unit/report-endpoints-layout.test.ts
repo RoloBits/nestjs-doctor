@@ -120,6 +120,177 @@ function runTreeVisibility(nodes: TreeNode[], edges: TreeEdge[]): void {
 	factory(nodes, edges);
 }
 
+interface DepParam {
+	name: string;
+	type: string | null;
+}
+
+interface DepGuardThrow {
+	branchKind: string | null;
+	callSiteLine: number;
+	className: string;
+	conditionText: string | null;
+	message: string | null;
+}
+
+interface DepFixture {
+	assignedTo: string | null;
+	branchKind: string | null;
+	className: string;
+	conditional: boolean;
+	conditionText: string | null;
+	dependencies: DepFixture[];
+	endLine: number;
+	filePath: string;
+	guardThrow: DepGuardThrow | null;
+	iterationKind: string | null;
+	iterationLabel: string | null;
+	line: number;
+	methodName: string;
+	parameters: DepParam[];
+	throwMessage: string | null;
+	totalMethods: number;
+	type: string;
+}
+
+interface EndpointFixture {
+	controllerClass: string;
+	dependencies: DepFixture[];
+	endLine: number;
+	filePath: string;
+	handlerMethod: string;
+	line: number;
+}
+
+interface BuildGraphNode {
+	assignedTo?: string | null;
+	className: string;
+	displayOrder?: number;
+	expanded: boolean;
+	id: number;
+	kind?: string;
+	methodName: string | null;
+}
+
+interface BuildGraphEdge {
+	conditional: boolean;
+	from: number;
+	to: number;
+}
+
+/**
+ * Pulls epBuildGraph (and everything it calls — epClipText, epBuildNodeExtras,
+ * epBuildBreakNodeExtras, epComputeTreeVisibility) out of the emitted script and
+ * runs it against a synthetic endpoint. epNodes/epEdges are declared locally in the
+ * wrapper so epBuildGraph's plain assignments land there instead of leaking globals;
+ * epCtx is stubbed with a measureText so label truncation runs for real.
+ */
+function runBuildGraph(ep: EndpointFixture): {
+	edges: BuildGraphEdge[];
+	nodes: BuildGraphNode[];
+} {
+	const scripts = getReportScripts(EMPTY);
+	const start = scripts.indexOf("// ep-build-graph-start");
+	const end = scripts.indexOf("// ep-build-graph-end");
+	if (start < 0 || end <= start) {
+		throw new Error(
+			"graph-build functions not found in the emitted report script"
+		);
+	}
+
+	const factory = new Function(
+		"ep",
+		"epCtx",
+		`var epNodes, epEdges;\n${scripts.slice(start, end)}\nepBuildGraph(ep);\nreturn { nodes: epNodes, edges: epEdges };`
+	);
+	const stubCtx = {
+		font: "",
+		measureText: (text: string) => ({ width: text.length }),
+	};
+	return factory(ep, stubCtx);
+}
+
+/**
+ * AccessController.deleteAccess() shape: access() (guarded, assigns originalAccess,
+ * itself calling a repository), then deleteAccess(). Mirrors the real Ghostfolio
+ * DELETE /access/:id handler this feature was built against.
+ */
+function buildGuardThrowFixture(): EndpointFixture {
+	return {
+		controllerClass: "AccessController",
+		dependencies: [
+			{
+				assignedTo: "originalAccess",
+				branchKind: null,
+				className: "AccessService",
+				conditional: false,
+				conditionText: null,
+				dependencies: [
+					{
+						assignedTo: null,
+						branchKind: null,
+						className: "PrismaService",
+						conditional: false,
+						conditionText: null,
+						dependencies: [],
+						endLine: 3,
+						filePath: "prisma.service.ts",
+						guardThrow: null,
+						iterationKind: null,
+						iterationLabel: null,
+						line: 3,
+						methodName: "findUnique",
+						parameters: [],
+						throwMessage: null,
+						totalMethods: 1,
+						type: "repository",
+					},
+				],
+				endLine: 5,
+				filePath: "access.service.ts",
+				guardThrow: {
+					branchKind: "if",
+					callSiteLine: 12,
+					className: "HttpException",
+					conditionText: "!originalAccess",
+					message: "Forbidden",
+				},
+				iterationKind: null,
+				iterationLabel: null,
+				line: 5,
+				methodName: "access",
+				parameters: [{ name: "where", type: "AccessWhereInput" }],
+				throwMessage: null,
+				totalMethods: 1,
+				type: "service",
+			},
+			{
+				assignedTo: null,
+				branchKind: null,
+				className: "AccessService",
+				conditional: false,
+				conditionText: null,
+				dependencies: [],
+				endLine: 8,
+				filePath: "access.service.ts",
+				guardThrow: null,
+				iterationKind: null,
+				iterationLabel: null,
+				line: 8,
+				methodName: "deleteAccess",
+				parameters: [{ name: "id", type: "string" }],
+				throwMessage: null,
+				totalMethods: 1,
+				type: "service",
+			},
+		],
+		endLine: 20,
+		filePath: "access.controller.ts",
+		handlerMethod: "deleteAccess",
+		line: 10,
+	};
+}
+
 /**
  * root(0) -> A(1), B(2); A(1) -> A1(3), A2(4); B(2) -> B1(5); A1(3) -> A1a(6).
  * Root starts expanded (depth-1 default-visible), everything else collapsed.
@@ -471,5 +642,73 @@ describe("endpoints focused-tree visibility", () => {
 			}));
 
 		expect(strip(first.nodes)).toEqual(strip(second.nodes));
+	});
+});
+
+describe("endpoints focused-tree display numbering", () => {
+	it("numbers the Ghostfolio flagship case #1 access / #2 break / #3 deleteAccess", () => {
+		const { nodes, edges } = runBuildGraph(buildGuardThrowFixture());
+
+		// Root is always id 0 — the first node epBuildGraph creates.
+		const rootLevelIds = edges.filter((e) => e.from === 0).map((e) => e.to);
+		const rootLevel = rootLevelIds.map(
+			(id) => nodes.find((n) => n.id === id) as BuildGraphNode
+		);
+
+		expect(rootLevel.map((n) => n.methodName ?? n.kind)).toEqual([
+			"access",
+			"break",
+			"deleteAccess",
+		]);
+		expect(rootLevel.map((n) => n.displayOrder)).toEqual([0, 1, 2]);
+	});
+
+	it("inserts the break node under the guarded call's own parent, not its subtree", () => {
+		const { nodes, edges } = runBuildGraph(buildGuardThrowFixture());
+
+		const accessNode = nodes.find((n) => n.methodName === "access");
+		const breakNode = nodes.find((n) => n.kind === "break");
+		const accessEdge = edges.find((e) => e.to === accessNode?.id);
+		const breakEdge = edges.find((e) => e.to === breakNode?.id);
+
+		// Same parent as the guarded call (the root/caller), not the call itself.
+		expect(breakEdge?.from).toBe(accessEdge?.from);
+
+		// access()'s own child (findUnique) hangs off access(), not off the break node.
+		const childEdge = edges.find((e) => e.from === accessNode?.id);
+		expect(childEdge).toBeDefined();
+		expect(childEdge?.from).not.toBe(breakNode?.id);
+	});
+
+	it("restarts numbering per sibling level instead of sorting the whole tree", () => {
+		const { nodes, edges } = runBuildGraph(buildGuardThrowFixture());
+
+		const accessNode = nodes.find((n) => n.methodName === "access");
+		const findUniqueEdge = edges.find((e) => e.from === accessNode?.id);
+		const findUniqueNode = nodes.find((n) => n.id === findUniqueEdge?.to);
+
+		// access()'s only child is the first (and only) call at its own level, #1
+		// again — same number as access() itself at the root level, by design.
+		expect(findUniqueNode?.displayOrder).toBe(0);
+	});
+
+	it("keeps display numbers stable across a simulated collapse/expand", () => {
+		const { nodes, edges } = runBuildGraph(buildGuardThrowFixture());
+		const before = nodes.map((n) => ({
+			id: n.id,
+			displayOrder: n.displayOrder,
+		}));
+
+		const root = nodes.find((n) => n.id === 0) as unknown as TreeNode;
+		root.expanded = false;
+		runTreeVisibility(nodes as unknown as TreeNode[], edges);
+		root.expanded = true;
+		runTreeVisibility(nodes as unknown as TreeNode[], edges);
+
+		const after = nodes.map((n) => ({
+			id: n.id,
+			displayOrder: n.displayOrder,
+		}));
+		expect(after).toEqual(before);
 	});
 });

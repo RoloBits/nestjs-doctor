@@ -3923,6 +3923,7 @@ function epBuildOverviewGroups() {
   return groups;
 }
 
+// ep-build-graph-start
 function epClipText(text, maxW) {
   if (!epCtx || epCtx.measureText(text).width <= maxW) return text;
   var out = text;
@@ -4321,7 +4322,6 @@ function epBuildGraph(ep) {
     type: "controller",
     methodName: ep.handlerMethod,
     conditional: false,
-    order: -1,
     totalMethods: 1,
     filePath: ep.filePath,
     line: ep.line,
@@ -4331,8 +4331,15 @@ function epBuildGraph(ep) {
   };
   epNodes.push(rootNode);
 
-  // Walk dependency tree — each dep is a MethodDependencyNode (one method per node)
+  // Walk dependency tree — each dep is a MethodDependencyNode (one method per node).
+  // #N badges are assigned here with a counter local to this one call — i.e. per
+  // sibling group, the same level the engine already sorted deps into — rather than
+  // sorted globally across the whole tree. The engine's order field is scoped to a
+  // single method body and resets per call, so a global sort by it interleaves levels
+  // (a call's own nested children can outrank its next sibling). Per-level numbering
+  // stays contiguous and stable under expand/collapse.
   function walkDeps(parentNode, deps) {
+    var seq = 0;
     for (var i = 0; i < deps.length; i++) {
       var dep = deps[i];
       var n = {
@@ -4343,13 +4350,12 @@ function epBuildGraph(ep) {
         conditional: dep.conditional,
         conditionText: dep.conditionText,
         branchKind: dep.branchKind,
-        order: dep.order,
+        displayOrder: seq++,
         totalMethods: dep.totalMethods,
         filePath: dep.filePath,
         line: dep.line,
         endLine: dep.endLine,
         expandedElsewhere: dep.expandedElsewhere,
-        guardThrow: dep.guardThrow,
         throwMessage: dep.throwMessage,
         iterationKind: dep.iterationKind,
         iterationLabel: dep.iterationLabel,
@@ -4364,8 +4370,7 @@ function epBuildGraph(ep) {
 
       // Guard-throw belongs to the caller, not the callee: synthesize a break-step leaf
       // right after the guarded call, same parent, so the tree reads check-then-throw at
-      // the call site. Fractional order sorts it directly after dep in the flat #N sequence
-      // without needing a reserved integer gap.
+      // the call site.
       if (dep.guardThrow) {
         var bn = {
           id: nodeId++,
@@ -4373,7 +4378,7 @@ function epBuildGraph(ep) {
           className: parentNode.className,
           methodName: null,
           conditional: false,
-          order: dep.order + 0.5,
+          displayOrder: seq++,
           filePath: parentNode.filePath,
           line: dep.guardThrow.callSiteLine,
           endLine: dep.guardThrow.callSiteLine,
@@ -4395,18 +4400,9 @@ function epBuildGraph(ep) {
 
   walkDeps(rootNode, ep.dependencies);
 
-  // Contiguous #N badges in engine-order sequence. The raw order field skips slots a
-  // merged guard-throw consumed (e.g. 0, 2), which would otherwise show as #1 -> #3.
-  // Computed once here so display order stays stable while nodes expand/collapse.
-  var ordered = [];
-  for (var oi = 0; oi < epNodes.length; oi++) {
-    if (epNodes[oi].order >= 0) ordered.push(epNodes[oi]);
-  }
-  ordered.sort(function(a, b) { return a.order - b.order; });
-  for (var di = 0; di < ordered.length; di++) ordered[di].displayOrder = di;
-
   epComputeTreeVisibility(epNodes, epEdges);
 }
+// ep-build-graph-end
 
 /** Lays out visible nodes only — collapsed subtrees don't take up graph space. */
 function epLayout() {
@@ -4888,11 +4884,16 @@ function epResize() {
 }
 
 /** Joins parameter names into a call-args string, e.g. "id, userId". */
-function epFormatParams(params) {
+/** Formats a method's declared parameters as "name: type" pairs — a signature, never a call. */
+function epFormatSignature(node) {
+  var params = node.parameters;
   if (!params || params.length === 0) return "";
-  var names = [];
-  for (var i = 0; i < params.length; i++) names.push(params[i].name);
-  return names.join(", ");
+  var parts = [];
+  for (var i = 0; i < params.length; i++) {
+    var p = params[i];
+    parts.push(p.type ? p.name + ": " + p.type : p.name);
+  }
+  return node.methodName + "(" + parts.join(", ") + ")";
 }
 
 function epShowTooltip(node, screenX, screenY) {
@@ -4913,8 +4914,11 @@ function epShowTooltip(node, screenX, screenY) {
     var methodHtml = "";
     if (node.methodName) {
       var mColor = node.conditional ? "#f59e0b" : "#ccc";
-      var callText = node.methodName + "(" + epFormatParams(node.parameters) + ")";
-      methodHtml = '<div style="font-family:monospace;font-size:11px;color:' + mColor + ';margin-top:4px">.' + escHtml(callText) + '</div>';
+      methodHtml = '<div style="font-family:monospace;font-size:11px;color:' + mColor + ';margin-top:4px">.' + escHtml(node.methodName) + '()</div>';
+    }
+    var signatureLabel = "";
+    if (node.parameters && node.parameters.length > 0) {
+      signatureLabel = '<div style="font-size:9px;color:#888;margin-top:4px">signature: ' + escHtml(epFormatSignature(node)) + '</div>';
     }
     var assignedLabel = "";
     if (node.assignedTo) {
@@ -4946,7 +4950,7 @@ function epShowTooltip(node, screenX, screenY) {
     }
     epTooltipEl.innerHTML = '<div class="tt-name">' + escHtml(node.className) + '</div>' +
       '<div class="tt-table" style="color:' + color + '">' + escHtml(node.type) + '</div>' +
-      methodHtml + assignedLabel + condLabel + throwMsgLabel + iterLabel + repeatLabel + childLabel;
+      methodHtml + signatureLabel + assignedLabel + condLabel + throwMsgLabel + iterLabel + repeatLabel + childLabel;
     epTooltipEl.style.display = "block";
   }
 
