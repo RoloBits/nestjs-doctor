@@ -108,11 +108,30 @@ export interface SwaggerMetadata {
 	summary: string | null;
 }
 
+export type EndpointAuthState =
+	| "guarded"
+	| "declared-public"
+	| "unguarded"
+	| "unknown";
+
+/**
+ * Auth coverage derived from decorators. `globalGuard` is a project-level
+ * fact (an APP_GUARD is registered somewhere), not per-endpoint certainty.
+ */
+export interface EndpointAuth {
+	globalGuard: boolean;
+	/** Guard class names from direct `@UseGuards(Identifier)` arguments only. */
+	guardNames: string[];
+	state: EndpointAuthState;
+}
+
 /**
  * Represents a single HTTP endpoint in a NestJS controller.
  * Contains a per-method dependency tree.
  */
 export interface EndpointNode {
+	/** Auth coverage; absent until the annotation pass has run. */
+	auth?: EndpointAuth;
 	controllerClass: string;
 	dependencies: MethodDependencyNode[];
 	/** Last line of the handler method (for full-function highlighting) */
@@ -121,6 +140,10 @@ export interface EndpointNode {
 	handlerMethod: string;
 	httpMethod: string;
 	line: number;
+	/** Owning module class name; null when attribution found no module. */
+	module?: string | null;
+	/** Sub-project name, set only in a monorepo combined result. */
+	project?: string;
 	/** Return type from TS method signature (unwrapped from Promise/Observable) */
 	returnType: string | null;
 	routePath: string;
