@@ -1071,12 +1071,22 @@ canvas:active { cursor: grabbing; }
   position: absolute; top: 12px; right: 12px; z-index: 10;
   display: flex; gap: 4px;
 }
-#endpoints-empty-state {
-  display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-  flex-direction: column; align-items: center; justify-content: center;
-  color: var(--text-muted); gap: 12px; text-align: center; z-index: 5;
+#endpoints-diag-panel {
+  flex: none; border-top: 1px solid var(--border); background: var(--surface);
 }
-#endpoints-empty-state p { font-size: 14px; color: var(--text-dim); margin: 0; }
+#endpoints-diag-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 12px; cursor: pointer; user-select: none;
+  transition: background 0.15s;
+}
+#endpoints-diag-header:hover { background: var(--surface-hover); }
+.ep-diag-caveat {
+  padding: 0 12px 6px; font-size: 10px; color: var(--text-dim);
+}
+#endpoints-diag-body {
+  max-height: 220px; overflow-y: auto;
+  border-top: 1px solid var(--border);
+}
 .ep-method-badge {
   display: inline-block; font-size: 9px; font-weight: 700;
   padding: 1px 6px; border-radius: 3px; margin-right: 6px;

@@ -310,14 +310,14 @@ for (let i = 0; i < lines.length; i++) {
   </div>
   <div id="endpoints-main">
     <div id="endpoints-canvas-wrap">
-      <div id="endpoints-empty-state">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-        </svg>
-        <p>Select an endpoint from the sidebar to view its dependency graph</p>
-      </div>
       <div id="endpoints-toolbar">
-        <button class="st-btn schema-diagram-btn" id="endpoints-recenter" title="Re-center diagram">
+        <button class="st-btn schema-diagram-btn has-tip active" id="endpoints-toggle-view" aria-label="Focus one endpoint" aria-pressed="true" data-tip="Focus · show one endpoint and its call graph">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+            <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+          </svg>
+        </button>
+        <button class="st-btn schema-diagram-btn has-tip" id="endpoints-recenter" aria-label="Re-center diagram" data-tip="Re-center · bring the diagram back into view">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
           </svg>
@@ -325,6 +325,17 @@ for (let i = 0; i < lines.length; i++) {
       </div>
       <canvas id="endpoints-canvas"></canvas>
       <div id="endpoints-tooltip" class="schema-tooltip" style="display:none"></div>
+    </div>
+    <div id="endpoints-diag-panel">
+      <div id="endpoints-diag-header">
+        <svg class="schema-diag-chevron" id="endpoints-diag-chevron" width="10" height="10" viewBox="0 0 10 10"><path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="schema-diag-title">Problems</span>
+        <span class="schema-diag-count" id="endpoints-diag-count">0</span>
+      </div>
+      <div class="ep-diag-caveat">Counts reflect this report's diagnostics; a narrowed scan scope reports fewer, not cleaner.</div>
+      <div id="endpoints-diag-body" style="display:none">
+        <div id="endpoints-diag-list"></div>
+      </div>
     </div>
   </div>
 </div>

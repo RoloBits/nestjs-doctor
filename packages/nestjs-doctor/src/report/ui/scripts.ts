@@ -3676,7 +3676,7 @@ function renderSchema() {
 // ── Endpoints tab: Canvas-based dependency graph ──
 
 var epCanvas, epCtx, epDpr, epW, epH;
-var epCamX = 0, epCamY = 0, epZoom = 1;
+var epCamX = 0, epCamY = 0, epZoom = 1, epMinZoom = 0.2;
 var epDragging = null, epPanning = false, epPanStart = {x: 0, y: 0};
 var epDragMoved = false;
 var epHoveredNode = null;
@@ -3685,6 +3685,12 @@ var epEdges = [];
 var epTooltipEl = null;
 var epDirty = false;
 var epSelectedIndex = -1;
+
+/** "overview" (default) shows module clusters; "focused" shows one endpoint's call graph. */
+var epMode = "overview";
+var epOverviewGroups = [];
+var epOvHoveredRow = null;
+var epOvHitRowPending = null;
 
 // Auth shield for one endpoint. Reused by the endpoints overview canvas.
 function epAuthShield(ep) {
@@ -3706,6 +3712,335 @@ function epAuthShield(ep) {
     labelParts.push("global guard registered");
   }
   return { glyph: info.glyph, cls: info.cls, label: labelParts.join(" \\u00b7 ") };
+}
+
+// ── Endpoints tab: Overview mode (module clusters of controller boxes) ──
+
+var EP_BOX_W = 320;
+var EP_ROW_H = 22;
+var EP_BOX_HEADER_H = 30;
+var EP_BOX_PAD_BOTTOM = 8;
+var EP_MAX_VISIBLE_ROWS = 12;
+var EP_NO_MODULE_LABEL = "(no module)";
+
+function epRowCount(count) {
+  return Math.min(count, EP_MAX_VISIBLE_ROWS);
+}
+
+/** Header, one row per visible endpoint, plus a "+N more" row past the cap. */
+function epBoxHeight(count) {
+  var visible = epRowCount(count);
+  var hidden = count - visible;
+  return EP_BOX_HEADER_H + visible * EP_ROW_H + (hidden > 0 ? EP_ROW_H : 0) + EP_BOX_PAD_BOTTOM;
+}
+
+// ep-overview-layout-start
+/** Shelf-packs same-width boxes left to right, wrapping at targetW. */
+function epPackOverviewBoxes(boxes, targetW, gutter) {
+  var x = 0, y = 0, shelfH = 0;
+  for (var i = 0; i < boxes.length; i++) {
+    var box = boxes[i];
+    if (x > 0 && x + box.w > targetW) {
+      x = 0;
+      y += shelfH + gutter;
+      shelfH = 0;
+    }
+    box.ox = x;
+    box.oy = y;
+    x += box.w + gutter;
+    if (box.h > shelfH) shelfH = box.h;
+  }
+  return y + shelfH;
+}
+
+/** Packs each module's controller boxes into a shelf, then stacks modules vertically. */
+function epComputeOverviewLayout(groups, boxWidth) {
+  var GUTTER = 32;
+  var MODULE_HEADER_H = 28;
+  var MODULE_GAP = 56;
+  var top = 0;
+  for (var g = 0; g < groups.length; g++) {
+    var group = groups[g];
+    var boxes = group.boxes;
+    var area = 0;
+    for (var i = 0; i < boxes.length; i++) area += boxes[i].w * boxes[i].h;
+    var targetW = Math.max(boxWidth * 3, Math.sqrt(area) * 1.6);
+    var packH = epPackOverviewBoxes(boxes, targetW, GUTTER);
+    group.headerY = top;
+    var contentTop = top + MODULE_HEADER_H;
+    for (var j = 0; j < boxes.length; j++) {
+      boxes[j].x = boxes[j].ox + boxes[j].w / 2;
+      boxes[j].y = contentTop + boxes[j].oy + boxes[j].h / 2;
+    }
+    group.w = targetW;
+    group.h = MODULE_HEADER_H + packH;
+    top += group.h + MODULE_GAP;
+  }
+}
+// ep-overview-layout-end
+
+/** Groups endpoint indices by module, then controller; "(no module)" always sorts last. */
+function epGroupEndpointsByModule() {
+  var moduleGroups = {};
+  var moduleOrder = [];
+  for (var i = 0; i < endpoints.endpoints.length; i++) {
+    var ep = endpoints.endpoints[i];
+    var moduleLabel = ep.module ? ep.module : EP_NO_MODULE_LABEL;
+    if (!moduleGroups[moduleLabel]) {
+      moduleGroups[moduleLabel] = { controllers: {}, controllerOrder: [], count: 0 };
+      moduleOrder.push(moduleLabel);
+    }
+    var moduleGroup = moduleGroups[moduleLabel];
+    moduleGroup.count++;
+    if (!moduleGroup.controllers[ep.controllerClass]) {
+      moduleGroup.controllers[ep.controllerClass] = [];
+      moduleGroup.controllerOrder.push(ep.controllerClass);
+    }
+    moduleGroup.controllers[ep.controllerClass].push(i);
+  }
+  var sortedModules = moduleOrder.slice().sort(function(a, b) {
+    if (a === EP_NO_MODULE_LABEL) return b === EP_NO_MODULE_LABEL ? 0 : 1;
+    if (b === EP_NO_MODULE_LABEL) return -1;
+    return a < b ? -1 : (a > b ? 1 : 0);
+  });
+  return { moduleGroups: moduleGroups, sortedModules: sortedModules };
+}
+
+function epBuildOverviewGroups() {
+  var grouping = epGroupEndpointsByModule();
+  var groups = [];
+  for (var m = 0; m < grouping.sortedModules.length; m++) {
+    var label = grouping.sortedModules[m];
+    var moduleGroup = grouping.moduleGroups[label];
+    var boxes = [];
+    for (var c = 0; c < moduleGroup.controllerOrder.length; c++) {
+      var ctrlName = moduleGroup.controllerOrder[c];
+      var indices = moduleGroup.controllers[ctrlName];
+      boxes.push({
+        controllerClass: ctrlName,
+        endpointIndices: indices,
+        w: EP_BOX_W,
+        h: epBoxHeight(indices.length)
+      });
+    }
+    groups.push({ label: label, boxes: boxes });
+  }
+  return groups;
+}
+
+function epClipText(text, maxW) {
+  if (!epCtx || epCtx.measureText(text).width <= maxW) return text;
+  var out = text;
+  while (epCtx.measureText(out).width > maxW && out.length > 3) {
+    out = out.slice(0, -1);
+  }
+  return out + "\\u2026";
+}
+
+/** Truncation depends only on the fixed box width and font, so it is cached once here. */
+function epCacheOverviewLabels(groups) {
+  if (!epCtx) return;
+  for (var g = 0; g < groups.length; g++) {
+    var boxes = groups[g].boxes;
+    for (var i = 0; i < boxes.length; i++) {
+      var box = boxes[i];
+      epCtx.font = "bold 12px -apple-system, BlinkMacSystemFont, sans-serif";
+      box.nameStr = epClipText(box.controllerClass, box.w - 20);
+      var visible = epRowCount(box.endpointIndices.length);
+      var pathMaxW = box.w - 10 - 44 - 24 - 16;
+      box.pathStrs = [];
+      box.shields = [];
+      box.chipWidths = [];
+      for (var r = 0; r < visible; r++) {
+        var rowEp = endpoints.endpoints[box.endpointIndices[r]];
+        epCtx.font = "11px monospace";
+        box.pathStrs.push(epClipText(rowEp.routePath || "/", pathMaxW));
+        box.shields.push(epAuthShield(rowEp));
+        epCtx.font = "bold 8px -apple-system, BlinkMacSystemFont, sans-serif";
+        var chipMethod = (rowEp.httpMethod || "GET").toUpperCase();
+        box.chipWidths.push(Math.max(30, epCtx.measureText(chipMethod).width + 8));
+      }
+    }
+  }
+}
+
+function epRebuildOverview() {
+  epOverviewGroups = epBuildOverviewGroups();
+  epComputeOverviewLayout(epOverviewGroups, EP_BOX_W);
+  epCacheOverviewLabels(epOverviewGroups);
+}
+
+function epCenterOverviewCamera() {
+  if (epOverviewGroups.length === 0) return;
+  var minX = 0, maxX = 0, minY = Infinity, maxY = -Infinity;
+  for (var g = 0; g < epOverviewGroups.length; g++) {
+    var group = epOverviewGroups[g];
+    if (group.w > maxX) maxX = group.w;
+    if (group.headerY < minY) minY = group.headerY;
+    if (group.headerY + group.h > maxY) maxY = group.headerY + group.h;
+  }
+  var graphW = maxX - minX;
+  var graphH = maxY - minY;
+  var cx = (minX + maxX) / 2;
+  var cy = (minY + maxY) / 2;
+
+  var padW = epW * 0.9;
+  var padH = epH * 0.85;
+  var fit = Math.min(1.5, Math.min(padW / (graphW || 1), padH / (graphH || 1)));
+  // Records the fit so the recenter/wheel floor can zoom out this far.
+  epMinZoom = Math.min(0.2, fit);
+  epZoom = Math.max(epMinZoom, fit);
+  epCamX = epW / 2 - cx;
+  epCamY = epH / 2 - cy;
+}
+
+function epOvHitTestRow(wx, wy) {
+  for (var g = 0; g < epOverviewGroups.length; g++) {
+    var boxes = epOverviewGroups[g].boxes;
+    for (var b = 0; b < boxes.length; b++) {
+      var box = boxes[b];
+      var x0 = box.x - box.w / 2;
+      var y0 = box.y - box.h / 2;
+      if (wx < x0 || wx > x0 + box.w || wy < y0 || wy > y0 + box.h) continue;
+      var visible = epRowCount(box.endpointIndices.length);
+      var rowTop = y0 + EP_BOX_HEADER_H;
+      for (var r = 0; r < visible; r++) {
+        if (wy >= rowTop && wy < rowTop + EP_ROW_H) {
+          return { epIndex: box.endpointIndices[r] };
+        }
+        rowTop += EP_ROW_H;
+      }
+      return null;
+    }
+  }
+  return null;
+}
+
+var EP_METHOD_HEX = {
+  GET: "#3b82f6", POST: "#10b981", PUT: "#f59e0b", PATCH: "#f59e0b",
+  DELETE: "#ef4444", ALL: "#06b6d4", HEAD: "#64748b", OPTIONS: "#94a3b8",
+  QUERY: "#8b5cf6", MUTATION: "#a855f7", SUBSCRIPTION: "#c026d3"
+};
+var EP_SHIELD_HEX = {
+  "ep-auth-guarded": "#4ade80",
+  "ep-auth-public": "#3b82f6",
+  "ep-auth-unguarded": "#f59e0b",
+  "ep-auth-unknown": "#666"
+};
+
+function epDrawOverviewRow(box, rowIndex, boxX, rowTop) {
+  var epIndex = box.endpointIndices[rowIndex];
+  var rowEp = endpoints.endpoints[epIndex];
+  var method = (rowEp.httpMethod || "GET").toUpperCase();
+  var color = EP_METHOD_HEX[method] || "#888";
+  var isHovered = epOvHoveredRow && epOvHoveredRow.epIndex === epIndex;
+
+  if (isHovered) {
+    epCtx.fillStyle = "rgba(255,255,255,0.06)";
+    epCtx.fillRect(boxX + 1, rowTop, box.w - 2, EP_ROW_H);
+  }
+
+  var cy = rowTop + EP_ROW_H / 2;
+  var cx = boxX + 10;
+
+  epCtx.font = "bold 8px -apple-system, BlinkMacSystemFont, sans-serif";
+  var chipW = box.chipWidths[rowIndex];
+  epRoundRect(epCtx, cx, cy - 7, chipW, 14, 3);
+  epCtx.fillStyle = color;
+  epCtx.globalAlpha = 0.18;
+  epCtx.fill();
+  epCtx.globalAlpha = 1;
+  epCtx.fillStyle = color;
+  epCtx.textAlign = "left";
+  epCtx.textBaseline = "middle";
+  epCtx.fillText(method, cx + 4, cy);
+
+  epCtx.font = "11px monospace";
+  epCtx.fillStyle = "#ccc";
+  epCtx.fillText(box.pathStrs[rowIndex], cx + chipW + 8, cy);
+
+  var shield = box.shields[rowIndex];
+  var rightEdge = boxX + box.w - 10;
+  epCtx.font = "10px -apple-system, BlinkMacSystemFont, sans-serif";
+  epCtx.fillStyle = EP_SHIELD_HEX[shield.cls] || "#666";
+  epCtx.textAlign = "right";
+  epCtx.fillText(shield.glyph, rightEdge, cy);
+
+  var counts = endpointDiagnostics.perEndpoint[String(epIndex)];
+  if (counts) {
+    var total = counts.error + counts.warning + counts.info;
+    if (total > 0) {
+      var dotColor = counts.error > 0 ? "#ef4444" : (counts.warning > 0 ? "#f59e0b" : "#3b82f6");
+      epCtx.beginPath();
+      epCtx.arc(rightEdge - 18, cy, 3, 0, Math.PI * 2);
+      epCtx.fillStyle = dotColor;
+      epCtx.fill();
+    }
+  }
+}
+
+function epDrawOverviewBox(box) {
+  var x = box.x - box.w / 2;
+  var y = box.y - box.h / 2;
+
+  epRoundRect(epCtx, x, y, box.w, box.h, 6);
+  epCtx.fillStyle = "#151515";
+  epCtx.fill();
+  epCtx.strokeStyle = "rgba(255,255,255,0.08)";
+  epCtx.lineWidth = 1;
+  epCtx.stroke();
+
+  epCtx.fillStyle = "#e0e0e0";
+  epCtx.font = "bold 12px -apple-system, BlinkMacSystemFont, sans-serif";
+  epCtx.textAlign = "left";
+  epCtx.textBaseline = "middle";
+  epCtx.fillText(box.nameStr, x + 10, y + EP_BOX_HEADER_H / 2);
+
+  epCtx.beginPath();
+  epCtx.moveTo(x + 1, y + EP_BOX_HEADER_H);
+  epCtx.lineTo(x + box.w - 1, y + EP_BOX_HEADER_H);
+  epCtx.strokeStyle = "rgba(255,255,255,0.06)";
+  epCtx.lineWidth = 1;
+  epCtx.stroke();
+
+  var rowTop = y + EP_BOX_HEADER_H;
+  var visible = epRowCount(box.endpointIndices.length);
+  for (var r = 0; r < visible; r++) {
+    epDrawOverviewRow(box, r, x, rowTop);
+    rowTop += EP_ROW_H;
+  }
+  var hidden = box.endpointIndices.length - visible;
+  if (hidden > 0) {
+    epCtx.fillStyle = "#888";
+    epCtx.font = "11px -apple-system, BlinkMacSystemFont, sans-serif";
+    epCtx.textAlign = "left";
+    epCtx.textBaseline = "middle";
+    epCtx.fillText("+" + hidden + " more", x + 10, rowTop + EP_ROW_H / 2);
+  }
+}
+
+function epDrawOverview() {
+  epCtx.clearRect(0, 0, epW, epH);
+  if (epOverviewGroups.length === 0) return;
+  epCtx.save();
+  epCtx.translate(epW / 2, epH / 2);
+  epCtx.scale(epZoom, epZoom);
+  epCtx.translate(-epW / 2 + epCamX, -epH / 2 + epCamY);
+
+  for (var g = 0; g < epOverviewGroups.length; g++) {
+    var group = epOverviewGroups[g];
+    epCtx.font = "bold 13px -apple-system, BlinkMacSystemFont, sans-serif";
+    epCtx.fillStyle = "#e0e0e0";
+    epCtx.textAlign = "left";
+    epCtx.textBaseline = "top";
+    epCtx.fillText(group.label, 0, group.headerY + 6);
+
+    for (var b = 0; b < group.boxes.length; b++) {
+      epDrawOverviewBox(group.boxes[b]);
+    }
+  }
+
+  epCtx.restore();
 }
 
 var EP_TYPE_COLORS = {
@@ -3867,6 +4202,14 @@ function epCenterCamera() {
 
 function epDraw() {
   if (!epCtx) return;
+  if (epMode === "overview") {
+    epDrawOverview();
+  } else {
+    epDrawFocusedGraph();
+  }
+}
+
+function epDrawFocusedGraph() {
   epCtx.save();
   epCtx.clearRect(0, 0, epW, epH);
 
@@ -4078,7 +4421,9 @@ function epResize() {
   epCanvas.style.width = epW + "px";
   epCanvas.style.height = epH + "px";
   epCtx.setTransform(epDpr, 0, 0, epDpr, 0, 0);
-  if (epNodes.length > 0) {
+  if (epMode === "overview") {
+    if (epOverviewGroups.length > 0) epCenterOverviewCamera();
+  } else if (epNodes.length > 0) {
     epCenterCamera();
   }
   epScheduleRedraw();
@@ -4152,6 +4497,49 @@ function epHideCodePanel() {
   if (panel) panel.classList.remove("open");
 }
 
+function epSyncSidebarSelection(epIndex) {
+  var sidebarEl = document.getElementById("endpoints-list");
+  if (!sidebarEl) return;
+  var allRows = sidebarEl.querySelectorAll(".ep-endpoint-row");
+  for (var i = 0; i < allRows.length; i++) {
+    allRows[i].classList.toggle("st-selected", Number(allRows[i].dataset.epIndex) === epIndex);
+  }
+}
+
+function epSyncViewToggle() {
+  var btn = document.getElementById("endpoints-toggle-view");
+  if (!btn) return;
+  var overview = epMode === "overview";
+  btn.classList.toggle("active", overview);
+  btn.setAttribute("aria-pressed", String(overview));
+  btn.setAttribute("aria-label", overview ? "Focus one endpoint" : "Show all endpoints");
+  btn.setAttribute("data-tip", overview
+    ? "Focus \\u00b7 show one endpoint and its call graph"
+    : "All endpoints \\u00b7 back to the module overview");
+}
+
+function epShowOverview() {
+  epMode = "overview";
+  epHideCodePanel();
+  epHideTooltip();
+  epCanvas.style.display = "block";
+  epSyncViewToggle();
+  epResize();
+}
+
+function epShowFocused(index) {
+  var found = endpoints.endpoints[index];
+  if (!found) return;
+  epMode = "focused";
+  epSelectedIndex = index;
+  epSyncSidebarSelection(index);
+  epCanvas.style.display = "block";
+  epBuildGraph(found);
+  epLayout();
+  epSyncViewToggle();
+  epResize();
+}
+
 function renderEndpoints() {
   var sidebarEl = document.getElementById("endpoints-list");
   epCanvas = document.getElementById("endpoints-canvas");
@@ -4161,33 +4549,12 @@ function renderEndpoints() {
   epCtx = epCanvas.getContext("2d");
   epDpr = window.devicePixelRatio || 1;
 
-  var NO_MODULE_LABEL = "(no module)";
+  var NO_MODULE_LABEL = EP_NO_MODULE_LABEL;
 
-  // Group endpoints by module, then controller. Module labels are used as stored.
-  var moduleGroups = {};
-  var moduleOrder = [];
-  for (var i = 0; i < endpoints.endpoints.length; i++) {
-    var ep = endpoints.endpoints[i];
-    var moduleLabel = ep.module ? ep.module : NO_MODULE_LABEL;
-    if (!moduleGroups[moduleLabel]) {
-      moduleGroups[moduleLabel] = { controllers: {}, controllerOrder: [], count: 0 };
-      moduleOrder.push(moduleLabel);
-    }
-    var moduleGroup = moduleGroups[moduleLabel];
-    moduleGroup.count++;
-    if (!moduleGroup.controllers[ep.controllerClass]) {
-      moduleGroup.controllers[ep.controllerClass] = [];
-      moduleGroup.controllerOrder.push(ep.controllerClass);
-    }
-    moduleGroup.controllers[ep.controllerClass].push(i);
-  }
-
-  // Alphabetical by module; "(no module)" always sorts last.
-  var sortedModules = moduleOrder.slice().sort(function(a, b) {
-    if (a === NO_MODULE_LABEL) return b === NO_MODULE_LABEL ? 0 : 1;
-    if (b === NO_MODULE_LABEL) return -1;
-    return a < b ? -1 : (a > b ? 1 : 0);
-  });
+  // Same module -> controller grouping the overview canvas boxes use.
+  var grouping = epGroupEndpointsByModule();
+  var moduleGroups = grouping.moduleGroups;
+  var sortedModules = grouping.sortedModules;
 
   // Set count
   document.getElementById("endpoints-count").textContent = endpoints.endpoints.length;
@@ -4340,34 +4707,28 @@ function renderEndpoints() {
     if (!epRow) return;
     var epIndex = Number(epRow.dataset.epIndex);
     if (!(epIndex >= 0 && epIndex < endpoints.endpoints.length)) return;
-    var found = endpoints.endpoints[epIndex];
-
-    // Highlight selected
-    var allRows = sidebarEl.querySelectorAll(".ep-endpoint-row");
-    for (var i = 0; i < allRows.length; i++) {
-      allRows[i].classList.toggle("st-selected", allRows[i] === epRow);
-    }
-
-    epSelectedIndex = epIndex;
-
-    // Build graph and render
-    var emptyState = document.getElementById("endpoints-empty-state");
-    if (emptyState) emptyState.style.display = "none";
-    epCanvas.style.display = "block";
-
-    epBuildGraph(found);
-    epLayout();
-    epResize();
+    epShowFocused(epIndex);
   });
 
-  // Canvas interactions
+  // Canvas interactions. Overview and focused mode share panning and zoom;
+  // only hit-testing and the click result differ.
   epCanvas.addEventListener("mousedown", function(e) {
     var rect = epCanvas.getBoundingClientRect();
     var sx = e.clientX - rect.left;
     var sy = e.clientY - rect.top;
     var pos = epScreenToWorld(sx, sy);
-    var hit = epHitTest(pos.x, pos.y);
     epDragMoved = false;
+
+    if (epMode === "overview") {
+      epOvHitRowPending = epOvHitTestRow(pos.x, pos.y);
+      if (!epOvHitRowPending) {
+        epPanning = true;
+        epPanStart = { x: e.clientX, y: e.clientY };
+      }
+      return;
+    }
+
+    var hit = epHitTest(pos.x, pos.y);
     if (hit) {
       epDragging = hit;
       epHideTooltip();
@@ -4382,6 +4743,28 @@ function renderEndpoints() {
     var sx = e.clientX - rect.left;
     var sy = e.clientY - rect.top;
     var pos = epScreenToWorld(sx, sy);
+
+    if (epMode === "overview") {
+      if (epPanning) {
+        epDragMoved = true;
+        epCamX += (e.clientX - epPanStart.x) / epZoom;
+        epCamY += (e.clientY - epPanStart.y) / epZoom;
+        epPanStart = { x: e.clientX, y: e.clientY };
+        epScheduleRedraw();
+      } else if (epOvHitRowPending) {
+        epDragMoved = true;
+      } else {
+        var hoverRow = epOvHitTestRow(pos.x, pos.y);
+        var hoverIndex = hoverRow ? hoverRow.epIndex : null;
+        var currentIndex = epOvHoveredRow ? epOvHoveredRow.epIndex : null;
+        if (hoverIndex !== currentIndex) {
+          epOvHoveredRow = hoverRow;
+          epCanvas.style.cursor = hoverRow ? "pointer" : "grab";
+          epScheduleRedraw();
+        }
+      }
+      return;
+    }
 
     if (epDragging) {
       epDragMoved = true;
@@ -4413,6 +4796,16 @@ function renderEndpoints() {
   });
 
   epCanvas.addEventListener("mouseup", function() {
+    if (epMode === "overview") {
+      if (epOvHitRowPending && !epDragMoved) {
+        epShowFocused(epOvHitRowPending.epIndex);
+      }
+      epOvHitRowPending = null;
+      epPanning = false;
+      epDragMoved = false;
+      return;
+    }
+
     var clickedNode = epDragging;
     if (!epDragMoved && clickedNode) {
       epShowCodePanel(clickedNode);
@@ -4425,6 +4818,8 @@ function renderEndpoints() {
     epDragging = null;
     epPanning = false;
     epHoveredNode = null;
+    epOvHoveredRow = null;
+    epOvHitRowPending = null;
     epHideTooltip();
     epScheduleRedraw();
   });
@@ -4458,12 +4853,28 @@ function renderEndpoints() {
     epScheduleRedraw();
   }, { passive: false });
 
-  // Recenter button
+  // Recenter button — auto-fits whichever mode is active.
   var recenterBtn = document.getElementById("endpoints-recenter");
   if (recenterBtn) {
     recenterBtn.addEventListener("click", function() {
-      epCenterCamera();
+      if (epMode === "overview") {
+        epCenterOverviewCamera();
+      } else {
+        epCenterCamera();
+      }
       epScheduleRedraw();
+    });
+  }
+
+  // View toggle: overview <-> focused mode on the currently selected endpoint.
+  var viewToggleBtn = document.getElementById("endpoints-toggle-view");
+  if (viewToggleBtn) {
+    viewToggleBtn.addEventListener("click", function() {
+      if (epMode === "focused") {
+        epShowOverview();
+      } else if (epSelectedIndex >= 0) {
+        epShowFocused(epSelectedIndex);
+      }
     });
   }
 
@@ -4519,10 +4930,113 @@ function renderEndpoints() {
     if (activeTab === "endpoints") epResize();
   });
 
-  // Show empty state initially
-  var emptyState = document.getElementById("endpoints-empty-state");
-  if (emptyState) emptyState.style.display = "flex";
-  epCanvas.style.display = "none";
+  // ── Endpoint diagnostics drawer ──
+  var epDiagCountEl = document.getElementById("endpoints-diag-count");
+  var epDiagHeaderEl = document.getElementById("endpoints-diag-header");
+  var epDiagBodyEl = document.getElementById("endpoints-diag-body");
+  var epDiagListEl = document.getElementById("endpoints-diag-list");
+  var epDiagChevronEl = document.getElementById("endpoints-diag-chevron");
+
+  if (epDiagCountEl && epDiagHeaderEl && epDiagBodyEl && epDiagListEl && epDiagChevronEl) {
+    var epEndpointsByFile = {};
+    for (var fi = 0; fi < endpoints.endpoints.length; fi++) {
+      var fep = endpoints.endpoints[fi];
+      if (!epEndpointsByFile[fep.filePath]) epEndpointsByFile[fep.filePath] = [];
+      epEndpointsByFile[fep.filePath].push(fi);
+    }
+
+    // Re-joins diagnostics to endpoints by filePath and line range — the same
+    // rule report-data.ts used to build endpointDiagnostics.perEndpoint — so
+    // each row can show the rule and message the counts summarize.
+    var epDiagRows = [];
+    for (var di = 0; di < diagnostics.length; di++) {
+      var d = diagnostics[di];
+      if (!("line" in d)) continue;
+      var candidates = epEndpointsByFile[d.filePath];
+      if (!candidates) continue;
+      for (var ci = 0; ci < candidates.length; ci++) {
+        var cep = endpoints.endpoints[candidates[ci]];
+        if (d.line >= cep.line && d.line <= cep.endLine) {
+          epDiagRows.push({ epIndex: candidates[ci], diagnostic: d });
+        }
+      }
+    }
+
+    var epSumCounts = function(c) { return c.error + c.warning + c.info; };
+    var epFileKeys = Object.keys(endpointDiagnostics.perFile);
+    var epEndpointKeys = Object.keys(endpointDiagnostics.perEndpoint);
+    var epDiagTotal = 0;
+    for (var pek = 0; pek < epEndpointKeys.length; pek++) {
+      epDiagTotal += epSumCounts(endpointDiagnostics.perEndpoint[epEndpointKeys[pek]]);
+    }
+    for (var pfk = 0; pfk < epFileKeys.length; pfk++) {
+      epDiagTotal += epSumCounts(endpointDiagnostics.perFile[epFileKeys[pfk]]);
+    }
+
+    epDiagCountEl.textContent = epDiagTotal + (epDiagTotal === 1 ? " issue" : " issues");
+    if (epDiagTotal > 0) epDiagCountEl.classList.add("has-issues");
+
+    if (epDiagTotal === 0) {
+      epDiagListEl.innerHTML = '<div class="sd-empty">No endpoint issues found</div>';
+    } else {
+      var epDiagHtml = "";
+      for (var ri = 0; ri < epDiagRows.length; ri++) {
+        var row = epDiagRows[ri];
+        var rd = row.diagnostic;
+        var rep = endpoints.endpoints[row.epIndex];
+        var sevColor = rd.severity === "error" ? "var(--sev-error)" : rd.severity === "warning" ? "var(--sev-warning)" : "var(--sev-info)";
+        epDiagHtml += '<div class="sd-item">';
+        epDiagHtml += '<span class="sev-dot" style="background:' + sevColor + '"></span>';
+        epDiagHtml += '<span class="sd-rule">' + escHtml(rd.rule) + '</span>';
+        epDiagHtml += '<span class="sd-entity" data-ep-index="' + row.epIndex + '" data-line="' + rd.line + '">' + escHtml(rep.controllerClass + "." + rep.handlerMethod) + '</span>';
+        epDiagHtml += '<span class="sd-msg">' + escHtml(rd.message) + '</span>';
+        epDiagHtml += '</div>';
+      }
+      for (var rj = 0; rj < epFileKeys.length; rj++) {
+        var filePath = epFileKeys[rj];
+        var counts = endpointDiagnostics.perFile[filePath];
+        var frTotal = epSumCounts(counts);
+        var frColor = counts.error > 0 ? "var(--sev-error)" : (counts.warning > 0 ? "var(--sev-warning)" : "var(--sev-info)");
+        var frParts = [];
+        if (counts.error > 0) frParts.push(counts.error + " error" + (counts.error !== 1 ? "s" : ""));
+        if (counts.warning > 0) frParts.push(counts.warning + " warning" + (counts.warning !== 1 ? "s" : ""));
+        if (counts.info > 0) frParts.push(counts.info + " info");
+        epDiagHtml += '<div class="sd-item">';
+        epDiagHtml += '<span class="sev-dot" style="background:' + frColor + '"></span>';
+        epDiagHtml += '<span class="sd-entity">' + escHtml(filePath.split("/").pop()) + '</span>';
+        epDiagHtml += '<span class="sd-msg">' + frTotal + (frTotal === 1 ? " issue" : " issues") + ' outside any handler \\u00b7 ' + escHtml(frParts.join(", ")) + '</span>';
+        epDiagHtml += '</div>';
+      }
+      epDiagListEl.innerHTML = epDiagHtml;
+    }
+
+    epDiagHeaderEl.addEventListener("click", function() {
+      var isOpen = epDiagBodyEl.style.display !== "none";
+      epDiagBodyEl.style.display = isOpen ? "none" : "block";
+      epDiagChevronEl.classList.toggle("open", !isOpen);
+      epResize();
+    });
+
+    epDiagListEl.addEventListener("click", function(e) {
+      var entityEl = e.target.closest(".sd-entity[data-ep-index]");
+      if (!entityEl) return;
+      var idx = Number(entityEl.dataset.epIndex);
+      var line = Number(entityEl.dataset.line);
+      if (!(idx >= 0 && idx < endpoints.endpoints.length)) return;
+      var targetEp = endpoints.endpoints[idx];
+      epShowFocused(idx);
+      epShowCodePanel({
+        className: targetEp.controllerClass,
+        methodName: targetEp.handlerMethod,
+        filePath: targetEp.filePath,
+        line: line
+      });
+    });
+  }
+
+  // Overview is the default entry state; no empty state to show first.
+  epRebuildOverview();
+  epShowOverview();
 }
 
 switchTab("summary");`;
