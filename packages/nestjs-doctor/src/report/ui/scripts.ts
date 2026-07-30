@@ -3692,6 +3692,10 @@ var epOverviewGroups = [];
 var epOvHoveredRow = null;
 var epOvHitRowPending = null;
 
+function epZoomFloor() {
+  return Math.min(epMinZoom, 0.05);
+}
+
 // Auth shield for one endpoint. Reused by the endpoints overview canvas.
 function epAuthShield(ep) {
   var auth = ep.auth;
@@ -3872,13 +3876,18 @@ function epRebuildOverview() {
 
 function epCenterOverviewCamera() {
   if (epOverviewGroups.length === 0) return;
-  var minX = 0, maxX = 0, minY = Infinity, maxY = -Infinity;
+  var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   for (var g = 0; g < epOverviewGroups.length; g++) {
     var group = epOverviewGroups[g];
-    if (group.w > maxX) maxX = group.w;
     if (group.headerY < minY) minY = group.headerY;
     if (group.headerY + group.h > maxY) maxY = group.headerY + group.h;
+    for (var b = 0; b < group.boxes.length; b++) {
+      var box = group.boxes[b];
+      if (box.x - box.w / 2 < minX) minX = box.x - box.w / 2;
+      if (box.x + box.w / 2 > maxX) maxX = box.x + box.w / 2;
+    }
   }
+  if (minX === Infinity) { minX = 0; maxX = 0; }
   var graphW = maxX - minX;
   var graphH = maxY - minY;
   var cx = (minX + maxX) / 2;
@@ -4836,7 +4845,7 @@ function renderEndpoints() {
     }
     var zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
     var newZoom = epZoom * zoomFactor;
-    newZoom = Math.max(0.2, Math.min(3, newZoom));
+    newZoom = Math.max(epZoomFloor(), Math.min(3, newZoom));
 
     var rect = epCanvas.getBoundingClientRect();
     var mx = e.clientX - rect.left;
