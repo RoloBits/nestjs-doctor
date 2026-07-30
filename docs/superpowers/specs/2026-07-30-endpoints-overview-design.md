@@ -42,7 +42,7 @@ Each endpoint gets its owning module: controllers join via `ModuleNode.controlle
 
 ### Endpoint identity
 
-Endpoints are identified by `filePath` + `line` (already unique per endpoint and stable across serialisation), replacing the `controllerClass`+`handlerMethod` match that picks the wrong endpoint for same-named controllers.
+Endpoints are identified by `filePath` + `line` + `httpMethod` + `routePath`, replacing the `controllerClass`+`handlerMethod` match that picks the wrong endpoint for same-named controllers. `filePath`+`line` alone is insufficient: path-array expansion (`@Get(['a','b'])`) and multiple route decorators on one handler (`@Get('x') @Post('x')`) both emit several endpoints that share a file and a line.
 
 ### Route-path correctness
 
@@ -71,6 +71,7 @@ Caveat shown in the UI: counts follow the report's diagnostics as scoped; zero d
 - Legend: `#N` = call order, dashed amber = conditional, colours = provider type.
 - Zoom toolbar with visible % (schema parity); camera preserved on resize; code panel no longer occludes the sidebar.
 - Distinct method chips for `ALL` and `SUBSCRIPTION` (everything non-CRUD renders as GET today).
+- The auth shield for GraphQL endpoints (`httpMethod` `QUERY`/`MUTATION`/`SUBSCRIPTION`) must not be derived from `auth.globalGuard` — a REST-oriented global guard does not imply GraphQL coverage.
 
 ### Sidebar
 

@@ -51,7 +51,10 @@ function computeAuth(
 	}
 
 	const composed = facts.composedDecorators;
-	const guardNames = [...directGuardNames(cls), ...directGuardNames(method)];
+	// Dedup guard names shared between class and method level, keeping first-seen order.
+	const guardNames = [
+		...new Set([...directGuardNames(cls), ...directGuardNames(method)]),
+	];
 
 	// Precedence mirrors security/require-guards-on-endpoints.
 	if (hasGuardDecorator(cls, composed)) {

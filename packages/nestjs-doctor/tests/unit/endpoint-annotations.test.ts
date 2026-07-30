@@ -135,6 +135,39 @@ describe("annotateEndpoints", () => {
 		expect(eps[0].auth?.state).toBe("unguarded");
 	});
 
+	it("dedups guard names shared between class and method level", () => {
+		const eps = annotate({
+			"cats.controller.ts": `
+				import { Controller, Get, UseGuards } from '@nestjs/common';
+				@Controller('cats')
+				@UseGuards(JwtGuard)
+				export class CatsController {
+					@Get()
+					@UseGuards(JwtGuard)
+					list() { return []; }
+				}
+			`,
+		});
+		expect(eps[0].auth?.guardNames).toEqual(["JwtGuard"]);
+	});
+
+	it("marks an unresolvable controller class as unknown auth state", () => {
+		const eps = annotate({
+			"cats.controller.ts": `
+				import { Controller, Get } from '@nestjs/common';
+				@Controller('cats')
+				export default class {
+					@Get() list() { return []; }
+				}
+			`,
+		});
+		expect(eps[0].auth).toEqual({
+			globalGuard: false,
+			guardNames: [],
+			state: "unknown",
+		});
+	});
+
 	it("attributes resolver endpoints through providerToModule", () => {
 		const eps = annotate({
 			"cats.resolver.ts": `
