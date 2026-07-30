@@ -4679,7 +4679,7 @@ function renderEndpoints() {
     if (counts.error > 0) parts.push(counts.error + " error" + (counts.error !== 1 ? "s" : ""));
     if (counts.warning > 0) parts.push(counts.warning + " warning" + (counts.warning !== 1 ? "s" : ""));
     if (counts.info > 0) parts.push(counts.info + " info");
-    return '<span class="ep-diag-badge" title="' + escHtml(parts.join(", ")) + '"><span class="ep-diag-dot" style="background:' + color + '"></span>' + total + '</span>';
+    return '<span class="ep-diag-badge has-tip" data-tip="' + escHtml(parts.join(", ")) + '"><span class="ep-diag-dot" style="background:' + color + '"></span>' + total + '</span>';
   }
 
   // Build sidebar: module → controller → endpoint
@@ -4719,7 +4719,7 @@ function renderEndpoints() {
         html += '<span class="st-indent"></span><span class="st-indent"></span>';
         html += '<span class="ep-method-badge ' + badgeClass + '">' + escHtml(method) + '</span>';
         html += '<span class="st-label">' + escHtml(endpoint.routePath || "/") + '</span>';
-        html += '<span class="ep-auth-shield ' + shield.cls + '" title="' + escHtml(shield.label) + '">' + shield.glyph + '</span>';
+        html += '<span class="ep-auth-shield ' + shield.cls + ' has-tip" data-tip="' + escHtml(shield.label) + '">' + shield.glyph + '</span>';
         html += epDiagBadgeHtml(epIndex);
         html += '</div>';
       }

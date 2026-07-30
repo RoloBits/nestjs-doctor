@@ -875,7 +875,8 @@ canvas:active { cursor: grabbing; }
   font-size: 11px; font-family: var(--font); color: var(--text);
   box-shadow: 0 4px 12px rgba(0,0,0,0.5);
 }
-#schema-sidebar .has-tip:is(:hover, :focus-visible)::after {
+#schema-sidebar .has-tip:is(:hover, :focus-visible)::after,
+#endpoints-sidebar .has-tip:is(:hover, :focus-visible)::after {
   white-space: normal; width: max-content; max-width: 240px;
 }
 /* An icon sits near the left edge, so its tip has to open rightwards. */
