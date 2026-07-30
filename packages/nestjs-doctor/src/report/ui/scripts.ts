@@ -4680,16 +4680,16 @@ function epDrawOneEdge(edge, fromN, toN, isHovered) {
 
   if (isHovered) epCtx.restore();
 
-  // Value-edge label: the producer's assigned variable, centred over the horizontal
-  // run, just above the first leg (pts[0]..pts[1] is horizontal on every path shape).
+  // Value-edge label: the producer's assigned variable, drawn above the row in the
+  // inter-rank band — the sibling gap is narrower than the text and nodes paint over edges.
   if (isValueEdge && fromN.assignedTo) {
-    var labelX = (pts[0].x + pts[pts.length - 1].x) / 2;
-    var labelY = Math.min(pts[0].y, pts[1].y);
+    var labelX = (fromN.x + toN.x) / 2;
+    var labelY = Math.min(fromN.y - fromN.h / 2, toN.y - toN.h / 2) - 4 / epZoom;
     epCtx.font = "9px monospace";
     epCtx.fillStyle = EP_VALUE_EDGE_COLOR;
     epCtx.textAlign = "center";
     epCtx.textBaseline = "bottom";
-    epCtx.fillText(fromN.assignedTo, labelX, labelY - 2 / epZoom);
+    epCtx.fillText(fromN.assignedTo, labelX, labelY);
     epCtx.textAlign = "left";
   }
 }
