@@ -3685,6 +3685,13 @@ function epComputeProjectRoot() {
     for (var i = 0; i < endpoints.endpoints.length; i++) keys.push(endpoints.endpoints[i].filePath);
   }
   if (keys.length === 0) return "";
+  if (keys.length === 1) {
+    // Nothing to compare against — root is that one file's own directory,
+    // not the file itself (which would make its relative path empty).
+    var onlyParts = keys[0].split("/");
+    onlyParts.pop();
+    return onlyParts.join("/");
+  }
   var parts = keys[0].split("/");
   for (var k = 1; k < keys.length && parts.length > 0; k++) {
     var otherParts = keys[k].split("/");
@@ -5036,6 +5043,10 @@ function renderEndpoints() {
     } else {
       epPanning = true;
       epPanStart = { x: e.clientX, y: e.clientY };
+      // Same fixed gesture origin the dragging branch uses below, so a pan
+      // that never actually moves still reads as a click at mouseup.
+      epDragStartX = e.clientX;
+      epDragStartY = e.clientY;
     }
   });
 
@@ -5082,7 +5093,17 @@ function renderEndpoints() {
         epHideTooltip();
       }
     } else if (epPanning) {
-      epDragMoved = true;
+      // Cumulative distance from the fixed gesture origin, not the unconditional
+      // set this used to do — a single incidental mousemove with near-zero delta
+      // (real jitter, or a synthetic click's own move+down+up sequence) must not
+      // by itself turn a click into a "drag" that skips every click handler below.
+      if (!epDragMoved) {
+        var pdx = e.clientX - epDragStartX;
+        var pdy = e.clientY - epDragStartY;
+        if (pdx * pdx + pdy * pdy > EP_DRAG_THRESHOLD_PX * EP_DRAG_THRESHOLD_PX) {
+          epDragMoved = true;
+        }
+      }
       epCamX += (e.clientX - epPanStart.x) / epZoom;
       epCamY += (e.clientY - epPanStart.y) / epZoom;
       epPanStart = { x: e.clientX, y: e.clientY };

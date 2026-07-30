@@ -1069,7 +1069,7 @@ canvas:active { cursor: grabbing; }
 }
 #endpoints-canvas:active { cursor: grabbing; }
 #endpoints-toolbar {
-  position: absolute; top: 12px; right: 12px; z-index: 11;
+  position: absolute; top: 12px; right: 12px; z-index: 12;
   display: flex; align-items: center; gap: 4px;
 }
 #endpoints-zoombar {
@@ -1109,7 +1109,7 @@ canvas:active { cursor: grabbing; }
 }
 #endpoints-truncated-dismiss:hover { opacity: 1; }
 #endpoints-legend {
-  position: absolute; top: 48px; right: 12px; z-index: 11;
+  position: absolute; top: 48px; right: 12px; z-index: 12;
   width: 220px; max-height: calc(100% - 60px); overflow-y: auto;
   padding: 10px 12px; border-radius: 6px;
   background: rgba(26,26,26,0.95); border: 1px solid rgba(255,255,255,0.15);
@@ -1183,7 +1183,7 @@ canvas:active { cursor: grabbing; }
 
 /* ── Endpoint code panel ── */
 .ep-code-panel {
-  position: absolute; left: 0; top: 0; bottom: 0; width: 500px; z-index: 10;
+  position: absolute; left: 0; top: 0; bottom: 0; width: 500px; z-index: 11;
   background: var(--surface); border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
   transform: translateX(-100%); opacity: 0;
