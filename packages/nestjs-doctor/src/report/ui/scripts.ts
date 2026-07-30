@@ -3689,6 +3689,8 @@ var epDirty = false;
 var epSelectedIndex = -1;
 var epLastZoomUi = null;
 var epBannerDismissedIndex = -1;
+var EP_CHIP_W = 34, EP_CHIP_H = 15;
+var EP_NODE_HDR_H = 22;
 
 /** "overview" (default) shows module clusters; "focused" shows one endpoint's call graph. */
 var epMode = "overview";
@@ -4158,12 +4160,54 @@ function epRoundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+// ep-tree-visibility-start
+/**
+ * A node is visible iff every ancestor from the root down has expanded=true;
+ * the root is always visible regardless of its own flag. Also records each
+ * node's childCount (direct children) from edges. Mutates nodes in place;
+ * the caller decides when to re-layout/redraw.
+ */
+function epComputeTreeVisibility(nodes, edges) {
+  var childrenOf = {};
+  var hasParent = {};
+  var i;
+  for (i = 0; i < edges.length; i++) {
+    var e = edges[i];
+    if (!childrenOf[e.from]) childrenOf[e.from] = [];
+    childrenOf[e.from].push(e.to);
+    hasParent[e.to] = true;
+  }
+
+  var byId = {};
+  for (i = 0; i < nodes.length; i++) {
+    byId[nodes[i].id] = nodes[i];
+    nodes[i].visible = false;
+    nodes[i].childCount = childrenOf[nodes[i].id] ? childrenOf[nodes[i].id].length : 0;
+  }
+
+  function walk(nodeId, ancestorsExpanded) {
+    var node = byId[nodeId];
+    if (!node) return;
+    node.visible = ancestorsExpanded;
+    var kids = childrenOf[nodeId] || [];
+    for (var k = 0; k < kids.length; k++) {
+      walk(kids[k], ancestorsExpanded && node.expanded);
+    }
+  }
+
+  for (i = 0; i < nodes.length; i++) {
+    if (!hasParent[nodes[i].id]) walk(nodes[i].id, true);
+  }
+}
+// ep-tree-visibility-end
+
 function epBuildGraph(ep) {
   epNodes = [];
   epEdges = [];
   var nodeId = 0;
 
-  // Root node for the endpoint (controller method)
+  // Root node for the endpoint (controller method). Starts expanded so its
+  // direct calls show by default; every other node starts collapsed.
   var rootNode = {
     id: nodeId++,
     className: ep.controllerClass,
@@ -4174,6 +4218,7 @@ function epBuildGraph(ep) {
     totalMethods: 1,
     filePath: ep.filePath,
     line: ep.line,
+    expanded: true,
     x: 0, y: 0, w: 180, h: 60
   };
   epNodes.push(rootNode);
@@ -4193,6 +4238,7 @@ function epBuildGraph(ep) {
         filePath: dep.filePath,
         line: dep.line,
         expandedElsewhere: dep.expandedElsewhere,
+        expanded: false,
         x: 0, y: 0, w: 180, h: 60
       };
       epNodes.push(n);
@@ -4204,37 +4250,47 @@ function epBuildGraph(ep) {
   }
 
   walkDeps(rootNode, ep.dependencies);
+  epComputeTreeVisibility(epNodes, epEdges);
 }
 
+/** Lays out visible nodes only — collapsed subtrees don't take up graph space. */
 function epLayout() {
-  if (epNodes.length === 0) return;
+  var visible = [];
+  for (var v = 0; v < epNodes.length; v++) {
+    if (epNodes[v].visible) visible.push(epNodes[v]);
+  }
+  if (visible.length === 0) return;
+
+  var byId = {};
+  for (var b = 0; b < visible.length; b++) byId[visible[b].id] = true;
 
   if (typeof dagre !== "undefined") {
     var g = new dagre.graphlib.Graph();
     g.setGraph({ rankdir: "TB", nodesep: 40, ranksep: 80, marginx: 40, marginy: 40 });
     g.setDefaultEdgeLabel(function() { return {}; });
 
-    for (var i = 0; i < epNodes.length; i++) {
-      g.setNode(epNodes[i].id, { width: epNodes[i].w, height: epNodes[i].h });
+    for (var i = 0; i < visible.length; i++) {
+      g.setNode(visible[i].id, { width: visible[i].w, height: visible[i].h });
     }
-    for (var i = 0; i < epEdges.length; i++) {
-      g.setEdge(epEdges[i].from, epEdges[i].to);
+    for (var j = 0; j < epEdges.length; j++) {
+      var e = epEdges[j];
+      if (byId[e.from] && byId[e.to]) g.setEdge(e.from, e.to);
     }
 
     dagre.layout(g);
 
-    for (var i = 0; i < epNodes.length; i++) {
-      var laid = g.node(epNodes[i].id);
+    for (var k = 0; k < visible.length; k++) {
+      var laid = g.node(visible[k].id);
       if (laid) {
-        epNodes[i].x = laid.x;
-        epNodes[i].y = laid.y;
+        visible[k].x = laid.x;
+        visible[k].y = laid.y;
       }
     }
   } else {
     // Fallback: simple vertical layout
-    for (var i = 0; i < epNodes.length; i++) {
-      epNodes[i].x = 300;
-      epNodes[i].y = 60 + i * 100;
+    for (var m = 0; m < visible.length; m++) {
+      visible[m].x = 300;
+      visible[m].y = 60 + m * 100;
     }
   }
 }
@@ -4242,13 +4298,17 @@ function epLayout() {
 function epCenterCamera() {
   if (epNodes.length === 0) return;
   var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  var any = false;
   for (var i = 0; i < epNodes.length; i++) {
     var n = epNodes[i];
+    if (!n.visible) continue;
+    any = true;
     minX = Math.min(minX, n.x - n.w / 2);
     maxX = Math.max(maxX, n.x + n.w / 2);
     minY = Math.min(minY, n.y - n.h / 2);
     maxY = Math.max(maxY, n.y + n.h / 2);
   }
+  if (!any) return;
   var graphW = maxX - minX;
   var graphH = maxY - minY;
   var cx = (minX + maxX) / 2;
@@ -4264,6 +4324,59 @@ function epCenterCamera() {
 
   epCamX = epW / 2 - cx;
   epCamY = epH / 2 - cy;
+}
+
+/** World-space rect for a node's expand chip, top-right of its header. Shared by draw and hit-test. */
+function epNodeChipRect(node) {
+  var x = node.x - node.w / 2;
+  var y = node.y - node.h / 2;
+  return {
+    x: x + node.w - EP_CHIP_W - 6,
+    y: y + (EP_NODE_HDR_H - EP_CHIP_H) / 2,
+    w: EP_CHIP_W,
+    h: EP_CHIP_H
+  };
+}
+
+function epChipHitTest(wx, wy) {
+  for (var i = epNodes.length - 1; i >= 0; i--) {
+    var n = epNodes[i];
+    if (!n.visible || n.childCount === 0) continue;
+    var r = epNodeChipRect(n);
+    if (wx >= r.x && wx <= r.x + r.w && wy >= r.y && wy <= r.y + r.h) return n;
+  }
+  return null;
+}
+
+/** Toggles one node's expansion, re-lays-out the now-different visible set, and
+ * shifts the camera so the toggled node stays under the cursor instead of the
+ * view jumping. */
+function epToggleNode(node) {
+  if (!node || node.childCount === 0) return;
+  var beforeX = node.x, beforeY = node.y;
+  node.expanded = !node.expanded;
+  epComputeTreeVisibility(epNodes, epEdges);
+  epLayout();
+  epCamX += beforeX - node.x;
+  epCamY += beforeY - node.y;
+  epHideTooltip();
+  epScheduleRedraw();
+}
+
+function epExpandAll() {
+  for (var i = 0; i < epNodes.length; i++) epNodes[i].expanded = true;
+  epComputeTreeVisibility(epNodes, epEdges);
+  epLayout();
+  epCenterCamera();
+  epScheduleRedraw();
+}
+
+function epCollapseAll() {
+  for (var i = 0; i < epNodes.length; i++) epNodes[i].expanded = false;
+  epComputeTreeVisibility(epNodes, epEdges);
+  epLayout();
+  epCenterCamera();
+  epScheduleRedraw();
 }
 
 function epDraw() {
@@ -4293,11 +4406,11 @@ function epDrawFocusedGraph() {
   var nodeById = {};
   for (var i = 0; i < epNodes.length; i++) nodeById[epNodes[i].id] = epNodes[i];
 
-  // Draw edges
+  // Draw edges — only between visible nodes; a collapsed node's whole subtree drops out here.
   for (var i = 0; i < epEdges.length; i++) {
     var fromN = nodeById[epEdges[i].from];
     var toN = nodeById[epEdges[i].to];
-    if (!fromN || !toN) continue;
+    if (!fromN || !toN || !fromN.visible || !toN.visible) continue;
 
     var fx = fromN.x;
     var fy = fromN.y + fromN.h / 2;
@@ -4335,12 +4448,13 @@ function epDrawFocusedGraph() {
     epCtx.setLineDash([]);
   }
 
-  // Draw nodes
+  // Draw nodes — collapsed-away nodes carry stale coordinates from their last layout, so skip them.
   var BOX_R = 6;
-  var HDR_H = 22;
+  var HDR_H = EP_NODE_HDR_H;
 
   for (var i = 0; i < epNodes.length; i++) {
     var n = epNodes[i];
+    if (!n.visible) continue;
     var x = n.x - n.w / 2;
     var y = n.y - n.h / 2;
     var color = EP_TYPE_COLORS[n.type] || EP_TYPE_COLORS.unknown;
@@ -4410,12 +4524,30 @@ function epDrawFocusedGraph() {
     epCtx.textBaseline = "middle";
     var nameStr = n.className;
     var nameStartX = x + 8 + dotSize + 6;
-    var maxNameW = n.w - (nameStartX - x) - 8;
+    var chipReserve = n.childCount > 0 ? EP_CHIP_W + 6 : 0;
+    var maxNameW = n.w - (nameStartX - x) - 8 - chipReserve;
     while (epCtx.measureText(nameStr).width > maxNameW && nameStr.length > 3) {
       nameStr = nameStr.slice(0, -1);
     }
     if (nameStr !== n.className) nameStr += "\\u2026";
     epCtx.fillText(nameStr, nameStartX, y + HDR_H / 2);
+
+    // Expand chip — collapsed/expanded state and direct-child count, hit-tested by epChipHitTest.
+    if (n.childCount > 0) {
+      var chip = epNodeChipRect(n);
+      epRoundRect(epCtx, chip.x, chip.y, chip.w, chip.h, 4);
+      epCtx.fillStyle = n.expanded ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.09)";
+      epCtx.fill();
+      epCtx.strokeStyle = "rgba(255,255,255,0.25)";
+      epCtx.lineWidth = 1;
+      epCtx.stroke();
+      epCtx.font = "bold 9px -apple-system, BlinkMacSystemFont, sans-serif";
+      epCtx.fillStyle = "#ddd";
+      epCtx.textAlign = "center";
+      epCtx.textBaseline = "middle";
+      epCtx.fillText((n.expanded ? "\\u25BE" : "\\u25B8") + " " + n.childCount, chip.x + chip.w / 2, chip.y + chip.h / 2 + 0.5);
+      epCtx.textAlign = "left";
+    }
 
     // Below header: type badge + order badge + method name
     var infoY = y + HDR_H + 8;
@@ -4516,9 +4648,13 @@ function epShowTooltip(node, screenX, screenY) {
   if (node.expandedElsewhere) {
     repeatLabel = '<div style="font-size:9px;color:#888;margin-top:4px">\u21B1 Calls drawn at another call site</div>';
   }
+  var childLabel = "";
+  if (node.childCount > 0) {
+    childLabel = '<div style="font-size:9px;color:#888;margin-top:4px">' + node.childCount + ' direct call' + (node.childCount === 1 ? "" : "s") + '</div>';
+  }
   epTooltipEl.innerHTML = '<div class="tt-name">' + escHtml(node.className) + '</div>' +
     '<div class="tt-table" style="color:' + color + '">' + escHtml(node.type) + '</div>' +
-    methodHtml + condLabel + repeatLabel;
+    methodHtml + condLabel + repeatLabel + childLabel;
   epTooltipEl.style.display = "block";
 
   var mainRect = epCanvas.parentElement.getBoundingClientRect();
@@ -4603,6 +4739,15 @@ function epSyncLegendMode() {
   if (section) section.style.display = epMode === "overview" ? "block" : "none";
 }
 
+/** Expand-all/collapse-all only make sense once a tree is on screen. */
+function epSyncFocusedToolbar() {
+  var focused = epMode === "focused";
+  var expandBtn = document.getElementById("endpoints-expand-all");
+  var collapseBtn = document.getElementById("endpoints-collapse-all");
+  if (expandBtn) expandBtn.style.display = focused ? "" : "none";
+  if (collapseBtn) collapseBtn.style.display = focused ? "" : "none";
+}
+
 function epShowOverview() {
   epMode = "overview";
   epHideCodePanel();
@@ -4610,6 +4755,7 @@ function epShowOverview() {
   epCanvas.style.display = "block";
   epSyncViewToggle();
   epSyncLegendMode();
+  epSyncFocusedToolbar();
   epSyncTruncatedBanner(null);
   epResize();
 }
@@ -4625,6 +4771,7 @@ function epShowFocused(index) {
   epLayout();
   epSyncViewToggle();
   epSyncLegendMode();
+  epSyncFocusedToolbar();
   epSyncTruncatedBanner(found);
   epResize();
   // A new endpoint has a different graph, so fit it — epResize alone only
@@ -4821,6 +4968,14 @@ function renderEndpoints() {
       return;
     }
 
+    // Chip hits are checked first: toggling expansion is not a drag and never
+    // opens the code panel, so it must win over the node-body hit-test below.
+    var chipHit = epChipHitTest(pos.x, pos.y);
+    if (chipHit) {
+      epToggleNode(chipHit);
+      return;
+    }
+
     var hit = epHitTest(pos.x, pos.y);
     if (hit) {
       // Grab offset, not the node's centre — so a drag moves the node
@@ -5003,6 +5158,16 @@ function renderEndpoints() {
       epBannerDismissedIndex = epSelectedIndex;
       epSyncTruncatedBanner(endpoints.endpoints[epSelectedIndex]);
     });
+  }
+
+  // Expand-all / collapse-all — focused mode only (hidden via epSyncFocusedToolbar elsewhere).
+  var expandAllBtn = document.getElementById("endpoints-expand-all");
+  if (expandAllBtn) {
+    expandAllBtn.addEventListener("click", function() { epExpandAll(); });
+  }
+  var collapseAllBtn = document.getElementById("endpoints-collapse-all");
+  if (collapseAllBtn) {
+    collapseAllBtn.addEventListener("click", function() { epCollapseAll(); });
   }
 
   // Recenter button — auto-fits whichever mode is active.

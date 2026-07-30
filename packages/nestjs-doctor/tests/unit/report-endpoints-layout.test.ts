@@ -85,6 +85,81 @@ function runOverviewLayout(groups: Group[], boxWidth: number): void {
 	factory(groups, boxWidth);
 }
 
+interface TreeNode {
+	childCount?: number;
+	expanded: boolean;
+	id: number;
+	visible?: boolean;
+}
+
+interface TreeEdge {
+	from: number;
+	to: number;
+}
+
+/**
+ * Pulls the pure visibility function out of the emitted script and runs it
+ * against synthetic nodes/edges, the same extraction technique
+ * runOverviewLayout uses for epComputeOverviewLayout.
+ */
+function runTreeVisibility(nodes: TreeNode[], edges: TreeEdge[]): void {
+	const scripts = getReportScripts(EMPTY);
+	const start = scripts.indexOf("// ep-tree-visibility-start");
+	const end = scripts.indexOf("// ep-tree-visibility-end");
+	if (start < 0 || end <= start) {
+		throw new Error(
+			"tree visibility function not found in the emitted report script"
+		);
+	}
+
+	const factory = new Function(
+		"nodes",
+		"edges",
+		`${scripts.slice(start, end)}\nepComputeTreeVisibility(nodes, edges);`
+	);
+	factory(nodes, edges);
+}
+
+/**
+ * root(0) -> A(1), B(2); A(1) -> A1(3), A2(4); B(2) -> B1(5); A1(3) -> A1a(6).
+ * Root starts expanded (depth-1 default-visible), everything else collapsed.
+ */
+function buildTreeFixture(): { edges: TreeEdge[]; nodes: TreeNode[] } {
+	const nodes: TreeNode[] = [
+		{ id: 0, expanded: true },
+		{ id: 1, expanded: false },
+		{ id: 2, expanded: false },
+		{ id: 3, expanded: false },
+		{ id: 4, expanded: false },
+		{ id: 5, expanded: false },
+		{ id: 6, expanded: false },
+	];
+	const edges: TreeEdge[] = [
+		{ from: 0, to: 1 },
+		{ from: 0, to: 2 },
+		{ from: 1, to: 3 },
+		{ from: 1, to: 4 },
+		{ from: 2, to: 5 },
+		{ from: 3, to: 6 },
+	];
+	return { nodes, edges };
+}
+
+function visibleIds(nodes: TreeNode[]): number[] {
+	return nodes
+		.filter((n) => n.visible)
+		.map((n) => n.id)
+		.sort((a, b) => a - b);
+}
+
+function findNode(nodes: TreeNode[], id: number): TreeNode {
+	const found = nodes.find((n) => n.id === id);
+	if (!found) {
+		throw new Error(`fixture missing node ${id}`);
+	}
+	return found;
+}
+
 function overlaps(a: Box, b: Box): boolean {
 	return (
 		Math.abs(a.x - b.x) < (a.w + b.w) / 2 &&
@@ -335,5 +410,66 @@ describe("endpoints overview layout — many small modules (real-project shape)"
 			}));
 
 		expect(strip(first)).toEqual(strip(second));
+	});
+});
+
+describe("endpoints focused-tree visibility", () => {
+	it("defaults to the root plus its direct children", () => {
+		const { nodes, edges } = buildTreeFixture();
+		runTreeVisibility(nodes, edges);
+
+		expect(visibleIds(nodes)).toEqual([0, 1, 2]);
+		expect(findNode(nodes, 0).childCount).toBe(2);
+		expect(findNode(nodes, 1).childCount).toBe(2);
+		expect(findNode(nodes, 2).childCount).toBe(1);
+		expect(findNode(nodes, 6).childCount).toBe(0);
+	});
+
+	it("expanding a node reveals exactly its own children, not grandchildren", () => {
+		const { nodes, edges } = buildTreeFixture();
+		runTreeVisibility(nodes, edges);
+
+		findNode(nodes, 1).expanded = true; // expand A
+		runTreeVisibility(nodes, edges);
+
+		expect(visibleIds(nodes)).toEqual([0, 1, 2, 3, 4]);
+	});
+
+	it("collapsing an ancestor hides descendants while their own expanded flags persist", () => {
+		const { nodes, edges } = buildTreeFixture();
+
+		findNode(nodes, 1).expanded = true; // A
+		findNode(nodes, 3).expanded = true; // A1
+		runTreeVisibility(nodes, edges);
+		expect(visibleIds(nodes)).toEqual([0, 1, 2, 3, 4, 6]);
+
+		findNode(nodes, 1).expanded = false; // collapse A
+		runTreeVisibility(nodes, edges);
+		expect(visibleIds(nodes)).toEqual([0, 1, 2]);
+		expect(findNode(nodes, 3).expanded).toBe(true); // A1's own flag untouched
+
+		findNode(nodes, 1).expanded = true; // re-expand A
+		runTreeVisibility(nodes, edges);
+		// A1a (6) reappears without re-toggling A1 (3) — its flag never changed.
+		expect(visibleIds(nodes)).toEqual([0, 1, 2, 3, 4, 6]);
+	});
+
+	it("is deterministic across repeated runs", () => {
+		const first = buildTreeFixture();
+		const second = buildTreeFixture();
+		first.nodes[1].expanded = true;
+		second.nodes[1].expanded = true;
+
+		runTreeVisibility(first.nodes, first.edges);
+		runTreeVisibility(second.nodes, second.edges);
+
+		const strip = (nodes: TreeNode[]) =>
+			nodes.map((n) => ({
+				id: n.id,
+				visible: n.visible,
+				childCount: n.childCount,
+			}));
+
+		expect(strip(first.nodes)).toEqual(strip(second.nodes));
 	});
 });
