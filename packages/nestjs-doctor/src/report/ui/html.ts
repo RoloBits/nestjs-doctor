@@ -301,6 +301,23 @@ for (let i = 0; i < lines.length; i++) {
         <span class="schema-sidebar-title">Endpoints</span>
         <span class="schema-entity-count" id="endpoints-count"></span>
         <span style="flex:1"></span>
+        <button class="st-btn has-tip" id="endpoints-sidebar-expand-all" aria-label="Expand all" data-tip="Expand all · open every group in the list">
+          <svg viewBox="0 0 17 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="1" y1="3" x2="8" y2="3"/><line x1="1" y1="7" x2="8" y2="7"/><line x1="1" y1="11" x2="8" y2="11"/>
+            <path d="M11 5l2.5 3L16 5"/>
+          </svg>
+        </button>
+        <button class="st-btn has-tip" id="endpoints-sidebar-collapse-all" aria-label="Collapse all" data-tip="Collapse all · close every group in the list">
+          <svg viewBox="0 0 17 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="1" y1="3" x2="8" y2="3"/><line x1="1" y1="7" x2="8" y2="7"/><line x1="1" y1="11" x2="8" y2="11"/>
+            <path d="M11 11l2.5-3L16 11"/>
+          </svg>
+        </button>
+        <button class="st-btn has-tip" id="endpoints-sidebar-collapse" aria-label="Hide the endpoint list" data-tip="Hide list · give the diagram the whole width">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 3 4 8 9 13"/><line x1="13" y1="3" x2="13" y2="13"/>
+          </svg>
+        </button>
       </div>
       <div class="endpoints-sidebar-search">
         <input type="text" id="endpoints-search" placeholder="Filter by route, controller, handler, module…" spellcheck="false">
@@ -310,6 +327,11 @@ for (let i = 0; i < lines.length; i++) {
   </div>
   <div id="endpoints-main">
     <div id="endpoints-canvas-wrap">
+      <button class="st-btn has-tip" id="endpoints-sidebar-show" aria-label="Show the endpoint list" data-tip="Show list · bring the endpoint list back">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="7 3 12 8 7 13"/><line x1="3" y1="3" x2="3" y2="13"/>
+        </svg>
+      </button>
       <div id="endpoints-toolbar">
         <div id="endpoints-zoombar">
           <button class="st-btn schema-zoom-btn has-tip" id="endpoints-zoom-out" aria-label="Zoom out" data-tip="Zoom out">

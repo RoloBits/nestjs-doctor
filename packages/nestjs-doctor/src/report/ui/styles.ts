@@ -1068,6 +1068,20 @@ canvas:active { cursor: grabbing; }
   cursor: grab; display: block;
 }
 #endpoints-canvas:active { cursor: grabbing; }
+#tab-endpoints.sidebar-collapsed #endpoints-sidebar { display: none; }
+#endpoints-sidebar-show { display: none; }
+#tab-endpoints.sidebar-collapsed #endpoints-sidebar-show {
+  display: flex; position: absolute; top: 12px; left: 12px; z-index: 10;
+  width: 28px; height: 28px; justify-content: center;
+  background: rgba(50,50,50,0.9);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255,255,255,0.22);
+  color: rgba(255,255,255,0.7);
+}
+#tab-endpoints.sidebar-collapsed #endpoints-sidebar-show:hover {
+  background: rgba(70,70,70,0.95); color: #fff;
+}
+#endpoints-sidebar-show:is(:hover, :focus-visible)::after { left: 0; right: auto; }
 #endpoints-toolbar {
   position: absolute; top: 12px; right: 12px; z-index: 12;
   display: flex; align-items: center; gap: 4px;

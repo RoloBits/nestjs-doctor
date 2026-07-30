@@ -5011,6 +5011,50 @@ function renderEndpoints() {
     epShowFocused(epIndex);
   });
 
+  // Sidebar expand-all / collapse-all / hide — mirrors schema's sCollapseTree and the
+  // schema-sidebar-collapse/schema-sidebar-show pair, scoped to the endpoints tree.
+  /** Closes every module/controller group in the sidebar tree. */
+  function epCollapseSidebarTree() {
+    var children = sidebarEl.querySelectorAll(".st-children");
+    for (var i = 0; i < children.length; i++) {
+      children[i].classList.remove("st-open");
+    }
+    var toggles = sidebarEl.querySelectorAll(".st-toggle");
+    for (var j = 0; j < toggles.length; j++) {
+      toggles[j].textContent = "\\u25B8";
+    }
+  }
+
+  var epSidebarExpandAllBtn = document.getElementById("endpoints-sidebar-expand-all");
+  if (epSidebarExpandAllBtn) {
+    epSidebarExpandAllBtn.addEventListener("click", function() {
+      var children = sidebarEl.querySelectorAll(".st-children");
+      for (var i = 0; i < children.length; i++) children[i].classList.add("st-open");
+      var toggles = sidebarEl.querySelectorAll(".st-toggle");
+      for (var j = 0; j < toggles.length; j++) toggles[j].textContent = "\\u25BE";
+    });
+  }
+
+  var epSidebarCollapseAllBtn = document.getElementById("endpoints-sidebar-collapse-all");
+  if (epSidebarCollapseAllBtn) {
+    epSidebarCollapseAllBtn.addEventListener("click", epCollapseSidebarTree);
+  }
+
+  var epSidebarCollapseBtn = document.getElementById("endpoints-sidebar-collapse");
+  var epSidebarShowBtn = document.getElementById("endpoints-sidebar-show");
+  var endpointsTabEl = document.getElementById("tab-endpoints");
+  function epSetSidebarCollapsed(collapsed) {
+    if (!endpointsTabEl) return;
+    endpointsTabEl.classList.toggle("sidebar-collapsed", collapsed);
+    epResize();
+  }
+  if (epSidebarCollapseBtn) {
+    epSidebarCollapseBtn.addEventListener("click", function() { epSetSidebarCollapsed(true); });
+  }
+  if (epSidebarShowBtn) {
+    epSidebarShowBtn.addEventListener("click", function() { epSetSidebarCollapsed(false); });
+  }
+
   // Canvas interactions. Overview and focused mode share panning and zoom;
   // only hit-testing and the click result differ.
   epCanvas.addEventListener("mousedown", function(e) {
