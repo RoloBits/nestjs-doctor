@@ -114,6 +114,21 @@ describe("annotateEndpoints", () => {
 		expect(eps[0].auth?.guardNames).toEqual([]);
 	});
 
+	it("does not credit a concrete controller's own endpoints via a guarded subclass", () => {
+		const eps = annotate({
+			"cats.controller.ts": `
+				import { Controller, Get, UseGuards } from '@nestjs/common';
+				@Controller('cats')
+				export class CatsController {
+					@Get() list() { return []; }
+				}
+				@UseGuards(JwtGuard)
+				export class AdminCatsController extends CatsController {}
+			`,
+		});
+		expect(eps[0].auth?.state).toBe("unguarded");
+	});
+
 	it("attributes resolver endpoints through providerToModule", () => {
 		const eps = annotate({
 			"cats.resolver.ts": `

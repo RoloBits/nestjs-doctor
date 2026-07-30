@@ -5,6 +5,7 @@ import type {
 	EndpointGraph,
 	EndpointNode,
 } from "../../common/endpoint.js";
+import { isController } from "../nest-class-inspector.js";
 import type { GuardFacts } from "../rules/types.js";
 import { hasGuardDecorator, PUBLIC_DECORATORS } from "./guard-facts.js";
 import type { ModuleGraph } from "./module-graph.js";
@@ -57,7 +58,7 @@ function computeAuth(
 		return { globalGuard, guardNames, state: "guarded" };
 	}
 	const name = cls.getName();
-	if (name && facts.guardedBaseClasses.has(name)) {
+	if (!isController(cls) && name && facts.guardedBaseClasses.has(name)) {
 		return { globalGuard, guardNames, state: "guarded" };
 	}
 	if (hasPublicDecorator(cls)) {
