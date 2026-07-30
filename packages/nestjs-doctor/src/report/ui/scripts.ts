@@ -844,7 +844,7 @@ function renderDiagnosis() {
         codeEl.appendChild(wrapDiv);
         if (window.createCodeViewer) {
           window.createCodeViewer(wrapDiv, codeText, {
-            highlightLines: hlLines,
+            diagnosticLines: hlLines,
             lineMetadata: lineMetadata,
             firstLineNumber: firstLineNum,
             skipScrollIntoView: sg > 0,
@@ -895,7 +895,7 @@ function renderDiagnosis() {
         codeEl.appendChild(wrapDiv);
         if (window.createCodeViewer) {
           window.createCodeViewer(wrapDiv, codeText, {
-            highlightLines: hlLines,
+            diagnosticLines: hlLines,
             lineMetadata: lineMetadata,
             firstLineNumber: firstLineNum,
           });
@@ -1574,7 +1574,7 @@ function renderLab() {
         pgFileCode.appendChild(wrapDiv);
         if (window.createCodeViewer) {
           window.createCodeViewer(wrapDiv, codeText, {
-            highlightLines: hlLines,
+            diagnosticLines: hlLines,
             lineMetadata: lineMetadata,
             firstLineNumber: firstLineNum,
             skipScrollIntoView: sg > 0,
@@ -3675,6 +3675,41 @@ function renderSchema() {
 
 // ── Endpoints tab: Canvas-based dependency graph ──
 
+var epProjectRoot = null;
+
+/** Longest common directory prefix of every known source path — display-only project root. */
+function epComputeProjectRoot() {
+  var keys = Object.keys(fileSources);
+  if (keys.length === 0) {
+    keys = [];
+    for (var i = 0; i < endpoints.endpoints.length; i++) keys.push(endpoints.endpoints[i].filePath);
+  }
+  if (keys.length === 0) return "";
+  var parts = keys[0].split("/");
+  for (var k = 1; k < keys.length && parts.length > 0; k++) {
+    var otherParts = keys[k].split("/");
+    var j = 0;
+    while (j < parts.length && j < otherParts.length && parts[j] === otherParts[j]) j++;
+    parts = parts.slice(0, j);
+  }
+  return parts.join("/");
+}
+
+/**
+ * Display-only: strips the project root off an absolute path for the endpoints tab's
+ * UI. Every internal join/lookup keeps using the raw absolute filePath untouched.
+ */
+function epRelPath(filePath) {
+  if (!filePath) return filePath || "";
+  if (epProjectRoot === null) epProjectRoot = epComputeProjectRoot();
+  if (epProjectRoot && filePath.indexOf(epProjectRoot) === 0) {
+    var rest = filePath.slice(epProjectRoot.length);
+    while (rest.charAt(0) === "/") rest = rest.slice(1);
+    return rest;
+  }
+  return filePath;
+}
+
 var epCanvas, epCtx, epDpr, epW, epH;
 var epCamX = 0, epCamY = 0, epZoom = 1, epMinZoom = 0.2;
 var epDragging = null, epPanning = false, epPanStart = {x: 0, y: 0};
@@ -4219,6 +4254,7 @@ function epBuildGraph(ep) {
     totalMethods: 1,
     filePath: ep.filePath,
     line: ep.line,
+    endLine: ep.endLine,
     expanded: true,
     x: 0, y: 0, w: 180, h: 60
   };
@@ -4238,6 +4274,7 @@ function epBuildGraph(ep) {
         totalMethods: dep.totalMethods,
         filePath: dep.filePath,
         line: dep.line,
+        endLine: dep.endLine,
         expandedElsewhere: dep.expandedElsewhere,
         expanded: false,
         x: 0, y: 0, w: 180, h: 60
@@ -4679,21 +4716,32 @@ function epHideTooltip() {
   if (epTooltipEl) epTooltipEl.style.display = "none";
 }
 
-function epShowCodePanel(node) {
+// isDiagnostic: true for the problems-drawer jump, which marks the flagged line in
+// severity red; false/omitted for a plain node click, which uses the neutral highlight.
+function epShowCodePanel(node, isDiagnostic) {
   var panel = document.getElementById("ep-code-panel");
   if (!panel) return;
   document.getElementById("ep-code-panel-class").textContent = node.className;
   var methodText = node.methodName ? "." + node.methodName + "()" : "";
   document.getElementById("ep-code-panel-method").textContent = methodText;
-  document.getElementById("ep-code-panel-path").textContent = node.filePath || "";
+  document.getElementById("ep-code-panel-path").textContent = epRelPath(node.filePath);
   var bodyEl = document.getElementById("ep-code-panel-body");
   bodyEl.innerHTML = "";
   var code = node.filePath ? fileSources[node.filePath] : null;
   if (!code) {
     bodyEl.innerHTML = '<div class="ep-code-no-source">Source code not available</div>';
   } else if (window.createCodeViewer) {
-    var highlightLines = node.line > 0 ? [node.line] : [];
-    window.createCodeViewer(bodyEl, code, { highlightLines: highlightLines, firstLineNumber: 1 });
+    var viewerOptions = { firstLineNumber: 1 };
+    if (isDiagnostic) {
+      viewerOptions.diagnosticLines = node.line > 0 ? [node.line] : [];
+    } else {
+      viewerOptions.highlightLines = node.line > 0 ? [node.line] : [];
+    }
+    if (node.endLine > node.line) {
+      viewerOptions.tintRangeStart = node.line;
+      viewerOptions.tintRangeEnd = node.endLine;
+    }
+    window.createCodeViewer(bodyEl, code, viewerOptions);
   } else {
     bodyEl.innerHTML = '<div class="ep-code-no-source">Code viewer not available</div>';
   }
@@ -5070,6 +5118,9 @@ function renderEndpoints() {
     var clickedNode = epDragging;
     if (!epDragMoved && clickedNode) {
       epShowCodePanel(clickedNode.node);
+    } else if (!epDragMoved && !clickedNode && epPanning) {
+      // Sub-threshold click hit neither a node nor a chip — empty canvas, close the panel.
+      epHideCodePanel();
     }
     epDragging = null;
     epPanning = false;
@@ -5221,9 +5272,9 @@ function renderEndpoints() {
     });
     document.addEventListener("mousemove", function(e) {
       if (!epResizing) return;
-      // Panel is right-anchored, so its resize handle sits on the left edge:
-      // dragging left (negative clientX delta) grows the panel.
-      var w = epStartW + (epStartX - e.clientX);
+      // Panel is left-anchored, so its resize handle sits on the right edge:
+      // dragging right grows the panel.
+      var w = epStartW + (e.clientX - epStartX);
       if (w < 300) w = 300;
       if (w > window.innerWidth * 0.8) w = window.innerWidth * 0.8;
       epCodePanel.style.width = w + "px";
@@ -5321,7 +5372,7 @@ function renderEndpoints() {
         if (counts.info > 0) frParts.push(counts.info + " info");
         epDiagHtml += '<div class="sd-item">';
         epDiagHtml += '<span class="sev-dot" style="background:' + frColor + '"></span>';
-        epDiagHtml += '<span class="sd-entity">' + escHtml(filePath.split("/").pop()) + '</span>';
+        epDiagHtml += '<span class="sd-entity">' + escHtml(epRelPath(filePath)) + '</span>';
         epDiagHtml += '<span class="sd-msg">' + frTotal + (frTotal === 1 ? " issue" : " issues") + ' outside any handler \\u00b7 ' + escHtml(frParts.join(", ")) + '</span>';
         epDiagHtml += '</div>';
       }
@@ -5347,8 +5398,9 @@ function renderEndpoints() {
         className: targetEp.controllerClass,
         methodName: targetEp.handlerMethod,
         filePath: targetEp.filePath,
-        line: line
-      });
+        line: line,
+        endLine: targetEp.endLine
+      }, true);
     });
   }
 

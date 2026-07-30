@@ -1183,12 +1183,13 @@ canvas:active { cursor: grabbing; }
 
 /* ── Endpoint code panel ── */
 .ep-code-panel {
-  position: absolute; right: 0; top: 0; bottom: 0; width: 500px; z-index: 10;
-  background: var(--surface); border-left: 1px solid var(--border);
+  position: absolute; left: 0; top: 0; bottom: 0; width: 500px; z-index: 10;
+  background: var(--surface); border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
-  transform: translateX(100%); transition: transform 0.25s ease;
+  transform: translateX(-100%); opacity: 0;
+  transition: transform 0.16s ease-out, opacity 0.16s ease-out;
 }
-.ep-code-panel.open { transform: translateX(0); }
+.ep-code-panel.open { transform: translateX(0); opacity: 1; }
 .ep-code-panel-header {
   padding: 14px 16px 10px; border-bottom: 1px solid var(--border);
   position: relative; flex-shrink: 0;
@@ -1220,7 +1221,7 @@ canvas:active { cursor: grabbing; }
   padding: 24px;
 }
 .ep-code-panel-resize {
-  position: absolute; left: -2px; top: 0; bottom: 0; width: 5px;
+  position: absolute; right: -2px; top: 0; bottom: 0; width: 5px;
   cursor: col-resize; z-index: 11;
   background: transparent;
   transition: background 0.15s;
