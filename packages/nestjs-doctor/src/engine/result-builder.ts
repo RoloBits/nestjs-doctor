@@ -171,7 +171,15 @@ export function buildMonorepoResult(
 		allRuleErrors.push(...scanResult.result.ruleErrors);
 		totalFiles += scanResult.result.project.fileCount;
 		if (scanResult.result.endpoints) {
-			allEndpoints.push(...scanResult.result.endpoints.endpoints);
+			for (const endpoint of scanResult.result.endpoints.endpoints) {
+				allEndpoints.push({
+					...endpoint,
+					module: endpoint.module
+						? `${name}/${endpoint.module}`
+						: (endpoint.module ?? null),
+					project: name,
+				});
+			}
 		}
 		if (scanResult.result.schema) {
 			for (const entity of scanResult.result.schema.entities) {
