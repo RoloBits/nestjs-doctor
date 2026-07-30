@@ -1068,9 +1068,66 @@ canvas:active { cursor: grabbing; }
 }
 #endpoints-canvas:active { cursor: grabbing; }
 #endpoints-toolbar {
-  position: absolute; top: 12px; right: 12px; z-index: 10;
-  display: flex; gap: 4px;
+  position: absolute; top: 12px; right: 12px; z-index: 11;
+  display: flex; align-items: center; gap: 4px;
 }
+#endpoints-zoombar {
+  display: flex; align-items: center; gap: 6px;
+  height: 28px; padding: 0 8px; border-radius: 6px;
+  background: rgba(50,50,50,0.9);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255,255,255,0.22);
+}
+#endpoints-zoom-range {
+  -webkit-appearance: none; appearance: none;
+  width: 110px; height: 3px; border-radius: 2px;
+  background: rgba(255,255,255,0.25); outline: none; cursor: pointer;
+}
+#endpoints-zoom-range::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 11px; height: 11px; border-radius: 50%;
+  background: var(--nest-red); cursor: pointer;
+}
+#endpoints-zoom-range::-moz-range-thumb {
+  width: 11px; height: 11px; border: none; border-radius: 50%;
+  background: var(--nest-red); cursor: pointer;
+}
+/* Endpoint tooltip sits below the code panel so an open panel isn't hidden by it. */
+#endpoints-tooltip { z-index: 9; }
+#endpoints-truncated-banner {
+  position: absolute; top: 12px; left: 12px; z-index: 10;
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px 6px 12px; border-radius: 6px; max-width: 420px;
+  background: rgba(120,53,15,0.92); border: 1px solid rgba(245,158,11,0.5);
+  color: #fde68a; font-size: 12px;
+  backdrop-filter: blur(4px);
+}
+#endpoints-truncated-dismiss {
+  background: none; border: none; color: #fde68a; opacity: 0.8;
+  cursor: pointer; font-size: 16px; line-height: 1; padding: 0 2px; flex-shrink: 0;
+}
+#endpoints-truncated-dismiss:hover { opacity: 1; }
+#endpoints-legend {
+  position: absolute; top: 48px; right: 12px; z-index: 11;
+  width: 220px; max-height: calc(100% - 60px); overflow-y: auto;
+  padding: 10px 12px; border-radius: 6px;
+  background: rgba(26,26,26,0.95); border: 1px solid rgba(255,255,255,0.15);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  font-size: 11px; color: var(--text);
+}
+.ep-legend-title { font-weight: 600; color: var(--white); margin-bottom: 6px; }
+.ep-legend-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+.ep-legend-swatch {
+  width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; display: inline-block;
+}
+.ep-legend-dashed {
+  background: none; border: 1px dashed #f59e0b; height: 8px;
+}
+.ep-legend-glyph { width: 14px; text-align: center; flex-shrink: 0; font-size: 11px; }
+.ep-legend-order {
+  width: 14px; text-align: center; flex-shrink: 0; font-size: 9px; color: #999;
+}
+.ep-legend-divider { border-top: 1px solid var(--border); margin: 6px 0; }
 #endpoints-diag-panel {
   flex: none; border-top: 1px solid var(--border); background: var(--surface);
 }
@@ -1125,10 +1182,10 @@ canvas:active { cursor: grabbing; }
 
 /* ── Endpoint code panel ── */
 .ep-code-panel {
-  position: absolute; left: 0; top: 0; bottom: 0; width: 500px; z-index: 10;
-  background: var(--surface); border-right: 1px solid var(--border);
+  position: absolute; right: 0; top: 0; bottom: 0; width: 500px; z-index: 10;
+  background: var(--surface); border-left: 1px solid var(--border);
   display: flex; flex-direction: column;
-  transform: translateX(-100%); transition: transform 0.25s ease;
+  transform: translateX(100%); transition: transform 0.25s ease;
 }
 .ep-code-panel.open { transform: translateX(0); }
 .ep-code-panel-header {
@@ -1162,7 +1219,7 @@ canvas:active { cursor: grabbing; }
   padding: 24px;
 }
 .ep-code-panel-resize {
-  position: absolute; right: -2px; top: 0; bottom: 0; width: 5px;
+  position: absolute; left: -2px; top: 0; bottom: 0; width: 5px;
   cursor: col-resize; z-index: 11;
   background: transparent;
   transition: background 0.15s;

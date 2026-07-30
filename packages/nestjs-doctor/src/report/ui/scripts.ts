@@ -3679,12 +3679,16 @@ var epCanvas, epCtx, epDpr, epW, epH;
 var epCamX = 0, epCamY = 0, epZoom = 1, epMinZoom = 0.2;
 var epDragging = null, epPanning = false, epPanStart = {x: 0, y: 0};
 var epDragMoved = false;
+var epDragStartX = 0, epDragStartY = 0;
+var EP_DRAG_THRESHOLD_PX = 4;
 var epHoveredNode = null;
 var epNodes = [];
 var epEdges = [];
 var epTooltipEl = null;
 var epDirty = false;
 var epSelectedIndex = -1;
+var epLastZoomUi = null;
+var epBannerDismissedIndex = -1;
 
 /** "overview" (default) shows module clusters; "focused" shows one endpoint's call graph. */
 var epMode = "overview";
@@ -3694,6 +3698,26 @@ var epOvHitRowPending = null;
 
 function epZoomFloor() {
   return Math.min(epMinZoom, 0.05);
+}
+
+/** Keeps the zoom bar in step with the camera, whatever changed it. */
+function epSyncZoomUi() {
+  var pct = Math.round(epZoom * 100);
+  if (pct === epLastZoomUi) return;
+  epLastZoomUi = pct;
+  var range = document.getElementById("endpoints-zoom-range");
+  var label = document.getElementById("endpoints-zoom-value");
+  if (range) range.value = String(Math.max(5, Math.min(500, pct)));
+  if (label) {
+    label.textContent = pct + "%";
+    label.setAttribute("aria-label", pct + "% \\u00b7 fit to view");
+  }
+}
+
+function epSetZoom(next) {
+  epZoom = Math.max(epZoomFloor(), Math.min(3, next));
+  epSyncZoomUi();
+  epScheduleRedraw();
 }
 
 // Auth shield for one endpoint. Reused by the endpoints overview canvas.
@@ -4066,6 +4090,17 @@ var EP_TYPE_COLORS = {
   unknown: "#666"
 };
 
+/** Builds the type-color rows of the endpoints legend straight from EP_TYPE_COLORS. */
+function epBuildLegendTypesHtml() {
+  var html = "";
+  for (var type in EP_TYPE_COLORS) {
+    if (!Object.prototype.hasOwnProperty.call(EP_TYPE_COLORS, type)) continue;
+    html += '<div class="ep-legend-row"><span class="ep-legend-swatch" style="background:' +
+      EP_TYPE_COLORS[type] + '"></span>' + escHtml(type) + '</div>';
+  }
+  return html;
+}
+
 function epScheduleRedraw() {
   if (!epDirty) {
     epDirty = true;
@@ -4202,8 +4237,10 @@ function epCenterCamera() {
   var pad = 60;
   var scaleX = (epW - pad * 2) / (graphW || 1);
   var scaleY = (epH - pad * 2) / (graphH || 1);
-  epZoom = Math.min(scaleX, scaleY, 1.5);
-  epZoom = Math.max(epZoom, 0.3);
+  var fit = Math.min(scaleX, scaleY, 1.5);
+  // Records the fit so the zoom floor can zoom out this far, same as overview.
+  epMinZoom = Math.min(0.2, fit);
+  epZoom = Math.max(epMinZoom, fit);
 
   epCamX = epW / 2 - cx;
   epCamY = epH / 2 - cy;
@@ -4211,6 +4248,7 @@ function epCenterCamera() {
 
 function epDraw() {
   if (!epCtx) return;
+  epSyncZoomUi();
   if (epMode === "overview") {
     epDrawOverview();
   } else {
@@ -4423,17 +4461,21 @@ function epResize() {
   if (!epCanvas) return;
   var container = epCanvas.parentElement;
   if (!container) return;
+  var prevW = epW, prevH = epH;
   epW = container.clientWidth;
   epH = container.clientHeight;
+  // Focused mode keeps whatever was centred in view instead of re-fitting the graph.
+  if (epMode === "focused" && prevW && prevH) {
+    epCamX += (epW - prevW) / 2;
+    epCamY += (epH - prevH) / 2;
+  }
   epCanvas.width = epW * epDpr;
   epCanvas.height = epH * epDpr;
   epCanvas.style.width = epW + "px";
   epCanvas.style.height = epH + "px";
   epCtx.setTransform(epDpr, 0, 0, epDpr, 0, 0);
-  if (epMode === "overview") {
-    if (epOverviewGroups.length > 0) epCenterOverviewCamera();
-  } else if (epNodes.length > 0) {
-    epCenterCamera();
+  if (epMode === "overview" && epOverviewGroups.length > 0) {
+    epCenterOverviewCamera();
   }
   epScheduleRedraw();
 }
@@ -4527,12 +4569,28 @@ function epSyncViewToggle() {
     : "All endpoints \\u00b7 back to the module overview");
 }
 
+/** Shows the truncation banner for a focused endpoint whose trace hit the node cap, unless dismissed for it. */
+function epSyncTruncatedBanner(ep) {
+  var banner = document.getElementById("endpoints-truncated-banner");
+  if (!banner) return;
+  var show = !!(ep && ep.truncated) && epSelectedIndex !== epBannerDismissedIndex;
+  banner.style.display = show ? "flex" : "none";
+}
+
+/** The legend's auth-shield and diagnostic-dot entries only apply to overview mode. */
+function epSyncLegendMode() {
+  var section = document.getElementById("endpoints-legend-overview");
+  if (section) section.style.display = epMode === "overview" ? "block" : "none";
+}
+
 function epShowOverview() {
   epMode = "overview";
   epHideCodePanel();
   epHideTooltip();
   epCanvas.style.display = "block";
   epSyncViewToggle();
+  epSyncLegendMode();
+  epSyncTruncatedBanner(null);
   epResize();
 }
 
@@ -4546,7 +4604,13 @@ function epShowFocused(index) {
   epBuildGraph(found);
   epLayout();
   epSyncViewToggle();
+  epSyncLegendMode();
+  epSyncTruncatedBanner(found);
   epResize();
+  // A new endpoint has a different graph, so fit it — epResize alone only
+  // preserves the camera across container resizes, not endpoint changes.
+  epCenterCamera();
+  epScheduleRedraw();
 }
 
 function renderEndpoints() {
@@ -4739,7 +4803,11 @@ function renderEndpoints() {
 
     var hit = epHitTest(pos.x, pos.y);
     if (hit) {
-      epDragging = hit;
+      // Grab offset, not the node's centre — so a drag moves the node
+      // relative to where it was grabbed instead of snapping it to the cursor.
+      epDragging = { node: hit, dx: pos.x - hit.x, dy: pos.y - hit.y };
+      epDragStartX = e.clientX;
+      epDragStartY = e.clientY;
       epHideTooltip();
     } else {
       epPanning = true;
@@ -4776,11 +4844,19 @@ function renderEndpoints() {
     }
 
     if (epDragging) {
-      epDragMoved = true;
-      epDragging.x = pos.x;
-      epDragging.y = pos.y;
-      epScheduleRedraw();
-      epHideTooltip();
+      if (!epDragMoved) {
+        var ddx = e.clientX - epDragStartX;
+        var ddy = e.clientY - epDragStartY;
+        if (ddx * ddx + ddy * ddy > EP_DRAG_THRESHOLD_PX * EP_DRAG_THRESHOLD_PX) {
+          epDragMoved = true;
+        }
+      }
+      if (epDragMoved) {
+        epDragging.node.x = pos.x - epDragging.dx;
+        epDragging.node.y = pos.y - epDragging.dy;
+        epScheduleRedraw();
+        epHideTooltip();
+      }
     } else if (epPanning) {
       epDragMoved = true;
       epCamX += (e.clientX - epPanStart.x) / epZoom;
@@ -4817,7 +4893,7 @@ function renderEndpoints() {
 
     var clickedNode = epDragging;
     if (!epDragMoved && clickedNode) {
-      epShowCodePanel(clickedNode);
+      epShowCodePanel(clickedNode.node);
     }
     epDragging = null;
     epPanning = false;
@@ -4861,6 +4937,53 @@ function renderEndpoints() {
     epHideTooltip();
     epScheduleRedraw();
   }, { passive: false });
+
+  // Zoom toolbar: mirrors the schema tab's -/+/% readout + click-to-fit, both modes.
+  var epZoomRange = document.getElementById("endpoints-zoom-range");
+  var epZoomInBtn = document.getElementById("endpoints-zoom-in");
+  var epZoomOutBtn = document.getElementById("endpoints-zoom-out");
+  var epZoomValueBtn = document.getElementById("endpoints-zoom-value");
+  if (epZoomRange) {
+    epZoomRange.addEventListener("input", function() {
+      epSetZoom(Number(epZoomRange.value) / 100);
+    });
+  }
+  if (epZoomInBtn) {
+    epZoomInBtn.addEventListener("click", function() { epSetZoom(epZoom * 1.2); });
+  }
+  if (epZoomOutBtn) {
+    epZoomOutBtn.addEventListener("click", function() { epSetZoom(epZoom / 1.2); });
+  }
+  if (epZoomValueBtn) {
+    epZoomValueBtn.addEventListener("click", function() {
+      if (epMode === "overview") { epCenterOverviewCamera(); } else { epCenterCamera(); }
+      epSyncZoomUi();
+      epScheduleRedraw();
+    });
+  }
+
+  // Legend: type-color rows are built once here; overview-only rows toggle via epSyncLegendMode.
+  var epLegendTypesEl = document.getElementById("endpoints-legend-types");
+  if (epLegendTypesEl) epLegendTypesEl.innerHTML = epBuildLegendTypesHtml();
+  var legendToggleBtn = document.getElementById("endpoints-legend-toggle");
+  var legendPanel = document.getElementById("endpoints-legend");
+  if (legendToggleBtn && legendPanel) {
+    legendToggleBtn.addEventListener("click", function() {
+      var showing = legendPanel.style.display !== "none";
+      legendPanel.style.display = showing ? "none" : "block";
+      legendToggleBtn.classList.toggle("active", !showing);
+      legendToggleBtn.setAttribute("aria-pressed", String(!showing));
+    });
+  }
+
+  // Truncation banner dismiss — stays dismissed only for the endpoint it was shown for.
+  var truncatedDismissBtn = document.getElementById("endpoints-truncated-dismiss");
+  if (truncatedDismissBtn) {
+    truncatedDismissBtn.addEventListener("click", function() {
+      epBannerDismissedIndex = epSelectedIndex;
+      epSyncTruncatedBanner(endpoints.endpoints[epSelectedIndex]);
+    });
+  }
 
   // Recenter button — auto-fits whichever mode is active.
   var recenterBtn = document.getElementById("endpoints-recenter");
@@ -4912,7 +5035,9 @@ function renderEndpoints() {
     });
     document.addEventListener("mousemove", function(e) {
       if (!epResizing) return;
-      var w = epStartW + (e.clientX - epStartX);
+      // Panel is right-anchored, so its resize handle sits on the left edge:
+      // dragging left (negative clientX delta) grows the panel.
+      var w = epStartW + (epStartX - e.clientX);
       if (w < 300) w = 300;
       if (w > window.innerWidth * 0.8) w = window.innerWidth * 0.8;
       epCodePanel.style.width = w + "px";

@@ -311,6 +311,21 @@ for (let i = 0; i < lines.length; i++) {
   <div id="endpoints-main">
     <div id="endpoints-canvas-wrap">
       <div id="endpoints-toolbar">
+        <div id="endpoints-zoombar">
+          <button class="st-btn schema-zoom-btn has-tip" id="endpoints-zoom-out" aria-label="Zoom out" data-tip="Zoom out">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <input type="range" id="endpoints-zoom-range" min="5" max="500" step="1" value="100" aria-label="Zoom">
+          <button class="st-btn schema-zoom-btn has-tip" id="endpoints-zoom-in" aria-label="Zoom in" data-tip="Zoom in">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <button class="schema-zoom-value has-tip" id="endpoints-zoom-value" aria-label="100% · fit to view" data-tip="Fit · size the diagram to the window">100%</button>
+        </div>
+        <button class="st-btn schema-diagram-btn has-tip" id="endpoints-legend-toggle" aria-label="Show legend" aria-pressed="false" data-tip="Legend · what the colors and glyphs mean">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.5" r="0.75" fill="currentColor" stroke="none"/>
+          </svg>
+        </button>
         <button class="st-btn schema-diagram-btn has-tip active" id="endpoints-toggle-view" aria-label="Focus one endpoint" aria-pressed="true" data-tip="Focus · show one endpoint and its call graph">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
@@ -322,6 +337,25 @@ for (let i = 0; i < lines.length; i++) {
             <circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
           </svg>
         </button>
+      </div>
+      <div id="endpoints-legend" style="display:none">
+        <div class="ep-legend-title">Legend</div>
+        <div id="endpoints-legend-types"></div>
+        <div class="ep-legend-row"><span class="ep-legend-order">#N</span> Call order</div>
+        <div class="ep-legend-row"><span class="ep-legend-swatch ep-legend-dashed"></span> Conditional call</div>
+        <div class="ep-legend-row"><span class="ep-legend-glyph">&#8631;</span> Calls drawn at another call site</div>
+        <div id="endpoints-legend-overview" style="display:none">
+          <div class="ep-legend-divider"></div>
+          <div class="ep-legend-row"><span class="ep-legend-glyph ep-auth-guarded">&#10003;</span> Guarded</div>
+          <div class="ep-legend-row"><span class="ep-legend-glyph ep-auth-public">&#9675;</span> Declared public</div>
+          <div class="ep-legend-row"><span class="ep-legend-glyph ep-auth-unguarded">&#9888;</span> Unguarded</div>
+          <div class="ep-legend-row"><span class="ep-legend-glyph ep-auth-unknown">?</span> Unknown auth</div>
+          <div class="ep-legend-row"><span class="ep-legend-swatch" style="background:#ef4444;border-radius:50%"></span> Has diagnostics (red/amber/blue = error/warning/info)</div>
+        </div>
+      </div>
+      <div id="endpoints-truncated-banner" style="display:none">
+        <span>Trace truncated at 5000 nodes — the tree below is incomplete.</span>
+        <button id="endpoints-truncated-dismiss" aria-label="Dismiss">&times;</button>
       </div>
       <canvas id="endpoints-canvas"></canvas>
       <div id="endpoints-tooltip" class="schema-tooltip" style="display:none"></div>
