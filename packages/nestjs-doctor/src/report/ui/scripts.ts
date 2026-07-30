@@ -4247,6 +4247,47 @@ function epComputeTreeVisibility(nodes, edges) {
 }
 // ep-tree-visibility-end
 
+function epGuardThrowFullText(gt) {
+  var s = "Throws " + gt.className;
+  if (gt.conditionText) s += " if " + gt.conditionText;
+  if (gt.message) s += ": " + gt.message;
+  return s;
+}
+
+/**
+ * Precomputes truncated label text, chip width, and box height for one node's optional
+ * content (guard-throw strip, throw message, condition line, iteration chip) — all text
+ * measurement happens here, once per node, never in the draw loop.
+ */
+function epBuildNodeExtras(n) {
+  if (!epCtx) return;
+  var extraRows = 0;
+  var innerW = n.w - 16;
+
+  if (n.guardThrow) {
+    epCtx.font = "9px -apple-system, BlinkMacSystemFont, sans-serif";
+    n.guardThrowText = epClipText("⚠ " + epGuardThrowFullText(n.guardThrow), innerW);
+    extraRows++;
+  }
+  if (n.type === "throw" && n.throwMessage) {
+    epCtx.font = "9px monospace";
+    n.throwMsgText = epClipText(n.throwMessage, innerW);
+    extraRows++;
+  }
+  if (n.conditional && n.conditionText) {
+    epCtx.font = "9px -apple-system, BlinkMacSystemFont, sans-serif";
+    n.conditionLineText = epClipText("when " + n.conditionText, innerW);
+    extraRows++;
+  }
+  if (n.iterationKind) {
+    epCtx.font = "bold 9px -apple-system, BlinkMacSystemFont, sans-serif";
+    n.iterChipText = epClipText("↻ " + (n.iterationLabel || n.iterationKind), 70);
+    n.iterChipW = epCtx.measureText(n.iterChipText).width + 10;
+  }
+
+  n.h = 60 + extraRows * 14;
+}
+
 function epBuildGraph(ep) {
   epNodes = [];
   epEdges = [];
@@ -4280,15 +4321,22 @@ function epBuildGraph(ep) {
         type: dep.type,
         methodName: dep.methodName,
         conditional: dep.conditional,
+        conditionText: dep.conditionText,
+        branchKind: dep.branchKind,
         order: dep.order,
         totalMethods: dep.totalMethods,
         filePath: dep.filePath,
         line: dep.line,
         endLine: dep.endLine,
         expandedElsewhere: dep.expandedElsewhere,
+        guardThrow: dep.guardThrow,
+        throwMessage: dep.throwMessage,
+        iterationKind: dep.iterationKind,
+        iterationLabel: dep.iterationLabel,
         expanded: false,
         x: 0, y: 0, w: 180, h: 60
       };
+      epBuildNodeExtras(n);
       epNodes.push(n);
       epEdges.push({ from: parentNode.id, to: n.id, conditional: dep.conditional });
       if (dep.dependencies && dep.dependencies.length > 0) {
@@ -4298,6 +4346,17 @@ function epBuildGraph(ep) {
   }
 
   walkDeps(rootNode, ep.dependencies);
+
+  // Contiguous #N badges in engine-order sequence. The raw order field skips slots a
+  // merged guard-throw consumed (e.g. 0, 2), which would otherwise show as #1 -> #3.
+  // Computed once here so display order stays stable while nodes expand/collapse.
+  var ordered = [];
+  for (var oi = 0; oi < epNodes.length; oi++) {
+    if (epNodes[oi].order >= 0) ordered.push(epNodes[oi]);
+  }
+  ordered.sort(function(a, b) { return a.order - b.order; });
+  for (var di = 0; di < ordered.length; di++) ordered[di].displayOrder = di;
+
   epComputeTreeVisibility(epNodes, epEdges);
 }
 
@@ -4572,7 +4631,8 @@ function epDrawFocusedGraph() {
     epCtx.textBaseline = "middle";
     var nameStr = n.className;
     var nameStartX = x + 8 + dotSize + 6;
-    var chipReserve = n.childCount > 0 ? EP_CHIP_W + 6 : 0;
+    var iterChipReserve = n.iterationKind ? (n.iterChipW || 30) + 4 : 0;
+    var chipReserve = (n.childCount > 0 ? EP_CHIP_W + 6 : 0) + iterChipReserve;
     var maxNameW = n.w - (nameStartX - x) - 8 - chipReserve;
     while (epCtx.measureText(nameStr).width > maxNameW && nameStr.length > 3) {
       nameStr = nameStr.slice(0, -1);
@@ -4581,6 +4641,7 @@ function epDrawFocusedGraph() {
     epCtx.fillText(nameStr, nameStartX, y + HDR_H / 2);
 
     // Expand chip — collapsed/expanded state and direct-child count, hit-tested by epChipHitTest.
+    var chipLeftEdge = x + n.w - 6;
     if (n.childCount > 0) {
       var chip = epNodeChipRect(n);
       epRoundRect(epCtx, chip.x, chip.y, chip.w, chip.h, 4);
@@ -4594,6 +4655,26 @@ function epDrawFocusedGraph() {
       epCtx.textAlign = "center";
       epCtx.textBaseline = "middle";
       epCtx.fillText((n.expanded ? "\\u25BE" : "\\u25B8") + " " + n.childCount, chip.x + chip.w / 2, chip.y + chip.h / 2 + 0.5);
+      epCtx.textAlign = "left";
+      chipLeftEdge = chip.x - 6;
+    }
+
+    // Iteration chip — sits left of the expand chip when both are present.
+    if (n.iterationKind && n.iterChipText) {
+      var iterW = n.iterChipW || 30;
+      var iterX = chipLeftEdge - iterW;
+      var iterY = y + (HDR_H - EP_CHIP_H) / 2;
+      epRoundRect(epCtx, iterX, iterY, iterW, EP_CHIP_H, 4);
+      epCtx.fillStyle = "rgba(255,255,255,0.09)";
+      epCtx.fill();
+      epCtx.strokeStyle = "rgba(255,255,255,0.2)";
+      epCtx.lineWidth = 1;
+      epCtx.stroke();
+      epCtx.font = "bold 9px -apple-system, BlinkMacSystemFont, sans-serif";
+      epCtx.fillStyle = "#aaa";
+      epCtx.textAlign = "center";
+      epCtx.textBaseline = "middle";
+      epCtx.fillText(n.iterChipText, iterX + iterW / 2, iterY + EP_CHIP_H / 2 + 0.5);
       epCtx.textAlign = "left";
     }
 
@@ -4614,11 +4695,11 @@ function epDrawFocusedGraph() {
     epCtx.textBaseline = "middle";
     epCtx.fillText(typeLabel, x + 13, infoY + 6);
 
-    // Order badge (#N)
+    // Order badge (#N) — displayOrder is the contiguous, gap-free renumbering from epBuildGraph.
     var badgeRight = x + 8 + badgeW;
     var orderW = 0;
-    if (n.order >= 0) {
-      var orderLabel = "#" + (n.order + 1);
+    if (n.displayOrder !== undefined) {
+      var orderLabel = "#" + (n.displayOrder + 1);
       epCtx.font = "bold 8px -apple-system, BlinkMacSystemFont, sans-serif";
       orderW = epCtx.measureText(orderLabel).width + 8;
       epRoundRect(epCtx, badgeRight + 4, infoY, orderW, 12, 3);
@@ -4651,6 +4732,31 @@ function epDrawFocusedGraph() {
         mText = mText.slice(0, -1);
       }
       epCtx.fillText(mText, x + 8, methodY);
+    }
+
+    // Extra rows below whatever content just drew — guard-throw strip, throw message,
+    // condition text. Text is precomputed in epBuildNodeExtras; box height already
+    // accounts for however many of these apply, so nothing here measures text.
+    var rowY = infoY + (n.methodName ? 18 : 0) + 14;
+    epCtx.textAlign = "left";
+    epCtx.textBaseline = "middle";
+    if (n.guardThrowText) {
+      epCtx.font = "9px -apple-system, BlinkMacSystemFont, sans-serif";
+      epCtx.fillStyle = "#f59e0b";
+      epCtx.fillText(n.guardThrowText, x + 8, rowY);
+      rowY += 14;
+    }
+    if (n.throwMsgText) {
+      epCtx.font = "9px monospace";
+      epCtx.fillStyle = "#f87171";
+      epCtx.fillText(n.throwMsgText, x + 8, rowY);
+      rowY += 14;
+    }
+    if (n.conditionLineText) {
+      epCtx.font = "9px -apple-system, BlinkMacSystemFont, sans-serif";
+      epCtx.fillStyle = "rgba(245,158,11,0.75)";
+      epCtx.fillText(n.conditionLineText, x + 8, rowY);
+      rowY += 14;
     }
   }
 
@@ -4690,7 +4796,23 @@ function epShowTooltip(node, screenX, screenY) {
   }
   var condLabel = "";
   if (node.conditional) {
-    condLabel = '<div style="font-size:9px;color:#f59e0b;margin-top:4px">Conditionally called</div>';
+    var condText = "Conditionally called";
+    if (node.branchKind) condText += " (" + node.branchKind + ")";
+    if (node.conditionText) condText += " \u2014 when " + node.conditionText;
+    condLabel = '<div style="font-size:9px;color:#f59e0b;margin-top:4px">' + escHtml(condText) + '</div>';
+  }
+  var guardThrowLabel = "";
+  if (node.guardThrow) {
+    guardThrowLabel = '<div style="font-size:9px;color:#f59e0b;margin-top:4px">\u26A0 ' + escHtml(epGuardThrowFullText(node.guardThrow)) + '</div>';
+  }
+  var throwMsgLabel = "";
+  if (node.type === "throw" && node.throwMessage) {
+    throwMsgLabel = '<div style="font-size:9px;color:#f87171;margin-top:4px">' + escHtml(node.throwMessage) + '</div>';
+  }
+  var iterLabel = "";
+  if (node.iterationKind) {
+    var iterText = "Called inside " + (node.iterationLabel ? "." + node.iterationLabel + "()" : node.iterationKind);
+    iterLabel = '<div style="font-size:9px;color:#888;margin-top:4px">\u21BB ' + escHtml(iterText) + '</div>';
   }
   var repeatLabel = "";
   if (node.expandedElsewhere) {
@@ -4702,7 +4824,7 @@ function epShowTooltip(node, screenX, screenY) {
   }
   epTooltipEl.innerHTML = '<div class="tt-name">' + escHtml(node.className) + '</div>' +
     '<div class="tt-table" style="color:' + color + '">' + escHtml(node.type) + '</div>' +
-    methodHtml + condLabel + repeatLabel + childLabel;
+    methodHtml + condLabel + guardThrowLabel + throwMsgLabel + iterLabel + repeatLabel + childLabel;
   epTooltipEl.style.display = "block";
 
   var mainRect = epCanvas.parentElement.getBoundingClientRect();
