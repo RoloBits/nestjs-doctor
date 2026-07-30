@@ -4,6 +4,7 @@ import type { ModuleGraph } from "../../engine/graph/module-graph.js";
 import type { ProviderInfo } from "../../engine/graph/type-resolver.js";
 import { getRuleExamples } from "../data/examples.js";
 import type { ReportScriptData } from "../ui/scripts.js";
+import { computeEndpointDiagnostics } from "./endpoint-diagnostics.js";
 import { serializeModuleGraph } from "./module-serializer.js";
 
 function safeJsonForScript(json: string): string {
@@ -90,6 +91,14 @@ export function prepareReportData(
 	const endpointsJson = safeJsonForScript(
 		JSON.stringify(result.endpoints ?? { endpoints: [] })
 	);
+	const endpointDiagnosticsJson = safeJsonForScript(
+		JSON.stringify(
+			computeEndpointDiagnostics(
+				result.endpoints?.endpoints ?? [],
+				result.diagnostics
+			)
+		)
+	);
 
 	return {
 		graphJson,
@@ -103,5 +112,6 @@ export function prepareReportData(
 		providersJson,
 		schemaJson,
 		endpointsJson,
+		endpointDiagnosticsJson,
 	};
 }

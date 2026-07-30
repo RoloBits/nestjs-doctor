@@ -1,6 +1,7 @@
 export interface ReportScriptData {
 	diagnosticsJson: string;
 	elapsedMsJson: string;
+	endpointDiagnosticsJson: string;
 	endpointsJson: string;
 	examplesJson: string;
 	fileSourcesJson: string;
@@ -25,6 +26,7 @@ const fileSources = ${data.fileSourcesJson};
 const providers = ${data.providersJson};
 const schema = ${data.schemaJson};
 const endpoints = ${data.endpointsJson};
+const endpointDiagnostics = ${data.endpointDiagnosticsJson};
 const isMonorepo = Object.keys(fileSources).length === 0;
 
 // ── Score helpers ──
