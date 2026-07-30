@@ -1141,6 +1141,9 @@ canvas:active { cursor: grabbing; }
 .ep-legend-break {
   background: #1a1408; border: 1px solid #f59e0b; border-left: 3px solid #ea2845;
 }
+.ep-legend-value-edge {
+  background: none; border: 1px dotted #5b9bd5; height: 8px;
+}
 .ep-legend-glyph { width: 14px; text-align: center; flex-shrink: 0; font-size: 11px; }
 .ep-legend-order {
   width: 14px; text-align: center; flex-shrink: 0; font-size: 9px; color: #999;

@@ -175,6 +175,7 @@ interface BuildGraphNode {
 interface BuildGraphEdge {
 	conditional: boolean;
 	from: number;
+	kind?: string;
 	to: number;
 }
 
@@ -675,16 +676,22 @@ describe("endpoints focused-tree display numbering", () => {
 		expect(breakEdge?.from).toBe(accessEdge?.from);
 
 		// access()'s own child (findUnique) hangs off access(), not off the break node.
-		const childEdge = edges.find((e) => e.from === accessNode?.id);
+		// Excludes the value edge (access() also has one of those to the break node).
+		const childEdge = edges.find(
+			(e) => e.from === accessNode?.id && e.kind !== "value"
+		);
 		expect(childEdge).toBeDefined();
-		expect(childEdge?.from).not.toBe(breakNode?.id);
+		expect(childEdge?.to).not.toBe(breakNode?.id);
 	});
 
 	it("restarts numbering per sibling level instead of sorting the whole tree", () => {
 		const { nodes, edges } = runBuildGraph(buildGuardThrowFixture());
 
 		const accessNode = nodes.find((n) => n.methodName === "access");
-		const findUniqueEdge = edges.find((e) => e.from === accessNode?.id);
+		// Excludes the value edge (access() also has one of those to the break node).
+		const findUniqueEdge = edges.find(
+			(e) => e.from === accessNode?.id && e.kind !== "value"
+		);
 		const findUniqueNode = nodes.find((n) => n.id === findUniqueEdge?.to);
 
 		// access()'s only child is the first (and only) call at its own level, #1
@@ -710,5 +717,36 @@ describe("endpoints focused-tree display numbering", () => {
 			displayOrder: n.displayOrder,
 		}));
 		expect(after).toEqual(before);
+	});
+});
+
+describe("endpoints focused-tree value edges", () => {
+	it("adds a value edge from the guarded call to its break step, alongside the structural edge", () => {
+		const { nodes, edges } = runBuildGraph(buildGuardThrowFixture());
+
+		const accessNode = nodes.find((n) => n.methodName === "access");
+		const breakNode = nodes.find((n) => n.kind === "break");
+
+		const valueEdge = edges.find(
+			(e) => e.kind === "value" && e.to === breakNode?.id
+		);
+		expect(valueEdge?.from).toBe(accessNode?.id);
+
+		// Additional to, not instead of, the structural caller-to-break-step edge.
+		const structuralEdgesToBreak = edges.filter(
+			(e) => e.to === breakNode?.id && e.kind !== "value"
+		);
+		expect(structuralEdgesToBreak).toHaveLength(1);
+		expect(structuralEdgesToBreak[0].from).not.toBe(accessNode?.id);
+	});
+
+	it("leaves non-guard edges without a kind", () => {
+		const { edges } = runBuildGraph(buildGuardThrowFixture());
+
+		const nonValueEdges = edges.filter((e) => e.kind !== "value");
+		expect(nonValueEdges.length).toBeGreaterThan(0);
+		for (const e of nonValueEdges) {
+			expect(e.kind).toBeUndefined();
+		}
 	});
 });

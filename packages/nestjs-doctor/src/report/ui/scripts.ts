@@ -4158,6 +4158,10 @@ var EP_TYPE_COLORS = {
   unknown: "#666"
 };
 
+// Muted blue-grey for value edges (a call's return value flowing into a break-step
+// check) — distinct from the amber conditional dash and the solid grey structural edge.
+var EP_VALUE_EDGE_COLOR = "#5b9bd5";
+
 /** Builds the type-color rows of the endpoints legend straight from EP_TYPE_COLORS. */
 function epBuildLegendTypesHtml() {
   var html = "";
@@ -4390,6 +4394,10 @@ function epBuildGraph(ep) {
         epBuildBreakNodeExtras(bn);
         epNodes.push(bn);
         epEdges.push({ from: parentNode.id, to: bn.id, conditional: false });
+
+        // Value edge: the guarded call's own return value flows into this check —
+        // additional to (not instead of) the structural caller-to-break-step edge above.
+        epEdges.push({ from: n.id, to: bn.id, kind: "value" });
       }
 
       if (dep.dependencies && dep.dependencies.length > 0) {
@@ -4568,22 +4576,32 @@ function epDrawFocusedGraph() {
     var tx = toN.x;
     var ty = toN.y - toN.h / 2;
 
-    var edgeColor = epEdges[i].conditional ? "rgba(245, 158, 11, 0.6)" : "#555";
-    if (epEdges[i].conditional) {
+    // Value edges (a guarded call's return value flowing into its break step) draw
+    // thinner and dotted in a muted blue, distinct from the amber conditional dash.
+    var isValueEdge = epEdges[i].kind === "value";
+    var edgeColor = isValueEdge
+      ? EP_VALUE_EDGE_COLOR
+      : (epEdges[i].conditional ? "rgba(245, 158, 11, 0.6)" : "#555");
+    var edgeLineW = isValueEdge ? 1 / epZoom : 1.5 / epZoom;
+    if (isValueEdge) {
+      epCtx.setLineDash([2 / epZoom, 3 / epZoom]);
+    } else if (epEdges[i].conditional) {
       epCtx.setLineDash([6 / epZoom, 4 / epZoom]);
     }
 
     epCtx.beginPath();
     epCtx.moveTo(fx, fy);
     // L-shaped edge if not aligned
-    if (Math.abs(fx - tx) > 2) {
-      var midY = fy + (ty - fy) / 2;
+    var bent = Math.abs(fx - tx) > 2;
+    var midY = fy;
+    if (bent) {
+      midY = fy + (ty - fy) / 2;
       epCtx.lineTo(fx, midY);
       epCtx.lineTo(tx, midY);
     }
     epCtx.lineTo(tx, ty);
     epCtx.strokeStyle = edgeColor;
-    epCtx.lineWidth = 1.5 / epZoom;
+    epCtx.lineWidth = edgeLineW;
     epCtx.stroke();
 
     // Arrow
@@ -4593,10 +4611,23 @@ function epDrawFocusedGraph() {
     epCtx.lineTo(tx, ty);
     epCtx.lineTo(tx + arrowSize, ty - arrowSize);
     epCtx.strokeStyle = edgeColor;
-    epCtx.lineWidth = 1.5 / epZoom;
+    epCtx.lineWidth = edgeLineW;
     epCtx.stroke();
 
     epCtx.setLineDash([]);
+
+    // Label the value edge with the producer's assigned variable, at the midpoint
+    // of its (usually horizontal, same-rank) segment.
+    if (isValueEdge && fromN.assignedTo) {
+      var labelX = bent ? (fx + tx) / 2 : fx;
+      var labelY = bent ? midY : (fy + ty) / 2;
+      epCtx.font = "9px monospace";
+      epCtx.fillStyle = EP_VALUE_EDGE_COLOR;
+      epCtx.textAlign = "center";
+      epCtx.textBaseline = "bottom";
+      epCtx.fillText(fromN.assignedTo, labelX, labelY - 2 / epZoom);
+      epCtx.textAlign = "left";
+    }
   }
 
   // Draw nodes — collapsed-away nodes carry stale coordinates from their last layout, so skip them.
