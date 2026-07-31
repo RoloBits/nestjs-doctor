@@ -875,7 +875,8 @@ canvas:active { cursor: grabbing; }
   font-size: 11px; font-family: var(--font); color: var(--text);
   box-shadow: 0 4px 12px rgba(0,0,0,0.5);
 }
-#schema-sidebar .has-tip:is(:hover, :focus-visible)::after {
+#schema-sidebar .has-tip:is(:hover, :focus-visible)::after,
+#endpoints-sidebar .has-tip:is(:hover, :focus-visible)::after {
   white-space: normal; width: max-content; max-width: 240px;
 }
 /* An icon sits near the left edge, so its tip has to open rightwards. */
@@ -1044,7 +1045,17 @@ canvas:active { cursor: grabbing; }
   padding: 16px 16px 12px; display: flex; align-items: center; gap: 8px;
   border-bottom: 1px solid var(--border);
 }
+.endpoints-sidebar-search {
+  padding: 10px 16px; border-bottom: 1px solid var(--border);
+}
+.endpoints-sidebar-search input {
+  width: 100%; font-size: 12px; padding: 6px 10px; border-radius: 6px;
+  background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+  color: var(--text); font-family: var(--font); outline: none;
+}
+.endpoints-sidebar-search input:focus { border-color: var(--border-hover); }
 #endpoints-list { padding: 4px 0; }
+.ep-module-row { margin-top: 4px; }
 #endpoints-main {
   flex: 1; overflow: hidden; background: var(--bg);
   display: flex; flex-direction: column; min-width: 0;
@@ -1057,16 +1068,108 @@ canvas:active { cursor: grabbing; }
   cursor: grab; display: block;
 }
 #endpoints-canvas:active { cursor: grabbing; }
+#tab-endpoints.sidebar-collapsed #endpoints-sidebar { display: none; }
+#endpoints-sidebar-show { display: none; }
+#tab-endpoints.sidebar-collapsed #endpoints-sidebar-show {
+  display: flex; position: absolute; top: 12px; left: 12px; z-index: 10;
+  width: 28px; height: 28px; justify-content: center;
+  background: rgba(50,50,50,0.9);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255,255,255,0.22);
+  color: rgba(255,255,255,0.7);
+}
+#tab-endpoints.sidebar-collapsed #endpoints-sidebar-show:hover {
+  background: rgba(70,70,70,0.95); color: #fff;
+}
+#endpoints-sidebar-show:is(:hover, :focus-visible)::after { left: 0; right: auto; }
 #endpoints-toolbar {
-  position: absolute; top: 12px; right: 12px; z-index: 10;
-  display: flex; gap: 4px;
+  position: absolute; top: 12px; right: 12px; z-index: 12;
+  display: flex; align-items: center; gap: 4px;
 }
-#endpoints-empty-state {
-  display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-  flex-direction: column; align-items: center; justify-content: center;
-  color: var(--text-muted); gap: 12px; text-align: center; z-index: 5;
+#endpoints-zoombar {
+  display: flex; align-items: center; gap: 6px;
+  height: 28px; padding: 0 8px; border-radius: 6px;
+  background: rgba(50,50,50,0.9);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255,255,255,0.22);
 }
-#endpoints-empty-state p { font-size: 14px; color: var(--text-dim); margin: 0; }
+#endpoints-zoom-range {
+  -webkit-appearance: none; appearance: none;
+  width: 110px; height: 3px; border-radius: 2px;
+  background: rgba(255,255,255,0.25); outline: none; cursor: pointer;
+}
+#endpoints-zoom-range::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 11px; height: 11px; border-radius: 50%;
+  background: var(--nest-red); cursor: pointer;
+}
+#endpoints-zoom-range::-moz-range-thumb {
+  width: 11px; height: 11px; border: none; border-radius: 50%;
+  background: var(--nest-red); cursor: pointer;
+}
+/* Endpoint tooltip sits below the code panel so an open panel isn't hidden by it. */
+#endpoints-tooltip { z-index: 9; }
+#endpoints-truncated-banner {
+  position: absolute; top: 12px; left: 12px; z-index: 10;
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px 6px 12px; border-radius: 6px; max-width: 420px;
+  background: rgba(120,53,15,0.92); border: 1px solid rgba(245,158,11,0.5);
+  color: #fde68a; font-size: 12px;
+  backdrop-filter: blur(4px);
+}
+#endpoints-truncated-dismiss {
+  background: none; border: none; color: #fde68a; opacity: 0.8;
+  cursor: pointer; font-size: 16px; line-height: 1; padding: 0 2px; flex-shrink: 0;
+}
+#endpoints-truncated-dismiss:hover { opacity: 1; }
+#endpoints-legend {
+  position: absolute; top: 48px; right: 12px; z-index: 12;
+  width: 220px; max-height: calc(100% - 60px); overflow-y: auto;
+  padding: 10px 12px; border-radius: 6px;
+  background: rgba(26,26,26,0.95); border: 1px solid rgba(255,255,255,0.15);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  font-size: 11px; color: var(--text);
+}
+.ep-legend-title { font-weight: 600; color: var(--white); margin-bottom: 6px; }
+.ep-legend-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+.ep-legend-swatch {
+  width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; display: inline-block;
+}
+.ep-legend-dashed {
+  background: none; border: 1px dashed #f59e0b; height: 8px;
+}
+.ep-legend-break {
+  background: #1a1408; border: 1px solid #f59e0b; border-left: 3px solid #ea2845;
+}
+.ep-legend-value-edge {
+  background: none; border: 1px dotted #5b9bd5; height: 8px;
+}
+.ep-legend-glyph { width: 14px; text-align: center; flex-shrink: 0; font-size: 11px; }
+.ep-legend-order {
+  width: 14px; text-align: center; flex-shrink: 0; font-size: 9px; color: #999;
+}
+.ep-legend-divider { border-top: 1px solid var(--border); margin: 6px 0; }
+#endpoints-diag-panel {
+  flex: none; border-top: 1px solid var(--border); background: var(--surface);
+}
+#endpoints-diag-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 12px; cursor: pointer; user-select: none;
+  transition: background 0.15s;
+}
+#endpoints-diag-header:hover { background: var(--surface-hover); }
+.ep-diag-scope {
+  font-size: 11px; color: var(--text-dim); font-family: monospace;
+  text-transform: none; margin-left: -4px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+.ep-diag-caveat {
+  padding: 0 12px 6px; font-size: 10px; color: var(--text-dim);
+}
+#endpoints-diag-body {
+  max-height: 220px; overflow-y: auto;
+  border-top: 1px solid var(--border);
+}
 .ep-method-badge {
   display: inline-block; font-size: 9px; font-weight: 700;
   padding: 1px 6px; border-radius: 3px; margin-right: 6px;
@@ -1078,18 +1181,40 @@ canvas:active { cursor: grabbing; }
 .ep-method-put { background: rgba(245,158,11,0.15); color: #f59e0b; }
 .ep-method-patch { background: rgba(245,158,11,0.15); color: #f59e0b; }
 .ep-method-delete { background: rgba(239,68,68,0.15); color: #ef4444; }
+.ep-method-all { background: rgba(6,182,212,0.15); color: #06b6d4; }
+.ep-method-head { background: rgba(100,116,139,0.15); color: #64748b; }
+.ep-method-options { background: rgba(148,163,184,0.15); color: #94a3b8; }
+.ep-method-query { background: rgba(139,92,246,0.15); color: #8b5cf6; }
+.ep-method-mutation { background: rgba(168,85,247,0.15); color: #a855f7; }
+.ep-method-subscription { background: rgba(192,38,211,0.15); color: #c026d3; }
+.ep-method-unknown { background: rgba(136,136,136,0.15); color: #888; }
 .ep-endpoint-row { padding-left: 4px; }
 .ep-endpoint-row:hover { background: rgba(255,255,255,0.04); }
 .ep-endpoint-row.st-selected { background: rgba(59,130,246,0.18); }
+.ep-auth-shield {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; margin-left: 6px; font-size: 10px;
+  font-weight: 700; flex-shrink: 0; cursor: default;
+}
+.ep-auth-guarded { color: var(--score-green); }
+.ep-auth-public { color: var(--sev-info); }
+.ep-auth-unguarded { color: var(--sev-warning); }
+.ep-auth-unknown { color: var(--text-dim); }
+.ep-diag-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 10px; color: var(--text-dim); margin-left: 6px; flex-shrink: 0;
+}
+.ep-diag-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
 
 /* ── Endpoint code panel ── */
 .ep-code-panel {
-  position: absolute; left: 0; top: 0; bottom: 0; width: 500px; z-index: 10;
+  position: absolute; left: 0; top: 0; bottom: 0; width: 500px; z-index: 11;
   background: var(--surface); border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
-  transform: translateX(-100%); transition: transform 0.25s ease;
+  transform: translateX(-100%); opacity: 0;
+  transition: transform 0.16s ease-out, opacity 0.16s ease-out;
 }
-.ep-code-panel.open { transform: translateX(0); }
+.ep-code-panel.open { transform: translateX(0); opacity: 1; }
 .ep-code-panel-header {
   padding: 14px 16px 10px; border-bottom: 1px solid var(--border);
   position: relative; flex-shrink: 0;

@@ -66,6 +66,7 @@ Caveat shown in the UI: counts follow the report's diagnostics as scoped; zero d
 
 ### Focused mode (existing tree, kept as drill-down)
 
+- The tree opens collapsed to the handler's direct calls; each node with children carries an expand chip.
 - Fix click-vs-drag: movement threshold (~4px) before a drag starts, and preserve the grab offset (today any 1px move cancels the click and teleports the node's centre to the cursor — the code panel is effectively unreachable).
 - Truncation banner when `truncated` is set.
 - Legend: `#N` = call order, dashed amber = conditional, colours = provider type.

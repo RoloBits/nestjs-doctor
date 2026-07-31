@@ -7,6 +7,7 @@ import {
 const EMPTY: ReportScriptData = {
 	diagnosticsJson: "[]",
 	elapsedMsJson: "0",
+	endpointDiagnosticsJson: '{"perEndpoint":{},"perFile":{}}',
 	endpointsJson: '{"endpoints":[]}',
 	examplesJson: "[]",
 	fileSourcesJson: "{}",

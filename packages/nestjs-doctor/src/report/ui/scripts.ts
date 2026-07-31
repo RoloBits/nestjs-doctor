@@ -1,6 +1,7 @@
 export interface ReportScriptData {
 	diagnosticsJson: string;
 	elapsedMsJson: string;
+	endpointDiagnosticsJson: string;
 	endpointsJson: string;
 	examplesJson: string;
 	fileSourcesJson: string;
@@ -25,6 +26,7 @@ const fileSources = ${data.fileSourcesJson};
 const providers = ${data.providersJson};
 const schema = ${data.schemaJson};
 const endpoints = ${data.endpointsJson};
+const endpointDiagnostics = ${data.endpointDiagnosticsJson};
 const isMonorepo = Object.keys(fileSources).length === 0;
 
 // ── Score helpers ──
@@ -842,7 +844,7 @@ function renderDiagnosis() {
         codeEl.appendChild(wrapDiv);
         if (window.createCodeViewer) {
           window.createCodeViewer(wrapDiv, codeText, {
-            highlightLines: hlLines,
+            diagnosticLines: hlLines,
             lineMetadata: lineMetadata,
             firstLineNumber: firstLineNum,
             skipScrollIntoView: sg > 0,
@@ -893,7 +895,7 @@ function renderDiagnosis() {
         codeEl.appendChild(wrapDiv);
         if (window.createCodeViewer) {
           window.createCodeViewer(wrapDiv, codeText, {
-            highlightLines: hlLines,
+            diagnosticLines: hlLines,
             lineMetadata: lineMetadata,
             firstLineNumber: firstLineNum,
           });
@@ -1572,7 +1574,7 @@ function renderLab() {
         pgFileCode.appendChild(wrapDiv);
         if (window.createCodeViewer) {
           window.createCodeViewer(wrapDiv, codeText, {
-            highlightLines: hlLines,
+            diagnosticLines: hlLines,
             lineMetadata: lineMetadata,
             firstLineNumber: firstLineNum,
             skipScrollIntoView: sg > 0,
@@ -3673,16 +3675,475 @@ function renderSchema() {
 
 // ── Endpoints tab: Canvas-based dependency graph ──
 
+var epProjectRoot = null;
+
+/** Longest common directory prefix of every known source path — display-only project root. */
+function epComputeProjectRoot() {
+  var keys = Object.keys(fileSources);
+  if (keys.length === 0) {
+    keys = [];
+    for (var i = 0; i < endpoints.endpoints.length; i++) keys.push(endpoints.endpoints[i].filePath);
+  }
+  if (keys.length === 0) return "";
+  if (keys.length === 1) {
+    // Nothing to compare against — root is that one file's own directory,
+    // not the file itself (which would make its relative path empty).
+    var onlyParts = keys[0].split("/");
+    onlyParts.pop();
+    return onlyParts.join("/");
+  }
+  var parts = keys[0].split("/");
+  for (var k = 1; k < keys.length && parts.length > 0; k++) {
+    var otherParts = keys[k].split("/");
+    var j = 0;
+    while (j < parts.length && j < otherParts.length && parts[j] === otherParts[j]) j++;
+    parts = parts.slice(0, j);
+  }
+  return parts.join("/");
+}
+
+/**
+ * Display-only: strips the project root off an absolute path for the endpoints tab's
+ * UI. Every internal join/lookup keeps using the raw absolute filePath untouched.
+ */
+function epRelPath(filePath) {
+  if (!filePath) return filePath || "";
+  if (epProjectRoot === null) epProjectRoot = epComputeProjectRoot();
+  if (epProjectRoot && filePath.indexOf(epProjectRoot) === 0) {
+    var rest = filePath.slice(epProjectRoot.length);
+    while (rest.charAt(0) === "/") rest = rest.slice(1);
+    return rest;
+  }
+  return filePath;
+}
+
 var epCanvas, epCtx, epDpr, epW, epH;
-var epCamX = 0, epCamY = 0, epZoom = 1;
+var epCamX = 0, epCamY = 0, epZoom = 1, epMinZoom = 0.2;
 var epDragging = null, epPanning = false, epPanStart = {x: 0, y: 0};
 var epDragMoved = false;
+var epDragStartX = 0, epDragStartY = 0;
+var EP_DRAG_THRESHOLD_PX = 4;
 var epHoveredNode = null;
+var epHoveredEdge = null;
 var epNodes = [];
 var epEdges = [];
 var epTooltipEl = null;
 var epDirty = false;
-var epSelectedEndpoint = null;
+var epSelectedIndex = -1;
+var epLastZoomUi = null;
+var epBannerDismissedIndex = -1;
+// Set once the problems drawer is wired up in renderEndpoints(); epShowFocused/epShowOverview
+// call it with the selected index (or null for overview) to keep the drawer in scope.
+var epDiagPanelRender = null;
+var EP_CHIP_W = 34, EP_CHIP_H = 15;
+var EP_NODE_HDR_H = 22;
+
+/** "overview" (default) shows module clusters; "focused" shows one endpoint's call graph. */
+var epMode = "overview";
+var epOverviewGroups = [];
+var epOvHoveredRow = null;
+var epOvHitRowPending = null;
+
+function epZoomFloor() {
+  return Math.min(epMinZoom, 0.05);
+}
+
+/** Keeps the zoom bar in step with the camera, whatever changed it. */
+function epSyncZoomUi() {
+  var pct = Math.round(epZoom * 100);
+  if (pct === epLastZoomUi) return;
+  epLastZoomUi = pct;
+  var range = document.getElementById("endpoints-zoom-range");
+  var label = document.getElementById("endpoints-zoom-value");
+  if (range) range.value = String(Math.max(5, Math.min(500, pct)));
+  if (label) {
+    label.textContent = pct + "%";
+    label.setAttribute("aria-label", pct + "% \\u00b7 fit to view");
+  }
+}
+
+function epSetZoom(next) {
+  epZoom = Math.max(epZoomFloor(), Math.min(3, next));
+  epSyncZoomUi();
+  epScheduleRedraw();
+}
+
+// Auth shield for one endpoint. Reused by the endpoints overview canvas.
+function epAuthShield(ep) {
+  var auth = ep.auth;
+  var state = auth ? auth.state : "unknown";
+  var SHIELD_INFO = {
+    guarded: { glyph: "\\u2713", cls: "ep-auth-guarded", text: "Guarded" },
+    "declared-public": { glyph: "\\u25CB", cls: "ep-auth-public", text: "Declared public" },
+    unguarded: { glyph: "\\u26A0", cls: "ep-auth-unguarded", text: "Unguarded" },
+    unknown: { glyph: "?", cls: "ep-auth-unknown", text: "Unknown" }
+  };
+  var info = SHIELD_INFO[state] || SHIELD_INFO.unknown;
+  var labelParts = [info.text];
+  if (auth && auth.guardNames && auth.guardNames.length > 0) {
+    labelParts.push("guards: " + auth.guardNames.join(", "));
+  }
+  var isGraphQL = ep.httpMethod === "QUERY" || ep.httpMethod === "MUTATION" || ep.httpMethod === "SUBSCRIPTION";
+  if (auth && auth.globalGuard && !isGraphQL) {
+    labelParts.push("global guard registered");
+  }
+  return { glyph: info.glyph, cls: info.cls, label: labelParts.join(" \\u00b7 ") };
+}
+
+// ── Endpoints tab: Overview mode (module clusters of controller boxes) ──
+
+var EP_BOX_W = 320;
+var EP_ROW_H = 22;
+var EP_BOX_HEADER_H = 30;
+var EP_BOX_PAD_BOTTOM = 8;
+var EP_MAX_VISIBLE_ROWS = 12;
+var EP_NO_MODULE_LABEL = "(no module)";
+
+function epRowCount(count) {
+  return Math.min(count, EP_MAX_VISIBLE_ROWS);
+}
+
+/** Header, one row per visible endpoint, plus a "+N more" row past the cap. */
+function epBoxHeight(count) {
+  var visible = epRowCount(count);
+  var hidden = count - visible;
+  return EP_BOX_HEADER_H + visible * EP_ROW_H + (hidden > 0 ? EP_ROW_H : 0) + EP_BOX_PAD_BOTTOM;
+}
+
+// ep-overview-layout-start
+/** Shelf-packs same-width boxes left to right, wrapping at targetW. */
+function epPackOverviewBoxes(boxes, targetW, gutter) {
+  var x = 0, y = 0, shelfH = 0;
+  for (var i = 0; i < boxes.length; i++) {
+    var box = boxes[i];
+    if (x > 0 && x + box.w > targetW) {
+      x = 0;
+      y += shelfH + gutter;
+      shelfH = 0;
+    }
+    box.ox = x;
+    box.oy = y;
+    x += box.w + gutter;
+    if (box.h > shelfH) shelfH = box.h;
+  }
+  return y + shelfH;
+}
+
+/**
+ * Packs each module's controller boxes into a shelf sized to its own content,
+ * then shelf-packs the module rectangles themselves onto rows — the same
+ * epPackOverviewBoxes call used at both levels, so a project with hundreds of
+ * one-controller modules fills the canvas instead of stacking into one column.
+ */
+function epComputeOverviewLayout(groups, boxWidth) {
+  var GUTTER = 32;
+  var MODULE_HEADER_H = 28;
+  var MODULE_GAP = 56;
+  var g, i, j;
+
+  for (g = 0; g < groups.length; g++) {
+    var group = groups[g];
+    var boxes = group.boxes;
+    var area = 0;
+    for (i = 0; i < boxes.length; i++) area += boxes[i].w * boxes[i].h;
+    var innerTargetW = Math.max(boxWidth * 3, Math.sqrt(area) * 1.6);
+    var packH = epPackOverviewBoxes(boxes, innerTargetW, GUTTER);
+    var contentW = 0;
+    for (j = 0; j < boxes.length; j++) {
+      var right = boxes[j].ox + boxes[j].w;
+      if (right > contentW) contentW = right;
+    }
+    group.w = contentW;
+    group.h = MODULE_HEADER_H + packH;
+  }
+
+  var groupArea = 0;
+  for (g = 0; g < groups.length; g++) groupArea += groups[g].w * groups[g].h;
+  var outerTargetW = Math.max(boxWidth * 3, Math.sqrt(groupArea) * 1.6);
+  epPackOverviewBoxes(groups, outerTargetW, MODULE_GAP);
+
+  for (g = 0; g < groups.length; g++) {
+    var placed = groups[g];
+    placed.headerY = placed.oy;
+    var contentTop = placed.oy + MODULE_HEADER_H;
+    for (j = 0; j < placed.boxes.length; j++) {
+      var pbox = placed.boxes[j];
+      pbox.x = placed.ox + pbox.ox + pbox.w / 2;
+      pbox.y = contentTop + pbox.oy + pbox.h / 2;
+    }
+  }
+}
+// ep-overview-layout-end
+
+/** Groups endpoint indices by module, then controller; "(no module)" always sorts last. */
+function epGroupEndpointsByModule() {
+  var moduleGroups = {};
+  var moduleOrder = [];
+  for (var i = 0; i < endpoints.endpoints.length; i++) {
+    var ep = endpoints.endpoints[i];
+    var moduleLabel = ep.module ? ep.module : EP_NO_MODULE_LABEL;
+    if (!moduleGroups[moduleLabel]) {
+      moduleGroups[moduleLabel] = { controllers: {}, controllerOrder: [], count: 0 };
+      moduleOrder.push(moduleLabel);
+    }
+    var moduleGroup = moduleGroups[moduleLabel];
+    moduleGroup.count++;
+    if (!moduleGroup.controllers[ep.controllerClass]) {
+      moduleGroup.controllers[ep.controllerClass] = [];
+      moduleGroup.controllerOrder.push(ep.controllerClass);
+    }
+    moduleGroup.controllers[ep.controllerClass].push(i);
+  }
+  var sortedModules = moduleOrder.slice().sort(function(a, b) {
+    if (a === EP_NO_MODULE_LABEL) return b === EP_NO_MODULE_LABEL ? 0 : 1;
+    if (b === EP_NO_MODULE_LABEL) return -1;
+    return a < b ? -1 : (a > b ? 1 : 0);
+  });
+  return { moduleGroups: moduleGroups, sortedModules: sortedModules };
+}
+
+function epBuildOverviewGroups() {
+  var grouping = epGroupEndpointsByModule();
+  var groups = [];
+  for (var m = 0; m < grouping.sortedModules.length; m++) {
+    var label = grouping.sortedModules[m];
+    var moduleGroup = grouping.moduleGroups[label];
+    var boxes = [];
+    for (var c = 0; c < moduleGroup.controllerOrder.length; c++) {
+      var ctrlName = moduleGroup.controllerOrder[c];
+      var indices = moduleGroup.controllers[ctrlName];
+      boxes.push({
+        controllerClass: ctrlName,
+        endpointIndices: indices,
+        w: EP_BOX_W,
+        h: epBoxHeight(indices.length)
+      });
+    }
+    groups.push({ label: label, boxes: boxes });
+  }
+  return groups;
+}
+
+// ep-build-graph-start
+function epClipText(text, maxW) {
+  if (!epCtx || epCtx.measureText(text).width <= maxW) return text;
+  var out = text;
+  while (epCtx.measureText(out).width > maxW && out.length > 3) {
+    out = out.slice(0, -1);
+  }
+  return out + "\\u2026";
+}
+
+/** Truncation depends only on the fixed box width and font, so it is cached once here. */
+function epCacheOverviewLabels(groups) {
+  if (!epCtx) return;
+  for (var g = 0; g < groups.length; g++) {
+    var boxes = groups[g].boxes;
+    for (var i = 0; i < boxes.length; i++) {
+      var box = boxes[i];
+      epCtx.font = "bold 12px -apple-system, BlinkMacSystemFont, sans-serif";
+      box.nameStr = epClipText(box.controllerClass, box.w - 20);
+      var visible = epRowCount(box.endpointIndices.length);
+      var pathMaxW = box.w - 10 - 44 - 24 - 16;
+      box.pathStrs = [];
+      box.shields = [];
+      box.chipWidths = [];
+      for (var r = 0; r < visible; r++) {
+        var rowEp = endpoints.endpoints[box.endpointIndices[r]];
+        epCtx.font = "11px monospace";
+        box.pathStrs.push(epClipText(rowEp.routePath || "/", pathMaxW));
+        box.shields.push(epAuthShield(rowEp));
+        epCtx.font = "bold 8px -apple-system, BlinkMacSystemFont, sans-serif";
+        var chipMethod = (rowEp.httpMethod || "GET").toUpperCase();
+        box.chipWidths.push(Math.max(30, epCtx.measureText(chipMethod).width + 8));
+      }
+    }
+  }
+}
+
+function epRebuildOverview() {
+  epOverviewGroups = epBuildOverviewGroups();
+  epComputeOverviewLayout(epOverviewGroups, EP_BOX_W);
+  epCacheOverviewLabels(epOverviewGroups);
+}
+
+function epCenterOverviewCamera() {
+  if (epOverviewGroups.length === 0) return;
+  var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (var g = 0; g < epOverviewGroups.length; g++) {
+    var group = epOverviewGroups[g];
+    if (group.headerY < minY) minY = group.headerY;
+    if (group.headerY + group.h > maxY) maxY = group.headerY + group.h;
+    for (var b = 0; b < group.boxes.length; b++) {
+      var box = group.boxes[b];
+      if (box.x - box.w / 2 < minX) minX = box.x - box.w / 2;
+      if (box.x + box.w / 2 > maxX) maxX = box.x + box.w / 2;
+    }
+  }
+  if (minX === Infinity) { minX = 0; maxX = 0; }
+  var graphW = maxX - minX;
+  var graphH = maxY - minY;
+  var cx = (minX + maxX) / 2;
+  var cy = (minY + maxY) / 2;
+
+  var padW = epW * 0.9;
+  var padH = epH * 0.85;
+  var fit = Math.min(1.5, Math.min(padW / (graphW || 1), padH / (graphH || 1)));
+  // Records the fit so the recenter/wheel floor can zoom out this far.
+  epMinZoom = Math.min(0.2, fit);
+  epZoom = Math.max(epMinZoom, fit);
+  epCamX = epW / 2 - cx;
+  epCamY = epH / 2 - cy;
+}
+
+function epOvHitTestRow(wx, wy) {
+  for (var g = 0; g < epOverviewGroups.length; g++) {
+    var boxes = epOverviewGroups[g].boxes;
+    for (var b = 0; b < boxes.length; b++) {
+      var box = boxes[b];
+      var x0 = box.x - box.w / 2;
+      var y0 = box.y - box.h / 2;
+      if (wx < x0 || wx > x0 + box.w || wy < y0 || wy > y0 + box.h) continue;
+      var visible = epRowCount(box.endpointIndices.length);
+      var rowTop = y0 + EP_BOX_HEADER_H;
+      for (var r = 0; r < visible; r++) {
+        if (wy >= rowTop && wy < rowTop + EP_ROW_H) {
+          return { epIndex: box.endpointIndices[r] };
+        }
+        rowTop += EP_ROW_H;
+      }
+      return null;
+    }
+  }
+  return null;
+}
+
+var EP_METHOD_HEX = {
+  GET: "#3b82f6", POST: "#10b981", PUT: "#f59e0b", PATCH: "#f59e0b",
+  DELETE: "#ef4444", ALL: "#06b6d4", HEAD: "#64748b", OPTIONS: "#94a3b8",
+  QUERY: "#8b5cf6", MUTATION: "#a855f7", SUBSCRIPTION: "#c026d3"
+};
+var EP_SHIELD_HEX = {
+  "ep-auth-guarded": "#4ade80",
+  "ep-auth-public": "#3b82f6",
+  "ep-auth-unguarded": "#f59e0b",
+  "ep-auth-unknown": "#666"
+};
+
+function epDrawOverviewRow(box, rowIndex, boxX, rowTop) {
+  var epIndex = box.endpointIndices[rowIndex];
+  var rowEp = endpoints.endpoints[epIndex];
+  var method = (rowEp.httpMethod || "GET").toUpperCase();
+  var color = EP_METHOD_HEX[method] || "#888";
+  var isHovered = epOvHoveredRow && epOvHoveredRow.epIndex === epIndex;
+
+  if (isHovered) {
+    epCtx.fillStyle = "rgba(255,255,255,0.06)";
+    epCtx.fillRect(boxX + 1, rowTop, box.w - 2, EP_ROW_H);
+  }
+
+  var cy = rowTop + EP_ROW_H / 2;
+  var cx = boxX + 10;
+
+  epCtx.font = "bold 8px -apple-system, BlinkMacSystemFont, sans-serif";
+  var chipW = box.chipWidths[rowIndex];
+  epRoundRect(epCtx, cx, cy - 7, chipW, 14, 3);
+  epCtx.fillStyle = color;
+  epCtx.globalAlpha = 0.18;
+  epCtx.fill();
+  epCtx.globalAlpha = 1;
+  epCtx.fillStyle = color;
+  epCtx.textAlign = "left";
+  epCtx.textBaseline = "middle";
+  epCtx.fillText(method, cx + 4, cy);
+
+  epCtx.font = "11px monospace";
+  epCtx.fillStyle = "#ccc";
+  epCtx.fillText(box.pathStrs[rowIndex], cx + chipW + 8, cy);
+
+  var shield = box.shields[rowIndex];
+  var rightEdge = boxX + box.w - 10;
+  epCtx.font = "10px -apple-system, BlinkMacSystemFont, sans-serif";
+  epCtx.fillStyle = EP_SHIELD_HEX[shield.cls] || "#666";
+  epCtx.textAlign = "right";
+  epCtx.fillText(shield.glyph, rightEdge, cy);
+
+  var counts = endpointDiagnostics.perEndpoint[String(epIndex)];
+  if (counts) {
+    var total = counts.error + counts.warning + counts.info;
+    if (total > 0) {
+      var dotColor = counts.error > 0 ? "#ef4444" : (counts.warning > 0 ? "#f59e0b" : "#3b82f6");
+      epCtx.beginPath();
+      epCtx.arc(rightEdge - 18, cy, 3, 0, Math.PI * 2);
+      epCtx.fillStyle = dotColor;
+      epCtx.fill();
+    }
+  }
+}
+
+function epDrawOverviewBox(box) {
+  var x = box.x - box.w / 2;
+  var y = box.y - box.h / 2;
+
+  epRoundRect(epCtx, x, y, box.w, box.h, 6);
+  epCtx.fillStyle = "#151515";
+  epCtx.fill();
+  epCtx.strokeStyle = "rgba(255,255,255,0.08)";
+  epCtx.lineWidth = 1;
+  epCtx.stroke();
+
+  epCtx.fillStyle = "#e0e0e0";
+  epCtx.font = "bold 12px -apple-system, BlinkMacSystemFont, sans-serif";
+  epCtx.textAlign = "left";
+  epCtx.textBaseline = "middle";
+  epCtx.fillText(box.nameStr, x + 10, y + EP_BOX_HEADER_H / 2);
+
+  epCtx.beginPath();
+  epCtx.moveTo(x + 1, y + EP_BOX_HEADER_H);
+  epCtx.lineTo(x + box.w - 1, y + EP_BOX_HEADER_H);
+  epCtx.strokeStyle = "rgba(255,255,255,0.06)";
+  epCtx.lineWidth = 1;
+  epCtx.stroke();
+
+  var rowTop = y + EP_BOX_HEADER_H;
+  var visible = epRowCount(box.endpointIndices.length);
+  for (var r = 0; r < visible; r++) {
+    epDrawOverviewRow(box, r, x, rowTop);
+    rowTop += EP_ROW_H;
+  }
+  var hidden = box.endpointIndices.length - visible;
+  if (hidden > 0) {
+    epCtx.fillStyle = "#888";
+    epCtx.font = "11px -apple-system, BlinkMacSystemFont, sans-serif";
+    epCtx.textAlign = "left";
+    epCtx.textBaseline = "middle";
+    epCtx.fillText("+" + hidden + " more", x + 10, rowTop + EP_ROW_H / 2);
+  }
+}
+
+function epDrawOverview() {
+  epCtx.clearRect(0, 0, epW, epH);
+  if (epOverviewGroups.length === 0) return;
+  epCtx.save();
+  epCtx.translate(epW / 2, epH / 2);
+  epCtx.scale(epZoom, epZoom);
+  epCtx.translate(-epW / 2 + epCamX, -epH / 2 + epCamY);
+
+  for (var g = 0; g < epOverviewGroups.length; g++) {
+    var group = epOverviewGroups[g];
+    epCtx.font = "bold 13px -apple-system, BlinkMacSystemFont, sans-serif";
+    epCtx.fillStyle = "#e0e0e0";
+    epCtx.textAlign = "left";
+    epCtx.textBaseline = "top";
+    epCtx.fillText(group.label, group.ox, group.headerY + 6);
+
+    for (var b = 0; b < group.boxes.length; b++) {
+      epDrawOverviewBox(group.boxes[b]);
+    }
+  }
+
+  epCtx.restore();
+}
 
 var EP_TYPE_COLORS = {
   controller: "#ea2845",
@@ -3697,6 +4158,21 @@ var EP_TYPE_COLORS = {
   throw: "#f87171",
   unknown: "#666"
 };
+
+// Muted blue-grey for value edges (a call's return value flowing into a break-step
+// check) — distinct from the amber conditional dash and the solid grey structural edge.
+var EP_VALUE_EDGE_COLOR = "#5b9bd5";
+
+/** Builds the type-color rows of the endpoints legend straight from EP_TYPE_COLORS. */
+function epBuildLegendTypesHtml() {
+  var html = "";
+  for (var type in EP_TYPE_COLORS) {
+    if (!Object.prototype.hasOwnProperty.call(EP_TYPE_COLORS, type)) continue;
+    html += '<div class="ep-legend-row"><span class="ep-legend-swatch" style="background:' +
+      EP_TYPE_COLORS[type] + '"></span>' + escHtml(type) + '</div>';
+  }
+  return html;
+}
 
 function epScheduleRedraw() {
   if (!epDirty) {
@@ -3715,8 +4191,61 @@ function epScreenToWorld(sx, sy) {
 function epHitTest(wx, wy) {
   for (var i = epNodes.length - 1; i >= 0; i--) {
     var n = epNodes[i];
+    if (!n.visible) continue;
     if (wx >= n.x - n.w / 2 && wx <= n.x + n.w / 2 &&
         wy >= n.y - n.h / 2 && wy <= n.y + n.h / 2) return n;
+  }
+  return null;
+}
+
+/**
+ * The polyline points one edge is drawn along — shared by the draw loop and the
+ * hit-test below so they can never drift apart. Value edges connect same-rank
+ * siblings, so they anchor to the near box SIDES at box-center height instead of
+ * the parent/child top-bottom anchors every other edge uses — otherwise a value
+ * edge lands on exactly the same point as the structural edge into the same box
+ * and its arrowhead is indistinguishable from (or hidden behind) that one's.
+ */
+function epEdgePoints(fromN, toN, kind) {
+  if (kind === "value") {
+    var toIsRight = toN.x >= fromN.x;
+    var vfx = toIsRight ? fromN.x + fromN.w / 2 : fromN.x - fromN.w / 2;
+    var vtx = toIsRight ? toN.x - toN.w / 2 : toN.x + toN.w / 2;
+    var vfy = fromN.y;
+    var vty = toN.y;
+    // Same-rank boxes can differ in centre Y; route with 90-degree turns, never a diagonal.
+    if (Math.abs(vfy - vty) > 2) {
+      var midX = vfx + (vtx - vfx) / 2;
+      return [{ x: vfx, y: vfy }, { x: midX, y: vfy }, { x: midX, y: vty }, { x: vtx, y: vty }];
+    }
+    return [{ x: vfx, y: vfy }, { x: vtx, y: vty }];
+  }
+  var fx = fromN.x;
+  var fy = fromN.y + fromN.h / 2;
+  var tx = toN.x;
+  var ty = toN.y - toN.h / 2;
+  if (Math.abs(fx - tx) > 2) {
+    var midY = fy + (ty - fy) / 2;
+    return [{ x: fx, y: fy }, { x: fx, y: midY }, { x: tx, y: midY }, { x: tx, y: ty }];
+  }
+  return [{ x: fx, y: fy }, { x: tx, y: ty }];
+}
+
+/** Nearest edge to a point, within a small on-screen threshold — lets overlapping lines be told apart by hovering one. */
+function epHitTestEdge(wx, wy) {
+  var threshold = 6 / epZoom;
+  var nodeById = {};
+  for (var i = 0; i < epNodes.length; i++) nodeById[epNodes[i].id] = epNodes[i];
+  for (var i = 0; i < epEdges.length; i++) {
+    var fromN = nodeById[epEdges[i].from];
+    var toN = nodeById[epEdges[i].to];
+    if (!fromN || !toN || !fromN.visible || !toN.visible) continue;
+    var pts = epEdgePoints(fromN, toN, epEdges[i].kind);
+    for (var p = 0; p < pts.length - 1; p++) {
+      if (sPointToSegmentDist(wx, wy, pts[p].x, pts[p].y, pts[p + 1].x, pts[p + 1].y) < threshold) {
+        return epEdges[i];
+      }
+    }
   }
   return null;
 }
@@ -3735,28 +4264,147 @@ function epRoundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+// ep-tree-visibility-start
+/**
+ * A node is visible iff every ancestor from the root down has expanded=true;
+ * the root is always visible regardless of its own flag. Also records each
+ * node's childCount (direct children) from edges. Mutates nodes in place;
+ * the caller decides when to re-layout/redraw.
+ */
+function epComputeTreeVisibility(nodes, edges) {
+  var childrenOf = {};
+  var hasParent = {};
+  var i;
+  for (i = 0; i < edges.length; i++) {
+    var e = edges[i];
+    // Value edges aren't tree structure — they're an extra annotation between
+    // siblings, not a parent/child relationship. Counting them here would inflate
+    // childCount (and the "N direct calls" tooltip that reads it) and give a
+    // childless guarded call a spurious expand chip.
+    if (e.kind === "value") continue;
+    if (!childrenOf[e.from]) childrenOf[e.from] = [];
+    childrenOf[e.from].push(e.to);
+    hasParent[e.to] = true;
+  }
+
+  var byId = {};
+  for (i = 0; i < nodes.length; i++) {
+    byId[nodes[i].id] = nodes[i];
+    nodes[i].visible = false;
+    nodes[i].childCount = childrenOf[nodes[i].id] ? childrenOf[nodes[i].id].length : 0;
+  }
+
+  function walk(nodeId, ancestorsExpanded) {
+    var node = byId[nodeId];
+    if (!node) return;
+    node.visible = ancestorsExpanded;
+    var kids = childrenOf[nodeId] || [];
+    for (var k = 0; k < kids.length; k++) {
+      walk(kids[k], ancestorsExpanded && node.expanded);
+    }
+  }
+
+  for (i = 0; i < nodes.length; i++) {
+    if (!hasParent[nodes[i].id]) walk(nodes[i].id, true);
+  }
+}
+// ep-tree-visibility-end
+
+function epGuardThrowFullText(gt) {
+  var s = "Throws " + gt.className;
+  if (gt.conditionText) s += " if " + gt.conditionText;
+  if (gt.message) s += ": " + gt.message;
+  return s;
+}
+
+/**
+ * Precomputes truncated label text, chip width, and box height for one node's optional
+ * content (dataflow line, throw message, condition line, iteration chip) — all text
+ * measurement happens here, once per node, never in the draw loop.
+ */
+function epBuildNodeExtras(n) {
+  if (!epCtx) return;
+  var extraRows = 0;
+  var innerW = n.w - 16;
+
+  if (n.assignedTo) {
+    epCtx.font = "9px monospace";
+    n.assignedToText = epClipText("→ " + n.assignedTo, innerW);
+    extraRows++;
+  }
+  if (n.type === "throw" && n.throwMessage) {
+    epCtx.font = "9px monospace";
+    n.throwMsgText = epClipText(n.throwMessage, innerW);
+    extraRows++;
+  }
+  if (n.conditional && n.conditionText) {
+    epCtx.font = "9px -apple-system, BlinkMacSystemFont, sans-serif";
+    n.conditionLineText = epClipText("when " + n.conditionText, innerW);
+    extraRows++;
+  }
+  if (n.iterationKind) {
+    epCtx.font = "bold 9px -apple-system, BlinkMacSystemFont, sans-serif";
+    n.iterChipText = epClipText("↻ " + (n.iterationLabel || n.iterationKind), 70);
+    n.iterChipW = epCtx.measureText(n.iterChipText).width + 10;
+  }
+
+  n.h = 60 + extraRows * 14;
+}
+
+/**
+ * Precomputes the two label lines for a break-step node (caller-side guard-throw).
+ * Same text-once-not-in-draw-loop rule as epBuildNodeExtras.
+ */
+function epBuildBreakNodeExtras(n) {
+  if (!epCtx) return;
+  var innerW = n.w - 20;
+  var lines = 0;
+  epCtx.font = "9px monospace";
+  if (n.guardThrow.conditionText) {
+    n.breakLine1Text = epClipText("if (" + n.guardThrow.conditionText + ")", innerW);
+    lines++;
+  }
+  var throwText = "throw " + n.guardThrow.className;
+  if (n.guardThrow.message) throwText += ": " + n.guardThrow.message;
+  n.breakLine2Text = epClipText(throwText, innerW);
+  lines++;
+  n.h = 30 + lines * 14 + 6;
+}
+
 function epBuildGraph(ep) {
   epNodes = [];
   epEdges = [];
+  // Node ids restart per graph, so hover refs from the previous graph must not survive.
+  epHoveredNode = null;
+  epHoveredEdge = null;
   var nodeId = 0;
 
-  // Root node for the endpoint (controller method)
+  // Root node for the endpoint (controller method). Starts expanded so its
+  // direct calls show by default; every other node starts collapsed.
   var rootNode = {
     id: nodeId++,
     className: ep.controllerClass,
     type: "controller",
     methodName: ep.handlerMethod,
     conditional: false,
-    order: -1,
     totalMethods: 1,
     filePath: ep.filePath,
     line: ep.line,
+    endLine: ep.endLine,
+    expanded: true,
     x: 0, y: 0, w: 180, h: 60
   };
   epNodes.push(rootNode);
 
-  // Walk dependency tree — each dep is a MethodDependencyNode (one method per node)
+  // Walk dependency tree — each dep is a MethodDependencyNode (one method per node).
+  // #N badges are assigned here with a counter local to this one call — i.e. per
+  // sibling group, the same level the engine already sorted deps into — rather than
+  // sorted globally across the whole tree. The engine's order field is scoped to a
+  // single method body and resets per call, so a global sort by it interleaves levels
+  // (a call's own nested children can outrank its next sibling). Per-level numbering
+  // stays contiguous and stable under expand/collapse.
   function walkDeps(parentNode, deps) {
+    var seq = 0;
     for (var i = 0; i < deps.length; i++) {
       var dep = deps[i];
       var n = {
@@ -3765,15 +4413,54 @@ function epBuildGraph(ep) {
         type: dep.type,
         methodName: dep.methodName,
         conditional: dep.conditional,
-        order: dep.order,
+        conditionText: dep.conditionText,
+        branchKind: dep.branchKind,
+        displayOrder: seq++,
         totalMethods: dep.totalMethods,
         filePath: dep.filePath,
         line: dep.line,
+        endLine: dep.endLine,
         expandedElsewhere: dep.expandedElsewhere,
+        throwMessage: dep.throwMessage,
+        iterationKind: dep.iterationKind,
+        iterationLabel: dep.iterationLabel,
+        assignedTo: dep.assignedTo,
+        parameters: dep.parameters,
+        expanded: false,
         x: 0, y: 0, w: 180, h: 60
       };
+      epBuildNodeExtras(n);
       epNodes.push(n);
       epEdges.push({ from: parentNode.id, to: n.id, conditional: dep.conditional });
+
+      // Guard-throw belongs to the caller, not the callee: synthesize a break-step leaf
+      // right after the guarded call, same parent, so the tree reads check-then-throw at
+      // the call site.
+      if (dep.guardThrow) {
+        var bn = {
+          id: nodeId++,
+          kind: "break",
+          className: parentNode.className,
+          methodName: null,
+          conditional: false,
+          displayOrder: seq++,
+          filePath: parentNode.filePath,
+          line: dep.guardThrow.callSiteLine,
+          endLine: dep.guardThrow.callSiteLine,
+          guardThrow: dep.guardThrow,
+          consumedVar: dep.assignedTo,
+          expanded: false,
+          x: 0, y: 0, w: 180, h: 60
+        };
+        epBuildBreakNodeExtras(bn);
+        epNodes.push(bn);
+        epEdges.push({ from: parentNode.id, to: bn.id, conditional: false });
+
+        // Value edge: the guarded call's own return value flows into this check —
+        // additional to (not instead of) the structural caller-to-break-step edge above.
+        epEdges.push({ from: n.id, to: bn.id, kind: "value" });
+      }
+
       if (dep.dependencies && dep.dependencies.length > 0) {
         walkDeps(n, dep.dependencies);
       }
@@ -3781,51 +4468,73 @@ function epBuildGraph(ep) {
   }
 
   walkDeps(rootNode, ep.dependencies);
-}
 
+  epComputeTreeVisibility(epNodes, epEdges);
+}
+// ep-build-graph-end
+
+// ep-layout-start
+/** Lays out visible nodes only — collapsed subtrees don't take up graph space. */
 function epLayout() {
-  if (epNodes.length === 0) return;
+  var visible = [];
+  for (var v = 0; v < epNodes.length; v++) {
+    if (epNodes[v].visible) visible.push(epNodes[v]);
+  }
+  if (visible.length === 0) return;
+
+  var byId = {};
+  for (var b = 0; b < visible.length; b++) byId[visible[b].id] = true;
 
   if (typeof dagre !== "undefined") {
     var g = new dagre.graphlib.Graph();
     g.setGraph({ rankdir: "TB", nodesep: 40, ranksep: 80, marginx: 40, marginy: 40 });
     g.setDefaultEdgeLabel(function() { return {}; });
 
-    for (var i = 0; i < epNodes.length; i++) {
-      g.setNode(epNodes[i].id, { width: epNodes[i].w, height: epNodes[i].h });
+    for (var i = 0; i < visible.length; i++) {
+      g.setNode(visible[i].id, { width: visible[i].w, height: visible[i].h });
     }
-    for (var i = 0; i < epEdges.length; i++) {
-      g.setEdge(epEdges[i].from, epEdges[i].to);
+    for (var j = 0; j < epEdges.length; j++) {
+      var e = epEdges[j];
+      // Value edges aren't tree structure — feeding them to dagre adds a rank
+      // constraint that pushes the break step below its guarded call instead of
+      // beside it.
+      if (e.kind === "value") continue;
+      if (byId[e.from] && byId[e.to]) g.setEdge(e.from, e.to);
     }
 
     dagre.layout(g);
 
-    for (var i = 0; i < epNodes.length; i++) {
-      var laid = g.node(epNodes[i].id);
+    for (var k = 0; k < visible.length; k++) {
+      var laid = g.node(visible[k].id);
       if (laid) {
-        epNodes[i].x = laid.x;
-        epNodes[i].y = laid.y;
+        visible[k].x = laid.x;
+        visible[k].y = laid.y;
       }
     }
   } else {
     // Fallback: simple vertical layout
-    for (var i = 0; i < epNodes.length; i++) {
-      epNodes[i].x = 300;
-      epNodes[i].y = 60 + i * 100;
+    for (var m = 0; m < visible.length; m++) {
+      visible[m].x = 300;
+      visible[m].y = 60 + m * 100;
     }
   }
 }
+// ep-layout-end
 
 function epCenterCamera() {
   if (epNodes.length === 0) return;
   var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  var any = false;
   for (var i = 0; i < epNodes.length; i++) {
     var n = epNodes[i];
+    if (!n.visible) continue;
+    any = true;
     minX = Math.min(minX, n.x - n.w / 2);
     maxX = Math.max(maxX, n.x + n.w / 2);
     minY = Math.min(minY, n.y - n.h / 2);
     maxY = Math.max(maxY, n.y + n.h / 2);
   }
+  if (!any) return;
   var graphW = maxX - minX;
   var graphH = maxY - minY;
   var cx = (minX + maxX) / 2;
@@ -3834,15 +4543,158 @@ function epCenterCamera() {
   var pad = 60;
   var scaleX = (epW - pad * 2) / (graphW || 1);
   var scaleY = (epH - pad * 2) / (graphH || 1);
-  epZoom = Math.min(scaleX, scaleY, 1.5);
-  epZoom = Math.max(epZoom, 0.3);
+  var fit = Math.min(scaleX, scaleY, 1.5);
+  // Records the fit so the zoom floor can zoom out this far, same as overview.
+  epMinZoom = Math.min(0.2, fit);
+  epZoom = Math.max(epMinZoom, fit);
 
   epCamX = epW / 2 - cx;
   epCamY = epH / 2 - cy;
 }
 
+/** World-space rect for a node's expand chip, top-right of its header. Shared by draw and hit-test. */
+function epNodeChipRect(node) {
+  var x = node.x - node.w / 2;
+  var y = node.y - node.h / 2;
+  return {
+    x: x + node.w - EP_CHIP_W - 6,
+    y: y + (EP_NODE_HDR_H - EP_CHIP_H) / 2,
+    w: EP_CHIP_W,
+    h: EP_CHIP_H
+  };
+}
+
+function epChipHitTest(wx, wy) {
+  for (var i = epNodes.length - 1; i >= 0; i--) {
+    var n = epNodes[i];
+    if (!n.visible || n.childCount === 0) continue;
+    var r = epNodeChipRect(n);
+    if (wx >= r.x && wx <= r.x + r.w && wy >= r.y && wy <= r.y + r.h) return n;
+  }
+  return null;
+}
+
+/** Toggles one node's expansion, re-lays-out the now-different visible set, and
+ * shifts the camera so the toggled node stays under the cursor instead of the
+ * view jumping. */
+function epToggleNode(node) {
+  if (!node || node.childCount === 0) return;
+  var beforeX = node.x, beforeY = node.y;
+  node.expanded = !node.expanded;
+  epComputeTreeVisibility(epNodes, epEdges);
+  epLayout();
+  epCamX += beforeX - node.x;
+  epCamY += beforeY - node.y;
+  epHideTooltip();
+  epScheduleRedraw();
+}
+
+function epExpandAll() {
+  for (var i = 0; i < epNodes.length; i++) epNodes[i].expanded = true;
+  epComputeTreeVisibility(epNodes, epEdges);
+  epLayout();
+  epCenterCamera();
+  epScheduleRedraw();
+}
+
+function epCollapseAll() {
+  for (var i = 0; i < epNodes.length; i++) epNodes[i].expanded = false;
+  epComputeTreeVisibility(epNodes, epEdges);
+  epLayout();
+  epCenterCamera();
+  epScheduleRedraw();
+}
+
 function epDraw() {
   if (!epCtx) return;
+  epSyncZoomUi();
+  if (epMode === "overview") {
+    epDrawOverview();
+  } else {
+    epDrawFocusedGraph();
+  }
+}
+
+/**
+ * One edge's line, arrowhead, and (for value edges) label. The arrowhead is always
+ * solid — drawn after the dash pattern is reset — so it reads as an arrow instead of
+ * dissolving into the line's own dots/dashes. A hovered edge keeps its own color
+ * (never overridden to white) but gets a matching glow, solid stroke, and extra
+ * width so it stands out from whatever else it overlaps.
+ */
+function epDrawOneEdge(edge, fromN, toN, isHovered) {
+  var pts = epEdgePoints(fromN, toN, edge.kind);
+  var isValueEdge = edge.kind === "value";
+  var baseColor = isValueEdge
+    ? EP_VALUE_EDGE_COLOR
+    : (edge.conditional ? "rgba(245, 158, 11, 0.6)" : "#555");
+  // A plain structural edge is grey — a grey glow on a grey line barely reads as
+  // a highlight, so hovering one goes white, same as the schema diagram. A value
+  // or conditional edge already has a color worth keeping, so hovering keeps it.
+  var hoverColor = (isValueEdge || edge.conditional) ? baseColor : "#ffffff";
+  var edgeColor = isHovered ? hoverColor : baseColor;
+  var edgeLineW = (isHovered ? 2.5 : (isValueEdge ? 1 : 1.5)) / epZoom;
+
+  if (isHovered) {
+    epCtx.save();
+    epCtx.shadowColor = hoverColor;
+    epCtx.shadowBlur = 8;
+  } else if (isValueEdge) {
+    epCtx.setLineDash([2 / epZoom, 3 / epZoom]);
+  } else if (edge.conditional) {
+    epCtx.setLineDash([6 / epZoom, 4 / epZoom]);
+  }
+
+  epCtx.beginPath();
+  epCtx.moveTo(pts[0].x, pts[0].y);
+  for (var p = 1; p < pts.length; p++) epCtx.lineTo(pts[p].x, pts[p].y);
+  epCtx.strokeStyle = edgeColor;
+  epCtx.lineWidth = edgeLineW;
+  epCtx.stroke();
+  epCtx.setLineDash([]);
+
+  // Arrow — solid regardless of the line's own dash style (drawn after the reset
+  // above), oriented along the final segment's own direction of travel rather than
+  // assumed-vertical. For every existing top-down edge that final segment is still
+  // vertical, so this draws the exact same chevron as before; for a value edge's
+  // horizontal side-to-side approach it correctly points sideways instead of down.
+  var tip = pts[pts.length - 1];
+  var prev = pts[pts.length - 2];
+  var dx = tip.x - prev.x;
+  var dy = tip.y - prev.y;
+  var dlen = Math.sqrt(dx * dx + dy * dy) || 1;
+  dx /= dlen;
+  dy /= dlen;
+  var px = -dy;
+  var py = dx;
+  var arrowSize = 5 / epZoom;
+  var backX = tip.x - dx * arrowSize;
+  var backY = tip.y - dy * arrowSize;
+  epCtx.beginPath();
+  epCtx.moveTo(backX + px * arrowSize, backY + py * arrowSize);
+  epCtx.lineTo(tip.x, tip.y);
+  epCtx.lineTo(backX - px * arrowSize, backY - py * arrowSize);
+  epCtx.strokeStyle = edgeColor;
+  epCtx.lineWidth = edgeLineW;
+  epCtx.stroke();
+
+  if (isHovered) epCtx.restore();
+
+  // Value-edge label: the producer's assigned variable, drawn above the row in the
+  // inter-rank band — the sibling gap is narrower than the text and nodes paint over edges.
+  if (isValueEdge && fromN.assignedTo) {
+    var labelX = (fromN.x + toN.x) / 2;
+    var labelY = Math.min(fromN.y - fromN.h / 2, toN.y - toN.h / 2) - 4 / epZoom;
+    epCtx.font = "9px monospace";
+    epCtx.fillStyle = EP_VALUE_EDGE_COLOR;
+    epCtx.textAlign = "center";
+    epCtx.textBaseline = "bottom";
+    epCtx.fillText(fromN.assignedTo, labelX, labelY);
+    epCtx.textAlign = "left";
+  }
+}
+
+function epDrawFocusedGraph() {
   epCtx.save();
   epCtx.clearRect(0, 0, epW, epH);
 
@@ -3859,58 +4711,89 @@ function epDraw() {
   var nodeById = {};
   for (var i = 0; i < epNodes.length; i++) nodeById[epNodes[i].id] = epNodes[i];
 
-  // Draw edges
+  // Draw edges — only between visible nodes; a collapsed node's whole subtree drops out here.
+  // The hovered edge (if any) is skipped here and redrawn last, on top of every other edge,
+  // so it stays easy to tell apart when several lines overlap.
   for (var i = 0; i < epEdges.length; i++) {
-    var fromN = nodeById[epEdges[i].from];
-    var toN = nodeById[epEdges[i].to];
-    if (!fromN || !toN) continue;
-
-    var fx = fromN.x;
-    var fy = fromN.y + fromN.h / 2;
-    var tx = toN.x;
-    var ty = toN.y - toN.h / 2;
-
-    var edgeColor = epEdges[i].conditional ? "rgba(245, 158, 11, 0.6)" : "#555";
-    if (epEdges[i].conditional) {
-      epCtx.setLineDash([6 / epZoom, 4 / epZoom]);
+    var edge = epEdges[i];
+    if (edge === epHoveredEdge) continue;
+    var fromN = nodeById[edge.from];
+    var toN = nodeById[edge.to];
+    if (!fromN || !toN || !fromN.visible || !toN.visible) continue;
+    epDrawOneEdge(edge, fromN, toN, false);
+  }
+  if (epHoveredEdge) {
+    var hFromN = nodeById[epHoveredEdge.from];
+    var hToN = nodeById[epHoveredEdge.to];
+    if (hFromN && hToN && hFromN.visible && hToN.visible) {
+      epDrawOneEdge(epHoveredEdge, hFromN, hToN, true);
     }
-
-    epCtx.beginPath();
-    epCtx.moveTo(fx, fy);
-    // L-shaped edge if not aligned
-    if (Math.abs(fx - tx) > 2) {
-      var midY = fy + (ty - fy) / 2;
-      epCtx.lineTo(fx, midY);
-      epCtx.lineTo(tx, midY);
-    }
-    epCtx.lineTo(tx, ty);
-    epCtx.strokeStyle = edgeColor;
-    epCtx.lineWidth = 1.5 / epZoom;
-    epCtx.stroke();
-
-    // Arrow
-    var arrowSize = 5 / epZoom;
-    epCtx.beginPath();
-    epCtx.moveTo(tx - arrowSize, ty - arrowSize);
-    epCtx.lineTo(tx, ty);
-    epCtx.lineTo(tx + arrowSize, ty - arrowSize);
-    epCtx.strokeStyle = edgeColor;
-    epCtx.lineWidth = 1.5 / epZoom;
-    epCtx.stroke();
-
-    epCtx.setLineDash([]);
   }
 
-  // Draw nodes
+  // Draw nodes — collapsed-away nodes carry stale coordinates from their last layout, so skip them.
   var BOX_R = 6;
-  var HDR_H = 22;
+  var HDR_H = EP_NODE_HDR_H;
 
   for (var i = 0; i < epNodes.length; i++) {
     var n = epNodes[i];
+    if (!n.visible) continue;
     var x = n.x - n.w / 2;
     var y = n.y - n.h / 2;
     var color = EP_TYPE_COLORS[n.type] || EP_TYPE_COLORS.unknown;
     var isHovered = (epHoveredNode && epHoveredNode.id === n.id);
+
+    // Break step — caller-owned guard-throw. Its own small draw path: amber border,
+    // controller-red left accent, order badge, two label lines. No header, no chip.
+    if (n.kind === "break") {
+      if (isHovered) {
+        epCtx.save();
+        epCtx.shadowColor = "rgba(255,255,255,0.2)";
+        epCtx.shadowBlur = 10;
+      }
+      epRoundRect(epCtx, x, y, n.w, n.h, BOX_R);
+      epCtx.fillStyle = "#1a1408";
+      epCtx.fill();
+      epCtx.strokeStyle = isHovered ? "#f59e0b" : "rgba(245,158,11,0.6)";
+      epCtx.lineWidth = isHovered ? 2 : 1;
+      epCtx.stroke();
+      if (isHovered) epCtx.restore();
+
+      epCtx.save();
+      epRoundRect(epCtx, x, y, n.w, n.h, BOX_R);
+      epCtx.clip();
+      epCtx.fillStyle = "#ea2845";
+      epCtx.fillRect(x, y, 3, n.h);
+      epCtx.restore();
+
+      if (n.displayOrder !== undefined) {
+        var bOrderLabel = "#" + (n.displayOrder + 1);
+        epCtx.font = "bold 8px -apple-system, BlinkMacSystemFont, sans-serif";
+        var bOrderW = epCtx.measureText(bOrderLabel).width + 8;
+        epRoundRect(epCtx, x + 10, y + 8, bOrderW, 12, 3);
+        epCtx.fillStyle = "rgba(255,255,255,0.08)";
+        epCtx.fill();
+        epCtx.fillStyle = "#999";
+        epCtx.textAlign = "left";
+        epCtx.textBaseline = "middle";
+        epCtx.fillText(bOrderLabel, x + 14, y + 14);
+      }
+
+      var bY = y + 30;
+      epCtx.textAlign = "left";
+      epCtx.textBaseline = "middle";
+      if (n.breakLine1Text) {
+        epCtx.font = "9px monospace";
+        epCtx.fillStyle = "#f59e0b";
+        epCtx.fillText(n.breakLine1Text, x + 10, bY);
+        bY += 14;
+      }
+      if (n.breakLine2Text) {
+        epCtx.font = "9px monospace";
+        epCtx.fillStyle = "#f87171";
+        epCtx.fillText(n.breakLine2Text, x + 10, bY);
+      }
+      continue;
+    }
 
     var isCond = n.conditional;
     var headerColor = isCond ? "#f59e0b" : color;
@@ -3976,12 +4859,52 @@ function epDraw() {
     epCtx.textBaseline = "middle";
     var nameStr = n.className;
     var nameStartX = x + 8 + dotSize + 6;
-    var maxNameW = n.w - (nameStartX - x) - 8;
+    var iterChipReserve = n.iterationKind ? (n.iterChipW || 30) + 4 : 0;
+    var chipReserve = (n.childCount > 0 ? EP_CHIP_W + 6 : 0) + iterChipReserve;
+    var maxNameW = n.w - (nameStartX - x) - 8 - chipReserve;
     while (epCtx.measureText(nameStr).width > maxNameW && nameStr.length > 3) {
       nameStr = nameStr.slice(0, -1);
     }
     if (nameStr !== n.className) nameStr += "\\u2026";
     epCtx.fillText(nameStr, nameStartX, y + HDR_H / 2);
+
+    // Expand chip — collapsed/expanded state and direct-child count, hit-tested by epChipHitTest.
+    var chipLeftEdge = x + n.w - 6;
+    if (n.childCount > 0) {
+      var chip = epNodeChipRect(n);
+      epRoundRect(epCtx, chip.x, chip.y, chip.w, chip.h, 4);
+      epCtx.fillStyle = n.expanded ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.09)";
+      epCtx.fill();
+      epCtx.strokeStyle = "rgba(255,255,255,0.25)";
+      epCtx.lineWidth = 1;
+      epCtx.stroke();
+      epCtx.font = "bold 9px -apple-system, BlinkMacSystemFont, sans-serif";
+      epCtx.fillStyle = "#ddd";
+      epCtx.textAlign = "center";
+      epCtx.textBaseline = "middle";
+      epCtx.fillText((n.expanded ? "\\u25BE" : "\\u25B8") + " " + n.childCount, chip.x + chip.w / 2, chip.y + chip.h / 2 + 0.5);
+      epCtx.textAlign = "left";
+      chipLeftEdge = chip.x - 6;
+    }
+
+    // Iteration chip — sits left of the expand chip when both are present.
+    if (n.iterationKind && n.iterChipText) {
+      var iterW = n.iterChipW || 30;
+      var iterX = chipLeftEdge - iterW;
+      var iterY = y + (HDR_H - EP_CHIP_H) / 2;
+      epRoundRect(epCtx, iterX, iterY, iterW, EP_CHIP_H, 4);
+      epCtx.fillStyle = "rgba(255,255,255,0.09)";
+      epCtx.fill();
+      epCtx.strokeStyle = "rgba(255,255,255,0.2)";
+      epCtx.lineWidth = 1;
+      epCtx.stroke();
+      epCtx.font = "bold 9px -apple-system, BlinkMacSystemFont, sans-serif";
+      epCtx.fillStyle = "#aaa";
+      epCtx.textAlign = "center";
+      epCtx.textBaseline = "middle";
+      epCtx.fillText(n.iterChipText, iterX + iterW / 2, iterY + EP_CHIP_H / 2 + 0.5);
+      epCtx.textAlign = "left";
+    }
 
     // Below header: type badge + order badge + method name
     var infoY = y + HDR_H + 8;
@@ -4000,11 +4923,11 @@ function epDraw() {
     epCtx.textBaseline = "middle";
     epCtx.fillText(typeLabel, x + 13, infoY + 6);
 
-    // Order badge (#N)
+    // Order badge (#N) — displayOrder is the contiguous, gap-free renumbering from epBuildGraph.
     var badgeRight = x + 8 + badgeW;
     var orderW = 0;
-    if (n.order >= 0) {
-      var orderLabel = "#" + (n.order + 1);
+    if (n.displayOrder !== undefined) {
+      var orderLabel = "#" + (n.displayOrder + 1);
       epCtx.font = "bold 8px -apple-system, BlinkMacSystemFont, sans-serif";
       orderW = epCtx.measureText(orderLabel).width + 8;
       epRoundRect(epCtx, badgeRight + 4, infoY, orderW, 12, 3);
@@ -4038,6 +4961,31 @@ function epDraw() {
       }
       epCtx.fillText(mText, x + 8, methodY);
     }
+
+    // Extra rows below whatever content just drew — dataflow line, throw message,
+    // condition text. Text is precomputed in epBuildNodeExtras; box height already
+    // accounts for however many of these apply, so nothing here measures text.
+    var rowY = infoY + (n.methodName ? 18 : 0) + 14;
+    epCtx.textAlign = "left";
+    epCtx.textBaseline = "middle";
+    if (n.assignedToText) {
+      epCtx.font = "9px monospace";
+      epCtx.fillStyle = "#777";
+      epCtx.fillText(n.assignedToText, x + 8, rowY);
+      rowY += 14;
+    }
+    if (n.throwMsgText) {
+      epCtx.font = "9px monospace";
+      epCtx.fillStyle = "#f87171";
+      epCtx.fillText(n.throwMsgText, x + 8, rowY);
+      rowY += 14;
+    }
+    if (n.conditionLineText) {
+      epCtx.font = "9px -apple-system, BlinkMacSystemFont, sans-serif";
+      epCtx.fillStyle = "rgba(245,158,11,0.75)";
+      epCtx.fillText(n.conditionLineText, x + 8, rowY);
+      rowY += 14;
+    }
   }
 
   epCtx.restore();
@@ -4047,39 +4995,95 @@ function epResize() {
   if (!epCanvas) return;
   var container = epCanvas.parentElement;
   if (!container) return;
+  var prevW = epW, prevH = epH;
   epW = container.clientWidth;
   epH = container.clientHeight;
+  // Focused mode keeps whatever was centred in view instead of re-fitting the graph.
+  if (epMode === "focused" && prevW && prevH) {
+    epCamX += (epW - prevW) / 2;
+    epCamY += (epH - prevH) / 2;
+  }
   epCanvas.width = epW * epDpr;
   epCanvas.height = epH * epDpr;
   epCanvas.style.width = epW + "px";
   epCanvas.style.height = epH + "px";
   epCtx.setTransform(epDpr, 0, 0, epDpr, 0, 0);
-  if (epNodes.length > 0) {
-    epCenterCamera();
+  if (epMode === "overview" && epOverviewGroups.length > 0) {
+    epCenterOverviewCamera();
   }
   epScheduleRedraw();
 }
 
+/** Joins parameter names into a call-args string, e.g. "id, userId". */
+/** Formats a method's declared parameters as "name: type" pairs — a signature, never a call. */
+function epFormatSignature(node) {
+  var params = node.parameters;
+  if (!params || params.length === 0) return "";
+  var parts = [];
+  for (var i = 0; i < params.length; i++) {
+    var p = params[i];
+    parts.push(p.type ? p.name + ": " + p.type : p.name);
+  }
+  return node.methodName + "(" + parts.join(", ") + ")";
+}
+
 function epShowTooltip(node, screenX, screenY) {
   if (!epTooltipEl) return;
-  var color = EP_TYPE_COLORS[node.type] || EP_TYPE_COLORS.unknown;
-  var methodHtml = "";
-  if (node.methodName) {
-    var mColor = node.conditional ? "#f59e0b" : "#ccc";
-    methodHtml = '<div style="font-family:monospace;font-size:11px;color:' + mColor + ';margin-top:4px">.' + escHtml(node.methodName) + '()</div>';
+
+  if (node.kind === "break") {
+    var gt = node.guardThrow;
+    var breakHtml = '<div style="font-size:9px;color:#f59e0b;margin-top:4px">\u26A0 ' + escHtml(epGuardThrowFullText(gt)) + '</div>' +
+      '<div style="font-size:9px;color:#888;margin-top:4px">Handler stops here when the condition holds.</div>';
+    if (node.consumedVar) {
+      breakHtml += '<div style="font-size:9px;color:#888;margin-top:4px">Checks ' + escHtml(node.consumedVar) + '</div>';
+    }
+    epTooltipEl.innerHTML = '<div class="tt-name">Break step</div>' +
+      '<div class="tt-table" style="color:#f59e0b">caller check</div>' + breakHtml;
+    epTooltipEl.style.display = "block";
+  } else {
+    var color = EP_TYPE_COLORS[node.type] || EP_TYPE_COLORS.unknown;
+    var methodHtml = "";
+    if (node.methodName) {
+      var mColor = node.conditional ? "#f59e0b" : "#ccc";
+      methodHtml = '<div style="font-family:monospace;font-size:11px;color:' + mColor + ';margin-top:4px">.' + escHtml(node.methodName) + '()</div>';
+    }
+    var signatureLabel = "";
+    if (node.parameters && node.parameters.length > 0) {
+      signatureLabel = '<div style="font-size:9px;color:#888;margin-top:4px">signature: ' + escHtml(epFormatSignature(node)) + '</div>';
+    }
+    var assignedLabel = "";
+    if (node.assignedTo) {
+      assignedLabel = '<div style="font-size:9px;color:#888;margin-top:4px">\u2192 ' + escHtml(node.assignedTo) + '</div>';
+    }
+    var condLabel = "";
+    if (node.conditional) {
+      var condText = "Conditionally called";
+      if (node.branchKind) condText += " (" + node.branchKind + ")";
+      if (node.conditionText) condText += " \u2014 when " + node.conditionText;
+      condLabel = '<div style="font-size:9px;color:#f59e0b;margin-top:4px">' + escHtml(condText) + '</div>';
+    }
+    var throwMsgLabel = "";
+    if (node.type === "throw" && node.throwMessage) {
+      throwMsgLabel = '<div style="font-size:9px;color:#f87171;margin-top:4px">' + escHtml(node.throwMessage) + '</div>';
+    }
+    var iterLabel = "";
+    if (node.iterationKind) {
+      var iterText = "Called inside " + (node.iterationLabel ? "." + node.iterationLabel + "()" : node.iterationKind);
+      iterLabel = '<div style="font-size:9px;color:#888;margin-top:4px">\u21BB ' + escHtml(iterText) + '</div>';
+    }
+    var repeatLabel = "";
+    if (node.expandedElsewhere) {
+      repeatLabel = '<div style="font-size:9px;color:#888;margin-top:4px">\u21B1 Calls drawn at another call site</div>';
+    }
+    var childLabel = "";
+    if (node.childCount > 0) {
+      childLabel = '<div style="font-size:9px;color:#888;margin-top:4px">' + node.childCount + ' direct call' + (node.childCount === 1 ? "" : "s") + '</div>';
+    }
+    epTooltipEl.innerHTML = '<div class="tt-name">' + escHtml(node.className) + '</div>' +
+      '<div class="tt-table" style="color:' + color + '">' + escHtml(node.type) + '</div>' +
+      methodHtml + signatureLabel + assignedLabel + condLabel + throwMsgLabel + iterLabel + repeatLabel + childLabel;
+    epTooltipEl.style.display = "block";
   }
-  var condLabel = "";
-  if (node.conditional) {
-    condLabel = '<div style="font-size:9px;color:#f59e0b;margin-top:4px">Conditionally called</div>';
-  }
-  var repeatLabel = "";
-  if (node.expandedElsewhere) {
-    repeatLabel = '<div style="font-size:9px;color:#888;margin-top:4px">\u21B1 Calls drawn at another call site</div>';
-  }
-  epTooltipEl.innerHTML = '<div class="tt-name">' + escHtml(node.className) + '</div>' +
-    '<div class="tt-table" style="color:' + color + '">' + escHtml(node.type) + '</div>' +
-    methodHtml + condLabel + repeatLabel;
-  epTooltipEl.style.display = "block";
 
   var mainRect = epCanvas.parentElement.getBoundingClientRect();
   var tx = screenX + 16;
@@ -4102,21 +5106,32 @@ function epHideTooltip() {
   if (epTooltipEl) epTooltipEl.style.display = "none";
 }
 
-function epShowCodePanel(node) {
+// isDiagnostic: true for the problems-drawer jump, which marks the flagged line in
+// severity red; false/omitted for a plain node click, which uses the neutral highlight.
+function epShowCodePanel(node, isDiagnostic) {
   var panel = document.getElementById("ep-code-panel");
   if (!panel) return;
   document.getElementById("ep-code-panel-class").textContent = node.className;
   var methodText = node.methodName ? "." + node.methodName + "()" : "";
   document.getElementById("ep-code-panel-method").textContent = methodText;
-  document.getElementById("ep-code-panel-path").textContent = node.filePath || "";
+  document.getElementById("ep-code-panel-path").textContent = epRelPath(node.filePath);
   var bodyEl = document.getElementById("ep-code-panel-body");
   bodyEl.innerHTML = "";
   var code = node.filePath ? fileSources[node.filePath] : null;
   if (!code) {
     bodyEl.innerHTML = '<div class="ep-code-no-source">Source code not available</div>';
   } else if (window.createCodeViewer) {
-    var highlightLines = node.line > 0 ? [node.line] : [];
-    window.createCodeViewer(bodyEl, code, { highlightLines: highlightLines, firstLineNumber: 1 });
+    var viewerOptions = { firstLineNumber: 1 };
+    if (isDiagnostic) {
+      viewerOptions.diagnosticLines = node.line > 0 ? [node.line] : [];
+    } else {
+      viewerOptions.highlightLines = node.line > 0 ? [node.line] : [];
+    }
+    if (node.endLine > node.line) {
+      viewerOptions.tintRangeStart = node.line;
+      viewerOptions.tintRangeEnd = node.endLine;
+    }
+    window.createCodeViewer(bodyEl, code, viewerOptions);
   } else {
     bodyEl.innerHTML = '<div class="ep-code-no-source">Code viewer not available</div>';
   }
@@ -4128,6 +5143,84 @@ function epHideCodePanel() {
   if (panel) panel.classList.remove("open");
 }
 
+function epSyncSidebarSelection(epIndex) {
+  var sidebarEl = document.getElementById("endpoints-list");
+  if (!sidebarEl) return;
+  var allRows = sidebarEl.querySelectorAll(".ep-endpoint-row");
+  for (var i = 0; i < allRows.length; i++) {
+    allRows[i].classList.toggle("st-selected", Number(allRows[i].dataset.epIndex) === epIndex);
+  }
+}
+
+function epSyncViewToggle() {
+  var btn = document.getElementById("endpoints-toggle-view");
+  if (!btn) return;
+  var overview = epMode === "overview";
+  btn.classList.toggle("active", overview);
+  btn.setAttribute("aria-pressed", String(overview));
+  btn.setAttribute("aria-label", overview ? "Focus one endpoint" : "Show all endpoints");
+  btn.setAttribute("data-tip", overview
+    ? "Focus \\u00b7 show one endpoint and its call graph"
+    : "All endpoints \\u00b7 back to the module overview");
+}
+
+/** Shows the truncation banner for a focused endpoint whose trace hit the node cap, unless dismissed for it. */
+function epSyncTruncatedBanner(ep) {
+  var banner = document.getElementById("endpoints-truncated-banner");
+  if (!banner) return;
+  var show = !!(ep && ep.truncated) && epSelectedIndex !== epBannerDismissedIndex;
+  banner.style.display = show ? "flex" : "none";
+}
+
+/** The legend's auth-shield and diagnostic-dot entries only apply to overview mode. */
+function epSyncLegendMode() {
+  var section = document.getElementById("endpoints-legend-overview");
+  if (section) section.style.display = epMode === "overview" ? "block" : "none";
+}
+
+/** Expand-all/collapse-all only make sense once a tree is on screen. */
+function epSyncFocusedToolbar() {
+  var focused = epMode === "focused";
+  var expandBtn = document.getElementById("endpoints-expand-all");
+  var collapseBtn = document.getElementById("endpoints-collapse-all");
+  if (expandBtn) expandBtn.style.display = focused ? "" : "none";
+  if (collapseBtn) collapseBtn.style.display = focused ? "" : "none";
+}
+
+function epShowOverview() {
+  epMode = "overview";
+  epHideCodePanel();
+  epHideTooltip();
+  epCanvas.style.display = "block";
+  epSyncViewToggle();
+  epSyncLegendMode();
+  epSyncFocusedToolbar();
+  epSyncTruncatedBanner(null);
+  if (epDiagPanelRender) epDiagPanelRender(null);
+  epResize();
+}
+
+function epShowFocused(index) {
+  var found = endpoints.endpoints[index];
+  if (!found) return;
+  epMode = "focused";
+  epSelectedIndex = index;
+  epSyncSidebarSelection(index);
+  epCanvas.style.display = "block";
+  epBuildGraph(found);
+  epLayout();
+  epSyncViewToggle();
+  epSyncLegendMode();
+  epSyncFocusedToolbar();
+  epSyncTruncatedBanner(found);
+  if (epDiagPanelRender) epDiagPanelRender(index);
+  epResize();
+  // A new endpoint has a different graph, so fit it — epResize alone only
+  // preserves the camera across container resizes, not endpoint changes.
+  epCenterCamera();
+  epScheduleRedraw();
+}
+
 function renderEndpoints() {
   var sidebarEl = document.getElementById("endpoints-list");
   epCanvas = document.getElementById("endpoints-canvas");
@@ -4137,123 +5230,252 @@ function renderEndpoints() {
   epCtx = epCanvas.getContext("2d");
   epDpr = window.devicePixelRatio || 1;
 
-  // Group endpoints by controller
-  var controllers = {};
-  var controllerOrder = [];
-  for (var i = 0; i < endpoints.endpoints.length; i++) {
-    var ep = endpoints.endpoints[i];
-    if (!controllers[ep.controllerClass]) {
-      controllers[ep.controllerClass] = [];
-      controllerOrder.push(ep.controllerClass);
-    }
-    controllers[ep.controllerClass].push(ep);
-  }
+  var NO_MODULE_LABEL = EP_NO_MODULE_LABEL;
+
+  // Same module -> controller grouping the overview canvas boxes use.
+  var grouping = epGroupEndpointsByModule();
+  var moduleGroups = grouping.moduleGroups;
+  var sortedModules = grouping.sortedModules;
 
   // Set count
   document.getElementById("endpoints-count").textContent = endpoints.endpoints.length;
 
-  // HTTP method badge colors
+  // HTTP method badge colors. GraphQL entries are visually distinct from REST.
+  // No fallback to GET: an unrecognized method gets a neutral grey chip.
   var METHOD_COLORS = {
     GET: "ep-method-get",
     POST: "ep-method-post",
     PUT: "ep-method-put",
     PATCH: "ep-method-patch",
-    DELETE: "ep-method-delete"
+    DELETE: "ep-method-delete",
+    ALL: "ep-method-all",
+    HEAD: "ep-method-head",
+    OPTIONS: "ep-method-options",
+    QUERY: "ep-method-query",
+    MUTATION: "ep-method-mutation",
+    SUBSCRIPTION: "ep-method-subscription"
   };
 
-  // Build sidebar
-  var html = "";
-  for (var c = 0; c < controllerOrder.length; c++) {
-    var ctrlName = controllerOrder[c];
-    var ctrlEndpoints = controllers[ctrlName];
-    var ctrlId = "ep-ctrl-" + c;
-    html += '<div class="st-row" data-toggle="' + ctrlId + '">';
-    html += '<span class="st-toggle" data-toggle="' + ctrlId + '">\\u25BE</span>';
-    html += '<span class="st-icon"><svg viewBox="0 0 16 16" fill="none" stroke="var(--nest-red)" stroke-width="1.2"><rect x="2" y="2" width="12" height="12" rx="2"/><line x1="5" y1="6" x2="11" y2="6"/><line x1="5" y1="10" x2="9" y2="10"/></svg></span>';
-    html += '<span class="st-label"><span class="st-entity-name">' + escHtml(ctrlName) + '</span></span>';
-    html += '<span class="st-count">' + ctrlEndpoints.length + '</span>';
-    html += '</div>';
-    html += '<div class="st-children st-open" id="st-' + ctrlId + '">';
+  // Diagnostic count badge for one endpoint index, colored by highest severity present.
+  function epDiagBadgeHtml(index) {
+    var counts = endpointDiagnostics.perEndpoint[String(index)];
+    if (!counts) return "";
+    var total = counts.error + counts.warning + counts.info;
+    if (total === 0) return "";
+    var color = counts.error > 0 ? "var(--sev-error)" : (counts.warning > 0 ? "var(--sev-warning)" : "var(--sev-info)");
+    var parts = [];
+    if (counts.error > 0) parts.push(counts.error + " error" + (counts.error !== 1 ? "s" : ""));
+    if (counts.warning > 0) parts.push(counts.warning + " warning" + (counts.warning !== 1 ? "s" : ""));
+    if (counts.info > 0) parts.push(counts.info + " info");
+    return '<span class="ep-diag-badge has-tip" data-tip="' + escHtml(parts.join(", ")) + '"><span class="ep-diag-dot" style="background:' + color + '"></span>' + total + '</span>';
+  }
 
-    for (var e = 0; e < ctrlEndpoints.length; e++) {
-      var ep = ctrlEndpoints[e];
-      var method = (ep.httpMethod || "GET").toUpperCase();
-      var badgeClass = METHOD_COLORS[method] || "ep-method-get";
-      html += '<div class="st-row ep-endpoint-row" data-ep-ctrl="' + escHtml(ctrlName) + '" data-ep-handler="' + escHtml(ep.handlerMethod) + '">';
-      html += '<span class="st-indent"></span><span class="st-indent"></span>';
-      html += '<span class="ep-method-badge ' + badgeClass + '">' + escHtml(method) + '</span>';
-      html += '<span class="st-label">' + escHtml(ep.routePath || "/") + '</span>';
-      html += '</div>';
-    }
+  // Build sidebar: module → controller → endpoint
+  var html = "";
+  for (var m = 0; m < sortedModules.length; m++) {
+    var moduleLabel = sortedModules[m];
+    var moduleGroup = moduleGroups[moduleLabel];
+    var modId = "ep-mod-" + m;
+    html += '<div class="st-row ep-module-row" data-toggle="' + modId + '">';
+    html += '<span class="st-toggle" data-toggle="' + modId + '">\\u25BE</span>';
+    html += '<span class="st-icon"><svg viewBox="0 0 16 16" fill="none" stroke="var(--text-muted)" stroke-width="1.2"><path d="M2 4.5h4l1.5-1.5H14v2H4L2 13V4.5z"/><path d="M4 7h11l-2 6H2z"/></svg></span>';
+    html += '<span class="st-label"><span class="st-group-name">' + escHtml(moduleLabel) + '</span></span>';
+    html += '<span class="st-count">' + moduleGroup.count + '</span>';
     html += '</div>';
+    html += '<div class="st-children st-open" id="st-' + modId + '">';
+
+    for (var c = 0; c < moduleGroup.controllerOrder.length; c++) {
+      var ctrlName = moduleGroup.controllerOrder[c];
+      var ctrlIndices = moduleGroup.controllers[ctrlName];
+      var ctrlId = modId + "-ctrl-" + c;
+      html += '<div class="st-row ep-ctrl-row" data-toggle="' + ctrlId + '">';
+      html += '<span class="st-indent"></span>';
+      html += '<span class="st-toggle" data-toggle="' + ctrlId + '">\\u25BE</span>';
+      html += '<span class="st-icon"><svg viewBox="0 0 16 16" fill="none" stroke="var(--nest-red)" stroke-width="1.2"><rect x="2" y="2" width="12" height="12" rx="2"/><line x1="5" y1="6" x2="11" y2="6"/><line x1="5" y1="10" x2="9" y2="10"/></svg></span>';
+      html += '<span class="st-label"><span class="st-entity-name">' + escHtml(ctrlName) + '</span></span>';
+      html += '<span class="st-count">' + ctrlIndices.length + '</span>';
+      html += '</div>';
+      html += '<div class="st-children st-open" id="st-' + ctrlId + '">';
+
+      for (var e = 0; e < ctrlIndices.length; e++) {
+        var epIndex = ctrlIndices[e];
+        var endpoint = endpoints.endpoints[epIndex];
+        var method = (endpoint.httpMethod || "GET").toUpperCase();
+        var badgeClass = METHOD_COLORS[method] || "ep-method-unknown";
+        var shield = epAuthShield(endpoint);
+        html += '<div class="st-row ep-endpoint-row" data-ep-index="' + epIndex + '">';
+        html += '<span class="st-indent"></span><span class="st-indent"></span>';
+        html += '<span class="ep-method-badge ' + badgeClass + '">' + escHtml(method) + '</span>';
+        html += '<span class="st-label">' + escHtml(endpoint.routePath || "/") + '</span>';
+        html += '<span class="ep-auth-shield ' + shield.cls + ' has-tip" data-tip="' + escHtml(shield.label) + '">' + shield.glyph + '</span>';
+        html += epDiagBadgeHtml(epIndex);
+        html += '</div>';
+      }
+      html += '</div>'; // close controller children
+    }
+    html += '</div>'; // close module children
   }
   sidebarEl.innerHTML = html;
 
+  // Search filter: case-insensitive substring over routePath, controllerClass,
+  // handlerMethod, module. Hides non-matching rows and empties groups.
+  var searchInput = document.getElementById("endpoints-search");
+  if (searchInput) {
+    searchInput.addEventListener("input", function() {
+      var q = searchInput.value.trim().toLowerCase();
+      var endpointRows = sidebarEl.querySelectorAll(".ep-endpoint-row");
+      for (var r = 0; r < endpointRows.length; r++) {
+        var row = endpointRows[r];
+        var rowIndex = Number(row.dataset.epIndex);
+        var rowEp = endpoints.endpoints[rowIndex];
+        var haystack = (
+          (rowEp.routePath || "") + " " +
+          (rowEp.controllerClass || "") + " " +
+          (rowEp.handlerMethod || "") + " " +
+          (rowEp.module || "")
+        ).toLowerCase();
+        row.style.display = (q === "" || haystack.indexOf(q) !== -1) ? "" : "none";
+      }
+
+      var ctrlRows = sidebarEl.querySelectorAll(".ep-ctrl-row");
+      for (var r2 = 0; r2 < ctrlRows.length; r2++) {
+        var ctrlRow = ctrlRows[r2];
+        var ctrlChildren = document.getElementById("st-" + ctrlRow.dataset.toggle);
+        var anyEndpointVisible = false;
+        if (ctrlChildren) {
+          var childEndpointRows = ctrlChildren.querySelectorAll(".ep-endpoint-row");
+          for (var k = 0; k < childEndpointRows.length; k++) {
+            if (childEndpointRows[k].style.display !== "none") { anyEndpointVisible = true; break; }
+          }
+        }
+        ctrlRow.style.display = anyEndpointVisible ? "" : "none";
+      }
+
+      var modRows = sidebarEl.querySelectorAll(".ep-module-row");
+      for (var r3 = 0; r3 < modRows.length; r3++) {
+        var modRow = modRows[r3];
+        var modChildren = document.getElementById("st-" + modRow.dataset.toggle);
+        var anyCtrlVisible = false;
+        if (modChildren) {
+          var childCtrlRows = modChildren.querySelectorAll(".ep-ctrl-row");
+          for (var k2 = 0; k2 < childCtrlRows.length; k2++) {
+            if (childCtrlRows[k2].style.display !== "none") { anyCtrlVisible = true; break; }
+          }
+        }
+        modRow.style.display = anyCtrlVisible ? "" : "none";
+      }
+    });
+  }
+
   // Sidebar click handlers
   sidebarEl.addEventListener("click", function(e) {
-    // Toggle handling
-    var toggleEl = e.target.closest(".st-toggle");
-    if (toggleEl) {
-      var toggleId = toggleEl.dataset.toggle;
-      var childDiv = document.getElementById("st-" + toggleId);
-      if (childDiv) {
-        var isOpen = childDiv.classList.toggle("st-open");
-        toggleEl.textContent = isOpen ? "\\u25BE" : "\\u25B8";
+    // Clicking anywhere on a module or controller header row toggles its group.
+    var groupRow = e.target.closest(".ep-module-row, .ep-ctrl-row");
+    if (groupRow) {
+      var rowToggle = groupRow.querySelector(".st-toggle");
+      if (rowToggle) {
+        var childDiv = document.getElementById("st-" + rowToggle.dataset.toggle);
+        if (childDiv) {
+          var isOpen = childDiv.classList.toggle("st-open");
+          rowToggle.textContent = isOpen ? "\\u25BE" : "\\u25B8";
+        }
       }
-      // If not an endpoint row, stop
-      var row = e.target.closest(".ep-endpoint-row");
-      if (!row) return;
+      return;
     }
 
-    // Endpoint selection
+    // Endpoint selection, keyed by index into endpoints.endpoints.
     var epRow = e.target.closest(".ep-endpoint-row");
     if (!epRow) return;
-    var ctrlName = epRow.dataset.epCtrl;
-    var handlerName = epRow.dataset.epHandler;
-
-    // Find matching endpoint
-    var found = null;
-    for (var i = 0; i < endpoints.endpoints.length; i++) {
-      var ep = endpoints.endpoints[i];
-      if (ep.controllerClass === ctrlName && ep.handlerMethod === handlerName) {
-        found = ep;
-        break;
-      }
-    }
-    if (!found) return;
-
-    // Highlight selected
-    var allRows = sidebarEl.querySelectorAll(".ep-endpoint-row");
-    for (var i = 0; i < allRows.length; i++) {
-      allRows[i].classList.toggle("st-selected", allRows[i] === epRow);
-    }
-
-    epSelectedEndpoint = found;
-
-    // Build graph and render
-    var emptyState = document.getElementById("endpoints-empty-state");
-    if (emptyState) emptyState.style.display = "none";
-    epCanvas.style.display = "block";
-
-    epBuildGraph(found);
-    epLayout();
-    epResize();
+    var epIndex = Number(epRow.dataset.epIndex);
+    if (!(epIndex >= 0 && epIndex < endpoints.endpoints.length)) return;
+    epShowFocused(epIndex);
   });
 
-  // Canvas interactions
+  // Sidebar expand-all / collapse-all / hide — mirrors schema's sCollapseTree and the
+  // schema-sidebar-collapse/schema-sidebar-show pair, scoped to the endpoints tree.
+  /** Closes every module/controller group in the sidebar tree. */
+  function epCollapseSidebarTree() {
+    var children = sidebarEl.querySelectorAll(".st-children");
+    for (var i = 0; i < children.length; i++) {
+      children[i].classList.remove("st-open");
+    }
+    var toggles = sidebarEl.querySelectorAll(".st-toggle");
+    for (var j = 0; j < toggles.length; j++) {
+      toggles[j].textContent = "\\u25B8";
+    }
+  }
+
+  var epSidebarExpandAllBtn = document.getElementById("endpoints-sidebar-expand-all");
+  if (epSidebarExpandAllBtn) {
+    epSidebarExpandAllBtn.addEventListener("click", function() {
+      var children = sidebarEl.querySelectorAll(".st-children");
+      for (var i = 0; i < children.length; i++) children[i].classList.add("st-open");
+      var toggles = sidebarEl.querySelectorAll(".st-toggle");
+      for (var j = 0; j < toggles.length; j++) toggles[j].textContent = "\\u25BE";
+    });
+  }
+
+  var epSidebarCollapseAllBtn = document.getElementById("endpoints-sidebar-collapse-all");
+  if (epSidebarCollapseAllBtn) {
+    epSidebarCollapseAllBtn.addEventListener("click", epCollapseSidebarTree);
+  }
+
+  var epSidebarCollapseBtn = document.getElementById("endpoints-sidebar-collapse");
+  var epSidebarShowBtn = document.getElementById("endpoints-sidebar-show");
+  var endpointsTabEl = document.getElementById("tab-endpoints");
+  function epSetSidebarCollapsed(collapsed) {
+    if (!endpointsTabEl) return;
+    endpointsTabEl.classList.toggle("sidebar-collapsed", collapsed);
+    epResize();
+  }
+  if (epSidebarCollapseBtn) {
+    epSidebarCollapseBtn.addEventListener("click", function() { epSetSidebarCollapsed(true); });
+  }
+  if (epSidebarShowBtn) {
+    epSidebarShowBtn.addEventListener("click", function() { epSetSidebarCollapsed(false); });
+  }
+
+  // Canvas interactions. Overview and focused mode share panning and zoom;
+  // only hit-testing and the click result differ.
   epCanvas.addEventListener("mousedown", function(e) {
     var rect = epCanvas.getBoundingClientRect();
     var sx = e.clientX - rect.left;
     var sy = e.clientY - rect.top;
     var pos = epScreenToWorld(sx, sy);
-    var hit = epHitTest(pos.x, pos.y);
     epDragMoved = false;
+
+    if (epMode === "overview") {
+      epOvHitRowPending = epOvHitTestRow(pos.x, pos.y);
+      if (!epOvHitRowPending) {
+        epPanning = true;
+        epPanStart = { x: e.clientX, y: e.clientY };
+      }
+      return;
+    }
+
+    // Chip hits are checked first: toggling expansion is not a drag and never
+    // opens the code panel, so it must win over the node-body hit-test below.
+    var chipHit = epChipHitTest(pos.x, pos.y);
+    if (chipHit) {
+      epToggleNode(chipHit);
+      return;
+    }
+
+    var hit = epHitTest(pos.x, pos.y);
     if (hit) {
-      epDragging = hit;
+      // Grab offset, not the node's centre — so a drag moves the node
+      // relative to where it was grabbed instead of snapping it to the cursor.
+      epDragging = { node: hit, dx: pos.x - hit.x, dy: pos.y - hit.y };
+      epDragStartX = e.clientX;
+      epDragStartY = e.clientY;
       epHideTooltip();
     } else {
       epPanning = true;
       epPanStart = { x: e.clientX, y: e.clientY };
+      // Same fixed gesture origin the dragging branch uses below, so a pan
+      // that never actually moves still reads as a click at mouseup.
+      epDragStartX = e.clientX;
+      epDragStartY = e.clientY;
     }
   });
 
@@ -4263,14 +5485,54 @@ function renderEndpoints() {
     var sy = e.clientY - rect.top;
     var pos = epScreenToWorld(sx, sy);
 
+    if (epMode === "overview") {
+      if (epPanning) {
+        epDragMoved = true;
+        epCamX += (e.clientX - epPanStart.x) / epZoom;
+        epCamY += (e.clientY - epPanStart.y) / epZoom;
+        epPanStart = { x: e.clientX, y: e.clientY };
+        epScheduleRedraw();
+      } else if (epOvHitRowPending) {
+        epDragMoved = true;
+      } else {
+        var hoverRow = epOvHitTestRow(pos.x, pos.y);
+        var hoverIndex = hoverRow ? hoverRow.epIndex : null;
+        var currentIndex = epOvHoveredRow ? epOvHoveredRow.epIndex : null;
+        if (hoverIndex !== currentIndex) {
+          epOvHoveredRow = hoverRow;
+          epCanvas.style.cursor = hoverRow ? "pointer" : "grab";
+          epScheduleRedraw();
+        }
+      }
+      return;
+    }
+
     if (epDragging) {
-      epDragMoved = true;
-      epDragging.x = pos.x;
-      epDragging.y = pos.y;
-      epScheduleRedraw();
-      epHideTooltip();
+      if (!epDragMoved) {
+        var ddx = e.clientX - epDragStartX;
+        var ddy = e.clientY - epDragStartY;
+        if (ddx * ddx + ddy * ddy > EP_DRAG_THRESHOLD_PX * EP_DRAG_THRESHOLD_PX) {
+          epDragMoved = true;
+        }
+      }
+      if (epDragMoved) {
+        epDragging.node.x = pos.x - epDragging.dx;
+        epDragging.node.y = pos.y - epDragging.dy;
+        epScheduleRedraw();
+        epHideTooltip();
+      }
     } else if (epPanning) {
-      epDragMoved = true;
+      // Cumulative distance from the fixed gesture origin, not the unconditional
+      // set this used to do — a single incidental mousemove with near-zero delta
+      // (real jitter, or a synthetic click's own move+down+up sequence) must not
+      // by itself turn a click into a "drag" that skips every click handler below.
+      if (!epDragMoved) {
+        var pdx = e.clientX - epDragStartX;
+        var pdy = e.clientY - epDragStartY;
+        if (pdx * pdx + pdy * pdy > EP_DRAG_THRESHOLD_PX * EP_DRAG_THRESHOLD_PX) {
+          epDragMoved = true;
+        }
+      }
       epCamX += (e.clientX - epPanStart.x) / epZoom;
       epCamY += (e.clientY - epPanStart.y) / epZoom;
       epPanStart = { x: e.clientX, y: e.clientY };
@@ -4289,13 +5551,33 @@ function renderEndpoints() {
       } else if (hit) {
         epShowTooltip(hit, sx, sy);
       }
+
+      // Edge hover only when no node is under the cursor — a node's own hover wins.
+      var hitEdge = hit ? null : epHitTestEdge(pos.x, pos.y);
+      if (hitEdge !== epHoveredEdge) {
+        epHoveredEdge = hitEdge;
+        epScheduleRedraw();
+      }
     }
   });
 
   epCanvas.addEventListener("mouseup", function() {
+    if (epMode === "overview") {
+      if (epOvHitRowPending && !epDragMoved) {
+        epShowFocused(epOvHitRowPending.epIndex);
+      }
+      epOvHitRowPending = null;
+      epPanning = false;
+      epDragMoved = false;
+      return;
+    }
+
     var clickedNode = epDragging;
     if (!epDragMoved && clickedNode) {
-      epShowCodePanel(clickedNode);
+      epShowCodePanel(clickedNode.node);
+    } else if (!epDragMoved && !clickedNode && epPanning) {
+      // Sub-threshold click hit neither a node nor a chip — empty canvas, close the panel.
+      epHideCodePanel();
     }
     epDragging = null;
     epPanning = false;
@@ -4305,6 +5587,9 @@ function renderEndpoints() {
     epDragging = null;
     epPanning = false;
     epHoveredNode = null;
+    epHoveredEdge = null;
+    epOvHoveredRow = null;
+    epOvHitRowPending = null;
     epHideTooltip();
     epScheduleRedraw();
   });
@@ -4321,7 +5606,7 @@ function renderEndpoints() {
     }
     var zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
     var newZoom = epZoom * zoomFactor;
-    newZoom = Math.max(0.2, Math.min(3, newZoom));
+    newZoom = Math.max(epZoomFloor(), Math.min(3, newZoom));
 
     var rect = epCanvas.getBoundingClientRect();
     var mx = e.clientX - rect.left;
@@ -4338,12 +5623,85 @@ function renderEndpoints() {
     epScheduleRedraw();
   }, { passive: false });
 
-  // Recenter button
+  // Zoom toolbar: mirrors the schema tab's -/+/% readout + click-to-fit, both modes.
+  var epZoomRange = document.getElementById("endpoints-zoom-range");
+  var epZoomInBtn = document.getElementById("endpoints-zoom-in");
+  var epZoomOutBtn = document.getElementById("endpoints-zoom-out");
+  var epZoomValueBtn = document.getElementById("endpoints-zoom-value");
+  if (epZoomRange) {
+    epZoomRange.addEventListener("input", function() {
+      epSetZoom(Number(epZoomRange.value) / 100);
+    });
+  }
+  if (epZoomInBtn) {
+    epZoomInBtn.addEventListener("click", function() { epSetZoom(epZoom * 1.2); });
+  }
+  if (epZoomOutBtn) {
+    epZoomOutBtn.addEventListener("click", function() { epSetZoom(epZoom / 1.2); });
+  }
+  if (epZoomValueBtn) {
+    epZoomValueBtn.addEventListener("click", function() {
+      if (epMode === "overview") { epCenterOverviewCamera(); } else { epCenterCamera(); }
+      epSyncZoomUi();
+      epScheduleRedraw();
+    });
+  }
+
+  // Legend: type-color rows are built once here; overview-only rows toggle via epSyncLegendMode.
+  var epLegendTypesEl = document.getElementById("endpoints-legend-types");
+  if (epLegendTypesEl) epLegendTypesEl.innerHTML = epBuildLegendTypesHtml();
+  var legendToggleBtn = document.getElementById("endpoints-legend-toggle");
+  var legendPanel = document.getElementById("endpoints-legend");
+  if (legendToggleBtn && legendPanel) {
+    legendToggleBtn.addEventListener("click", function() {
+      var showing = legendPanel.style.display !== "none";
+      legendPanel.style.display = showing ? "none" : "block";
+      legendToggleBtn.classList.toggle("active", !showing);
+      legendToggleBtn.setAttribute("aria-pressed", String(!showing));
+    });
+  }
+
+  // Truncation banner dismiss — stays dismissed only for the endpoint it was shown for.
+  var truncatedDismissBtn = document.getElementById("endpoints-truncated-dismiss");
+  if (truncatedDismissBtn) {
+    truncatedDismissBtn.addEventListener("click", function() {
+      epBannerDismissedIndex = epSelectedIndex;
+      epSyncTruncatedBanner(endpoints.endpoints[epSelectedIndex]);
+    });
+  }
+
+  // Expand-all / collapse-all — focused mode only (hidden via epSyncFocusedToolbar elsewhere).
+  var expandAllBtn = document.getElementById("endpoints-expand-all");
+  if (expandAllBtn) {
+    expandAllBtn.addEventListener("click", function() { epExpandAll(); });
+  }
+  var collapseAllBtn = document.getElementById("endpoints-collapse-all");
+  if (collapseAllBtn) {
+    collapseAllBtn.addEventListener("click", function() { epCollapseAll(); });
+  }
+
+  // Recenter button — auto-fits whichever mode is active.
   var recenterBtn = document.getElementById("endpoints-recenter");
   if (recenterBtn) {
     recenterBtn.addEventListener("click", function() {
-      epCenterCamera();
+      if (epMode === "overview") {
+        epCenterOverviewCamera();
+      } else {
+        epCenterCamera();
+      }
       epScheduleRedraw();
+    });
+  }
+
+  // View toggle: overview <-> focused mode on the currently selected endpoint.
+  var viewToggleBtn = document.getElementById("endpoints-toggle-view");
+  if (viewToggleBtn) {
+    viewToggleBtn.addEventListener("click", function() {
+      if (epMode === "focused") {
+        epShowOverview();
+      } else if (epSelectedIndex >= 0) {
+        epShowFocused(epSelectedIndex);
+      }
     });
   }
 
@@ -4372,6 +5730,8 @@ function renderEndpoints() {
     });
     document.addEventListener("mousemove", function(e) {
       if (!epResizing) return;
+      // Panel is left-anchored, so its resize handle sits on the right edge:
+      // dragging right grows the panel.
       var w = epStartW + (e.clientX - epStartX);
       if (w < 300) w = 300;
       if (w > window.innerWidth * 0.8) w = window.innerWidth * 0.8;
@@ -4399,10 +5759,149 @@ function renderEndpoints() {
     if (activeTab === "endpoints") epResize();
   });
 
-  // Show empty state initially
-  var emptyState = document.getElementById("endpoints-empty-state");
-  if (emptyState) emptyState.style.display = "flex";
-  epCanvas.style.display = "none";
+  // ── Endpoint diagnostics drawer ──
+  var epDiagCountEl = document.getElementById("endpoints-diag-count");
+  var epDiagHeaderEl = document.getElementById("endpoints-diag-header");
+  var epDiagScopeEl = document.getElementById("endpoints-diag-scope");
+  var epDiagBodyEl = document.getElementById("endpoints-diag-body");
+  var epDiagListEl = document.getElementById("endpoints-diag-list");
+  var epDiagChevronEl = document.getElementById("endpoints-diag-chevron");
+
+  if (epDiagCountEl && epDiagHeaderEl && epDiagScopeEl && epDiagBodyEl && epDiagListEl && epDiagChevronEl) {
+    var epEndpointsByFile = {};
+    for (var fi = 0; fi < endpoints.endpoints.length; fi++) {
+      var fep = endpoints.endpoints[fi];
+      if (!epEndpointsByFile[fep.filePath]) epEndpointsByFile[fep.filePath] = [];
+      epEndpointsByFile[fep.filePath].push(fi);
+    }
+
+    // Joins diagnostics to endpoints by filePath + line range, mirroring endpoint-diagnostics.ts.
+    // Computed once — epRenderDiagPanel below just filters/aggregates this on every mode switch.
+    var epDiagRows = [];
+    for (var di = 0; di < diagnostics.length; di++) {
+      var d = diagnostics[di];
+      if (!("line" in d)) continue;
+      var candidates = epEndpointsByFile[d.filePath];
+      if (!candidates) continue;
+      for (var ci = 0; ci < candidates.length; ci++) {
+        var cep = endpoints.endpoints[candidates[ci]];
+        if (d.line >= cep.line && d.line <= cep.endLine) {
+          epDiagRows.push({ epIndex: candidates[ci], diagnostic: d });
+        }
+      }
+    }
+
+    var epSumCounts = function(c) { return c ? c.error + c.warning + c.info : 0; };
+
+    function epDiagRowHtml(row) {
+      var rd = row.diagnostic;
+      var rep = endpoints.endpoints[row.epIndex];
+      var sevColor = rd.severity === "error" ? "var(--sev-error)" : rd.severity === "warning" ? "var(--sev-warning)" : "var(--sev-info)";
+      return '<div class="sd-item">' +
+        '<span class="sev-dot" style="background:' + sevColor + '"></span>' +
+        '<span class="sd-rule">' + escHtml(rd.rule) + '</span>' +
+        '<span class="sd-entity" data-ep-index="' + row.epIndex + '" data-line="' + rd.line + '">' + escHtml(rep.controllerClass + "." + rep.handlerMethod) + '</span>' +
+        '<span class="sd-msg">' + escHtml(rd.message) + '</span>' +
+        '</div>';
+    }
+
+    function epFileRollupHtml(filePath) {
+      var counts = endpointDiagnostics.perFile[filePath];
+      var frTotal = epSumCounts(counts);
+      var frColor = counts.error > 0 ? "var(--sev-error)" : (counts.warning > 0 ? "var(--sev-warning)" : "var(--sev-info)");
+      var frParts = [];
+      if (counts.error > 0) frParts.push(counts.error + " error" + (counts.error !== 1 ? "s" : ""));
+      if (counts.warning > 0) frParts.push(counts.warning + " warning" + (counts.warning !== 1 ? "s" : ""));
+      if (counts.info > 0) frParts.push(counts.info + " info");
+      return '<div class="sd-item">' +
+        '<span class="sev-dot" style="background:' + frColor + '"></span>' +
+        '<span class="sd-entity">' + escHtml(epRelPath(filePath)) + '</span>' +
+        '<span class="sd-msg">' + frTotal + (frTotal === 1 ? " issue" : " issues") + ' outside any handler \\u00b7 ' + escHtml(frParts.join(", ")) + '</span>' +
+        '</div>';
+    }
+
+    /**
+     * Renders the drawer badge/title/list. scopeIndex null scopes to the whole project
+     * (overview); a number scopes to just that endpoint's joined rows — no per-file
+     * "outside any handler" rollup, since those aren't attributable to one endpoint.
+     */
+    function epRenderDiagPanel(scopeIndex) {
+      var scoped = typeof scopeIndex === "number";
+      var total;
+
+      if (scoped) {
+        total = epSumCounts(endpointDiagnostics.perEndpoint[String(scopeIndex)]);
+      } else {
+        var epFileKeys = Object.keys(endpointDiagnostics.perFile);
+        var epEndpointKeys = Object.keys(endpointDiagnostics.perEndpoint);
+        total = 0;
+        for (var pek = 0; pek < epEndpointKeys.length; pek++) {
+          total += epSumCounts(endpointDiagnostics.perEndpoint[epEndpointKeys[pek]]);
+        }
+        for (var pfk = 0; pfk < epFileKeys.length; pfk++) {
+          total += epSumCounts(endpointDiagnostics.perFile[epFileKeys[pfk]]);
+        }
+      }
+
+      if (scoped) {
+        var scopedEp = endpoints.endpoints[scopeIndex];
+        epDiagScopeEl.textContent = "\\u00b7 " + (scopedEp.httpMethod || "").toUpperCase() + " " + (scopedEp.routePath || "/");
+      } else {
+        epDiagScopeEl.textContent = "";
+      }
+
+      epDiagCountEl.textContent = total + (total === 1 ? " issue" : " issues");
+      epDiagCountEl.classList.toggle("has-issues", total > 0);
+
+      if (total === 0) {
+        epDiagListEl.innerHTML = '<div class="sd-empty">' + (scoped ? "No issues for this endpoint" : "No endpoint issues found") + '</div>';
+        return;
+      }
+
+      var epDiagHtml = "";
+      for (var ri = 0; ri < epDiagRows.length; ri++) {
+        if (scoped && epDiagRows[ri].epIndex !== scopeIndex) continue;
+        epDiagHtml += epDiagRowHtml(epDiagRows[ri]);
+      }
+      if (!scoped) {
+        var rollupFileKeys = Object.keys(endpointDiagnostics.perFile);
+        for (var rj = 0; rj < rollupFileKeys.length; rj++) {
+          epDiagHtml += epFileRollupHtml(rollupFileKeys[rj]);
+        }
+      }
+      epDiagListEl.innerHTML = epDiagHtml;
+    }
+
+    epDiagPanelRender = epRenderDiagPanel;
+
+    epDiagHeaderEl.addEventListener("click", function() {
+      var isOpen = epDiagBodyEl.style.display !== "none";
+      epDiagBodyEl.style.display = isOpen ? "none" : "block";
+      epDiagChevronEl.classList.toggle("open", !isOpen);
+      epResize();
+    });
+
+    epDiagListEl.addEventListener("click", function(e) {
+      var entityEl = e.target.closest(".sd-entity[data-ep-index]");
+      if (!entityEl) return;
+      var idx = Number(entityEl.dataset.epIndex);
+      var line = Number(entityEl.dataset.line);
+      if (!(idx >= 0 && idx < endpoints.endpoints.length)) return;
+      var targetEp = endpoints.endpoints[idx];
+      epShowFocused(idx);
+      epShowCodePanel({
+        className: targetEp.controllerClass,
+        methodName: targetEp.handlerMethod,
+        filePath: targetEp.filePath,
+        line: line,
+        endLine: targetEp.endLine
+      }, true);
+    });
+  }
+
+  // Overview is the default entry state; no empty state to show first.
+  epRebuildOverview();
+  epShowOverview();
 }
 
 switchTab("summary");`;

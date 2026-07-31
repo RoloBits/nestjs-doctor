@@ -41,17 +41,18 @@ function escHtml(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-function makeHighlightPlugin(targetLines) {
-  const lineDeco = Decoration.line({ attributes: { class: "cm-highlighted-line" } });
+// entries: [{ line, cls }] — one line decoration per entry, any number of classes per line.
+function makeLineDecoPlugin(entries) {
   return ViewPlugin.fromClass(class {
     constructor(view) {
       this.decorations = this.buildDecos(view);
     }
     buildDecos(view) {
       const builder = [];
-      for (const tl of targetLines) {
-        if (tl >= 1 && tl <= view.state.doc.lines) {
-          builder.push(lineDeco.range(view.state.doc.line(tl).from));
+      for (const en of entries) {
+        if (en.line >= 1 && en.line <= view.state.doc.lines) {
+          const deco = Decoration.line({ attributes: { class: en.cls } });
+          builder.push(deco.range(view.state.doc.line(en.line).from));
         }
       }
       return Decoration.set(builder, true);
@@ -104,7 +105,12 @@ window.createCodeViewer = function(container, code, options) {
   const firstLineNumber = options.firstLineNumber || 1;
   const showLineNumbers = options.lineNumbers !== false;
   const highlightLine = options.highlightLine || 0;
+  // highlightLines: neutral "here's the definition/call site" marker (blue-grey).
+  // diagnosticLines: severity-red marker, reserved for diagnostic navigation.
   const highlightLines = options.highlightLines || (highlightLine > 0 ? [highlightLine] : []);
+  const diagnosticLines = options.diagnosticLines || [];
+  const tintRangeStart = options.tintRangeStart || 0;
+  const tintRangeEnd = options.tintRangeEnd || 0;
   const lineMetadata = options.lineMetadata || null;
 
   const extensions = [
@@ -128,6 +134,13 @@ window.createCodeViewer = function(container, code, options) {
         borderLeft: "3px solid #ea2845",
         cursor: "pointer",
       },
+      ".cm-neutral-line": {
+        background: "rgba(59,130,246,0.10) !important",
+        borderLeft: "2px solid #3b82f6",
+      },
+      ".cm-range-tint": {
+        background: "rgba(59,130,246,0.05)",
+      },
     }),
   ];
 
@@ -135,8 +148,16 @@ window.createCodeViewer = function(container, code, options) {
     extensions.push(lineNumbers({ formatNumber: (n) => String(n + firstLineNumber - 1) }));
   }
 
-  if (highlightLines.length > 0) {
-    extensions.push(makeHighlightPlugin(highlightLines));
+  const lineDecoEntries = [];
+  if (tintRangeEnd > tintRangeStart) {
+    for (let l = tintRangeStart; l <= tintRangeEnd; l++) {
+      lineDecoEntries.push({ line: l, cls: "cm-range-tint" });
+    }
+  }
+  for (const dl of diagnosticLines) lineDecoEntries.push({ line: dl, cls: "cm-highlighted-line" });
+  for (const hl of highlightLines) lineDecoEntries.push({ line: hl, cls: "cm-neutral-line" });
+  if (lineDecoEntries.length > 0) {
+    extensions.push(makeLineDecoPlugin(lineDecoEntries));
   }
 
   if (lineMetadata) {
@@ -152,8 +173,9 @@ window.createCodeViewer = function(container, code, options) {
 
   viewerInstances.set(key, view);
 
-  if (highlightLines.length > 0 && !options.skipScrollIntoView) {
-    const firstHL = highlightLines[0];
+  const scrollTargetLines = highlightLines.length > 0 ? highlightLines : diagnosticLines;
+  if (scrollTargetLines.length > 0 && !options.skipScrollIntoView) {
+    const firstHL = scrollTargetLines[0];
     requestAnimationFrame(() => {
       if (firstHL >= 1 && firstHL <= view.state.doc.lines) {
         const line = view.state.doc.line(firstHL);
