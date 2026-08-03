@@ -35,13 +35,13 @@ jobs:
     name: Run the action against a fixture
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # `--scope changed` checks the base revision out into a worktree, so
           # the full history has to be present.
           fetch-depth: 0
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v6.0.9
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
