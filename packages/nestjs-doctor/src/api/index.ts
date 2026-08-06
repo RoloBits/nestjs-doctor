@@ -27,6 +27,8 @@ export {
 } from "../common/diagnostic.js";
 export type {
 	DependencyType,
+	EndpointAuth,
+	EndpointAuthState,
 	EndpointGraph,
 	EndpointNode,
 	MethodCallNode,

@@ -3680,4 +3680,86 @@ describe("endpoint-graph", () => {
 		expect(step).toBeDefined();
 		expect(step!.dependencies).toEqual([]);
 	});
+
+	describe("route extraction", () => {
+		it("emits one endpoint per controller path in a path array", () => {
+			const { project, paths } = createProject({
+				"multi.controller.ts": `
+					import { Controller, Get } from '@nestjs/common';
+					@Controller(['admin', 'manage'])
+					export class MultiController {
+						@Get('users')
+						list() { return []; }
+					}
+				`,
+			});
+			const graph = buildEndpointGraph(
+				project,
+				paths,
+				resolveProviders(project, paths)
+			);
+			const routes = graph.endpoints.map((e) => e.routePath).sort();
+			expect(routes).toEqual(["/admin/users", "/manage/users"]);
+		});
+
+		it("emits one endpoint per method path in a path array", () => {
+			const { project, paths } = createProject({
+				"alias.controller.ts": `
+					import { Controller, Get } from '@nestjs/common';
+					@Controller('items')
+					export class AliasController {
+						@Get(['all', 'list'])
+						list() { return []; }
+					}
+				`,
+			});
+			const graph = buildEndpointGraph(
+				project,
+				paths,
+				resolveProviders(project, paths)
+			);
+			const routes = graph.endpoints.map((e) => e.routePath).sort();
+			expect(routes).toEqual(["/items/all", "/items/list"]);
+		});
+
+		it("emits one endpoint per route decorator on a handler", () => {
+			const { project, paths } = createProject({
+				"dual.controller.ts": `
+					import { Controller, Get, Post } from '@nestjs/common';
+					@Controller('dual')
+					export class DualController {
+						@Get('x')
+						@Post('x')
+						both() { return []; }
+					}
+				`,
+			});
+			const graph = buildEndpointGraph(
+				project,
+				paths,
+				resolveProviders(project, paths)
+			);
+			const methods = graph.endpoints.map((e) => e.httpMethod).sort();
+			expect(methods).toEqual(["GET", "POST"]);
+		});
+
+		it("keeps single-path controllers unchanged", () => {
+			const { project, paths } = createProject({
+				"plain.controller.ts": `
+					import { Controller, Get } from '@nestjs/common';
+					@Controller('plain')
+					export class PlainController {
+						@Get()
+						root() { return []; }
+					}
+				`,
+			});
+			const graph = buildEndpointGraph(
+				project,
+				paths,
+				resolveProviders(project, paths)
+			);
+			expect(graph.endpoints.map((e) => e.routePath)).toEqual(["/plain"]);
+		});
+	});
 });

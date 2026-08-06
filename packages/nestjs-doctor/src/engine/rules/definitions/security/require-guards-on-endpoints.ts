@@ -1,31 +1,13 @@
-import type { ClassDeclaration, MethodDeclaration } from "ts-morph";
+import {
+	hasGuardDecorator,
+	PUBLIC_DECORATORS,
+} from "../../../graph/guard-facts.js";
 import {
 	declaresRoutes,
 	isController,
 	isHttpHandler,
 } from "../../../nest-class-inspector.js";
-import type { GuardFacts, Rule } from "../../types.js";
-
-const PUBLIC_DECORATORS = new Set([
-	"Public",
-	"AllowAnonymous",
-	"SkipAuth",
-	"IsPublic",
-]);
-
-/** True for `@UseGuards()` or a decorator known to compose it. */
-function hasGuard(
-	node: ClassDeclaration | MethodDeclaration,
-	guards: GuardFacts | undefined
-): boolean {
-	return node
-		.getDecorators()
-		.some(
-			(decorator) =>
-				decorator.getName() === "UseGuards" ||
-				guards?.composedDecorators.has(decorator.getName())
-		);
-}
+import type { Rule } from "../../types.js";
 
 export const requireGuardsOnEndpoints: Rule = {
 	meta: {
@@ -47,7 +29,9 @@ export const requireGuardsOnEndpoints: Rule = {
 				continue;
 			}
 
-			if (hasGuard(cls, context.guards)) {
+			if (
+				hasGuardDecorator(cls, context.guards?.composedDecorators ?? new Set())
+			) {
 				continue;
 			}
 
@@ -75,7 +59,12 @@ export const requireGuardsOnEndpoints: Rule = {
 					continue;
 				}
 
-				if (hasGuard(method, context.guards)) {
+				if (
+					hasGuardDecorator(
+						method,
+						context.guards?.composedDecorators ?? new Set()
+					)
+				) {
 					continue;
 				}
 

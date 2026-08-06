@@ -15,6 +15,8 @@ import type {
 import type { ScopeInfo } from "../common/scope.js";
 import type { AnalysisContext } from "./analysis-context.js";
 import type { RawDiagnosticOutput } from "./diagnostician.js";
+import { annotateEndpoints } from "./graph/endpoint-annotations.js";
+import { buildGuardFacts } from "./graph/guard-facts.js";
 import type { ModuleGraph } from "./graph/module-graph.js";
 import type { ProviderInfo } from "./graph/type-resolver.js";
 import { extractSchema, serializeSchemaGraph } from "./schema/extract.js";
@@ -96,6 +98,17 @@ export function buildResult(
 			context.project.orm,
 			context.targetPath
 		);
+	annotateEndpoints(
+		context.endpointGraph,
+		context.astProject,
+		buildGuardFacts(
+			context.astProject,
+			context.files,
+			context.moduleGraph,
+			context.guardDecorators
+		),
+		context.moduleGraph
+	);
 	const score = calculateScore(diagnostics, context.files.length);
 	const summary = buildSummary(diagnostics);
 	const result: DiagnoseResult = {
@@ -158,7 +171,15 @@ export function buildMonorepoResult(
 		allRuleErrors.push(...scanResult.result.ruleErrors);
 		totalFiles += scanResult.result.project.fileCount;
 		if (scanResult.result.endpoints) {
-			allEndpoints.push(...scanResult.result.endpoints.endpoints);
+			for (const endpoint of scanResult.result.endpoints.endpoints) {
+				allEndpoints.push({
+					...endpoint,
+					module: endpoint.module
+						? `${name}/${endpoint.module}`
+						: (endpoint.module ?? null),
+					project: name,
+				});
+			}
 		}
 		if (scanResult.result.schema) {
 			for (const entity of scanResult.result.schema.entities) {

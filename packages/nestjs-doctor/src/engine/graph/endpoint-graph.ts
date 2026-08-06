@@ -591,52 +591,54 @@ function findMethodInHierarchy(
 	return undefined;
 }
 
-function extractControllerPath(cls: ClassDeclaration): string {
-	const decorator = cls.getDecorator("Controller");
-	if (!decorator) {
-		return "";
+/** String paths from a decorator argument: a literal, or each element of an array literal. */
+function literalPaths(node: Node): string[] {
+	const array = node.asKind(SyntaxKind.ArrayLiteralExpression);
+	if (array) {
+		const paths = array
+			.getElements()
+			.map((element) => element.getText().replace(QUOTE_REGEX, ""));
+		return paths.length > 0 ? paths : [""];
 	}
-
-	const args = decorator.getArguments();
-	if (args.length === 0) {
-		return "";
-	}
-
-	const firstArg = args[0];
-
-	if (firstArg.getKind() === SyntaxKind.ObjectLiteralExpression) {
-		const obj = firstArg.asKindOrThrow(SyntaxKind.ObjectLiteralExpression);
-		const pathProp = obj.getProperty("path");
-		if (!pathProp) {
-			return "";
-		}
-		const assignment = pathProp.asKind(SyntaxKind.PropertyAssignment);
-		if (!assignment) {
-			return "";
-		}
-		const init = assignment.getInitializer();
-		return init ? init.getText().replace(QUOTE_REGEX, "") : "";
-	}
-
-	return firstArg.getText().replace(QUOTE_REGEX, "");
+	return [node.getText().replace(QUOTE_REGEX, "")];
 }
 
-function extractRouteInfo(
+function extractControllerPaths(cls: ClassDeclaration): string[] {
+	const decorator = cls.getDecorator("Controller");
+	if (!decorator) {
+		return [""];
+	}
+	const args = decorator.getArguments();
+	if (args.length === 0) {
+		return [""];
+	}
+	const obj = args[0].asKind(SyntaxKind.ObjectLiteralExpression);
+	if (obj) {
+		const init = obj
+			.getProperty("path")
+			?.asKind(SyntaxKind.PropertyAssignment)
+			?.getInitializer();
+		return init ? literalPaths(init) : [""];
+	}
+	return literalPaths(args[0]);
+}
+
+function extractRouteInfos(
 	method: MethodDeclaration
-): { httpMethod: string; path: string } | undefined {
+): { httpMethod: string; path: string }[] {
+	const routes: { httpMethod: string; path: string }[] = [];
 	for (const decorator of method.getDecorators()) {
 		const name = decorator.getName();
 		if (!HTTP_DECORATORS.has(name)) {
 			continue;
 		}
-
 		const args = decorator.getArguments();
-		const path =
-			args.length > 0 ? args[0].getText().replace(QUOTE_REGEX, "") : "";
-
-		return { httpMethod: name.toUpperCase(), path };
+		const paths = args.length > 0 ? literalPaths(args[0]) : [""];
+		for (const path of paths) {
+			routes.push({ httpMethod: name.toUpperCase(), path });
+		}
 	}
-	return undefined;
+	return routes;
 }
 
 function composePath(controllerPath: string, methodPath: string): string {
@@ -1919,22 +1921,27 @@ function extractEndpointsFromFile(
 			continue;
 		}
 
-		const controllerPath = isCtrl ? extractControllerPath(cls) : "";
+		const controllerPaths = isCtrl ? extractControllerPaths(cls) : [""];
 		const controllerName =
 			cls.getName() ?? (isCtrl ? "AnonymousController" : "AnonymousResolver");
 		const injectionMap = buildInjectionMap(cls, providers, cache);
 
 		for (const method of cls.getMethods()) {
-			const routeInfo = isCtrl
-				? extractRouteInfo(method)
-				: extractResolverRouteInfo(method);
-			if (!routeInfo) {
+			let routeInfos: { httpMethod: string; path: string }[] = [];
+			if (isCtrl) {
+				routeInfos = extractRouteInfos(method);
+			} else {
+				const resolverRoute = isRes
+					? extractResolverRouteInfo(method)
+					: undefined;
+				if (resolverRoute) {
+					routeInfos = [resolverRoute];
+				}
+			}
+			if (routeInfos.length === 0) {
 				continue;
 			}
 
-			const fullPath = isCtrl
-				? composePath(controllerPath, routeInfo.path)
-				: routeInfo.path;
 			const scanResult = scanUsedDependencies(
 				method,
 				injectionMap,
@@ -1960,19 +1967,25 @@ function extractEndpointsFromFile(
 			const swagger = extractSwaggerMetadata(method);
 			const returnType = extractReturnType(method);
 
-			endpoints.push({
-				controllerClass: controllerName,
-				dependencies,
-				endLine: method.getEndLineNumber(),
-				filePath,
-				handlerMethod: method.getName(),
-				httpMethod: routeInfo.httpMethod,
-				line: method.getStartLineNumber(),
-				returnType,
-				routePath: fullPath,
-				swagger,
-				...(budget.exhausted ? { truncated: true as const } : {}),
-			});
+			for (const routeInfo of routeInfos) {
+				for (const controllerPath of controllerPaths) {
+					endpoints.push({
+						controllerClass: controllerName,
+						dependencies,
+						endLine: method.getEndLineNumber(),
+						filePath,
+						handlerMethod: method.getName(),
+						httpMethod: routeInfo.httpMethod,
+						line: method.getStartLineNumber(),
+						returnType,
+						routePath: isCtrl
+							? composePath(controllerPath, routeInfo.path)
+							: routeInfo.path,
+						swagger,
+						...(budget.exhausted ? { truncated: true as const } : {}),
+					});
+				}
+			}
 		}
 	}
 
