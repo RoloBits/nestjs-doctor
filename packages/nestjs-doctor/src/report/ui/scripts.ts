@@ -103,7 +103,8 @@ function switchTab(name) {
   if (name !== "modules") {
     document.getElementById("detail").style.display = "none";
     selectedNode = null;
-    exitFocus();
+    hideModuleTooltip();
+    if (focusNode) exitFocus();
   }
 
   if (name === "diagnosis" && !diagnosisRendered) { renderDiagnosis(); diagnosisRendered = true; }
@@ -165,14 +166,12 @@ function getDisplayName(n) {
 const canvas = document.getElementById("graph");
 const ctx = canvas.getContext("2d");
 const dpr = window.devicePixelRatio || 1;
-let simulationHeat = 1;
-
-function wakeSimulation(heat = 1) {
-  simulationHeat = Math.max(simulationHeat, heat);
-}
 
 let W, H;
+// True once the nodes have been laid out at least once.
+let graphReady = false;
 function resize() {
+  const prevW = W, prevH = H;
   W = window.innerWidth - 340;
   H = window.innerHeight - 96;
   canvas.width = W * dpr;
@@ -180,7 +179,14 @@ function resize() {
   canvas.style.width = W + "px";
   canvas.style.height = H + "px";
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  wakeSimulation(0.4);
+  if (graphReady) {
+    // Hold whatever was in the middle of the viewport in the middle of it.
+    if (prevW && prevH) {
+      camX += (W - prevW) / 2;
+      camY += (H - prevH) / 2;
+    }
+    scheduleGraphDraw();
+  }
 }
 resize();
 window.addEventListener("resize", resize);
@@ -207,38 +213,155 @@ for (const m of graph.modules) {
   if (m.name === "AppModule") rootModules.add(m.name);
 }
 
-// ── Create nodes with physics ──
-const nodes = graph.modules.map((m, i) => {
-  const angle = (2 * Math.PI * i) / graph.modules.length;
-  const radius = Math.min(W, H) * 0.3;
-  return {
-    ...m,
-    x: W / 2 + Math.cos(angle) * radius,
-    y: H / 2 + Math.sin(angle) * radius,
-    vx: 0, vy: 0,
-    w: 0, h: 36,
-  };
-});
+// ── Nodes ──
+const nodes = graph.modules.map((m) => ({ ...m, x: 0, y: 0, w: 0, h: 36 }));
 
 const nodeMap = new Map();
 for (const n of nodes) nodeMap.set(n.name, n);
 
-ctx.font = "12px -apple-system, BlinkMacSystemFont, sans-serif";
-function remeasureNodes() {
-  for (const n of nodes) {
-    const label = getDisplayName(n);
-    const sub = (n.providers.length || 0) + "p " + (n.controllers.length || 0) + "c";
-    const lw = ctx.measureText(label).width;
-    const sw = ctx.measureText(sub).width;
-    n.w = Math.max(lw, sw) + 24;
+let isolatedHeading = null;
+let graphDirty = false;
+function scheduleGraphDraw() {
+  if (graphDirty) return;
+  graphDirty = true;
+  requestAnimationFrame(() => { graphDirty = false; draw(); });
+}
+
+/**
+ * Lays each connected group out top down and packs the groups together, with
+ * modules that import nothing and are imported by nothing in one block.
+ */
+function layoutModules() {
+  const GUTTER = 90;
+  isolatedHeading = null;
+  const visible = nodes.filter(isNodeVisible);
+  if (visible.length === 0) return;
+  const components = sComputeComponents(visible, graph.edges, "from", "to");
+  const boxes = [];
+  const isolated = [];
+
+  for (const comp of components) {
+    if (comp.length === 1) { isolated.push(comp[0]); continue; }
+    const size = sLayoutComponent(comp, graph.edges, "from", "to", "TB");
+    boxes.push({ nodes: comp, w: size.w, h: size.h });
+  }
+  boxes.sort((a, b) => b.h - a.h || b.w - a.w);
+
+  let area = 0;
+  for (const b of boxes) area += b.w * b.h;
+  const targetW = Math.max(900, Math.sqrt(area) * 1.7);
+  sPackBoxes(boxes, targetW, GUTTER);
+
+  // The unconnected modules take their own row under everything else.
+  const anyConnected = boxes.length > 0;
+  let isolatedBox = null;
+  if (isolated.length > 0) {
+    isolated.sort((a, b) => (a.project || "").localeCompare(b.project || "") || a.name.localeCompare(b.name));
+    const size = sLayoutIsolatedBlock(isolated, 28);
+    let below = 0;
+    for (const b of boxes) below = Math.max(below, b.oy + b.h);
+    isolatedBox = { nodes: isolated, w: size.w, h: size.h, ox: 0, oy: below + GUTTER };
+    boxes.push(isolatedBox);
+  }
+
+  for (const b of boxes) {
+    for (const n of b.nodes) { n.x += b.ox; n.y += b.oy; }
+  }
+
+  // A heading only reads against a connected group, and only for the whole graph.
+  if (isolatedBox && anyConnected && activeProject === "all") {
+    let top = Infinity;
+    for (const n of isolatedBox.nodes) top = Math.min(top, n.y - n.h / 2);
+    const left = isolatedBox.ox;
+    const many = isolatedBox.nodes.length !== 1;
+    isolatedHeading = {
+      x: left,
+      y: top - 16,
+      text: isolatedBox.nodes.length + (many ? " modules" : " module") + " with no import links"
+    };
   }
 }
-remeasureNodes();
+
+/** Fits nodes into the part of the canvas the detail panel leaves free. */
+function centerGraph(subset) {
+  const visible = subset && subset.length > 0 ? subset : nodes.filter(isNodeVisible);
+  if (visible.length === 0) return;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const n of visible) {
+    minX = Math.min(minX, n.x - n.w / 2);
+    maxX = Math.max(maxX, n.x + n.w / 2);
+    minY = Math.min(minY, n.y - n.h / 2);
+    maxY = Math.max(maxY, n.y + n.h / 2);
+  }
+  const panel = document.getElementById("detail");
+  const covered = panel && getComputedStyle(panel).display !== "none"
+    ? panel.getBoundingClientRect().width
+    : 0;
+  const usableW = covered > W / 2 ? W : W - covered;
+  const fit = Math.min(1.2, Math.min((usableW * 0.9) / (maxX - minX || 1), (H * 0.9) / (maxY - minY || 1)));
+  zoom = fit < FIT_TOO_SMALL ? READABLE_ZOOM : fit;
+  if (fit < FIT_TOO_SMALL) {
+    // Start at the top of the hierarchy, centred, and pan down from there.
+    const pad = 40;
+    camX = (usableW / 2 - W / 2) / zoom + W / 2 - (minX + maxX) / 2;
+    camY = (pad - H / 2) / zoom + H / 2 - minY;
+    return;
+  }
+  camX = (usableW / 2 - W / 2) / zoom + W / 2 - (minX + maxX) / 2;
+  camY = H / 2 - (minY + maxY) / 2;
+}
+
+function relayoutGraph() {
+  remeasureNodes();
+  layoutModules();
+  centerGraph();
+  graphReady = true;
+  scheduleGraphDraw();
+}
+
+ctx.font = "12px -apple-system, BlinkMacSystemFont, sans-serif";
+const NODE_MAX_W = 220;
+// Below this a fit is too small to read, so the graph is shown readable and
+// panned instead. Above it, fitting everything still says more than zooming in.
+const FIT_TOO_SMALL = 0.4;
+const READABLE_ZOOM = 0.55;
+
+function clipToWidth(text, maxW) {
+  if (ctx.measureText(text).width <= maxW) return text;
+  let out = text;
+  while (out.length > 3 && ctx.measureText(out).width > maxW) out = out.slice(0, -1);
+  return out + "\u2026";
+}
+
+/** Sizes each box and caches its two lines: module name, then project. */
+function remeasureNodes() {
+  const room = NODE_MAX_W - 24;
+  for (const n of nodes) {
+    const shown = getDisplayName(n);
+    const cut = shown.lastIndexOf("/");
+    const moduleName = cut === -1 ? shown : shown.slice(cut + 1);
+    const counts = n.providers.length + "p " + n.controllers.length + "c";
+    const project = cut === -1 ? "" : shown.slice(0, cut);
+
+    ctx.font = "bold 12px -apple-system, BlinkMacSystemFont, sans-serif";
+    n.labelStr = clipToWidth(moduleName, room);
+    const lw = Math.min(ctx.measureText(moduleName).width, room);
+
+    ctx.font = "10px -apple-system, BlinkMacSystemFont, sans-serif";
+    const sub = project ? project + " \u00b7 " + counts : counts;
+    n.subStr = clipToWidth(sub, room);
+    const sw = Math.min(ctx.measureText(sub).width, room);
+
+    n.w = Math.min(Math.max(lw, sw) + 24, NODE_MAX_W);
+  }
+}
 
 // ── Camera & interaction state ──
 let camX = 0, camY = 0, zoom = 1;
 let dragging = null;
 let panning = false;
+let pointerMoved = false;
+let clickHandled = false;
 let panStart = { x: 0, y: 0 };
 let selectedNode = null;
 let focusNode = null;
@@ -259,6 +382,9 @@ function enterFocus(n) {
   focusSet = getRelatedNames(n.name);
   document.getElementById("focus-btn").classList.add("visible");
   document.getElementById("focus-hint").style.display = "block";
+  centerGraph(nodes.filter((m) => isNodeVisible(m) && focusSet.has(m.name)));
+  syncModulesZoomUi();
+  scheduleGraphDraw();
 }
 
 function exitFocus() {
@@ -266,6 +392,9 @@ function exitFocus() {
   focusSet = null;
   document.getElementById("focus-btn").classList.remove("visible");
   document.getElementById("focus-hint").style.display = "none";
+  centerGraph();
+  syncModulesZoomUi();
+  scheduleGraphDraw();
 }
 
 function screenToWorld(sx, sy) {
@@ -273,12 +402,15 @@ function screenToWorld(sx, sy) {
 }
 
 canvas.addEventListener("mousedown", (e) => {
+  pointerMoved = false;
+  clickHandled = false;
   const rect = canvas.getBoundingClientRect();
   const pos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
   for (const n of nodes) {
+    if (!isNodeVisible(n)) continue;
     if (pos.x >= n.x - n.w / 2 && pos.x <= n.x + n.w / 2 && pos.y >= n.y - n.h / 2 && pos.y <= n.y + n.h / 2) {
       dragging = n;
-      wakeSimulation(0.35);
+      scheduleGraphDraw();
       return;
     }
   }
@@ -288,29 +420,45 @@ canvas.addEventListener("mousedown", (e) => {
 
 canvas.addEventListener("mousemove", (e) => {
   if (dragging) {
+    pointerMoved = true;
     const rect = canvas.getBoundingClientRect();
     const pos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
     dragging.x = pos.x;
     dragging.y = pos.y;
-    dragging.vx = 0;
-    dragging.vy = 0;
+    scheduleGraphDraw();
   } else if (panning) {
+    pointerMoved = true;
     camX += (e.clientX - panStart.x) / zoom;
     camY += (e.clientY - panStart.y) / zoom;
     panStart = { x: e.clientX, y: e.clientY };
+    scheduleGraphDraw();
   }
 });
 
 canvas.addEventListener("mouseup", () => {
-  if (dragging && !panning) {
+  if (dragging && !panning && !pointerMoved) {
     showDetail(dragging);
+    clickHandled = true;
   }
-  wakeSimulation(0.25);
+  scheduleGraphDraw();
   dragging = null;
   panning = false;
 });
 
+// Catches the release when it lands outside the canvas.
+window.addEventListener("mouseup", () => {
+  if (!(dragging || panning)) return;
+  dragging = null;
+  panning = false;
+  scheduleGraphDraw();
+});
+
 canvas.addEventListener("click", (e) => {
+  if (clickHandled) {
+    clickHandled = false;
+    return;
+  }
+  if (pointerMoved) return;
   const rect = canvas.getBoundingClientRect();
   const pos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
   for (const n of nodes) {
@@ -328,44 +476,46 @@ canvas.addEventListener("wheel", (e) => {
   // ctrlKey or metaKey means a pinch, which zooms; anything else pans.
   if (e.ctrlKey || e.metaKey) {
     const factor = e.deltaY > 0 ? 0.92 : 1.08;
-    zoom = Math.max(0.1, Math.min(5, zoom * factor));
+    zoom = Math.max(0.05, Math.min(5, zoom * factor));
+    syncModulesZoomUi();
   } else {
     camX -= e.deltaX / zoom;
     camY -= e.deltaY / zoom;
   }
+  hideModuleTooltip();
+  scheduleGraphDraw();
 }, { passive: false });
 
 document.getElementById("close-detail").addEventListener("click", () => {
   document.getElementById("detail").style.display = "none";
   selectedNode = null;
   exitFocus();
+  scheduleGraphDraw();
 });
 
 document.getElementById("focus-btn").addEventListener("click", () => {
-  exitFocus();
   document.getElementById("detail").style.display = "none";
   selectedNode = null;
+  exitFocus();
+  scheduleGraphDraw();
 });
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") {
-    if (focusNode) exitFocus();
+  if (e.key === "Escape" && focusNode) {
+    document.getElementById("detail").style.display = "none";
+    selectedNode = null;
+    exitFocus();
   }
 });
 
 document.getElementById("project-filter").addEventListener("change", (e) => {
   activeProject = e.target.value;
-  remeasureNodes();
-  for (const n of nodes) {
-    n.vx = (Math.random() - 0.5) * 0.8;
-    n.vy = (Math.random() - 0.5) * 0.8;
-  }
-  wakeSimulation();
-  if (focusNode) exitFocus();
   if (selectedNode && !isNodeVisible(selectedNode)) {
     document.getElementById("detail").style.display = "none";
     selectedNode = null;
   }
+  if (focusNode) exitFocus();
+  relayoutGraph();
 });
 
 function showDetail(n) {
@@ -419,74 +569,6 @@ function showDetail(n) {
   enterFocus(n);
 }
 
-// ── Physics simulation ──
-const REPULSION = 2400;
-const SPRING_LENGTH = 180;
-const SPRING_K = 0.0035;
-const DAMPING = 0.8;
-const CENTER_PULL = 0.00035;
-const HEAT_DECAY = 0.985;
-const HEAT_SLEEP_THRESHOLD = 0.02;
-const SPEED_SLEEP_THRESHOLD = 0.03;
-
-function simulate() {
-  if (simulationHeat <= 0 && !dragging && !panning) {
-    return;
-  }
-
-  const forceScale = Math.max(simulationHeat, HEAT_SLEEP_THRESHOLD);
-
-  for (const a of nodes) {
-    if (!isNodeVisible(a)) continue;
-    for (const b of nodes) {
-      if (a === b || !isNodeVisible(b)) continue;
-      let dx = a.x - b.x;
-      let dy = a.y - b.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-      const force = (REPULSION * forceScale) / (dist * dist);
-      a.vx += (dx / dist) * force;
-      a.vy += (dy / dist) * force;
-    }
-    a.vx += (W / 2 - a.x) * CENTER_PULL * forceScale;
-    a.vy += (H / 2 - a.y) * CENTER_PULL * forceScale;
-  }
-  for (const edge of graph.edges) {
-    const a = nodeMap.get(edge.from);
-    const b = nodeMap.get(edge.to);
-    if (!a || !b) continue;
-    if (!isNodeVisible(a) || !isNodeVisible(b)) continue;
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-    const force = (dist - SPRING_LENGTH) * SPRING_K * forceScale;
-    const fx = (dx / dist) * force;
-    const fy = (dy / dist) * force;
-    a.vx += fx; a.vy += fy;
-    b.vx -= fx; b.vy -= fy;
-  }
-
-  let maxSpeed = 0;
-  for (const n of nodes) {
-    if (n === dragging || !isNodeVisible(n)) continue;
-    n.vx *= DAMPING;
-    n.vy *= DAMPING;
-    n.x += n.vx;
-    n.y += n.vy;
-    const speed = Math.abs(n.vx) + Math.abs(n.vy);
-    if (speed > maxSpeed) maxSpeed = speed;
-  }
-
-  if (!dragging && !panning) {
-    simulationHeat *= HEAT_DECAY;
-    if (simulationHeat < HEAT_SLEEP_THRESHOLD && maxSpeed < SPEED_SLEEP_THRESHOLD) {
-      simulationHeat = 0;
-      for (const n of nodes) {
-        n.vx = 0;
-        n.vy = 0;
-      }
-    }
-  }
-}
 
 function drawArrow(fromX, fromY, toX, toY, color, dashed) {
   const dx = toX - fromX;
@@ -539,6 +621,7 @@ function getEdgeEndpoints(a, b) {
 }
 
 function draw() {
+  syncModulesZoomUi();
   ctx.save();
   ctx.clearRect(0, 0, W, H);
   ctx.translate(W / 2, H / 2);
@@ -610,28 +693,129 @@ function draw() {
     ctx.lineWidth = isSelected ? 2 : 1;
     ctx.stroke();
 
-    const displayName = getDisplayName(n);
     ctx.fillStyle = "#fff";
     ctx.font = "bold 12px -apple-system, BlinkMacSystemFont, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(displayName, n.x, n.y - 5);
+    ctx.fillText(n.labelStr, n.x, n.y - 5);
     ctx.fillStyle = "#888";
     ctx.font = "10px -apple-system, BlinkMacSystemFont, sans-serif";
-    ctx.fillText(n.providers.length + " providers, " + n.controllers.length + " controllers", n.x, n.y + 10);
+    ctx.fillText(n.subStr, n.x, n.y + 10);
+  }
+  if (isolatedHeading && !focusNode) {
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#666";
+    ctx.font = "11px -apple-system, BlinkMacSystemFont, sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText(isolatedHeading.text, isolatedHeading.x, isolatedHeading.y);
   }
   ctx.globalAlpha = 1;
   ctx.restore();
 }
 
-function loop() {
-  if (activeTab === "modules") {
-    simulate();
-    draw();
+// ── Hover tooltip ──
+const modulesTooltip = document.getElementById("modules-tooltip");
+let tooltipFor = null;
+
+function showModuleTooltip(n, sx, sy) {
+  if (!modulesTooltip) return;
+  if (tooltipFor !== n) {
+    tooltipFor = n;
+    fillModuleTooltip(n);
   }
-  requestAnimationFrame(loop);
+  placeModuleTooltip(sx, sy);
 }
-loop();
+
+function fillModuleTooltip(n) {
+  const imports = n.imports.length;
+  const exports = n.exports.length;
+  modulesTooltip.innerHTML =
+    '<div class="tt-name">' + escHtml(n.name) + "</div>" +
+    '<div class="tt-table">' + n.providers.length + " providers \u00b7 " +
+    n.controllers.length + " controllers</div>" +
+    '<ul class="tt-cols"><li><span class="col-name">imports</span><span>' + imports +
+    '</span></li><li><span class="col-name">exports</span><span>' + exports + "</span></li></ul>";
+  modulesTooltip.style.display = "block";
+}
+
+/** Places the tooltip in viewport coordinates, kept on screen. */
+function placeModuleTooltip(clientX, clientY) {
+  const box = modulesTooltip.getBoundingClientRect();
+  const left = Math.min(clientX + 16, Math.max(0, window.innerWidth - box.width - 8));
+  const top = Math.min(Math.max(0, clientY - 10), Math.max(0, window.innerHeight - box.height - 8));
+  modulesTooltip.style.left = left + "px";
+  modulesTooltip.style.top = top + "px";
+}
+
+function hideModuleTooltip() {
+  tooltipFor = null;
+  if (modulesTooltip) modulesTooltip.style.display = "none";
+}
+
+canvas.addEventListener("mousemove", (e) => {
+  if (dragging || panning) {
+    hideModuleTooltip();
+    return;
+  }
+  const rect = canvas.getBoundingClientRect();
+  const pos = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+  let hit = null;
+  for (const n of nodes) {
+    if (!isNodeVisible(n)) continue;
+    if (Math.abs(pos.x - n.x) <= n.w / 2 && Math.abs(pos.y - n.y) <= n.h / 2) {
+      hit = n;
+      break;
+    }
+  }
+  canvas.style.cursor = hit ? "pointer" : "";
+  if (hit) {
+    showModuleTooltip(hit, e.clientX, e.clientY);
+  } else {
+    hideModuleTooltip();
+  }
+});
+
+canvas.addEventListener("mouseleave", () => {
+  hideModuleTooltip();
+});
+
+// ── Modules toolbar ──
+let modulesZoomUi = null;
+function syncModulesZoomUi() {
+  const pct = Math.round(zoom * 100);
+  if (pct === modulesZoomUi) return;
+  modulesZoomUi = pct;
+  const range = document.getElementById("modules-zoom-range");
+  const label = document.getElementById("modules-zoom-value");
+  if (range) range.value = String(Math.max(5, Math.min(500, pct)));
+  if (label) {
+    label.textContent = pct + "%";
+    label.setAttribute("aria-label", pct + "% \u00b7 fit to view");
+  }
+}
+
+function setModulesZoom(next) {
+  zoom = Math.max(0.05, Math.min(5, next));
+  hideModuleTooltip();
+  syncModulesZoomUi();
+  scheduleGraphDraw();
+}
+
+const modulesZoomRange = document.getElementById("modules-zoom-range");
+if (modulesZoomRange) {
+  modulesZoomRange.addEventListener("input", () => setModulesZoom(Number(modulesZoomRange.value) / 100));
+}
+const modulesZoomIn = document.getElementById("modules-zoom-in");
+if (modulesZoomIn) modulesZoomIn.addEventListener("click", () => setModulesZoom(zoom * 1.2));
+const modulesZoomOut = document.getElementById("modules-zoom-out");
+if (modulesZoomOut) modulesZoomOut.addEventListener("click", () => setModulesZoom(zoom / 1.2));
+const modulesFit = document.getElementById("modules-zoom-value");
+if (modulesFit) modulesFit.addEventListener("click", () => { centerGraph(); syncModulesZoomUi(); scheduleGraphDraw(); });
+const modulesRecenter = document.getElementById("modules-recenter");
+if (modulesRecenter) modulesRecenter.addEventListener("click", () => { centerGraph(); syncModulesZoomUi(); scheduleGraphDraw(); });
+
+relayoutGraph();
 
 // ── Diagnosis Tab rendering ──
 const SEV_ORDER = { error: 0, warning: 1, info: 2 };
@@ -1466,7 +1650,6 @@ function renderLab() {
     }
   });
 
-
   function showPgFile(filePath) {
     const findings = currentPgFileMap[filePath];
     if (!findings) return;
@@ -2141,9 +2324,9 @@ function sPolylineMidpoint(points) {
   return { x: points[points.length - 1].x, y: points[points.length - 1].y };
 }
 
-/** Groups nodes into connected components using the relation edges. */
-function sComputeComponents(nodes) {
-  var index = {};
+/** Groups nodes into connected components using the given edges. */
+function sComputeComponents(nodes, edges, fromKey, toKey) {
+  var index = Object.create(null);
   var parent = [];
   for (var i = 0; i < nodes.length; i++) {
     index[nodes[i].name] = i;
@@ -2156,30 +2339,28 @@ function sComputeComponents(nodes) {
     }
     return a;
   }
-  for (var i = 0; i < schema.relations.length; i++) {
-    var rel = schema.relations[i];
-    if (rel.fromEntity === rel.toEntity) continue;
-    var a = index[rel.fromEntity];
-    var b = index[rel.toEntity];
+  for (var i = 0; i < edges.length; i++) {
+    var rel = edges[i];
+    if (rel[fromKey] === rel[toKey]) continue;
+    var a = index[rel[fromKey]];
+    var b = index[rel[toKey]];
     if (a === undefined || b === undefined) continue;
     var ra = find(a), rb = find(b);
     if (ra !== rb) parent[rb] = ra;
   }
-  var groups = {};
+  var groups = Object.create(null);
   for (var i = 0; i < nodes.length; i++) {
     var root = find(i);
     if (!groups[root]) groups[root] = [];
     groups[root].push(nodes[i]);
   }
   var out = [];
-  for (var key in groups) {
-    if (Object.prototype.hasOwnProperty.call(groups, key)) out.push(groups[key]);
-  }
+  for (var key in groups) out.push(groups[key]);
   return out;
 }
 
 /** Positions one component from its own origin, with dagre or a grid. */
-function sLayoutComponent(nodes) {
+function sLayoutComponent(nodes, edges, fromKey, toKey, rankdir) {
   var i;
   if (nodes.length === 1 || typeof dagre === "undefined") {
     var cols = Math.max(1, Math.ceil(Math.sqrt(nodes.length)));
@@ -2200,24 +2381,24 @@ function sLayoutComponent(nodes) {
   }
 
   var g = new dagre.graphlib.Graph();
-  g.setGraph({ rankdir: "LR", nodesep: 60, ranksep: 120, marginx: 0, marginy: 0 });
+  g.setGraph({ rankdir: rankdir || "LR", nodesep: 60, ranksep: 120, marginx: 0, marginy: 0 });
   g.setDefaultEdgeLabel(function() { return {}; });
 
-  var present = {};
+  var present = Object.create(null);
   for (i = 0; i < nodes.length; i++) {
     present[nodes[i].name] = true;
     g.setNode(nodes[i].name, { width: nodes[i].w, height: nodes[i].h });
   }
 
-  var seenEdge = {};
-  for (i = 0; i < schema.relations.length; i++) {
-    var edge = schema.relations[i];
-    if (edge.fromEntity === edge.toEntity) continue;
-    if (!present[edge.fromEntity] || !present[edge.toEntity]) continue;
-    var ek = sEdgeKey(edge.fromEntity, edge.toEntity);
+  var seenEdge = Object.create(null);
+  for (i = 0; i < edges.length; i++) {
+    var edge = edges[i];
+    if (edge[fromKey] === edge[toKey]) continue;
+    if (!present[edge[fromKey]] || !present[edge[toKey]]) continue;
+    var ek = sEdgeKey(edge[fromKey], edge[toKey]);
     if (seenEdge[ek]) continue;
     seenEdge[ek] = true;
-    g.setEdge(edge.fromEntity, edge.toEntity);
+    g.setEdge(edge[fromKey], edge[toKey]);
   }
 
   dagre.layout(g);
@@ -2279,7 +2460,7 @@ function sPackBoxes(boxes, targetW, gutter) {
 
 function sComputeOverviewLayout() {
   var GUTTER = 80;
-  var components = sComputeComponents(sNodes);
+  var components = sComputeComponents(sNodes, schema.relations, "fromEntity", "toEntity");
   var boxes = [];
   var isolated = [];
   var i;
@@ -2289,7 +2470,7 @@ function sComputeOverviewLayout() {
       isolated.push(components[i][0]);
       continue;
     }
-    var size = sLayoutComponent(components[i]);
+    var size = sLayoutComponent(components[i], schema.relations, "fromEntity", "toEntity", "LR");
     boxes.push({ nodes: components[i], w: size.w, h: size.h });
   }
 

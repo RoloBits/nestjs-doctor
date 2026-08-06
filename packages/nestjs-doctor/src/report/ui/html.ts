@@ -329,6 +329,23 @@ for (let i = 0; i < lines.length; i++) {
 <!-- ── Tab: Modules Graph ── -->
 <div class="tab-content" id="tab-modules">
   <canvas id="graph"></canvas>
+  <div id="modules-toolbar">
+    <div id="modules-zoombar">
+      <button class="st-btn schema-zoom-btn has-tip" id="modules-zoom-out" aria-label="Zoom out" data-tip="Zoom out">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+      <input type="range" id="modules-zoom-range" min="5" max="500" step="1" value="100" aria-label="Zoom">
+      <button class="st-btn schema-zoom-btn has-tip" id="modules-zoom-in" aria-label="Zoom in" data-tip="Zoom in">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+      <button class="schema-zoom-value has-tip" id="modules-zoom-value" aria-label="100% \u00b7 fit to view" data-tip="Fit \u00b7 size the graph to the window">100%</button>
+    </div>
+    <button class="st-btn schema-diagram-btn has-tip" id="modules-recenter" aria-label="Re-center graph" data-tip="Re-center \u00b7 bring the graph back into view">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
+      </svg>
+    </button>
+  </div>
   <button id="focus-btn">Unfocus</button>
 </div>
 
@@ -367,6 +384,8 @@ for (let i = 0; i < lines.length; i++) {
   <div class="filepath" id="detail-path"></div>
   <div id="detail-sections"></div>
 </div>
+
+<div id="modules-tooltip" class="schema-tooltip" style="display:none"></div>
 
 <div id="focus-hint">Focused view — click empty space or press Esc to exit</div>`;
 }
