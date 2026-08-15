@@ -108,11 +108,12 @@ Generates a self-contained HTML file with an interactive report:
 npx nestjs-doctor . --report
 ```
 
-The report includes five tabs:
+The report includes six tabs:
 
 - **Summary** — health score overview with category breakdown
 - **Diagnosis** — source-level findings with code viewer and fix examples
-- **Modules Graph** — directed graph layout with draggable nodes, directed edges, color coding, detail panel with auto-focus, and circular dependency recommendations
+- **Modules Graph** — clustered module diagram with a searchable project sidebar, a per-module detail panel (used by, blast radius, providers, imports, exports, wiring), direction-colored animated edges on selection, cycle focus, toggles for `@Global()` reach and external modules, and a problems drawer listing module-wiring findings (rules tagged `module-graph`, custom rules included)
+- **Endpoints** — traced HTTP routes per controller with their dependency chains; controllers and handlers behind project wrapper decorators (a custom decorator composing `@Controller()` or `@Get()`) are resolved and traced
 - **Schema ER Diagram** — entity-relationship visualization of database models
 - **Lab** — custom rule playground to write and test your own rules
 
