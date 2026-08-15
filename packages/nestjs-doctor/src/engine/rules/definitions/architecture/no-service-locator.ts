@@ -6,6 +6,7 @@ export const noServiceLocator: Rule = {
 		id: "architecture/no-service-locator",
 		category: "architecture",
 		severity: "warning",
+		tags: ["module-graph"],
 		description:
 			"Avoid using ModuleRef.get() or ModuleRef.resolve() — prefer explicit constructor injection",
 		help: "Replace ModuleRef.get()/resolve() with constructor injection for explicit, testable dependencies.",

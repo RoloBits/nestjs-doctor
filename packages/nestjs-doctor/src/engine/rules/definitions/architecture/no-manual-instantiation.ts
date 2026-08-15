@@ -40,6 +40,7 @@ export const noManualInstantiation: Rule = {
 		id: "architecture/no-manual-instantiation",
 		category: "architecture",
 		severity: "error",
+		tags: ["module-graph"],
 		description:
 			"Do not manually instantiate @Injectable classes — use NestJS dependency injection",
 		help: "Register the class as a provider in a module and inject it via the constructor.",

@@ -51,6 +51,7 @@ export const noUnusedModuleExports: ProjectRule = {
 		id: "performance/no-unused-module-exports",
 		category: "performance",
 		severity: "info",
+		tags: ["module-graph"],
 		description:
 			"Module exports a provider that no importing module actually uses",
 		help: "Remove the unused export or use the provider in an importing module.",

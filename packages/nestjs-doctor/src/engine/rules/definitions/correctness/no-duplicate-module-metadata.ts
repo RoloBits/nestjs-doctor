@@ -9,6 +9,7 @@ export const noDuplicateModuleMetadata: Rule = {
 		id: "correctness/no-duplicate-module-metadata",
 		category: "correctness",
 		severity: "warning",
+		tags: ["module-graph"],
 		description:
 			"Same identifier should not appear twice in a module metadata array",
 		help: "Remove the duplicate entry from the module metadata.",

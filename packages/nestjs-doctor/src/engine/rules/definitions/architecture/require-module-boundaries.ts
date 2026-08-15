@@ -45,6 +45,7 @@ export const requireModuleBoundaries: Rule = {
 		id: "architecture/require-module-boundaries",
 		category: "architecture",
 		severity: "info",
+		tags: ["module-graph"],
 		description: "Avoid deep imports into other feature modules' internals",
 		help: "Import from the module's public API (barrel export) instead of reaching into its internals.",
 	},

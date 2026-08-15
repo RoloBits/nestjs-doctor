@@ -1063,4 +1063,135 @@ describe("module-graph", () => {
 		expect(app.imports).toContain("AuthModule");
 		expect(app.imports).toContain("UsersModule");
 	});
+
+	it("records the method a dynamic import was registered with", () => {
+		const { project, paths } = createProject({
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({
+          imports: [AuthModule.forRoot(), EventsModule.registerAsync(), UsersModule],
+        })
+        export class AppModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		expect(graph.modules.get("AppModule")?.dynamicImports).toEqual({
+			AuthModule: "forRoot",
+			EventsModule: "registerAsync",
+		});
+	});
+
+	it("prefers the dynamic method when a module is also imported plainly", () => {
+		const { project, paths } = createProject({
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ imports: [AuthModule, AuthModule.forRoot()] })
+        export class AppModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		expect(graph.modules.get("AppModule")?.dynamicImports).toEqual({
+			AuthModule: "forRoot",
+		});
+	});
+
+	it("marks modules decorated with @Global", () => {
+		const { project, paths } = createProject({
+			"datadog.module.ts": `
+        import { Global, Module } from '@nestjs/common';
+        @Global()
+        @Module({})
+        export class DatadogModule {}
+      `,
+			"users.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class UsersModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		expect(graph.modules.get("DatadogModule")?.isGlobal).toBe(true);
+		expect(graph.modules.get("UsersModule")?.isGlobal).toBe(false);
+		// The start line is the first decorator, matching what rules report.
+		expect(graph.modules.get("DatadogModule")?.line).toBe(3);
+	});
+
+	it("resolves a cross-project import when one sub-project matches", () => {
+		const { project: app, paths: appPaths } = createProject({
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ imports: [AppointmentsModule, AuthModule.forRoot(), ConfigModule] })
+        export class AppModule {}
+      `,
+		});
+		const { project: lib, paths: libPaths } = createProject({
+			"appointments.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ providers: [AppointmentsService], exports: [AppointmentsService] })
+        export class AppointmentsModule {}
+      `,
+			"auth.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AuthModule {}
+      `,
+		});
+
+		const merged = mergeModuleGraphs(
+			new Map([
+				["apps/api", buildModuleGraph(app, appPaths)],
+				["libs/core", buildModuleGraph(lib, libPaths)],
+			])
+		);
+
+		const apiApp = merged.modules.get("apps/api/AppModule")!;
+		expect(apiApp.project).toBe("apps/api");
+		expect(apiApp.imports).toContain("libs/core/AppointmentsModule");
+		expect(apiApp.imports).toContain("libs/core/AuthModule");
+		// Not a module anywhere in the workspace, so it stays as written.
+		expect(apiApp.imports).toContain("ConfigModule");
+		expect(apiApp.dynamicImports).toEqual({
+			"libs/core/AuthModule": "forRoot",
+		});
+
+		const targets = merged.edges.get("apps/api/AppModule")!;
+		expect(targets.has("libs/core/AppointmentsModule")).toBe(true);
+		expect(targets.has("libs/core/AuthModule")).toBe(true);
+		expect(targets.has("ConfigModule")).toBe(false);
+	});
+
+	it("leaves an ambiguous cross-project import unresolved", () => {
+		const { project: app, paths: appPaths } = createProject({
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ imports: [SharedModule] })
+        export class AppModule {}
+      `,
+		});
+		const shared = (source: string) =>
+			createProject({
+				"shared.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ providers: ['${source}'] })
+        export class SharedModule {}
+      `,
+			});
+		const { project: one, paths: onePaths } = shared("one");
+		const { project: two, paths: twoPaths } = shared("two");
+
+		const merged = mergeModuleGraphs(
+			new Map([
+				["apps/api", buildModuleGraph(app, appPaths)],
+				["libs/one", buildModuleGraph(one, onePaths)],
+				["libs/two", buildModuleGraph(two, twoPaths)],
+			])
+		);
+
+		const apiApp = merged.modules.get("apps/api/AppModule")!;
+		expect(apiApp.imports).toEqual(["SharedModule"]);
+		expect(merged.edges.get("apps/api/AppModule")?.size).toBe(0);
+	});
 });

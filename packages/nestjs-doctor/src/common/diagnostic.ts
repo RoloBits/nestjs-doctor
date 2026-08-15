@@ -21,6 +21,8 @@ export interface BaseDiagnostic {
 	rule: string;
 	scope?: RuleScope;
 	severity: Severity;
+	/** The emitting rule's `meta.tags`, when it declares any. */
+	tags?: string[];
 }
 
 export interface CodeDiagnostic extends BaseDiagnostic {

@@ -1,6 +1,7 @@
 import type {
 	CallExpression,
 	ClassDeclaration,
+	Decorator,
 	MethodDeclaration,
 	Node,
 	Project,
@@ -22,14 +23,17 @@ import type {
 } from "../../common/endpoint.js";
 import { MAX_DEPENDENCY_NODES } from "../../common/endpoint.js";
 import {
+	controllerDecorator,
 	HTTP_DECORATORS,
 	hasDecorator,
 	isController,
+	resolveDecoratorWrapper,
 } from "../nest-class-inspector.js";
 import { extractSimpleTypeName, type ProviderInfo } from "./type-resolver.js";
 
 const MAX_TRACE_DEPTH = 10;
 const QUOTE_REGEX = /^['"`]|['"`]$/g;
+const WHITESPACE_REGEX = /\s/;
 const DUPLICATE_SLASH_REGEX = /\/+/g;
 const TRAILING_SLASH_REGEX = /\/$/;
 const GRAPHQL_DECORATORS = new Set(["Query", "Mutation", "Subscription"]);
@@ -592,7 +596,7 @@ function findMethodInHierarchy(
 }
 
 function extractControllerPath(cls: ClassDeclaration): string {
-	const decorator = cls.getDecorator("Controller");
+	const decorator = controllerDecorator(cls);
 	if (!decorator) {
 		return "";
 	}
@@ -636,7 +640,45 @@ function extractRouteInfo(
 
 		return { httpMethod: name.toUpperCase(), path };
 	}
+
+	// Wrapper decorators that compose an HTTP method internally.
+	for (const decorator of method.getDecorators()) {
+		const targets = resolveDecoratorWrapper(decorator);
+		if (targets.httpMethod === null) {
+			continue;
+		}
+		return {
+			httpMethod: targets.httpMethod,
+			path: wrapperRoutePath(decorator, targets.pathParamIndex),
+		};
+	}
 	return undefined;
+}
+
+/**
+ * The wrapper argument reaching the composed HTTP call's path slot; when the
+ * slot is undetermined, the first whitespace-free string argument.
+ */
+function wrapperRoutePath(
+	decorator: Decorator,
+	pathParamIndex: number | null
+): string {
+	if (pathParamIndex === -1) {
+		return "";
+	}
+	if (pathParamIndex !== null) {
+		const arg = decorator.getArguments()[pathParamIndex];
+		return arg?.getKind() === SyntaxKind.StringLiteral
+			? arg.getText().replace(QUOTE_REGEX, "")
+			: "";
+	}
+	const stringArg = decorator.getArguments().find((a: Node) => {
+		if (a.getKind() !== SyntaxKind.StringLiteral) {
+			return false;
+		}
+		return !WHITESPACE_REGEX.test(a.getText().replace(QUOTE_REGEX, ""));
+	});
+	return stringArg ? stringArg.getText().replace(QUOTE_REGEX, "") : "";
 }
 
 function composePath(controllerPath: string, methodPath: string): string {

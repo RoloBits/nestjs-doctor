@@ -7,6 +7,7 @@ import type {
 	SourceFile,
 } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
+import { invalidateEntryModules } from "./entry-points.js";
 import type { PathAliasMap } from "./tsconfig-paths.js";
 import { resolvePathAlias } from "./tsconfig-paths.js";
 import type { ProviderInfo } from "./type-resolver.js";
@@ -63,11 +64,22 @@ export interface ModuleNode {
 	/** Absent once the graph is detached. */
 	classDeclaration?: ClassDeclaration;
 	controllers: string[];
+	/** Import name → the dynamic method it was imported with, e.g. `forRoot`. */
+	dynamicImports?: Record<string, string>;
 	exports: string[];
 	filePath: string;
+	/** Every declaration file, when same-name variants were unioned. */
+	filePaths?: string[];
 	forwardRefImports: Set<string>;
 	imports: string[];
+	isGlobal: boolean;
+	/** Line of the class declaration. Absent when the graph was built without one. */
+	line?: number;
 	name: string;
+	/** Import name → its bare package specifier, when not workspace code. */
+	packageImports?: Record<string, string>;
+	/** Sub-project this module belongs to. Set by `mergeModuleGraphs`. */
+	project?: string;
 	providers: string[];
 	/** `provide` tokens of object-literal providers, which `providers` keeps as raw text. */
 	providerTokens: string[];
@@ -79,12 +91,38 @@ export interface ModuleGraph {
 	providerToModule: Map<string, ModuleNode>;
 }
 
+/** Local names bound by bare-package import specifiers, mapped to the specifier. */
+function collectPackageImportNames(
+	sourceFile: ReturnType<Project["getSourceFile"]> & object,
+	pathAliases: PathAliasMap
+): Map<string, string> {
+	const names = new Map<string, string>();
+	for (const imp of sourceFile.getImportDeclarations()) {
+		const spec = imp.getModuleSpecifierValue();
+		if (spec.startsWith(".")) {
+			continue;
+		}
+		if (resolvePathAlias(spec, pathAliases) !== undefined) {
+			continue;
+		}
+		for (const named of imp.getNamedImports()) {
+			names.set(named.getAliasNode()?.getText() ?? named.getName(), spec);
+		}
+		const defaultImport = imp.getDefaultImport();
+		if (defaultImport) {
+			names.set(defaultImport.getText(), spec);
+		}
+	}
+	return names;
+}
+
 function extractModulesFromFile(
 	sourceFile: ReturnType<Project["getSourceFile"]> & object,
 	filePath: string,
 	pathAliases: PathAliasMap
 ): ModuleNode[] {
 	const modules: ModuleNode[] = [];
+	const packageNames = collectPackageImportNames(sourceFile, pathAliases);
 	for (const cls of sourceFile.getClasses()) {
 		const moduleDecorator = cls.getDecorator("Module");
 		if (!moduleDecorator) {
@@ -104,6 +142,8 @@ function extractModulesFromFile(
 			providers: [],
 			providerTokens: [],
 			controllers: [],
+			isGlobal: cls.getDecorator("Global") !== undefined,
+			line: cls.getStartLineNumber(),
 		};
 
 		if (args && args.getKind() === SyntaxKind.ObjectLiteralExpression) {
@@ -118,6 +158,10 @@ function extractModulesFromFile(
 				for (const t of importTags) {
 					if (t.viaForwardRef) {
 						node.forwardRefImports.add(t.name);
+					}
+					if (t.dynamicMethod) {
+						node.dynamicImports ??= {};
+						node.dynamicImports[t.name] = t.dynamicMethod;
 					}
 				}
 				node.exports = extractArrayPropertyNames(
@@ -139,9 +183,63 @@ function extractModulesFromFile(
 			}
 		}
 
+		const pkgImports = node.imports.filter((imp) => packageNames.has(imp));
+		if (pkgImports.length > 0) {
+			node.packageImports = {};
+			for (const imp of pkgImports) {
+				node.packageImports[imp] = packageNames.get(imp) as string;
+			}
+		}
+
 		modules.push(node);
 	}
 	return modules;
+}
+
+/** Unions the metadata of two same-name @Module declarations. */
+function mergeSameNameModules(a: ModuleNode, b: ModuleNode): ModuleNode {
+	const union = (x: string[], y: string[]) => [...new Set([...x, ...y])];
+	const merged: ModuleNode = {
+		...a,
+		imports: union(a.imports, b.imports),
+		exports: union(a.exports, b.exports),
+		providers: union(a.providers, b.providers),
+		providerTokens: union(a.providerTokens, b.providerTokens),
+		controllers: union(a.controllers, b.controllers),
+		forwardRefImports: new Set([
+			...a.forwardRefImports,
+			...b.forwardRefImports,
+		]),
+		isGlobal: a.isGlobal || b.isGlobal,
+		filePaths: [...new Set([...(a.filePaths ?? [a.filePath]), b.filePath])],
+	};
+	if (a.dynamicImports || b.dynamicImports) {
+		merged.dynamicImports = { ...a.dynamicImports, ...b.dynamicImports };
+	}
+	if (a.packageImports || b.packageImports) {
+		merged.packageImports = { ...a.packageImports, ...b.packageImports };
+	}
+	return merged;
+}
+
+function moduleDir(filePath: string): string {
+	return filePath.slice(0, filePath.lastIndexOf("/") + 1);
+}
+
+/**
+ * Same-name declarations in one directory union their metadata; elsewhere
+ * the latest declaration wins.
+ */
+function addModuleNode(
+	modules: Map<string, ModuleNode>,
+	node: ModuleNode
+): void {
+	const existing = modules.get(node.name);
+	if (existing && moduleDir(existing.filePath) === moduleDir(node.filePath)) {
+		modules.set(node.name, mergeSameNameModules(existing, node));
+		return;
+	}
+	modules.set(node.name, node);
 }
 
 export function buildModuleGraph(
@@ -164,7 +262,7 @@ export function buildModuleGraph(
 			filePath,
 			pathAliases
 		)) {
-			modules.set(node.name, node);
+			addModuleNode(modules, node);
 		}
 	}
 
@@ -204,6 +302,8 @@ const DYNAMIC_MODULE_METHODS = new Set([
 ]);
 
 interface ExtractedName {
+	/** The dynamic module method the name was extracted from, e.g. `forRoot`. */
+	dynamicMethod?: string;
 	name: string;
 	viaForwardRef: boolean;
 }
@@ -340,9 +440,16 @@ function extractNamesFromElement(
 		return [plain(access.getExpression().getText())];
 	}
 
-	// Plain identifier
+	// Plain identifier: it may be a variable holding a dynamic-module call,
+	// e.g. const cfg = ConfigModule.forFeature(X); imports: [cfg]
 	if (kind === SyntaxKind.Identifier) {
-		return [plain(el.getText())];
+		const resolved = resolveIdentifier(
+			el.getText(),
+			sourceFile,
+			depth + 1,
+			pathAliases
+		);
+		return resolved.length > 0 ? resolved : [plain(el.getText())];
 	}
 
 	return [plain(el.getText())];
@@ -429,7 +536,13 @@ function extractNamesFromCallExpression(
 
 		// Handle dynamic module methods: ConfigModule.forRoot(), TypeOrmModule.forFeature()
 		if (DYNAMIC_MODULE_METHODS.has(methodName)) {
-			return [plain(access.getExpression().getText())];
+			return [
+				{
+					name: access.getExpression().getText(),
+					viaForwardRef: false,
+					dynamicMethod: methodName,
+				},
+			];
 		}
 
 		// Unknown property access call — try to use the leftmost identifier
@@ -713,9 +826,13 @@ export function updateModuleGraphForFile(
 	filePath: string,
 	pathAliases: PathAliasMap = new Map()
 ): void {
-	// 1. Remove stale modules from this file
+	invalidateEntryModules(graph);
+	// 1. Remove stale modules declared in this file, tracking sibling files of
+	// any same-name union so their halves can be re-added below.
+	const siblingFiles = new Set<string>();
 	for (const [name, node] of graph.modules) {
-		if (node.filePath === filePath) {
+		const declarationFiles = node.filePaths ?? [node.filePath];
+		if (declarationFiles.includes(filePath)) {
 			graph.modules.delete(name);
 			graph.edges.delete(name);
 			// Clean up providerToModule entries for this module's providers
@@ -728,18 +845,38 @@ export function updateModuleGraphForFile(
 			for (const edgeSet of graph.edges.values()) {
 				edgeSet.delete(name);
 			}
+			for (const sibling of declarationFiles) {
+				if (sibling !== filePath) {
+					siblingFiles.add(sibling);
+				}
+			}
 		}
 	}
 
-	// 2. Re-scan only the changed file for @Module() classes
-	const sourceFile = project.getSourceFile(filePath);
-	if (!sourceFile) {
-		return;
+	// 2. Re-scan the changed file plus union siblings, with the same
+	// collision handling the full build uses.
+	const newModules: ModuleNode[] = [];
+	const added = new Map<string, ModuleNode>();
+	for (const scanPath of [filePath, ...siblingFiles]) {
+		const sourceFile = project.getSourceFile(scanPath);
+		if (!sourceFile) {
+			continue;
+		}
+		for (const node of extractModulesFromFile(
+			sourceFile,
+			scanPath,
+			pathAliases
+		)) {
+			addModuleNode(added, node);
+		}
 	}
-
-	const newModules = extractModulesFromFile(sourceFile, filePath, pathAliases);
-	for (const node of newModules) {
-		graph.modules.set(node.name, node);
+	for (const [name, node] of added) {
+		// A surviving same-name module from another directory keeps its slot.
+		if (graph.modules.has(name)) {
+			continue;
+		}
+		graph.modules.set(name, node);
+		newModules.push(node);
 	}
 
 	// 3. Rebuild edges for new modules and update providerToModule
@@ -779,36 +916,76 @@ export function mergeModuleGraphs(
 	const edges = new Map<string, Set<string>>();
 	const providerToModule = new Map<string, ModuleNode>();
 
+	const projectNames = [...graphs.keys()];
+	// Bare module name → every prefixed name it could stand for.
+	const byBareName = new Map<string, string[]>();
+	for (const [projectName, graph] of graphs) {
+		for (const name of graph.modules.keys()) {
+			const candidates = byBareName.get(name) ?? [];
+			candidates.push(`${projectName}/${name}`);
+			byBareName.set(name, candidates);
+		}
+	}
+
+	/**
+	 * The prefixed name a reference stands for: its own sub-project first, then a
+	 * single match elsewhere. An ambiguous or unknown name is left bare.
+	 */
+	const resolve = (
+		graph: ModuleGraph,
+		projectName: string,
+		name: string,
+		importer?: ModuleNode
+	): string => {
+		if (graph.modules.has(name)) {
+			return `${projectName}/${name}`;
+		}
+		// A package-imported name binds only when its specifier (or a subpath
+		// of it) is a scanned workspace project declaring the module.
+		const spec =
+			importer?.packageImports && Object.hasOwn(importer.packageImports, name)
+				? importer.packageImports[name]
+				: undefined;
+		if (spec !== undefined) {
+			const rootKey = graphs.has(spec)
+				? spec
+				: projectNames.find((k) => spec.startsWith(`${k}/`));
+			return rootKey !== undefined && graphs.get(rootKey)?.modules.has(name)
+				? `${rootKey}/${name}`
+				: name;
+		}
+		const candidates = byBareName.get(name);
+		return candidates?.length === 1 ? candidates[0] : name;
+	};
+
 	for (const [projectName, graph] of graphs) {
 		for (const [name, node] of graph.modules) {
 			const prefixed = `${projectName}/${name}`;
 			const prefixedForwardRef = new Set<string>();
 			for (const ref of node.forwardRefImports) {
-				prefixedForwardRef.add(
-					graph.modules.has(ref) ? `${projectName}/${ref}` : ref
-				);
+				prefixedForwardRef.add(resolve(graph, projectName, ref, node));
+			}
+			let dynamicImports: Record<string, string> | undefined;
+			if (node.dynamicImports) {
+				dynamicImports = {};
+				for (const [imp, method] of Object.entries(node.dynamicImports)) {
+					dynamicImports[resolve(graph, projectName, imp, node)] = method;
+				}
 			}
 			const mergedNode: ModuleNode = {
 				...node,
 				name: prefixed,
+				project: projectName,
 				imports: node.imports.map((imp) =>
-					graph.modules.has(imp) ? `${projectName}/${imp}` : imp
+					resolve(graph, projectName, imp, node)
 				),
 				forwardRefImports: prefixedForwardRef,
 				exports: node.exports.map((exp) =>
-					graph.modules.has(exp) ? `${projectName}/${exp}` : exp
+					resolve(graph, projectName, exp, node)
 				),
+				...(dynamicImports ? { dynamicImports } : {}),
 			};
 			modules.set(prefixed, mergedNode);
-		}
-
-		for (const [name, targets] of graph.edges) {
-			const prefixedFrom = `${projectName}/${name}`;
-			const prefixedTargets = new Set<string>();
-			for (const target of targets) {
-				prefixedTargets.add(`${projectName}/${target}`);
-			}
-			edges.set(prefixedFrom, prefixedTargets);
 		}
 
 		for (const [provider, node] of graph.providerToModule) {
@@ -818,6 +995,17 @@ export function mergeModuleGraphs(
 				providerToModule.set(`${projectName}/${provider}`, existingNode);
 			}
 		}
+	}
+
+	// Edges last, so an import pointing at another sub-project resolves.
+	for (const [name, node] of modules) {
+		const targets = new Set<string>();
+		for (const imp of node.imports) {
+			if (modules.has(imp)) {
+				targets.add(imp);
+			}
+		}
+		edges.set(name, targets);
 	}
 
 	return { modules, edges, providerToModule };

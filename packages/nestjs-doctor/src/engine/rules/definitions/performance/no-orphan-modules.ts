@@ -1,15 +1,12 @@
-import { collectBootstrappedModules } from "../../../graph/entry-points.js";
-
+import { collectEntryModules } from "../../../graph/entry-points.js";
 import type { ProjectRule } from "../../types.js";
-
-/** A module declared here is the application root whatever its class is called. */
-const ROOT_MODULE_FILE = /(^|\/)(app|root)\.module\.[mc]?ts$/;
 
 export const noOrphanModules: ProjectRule = {
 	meta: {
 		id: "performance/no-orphan-modules",
 		category: "performance",
 		severity: "info",
+		tags: ["module-graph"],
 		description:
 			"Module is never imported by any other module and may be dead code",
 		help: "Import this module in another module or remove it if it is unused.",
@@ -25,20 +22,15 @@ export const noOrphanModules: ProjectRule = {
 			}
 		}
 
-		// A bootstrapped module is an entry point, so nothing imports it. The name
-		// AppModule and a root filename are fallbacks when the bootstrap is
-		// outside the scan.
-		const entryPoints = collectBootstrappedModules(
+		// An entry module is an application root, so nothing imports it.
+		const entryPoints = collectEntryModules(
 			context.project,
-			context.files
+			context.files,
+			context.moduleGraph
 		);
 
 		for (const mod of context.moduleGraph.modules.values()) {
-			if (
-				mod.name === "AppModule" ||
-				ROOT_MODULE_FILE.test(mod.filePath) ||
-				entryPoints.has(mod.name)
-			) {
+			if (entryPoints.has(mod.name)) {
 				continue;
 			}
 
@@ -47,7 +39,8 @@ export const noOrphanModules: ProjectRule = {
 					filePath: mod.filePath,
 					message: `Module '${mod.name}' is never imported by any other module.`,
 					help: this.meta.help,
-					line: mod.classDeclaration?.getStartLineNumber() ?? 1,
+					// The same line the orphan prune keys reachability on.
+					line: mod.line ?? mod.classDeclaration?.getStartLineNumber() ?? 1,
 					column: 1,
 				});
 			}

@@ -1,4 +1,7 @@
-import type { ClassDeclaration, Project } from "ts-morph";
+import type { ClassDeclaration, Decorator, Project } from "ts-morph";
+
+const REQUEST_SCOPE_REGEX = /Scope\s*\.\s*REQUEST/;
+const TRANSIENT_SCOPE_REGEX = /Scope\s*\.\s*TRANSIENT/;
 
 const IMPORT_TYPE_REGEX = /import\([^)]+\)\.(\w+)/;
 const GENERIC_TYPE_REGEX = /^(\w+)</;
@@ -13,6 +16,25 @@ export interface ProviderInfo {
 	filePath: string;
 	name: string;
 	publicMethodCount: number;
+	/** Absent for the default singleton scope. */
+	scope?: "request" | "transient";
+}
+
+/** The scope named in `@Injectable({ scope: Scope.X })`, read from the argument text. */
+function injectableScope(
+	decorator: Decorator
+): "request" | "transient" | undefined {
+	const text = decorator.getArguments()[0]?.getText();
+	if (!text) {
+		return undefined;
+	}
+	if (REQUEST_SCOPE_REGEX.test(text)) {
+		return "request";
+	}
+	if (TRANSIENT_SCOPE_REGEX.test(text)) {
+		return "transient";
+	}
+	return undefined;
 }
 
 function extractProvidersFromFile(
@@ -21,7 +43,8 @@ function extractProvidersFromFile(
 ): ProviderInfo[] {
 	const providers: ProviderInfo[] = [];
 	for (const cls of sourceFile.getClasses()) {
-		if (!cls.getDecorator("Injectable")) {
+		const injectable = cls.getDecorator("Injectable");
+		if (!injectable) {
 			continue;
 		}
 
@@ -47,12 +70,15 @@ function extractProvidersFromFile(
 			return !scope || scope === "public";
 		}).length;
 
+		const scope = injectableScope(injectable);
+
 		providers.push({
 			name,
 			filePath,
 			classDeclaration: cls,
 			dependencies,
 			publicMethodCount,
+			...(scope ? { scope } : {}),
 		});
 	}
 	return providers;

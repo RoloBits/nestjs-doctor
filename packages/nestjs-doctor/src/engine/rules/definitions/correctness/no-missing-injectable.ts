@@ -7,6 +7,7 @@ export const noMissingInjectable: ProjectRule = {
 		id: "correctness/no-missing-injectable",
 		category: "correctness",
 		severity: "error",
+		tags: ["module-graph"],
 		description:
 			"Provider classes with constructor dependencies must have the @Injectable() decorator",
 		help: "Add @Injectable() to providers that inject constructor dependencies.",

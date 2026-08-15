@@ -653,7 +653,7 @@ describe("no-unused-module-exports", () => {
 });
 
 describe("project rules on a detached graph", () => {
-	it("reports without a class declaration to read a line from", () => {
+	it("reports the module's stored line when the class declaration is detached", () => {
 		const project = new Project({ useInMemoryFileSystem: true });
 		const paths: string[] = [];
 		for (const [name, code] of Object.entries({
@@ -692,7 +692,7 @@ describe("project rules on a detached graph", () => {
 
 		expect(diagnostics).toHaveLength(1);
 		expect(diagnostics[0].message).toContain("ForgottenModule");
-		expect("line" in diagnostics[0] && diagnostics[0].line).toBe(1);
+		expect("line" in diagnostics[0] && diagnostics[0].line).toBe(3);
 	});
 });
 

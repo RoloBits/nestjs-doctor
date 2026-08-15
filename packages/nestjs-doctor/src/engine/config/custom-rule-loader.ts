@@ -53,14 +53,41 @@ function isValidRule(value: unknown): value is AnyRule {
 	if (meta.scope !== undefined && !VALID_SCOPES.has(meta.scope as string)) {
 		return false;
 	}
-
 	return true;
+}
+
+function hasValidTags(meta: Record<string, unknown>): boolean {
+	return (
+		meta.tags === undefined ||
+		(Array.isArray(meta.tags) && meta.tags.every((t) => typeof t === "string"))
+	);
+}
+
+/** A copy with malformed tags dropped; the user's rule object is never mutated. */
+function sanitizeRuleTags(
+	rule: AnyRule,
+	file: string,
+	warnings: string[]
+): AnyRule {
+	if (hasValidTags(rule.meta as unknown as Record<string, unknown>)) {
+		return rule;
+	}
+	warnings.push(
+		`Rule "${rule.meta.id}" in "${file}": ignoring malformed meta.tags (expected an array of strings)`
+	);
+	// check is bound so a class-instance rule keeps its prototype methods.
+	return {
+		...rule,
+		check: rule.check.bind(rule),
+		meta: { ...rule.meta, tags: undefined },
+	} as AnyRule;
 }
 
 function prefixRuleId(rule: AnyRule): AnyRule {
 	if (!rule.meta.id.startsWith(CUSTOM_PREFIX)) {
 		return {
 			...rule,
+			check: rule.check.bind(rule),
 			meta: {
 				...rule.meta,
 				id: `${CUSTOM_PREFIX}${rule.meta.id}`,
@@ -126,7 +153,7 @@ export async function loadCustomRules(
 		let foundValidRule = false;
 		for (const [exportName, exportValue] of Object.entries(moduleExports)) {
 			if (isValidRule(exportValue)) {
-				rules.push(prefixRuleId(exportValue));
+				rules.push(prefixRuleId(sanitizeRuleTags(exportValue, file, warnings)));
 				foundValidRule = true;
 			} else if (
 				exportName !== "__esModule" &&

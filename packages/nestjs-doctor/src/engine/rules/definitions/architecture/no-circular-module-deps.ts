@@ -135,6 +135,7 @@ export const noCircularModuleDeps: ProjectRule = {
 		id: "architecture/no-circular-module-deps",
 		category: "architecture",
 		severity: "error",
+		tags: ["module-graph"],
 		description: "Module import graph must not contain circular dependencies",
 		help: GENERIC_HELP,
 		scope: "project",
