@@ -3,7 +3,10 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { highlighter } from "../cli/ui/highlighter.js";
 import { logger } from "../cli/ui/logger.js";
-import { mergeModuleGraphs } from "../engine/graph/module-graph.js";
+import {
+	type ModuleGraph,
+	mergeModuleGraphs,
+} from "../engine/graph/module-graph.js";
 import type { EngineResult, MonorepoEngineResult } from "../engine/scanner.js";
 
 export const writeReportFile = async (
@@ -35,9 +38,12 @@ export const logSingleProjectSummary = (scanResult: EngineResult): void => {
 	);
 };
 
-export const logMonorepoSummary = (monoResult: MonorepoEngineResult): void => {
+export const logMonorepoSummary = (
+	monoResult: MonorepoEngineResult,
+	precomputedMerge?: ModuleGraph
+): void => {
 	const { moduleGraphs } = monoResult;
-	const merged = mergeModuleGraphs(moduleGraphs);
+	const merged = precomputedMerge ?? mergeModuleGraphs(moduleGraphs);
 	logger.info(
 		`Found ${highlighter.info(String(merged.modules.size))} modules across ${highlighter.info(String(moduleGraphs.size))} projects`
 	);

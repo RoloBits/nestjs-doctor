@@ -14,16 +14,26 @@ function safeJsonForScript(json: string): string {
 export interface ReportProvider {
 	dependencies: string[];
 	filePath: string;
+	/** Owning module, prefixed with the sub-project in a monorepo. */
+	module?: string;
 	name: string;
+	project?: string;
 	publicMethodCount: number;
+	scope?: "request" | "transient";
 }
 
-export function toReportProvider(provider: ProviderInfo): ReportProvider {
+export function toReportProvider(
+	provider: ProviderInfo,
+	owner?: { module?: string; project?: string }
+): ReportProvider {
 	return {
 		dependencies: provider.dependencies,
 		filePath: provider.filePath,
 		name: provider.name,
 		publicMethodCount: provider.publicMethodCount,
+		scope: provider.scope,
+		module: owner?.module,
+		project: owner?.project,
 	};
 }
 
@@ -43,12 +53,18 @@ export function prepareReportData(
 	moduleGraph: ModuleGraph,
 	result: DiagnoseResult,
 	options?: {
+		bootstrapRoots?: string[];
 		files?: string[];
 		projects?: string[];
 		providers?: ReportProvider[];
 	}
 ): ReportScriptData {
-	const graph = serializeModuleGraph(moduleGraph, result, options?.projects);
+	const graph = serializeModuleGraph(
+		moduleGraph,
+		result,
+		options?.projects,
+		options?.bootstrapRoots
+	);
 
 	const diagnosticsWithoutSource = result.diagnostics.map((d) => {
 		if ("sourceLines" in d) {

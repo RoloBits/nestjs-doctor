@@ -30,7 +30,7 @@ export const runReport = async (
 			.buildResult()
 			.generateHtml()
 			.run();
-		logMonorepoSummary(pipeline.monoResult);
+		logMonorepoSummary(pipeline.monoResult, pipeline.mergedGraph);
 		const outPath = await writeReportFile(targetPath, pipeline.generatedHtml);
 		openReportInBrowser(outPath);
 		return;

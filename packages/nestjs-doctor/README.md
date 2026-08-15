@@ -46,7 +46,7 @@ npx nestjs-doctor@latest . --verbose
 npx nestjs-doctor@latest . --report
 ```
 
-Self-contained HTML file with five sections: score summary, source-level diagnostics with code viewer, interactive module graph, schema ER diagram, and a custom rule playground. Opens in your browser.
+Self-contained HTML file with six sections: score summary, source-level diagnostics with code viewer, interactive module graph, traced HTTP endpoints, schema ER diagram, and a custom rule playground. Controllers and routes hidden behind project wrapper decorators (a custom decorator composing `@Controller()` or `@Get()`) are resolved and traced. Opens in your browser.
 
 ![Module Graph](https://nestjs.doctor/module-graph.png)
 
