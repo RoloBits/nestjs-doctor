@@ -528,6 +528,20 @@ describe("same-name scoping and package imports", () => {
 		).toBe(true);
 	});
 
+	it("survives a schematics template file with a non-literal import specifier", () => {
+		const { project, paths } = createProject({
+			"__name__.middleware.__specFileSuffix__.ts":
+				"import { <%= classify(name) %>Middleware } from './<%= name %>.middleware';\n",
+			"app.module.ts": `
+				import { Module } from '@nestjs/common';
+				@Module({})
+				export class AppModule {}
+			`,
+		});
+		const graph = buildModuleGraph(project, paths);
+		expect(graph.modules.has("AppModule")).toBe(true);
+	});
+
 	it("keeps the surviving winner when updating an evicted same-name declaration", () => {
 		const { project, paths } = createProject({
 			"feature-a/shared.module.ts": `

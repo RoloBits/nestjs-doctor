@@ -98,7 +98,13 @@ function collectPackageImportNames(
 ): Map<string, string> {
 	const names = new Map<string, string>();
 	for (const imp of sourceFile.getImportDeclarations()) {
-		const spec = imp.getModuleSpecifierValue();
+		// Throws on a non-literal specifier (schematics template files).
+		let spec: string;
+		try {
+			spec = imp.getModuleSpecifierValue();
+		} catch {
+			continue;
+		}
 		if (spec.startsWith(".")) {
 			continue;
 		}
