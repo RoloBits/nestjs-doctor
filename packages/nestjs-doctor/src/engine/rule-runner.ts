@@ -81,6 +81,9 @@ function runFileRulesOnFile(
 					category: rule.meta.category,
 					scope: "file",
 					severity: rule.meta.severity,
+					...(Array.isArray(rule.meta.tags)
+						? { tags: [...rule.meta.tags] }
+						: {}),
 					sourceLines,
 				});
 			},
@@ -138,6 +141,9 @@ export function runProjectRules(
 					category: rule.meta.category,
 					scope: "project",
 					severity: rule.meta.severity,
+					...(Array.isArray(rule.meta.tags)
+						? { tags: [...rule.meta.tags] }
+						: {}),
 				});
 			},
 		};
@@ -170,6 +176,9 @@ export function runSchemaRules(
 					category: rule.meta.category,
 					scope: "schema",
 					severity: rule.meta.severity,
+					...(Array.isArray(rule.meta.tags)
+						? { tags: [...rule.meta.tags] }
+						: {}),
 				});
 			},
 		};

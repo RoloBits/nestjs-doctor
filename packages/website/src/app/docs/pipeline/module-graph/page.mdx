@@ -35,11 +35,15 @@ interface ModuleGraph {
 interface ModuleNode {
   name: string                    // class name
   filePath: string
+  filePaths?: string[]            // every declaration file when same-name variants were unioned
+  line?: number                   // line of the class declaration
   classDeclaration: ClassDeclaration
   imports: string[]               // from @Module({ imports: [...] })
   exports: string[]               // from @Module({ exports: [...] })
   providers: string[]             // from @Module({ providers: [...] })
   controllers: string[]           // from @Module({ controllers: [...] })
+  isGlobal: boolean               // class carries @Global()
+  packageImports?: Record<string, string>  // import name → bare package specifier
 }
 ```
 
@@ -57,6 +61,17 @@ Scans every file for classes decorated with `@Module()`. For each module:
 **Pass 2 — Edge Building:**
 
 For each module's `imports` array, creates directed edges in the graph. Also builds the `providerToModule` reverse index mapping each provider name back to its containing module.
+
+### Same-Name Modules
+
+Two `@Module()` classes sharing one name are handled by directory:
+
+- **Same directory:** metadata is unioned. This is the multi-bootstrap pattern where `standalone.ts` and `lambda.ts` each declare a `BootstrapModule` with a different import list; the graph sees one node with both lists, and `filePaths` records every declaration file.
+- **Different directories:** the last declaration wins. Two unrelated `SharedModule` classes in different features are not merged.
+
+### Package Imports
+
+Names imported from a bare package specifier (anything that is not a relative path or a tsconfig path alias) are recorded in `packageImports` with their specifier. In a monorepo merge, such a name binds to a module in another sub-project only when the specifier, or a parent of it, is itself a scanned workspace package that declares the module. `import { SharedModule } from '@myorg/shared'` creates a cross-project edge when `@myorg/shared` is a workspace package in the scan; a module that happens to share its name with an npm export does not.
 
 ### Import Resolution
 

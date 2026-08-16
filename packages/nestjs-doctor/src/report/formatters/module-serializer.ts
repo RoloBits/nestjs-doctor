@@ -6,15 +6,20 @@ import {
 
 interface SerializedModuleNode {
 	controllers: string[];
+	dynamicImports?: Record<string, string>;
 	exports: string[];
 	filePath: string;
 	imports: string[];
+	isGlobal?: boolean;
+	line?: number;
 	name: string;
 	project?: string;
 	providers: string[];
+	providerTokens?: string[];
 }
 
 interface SerializedModuleGraph {
+	bootstrapRoots?: string[];
 	circularDepRecommendations: Record<string, string>;
 	circularDeps: string[][];
 	edges: Array<{ from: string; to: string }>;
@@ -25,23 +30,24 @@ interface SerializedModuleGraph {
 export function serializeModuleGraph(
 	graph: ModuleGraph,
 	result: DiagnoseResult,
-	projects?: string[]
+	projects?: string[],
+	bootstrapRoots?: string[]
 ): SerializedModuleGraph {
 	const modules: SerializedModuleNode[] = [];
 	for (const node of graph.modules.values()) {
-		const slashIdx = node.name.indexOf("/");
-		const project =
-			projects && projects.length > 0 && slashIdx !== -1
-				? node.name.slice(0, slashIdx)
-				: undefined;
 		modules.push({
 			name: node.name,
 			filePath: node.filePath,
-			imports: node.imports,
+			// The same module can be listed twice, e.g. plainly and via forRoot().
+			imports: [...new Set(node.imports)],
 			exports: node.exports,
 			providers: node.providers,
+			providerTokens: node.providerTokens,
 			controllers: node.controllers,
-			project,
+			project: node.project,
+			isGlobal: node.isGlobal,
+			line: node.line,
+			dynamicImports: node.dynamicImports,
 		});
 	}
 
@@ -73,5 +79,6 @@ export function serializeModuleGraph(
 		circularDeps,
 		circularDepRecommendations,
 		projects: projects ?? [],
+		bootstrapRoots,
 	};
 }

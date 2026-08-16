@@ -21,6 +21,11 @@ export interface RuleMeta {
 	id: string;
 	scope?: RuleScope;
 	severity: Severity;
+	/**
+	 * Labels stamped onto every diagnostic the rule emits. `module-graph`
+	 * marks module wiring rules for the report's problems drawer.
+	 */
+	tags?: readonly string[];
 }
 
 // ── Contexts ──

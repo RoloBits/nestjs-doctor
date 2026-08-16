@@ -1,4 +1,10 @@
-import type { ClassDeclaration, MethodDeclaration } from "ts-morph";
+import {
+	type ClassDeclaration,
+	type Decorator,
+	type MethodDeclaration,
+	type Node,
+	SyntaxKind,
+} from "ts-morph";
 
 export const HTTP_DECORATORS = new Set([
 	"Get",
@@ -10,6 +16,132 @@ export const HTTP_DECORATORS = new Set([
 	"Options",
 	"All",
 ]);
+
+interface WrapperTargets {
+	/** The wrapper's implementation composes `Controller()`. */
+	controller: boolean;
+	/**
+	 * HTTP method the wrapper composes (`GET`, `POST`, ...), `ROUTE` when the
+	 * implementation branches over several methods, or null for none.
+	 */
+	httpMethod: string | null;
+	/**
+	 * Index of the wrapper parameter forwarded to the composed HTTP call's
+	 * path slot; -1 when that call takes no path, null when undetermined.
+	 */
+	pathParamIndex: number | null;
+}
+
+const NO_TARGETS: WrapperTargets = {
+	controller: false,
+	httpMethod: null,
+	pathParamIndex: null,
+};
+const CONTROLLER_CALL = /\bController\s*\(/;
+const HTTP_CALL = /\b(Get|Post|Put|Patch|Delete|Head|Options|All)\s*\(/g;
+const wrapperCache = new Map<string, WrapperTargets>();
+
+// Declaration kinds that are import bindings, not implementations.
+const IMPORT_BINDING_KINDS = new Set<SyntaxKind>([
+	SyntaxKind.ImportSpecifier,
+	SyntaxKind.ImportClause,
+	SyntaxKind.NamespaceImport,
+	SyntaxKind.ImportEqualsDeclaration,
+]);
+
+/**
+ * Which wrapper parameter the implementation hands to `Get(...)`/`Post(...)`,
+ * scanning every composed HTTP call: -1 when all are argless, null when any
+ * takes something other than a resolvable parameter.
+ */
+function resolvePathParamIndex(decls: Node[]): number | null {
+	let sawArglessCall = false;
+	let sawOpaqueArg = false;
+	for (const decl of decls) {
+		const fn =
+			decl.asKind(SyntaxKind.FunctionDeclaration) ??
+			decl.getFirstDescendantByKind(SyntaxKind.ArrowFunction) ??
+			decl.getFirstDescendantByKind(SyntaxKind.FunctionExpression);
+		if (!fn) {
+			continue;
+		}
+		const params = fn.getParameters().map((p) => p.getName());
+		for (const call of fn.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+			if (!HTTP_DECORATORS.has(call.getExpression().getText())) {
+				continue;
+			}
+			const arg = call.getArguments()[0];
+			if (arg === undefined) {
+				sawArglessCall = true;
+				continue;
+			}
+			if (arg.getKind() === SyntaxKind.Identifier) {
+				const index = params.indexOf(arg.getText());
+				if (index >= 0) {
+					return index;
+				}
+			}
+			sawOpaqueArg = true;
+		}
+	}
+	if (sawOpaqueArg) {
+		return null;
+	}
+	return sawArglessCall ? -1 : null;
+}
+
+/**
+ * The framework decorators a wrapper decorator composes via `applyDecorators()`:
+ * `@XxxRestController()` reads as a controller, `@XxxReadOneOk()` as a GET handler.
+ */
+export function resolveDecoratorWrapper(decorator: Decorator): WrapperTargets {
+	let symbol = decorator.getNameNode().getSymbol();
+	const aliased = symbol?.getAliasedSymbol();
+	if (aliased) {
+		symbol = aliased;
+	}
+	const decls = (symbol?.getDeclarations() ?? []).filter(
+		(d) => !IMPORT_BINDING_KINDS.has(d.getKind())
+	);
+	if (decls.length === 0) {
+		return NO_TARGETS;
+	}
+	const first = decls[0];
+	const key = `${first.getSourceFile().getFilePath()}:${first.getPos()}:${first.getEnd()}:${decls.length}`;
+	const cached = wrapperCache.get(key);
+	if (cached) {
+		return cached;
+	}
+	// Overloaded declarations put the implementation last; scan them all.
+	const body = decls.map((d) => d.getText()).join("\n");
+	const methods = new Set<string>();
+	for (const match of body.matchAll(HTTP_CALL)) {
+		methods.add(match[1].toUpperCase());
+	}
+	let httpMethod: string | null = null;
+	if (methods.size === 1) {
+		httpMethod = [...methods][0];
+	} else if (methods.size > 1) {
+		httpMethod = "ROUTE";
+	}
+	const targets: WrapperTargets = {
+		controller: CONTROLLER_CALL.test(body),
+		httpMethod,
+		pathParamIndex: httpMethod === null ? null : resolvePathParamIndex(decls),
+	};
+	wrapperCache.set(key, targets);
+	return targets;
+}
+
+/** The class decorator that composes `Controller()`, standard or wrapper. */
+export function controllerDecorator(
+	cls: ClassDeclaration
+): Decorator | undefined {
+	return (
+		cls.getDecorator("Controller") ??
+		cls.getDecorators().find((d) => resolveDecoratorWrapper(d).controller)
+	);
+}
 
 type NestClassType =
 	| "controller"
@@ -49,7 +181,7 @@ export function getClassType(cls: ClassDeclaration): NestClassType {
 }
 
 export function isController(cls: ClassDeclaration): boolean {
-	return hasDecorator(cls, "Controller");
+	return controllerDecorator(cls) !== undefined;
 }
 
 /**
@@ -70,9 +202,9 @@ export function isService(cls: ClassDeclaration): boolean {
 export function isInjectable(cls: ClassDeclaration): boolean {
 	return (
 		hasDecorator(cls, "Injectable") ||
-		hasDecorator(cls, "Controller") ||
 		hasDecorator(cls, "Resolver") ||
-		hasDecorator(cls, "WebSocketGateway")
+		hasDecorator(cls, "WebSocketGateway") ||
+		isController(cls)
 	);
 }
 
@@ -97,7 +229,13 @@ export function isModule(cls: ClassDeclaration): boolean {
 }
 
 export function isHttpHandler(method: MethodDeclaration): boolean {
-	return method.getDecorators().some((d) => HTTP_DECORATORS.has(d.getName()));
+	return method
+		.getDecorators()
+		.some(
+			(d) =>
+				HTTP_DECORATORS.has(d.getName()) ||
+				resolveDecoratorWrapper(d).httpMethod !== null
+		);
 }
 
 // Entry points the framework awaits for you, the same way it awaits a route

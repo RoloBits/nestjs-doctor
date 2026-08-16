@@ -46,14 +46,32 @@ export const myRule = {
 
 ### `meta` Fields
 
-| Field         | Type     | Required | Description                                                             |
-| ------------- | -------- | -------- | ----------------------------------------------------------------------- |
-| `id`          | `string` | Yes      | Unique identifier for the rule                                          |
-| `category`    | `string` | Yes      | One of `"security"`, `"performance"`, `"correctness"`, `"architecture"` |
-| `severity`    | `string` | Yes      | One of `"error"`, `"warning"`, `"info"`                                 |
-| `description` | `string` | Yes      | Short summary shown in the report                                       |
-| `help`        | `string` | Yes      | Fix guidance shown alongside diagnostics                                |
-| `scope`       | `string` | No       | `"file"` (default) or `"project"`                                       |
+| Field         | Type       | Required | Description                                                             |
+| ------------- | ---------- | -------- | ----------------------------------------------------------------------- |
+| `id`          | `string`   | Yes      | Unique identifier for the rule                                          |
+| `category`    | `string`   | Yes      | One of `"security"`, `"performance"`, `"correctness"`, `"architecture"` |
+| `severity`    | `string`   | Yes      | One of `"error"`, `"warning"`, `"info"`                                 |
+| `description` | `string`   | Yes      | Short summary shown in the report                                       |
+| `help`        | `string`   | Yes      | Fix guidance shown alongside diagnostics                                |
+| `scope`       | `string`   | No       | `"file"` (default) or `"project"`                                       |
+| `tags`        | `string[]` | No       | Labels stamped onto every diagnostic the rule emits                     |
+
+### Tags
+
+Tags let the report group a rule's findings with related built-in rules. The one tag with built-in behavior today is `"module-graph"`: diagnostics carrying it appear in the Modules Graph tab's problems drawer, next to the built-in module-wiring findings.
+
+```typescript
+meta: {
+  id: "no-untagged-feature-module",
+  category: "architecture",
+  severity: "warning",
+  description: "Feature modules must follow the naming convention",
+  help: "Rename the module to end with FeatureModule.",
+  tags: ["module-graph"],
+},
+```
+
+A `tags` value that is not an array of strings is dropped with a warning. The rule still loads and runs.
 
 ### `check` Function
 

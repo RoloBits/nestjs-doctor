@@ -8,6 +8,7 @@ export const requireInjectDecorator: Rule = {
 		id: "correctness/require-inject-decorator",
 		category: "correctness",
 		severity: "error",
+		tags: ["module-graph"],
 		description:
 			"Constructor parameters without type annotations must have @Inject() decorator for NestJS DI to resolve them",
 		help: "Add a type annotation or @Inject() decorator to the constructor parameter.",

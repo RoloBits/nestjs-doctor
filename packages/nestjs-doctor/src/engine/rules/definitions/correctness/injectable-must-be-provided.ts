@@ -10,6 +10,7 @@ export const injectableMustBeProvided: ProjectRule = {
 		id: "correctness/injectable-must-be-provided",
 		category: "correctness",
 		severity: "info",
+		tags: ["module-graph"],
 		description:
 			"@Injectable() classes should be registered in at least one module's providers array",
 		help: "Add this class to a module's providers array, or remove the @Injectable() decorator if unused.",

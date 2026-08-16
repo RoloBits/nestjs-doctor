@@ -1,9 +1,12 @@
 import { performance } from "node:perf_hooks";
 import { spinner } from "../cli/ui/spinner.js";
+import { collectEntryModules } from "../engine/graph/entry-points.js";
 import {
 	detachModuleGraph,
+	type ModuleGraph,
 	mergeModuleGraphs,
 } from "../engine/graph/module-graph.js";
+import { pruneCrossProjectOrphans } from "../engine/orphan-prune.js";
 import type { MonorepoInfo } from "../engine/project-detector.js";
 import {
 	type AnalysisContext,
@@ -113,7 +116,14 @@ export class SingleProjectReportPipeline extends ReportPipeline {
 			const { moduleGraph, result, files, providers } = this._scanResult;
 			this._html = buildHtmlReport(moduleGraph, result, {
 				files,
-				providers: [...providers.values()].map(toReportProvider),
+				bootstrapRoots: [
+					...collectEntryModules(this.context.astProject, files, moduleGraph),
+				],
+				providers: [...providers.values()].map((provider) =>
+					toReportProvider(provider, {
+						module: moduleGraph.providerToModule.get(provider.name)?.name,
+					})
+				),
 			});
 		});
 		return this;
@@ -126,7 +136,9 @@ export class MonorepoReportPipeline extends ReportPipeline {
 	private scanResults!: Map<string, EngineResult>;
 	private readonly allFiles: string[] = [];
 	private readonly allProviders: ReportProvider[] = [];
+	private readonly bootstrapRoots: string[] = [];
 	private _monoResult!: MonorepoEngineResult;
+	private _mergedGraph?: ModuleGraph;
 	private scanStartTime!: number;
 
 	constructor(
@@ -142,6 +154,10 @@ export class MonorepoReportPipeline extends ReportPipeline {
 		return this._monoResult;
 	}
 
+	get mergedGraph(): ModuleGraph | undefined {
+		return this._mergedGraph;
+	}
+
 	buildContext(): this {
 		this.steps.push(() => {
 			this.scanStartTime = performance.now();
@@ -155,10 +171,25 @@ export class MonorepoReportPipeline extends ReportPipeline {
 				this.targetPath,
 				this.scanConfig,
 				this.monorepo,
-				(_name, context: AnalysisContext) => {
+				(name, context: AnalysisContext) => {
 					this.allFiles.push(...context.files);
+					for (const root of collectEntryModules(
+						context.astProject,
+						context.files,
+						context.moduleGraph
+					)) {
+						this.bootstrapRoots.push(`${name}/${root}`);
+					}
 					for (const provider of context.providers.values()) {
-						this.allProviders.push(toReportProvider(provider));
+						const owner = context.moduleGraph.providerToModule.get(
+							provider.name
+						);
+						this.allProviders.push(
+							toReportProvider(provider, {
+								project: name,
+								module: owner ? `${name}/${owner.name}` : undefined,
+							})
+						);
 					}
 					const scanResult = buildResult(context, diagnose(context));
 					return {
@@ -174,6 +205,10 @@ export class MonorepoReportPipeline extends ReportPipeline {
 
 	buildResult(): this {
 		this.steps.push(() => {
+			this._mergedGraph = pruneCrossProjectOrphans(
+				this.scanResults,
+				this.bootstrapRoots
+			);
 			const totalElapsedMs = performance.now() - this.scanStartTime;
 			this._monoResult = buildMonorepoResult(
 				this.scanResults,
@@ -187,13 +222,14 @@ export class MonorepoReportPipeline extends ReportPipeline {
 	generateHtml(): this {
 		this.steps.push(() => {
 			const { moduleGraphs, result } = this._monoResult;
-			const merged = mergeModuleGraphs(moduleGraphs);
+			const merged = this._mergedGraph ?? mergeModuleGraphs(moduleGraphs);
 			const projects = [...moduleGraphs.keys()];
 
 			this._html = buildHtmlReport(merged, result.combined, {
 				projects,
 				files: this.allFiles,
 				providers: this.allProviders,
+				bootstrapRoots: this.bootstrapRoots,
 			});
 		});
 		return this;

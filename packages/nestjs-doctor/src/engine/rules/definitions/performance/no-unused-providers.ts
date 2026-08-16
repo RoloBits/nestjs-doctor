@@ -3,6 +3,7 @@ import {
 	collectExtendedClasses,
 	collectProviderImplementations,
 } from "../../../graph/custom-providers.js";
+import { isController } from "../../../nest-class-inspector.js";
 import { INFRA_SUFFIXES } from "../../constants.js";
 import type { ProjectRule } from "../../types.js";
 
@@ -72,6 +73,7 @@ export const noUnusedProviders: ProjectRule = {
 		id: "performance/no-unused-providers",
 		category: "performance",
 		severity: "warning",
+		tags: ["module-graph"],
 		description:
 			"Injectable providers that are never injected and that the framework does not activate may be dead code",
 		help: "Remove the unused provider, inject it where needed, or verify the framework activates it, through a decorator such as @Cron or @OnEvent or a contract such as OnModuleInit or CanActivate.",
@@ -89,7 +91,14 @@ export const noUnusedProviders: ProjectRule = {
 
 		// Resolvers and gateways inject services via constructor just like controllers,
 		// so their dependencies must be counted to avoid false "unused provider" warnings.
-		const CONSUMER_DECORATORS = ["Controller", "Resolver", "WebSocketGateway"];
+		// A class registered in a module's `controllers` array is a consumer even when
+		// its decorator is a project-specific wrapper around @Controller().
+		const registeredControllers = new Set<string>();
+		for (const mod of context.moduleGraph.modules.values()) {
+			for (const controller of mod.controllers) {
+				registeredControllers.add(controller);
+			}
+		}
 		for (const filePath of context.files) {
 			const sourceFile = context.project.getSourceFile(filePath);
 			if (!sourceFile) {
@@ -97,9 +106,12 @@ export const noUnusedProviders: ProjectRule = {
 			}
 
 			for (const cls of sourceFile.getClasses()) {
-				const isConsumer = CONSUMER_DECORATORS.some(
-					(d) => cls.getDecorator(d) !== undefined
-				);
+				const className = cls.getName();
+				const isConsumer =
+					(className !== undefined && registeredControllers.has(className)) ||
+					isController(cls) ||
+					cls.getDecorator("Resolver") !== undefined ||
+					cls.getDecorator("WebSocketGateway") !== undefined;
 				if (!isConsumer) {
 					continue;
 				}

@@ -6,6 +6,7 @@ export const noMissingModuleDecorator: Rule = {
 		id: "correctness/no-missing-module-decorator",
 		category: "correctness",
 		severity: "warning",
+		tags: ["module-graph"],
 		description: "Classes named *Module should have a @Module() decorator",
 		help: "Add @Module({}) decorator to the class, or rename it if it is not a NestJS module.",
 	},

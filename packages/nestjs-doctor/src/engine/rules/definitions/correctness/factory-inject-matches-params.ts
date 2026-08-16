@@ -7,6 +7,7 @@ export const factoryInjectMatchesParams: Rule = {
 		id: "correctness/factory-inject-matches-params",
 		category: "correctness",
 		severity: "error",
+		tags: ["module-graph"],
 		description:
 			"useFactory inject array length must match the factory function parameter count",
 		help: "Ensure the 'inject' array has one entry per factory function parameter.",

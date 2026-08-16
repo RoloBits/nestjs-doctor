@@ -2,7 +2,9 @@ import { performance } from "node:perf_hooks";
 import type { Diagnostic } from "../common/diagnostic.js";
 import type { DiagnoseResult } from "../common/result.js";
 import { computeBaselineDelta } from "../engine/baseline.js";
+import { collectEntryModules } from "../engine/graph/entry-points.js";
 import { detachModuleGraph } from "../engine/graph/module-graph.js";
+import { pruneCrossProjectOrphans } from "../engine/orphan-prune.js";
 import type { MonorepoInfo } from "../engine/project-detector.js";
 import { withScopedDiagnostics } from "../engine/result-builder.js";
 import {
@@ -173,6 +175,7 @@ const restrictToKept = (
 export class MonorepoPipeline extends ScanPipeline {
 	private readonly monorepo: MonorepoInfo;
 	private scanResults!: Map<string, EngineResult>;
+	private readonly bootstrapRoots: string[] = [];
 	private result!: MonorepoEngineResult;
 	private scanStartTime!: number;
 
@@ -198,7 +201,14 @@ export class MonorepoPipeline extends ScanPipeline {
 				this.targetPath,
 				this.scanConfig,
 				this.monorepo,
-				(_name, context: AnalysisContext) => {
+				(name, context: AnalysisContext) => {
+					for (const root of collectEntryModules(
+						context.astProject,
+						context.files,
+						context.moduleGraph
+					)) {
+						this.bootstrapRoots.push(`${name}/${root}`);
+					}
 					const scanResult = buildResult(context, diagnose(context));
 					return {
 						...scanResult,
@@ -213,6 +223,7 @@ export class MonorepoPipeline extends ScanPipeline {
 
 	buildResult(): this {
 		this.steps.push(() => {
+			pruneCrossProjectOrphans(this.scanResults, this.bootstrapRoots);
 			const totalElapsedMs = performance.now() - this.scanStartTime;
 			this.result = buildMonorepoResult(
 				this.scanResults,

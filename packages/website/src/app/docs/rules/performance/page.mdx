@@ -204,6 +204,10 @@ Detects modules that are never imported by any other module.
 
 **Why:** An orphan module (other than the root `AppModule`) is likely dead code or a module that was accidentally disconnected from the module tree.
 
+**What counts as a root:** a module is never flagged when it is an application entry point. That covers `AppModule`, modules declared in an `app.module.ts` or `root.module.ts` file, and any module handed to `NestFactory.create()`, nest-commander's `CommandFactory.run()`, or a bootstrap helper whose implementation reaches either factory (e.g. a shared `standaloneBootstrap(RootModule)` from a bootstrap library).
+
+**Monorepos:** findings are checked against the merged workspace graph. A module imported by another sub-project, including through a workspace package specifier like `@myorg/shared`, is not an orphan even though its own project never imports it.
+
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
 // analytics.module.ts — never imported anywhere

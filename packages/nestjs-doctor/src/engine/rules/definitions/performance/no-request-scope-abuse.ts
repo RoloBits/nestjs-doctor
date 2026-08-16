@@ -6,6 +6,7 @@ export const noRequestScopeAbuse: Rule = {
 		id: "performance/no-request-scope-abuse",
 		category: "performance",
 		severity: "warning",
+		tags: ["module-graph"],
 		description:
 			"Scope.REQUEST creates a new provider instance per request — use only when necessary",
 		help: "Remove Scope.REQUEST unless the provider genuinely needs per-request state (e.g., request-scoped context). Consider Scope.DEFAULT or Scope.TRANSIENT instead.",

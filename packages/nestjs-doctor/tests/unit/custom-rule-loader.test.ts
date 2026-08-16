@@ -228,3 +228,103 @@ describe("loadCustomRules", () => {
 		});
 	});
 });
+
+describe("tags leniency", () => {
+	it("keeps loading a rule whose tags field is malformed", async () => {
+		const dir = path.join(tempRootDirectory, "malformed-tags");
+		fs.mkdirSync(dir, { recursive: true });
+		fs.writeFileSync(
+			path.join(dir, "tagged-rule.ts"),
+			`export const taggedRule = {
+				meta: {
+					id: "tagged-rule",
+					description: "d",
+					help: "h",
+					category: "correctness",
+					severity: "warning",
+					tags: "experimental",
+				},
+				check() {},
+			};`
+		);
+
+		const { rules, warnings } = await loadCustomRules(dir, tempRootDirectory);
+		expect(rules).toHaveLength(1);
+		expect(rules[0].meta.tags).toBeUndefined();
+		expect(warnings).toHaveLength(1);
+		expect(warnings[0]).toContain("meta.tags");
+	});
+
+	it("loads a rule whose frozen meta carries malformed tags without throwing", async () => {
+		const dir = path.join(tempRootDirectory, "frozen-tags");
+		fs.mkdirSync(dir, { recursive: true });
+		fs.writeFileSync(
+			path.join(dir, "frozen-rule.ts"),
+			`export const frozenRule = {
+				meta: Object.freeze({
+					id: "frozen-rule",
+					description: "d",
+					help: "h",
+					category: "correctness",
+					severity: "warning",
+					tags: "experimental",
+				}),
+				check() {},
+			};`
+		);
+
+		const { rules, warnings } = await loadCustomRules(dir, tempRootDirectory);
+		expect(rules).toHaveLength(1);
+		expect(rules[0].meta.tags).toBeUndefined();
+		expect(warnings).toHaveLength(1);
+	});
+
+	it("keeps a class-instance rule's prototype check when stripping malformed tags", async () => {
+		const dir = path.join(tempRootDirectory, "instance-tags");
+		fs.mkdirSync(dir, { recursive: true });
+		fs.writeFileSync(
+			path.join(dir, "instance-rule.ts"),
+			`class MyRule {
+				meta = {
+					id: "custom/instance-rule",
+					description: "d",
+					help: "h",
+					category: "correctness",
+					severity: "warning",
+					tags: 42,
+				};
+				check() {}
+			}
+			export const rule = new MyRule();`
+		);
+
+		const { rules, warnings } = await loadCustomRules(dir, tempRootDirectory);
+		expect(rules).toHaveLength(1);
+		expect(typeof rules[0].check).toBe("function");
+		expect(rules[0].meta.tags).toBeUndefined();
+		expect(warnings).toHaveLength(1);
+	});
+
+	it("passes well-formed tags through", async () => {
+		const dir = path.join(tempRootDirectory, "valid-tags");
+		fs.mkdirSync(dir, { recursive: true });
+		fs.writeFileSync(
+			path.join(dir, "tagged-rule.ts"),
+			`export const taggedRule = {
+				meta: {
+					id: "tagged-rule",
+					description: "d",
+					help: "h",
+					category: "correctness",
+					severity: "warning",
+					tags: ["module-graph"],
+				},
+				check() {},
+			};`
+		);
+
+		const { rules } = await loadCustomRules(dir, tempRootDirectory);
+		expect(rules).toHaveLength(1);
+		expect(rules[0].meta.tags).toEqual(["module-graph"]);
+	});
+});

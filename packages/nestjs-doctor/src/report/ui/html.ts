@@ -22,9 +22,6 @@ export function getReportHtml(): string {
   <button class="tab-btn" data-tab="schema" id="tab-btn-schema" style="display:none">Relational Schema</button>
   <button class="tab-btn" data-tab="lab">Lab</button>
   <div class="tab-spacer"></div>
-  <div class="tab-controls" id="graph-controls">
-    <select id="project-filter"><option value="all">All projects</option></select>
-  </div>
 </div>
 
 <!-- ── Tab: Summary ── -->
@@ -328,21 +325,115 @@ for (let i = 0; i < lines.length; i++) {
 
 <!-- ── Tab: Modules Graph ── -->
 <div class="tab-content" id="tab-modules">
-  <canvas id="graph"></canvas>
-  <button id="focus-btn">Unfocus</button>
-</div>
-
-<!-- ── Sidebar (Graph tab) ── -->
-<div id="sidebar">
+  <div id="mg-sidebar">
+    <div class="schema-sidebar-sticky">
+      <div class="schema-sidebar-header">
+        <span class="schema-sidebar-title">Projects</span>
+        <span class="schema-entity-count" id="mg-project-count"></span>
+        <span style="flex:1"></span>
+        <button class="st-btn has-tip" id="mg-expand-all" aria-label="Expand all" data-tip="Expand all · open every project in the list">
+          <svg viewBox="0 0 17 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="1" y1="3" x2="8" y2="3"/><line x1="1" y1="7" x2="8" y2="7"/><line x1="1" y1="11" x2="8" y2="11"/>
+            <path d="M11 5l2.5 3L16 5"/>
+          </svg>
+        </button>
+        <button class="st-btn has-tip" id="mg-collapse-all" aria-label="Collapse all" data-tip="Collapse all · close every project in the list">
+          <svg viewBox="0 0 17 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="1" y1="3" x2="8" y2="3"/><line x1="1" y1="7" x2="8" y2="7"/><line x1="1" y1="11" x2="8" y2="11"/>
+            <path d="M11 11l2.5-3L16 11"/>
+          </svg>
+        </button>
+        <button class="st-btn has-tip" id="mg-sidebar-collapse" aria-label="Hide the project list" data-tip="Hide list · give the graph the whole width">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 3 4 8 9 13"/><line x1="13" y1="3" x2="13" y2="13"/>
+          </svg>
+        </button>
+      </div>
+      <div class="mg-side-search">
+        <input type="search" id="mg-search" placeholder="Search projects and modules" spellcheck="false" autocomplete="off">
+      </div>
+      <div class="mg-toggle-row">
+        <label class="schema-sync">
+          <input type="checkbox" id="mg-globals">
+          <span>Show @Global() reach</span>
+        </label>
+        <label class="schema-sync">
+          <input type="checkbox" id="mg-show-external">
+          <span>Show external modules</span>
+        </label>
+      </div>
+    </div>
+    <div id="mg-tree"></div>
+    <div id="detail">
+      <button class="close-btn" id="close-detail">&times;</button>
+      <h2 id="detail-name"></h2>
+      <div id="detail-badges"></div>
+      <div class="filepath" id="detail-path"></div>
+      <div id="detail-sections"></div>
+    </div>
+  </div>
+  <div id="mg-resizer"></div>
+  <div id="mg-main">
+  <div id="mg-wrap">
+    <button class="st-btn has-tip" id="mg-sidebar-show" aria-label="Show the project list" data-tip="Show list · bring the project list back">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="7 3 12 8 7 13"/><line x1="3" y1="3" x2="3" y2="13"/>
+      </svg>
+    </button>
+    <div id="mg-toolbar">
+      <div id="mg-zoombar">
+        <button class="st-btn schema-zoom-btn has-tip" id="mg-zoom-out" aria-label="Zoom out" data-tip="Zoom out">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <input type="range" id="mg-zoom-range" min="5" max="500" step="1" value="100" aria-label="Zoom">
+        <button class="st-btn schema-zoom-btn has-tip" id="mg-zoom-in" aria-label="Zoom in" data-tip="Zoom in">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <button class="schema-zoom-value has-tip" id="mg-zoom-value" aria-label="100% · fit to view" data-tip="Fit · size the graph to the window">100%</button>
+      </div>
+      <button class="st-btn schema-diagram-btn has-tip" id="mg-recenter" aria-label="Re-center graph" data-tip="Re-center · bring the graph back into view">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
+        </svg>
+      </button>
+      <button class="st-btn schema-diagram-btn has-tip" id="mg-info" aria-label="Legend and concepts" data-tip="Info · legend and NestJS concepts">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+      </button>
+    </div>
+    <canvas id="graph"></canvas>
+    <div id="mg-tooltip" class="schema-tooltip" style="display:none"></div>
+    <div id="mg-empty-state">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+        <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+      </svg>
+      <p>No modules were found in this project</p>
+    </div>
+  </div>
+  <div id="mg-problems">
+    <div id="mg-problems-header">
+      <span class="mg-problems-title">Module problems</span>
+      <span class="schema-entity-count" id="mg-problems-count"></span>
+      <span style="flex:1"></span>
+      <span class="mg-problems-chevron" id="mg-problems-chevron">▴</span>
+    </div>
+    <div id="mg-problems-list"></div>
+  </div>
+  <div id="mg-info-pop">
   <h3>Legend</h3>
   <div class="legend-item"><div class="legend-color" style="background:#1a1a2e;border-color:#333"></div> Module</div>
   <div class="legend-item"><div class="legend-color" style="background:#1a2e1a;border-color:#2a5a2a"></div> Root module</div>
   <div class="legend-item"><div class="legend-color" style="background:#2e1a1a;border-color:#ea2845"></div> Circular dependency</div>
+  <div class="legend-item"><div class="legend-color" style="background:#2a2410;border-color:#fbbf24"></div> Global module</div>
   <div class="legend-item"><div class="legend-line" style="background:#444"></div> Import</div>
   <div class="legend-item"><div class="legend-line" style="background:#ea2845;border-top:1px dashed #ea2845;height:0"></div> Circular import</div>
-  <div id="project-legend"></div>
+  <div class="legend-item" id="legend-cross" style="display:none"><div class="legend-line" style="background:transparent;border-top:2px dashed #22d3ee;height:0"></div> Cross-project import</div>
+  <div class="legend-item" id="legend-global-reach" style="display:none"><div class="legend-line" style="background:transparent;border-top:2px dotted #fbbf24;height:0"></div> Global reach (no import)</div>
   <hr class="divider">
-  <h3>NestJS Concepts</h3>
+  <details class="concepts-details">
+  <summary>NestJS Concepts</summary>
   <dl>
     <dt>Providers</dt>
     <dd>Injectable services (business logic, repositories, helpers) registered in the module's <code>providers</code> array. The core building block of NestJS DI.</dd>
@@ -358,15 +449,8 @@ for (let i = 0; i < lines.length; i++) {
     <dd style="margin-top:4px"><strong style="color:#ccc">Fix:</strong> Extract the shared providers into a new module both can import, breaking the cycle. This is the proper long-term solution.</dd>
     <dd style="margin-top:4px"><code>forwardRef()</code> tells NestJS to defer resolving a dependency until both modules are loaded. It works, but it's a <strong style="color:#ccc">band-aid</strong> — the cycle still exists, the code is harder to follow, and adding more modules to the chain makes it fragile. Use it only as a temporary fix while you refactor.</dd>
   </dl>
-</div>
-
-<!-- ── Detail Panel ── -->
-<div id="detail">
-  <button class="close-btn" id="close-detail">&times;</button>
-  <h2 id="detail-name"></h2>
-  <div class="filepath" id="detail-path"></div>
-  <div id="detail-sections"></div>
-</div>
-
-<div id="focus-hint">Focused view — click empty space or press Esc to exit</div>`;
+  </details>
+  </div>
+  </div>
+</div>`;
 }

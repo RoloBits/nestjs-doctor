@@ -87,4 +87,26 @@ describe("type-resolver", () => {
 		const svc = providers.get("TestService");
 		expect(svc?.publicMethodCount).toBe(2);
 	});
+
+	it("reads the injection scope from the @Injectable argument", () => {
+		const { project, paths } = createProject({
+			"scoped.ts": `
+        import { Injectable, Scope } from '@nestjs/common';
+        @Injectable({ scope: Scope.REQUEST })
+        export class RequestService {}
+        @Injectable({ scope: Scope.TRANSIENT })
+        export class TransientService {}
+        @Injectable()
+        export class SingletonService {}
+        @Injectable({ durable: true })
+        export class DurableService {}
+      `,
+		});
+
+		const providers = resolveProviders(project, paths);
+		expect(providers.get("RequestService")?.scope).toBe("request");
+		expect(providers.get("TransientService")?.scope).toBe("transient");
+		expect(providers.get("SingletonService")?.scope).toBeUndefined();
+		expect(providers.get("DurableService")?.scope).toBeUndefined();
+	});
 });
