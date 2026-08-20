@@ -67,11 +67,10 @@ function makeScoreRingSvg(size, strokeW, value) {
   if (graph.timingsAvailable) {
     let bootMs = 0;
     let bootName = "";
-    for (const id in graph.timingsTrace) {
-      if (Object.prototype.hasOwnProperty.call(graph.timingsTrace, id) &&
-          graph.timingsTrace[id].initTime > bootMs) {
-        bootMs = graph.timingsTrace[id].initTime;
-        bootName = graph.timingsTrace[id].name;
+    for (const node of Object.values(graph.timingsTrace)) {
+      if (node.initTime > bootMs) {
+        bootMs = node.initTime;
+        bootName = node.name;
       }
     }
     if (graph.startupMs) {
@@ -557,9 +556,13 @@ function mgBuild() {
 function mgResize() {
   if (!mgCanvas) return;
   var wrap = document.getElementById("mg-wrap");
-  mgW = wrap.clientWidth;
-  mgH = wrap.clientHeight;
-  if (mgW === 0 || mgH === 0) return;
+  var w = wrap.clientWidth;
+  var h = wrap.clientHeight;
+  if (w === 0 || h === 0) return;
+  // Resetting canvas.width clears the bitmap; skip when geometry is unchanged.
+  if (w === mgW && h === mgH) { mgScheduleRedraw(); return; }
+  mgW = w;
+  mgH = h;
   mgCanvas.width = mgW * mgDpr;
   mgCanvas.height = mgH * mgDpr;
   mgCanvas.style.width = mgW + "px";
@@ -1227,9 +1230,7 @@ function mgBindEvents() {
     var dock = document.getElementById("mg-dock");
     var tabEl = ev.target.closest(".mg-dock-tab");
     if (tabEl) {
-      mgDockSetTab(tabEl.dataset.dockTab);
-      mgDockOpen();
-      mgResize();
+      mgDockShow(tabEl.dataset.dockTab);
       return;
     }
     var open = dock.classList.toggle("open");
@@ -1782,7 +1783,6 @@ function mgProvidersHtml(n) {
   return html;
 }
 
-var mgTraceModule = null;
 var mgTraceMax = 1;
 var MG_TRACE_COLORS = {
   provider: "34,211,238",
@@ -1800,20 +1800,14 @@ function mgTraceColor(type) {
   return MG_TRACE_COLORS[type] || "107,114,128";
 }
 
-function mgDockSetTab(name) {
-  var dock = document.getElementById("mg-dock");
-  dock.dataset.active = name;
-  document.getElementById("mg-dock-tab-problems").classList.toggle("active", name === "problems");
-  document.getElementById("mg-dock-tab-trace").classList.toggle("active", name === "trace");
-  document.getElementById("mg-trace-legend").style.display = name === "trace" ? "" : "none";
-}
-
-function mgDockOpen() {
+function mgDockShow(name) {
+  document.getElementById("mg-dock").dataset.active = name;
   var dock = document.getElementById("mg-dock");
   if (!dock.classList.contains("open")) {
     dock.classList.add("open");
     document.getElementById("mg-dock-chevron").textContent = "\\u25BE";
   }
+  mgResize();
 }
 
 function mgTraceBadgeHtml(type) {
@@ -1830,11 +1824,9 @@ function mgTraceBarHtml(initTime, deps, type, reused) {
       '<span class="mg-trace-bar" style="width:' + width + '%;background:transparent;box-shadow:inset 0 0 0 1px rgba(' + mgTraceColor(type) + ',0.5)"></span>' +
       '</span>';
   }
-  var slowestDep = 0;
-  for (var d = 0; d < deps.length; d++) {
-    var dep = mgTraceNode(deps[d]);
-    if (dep && dep.initTime > slowestDep) slowestDep = dep.initTime;
-  }
+  // deps are sorted slowest-first by the parser.
+  var d0 = deps.length > 0 ? mgTraceNode(deps[0]) : null;
+  var slowestDep = d0 ? d0.initTime : 0;
   var selfFrac = Math.max(0, Math.min(frac, (initTime - slowestDep) / mgTraceMax));
   return '<span class="mg-trace-track">' +
     '<span class="mg-trace-bar" style="width:' + width + '%;background:rgba(' + mgTraceColor(type) + ',0.4)"></span>' +
@@ -1873,22 +1865,9 @@ function mgShowModuleTrace(n) {
   var list = n.initTimings;
   mgTraceMax = list[0].initTime > 0 ? list[0].initTime : 1;
   var html = "";
+  // The parser writes every timed class into the trace, so rows never miss it.
   for (var i = 0; i < list.length; i++) {
-    var t = list[i];
-    var rowHtml = t.id ? mgTraceRowHtml(t.id, 0, t.id) : "";
-    if (rowHtml === "") {
-      var frac = Math.max(0, Math.min(1, t.initTime / mgTraceMax));
-      rowHtml = '<div class="mg-trace-row">' +
-        '<span class="mg-trace-label"><span class="mg-trace-caret"></span>' +
-        '<span class="mg-trace-name">' + mgEsc(t.name) + '</span>' +
-        mgTraceBadgeHtml(t.type) + '</span>' +
-        '<span class="mg-trace-track">' +
-        '<span class="mg-trace-bar" style="width:' + (frac * 100).toFixed(2) + '%;background:rgba(' + mgTraceColor(t.type) + ',0.4)"></span>' +
-        '</span>' +
-        '<span class="mg-trace-time">' + mgEsc(mgFormatMs(t.initTime)) + '</span>' +
-        '</div>';
-    }
-    html += rowHtml;
+    html += mgTraceRowHtml(list[i].id, 0, list[i].id);
   }
   document.getElementById("mg-trace-ms").textContent =
     getDisplayName(n) + " \\u00b7 " + mgFormatMs(list[0].initTime);
@@ -1896,7 +1875,7 @@ function mgShowModuleTrace(n) {
 }
 
 function mgSyncTraceDrawer(n) {
-  mgTraceModule = n && !n.external && graph.timingsAvailable &&
+  var mod = n && !n.external && graph.timingsAvailable &&
     n.initTimings && n.initTimings.length > 0 ? n : null;
   var tab = document.getElementById("mg-dock-tab-trace");
   if (!graph.timingsAvailable) {
@@ -1904,8 +1883,8 @@ function mgSyncTraceDrawer(n) {
     return;
   }
   tab.style.display = "";
-  if (mgTraceModule) {
-    mgShowModuleTrace(mgTraceModule);
+  if (mod) {
+    mgShowModuleTrace(mod);
   } else {
     document.getElementById("mg-trace-ms").textContent = "";
     document.getElementById("mg-trace-body").innerHTML =
@@ -1915,9 +1894,7 @@ function mgSyncTraceDrawer(n) {
 }
 
 function mgOpenTraceDrawer() {
-  mgDockSetTab("trace");
-  mgDockOpen();
-  mgResize();
+  mgDockShow("trace");
 }
 
 function mgJumpToSlowestBoot() {
