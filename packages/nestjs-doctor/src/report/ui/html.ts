@@ -421,6 +421,7 @@ for (let i = 0; i < lines.length; i++) {
       <span class="mg-problems-chevron" id="mg-dock-chevron">▴</span>
     </div>
     <div id="mg-problems-list"></div>
+    <div id="mg-trace-phases"></div>
     <div id="mg-trace-body"></div>
   </div>
   <div id="mg-info-pop">

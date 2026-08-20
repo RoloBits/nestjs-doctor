@@ -35,6 +35,7 @@ graph.circularDeps = graph.circularDeps || [];
 graph.circularDepRecommendations = graph.circularDepRecommendations || {};
 graph.bootstrapRoots = graph.bootstrapRoots || [];
 graph.timingsTrace = graph.timingsTrace || {};
+graph.phases = graph.phases || null;
 
 // ── Score helpers ──
 function getScoreColor(v) {
@@ -74,7 +75,10 @@ function makeScoreRingSvg(size, strokeW, value) {
       }
     }
     if (graph.startupMs) {
-      badges.push('<span class="meta-badge" id="boot-badge" style="cursor:pointer" title="From bootstrap start until the app was listening, measured by the snippet. Slowest construction chain: ' +
+      const phaseCaption = mgPhaseCaption(mgPhaseParts());
+      badges.push('<span class="meta-badge" id="boot-badge" style="cursor:pointer" title="From bootstrap start until the app was listening, measured by the snippet.' +
+        (phaseCaption ? " " + mgEsc(phaseCaption) + "." : "") +
+        ' Slowest construction chain: ' +
         mgEsc(bootName) + ' \\u2014 click to open it in the modules graph">time to start \\u2248 ' + mgEsc(mgFormatMs(graph.startupMs)) + '</span>');
     } else if (bootMs > 0) {
       badges.push('<span class="meta-badge" id="boot-badge" style="cursor:pointer" title="Slowest construction chain: ' +
@@ -493,6 +497,7 @@ function mgBuild() {
       controllers: m.controllers || [],
       dynamicImports: m.dynamicImports || null,
       initTimings: m.initTimings || null,
+      hookTimings: m.hookTimings || null,
       x: 0, y: 0, w: 0, h: MG_NODE_H
     };
     mgMeasureNode(n);
@@ -1270,6 +1275,8 @@ function mgBindEvents() {
     if (ev.target.closest("#detail-timings-btn")) mgOpenTraceDrawer();
   });
 
+  mgRenderPhases();
+
   window.addEventListener("resize", function() { if (activeTab === "modules") mgResize(); });
 }
 
@@ -1802,6 +1809,78 @@ function mgTraceColor(type) {
     ? MG_TRACE_COLORS[type] : "107,114,128";
 }
 
+var MG_HOOK_META = {
+  onModuleInit: { label: "init", rgb: "52,211,153" },
+  onApplicationBootstrap: { label: "bootstrap", rgb: "167,139,250" }
+};
+
+function mgHookChipHtml(hooks) {
+  if (!hooks || hooks.length === 0) return "";
+  var html = "";
+  for (var i = 0; i < hooks.length; i++) {
+    var h = hooks[i];
+    var meta = MG_HOOK_META[Object.prototype.hasOwnProperty.call(MG_HOOK_META, h.hook) ? h.hook : ""] ||
+      { label: h.hook, rgb: "107,114,128" };
+    html += '<span class="mg-trace-hook" style="color:rgb(' + meta.rgb + ');background:rgba(' + meta.rgb + ',0.12)"' +
+      ' title="' + mgEsc(h.hook + " took " + mgFormatMs(h.ms)) + '">+' +
+      mgEsc(mgFormatMs(h.ms)) + ' ' + mgEsc(meta.label) + '</span>';
+  }
+  return html;
+}
+
+function mgPhaseParts() {
+  var p = graph.phases;
+  if (!p) return [];
+  var parts = [];
+  var prev = 0;
+  function push(label, end, rgb, tip) {
+    if (typeof end !== "number" || end <= prev) return;
+    parts.push({ label: label, ms: end - prev, rgb: rgb, tip: tip });
+    prev = end;
+  }
+  push("create", p.createMs, "34,211,238", "create \\u2014 constructing providers and controllers");
+  if (typeof p.moduleInitMs === "number") {
+    push("onModuleInit", p.moduleInitMs, "52,211,153", "onModuleInit hooks across all classes");
+    push("onApplicationBootstrap", p.initMs, "167,139,250", "onApplicationBootstrap hooks");
+  } else {
+    push("lifecycle hooks", p.initMs, "52,211,153", "onModuleInit and onApplicationBootstrap");
+  }
+  if (typeof graph.startupMs === "number") {
+    var afterInit = typeof p.initMs === "number";
+    push(afterInit ? "listen" : "hooks + listen", graph.startupMs, "107,114,128",
+      afterInit ? "binding the HTTP server" : "everything after NestFactory.create");
+  }
+  return parts;
+}
+
+function mgPhaseCaption(parts) {
+  var bits = [];
+  for (var i = 0; i < parts.length; i++) {
+    bits.push(parts[i].label + " " + mgFormatMs(parts[i].ms));
+  }
+  return bits.join(" \\u00b7 ");
+}
+
+function mgRenderPhases() {
+  var el = document.getElementById("mg-trace-phases");
+  if (!el) return;
+  var parts = mgPhaseParts();
+  var total = 0;
+  for (var i = 0; i < parts.length; i++) total += parts[i].ms;
+  if (parts.length === 0 || total <= 0) {
+    el.innerHTML = "";
+    return;
+  }
+  var html = '<div class="mg-phase-strip">';
+  for (var j = 0; j < parts.length; j++) {
+    var seg = parts[j];
+    html += '<span class="mg-phase-seg" style="width:' + ((seg.ms / total) * 100).toFixed(2) +
+      '%;background:rgba(' + seg.rgb + ',0.4)" title="' + mgEsc(seg.tip) + '"></span>';
+  }
+  html += '</div><div class="mg-trace-note">' + mgEsc(mgPhaseCaption(parts)) + '</div>';
+  el.innerHTML = html;
+}
+
 function mgDockShow(name) {
   document.getElementById("mg-dock").dataset.active = name;
   var dock = document.getElementById("mg-dock");
@@ -1857,6 +1936,7 @@ function mgTraceRowHtml(id, depth, path) {
     '<span class="mg-trace-caret">' + (expandable ? "\\u25B8" : "") + '</span>' +
     '<span class="mg-trace-name">' + mgEsc(node.name) + '</span>' +
     mgTraceBadgeHtml(node.type) +
+    mgHookChipHtml(node.hooks) +
     (reused ? '<span class="mg-trace-reused-tag" title="Already built when this parent loaded \\u2014 its cost is counted at its first consumer">reused</span>' : '') +
     (cyc ? '<span class="mg-trace-cycle" title="circular dependency">\\u21BB</span>' : '') +
     '</span>' +
@@ -2032,6 +2112,7 @@ function mgShowDetail(n) {
   if (graph.timingsAvailable && n.initTimings && n.initTimings.length > 0) {
     badges += '<span class="md-badge md-use" id="detail-timings-btn" title="Open the bootstrap timings drawer">' +
       mgEsc(mgFormatMs(n.initTimings[0].initTime)) + ' \\u00b7 trace \\u25BE</span>';
+    badges += mgHookChipHtml(n.hookTimings);
   }
   document.getElementById("detail-badges").innerHTML = badges;
   mgSyncTraceDrawer(n);

@@ -122,6 +122,7 @@ describe("module-serializer", () => {
 					[{ id: "c1", name: "AppService", type: "provider", initTime: 42 }],
 				],
 			]),
+			hooksByClass: new Map(),
 			trace: {
 				c1: { name: "AppService", type: "provider", initTime: 42, deps: [] },
 			},
@@ -192,6 +193,7 @@ describe("module-serializer", () => {
 					[{ id: "c2", name: "CatsService", type: "provider", initTime: 7 }],
 				],
 			]),
+			hooksByClass: new Map(),
 			trace: {},
 		};
 
@@ -240,6 +242,7 @@ describe("module-serializer", () => {
 					[{ id: "c3", name: "AppService", type: "provider", initTime: 5 }],
 				],
 			]),
+			hooksByClass: new Map(),
 			trace: {},
 		};
 

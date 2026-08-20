@@ -61,10 +61,33 @@ import { NestFactory, SerializedGraph } from "@nestjs/core";
 
 const t0 = performance.now();
 const app = await NestFactory.create(AppModule, { snapshot: true });
+const createMs = performance.now() - t0;
+await app.init();
+const initMs = performance.now() - t0;
 await app.listen(3000);
 const graph = JSON.parse(app.get(SerializedGraph).toString());
-graph.startupMs = performance.now() - t0;
+Object.assign(graph, { createMs, initMs, startupMs: performance.now() - t0 });
 writeFileSync("nestjs-doctor-timings.json", JSON.stringify(graph));
+```
+
+Optionally (Nest 11+), record per-class `onModuleInit`/`onApplicationBootstrap` durations by adding an `instrument` option to `create()` and an empty `const hookTimings = []` above it, then including `hookTimings` in the `Object.assign`:
+
+```ts
+instrument: {
+  instanceDecorator(instance) {
+    if (!instance || typeof instance !== "object") return instance;
+    for (const hook of ["onModuleInit", "onApplicationBootstrap"]) {
+      const original = instance[hook];
+      if (typeof original !== "function") continue;
+      instance[hook] = async function (...args) {
+        const start = performance.now();
+        try { return await original.apply(this, args); }
+        finally { hookTimings.push({ className: this.constructor.name, hook, ms: performance.now() - start }); }
+      };
+    }
+    return instance;
+  },
+},
 ```
 
 Boot the app once, then:
@@ -73,7 +96,7 @@ Boot the app once, then:
 npx nestjs-doctor@latest . --report --timings nestjs-doctor-timings.json
 ```
 
-The report header shows `time to start ≈ <ms>` — wall time from bootstrap start until the app was listening, lifecycle hooks included. A dump without `startupMs` falls back to `boot ≈ <ms>`, the slowest construction chain. Each module node shows its slowest class's construction time. Selecting a module fills the bottom dock's Boot trace tab: its classes slowest-first with proportional bars, color-coded by class type. Each row expands in place into its injection cascade — nested bars where an amber segment marks each class's own work, so you can read down the chain to the class that actually owns the time. Times include waiting on a class's own dependencies, so a shared slow dependency counts again in every class that awaits it. Timings are display-only — they never affect the score, diagnostics, or exit codes.
+The report header shows `time to start ≈ <ms>` — wall time from bootstrap start until the app was listening, lifecycle hooks included. A dump without `startupMs` falls back to `boot ≈ <ms>`, the slowest construction chain. With the phase markers, the Boot trace tab tops with a segmented strip — `create · lifecycle hooks · listen` — and per-class hook durations render as `+120ms init` chips on trace rows. Each module node shows its slowest class's construction time. Selecting a module fills the bottom dock's Boot trace tab: its classes slowest-first with proportional bars, color-coded by class type. Each row expands in place into its injection cascade — nested bars where an amber segment marks each class's own work, so you can read down the chain to the class that actually owns the time. Times include waiting on a class's own dependencies, so a shared slow dependency counts again in every class that awaits it. Timings are display-only — they never affect the score, diagnostics, or exit codes.
 
 ---
 

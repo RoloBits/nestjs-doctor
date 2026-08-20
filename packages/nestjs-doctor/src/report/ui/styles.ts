@@ -228,6 +228,11 @@ body.mg-resizing { cursor: col-resize; user-select: none; }
   display: inline-block; width: 14px; height: 8px; border-radius: 2px;
   background: #fbbf24; vertical-align: middle;
 }
+#mg-trace-phases { display: none; padding: 8px 14px 2px; border-top: 1px solid var(--border); }
+#mg-dock.open[data-active="trace"] #mg-trace-phases { display: block; }
+#mg-trace-phases:empty { display: none; }
+.mg-phase-strip { display: flex; gap: 2px; height: 10px; margin-bottom: 4px; }
+.mg-phase-seg { border-radius: 2px; min-width: 2px; }
 #mg-trace-body {
   display: none; overflow-y: auto;
   border-top: 1px solid var(--border); padding: 6px 0;
@@ -257,6 +262,7 @@ body.mg-resizing { cursor: col-resize; user-select: none; }
   font-size: 10px; color: var(--text-dim);
   border: 1px solid var(--border); border-radius: 3px; padding: 0 4px;
 }
+.mg-trace-hook { font-size: 9px; padding: 0 4px; border-radius: 3px; flex-shrink: 0; }
 
 .mg-problems-chevron { color: var(--text-dim); font-size: 11px; }
 #mg-problems-list { display: none; overflow-y: auto; border-top: 1px solid var(--border); }

@@ -91,4 +91,16 @@ describe("report scripts", () => {
 		expect(scripts).toContain("function mgJumpToSlowestBoot");
 		expect(scripts).toContain('id="boot-badge"');
 	});
+
+	it("renders the lifecycle phase strip from the dump's markers", () => {
+		expect(scripts).toContain("function mgRenderPhases");
+		expect(scripts).toContain("mg-phase-strip");
+		expect(scripts).toContain('"lifecycle hooks"');
+	});
+
+	it("shows per-class hook durations as chips on trace rows", () => {
+		expect(scripts).toContain("function mgHookChipHtml");
+		expect(scripts).toContain("mgHookChipHtml(node.hooks)");
+		expect(scripts).toContain("mgHookChipHtml(n.hookTimings)");
+	});
 });

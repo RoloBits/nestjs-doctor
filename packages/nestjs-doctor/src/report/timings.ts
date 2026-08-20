@@ -9,9 +9,23 @@ export interface ClassTiming {
 	type: string;
 }
 
+/** One lifecycle hook's duration for one class, in milliseconds. */
+export interface HookTiming {
+	hook: string;
+	ms: number;
+}
+
+/** Cumulative milliseconds from bootstrap start to the end of each phase. */
+export interface BootPhases {
+	createMs?: number;
+	initMs?: number;
+	moduleInitMs?: number;
+}
+
 /** One class in the boot trace: its timing plus the classes it injects. */
 export interface TraceNode {
 	deps: string[];
+	hooks?: HookTiming[];
 	initTime: number;
 	name: string;
 	type: string;
@@ -19,15 +33,25 @@ export interface TraceNode {
 
 export interface BootstrapTimings {
 	byModule: Map<string, ClassTiming[]>;
+	hooksByClass: Map<string, HookTiming[]>;
+	phases?: BootPhases;
 	startupMs?: number;
 	trace: Record<string, TraceNode>;
 }
 
 interface ParsedTimings {
+	hooksByClass: Map<string, HookTiming[]>;
 	modules: Map<string, ClassTiming[]>;
+	phases?: BootPhases;
 	startupMs?: number;
 	trace: Record<string, TraceNode>;
 	warnings: string[];
+}
+
+function asPositiveMs(value: unknown): number | undefined {
+	return typeof value === "number" && Number.isFinite(value) && value > 0
+		? value
+		: undefined;
 }
 
 interface DumpNode {
@@ -53,6 +77,7 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 		data = JSON.parse(jsonText);
 	} catch {
 		return {
+			hooksByClass: new Map(),
 			modules: new Map(),
 			trace: {},
 			warnings: [
@@ -64,6 +89,7 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 	const nodes = (data as { nodes?: unknown } | null)?.nodes;
 	if (typeof nodes !== "object" || nodes === null) {
 		return {
+			hooksByClass: new Map(),
 			modules: new Map(),
 			trace: {},
 			warnings: [
@@ -75,8 +101,13 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 	const dumpNodes = nodes as Record<string, DumpNode>;
 	const moduleLabels = new Map<string, string>();
 	const moduleLabelCounts = new Map<string, number>();
+	// Hook timings join by class name, so any repeated label is ambiguous.
+	const labelCounts = new Map<string, number>();
 	for (const [id, node] of Object.entries(dumpNodes)) {
 		const meta = node?.metadata;
+		if (meta?.internal !== true && typeof node?.label === "string") {
+			labelCounts.set(node.label, (labelCounts.get(node.label) ?? 0) + 1);
+		}
 		if (
 			meta?.type === "module" &&
 			meta.internal !== true &&
@@ -166,14 +197,73 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 		);
 	}
 
-	const rawStartup = (data as { startupMs?: unknown }).startupMs;
-	const startupMs =
-		typeof rawStartup === "number" &&
-		Number.isFinite(rawStartup) &&
-		rawStartup > 0
-			? rawStartup
-			: undefined;
-	return { modules, startupMs, trace, warnings };
+	const hooksByClass = new Map<string, HookTiming[]>();
+	const rawHooks = (data as { hookTimings?: unknown }).hookTimings;
+	if (Array.isArray(rawHooks)) {
+		let malformed = 0;
+		let ambiguous = 0;
+		for (const entry of rawHooks as Record<string, unknown>[]) {
+			const className = entry?.className;
+			const hook = entry?.hook;
+			const ms = asPositiveMs(entry?.ms);
+			if (
+				typeof className !== "string" ||
+				typeof hook !== "string" ||
+				ms === undefined
+			) {
+				malformed++;
+				continue;
+			}
+			if (labelCounts.get(className) !== 1) {
+				ambiguous++;
+				continue;
+			}
+			const list = hooksByClass.get(className) ?? [];
+			list.push({ hook, ms });
+			hooksByClass.set(className, list);
+		}
+		if (malformed > 0) {
+			warnings.push(
+				`--timings: ${malformed} hookTimings entries are malformed and were ignored`
+			);
+		}
+		if (ambiguous > 0) {
+			warnings.push(
+				`--timings: ${ambiguous} hook timings name classes that are missing or appear more than once in the dump; they are not attached`
+			);
+		}
+	}
+	for (const node of Object.values(trace)) {
+		const hooks = hooksByClass.get(node.name);
+		if (hooks) {
+			node.hooks = hooks;
+		}
+	}
+
+	let startupMs = asPositiveMs((data as { startupMs?: unknown }).startupMs);
+	const createMs = asPositiveMs((data as { createMs?: unknown }).createMs);
+	const moduleInitMs = asPositiveMs(
+		(data as { moduleInitMs?: unknown }).moduleInitMs
+	);
+	const initMs = asPositiveMs((data as { initMs?: unknown }).initMs);
+	const markers = [createMs, moduleInitMs, initMs, startupMs].filter(
+		(m): m is number => m !== undefined
+	);
+	const monotonic = markers.every((m, i) => i === 0 || m >= markers[i - 1]);
+	let phases: BootPhases | undefined;
+	if (!monotonic) {
+		warnings.push(
+			"--timings: phase markers are out of order; report generated without the phase breakdown"
+		);
+		startupMs = undefined;
+	} else if (
+		createMs !== undefined ||
+		moduleInitMs !== undefined ||
+		initMs !== undefined
+	) {
+		phases = { createMs, initMs, moduleInitMs };
+	}
+	return { hooksByClass, modules, phases, startupMs, trace, warnings };
 }
 
 /** Reads and parses a timings dump; any failure degrades to a warning, never a crash. */
@@ -192,8 +282,12 @@ export function loadBootstrapTimings(
 			],
 		};
 	}
-	const { modules, startupMs, trace, warnings } = parseBootstrapTimings(raw);
-	return modules.size > 0 || startupMs !== undefined
-		? { timings: { byModule: modules, startupMs, trace }, warnings }
+	const { hooksByClass, modules, phases, startupMs, trace, warnings } =
+		parseBootstrapTimings(raw);
+	return modules.size > 0 || startupMs !== undefined || phases !== undefined
+		? {
+				timings: { byModule: modules, hooksByClass, phases, startupMs, trace },
+				warnings,
+			}
 		: { warnings };
 }
