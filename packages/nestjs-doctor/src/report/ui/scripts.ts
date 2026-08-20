@@ -959,6 +959,64 @@ function mgDrawNodes() {
   mgCtx.globalAlpha = 1;
 }
 
+function mgTruncate(text, maxW) {
+  if (mgCtx.measureText(text).width <= maxW) return text;
+  var t = text;
+  while (t.length > 1 && mgCtx.measureText(t + "\\u2026").width > maxW) t = t.slice(0, -1);
+  return t + "\\u2026";
+}
+
+function mgDrawTimingsCard() {
+  var n = mgSelected;
+  if (!n || n.external || !graph.timingsAvailable) return;
+  var list = n.initTimings;
+  if (!list || list.length === 0) return;
+  var MAX_ROWS = 12;
+  var rows = list.slice(0, MAX_ROWS);
+  var extra = list.length - rows.length;
+  var rowH = 16, padX = 10, padY = 8, barW = 90, gap = 8;
+  mgCtx.font = "10px " + MG_FONT;
+  var nameW = 0, msW = 0;
+  for (var i = 0; i < rows.length; i++) {
+    nameW = Math.max(nameW, mgCtx.measureText(rows[i].name).width);
+    msW = Math.max(msW, mgCtx.measureText(mgFormatMs(rows[i].initTime)).width);
+  }
+  nameW = Math.min(nameW, 150);
+  var cardW = padX * 2 + nameW + gap + barW + gap + msW;
+  var cardH = padY * 2 + (rows.length + (extra > 0 ? 1 : 0)) * rowH;
+  var cx = n.x - cardW / 2;
+  var cy = n.y + n.h / 2 + 10;
+  mgRoundRect(cx, cy, cardW, cardH, 6);
+  mgCtx.fillStyle = "rgba(16,16,26,0.95)";
+  mgCtx.fill();
+  mgCtx.strokeStyle = "#4b5563";
+  mgCtx.lineWidth = 1;
+  mgCtx.setLineDash([]);
+  mgCtx.stroke();
+  var max = rows[0].initTime > 0 ? rows[0].initTime : 1;
+  mgCtx.textBaseline = "middle";
+  for (var r = 0; r < rows.length; r++) {
+    var ry = cy + padY + r * rowH + rowH / 2;
+    mgCtx.textAlign = "left";
+    mgCtx.fillStyle = "#ccc";
+    mgCtx.fillText(mgTruncate(rows[r].name, nameW), cx + padX, ry);
+    var bx = cx + padX + nameW + gap;
+    mgCtx.fillStyle = "rgba(255,255,255,0.06)";
+    mgCtx.fillRect(bx, ry - 3, barW, 6);
+    mgCtx.fillStyle = "rgba(34,211,238,0.6)";
+    mgCtx.fillRect(bx, ry - 3, Math.max(2, barW * Math.min(1, rows[r].initTime / max)), 6);
+    mgCtx.textAlign = "right";
+    mgCtx.fillStyle = "#888";
+    mgCtx.fillText(mgFormatMs(rows[r].initTime), cx + cardW - padX, ry);
+  }
+  if (extra > 0) {
+    mgCtx.textAlign = "left";
+    mgCtx.fillStyle = "#666";
+    mgCtx.fillText("+" + extra + " more \\u2014 see side panel", cx + padX, cy + padY + rows.length * rowH + rowH / 2);
+  }
+  mgCtx.textAlign = "center";
+}
+
 function mgDraw() {
   if (!mgCtx || mgW === 0) return;
   mgSyncZoomUi();
@@ -971,6 +1029,7 @@ function mgDraw() {
   mgDrawGlobalReach();
   mgDrawEdges();
   mgDrawNodes();
+  mgDrawTimingsCard();
   mgCtx.restore();
 }
 

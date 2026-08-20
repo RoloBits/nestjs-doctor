@@ -68,6 +68,11 @@ describe("report scripts", () => {
 		);
 	});
 
+	it("draws the class timings card on the canvas for the selected module", () => {
+		expect(scripts).toContain("function mgDrawTimingsCard");
+		expect(scripts).toContain("mgDrawTimingsCard();");
+	});
+
 	it("shows a boot headline badge only when timings are available", () => {
 		expect(scripts).toContain("boot \\u2248");
 		expect(scripts).toContain("if (graph.timingsAvailable) {");
