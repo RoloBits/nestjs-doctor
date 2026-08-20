@@ -959,64 +959,6 @@ function mgDrawNodes() {
   mgCtx.globalAlpha = 1;
 }
 
-function mgTruncate(text, maxW) {
-  if (mgCtx.measureText(text).width <= maxW) return text;
-  var t = text;
-  while (t.length > 1 && mgCtx.measureText(t + "\\u2026").width > maxW) t = t.slice(0, -1);
-  return t + "\\u2026";
-}
-
-function mgDrawTimingsCard() {
-  var n = mgSelected;
-  if (!n || n.external || !graph.timingsAvailable) return;
-  var list = n.initTimings;
-  if (!list || list.length === 0) return;
-  var MAX_ROWS = 12;
-  var rows = list.slice(0, MAX_ROWS);
-  var extra = list.length - rows.length;
-  var rowH = 16, padX = 10, padY = 8, barW = 90, gap = 8;
-  mgCtx.font = "10px " + MG_FONT;
-  var nameW = 0, msW = 0;
-  for (var i = 0; i < rows.length; i++) {
-    nameW = Math.max(nameW, mgCtx.measureText(rows[i].name).width);
-    msW = Math.max(msW, mgCtx.measureText(mgFormatMs(rows[i].initTime)).width);
-  }
-  nameW = Math.min(nameW, 150);
-  var cardW = padX * 2 + nameW + gap + barW + gap + msW;
-  var cardH = padY * 2 + (rows.length + (extra > 0 ? 1 : 0)) * rowH;
-  var cx = n.x - cardW / 2;
-  var cy = n.y + n.h / 2 + 10;
-  mgRoundRect(cx, cy, cardW, cardH, 6);
-  mgCtx.fillStyle = "rgba(16,16,26,0.95)";
-  mgCtx.fill();
-  mgCtx.strokeStyle = "#4b5563";
-  mgCtx.lineWidth = 1;
-  mgCtx.setLineDash([]);
-  mgCtx.stroke();
-  var max = rows[0].initTime > 0 ? rows[0].initTime : 1;
-  mgCtx.textBaseline = "middle";
-  for (var r = 0; r < rows.length; r++) {
-    var ry = cy + padY + r * rowH + rowH / 2;
-    mgCtx.textAlign = "left";
-    mgCtx.fillStyle = "#ccc";
-    mgCtx.fillText(mgTruncate(rows[r].name, nameW), cx + padX, ry);
-    var bx = cx + padX + nameW + gap;
-    mgCtx.fillStyle = "rgba(255,255,255,0.06)";
-    mgCtx.fillRect(bx, ry - 3, barW, 6);
-    mgCtx.fillStyle = "rgba(34,211,238,0.6)";
-    mgCtx.fillRect(bx, ry - 3, Math.max(2, barW * Math.min(1, rows[r].initTime / max)), 6);
-    mgCtx.textAlign = "right";
-    mgCtx.fillStyle = "#888";
-    mgCtx.fillText(mgFormatMs(rows[r].initTime), cx + cardW - padX, ry);
-  }
-  if (extra > 0) {
-    mgCtx.textAlign = "left";
-    mgCtx.fillStyle = "#666";
-    mgCtx.fillText("+" + extra + " more \\u2014 see side panel", cx + padX, cy + padY + rows.length * rowH + rowH / 2);
-  }
-  mgCtx.textAlign = "center";
-}
-
 function mgDraw() {
   if (!mgCtx || mgW === 0) return;
   mgSyncZoomUi();
@@ -1029,7 +971,6 @@ function mgDraw() {
   mgDrawGlobalReach();
   mgDrawEdges();
   mgDrawNodes();
-  mgDrawTimingsCard();
   mgCtx.restore();
 }
 
@@ -1257,11 +1198,6 @@ function mgBindEvents() {
   });
 
   document.getElementById("detail-sections").addEventListener("click", function(ev) {
-    var timingRow = ev.target.closest(".mg-timing-link");
-    if (timingRow) {
-      mgShowTrace(timingRow.dataset.trace);
-      return;
-    }
     var cycleRow = ev.target.closest(".md-cycle-row");
     if (cycleRow) {
       var names = cycleRow.dataset.cycle.split("|");
@@ -1284,7 +1220,28 @@ function mgBindEvents() {
     mgResize();
   });
 
-  document.getElementById("mg-trace-close").addEventListener("click", mgCloseTrace);
+  document.getElementById("mg-trace-header").addEventListener("click", function() {
+    var drawer = document.getElementById("mg-trace");
+    var open = drawer.classList.toggle("open");
+    document.getElementById("mg-trace-chevron").textContent = open ? "\\u25BE" : "\\u25B4";
+    mgResize();
+  });
+
+  document.getElementById("mg-trace-back").addEventListener("click", function(ev) {
+    ev.stopPropagation();
+    if (mgTraceModule) {
+      mgShowModuleTrace(mgTraceModule);
+    }
+  });
+
+  document.getElementById("mg-trace-body").addEventListener("click", function(ev) {
+    var row = ev.target.closest(".mg-timing-link");
+    if (row) mgShowTrace(row.dataset.trace);
+  });
+
+  document.getElementById("detail-badges").addEventListener("click", function(ev) {
+    if (ev.target.closest("#detail-timings-btn")) mgOpenTraceDrawer();
+  });
 
   window.addEventListener("resize", function() { if (activeTab === "modules") mgResize(); });
 }
@@ -1799,27 +1756,60 @@ function mgProvidersHtml(n) {
   return html;
 }
 
+var mgTraceModule = null;
+
 function mgTraceNode(id) {
   return Object.prototype.hasOwnProperty.call(graph.timingsTrace, id)
     ? graph.timingsTrace[id] : null;
 }
 
-function mgTimingsHtml(n) {
-  if (!n.initTimings || n.initTimings.length === 0) {
-    return '<div class="md-empty">No bootstrap timing data \\u2014 this module was not part of the captured boot, or its name is ambiguous across projects.</div>';
-  }
-  var html = '<div class="md-group">';
-  for (var i = 0; i < n.initTimings.length; i++) {
-    var t = n.initTimings[i];
+function mgShowModuleTrace(n) {
+  var list = n.initTimings;
+  var max = list[0].initTime > 0 ? list[0].initTime : 1;
+  var html = "";
+  for (var i = 0; i < list.length; i++) {
+    var t = list[i];
     var traceable = t.id && mgTraceNode(t.id) !== null;
-    html += '<div class="md-row' + (traceable ? ' mg-timing-link" data-trace="' + mgEsc(t.id) : '') + '">' +
-      mgNameHtml(t.name, mgKindOf(t.name)) +
+    var frac = Math.max(0, Math.min(1, t.initTime / max));
+    html += '<div class="mg-trace-row' + (traceable ? ' mg-timing-link" data-trace="' + mgEsc(t.id) : '') + '">' +
+      '<span class="mg-trace-label">' +
+      '<span class="mg-trace-name">' + mgEsc(t.name) + '</span>' +
       '<span class="md-badge md-scope">' + mgEsc(t.type) + '</span>' +
       (traceable ? '<span class="md-badge md-use">trace \\u25B8</span>' : '') +
-      '<span class="md-blast-count">' + mgEsc(mgFormatMs(t.initTime)) + '</span>' +
+      '</span>' +
+      '<span class="mg-trace-track">' +
+      '<span class="mg-trace-bar" style="width:' + (frac * 100).toFixed(2) + '%"></span>' +
+      '</span>' +
+      '<span class="mg-trace-time">' + mgEsc(mgFormatMs(t.initTime)) + '</span>' +
       '</div>';
   }
-  return html + '</div>';
+  document.getElementById("mg-trace-title").textContent = "Bootstrap timings \\u2014 " + getDisplayName(n);
+  document.getElementById("mg-trace-ms").textContent = mgFormatMs(list[0].initTime);
+  document.getElementById("mg-trace-back").style.display = "none";
+  document.getElementById("mg-trace-body").innerHTML = html;
+}
+
+function mgSyncTraceDrawer(n) {
+  var drawer = document.getElementById("mg-trace");
+  mgTraceModule = n && !n.external && graph.timingsAvailable &&
+    n.initTimings && n.initTimings.length > 0 ? n : null;
+  if (!mgTraceModule) {
+    drawer.style.display = "none";
+  } else {
+    drawer.style.display = "flex";
+    mgShowModuleTrace(mgTraceModule);
+  }
+  mgResize();
+}
+
+function mgOpenTraceDrawer() {
+  var drawer = document.getElementById("mg-trace");
+  if (drawer.style.display === "none" || drawer.style.display === "") return;
+  if (!drawer.classList.contains("open")) {
+    drawer.classList.add("open");
+    document.getElementById("mg-trace-chevron").textContent = "\\u25BE";
+  }
+  mgResize();
 }
 
 function mgShowTrace(rootId) {
@@ -1875,16 +1865,12 @@ function mgShowTrace(rootId) {
 
   document.getElementById("mg-trace-title").textContent = "Boot trace \\u2014 " + root.name;
   document.getElementById("mg-trace-ms").textContent = mgFormatMs(root.initTime);
+  var back = document.getElementById("mg-trace-back");
+  back.style.display = mgTraceModule ? "" : "none";
+  back.textContent = mgTraceModule ? "\\u25C2 " + getDisplayName(mgTraceModule) : "";
   document.getElementById("mg-trace-body").innerHTML = html;
-  document.getElementById("mg-problems").style.display = "none";
   document.getElementById("mg-trace").style.display = "flex";
-  mgResize();
-}
-
-function mgCloseTrace() {
-  document.getElementById("mg-trace").style.display = "none";
-  document.getElementById("mg-problems").style.display = "";
-  mgResize();
+  mgOpenTraceDrawer();
 }
 
 function mgExportsHtml(n) {
@@ -1949,6 +1935,7 @@ function mgClearSelection() {
   mgSelected = null;
   mgFocusSet = null;
   mgCycleFocus = null;
+  mgSyncTraceDrawer(null);
   mgSyncTree(null);
   mgScheduleRedraw();
 }
@@ -1971,7 +1958,12 @@ function mgShowDetail(n) {
   if (n.isGlobal) badges += '<span class="md-badge md-global">global</span>';
   if (circularModules.has(n.name)) badges += '<span class="md-badge md-cycle">in cycle</span>';
   if (rootModules.has(n.name)) badges += '<span class="md-badge md-root">root</span>';
+  if (graph.timingsAvailable && n.initTimings && n.initTimings.length > 0) {
+    badges += '<span class="md-badge md-use" id="detail-timings-btn" title="Open the bootstrap timings drawer">' +
+      mgEsc(mgFormatMs(n.initTimings[0].initTime)) + ' \\u00b7 trace \\u25BE</span>';
+  }
   document.getElementById("detail-badges").innerHTML = badges;
+  mgSyncTraceDrawer(n);
 
   document.getElementById("detail-path").textContent =
     n.filePath + (n.line ? ":" + n.line : "");
@@ -1986,10 +1978,6 @@ function mgShowDetail(n) {
     "What a change here can break: every module that imports this one, directly or transitively.") + mgBlastHtml(n);
   html += mgSection("Providers", mgProviderGroups(n).count,
     "What this module registers in its providers array, grouped by kind.") + mgProvidersHtml(n);
-  if (graph.timingsAvailable) {
-    html += mgSection("Bootstrap timings", n.initTimings ? n.initTimings.length : undefined,
-      "Time NestJS spent constructing each class during the captured boot. Each number includes waiting on that class's own dependencies, so a shared slow dependency counts again in every class that awaits it. Click a class to open its boot trace.") + mgTimingsHtml(n);
-  }
   if (n.imports.length > 0) {
     html += mgSection("Imports", n.imports.length,
       "Modules this one depends on; their exports become injectable here.") + '<ul>';

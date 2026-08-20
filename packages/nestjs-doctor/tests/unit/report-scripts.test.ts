@@ -48,16 +48,19 @@ describe("report scripts", () => {
 		expect(scripts).toContain("slowest\\u00a0class");
 	});
 
-	it("renders the Bootstrap timings section only when the graph has timings", () => {
-		expect(scripts).toContain("if (graph.timingsAvailable)");
-		expect(scripts).toContain('mgSection("Bootstrap timings"');
+	it("syncs the timings drawer to the selected module", () => {
+		expect(scripts).toContain("function mgSyncTraceDrawer");
+		expect(scripts).toContain("function mgShowModuleTrace");
+		expect(scripts).toContain("mgSyncTraceDrawer(n);");
+		expect(scripts).toContain("mgSyncTraceDrawer(null);");
 	});
 
-	it("shows an explanatory empty state instead of a bare 0ms for an unmatched module", () => {
-		expect(scripts).toContain("No bootstrap timing data");
+	it("adds a trace button to the detail header when the module has timings", () => {
+		expect(scripts).toContain('id="detail-timings-btn"');
+		expect(scripts).toContain('ev.target.closest("#detail-timings-btn")');
 	});
 
-	it("opens the boot trace drawer from a timing row click", () => {
+	it("opens the boot trace from a timing row click in the drawer", () => {
 		expect(scripts).toContain('ev.target.closest(".mg-timing-link")');
 		expect(scripts).toContain("function mgShowTrace");
 	});
@@ -66,11 +69,6 @@ describe("report scripts", () => {
 		expect(scripts).toContain(
 			"Object.prototype.hasOwnProperty.call(graph.timingsTrace, id)"
 		);
-	});
-
-	it("draws the class timings card on the canvas for the selected module", () => {
-		expect(scripts).toContain("function mgDrawTimingsCard");
-		expect(scripts).toContain("mgDrawTimingsCard();");
 	});
 
 	it("shows a boot headline badge only when timings are available", () => {

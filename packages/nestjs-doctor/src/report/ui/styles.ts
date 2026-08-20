@@ -209,18 +209,23 @@ body.mg-resizing { cursor: col-resize; user-select: none; }
   display: none; border-top: 1px solid var(--border); background: var(--surface);
   flex-shrink: 0; flex-direction: column; max-height: 45%;
 }
-#mg-trace-header { display: flex; align-items: center; gap: 8px; padding: 8px 14px; }
+#mg-trace-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px; cursor: pointer; user-select: none;
+}
+#mg-trace-header:hover { background: rgba(255,255,255,0.03); }
 .mg-trace-legend { font-size: 10px; color: var(--text-dim); }
 .mg-trace-legend-self {
   display: inline-block; width: 14px; height: 8px; border-radius: 2px;
   background: #fbbf24; vertical-align: middle;
 }
-#mg-trace-close {
-  background: none; border: none; color: var(--text-dim);
-  font-size: 15px; cursor: pointer; padding: 0 2px; line-height: 1;
+#mg-trace-back { font-size: 11px; color: #22d3ee; cursor: pointer; }
+#mg-trace-back:hover { text-decoration: underline; }
+#mg-trace-body {
+  display: none; overflow-y: auto;
+  border-top: 1px solid var(--border); padding: 6px 0;
 }
-#mg-trace-close:hover { color: var(--white); }
-#mg-trace-body { overflow-y: auto; border-top: 1px solid var(--border); padding: 6px 0; }
+#mg-trace.open #mg-trace-body { display: block; }
 .mg-trace-row { display: flex; align-items: center; gap: 10px; padding: 2px 14px; font-size: 11px; }
 .mg-trace-label {
   width: 300px; flex-shrink: 0; display: flex; align-items: center; gap: 6px;

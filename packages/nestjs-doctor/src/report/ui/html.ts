@@ -414,11 +414,12 @@ for (let i = 0; i < lines.length; i++) {
   </div>
   <div id="mg-trace">
     <div id="mg-trace-header">
-      <span class="mg-problems-title" id="mg-trace-title">Boot trace</span>
+      <span class="mg-problems-title" id="mg-trace-title">Bootstrap timings</span>
       <span class="schema-entity-count" id="mg-trace-ms"></span>
       <span class="mg-trace-legend">bar = total incl. waiting on deps · <span class="mg-trace-legend-self"></span> ≈ own work</span>
       <span style="flex:1"></span>
-      <button id="mg-trace-close" title="Close">×</button>
+      <span id="mg-trace-back" style="display:none"></span>
+      <span class="mg-problems-chevron" id="mg-trace-chevron">▴</span>
     </div>
     <div id="mg-trace-body"></div>
   </div>
