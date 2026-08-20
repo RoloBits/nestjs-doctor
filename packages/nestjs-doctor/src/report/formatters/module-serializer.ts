@@ -27,6 +27,7 @@ interface SerializedModuleGraph {
 	edges: Array<{ from: string; to: string }>;
 	modules: SerializedModuleNode[];
 	projects: string[];
+	startupMs?: number;
 	timingsAvailable?: boolean;
 	timingsTrace?: Record<string, TraceNode>;
 }
@@ -109,6 +110,7 @@ export function serializeModuleGraph(
 		circularDepRecommendations,
 		projects: projects ?? [],
 		bootstrapRoots,
+		startupMs: timings?.startupMs,
 		timingsAvailable: timings ? true : undefined,
 		timingsTrace: timings?.trace,
 	};

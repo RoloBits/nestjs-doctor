@@ -164,6 +164,24 @@ describe("parseBootstrapTimings", () => {
 		expect(warnings.join(" ")).toContain("SerializedGraph");
 	});
 
+	it("reads a top-level startupMs when it is a positive finite number", () => {
+		const withField = JSON.parse(
+			dump({
+				m1: moduleNode("CatsModule"),
+				c1: classNode("CatsService", "m1", 3),
+			})
+		);
+		withField.startupMs = 1234.5;
+
+		const { startupMs } = parseBootstrapTimings(JSON.stringify(withField));
+		expect(startupMs).toBe(1234.5);
+
+		withField.startupMs = "fast";
+		expect(
+			parseBootstrapTimings(JSON.stringify(withField)).startupMs
+		).toBeUndefined();
+	});
+
 	it("warns when a valid dump carries no timings at all", () => {
 		const { warnings } = parseBootstrapTimings(
 			dump({ m1: moduleNode("CatsModule") })

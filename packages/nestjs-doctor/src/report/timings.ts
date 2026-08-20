@@ -19,11 +19,13 @@ export interface TraceNode {
 
 export interface BootstrapTimings {
 	byModule: Map<string, ClassTiming[]>;
+	startupMs?: number;
 	trace: Record<string, TraceNode>;
 }
 
 interface ParsedTimings {
 	modules: Map<string, ClassTiming[]>;
+	startupMs?: number;
 	trace: Record<string, TraceNode>;
 	warnings: string[];
 }
@@ -148,7 +150,15 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 			"--timings: no class init times found in the dump — was it produced with NestFactory.create(AppModule, { snapshot: true })?"
 		);
 	}
-	return { modules, trace, warnings };
+
+	const rawStartup = (data as { startupMs?: unknown }).startupMs;
+	const startupMs =
+		typeof rawStartup === "number" &&
+		Number.isFinite(rawStartup) &&
+		rawStartup > 0
+			? rawStartup
+			: undefined;
+	return { modules, startupMs, trace, warnings };
 }
 
 /** Reads and parses a timings dump; any failure degrades to a warning, never a crash. */
@@ -167,8 +177,8 @@ export function loadBootstrapTimings(
 			],
 		};
 	}
-	const { modules, trace, warnings } = parseBootstrapTimings(raw);
+	const { modules, startupMs, trace, warnings } = parseBootstrapTimings(raw);
 	return modules.size > 0
-		? { timings: { byModule: modules, trace }, warnings }
+		? { timings: { byModule: modules, startupMs, trace }, warnings }
 		: { warnings };
 }

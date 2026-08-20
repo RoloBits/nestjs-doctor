@@ -81,9 +81,10 @@ describe("report scripts", () => {
 		);
 	});
 
-	it("shows a boot headline badge only when timings are available", () => {
+	it("shows time-to-start when the dump has startupMs, else the slowest chain", () => {
+		expect(scripts).toContain("time to start \\u2248");
 		expect(scripts).toContain("boot \\u2248");
-		expect(scripts).toContain("if (graph.timingsAvailable) {");
+		expect(scripts).toContain("if (graph.startupMs) {");
 	});
 
 	it("jumps from the boot badge to the module owning the slowest chain", () => {

@@ -74,9 +74,12 @@ function makeScoreRingSvg(size, strokeW, value) {
         bootName = graph.timingsTrace[id].name;
       }
     }
-    if (bootMs > 0) {
-      badges.push('<span class="meta-badge" id="boot-badge" style="cursor:pointer" title="Slowest chain: ' +
-        mgEsc(bootName) + ' \\u2014 click to open it in the modules graph">boot \\u2248 ' + mgFormatMs(bootMs) + '</span>');
+    if (graph.startupMs) {
+      badges.push('<span class="meta-badge" id="boot-badge" style="cursor:pointer" title="From bootstrap start until the app was listening, measured by the snippet. Slowest construction chain: ' +
+        mgEsc(bootName) + ' \\u2014 click to open it in the modules graph">time to start \\u2248 ' + mgFormatMs(graph.startupMs) + '</span>');
+    } else if (bootMs > 0) {
+      badges.push('<span class="meta-badge" id="boot-badge" style="cursor:pointer" title="Slowest construction chain: ' +
+        mgEsc(bootName) + ' \\u2014 click to open it in the modules graph. Add startupMs to the dump for full time-to-start">boot \\u2248 ' + mgFormatMs(bootMs) + '</span>');
     }
   }
   meta.innerHTML = badges.join("");
