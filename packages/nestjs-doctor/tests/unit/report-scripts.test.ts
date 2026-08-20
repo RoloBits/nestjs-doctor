@@ -60,9 +60,14 @@ describe("report scripts", () => {
 		expect(scripts).toContain('ev.target.closest("#detail-timings-btn")');
 	});
 
-	it("opens the boot trace from a timing row click in the drawer", () => {
-		expect(scripts).toContain('ev.target.closest(".mg-timing-link")');
-		expect(scripts).toContain("function mgShowTrace");
+	it("expands a trace row in place to reveal its dependencies", () => {
+		expect(scripts).toContain('ev.target.closest(".mg-trace-expandable")');
+		expect(scripts).toContain('row.insertAdjacentHTML("afterend", html)');
+	});
+
+	it("colors trace bars and badges by class type", () => {
+		expect(scripts).toContain("MG_TRACE_COLORS");
+		expect(scripts).toContain("function mgTraceColor");
 	});
 
 	it("guards trace lookups against inherited object keys", () => {

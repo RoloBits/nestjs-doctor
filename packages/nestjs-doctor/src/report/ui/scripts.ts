@@ -1227,17 +1227,31 @@ function mgBindEvents() {
     mgResize();
   });
 
-  document.getElementById("mg-trace-back").addEventListener("click", function(ev) {
-    ev.stopPropagation();
-    if (mgTraceModule) {
-      mgShowModuleTrace(mgTraceModule);
-      mgResize();
-    }
-  });
-
   document.getElementById("mg-trace-body").addEventListener("click", function(ev) {
-    var row = ev.target.closest(".mg-timing-link");
-    if (row) mgShowTrace(row.dataset.trace);
+    var row = ev.target.closest(".mg-trace-expandable");
+    if (!row) return;
+    var path = row.dataset.path;
+    if (row.classList.contains("expanded")) {
+      row.classList.remove("expanded");
+      var next = row.nextElementSibling;
+      while (next && next.dataset && next.dataset.path &&
+             next.dataset.path.indexOf(path + "/") === 0) {
+        var gone = next;
+        next = next.nextElementSibling;
+        gone.remove();
+      }
+    } else {
+      row.classList.add("expanded");
+      var node = mgTraceNode(row.dataset.trace);
+      if (!node) return;
+      var depth = parseInt(row.dataset.depth, 10) + 1;
+      var html = "";
+      for (var i = 0; i < node.deps.length; i++) {
+        html += mgTraceRowHtml(node.deps[i], depth, path + "/" + node.deps[i]);
+      }
+      row.insertAdjacentHTML("afterend", html);
+    }
+    mgResize();
   });
 
   document.getElementById("detail-badges").addEventListener("click", function(ev) {
@@ -1759,11 +1773,21 @@ function mgProvidersHtml(n) {
 }
 
 var mgTraceModule = null;
-var mgTraceInClassView = false;
+var mgTraceMax = 1;
+var MG_TRACE_COLORS = {
+  provider: "34,211,238",
+  controller: "167,139,250",
+  injectable: "52,211,153",
+  middleware: "244,114,182"
+};
 
 function mgTraceNode(id) {
   return Object.prototype.hasOwnProperty.call(graph.timingsTrace, id)
     ? graph.timingsTrace[id] : null;
+}
+
+function mgTraceColor(type) {
+  return MG_TRACE_COLORS[type] || "107,114,128";
 }
 
 function mgDockSetTab(name) {
@@ -1772,8 +1796,6 @@ function mgDockSetTab(name) {
   document.getElementById("mg-dock-tab-problems").classList.toggle("active", name === "problems");
   document.getElementById("mg-dock-tab-trace").classList.toggle("active", name === "trace");
   document.getElementById("mg-trace-legend").style.display = name === "trace" ? "" : "none";
-  document.getElementById("mg-trace-back").style.display =
-    name === "trace" && mgTraceInClassView && mgTraceModule ? "" : "none";
 }
 
 function mgDockOpen() {
@@ -1784,30 +1806,69 @@ function mgDockOpen() {
   }
 }
 
+function mgTraceBadgeHtml(type) {
+  var rgb = mgTraceColor(type);
+  return '<span class="md-badge" style="color:rgb(' + rgb + ');background:rgba(' + rgb + ',0.12)">' +
+    mgEsc(type) + '</span>';
+}
+
+function mgTraceBarHtml(initTime, deps, type) {
+  var frac = Math.max(0, Math.min(1, initTime / mgTraceMax));
+  var slowestDep = 0;
+  for (var d = 0; d < deps.length; d++) {
+    var dep = mgTraceNode(deps[d]);
+    if (dep && dep.initTime > slowestDep) slowestDep = dep.initTime;
+  }
+  var selfFrac = Math.max(0, Math.min(frac, (initTime - slowestDep) / mgTraceMax));
+  return '<span class="mg-trace-track">' +
+    '<span class="mg-trace-bar" style="width:' + (frac * 100).toFixed(2) + '%;background:rgba(' + mgTraceColor(type) + ',0.4)"></span>' +
+    (selfFrac > 0.002 ? '<span class="mg-trace-self" style="left:' + ((frac - selfFrac) * 100).toFixed(2) + '%;width:' + (selfFrac * 100).toFixed(2) + '%"></span>' : '') +
+    '</span>';
+}
+
+function mgTraceRowHtml(id, depth, path) {
+  var node = mgTraceNode(id);
+  if (!node) return "";
+  var ancestors = path.split("/");
+  ancestors.pop();
+  var cyc = ancestors.indexOf(id) >= 0;
+  var expandable = !cyc && depth < 20 && node.deps.length > 0;
+  return '<div class="mg-trace-row' + (expandable ? ' mg-trace-expandable' : '') + '"' +
+    ' data-trace="' + mgEsc(id) + '" data-path="' + mgEsc(path) + '" data-depth="' + depth + '">' +
+    '<span class="mg-trace-label" style="padding-left:' + (depth * 16) + 'px">' +
+    '<span class="mg-trace-caret">' + (expandable ? "\\u25B8" : "") + '</span>' +
+    '<span class="mg-trace-name">' + mgEsc(node.name) + '</span>' +
+    mgTraceBadgeHtml(node.type) +
+    (cyc ? '<span class="mg-trace-cycle" title="circular dependency">\\u21BB</span>' : '') +
+    '</span>' +
+    mgTraceBarHtml(node.initTime, node.deps, node.type) +
+    '<span class="mg-trace-time">' + mgEsc(mgFormatMs(node.initTime)) + '</span>' +
+    '</div>';
+}
+
 function mgShowModuleTrace(n) {
   var list = n.initTimings;
-  var max = list[0].initTime > 0 ? list[0].initTime : 1;
+  mgTraceMax = list[0].initTime > 0 ? list[0].initTime : 1;
   var html = "";
   for (var i = 0; i < list.length; i++) {
     var t = list[i];
-    var traceable = t.id && mgTraceNode(t.id) !== null;
-    var frac = Math.max(0, Math.min(1, t.initTime / max));
-    html += '<div class="mg-trace-row' + (traceable ? ' mg-timing-link" data-trace="' + mgEsc(t.id) : '') + '">' +
-      '<span class="mg-trace-label">' +
-      '<span class="mg-trace-name">' + mgEsc(t.name) + '</span>' +
-      '<span class="md-badge md-scope">' + mgEsc(t.type) + '</span>' +
-      (traceable ? '<span class="md-badge md-use">trace \\u25B8</span>' : '') +
-      '</span>' +
-      '<span class="mg-trace-track">' +
-      '<span class="mg-trace-bar" style="width:' + (frac * 100).toFixed(2) + '%"></span>' +
-      '</span>' +
-      '<span class="mg-trace-time">' + mgEsc(mgFormatMs(t.initTime)) + '</span>' +
-      '</div>';
+    var rowHtml = t.id ? mgTraceRowHtml(t.id, 0, t.id) : "";
+    if (rowHtml === "") {
+      var frac = Math.max(0, Math.min(1, t.initTime / mgTraceMax));
+      rowHtml = '<div class="mg-trace-row">' +
+        '<span class="mg-trace-label"><span class="mg-trace-caret"></span>' +
+        '<span class="mg-trace-name">' + mgEsc(t.name) + '</span>' +
+        mgTraceBadgeHtml(t.type) + '</span>' +
+        '<span class="mg-trace-track">' +
+        '<span class="mg-trace-bar" style="width:' + (frac * 100).toFixed(2) + '%;background:rgba(' + mgTraceColor(t.type) + ',0.4)"></span>' +
+        '</span>' +
+        '<span class="mg-trace-time">' + mgEsc(mgFormatMs(t.initTime)) + '</span>' +
+        '</div>';
+    }
+    html += rowHtml;
   }
-  mgTraceInClassView = false;
   document.getElementById("mg-trace-ms").textContent =
     getDisplayName(n) + " \\u00b7 " + mgFormatMs(list[0].initTime);
-  document.getElementById("mg-trace-back").style.display = "none";
   document.getElementById("mg-trace-body").innerHTML = html;
 }
 
@@ -1823,9 +1884,7 @@ function mgSyncTraceDrawer(n) {
   if (mgTraceModule) {
     mgShowModuleTrace(mgTraceModule);
   } else {
-    mgTraceInClassView = false;
     document.getElementById("mg-trace-ms").textContent = "";
-    document.getElementById("mg-trace-back").style.display = "none";
     document.getElementById("mg-trace-body").innerHTML =
       '<div class="mg-trace-note">Select a module to see its bootstrap timings.</div>';
   }
@@ -1836,66 +1895,6 @@ function mgOpenTraceDrawer() {
   mgDockSetTab("trace");
   mgDockOpen();
   mgResize();
-}
-
-function mgShowTrace(rootId) {
-  var root = mgTraceNode(rootId);
-  if (!root) return;
-  var rows = [];
-  var onPath = {};
-  var truncated = false;
-  (function walk(id, depth) {
-    var node = mgTraceNode(id);
-    if (!node) return;
-    if (rows.length >= 200) { truncated = true; return; }
-    var cycle = onPath[id] === true;
-    rows.push({ node: node, depth: depth, cycle: cycle });
-    if (cycle || depth >= 8) return;
-    onPath[id] = true;
-    for (var i = 0; i < node.deps.length; i++) walk(node.deps[i], depth + 1);
-    onPath[id] = false;
-  })(rootId, 0);
-
-  // A dep already built before this class asked for it can be slower than the
-  // root, so bars scale to the slowest row in the tree, not to the root.
-  var total = 0;
-  for (var m = 0; m < rows.length; m++) {
-    if (rows[m].node.initTime > total) total = rows[m].node.initTime;
-  }
-  if (total <= 0) total = 1;
-  var html = "";
-  for (var r = 0; r < rows.length; r++) {
-    var row = rows[r];
-    var frac = Math.max(0, Math.min(1, row.node.initTime / total));
-    var slowestDep = 0;
-    for (var d = 0; d < row.node.deps.length; d++) {
-      var dep = mgTraceNode(row.node.deps[d]);
-      if (dep && dep.initTime > slowestDep) slowestDep = dep.initTime;
-    }
-    var selfFrac = Math.max(0, Math.min(frac, (row.node.initTime - slowestDep) / total));
-    html += '<div class="mg-trace-row">' +
-      '<span class="mg-trace-label" style="padding-left:' + (row.depth * 14) + 'px">' +
-      (row.depth > 0 ? '<span class="md-tree-elbow">\\u2514</span>' : '') +
-      '<span class="mg-trace-name">' + mgEsc(row.node.name) + '</span>' +
-      '<span class="md-badge md-scope">' + mgEsc(row.node.type) + '</span>' +
-      (row.cycle ? '<span class="mg-trace-cycle" title="circular dependency">\\u21BB</span>' : '') +
-      '</span>' +
-      '<span class="mg-trace-track">' +
-      '<span class="mg-trace-bar" style="width:' + (frac * 100).toFixed(2) + '%"></span>' +
-      (selfFrac > 0.002 ? '<span class="mg-trace-self" style="left:' + ((frac - selfFrac) * 100).toFixed(2) + '%;width:' + (selfFrac * 100).toFixed(2) + '%"></span>' : '') +
-      '</span>' +
-      '<span class="mg-trace-time">' + mgEsc(mgFormatMs(row.node.initTime)) + '</span>' +
-      '</div>';
-  }
-  if (truncated) html += '<div class="mg-trace-note">Truncated at 200 rows.</div>';
-
-  mgTraceInClassView = true;
-  document.getElementById("mg-trace-ms").textContent =
-    root.name + " \\u00b7 " + mgFormatMs(root.initTime);
-  var back = document.getElementById("mg-trace-back");
-  back.textContent = mgTraceModule ? "\\u25C2 " + getDisplayName(mgTraceModule) : "";
-  document.getElementById("mg-trace-body").innerHTML = html;
-  mgOpenTraceDrawer();
 }
 
 function mgExportsHtml(n) {

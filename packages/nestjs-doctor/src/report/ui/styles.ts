@@ -226,8 +226,6 @@ body.mg-resizing { cursor: col-resize; user-select: none; }
   display: inline-block; width: 14px; height: 8px; border-radius: 2px;
   background: #fbbf24; vertical-align: middle;
 }
-#mg-trace-back { font-size: 11px; color: #22d3ee; cursor: pointer; }
-#mg-trace-back:hover { text-decoration: underline; }
 #mg-trace-body {
   display: none; overflow-y: auto;
   border-top: 1px solid var(--border); padding: 6px 0;
@@ -244,8 +242,14 @@ body.mg-resizing { cursor: col-resize; user-select: none; }
 .mg-trace-self { position: absolute; top: 1px; height: 10px; border-radius: 2px; background: #fbbf24; }
 .mg-trace-time { width: 64px; flex-shrink: 0; text-align: right; color: var(--text-dim); font-variant-numeric: tabular-nums; }
 .mg-trace-note { padding: 4px 14px; font-size: 11px; color: var(--text-dim); }
-.mg-timing-link { cursor: pointer; }
-.mg-timing-link:hover { background: rgba(255,255,255,0.05); }
+.mg-trace-caret {
+  width: 12px; flex-shrink: 0; display: inline-block;
+  color: var(--text-dim); transition: transform 0.12s;
+}
+.mg-trace-row.expanded .mg-trace-caret { transform: rotate(90deg); }
+.mg-trace-expandable { cursor: pointer; }
+.mg-trace-expandable:hover { background: rgba(255,255,255,0.05); }
+.mg-trace-cycle { color: var(--text-dim); }
 
 .mg-problems-chevron { color: var(--text-dim); font-size: 11px; }
 #mg-problems-list { display: none; overflow-y: auto; border-top: 1px solid var(--border); }

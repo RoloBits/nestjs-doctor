@@ -418,7 +418,6 @@ for (let i = 0; i < lines.length; i++) {
       <span class="mg-dock-tab" id="mg-dock-tab-trace" data-dock-tab="trace" style="display:none">Boot trace <span class="schema-entity-count" id="mg-trace-ms"></span></span>
       <span class="mg-trace-legend" id="mg-trace-legend" style="display:none">bar = total incl. waiting on deps · <span class="mg-trace-legend-self"></span> ≈ own work</span>
       <span style="flex:1"></span>
-      <span id="mg-trace-back" style="display:none"></span>
       <span class="mg-problems-chevron" id="mg-dock-chevron">▴</span>
     </div>
     <div id="mg-problems-list"></div>

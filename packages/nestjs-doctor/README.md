@@ -68,7 +68,7 @@ Boot the app once, then:
 npx nestjs-doctor@latest . --report --timings nestjs-doctor-timings.json
 ```
 
-Each module node shows its slowest class's construction time. Selecting a module opens a bottom drawer listing its classes slowest-first with proportional bars; clicking a class there switches the drawer to a Gantt-style boot trace of its injection cascade — nested bars where an amber segment marks each class's own work, so you can read down the chain to the class that actually owns the time. Times include waiting on a class's own dependencies, so a shared slow dependency counts again in every class that awaits it. Timings are display-only — they never affect the score, diagnostics, or exit codes.
+Each module node shows its slowest class's construction time. Selecting a module fills the bottom dock's Boot trace tab: its classes slowest-first with proportional bars, color-coded by class type. Each row expands in place into its injection cascade — nested bars where an amber segment marks each class's own work, so you can read down the chain to the class that actually owns the time. Times include waiting on a class's own dependencies, so a shared slow dependency counts again in every class that awaits it. Timings are display-only — they never affect the score, diagnostics, or exit codes.
 
 ---
 
