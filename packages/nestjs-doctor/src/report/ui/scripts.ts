@@ -64,6 +64,18 @@ function makeScoreRingSvg(size, strokeW, value) {
   if (project.framework) badges.push('<span class="meta-badge">' + project.framework + '</span>');
   if (project.orm) badges.push('<span class="meta-badge">' + project.orm + '</span>');
   badges.push('<span class="meta-badge">' + graph.modules.length + ' modules</span>');
+  if (graph.timingsAvailable) {
+    let bootMs = 0;
+    for (const id in graph.timingsTrace) {
+      if (Object.prototype.hasOwnProperty.call(graph.timingsTrace, id) &&
+          graph.timingsTrace[id].initTime > bootMs) {
+        bootMs = graph.timingsTrace[id].initTime;
+      }
+    }
+    if (bootMs > 0) {
+      badges.push('<span class="meta-badge" title="Slowest class chain in the captured boot (--timings)">boot \\u2248 ' + mgFormatMs(bootMs) + '</span>');
+    }
+  }
   meta.innerHTML = badges.join("");
 })();
 

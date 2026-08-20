@@ -67,4 +67,9 @@ describe("report scripts", () => {
 			"Object.prototype.hasOwnProperty.call(graph.timingsTrace, id)"
 		);
 	});
+
+	it("shows a boot headline badge only when timings are available", () => {
+		expect(scripts).toContain("boot \\u2248");
+		expect(scripts).toContain("if (graph.timingsAvailable) {");
+	});
 });
