@@ -85,4 +85,9 @@ describe("report scripts", () => {
 		expect(scripts).toContain("boot \\u2248");
 		expect(scripts).toContain("if (graph.timingsAvailable) {");
 	});
+
+	it("jumps from the boot badge to the module owning the slowest chain", () => {
+		expect(scripts).toContain("function mgJumpToSlowestBoot");
+		expect(scripts).toContain('id="boot-badge"');
+	});
 });

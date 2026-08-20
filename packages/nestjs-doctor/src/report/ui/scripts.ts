@@ -66,17 +66,24 @@ function makeScoreRingSvg(size, strokeW, value) {
   badges.push('<span class="meta-badge">' + graph.modules.length + ' modules</span>');
   if (graph.timingsAvailable) {
     let bootMs = 0;
+    let bootName = "";
     for (const id in graph.timingsTrace) {
       if (Object.prototype.hasOwnProperty.call(graph.timingsTrace, id) &&
           graph.timingsTrace[id].initTime > bootMs) {
         bootMs = graph.timingsTrace[id].initTime;
+        bootName = graph.timingsTrace[id].name;
       }
     }
     if (bootMs > 0) {
-      badges.push('<span class="meta-badge" title="Slowest class chain in the captured boot (--timings)">boot \\u2248 ' + mgFormatMs(bootMs) + '</span>');
+      badges.push('<span class="meta-badge" id="boot-badge" style="cursor:pointer" title="Slowest chain: ' +
+        mgEsc(bootName) + ' \\u2014 click to open it in the modules graph">boot \\u2248 ' + mgFormatMs(bootMs) + '</span>');
     }
   }
   meta.innerHTML = badges.join("");
+  const bootBadge = document.getElementById("boot-badge");
+  if (bootBadge) {
+    bootBadge.addEventListener("click", () => mgJumpToSlowestBoot());
+  }
 })();
 
 // ── Diagnosis count badge ──
@@ -1908,6 +1915,25 @@ function mgOpenTraceDrawer() {
   mgDockSetTab("trace");
   mgDockOpen();
   mgResize();
+}
+
+function mgJumpToSlowestBoot() {
+  switchTab("modules");
+  var bestMod = null;
+  var bestT = -1;
+  for (var i = 0; i < graph.modules.length; i++) {
+    var m = graph.modules[i];
+    if (m.initTimings && m.initTimings.length > 0 && m.initTimings[0].initTime > bestT) {
+      bestT = m.initTimings[0].initTime;
+      bestMod = m;
+    }
+  }
+  var node = bestMod && mgNodeMap[bestMod.name];
+  if (!node) return;
+  mgShowDetail(node);
+  mgFlyToNode(node);
+  mgOpenTraceDrawer();
+  mgScheduleRedraw();
 }
 
 function mgExportsHtml(n) {
