@@ -34,6 +34,7 @@ graph.projects = graph.projects || [];
 graph.circularDeps = graph.circularDeps || [];
 graph.circularDepRecommendations = graph.circularDepRecommendations || {};
 graph.bootstrapRoots = graph.bootstrapRoots || [];
+graph.timingsTrace = graph.timingsTrace || {};
 
 // ── Score helpers ──
 function getScoreColor(v) {
@@ -1185,6 +1186,11 @@ function mgBindEvents() {
   });
 
   document.getElementById("detail-sections").addEventListener("click", function(ev) {
+    var timingRow = ev.target.closest(".mg-timing-link");
+    if (timingRow) {
+      mgShowTrace(timingRow.dataset.trace);
+      return;
+    }
     var cycleRow = ev.target.closest(".md-cycle-row");
     if (cycleRow) {
       var names = cycleRow.dataset.cycle.split("|");
@@ -1206,6 +1212,8 @@ function mgBindEvents() {
     document.getElementById("mg-problems-chevron").textContent = open ? "\\u25BE" : "\\u25B4";
     mgResize();
   });
+
+  document.getElementById("mg-trace-close").addEventListener("click", mgCloseTrace);
 
   window.addEventListener("resize", function() { if (activeTab === "modules") mgResize(); });
 }
@@ -1720,6 +1728,11 @@ function mgProvidersHtml(n) {
   return html;
 }
 
+function mgTraceNode(id) {
+  return Object.prototype.hasOwnProperty.call(graph.timingsTrace, id)
+    ? graph.timingsTrace[id] : null;
+}
+
 function mgTimingsHtml(n) {
   if (!n.initTimings || n.initTimings.length === 0) {
     return '<div class="md-empty">No bootstrap timing data \\u2014 this module was not part of the captured boot, or its name is ambiguous across projects.</div>';
@@ -1727,12 +1740,74 @@ function mgTimingsHtml(n) {
   var html = '<div class="md-group">';
   for (var i = 0; i < n.initTimings.length; i++) {
     var t = n.initTimings[i];
-    html += '<div class="md-row">' + mgNameHtml(t.name, mgKindOf(t.name)) +
+    var traceable = t.id && mgTraceNode(t.id) !== null;
+    html += '<div class="md-row' + (traceable ? ' mg-timing-link" data-trace="' + mgEsc(t.id) : '') + '">' +
+      mgNameHtml(t.name, mgKindOf(t.name)) +
       '<span class="md-badge md-scope">' + mgEsc(t.type) + '</span>' +
+      (traceable ? '<span class="md-badge md-use">trace \\u25B8</span>' : '') +
       '<span class="md-blast-count">' + mgEsc(mgFormatMs(t.initTime)) + '</span>' +
       '</div>';
   }
   return html + '</div>';
+}
+
+function mgShowTrace(rootId) {
+  var root = mgTraceNode(rootId);
+  if (!root) return;
+  var rows = [];
+  var onPath = {};
+  var truncated = false;
+  (function walk(id, depth) {
+    var node = mgTraceNode(id);
+    if (!node) return;
+    if (rows.length >= 200) { truncated = true; return; }
+    var cycle = onPath[id] === true;
+    rows.push({ node: node, depth: depth, cycle: cycle });
+    if (cycle || depth >= 8) return;
+    onPath[id] = true;
+    for (var i = 0; i < node.deps.length; i++) walk(node.deps[i], depth + 1);
+    onPath[id] = false;
+  })(rootId, 0);
+
+  var total = root.initTime > 0 ? root.initTime : 1;
+  var html = "";
+  for (var r = 0; r < rows.length; r++) {
+    var row = rows[r];
+    var frac = Math.max(0, Math.min(1, row.node.initTime / total));
+    var slowestDep = 0;
+    for (var d = 0; d < row.node.deps.length; d++) {
+      var dep = mgTraceNode(row.node.deps[d]);
+      if (dep && dep.initTime > slowestDep) slowestDep = dep.initTime;
+    }
+    var selfFrac = Math.max(0, Math.min(frac, (row.node.initTime - slowestDep) / total));
+    html += '<div class="mg-trace-row">' +
+      '<span class="mg-trace-label" style="padding-left:' + (row.depth * 14) + 'px">' +
+      (row.depth > 0 ? '<span class="md-tree-elbow">\\u2514</span>' : '') +
+      '<span class="mg-trace-name">' + mgEsc(row.node.name) + '</span>' +
+      '<span class="md-badge md-scope">' + mgEsc(row.node.type) + '</span>' +
+      (row.cycle ? '<span class="mg-trace-cycle" title="circular dependency">\\u21BB</span>' : '') +
+      '</span>' +
+      '<span class="mg-trace-track">' +
+      '<span class="mg-trace-bar" style="width:' + (frac * 100).toFixed(2) + '%"></span>' +
+      (selfFrac > 0.002 ? '<span class="mg-trace-self" style="left:' + ((frac - selfFrac) * 100).toFixed(2) + '%;width:' + (selfFrac * 100).toFixed(2) + '%"></span>' : '') +
+      '</span>' +
+      '<span class="mg-trace-time">' + mgEsc(mgFormatMs(row.node.initTime)) + '</span>' +
+      '</div>';
+  }
+  if (truncated) html += '<div class="mg-trace-note">Truncated at 200 rows.</div>';
+
+  document.getElementById("mg-trace-title").textContent = "Boot trace \\u2014 " + root.name;
+  document.getElementById("mg-trace-ms").textContent = mgFormatMs(root.initTime);
+  document.getElementById("mg-trace-body").innerHTML = html;
+  document.getElementById("mg-problems").style.display = "none";
+  document.getElementById("mg-trace").style.display = "flex";
+  mgResize();
+}
+
+function mgCloseTrace() {
+  document.getElementById("mg-trace").style.display = "none";
+  document.getElementById("mg-problems").style.display = "";
+  mgResize();
 }
 
 function mgExportsHtml(n) {
@@ -1836,7 +1911,7 @@ function mgShowDetail(n) {
     "What this module registers in its providers array, grouped by kind.") + mgProvidersHtml(n);
   if (graph.timingsAvailable) {
     html += mgSection("Bootstrap timings", n.initTimings ? n.initTimings.length : undefined,
-      "Time NestJS spent constructing each class during the captured boot. Each number includes waiting on that class's own dependencies, so a shared slow dependency counts again in every class that awaits it.") + mgTimingsHtml(n);
+      "Time NestJS spent constructing each class during the captured boot. Each number includes waiting on that class's own dependencies, so a shared slow dependency counts again in every class that awaits it. Click a class to open its boot trace.") + mgTimingsHtml(n);
   }
   if (n.imports.length > 0) {
     html += mgSection("Imports", n.imports.length,

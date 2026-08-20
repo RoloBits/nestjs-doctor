@@ -56,4 +56,15 @@ describe("report scripts", () => {
 	it("shows an explanatory empty state instead of a bare 0ms for an unmatched module", () => {
 		expect(scripts).toContain("No bootstrap timing data");
 	});
+
+	it("opens the boot trace drawer from a timing row click", () => {
+		expect(scripts).toContain('ev.target.closest(".mg-timing-link")');
+		expect(scripts).toContain("function mgShowTrace");
+	});
+
+	it("guards trace lookups against inherited object keys", () => {
+		expect(scripts).toContain(
+			"Object.prototype.hasOwnProperty.call(graph.timingsTrace, id)"
+		);
+	});
 });

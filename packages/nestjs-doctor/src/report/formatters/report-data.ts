@@ -3,7 +3,7 @@ import type { DiagnoseResult } from "../../common/result.js";
 import type { ModuleGraph } from "../../engine/graph/module-graph.js";
 import type { ProviderInfo } from "../../engine/graph/type-resolver.js";
 import { getRuleExamples } from "../data/examples.js";
-import type { ClassTiming } from "../timings.js";
+import type { BootstrapTimings } from "../timings.js";
 import type { ReportScriptData } from "../ui/scripts.js";
 import { serializeModuleGraph } from "./module-serializer.js";
 
@@ -58,7 +58,7 @@ export function prepareReportData(
 		files?: string[];
 		projects?: string[];
 		providers?: ReportProvider[];
-		timingsByModule?: Map<string, ClassTiming[]>;
+		timings?: BootstrapTimings;
 	}
 ): ReportScriptData {
 	const graph = serializeModuleGraph(
@@ -66,7 +66,7 @@ export function prepareReportData(
 		result,
 		options?.projects,
 		options?.bootstrapRoots,
-		options?.timingsByModule
+		options?.timings
 	);
 
 	const diagnosticsWithoutSource = result.diagnostics.map((d) => {

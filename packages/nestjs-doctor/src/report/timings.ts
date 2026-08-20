@@ -3,13 +3,28 @@ import { resolveAgainst } from "../engine/git.js";
 
 /** One class's construction time during a captured bootstrap, in milliseconds. */
 export interface ClassTiming {
+	id: string;
 	initTime: number;
 	name: string;
 	type: string;
 }
 
+/** One class in the boot trace: its timing plus the classes it injects. */
+export interface TraceNode {
+	deps: string[];
+	initTime: number;
+	name: string;
+	type: string;
+}
+
+export interface BootstrapTimings {
+	byModule: Map<string, ClassTiming[]>;
+	trace: Record<string, TraceNode>;
+}
+
 interface ParsedTimings {
 	modules: Map<string, ClassTiming[]>;
+	trace: Record<string, TraceNode>;
 	warnings: string[];
 }
 
@@ -23,6 +38,12 @@ interface DumpNode {
 	parent?: unknown;
 }
 
+interface DumpEdge {
+	metadata?: { type?: unknown };
+	source?: unknown;
+	target?: unknown;
+}
+
 /** Parses a NestJS SerializedGraph dump into per-module class timings, slowest first. */
 export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 	let data: unknown;
@@ -31,6 +52,7 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 	} catch {
 		return {
 			modules: new Map(),
+			trace: {},
 			warnings: [
 				"--timings: file is not valid JSON; report generated without bootstrap timings",
 			],
@@ -41,6 +63,7 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 	if (typeof nodes !== "object" || nodes === null) {
 		return {
 			modules: new Map(),
+			trace: {},
 			warnings: [
 				'--timings: no "nodes" object found — expected a SerializedGraph dump from app.get(SerializedGraph); report generated without bootstrap timings',
 			],
@@ -61,7 +84,9 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 	}
 
 	const modules = new Map<string, ClassTiming[]>();
-	for (const node of Object.values(dumpNodes)) {
+	// A crafted id like "__proto__" must stay an own data property, never a setter.
+	const trace: Record<string, TraceNode> = Object.create(null);
+	for (const [id, node] of Object.entries(dumpNodes)) {
 		const meta = node?.metadata;
 		if (!meta || meta.type === "module" || meta.internal === true) {
 			continue;
@@ -81,15 +106,38 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 		if (!moduleName) {
 			continue;
 		}
+		const type = typeof meta.type === "string" ? meta.type : "provider";
 		const list = modules.get(moduleName) ?? [];
-		list.push({
-			name: node.label,
-			type: typeof meta.type === "string" ? meta.type : "provider",
-			initTime,
-		});
+		list.push({ id, name: node.label, type, initTime });
 		modules.set(moduleName, list);
+		Object.defineProperty(trace, id, {
+			value: { name: node.label, type, initTime, deps: [] },
+			enumerable: true,
+			writable: true,
+			configurable: true,
+		});
 	}
 
+	const edges = (data as { edges?: unknown }).edges;
+	if (typeof edges === "object" && edges !== null) {
+		for (const edge of Object.values(edges as Record<string, DumpEdge>)) {
+			if (edge?.metadata?.type !== "class-to-class") {
+				continue;
+			}
+			const { source, target } = edge;
+			if (typeof source !== "string" || typeof target !== "string") {
+				continue;
+			}
+			const from = Object.hasOwn(trace, source) ? trace[source] : undefined;
+			if (from && Object.hasOwn(trace, target) && !from.deps.includes(target)) {
+				from.deps.push(target);
+			}
+		}
+	}
+
+	for (const node of Object.values(trace)) {
+		node.deps.sort((a, b) => trace[b].initTime - trace[a].initTime);
+	}
 	for (const list of modules.values()) {
 		list.sort((a, b) => b.initTime - a.initTime);
 	}
@@ -100,14 +148,14 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 			"--timings: no class init times found in the dump — was it produced with NestFactory.create(AppModule, { snapshot: true })?"
 		);
 	}
-	return { modules, warnings };
+	return { modules, trace, warnings };
 }
 
 /** Reads and parses a timings dump; any failure degrades to a warning, never a crash. */
 export function loadBootstrapTimings(
 	targetPath: string,
 	timingsPath: string
-): { timings?: Map<string, ClassTiming[]>; warnings: string[] } {
+): { timings?: BootstrapTimings; warnings: string[] } {
 	let raw: string;
 	try {
 		raw = readFileSync(resolveAgainst(targetPath, timingsPath), "utf-8");
@@ -119,6 +167,8 @@ export function loadBootstrapTimings(
 			],
 		};
 	}
-	const { modules, warnings } = parseBootstrapTimings(raw);
-	return modules.size > 0 ? { timings: modules, warnings } : { warnings };
+	const { modules, trace, warnings } = parseBootstrapTimings(raw);
+	return modules.size > 0
+		? { timings: { byModule: modules, trace }, warnings }
+		: { warnings };
 }

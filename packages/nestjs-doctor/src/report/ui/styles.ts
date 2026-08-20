@@ -204,6 +204,37 @@ body.mg-resizing { cursor: col-resize; user-select: none; }
 #mg-info-pop dd { color: #999; margin: 2px 0 0 0; line-height: 1.4; }
 #mg-info-pop code { background: rgba(255,255,255,0.08); padding: 1px 4px; border-radius: 3px; font-size: 11px; }
 
+/* ── Boot trace drawer (Graph tab) ── */
+#mg-trace {
+  display: none; border-top: 1px solid var(--border); background: var(--surface);
+  flex-shrink: 0; flex-direction: column; max-height: 45%;
+}
+#mg-trace-header { display: flex; align-items: center; gap: 8px; padding: 8px 14px; }
+.mg-trace-legend { font-size: 10px; color: var(--text-dim); }
+.mg-trace-legend-self {
+  display: inline-block; width: 14px; height: 8px; border-radius: 2px;
+  background: #fbbf24; vertical-align: middle;
+}
+#mg-trace-close {
+  background: none; border: none; color: var(--text-dim);
+  font-size: 15px; cursor: pointer; padding: 0 2px; line-height: 1;
+}
+#mg-trace-close:hover { color: var(--white); }
+#mg-trace-body { overflow-y: auto; border-top: 1px solid var(--border); padding: 6px 0; }
+.mg-trace-row { display: flex; align-items: center; gap: 10px; padding: 2px 14px; font-size: 11px; }
+.mg-trace-label {
+  width: 300px; flex-shrink: 0; display: flex; align-items: center; gap: 6px;
+  color: #ccc; overflow: hidden; white-space: nowrap;
+}
+.mg-trace-name { overflow: hidden; text-overflow: ellipsis; }
+.mg-trace-track { position: relative; flex: 1; height: 12px; background: rgba(255,255,255,0.03); border-radius: 2px; }
+.mg-trace-bar { position: absolute; left: 0; top: 1px; height: 10px; border-radius: 2px; background: rgba(34,211,238,0.35); min-width: 2px; }
+.mg-trace-self { position: absolute; top: 1px; height: 10px; border-radius: 2px; background: #fbbf24; }
+.mg-trace-time { width: 64px; flex-shrink: 0; text-align: right; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.mg-trace-note { padding: 4px 14px; font-size: 11px; color: var(--text-dim); }
+.mg-timing-link { cursor: pointer; }
+.mg-timing-link:hover { background: rgba(255,255,255,0.05); }
+
 /* ── Problems drawer (Graph tab) ── */
 #mg-problems {
   border-top: 1px solid var(--border); background: var(--surface);

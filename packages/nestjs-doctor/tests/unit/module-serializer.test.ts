@@ -115,9 +115,17 @@ describe("module-serializer", () => {
       `,
 		});
 
-		const timings = new Map([
-			["AppModule", [{ name: "AppService", type: "provider", initTime: 42 }]],
-		]);
+		const timings = {
+			byModule: new Map([
+				[
+					"AppModule",
+					[{ id: "c1", name: "AppService", type: "provider", initTime: 42 }],
+				],
+			]),
+			trace: {
+				c1: { name: "AppService", type: "provider", initTime: 42, deps: [] },
+			},
+		};
 		const serialized = serializeModuleGraph(
 			buildModuleGraph(project, paths),
 			emptyResult,
@@ -127,9 +135,10 @@ describe("module-serializer", () => {
 		);
 
 		expect(serialized.timingsAvailable).toBe(true);
+		expect(serialized.timingsTrace).toEqual(timings.trace);
 		const app = serialized.modules.find((m) => m.name === "AppModule")!;
 		expect(app.initTimings).toEqual([
-			{ name: "AppService", type: "provider", initTime: 42 },
+			{ id: "c1", name: "AppService", type: "provider", initTime: 42 },
 		]);
 		// A module the boot never touched carries no field, never a zero.
 		const cats = serialized.modules.find((m) => m.name === "CatsModule")!;
@@ -176,9 +185,15 @@ describe("module-serializer", () => {
 				["shared", buildModuleGraph(shared, sharedPaths)],
 			])
 		);
-		const timings = new Map([
-			["CatsModule", [{ name: "CatsService", type: "provider", initTime: 7 }]],
-		]);
+		const timings = {
+			byModule: new Map([
+				[
+					"CatsModule",
+					[{ id: "c2", name: "CatsService", type: "provider", initTime: 7 }],
+				],
+			]),
+			trace: {},
+		};
 
 		const serialized = serializeModuleGraph(
 			merged,
@@ -192,7 +207,7 @@ describe("module-serializer", () => {
 			(m) => m.name === "shared/CatsModule"
 		)!;
 		expect(cats.initTimings).toEqual([
-			{ name: "CatsService", type: "provider", initTime: 7 },
+			{ id: "c2", name: "CatsService", type: "provider", initTime: 7 },
 		]);
 	});
 
@@ -218,9 +233,15 @@ describe("module-serializer", () => {
 				["worker", buildModuleGraph(worker, workerPaths)],
 			])
 		);
-		const timings = new Map([
-			["AppModule", [{ name: "AppService", type: "provider", initTime: 5 }]],
-		]);
+		const timings = {
+			byModule: new Map([
+				[
+					"AppModule",
+					[{ id: "c3", name: "AppService", type: "provider", initTime: 5 }],
+				],
+			]),
+			trace: {},
+		};
 
 		const serialized = serializeModuleGraph(
 			merged,

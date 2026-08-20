@@ -26,7 +26,7 @@ import {
 	toReportProvider,
 } from "./formatters/report-data.js";
 import { buildHtmlReport } from "./html-report.js";
-import type { ClassTiming } from "./timings.js";
+import type { BootstrapTimings } from "./timings.js";
 
 type PipelineStep = () => void | Promise<void>;
 
@@ -36,18 +36,18 @@ abstract class ReportPipeline {
 	protected scanConfig!: ScanConfig;
 	protected readonly steps: PipelineStep[] = [];
 	protected readonly targetPath: string;
-	protected readonly timingsByModule: Map<string, ClassTiming[]> | undefined;
+	protected readonly timings: BootstrapTimings | undefined;
 
 	private readonly configPath: string | undefined;
 
 	constructor(
 		targetPath: string,
 		configPath: string | undefined,
-		timingsByModule?: Map<string, ClassTiming[]>
+		timings?: BootstrapTimings
 	) {
 		this.targetPath = targetPath;
 		this.configPath = configPath;
-		this.timingsByModule = timingsByModule;
+		this.timings = timings;
 	}
 
 	abstract buildContext(): this;
@@ -131,7 +131,7 @@ export class SingleProjectReportPipeline extends ReportPipeline {
 						module: moduleGraph.providerToModule.get(provider.name)?.name,
 					})
 				),
-				timingsByModule: this.timingsByModule,
+				timings: this.timings,
 			});
 		});
 		return this;
@@ -153,9 +153,9 @@ export class MonorepoReportPipeline extends ReportPipeline {
 		targetPath: string,
 		configPath: string | undefined,
 		monorepo: MonorepoInfo,
-		timingsByModule?: Map<string, ClassTiming[]>
+		timings?: BootstrapTimings
 	) {
-		super(targetPath, configPath, timingsByModule);
+		super(targetPath, configPath, timings);
 		this.monorepo = monorepo;
 	}
 
@@ -239,7 +239,7 @@ export class MonorepoReportPipeline extends ReportPipeline {
 				files: this.allFiles,
 				providers: this.allProviders,
 				bootstrapRoots: this.bootstrapRoots,
-				timingsByModule: this.timingsByModule,
+				timings: this.timings,
 			});
 		});
 		return this;

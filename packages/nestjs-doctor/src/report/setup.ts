@@ -10,7 +10,7 @@ import {
 	MonorepoReportPipeline,
 	SingleProjectReportPipeline,
 } from "./pipeline.js";
-import { type ClassTiming, loadBootstrapTimings } from "./timings.js";
+import { type BootstrapTimings, loadBootstrapTimings } from "./timings.js";
 
 /** Detect monorepo vs single project and run the appropriate report pipeline */
 export const runReport = async (
@@ -20,10 +20,10 @@ export const runReport = async (
 ): Promise<void> => {
 	const monorepo = await detectMonorepo(targetPath);
 
-	let timingsByModule: Map<string, ClassTiming[]> | undefined;
+	let bootTimings: BootstrapTimings | undefined;
 	if (timingsPath) {
 		const { timings, warnings } = loadBootstrapTimings(targetPath, timingsPath);
-		timingsByModule = timings;
+		bootTimings = timings;
 		for (const warning of warnings) {
 			logger.warn(warning);
 		}
@@ -34,7 +34,7 @@ export const runReport = async (
 			targetPath,
 			configPath,
 			monorepo,
-			timingsByModule
+			bootTimings
 		);
 		await pipeline
 			.resolveConfig()
@@ -52,7 +52,7 @@ export const runReport = async (
 	const pipeline = new SingleProjectReportPipeline(
 		targetPath,
 		configPath,
-		timingsByModule
+		bootTimings
 	);
 	await pipeline
 		.resolveConfig()

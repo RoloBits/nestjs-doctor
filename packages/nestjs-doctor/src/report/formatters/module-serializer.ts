@@ -3,7 +3,7 @@ import {
 	findCircularDeps,
 	type ModuleGraph,
 } from "../../engine/graph/module-graph.js";
-import type { ClassTiming } from "../timings.js";
+import type { BootstrapTimings, ClassTiming, TraceNode } from "../timings.js";
 
 interface SerializedModuleNode {
 	controllers: string[];
@@ -28,6 +28,7 @@ interface SerializedModuleGraph {
 	modules: SerializedModuleNode[];
 	projects: string[];
 	timingsAvailable?: boolean;
+	timingsTrace?: Record<string, TraceNode>;
 }
 
 /** Strips the monorepo project prefix, matching getDisplayName in the report UI. */
@@ -42,11 +43,11 @@ export function serializeModuleGraph(
 	result: DiagnoseResult,
 	projects?: string[],
 	bootstrapRoots?: string[],
-	timingsByModule?: Map<string, ClassTiming[]>
+	timings?: BootstrapTimings
 ): SerializedModuleGraph {
 	// A timing entry only knows the bare class name; attach it only when unique.
 	const bareNameCounts = new Map<string, number>();
-	if (timingsByModule) {
+	if (timings) {
 		for (const node of graph.modules.values()) {
 			const bare = bareModuleName(node);
 			bareNameCounts.set(bare, (bareNameCounts.get(bare) ?? 0) + 1);
@@ -56,10 +57,10 @@ export function serializeModuleGraph(
 	const modules: SerializedModuleNode[] = [];
 	for (const node of graph.modules.values()) {
 		let initTimings: ClassTiming[] | undefined;
-		if (timingsByModule) {
+		if (timings) {
 			const bare = bareModuleName(node);
 			if (bareNameCounts.get(bare) === 1) {
-				initTimings = timingsByModule.get(bare);
+				initTimings = timings.byModule.get(bare);
 			}
 		}
 		modules.push({
@@ -108,6 +109,7 @@ export function serializeModuleGraph(
 		circularDepRecommendations,
 		projects: projects ?? [],
 		bootstrapRoots,
-		timingsAvailable: timingsByModule ? true : undefined,
+		timingsAvailable: timings ? true : undefined,
+		timingsTrace: timings?.trace,
 	};
 }

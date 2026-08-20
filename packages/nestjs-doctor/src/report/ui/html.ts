@@ -412,6 +412,16 @@ for (let i = 0; i < lines.length; i++) {
       <p>No modules were found in this project</p>
     </div>
   </div>
+  <div id="mg-trace">
+    <div id="mg-trace-header">
+      <span class="mg-problems-title" id="mg-trace-title">Boot trace</span>
+      <span class="schema-entity-count" id="mg-trace-ms"></span>
+      <span class="mg-trace-legend">bar = total incl. waiting on deps · <span class="mg-trace-legend-self"></span> ≈ own work</span>
+      <span style="flex:1"></span>
+      <button id="mg-trace-close" title="Close">×</button>
+    </div>
+    <div id="mg-trace-body"></div>
+  </div>
   <div id="mg-problems">
     <div id="mg-problems-header">
       <span class="mg-problems-title">Module problems</span>

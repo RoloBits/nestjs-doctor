@@ -20,8 +20,15 @@ function classNode(
 	return { id: label, label, parent, metadata: { type, initTime } };
 }
 
-function dump(nodes: Record<string, unknown>): string {
-	return JSON.stringify({ nodes, edges: {}, entrypoints: {} });
+function edge(source: string, target: string, type = "class-to-class") {
+	return { source, target, metadata: { type } };
+}
+
+function dump(
+	nodes: Record<string, unknown>,
+	edges: Record<string, unknown> = {}
+): string {
+	return JSON.stringify({ nodes, edges, entrypoints: {} });
 }
 
 describe("parseBootstrapTimings", () => {
@@ -36,9 +43,51 @@ describe("parseBootstrapTimings", () => {
 
 		expect(warnings).toEqual([]);
 		expect(modules.get("CatsModule")).toEqual([
-			{ name: "CatsController", type: "controller", initTime: 210.2 },
-			{ name: "CatsService", type: "provider", initTime: 4.5 },
+			{ id: "c2", name: "CatsController", type: "controller", initTime: 210.2 },
+			{ id: "c1", name: "CatsService", type: "provider", initTime: 4.5 },
 		]);
+	});
+
+	it("extracts class-to-class edges as deps, sorted slowest first", () => {
+		const { trace } = parseBootstrapTimings(
+			dump(
+				{
+					m1: moduleNode("CatsModule"),
+					c1: classNode("CatsController", "m1", 210, "controller"),
+					c2: classNode("CatsService", "m1", 200),
+					c3: classNode("CatsRepository", "m1", 190),
+				},
+				{
+					e1: edge("c1", "c2"),
+					e2: edge("c2", "c3"),
+					e3: edge("m1", "c1", "module-to-module"),
+				}
+			)
+		);
+
+		expect(trace.c1).toEqual({
+			name: "CatsController",
+			type: "controller",
+			initTime: 210,
+			deps: ["c2"],
+		});
+		expect(trace.c2.deps).toEqual(["c3"]);
+		expect(trace.c3.deps).toEqual([]);
+	});
+
+	it("drops edges pointing at classes that were filtered out", () => {
+		const { trace } = parseBootstrapTimings(
+			dump(
+				{
+					m1: moduleNode("CatsModule"),
+					c1: classNode("CatsService", "m1", 5),
+					c2: classNode("NoTime", "m1", undefined),
+				},
+				{ e1: edge("c1", "c2"), e2: edge("c1", "missing") }
+			)
+		);
+
+		expect(trace.c1.deps).toEqual([]);
 	});
 
 	it("ignores nodes whose metadata.internal is true", () => {
@@ -67,7 +116,7 @@ describe("parseBootstrapTimings", () => {
 		);
 
 		expect(modules.get("CatsModule")).toEqual([
-			{ name: "CatsController", type: "provider", initTime: 2 },
+			{ id: "c2", name: "CatsController", type: "provider", initTime: 2 },
 		]);
 	});
 
@@ -120,8 +169,9 @@ describe("loadBootstrapTimings", () => {
 		const { timings, warnings } = loadBootstrapTimings(dir, "timings.json");
 
 		expect(warnings).toEqual([]);
-		expect(timings?.get("CatsModule")).toEqual([
-			{ name: "CatsService", type: "provider", initTime: 12 },
+		expect(timings?.byModule.get("CatsModule")).toEqual([
+			{ id: "c1", name: "CatsService", type: "provider", initTime: 12 },
 		]);
+		expect(timings?.trace.c1.deps).toEqual([]);
 	});
 });
