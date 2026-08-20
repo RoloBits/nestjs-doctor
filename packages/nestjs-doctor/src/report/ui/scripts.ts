@@ -1213,17 +1213,17 @@ function mgBindEvents() {
     more.style.display = "none";
   });
 
-  document.getElementById("mg-problems-header").addEventListener("click", function() {
-    var drawer = document.getElementById("mg-problems");
-    var open = drawer.classList.toggle("open");
-    document.getElementById("mg-problems-chevron").textContent = open ? "\\u25BE" : "\\u25B4";
-    mgResize();
-  });
-
-  document.getElementById("mg-trace-header").addEventListener("click", function() {
-    var drawer = document.getElementById("mg-trace");
-    var open = drawer.classList.toggle("open");
-    document.getElementById("mg-trace-chevron").textContent = open ? "\\u25BE" : "\\u25B4";
+  document.getElementById("mg-dock-header").addEventListener("click", function(ev) {
+    var dock = document.getElementById("mg-dock");
+    var tabEl = ev.target.closest(".mg-dock-tab");
+    if (tabEl) {
+      mgDockSetTab(tabEl.dataset.dockTab);
+      mgDockOpen();
+      mgResize();
+      return;
+    }
+    var open = dock.classList.toggle("open");
+    document.getElementById("mg-dock-chevron").textContent = open ? "\\u25BE" : "\\u25B4";
     mgResize();
   });
 
@@ -1231,6 +1231,7 @@ function mgBindEvents() {
     ev.stopPropagation();
     if (mgTraceModule) {
       mgShowModuleTrace(mgTraceModule);
+      mgResize();
     }
   });
 
@@ -1423,6 +1424,7 @@ function renderModules() {
   mgBuild();
   mgBuildTree();
   mgBuildProblems();
+  mgSyncTraceDrawer(null);
   mgApplyExternalVisibility();
   if (mgNodes.length === 0) {
     document.getElementById("mg-empty-state").classList.add("visible");
@@ -1757,10 +1759,29 @@ function mgProvidersHtml(n) {
 }
 
 var mgTraceModule = null;
+var mgTraceInClassView = false;
 
 function mgTraceNode(id) {
   return Object.prototype.hasOwnProperty.call(graph.timingsTrace, id)
     ? graph.timingsTrace[id] : null;
+}
+
+function mgDockSetTab(name) {
+  var dock = document.getElementById("mg-dock");
+  dock.dataset.active = name;
+  document.getElementById("mg-dock-tab-problems").classList.toggle("active", name === "problems");
+  document.getElementById("mg-dock-tab-trace").classList.toggle("active", name === "trace");
+  document.getElementById("mg-trace-legend").style.display = name === "trace" ? "" : "none";
+  document.getElementById("mg-trace-back").style.display =
+    name === "trace" && mgTraceInClassView && mgTraceModule ? "" : "none";
+}
+
+function mgDockOpen() {
+  var dock = document.getElementById("mg-dock");
+  if (!dock.classList.contains("open")) {
+    dock.classList.add("open");
+    document.getElementById("mg-dock-chevron").textContent = "\\u25BE";
+  }
 }
 
 function mgShowModuleTrace(n) {
@@ -1783,32 +1804,37 @@ function mgShowModuleTrace(n) {
       '<span class="mg-trace-time">' + mgEsc(mgFormatMs(t.initTime)) + '</span>' +
       '</div>';
   }
-  document.getElementById("mg-trace-title").textContent = "Bootstrap timings \\u2014 " + getDisplayName(n);
-  document.getElementById("mg-trace-ms").textContent = mgFormatMs(list[0].initTime);
+  mgTraceInClassView = false;
+  document.getElementById("mg-trace-ms").textContent =
+    getDisplayName(n) + " \\u00b7 " + mgFormatMs(list[0].initTime);
   document.getElementById("mg-trace-back").style.display = "none";
   document.getElementById("mg-trace-body").innerHTML = html;
 }
 
 function mgSyncTraceDrawer(n) {
-  var drawer = document.getElementById("mg-trace");
   mgTraceModule = n && !n.external && graph.timingsAvailable &&
     n.initTimings && n.initTimings.length > 0 ? n : null;
-  if (!mgTraceModule) {
-    drawer.style.display = "none";
-  } else {
-    drawer.style.display = "flex";
+  var tab = document.getElementById("mg-dock-tab-trace");
+  if (!graph.timingsAvailable) {
+    tab.style.display = "none";
+    return;
+  }
+  tab.style.display = "";
+  if (mgTraceModule) {
     mgShowModuleTrace(mgTraceModule);
+  } else {
+    mgTraceInClassView = false;
+    document.getElementById("mg-trace-ms").textContent = "";
+    document.getElementById("mg-trace-back").style.display = "none";
+    document.getElementById("mg-trace-body").innerHTML =
+      '<div class="mg-trace-note">Select a module to see its bootstrap timings.</div>';
   }
   mgResize();
 }
 
 function mgOpenTraceDrawer() {
-  var drawer = document.getElementById("mg-trace");
-  if (drawer.style.display === "none" || drawer.style.display === "") return;
-  if (!drawer.classList.contains("open")) {
-    drawer.classList.add("open");
-    document.getElementById("mg-trace-chevron").textContent = "\\u25BE";
-  }
+  mgDockSetTab("trace");
+  mgDockOpen();
   mgResize();
 }
 
@@ -1863,13 +1889,12 @@ function mgShowTrace(rootId) {
   }
   if (truncated) html += '<div class="mg-trace-note">Truncated at 200 rows.</div>';
 
-  document.getElementById("mg-trace-title").textContent = "Boot trace \\u2014 " + root.name;
-  document.getElementById("mg-trace-ms").textContent = mgFormatMs(root.initTime);
+  mgTraceInClassView = true;
+  document.getElementById("mg-trace-ms").textContent =
+    root.name + " \\u00b7 " + mgFormatMs(root.initTime);
   var back = document.getElementById("mg-trace-back");
-  back.style.display = mgTraceModule ? "" : "none";
   back.textContent = mgTraceModule ? "\\u25C2 " + getDisplayName(mgTraceModule) : "";
   document.getElementById("mg-trace-body").innerHTML = html;
-  document.getElementById("mg-trace").style.display = "flex";
   mgOpenTraceDrawer();
 }
 

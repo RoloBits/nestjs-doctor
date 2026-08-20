@@ -412,25 +412,17 @@ for (let i = 0; i < lines.length; i++) {
       <p>No modules were found in this project</p>
     </div>
   </div>
-  <div id="mg-trace">
-    <div id="mg-trace-header">
-      <span class="mg-problems-title" id="mg-trace-title">Bootstrap timings</span>
-      <span class="schema-entity-count" id="mg-trace-ms"></span>
-      <span class="mg-trace-legend">bar = total incl. waiting on deps · <span class="mg-trace-legend-self"></span> ≈ own work</span>
+  <div id="mg-dock" data-active="problems">
+    <div id="mg-dock-header">
+      <span class="mg-dock-tab active" id="mg-dock-tab-problems" data-dock-tab="problems">Module problems <span class="schema-entity-count" id="mg-problems-count"></span></span>
+      <span class="mg-dock-tab" id="mg-dock-tab-trace" data-dock-tab="trace" style="display:none">Boot trace <span class="schema-entity-count" id="mg-trace-ms"></span></span>
+      <span class="mg-trace-legend" id="mg-trace-legend" style="display:none">bar = total incl. waiting on deps · <span class="mg-trace-legend-self"></span> ≈ own work</span>
       <span style="flex:1"></span>
       <span id="mg-trace-back" style="display:none"></span>
-      <span class="mg-problems-chevron" id="mg-trace-chevron">▴</span>
-    </div>
-    <div id="mg-trace-body"></div>
-  </div>
-  <div id="mg-problems">
-    <div id="mg-problems-header">
-      <span class="mg-problems-title">Module problems</span>
-      <span class="schema-entity-count" id="mg-problems-count"></span>
-      <span style="flex:1"></span>
-      <span class="mg-problems-chevron" id="mg-problems-chevron">▴</span>
+      <span class="mg-problems-chevron" id="mg-dock-chevron">▴</span>
     </div>
     <div id="mg-problems-list"></div>
+    <div id="mg-trace-body"></div>
   </div>
   <div id="mg-info-pop">
   <h3>Legend</h3>

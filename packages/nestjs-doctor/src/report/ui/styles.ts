@@ -204,16 +204,23 @@ body.mg-resizing { cursor: col-resize; user-select: none; }
 #mg-info-pop dd { color: #999; margin: 2px 0 0 0; line-height: 1.4; }
 #mg-info-pop code { background: rgba(255,255,255,0.08); padding: 1px 4px; border-radius: 3px; font-size: 11px; }
 
-/* ── Boot trace drawer (Graph tab) ── */
-#mg-trace {
-  display: none; border-top: 1px solid var(--border); background: var(--surface);
-  flex-shrink: 0; flex-direction: column; max-height: 45%;
+/* ── Bottom dock: problems + boot trace tabs (Graph tab) ── */
+#mg-dock {
+  border-top: 1px solid var(--border); background: var(--surface);
+  flex-shrink: 0; display: flex; flex-direction: column; max-height: 45%;
 }
-#mg-trace-header {
+#mg-dock-header {
   display: flex; align-items: center; gap: 8px;
-  padding: 8px 14px; cursor: pointer; user-select: none;
+  padding: 6px 14px; cursor: pointer; user-select: none;
 }
-#mg-trace-header:hover { background: rgba(255,255,255,0.03); }
+#mg-dock-header:hover { background: rgba(255,255,255,0.03); }
+.mg-dock-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; color: var(--text-dim);
+  padding: 3px 8px; border-radius: 4px;
+}
+.mg-dock-tab:hover { color: var(--white); }
+.mg-dock-tab.active { color: var(--white); background: rgba(255,255,255,0.06); }
 .mg-trace-legend { font-size: 10px; color: var(--text-dim); }
 .mg-trace-legend-self {
   display: inline-block; width: 14px; height: 8px; border-radius: 2px;
@@ -225,7 +232,7 @@ body.mg-resizing { cursor: col-resize; user-select: none; }
   display: none; overflow-y: auto;
   border-top: 1px solid var(--border); padding: 6px 0;
 }
-#mg-trace.open #mg-trace-body { display: block; }
+#mg-dock.open[data-active="trace"] #mg-trace-body { display: block; }
 .mg-trace-row { display: flex; align-items: center; gap: 10px; padding: 2px 14px; font-size: 11px; }
 .mg-trace-label {
   width: 300px; flex-shrink: 0; display: flex; align-items: center; gap: 6px;
@@ -240,21 +247,9 @@ body.mg-resizing { cursor: col-resize; user-select: none; }
 .mg-timing-link { cursor: pointer; }
 .mg-timing-link:hover { background: rgba(255,255,255,0.05); }
 
-/* ── Problems drawer (Graph tab) ── */
-#mg-problems {
-  border-top: 1px solid var(--border); background: var(--surface);
-  flex-shrink: 0; display: flex; flex-direction: column;
-  max-height: 40%;
-}
-#mg-problems-header {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 14px; cursor: pointer; user-select: none;
-}
-#mg-problems-header:hover { background: rgba(255,255,255,0.03); }
-.mg-problems-title { font-size: 12px; font-weight: 600; color: var(--white); }
 .mg-problems-chevron { color: var(--text-dim); font-size: 11px; }
 #mg-problems-list { display: none; overflow-y: auto; border-top: 1px solid var(--border); }
-#mg-problems.open #mg-problems-list { display: block; }
+#mg-dock.open[data-active="problems"] #mg-problems-list { display: block; }
 .mg-problem-row {
   display: flex; align-items: baseline; gap: 8px;
   padding: 4px 14px; font-size: 12px; color: #ccc;
