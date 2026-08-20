@@ -1769,7 +1769,13 @@ function mgShowTrace(rootId) {
     onPath[id] = false;
   })(rootId, 0);
 
-  var total = root.initTime > 0 ? root.initTime : 1;
+  // A dep already built before this class asked for it can be slower than the
+  // root, so bars scale to the slowest row in the tree, not to the root.
+  var total = 0;
+  for (var m = 0; m < rows.length; m++) {
+    if (rows[m].node.initTime > total) total = rows[m].node.initTime;
+  }
+  if (total <= 0) total = 1;
   var html = "";
   for (var r = 0; r < rows.length; r++) {
     var row = rows[r];
