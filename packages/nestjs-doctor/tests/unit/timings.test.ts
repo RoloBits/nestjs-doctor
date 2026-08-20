@@ -43,8 +43,13 @@ describe("parseBootstrapTimings", () => {
 
 		expect(warnings).toEqual([]);
 		expect(modules.get("CatsModule")).toEqual([
-			{ id: "c2", name: "CatsController", type: "controller", initTime: 210.2 },
-			{ id: "c1", name: "CatsService", type: "provider", initTime: 4.5 },
+			{
+				id: "tc2",
+				name: "CatsController",
+				type: "controller",
+				initTime: 210.2,
+			},
+			{ id: "tc1", name: "CatsService", type: "provider", initTime: 4.5 },
 		]);
 	});
 
@@ -65,14 +70,14 @@ describe("parseBootstrapTimings", () => {
 			)
 		);
 
-		expect(trace.c1).toEqual({
+		expect(trace.tc1).toEqual({
 			name: "CatsController",
 			type: "controller",
 			initTime: 210,
-			deps: ["c2"],
+			deps: ["tc2"],
 		});
-		expect(trace.c2.deps).toEqual(["c3"]);
-		expect(trace.c3.deps).toEqual([]);
+		expect(trace.tc2.deps).toEqual(["tc3"]);
+		expect(trace.tc3.deps).toEqual([]);
 	});
 
 	it("drops edges pointing at classes that were filtered out", () => {
@@ -87,7 +92,32 @@ describe("parseBootstrapTimings", () => {
 			)
 		);
 
-		expect(trace.c1.deps).toEqual([]);
+		expect(trace.tc1.deps).toEqual([]);
+	});
+
+	it('keeps a node whose id is "__proto__" reachable as a plain data key', () => {
+		const { modules, trace } = parseBootstrapTimings(
+			dump(
+				{
+					m1: moduleNode("CatsModule"),
+					["__proto__"]: classNode("EvilService", "m1", 5),
+					c2: classNode("GoodService", "m1", 10),
+				},
+				{ e1: edge("c2", "__proto__") }
+			)
+		);
+
+		expect(modules.get("CatsModule")).toEqual([
+			{ id: "tc2", name: "GoodService", type: "provider", initTime: 10 },
+			{ id: "t__proto__", name: "EvilService", type: "provider", initTime: 5 },
+		]);
+		expect(trace.t__proto__).toEqual({
+			name: "EvilService",
+			type: "provider",
+			initTime: 5,
+			deps: [],
+		});
+		expect(trace.tc2.deps).toEqual(["t__proto__"]);
 	});
 
 	it("ignores nodes whose metadata.internal is true", () => {
@@ -116,7 +146,7 @@ describe("parseBootstrapTimings", () => {
 		);
 
 		expect(modules.get("CatsModule")).toEqual([
-			{ id: "c2", name: "CatsController", type: "provider", initTime: 2 },
+			{ id: "tc2", name: "CatsController", type: "provider", initTime: 2 },
 		]);
 	});
 
@@ -170,8 +200,8 @@ describe("loadBootstrapTimings", () => {
 
 		expect(warnings).toEqual([]);
 		expect(timings?.byModule.get("CatsModule")).toEqual([
-			{ id: "c1", name: "CatsService", type: "provider", initTime: 12 },
+			{ id: "tc1", name: "CatsService", type: "provider", initTime: 12 },
 		]);
-		expect(timings?.trace.c1.deps).toEqual([]);
+		expect(timings?.trace.tc1.deps).toEqual([]);
 	});
 });

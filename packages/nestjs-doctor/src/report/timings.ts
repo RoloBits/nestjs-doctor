@@ -84,9 +84,10 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 	}
 
 	const modules = new Map<string, ClassTiming[]>();
-	// A crafted id like "__proto__" must stay an own data property, never a setter.
-	const trace: Record<string, TraceNode> = Object.create(null);
-	for (const [id, node] of Object.entries(dumpNodes)) {
+	// Ids are prefixed: the graph is embedded as an object literal, where a bare
+	// "__proto__" key would act as a prototype setter instead of a data key.
+	const trace: Record<string, TraceNode> = {};
+	for (const [rawId, node] of Object.entries(dumpNodes)) {
 		const meta = node?.metadata;
 		if (!meta || meta.type === "module" || meta.internal === true) {
 			continue;
@@ -107,15 +108,11 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 			continue;
 		}
 		const type = typeof meta.type === "string" ? meta.type : "provider";
+		const id = `t${rawId}`;
 		const list = modules.get(moduleName) ?? [];
 		list.push({ id, name: node.label, type, initTime });
 		modules.set(moduleName, list);
-		Object.defineProperty(trace, id, {
-			value: { name: node.label, type, initTime, deps: [] },
-			enumerable: true,
-			writable: true,
-			configurable: true,
-		});
+		trace[id] = { name: node.label, type, initTime, deps: [] };
 	}
 
 	const edges = (data as { edges?: unknown }).edges;
@@ -128,9 +125,12 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 			if (typeof source !== "string" || typeof target !== "string") {
 				continue;
 			}
-			const from = Object.hasOwn(trace, source) ? trace[source] : undefined;
-			if (from && Object.hasOwn(trace, target) && !from.deps.includes(target)) {
-				from.deps.push(target);
+			const from = Object.hasOwn(trace, `t${source}`)
+				? trace[`t${source}`]
+				: undefined;
+			const to = `t${target}`;
+			if (from && Object.hasOwn(trace, to) && !from.deps.includes(to)) {
+				from.deps.push(to);
 			}
 		}
 	}
