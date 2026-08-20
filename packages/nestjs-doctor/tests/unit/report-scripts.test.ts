@@ -70,6 +70,11 @@ describe("report scripts", () => {
 		expect(scripts).toContain("function mgTraceColor");
 	});
 
+	it("marks a dep slower than its parent as reused with a hollow bar", () => {
+		expect(scripts).toContain("node.initTime > parent.initTime");
+		expect(scripts).toContain("mg-trace-reused-tag");
+	});
+
 	it("guards trace lookups against inherited object keys", () => {
 		expect(scripts).toContain(
 			"Object.prototype.hasOwnProperty.call(graph.timingsTrace, id)"

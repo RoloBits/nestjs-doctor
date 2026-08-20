@@ -1812,8 +1812,14 @@ function mgTraceBadgeHtml(type) {
     mgEsc(type) + '</span>';
 }
 
-function mgTraceBarHtml(initTime, deps, type) {
+function mgTraceBarHtml(initTime, deps, type, reused) {
   var frac = Math.max(0, Math.min(1, initTime / mgTraceMax));
+  var width = (frac * 100).toFixed(2);
+  if (reused) {
+    return '<span class="mg-trace-track">' +
+      '<span class="mg-trace-bar" style="width:' + width + '%;background:transparent;box-shadow:inset 0 0 0 1px rgba(' + mgTraceColor(type) + ',0.5)"></span>' +
+      '</span>';
+  }
   var slowestDep = 0;
   for (var d = 0; d < deps.length; d++) {
     var dep = mgTraceNode(deps[d]);
@@ -1821,7 +1827,7 @@ function mgTraceBarHtml(initTime, deps, type) {
   }
   var selfFrac = Math.max(0, Math.min(frac, (initTime - slowestDep) / mgTraceMax));
   return '<span class="mg-trace-track">' +
-    '<span class="mg-trace-bar" style="width:' + (frac * 100).toFixed(2) + '%;background:rgba(' + mgTraceColor(type) + ',0.4)"></span>' +
+    '<span class="mg-trace-bar" style="width:' + width + '%;background:rgba(' + mgTraceColor(type) + ',0.4)"></span>' +
     (selfFrac > 0.002 ? '<span class="mg-trace-self" style="left:' + ((frac - selfFrac) * 100).toFixed(2) + '%;width:' + (selfFrac * 100).toFixed(2) + '%"></span>' : '') +
     '</span>';
 }
@@ -1833,15 +1839,22 @@ function mgTraceRowHtml(id, depth, path) {
   ancestors.pop();
   var cyc = ancestors.indexOf(id) >= 0;
   var expandable = !cyc && depth < 20 && node.deps.length > 0;
-  return '<div class="mg-trace-row' + (expandable ? ' mg-trace-expandable' : '') + '"' +
+  // A dep slower than its consumer cannot have been built by it: the consumer's
+  // time includes any wait, so this dep already existed and its cost was paid
+  // at its first consumer.
+  var parent = ancestors.length > 0 ? mgTraceNode(ancestors[ancestors.length - 1]) : null;
+  var reused = parent !== null && node.initTime > parent.initTime;
+  return '<div class="mg-trace-row' + (expandable ? ' mg-trace-expandable' : '') +
+    (reused ? ' mg-trace-reused' : '') + '"' +
     ' data-trace="' + mgEsc(id) + '" data-path="' + mgEsc(path) + '" data-depth="' + depth + '">' +
     '<span class="mg-trace-label" style="padding-left:' + (depth * 16) + 'px">' +
     '<span class="mg-trace-caret">' + (expandable ? "\\u25B8" : "") + '</span>' +
     '<span class="mg-trace-name">' + mgEsc(node.name) + '</span>' +
     mgTraceBadgeHtml(node.type) +
+    (reused ? '<span class="mg-trace-reused-tag" title="Already built when this parent loaded \\u2014 its cost is counted at its first consumer">reused</span>' : '') +
     (cyc ? '<span class="mg-trace-cycle" title="circular dependency">\\u21BB</span>' : '') +
     '</span>' +
-    mgTraceBarHtml(node.initTime, node.deps, node.type) +
+    mgTraceBarHtml(node.initTime, node.deps, node.type, reused) +
     '<span class="mg-trace-time">' + mgEsc(mgFormatMs(node.initTime)) + '</span>' +
     '</div>';
 }

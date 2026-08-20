@@ -250,6 +250,11 @@ body.mg-resizing { cursor: col-resize; user-select: none; }
 .mg-trace-expandable { cursor: pointer; }
 .mg-trace-expandable:hover { background: rgba(255,255,255,0.05); }
 .mg-trace-cycle { color: var(--text-dim); }
+.mg-trace-reused { opacity: 0.55; }
+.mg-trace-reused-tag {
+  font-size: 10px; color: var(--text-dim);
+  border: 1px solid var(--border); border-radius: 3px; padding: 0 4px;
+}
 
 .mg-problems-chevron { color: var(--text-dim); font-size: 11px; }
 #mg-problems-list { display: none; overflow-y: auto; border-top: 1px solid var(--border); }
