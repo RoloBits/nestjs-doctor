@@ -3,6 +3,7 @@ import {
 	findCircularDeps,
 	type ModuleGraph,
 } from "../../engine/graph/module-graph.js";
+import type { ClassTiming } from "../timings.js";
 
 interface SerializedModuleNode {
 	controllers: string[];
@@ -10,6 +11,7 @@ interface SerializedModuleNode {
 	exports: string[];
 	filePath: string;
 	imports: string[];
+	initTimings?: ClassTiming[];
 	isGlobal?: boolean;
 	line?: number;
 	name: string;
@@ -25,16 +27,41 @@ interface SerializedModuleGraph {
 	edges: Array<{ from: string; to: string }>;
 	modules: SerializedModuleNode[];
 	projects: string[];
+	timingsAvailable?: boolean;
+}
+
+/** Strips the monorepo project prefix, matching getDisplayName in the report UI. */
+function bareModuleName(node: { name: string; project?: string }): string {
+	return node.project && node.name.startsWith(`${node.project}/`)
+		? node.name.slice(node.project.length + 1)
+		: node.name;
 }
 
 export function serializeModuleGraph(
 	graph: ModuleGraph,
 	result: DiagnoseResult,
 	projects?: string[],
-	bootstrapRoots?: string[]
+	bootstrapRoots?: string[],
+	timingsByModule?: Map<string, ClassTiming[]>
 ): SerializedModuleGraph {
+	// A timing entry only knows the bare class name; attach it only when unique.
+	const bareNameCounts = new Map<string, number>();
+	if (timingsByModule) {
+		for (const node of graph.modules.values()) {
+			const bare = bareModuleName(node);
+			bareNameCounts.set(bare, (bareNameCounts.get(bare) ?? 0) + 1);
+		}
+	}
+
 	const modules: SerializedModuleNode[] = [];
 	for (const node of graph.modules.values()) {
+		let initTimings: ClassTiming[] | undefined;
+		if (timingsByModule) {
+			const bare = bareModuleName(node);
+			if (bareNameCounts.get(bare) === 1) {
+				initTimings = timingsByModule.get(bare);
+			}
+		}
 		modules.push({
 			name: node.name,
 			filePath: node.filePath,
@@ -48,6 +75,7 @@ export function serializeModuleGraph(
 			isGlobal: node.isGlobal,
 			line: node.line,
 			dynamicImports: node.dynamicImports,
+			initTimings,
 		});
 	}
 
@@ -80,5 +108,6 @@ export function serializeModuleGraph(
 		circularDepRecommendations,
 		projects: projects ?? [],
 		bootstrapRoots,
+		timingsAvailable: timingsByModule ? true : undefined,
 	};
 }

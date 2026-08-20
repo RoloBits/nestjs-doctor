@@ -50,6 +50,26 @@ Self-contained HTML file with six sections: score summary, source-level diagnost
 
 ![Module Graph](https://nestjs.doctor/module-graph.png)
 
+### Bootstrap timings
+
+The module graph can overlay how long each class took to construct during a real boot — the same data NestJS Devtools reads, kept local. Requires `@nestjs/core` >= 9.3. Add two lines to your `main.ts` (dev only):
+
+```ts
+import { NestFactory, SerializedGraph } from "@nestjs/core";
+import { writeFileSync } from "node:fs";
+
+const app = await NestFactory.create(AppModule, { snapshot: true });
+writeFileSync("nestjs-doctor-timings.json", app.get(SerializedGraph).toString());
+```
+
+Boot the app once, then:
+
+```bash
+npx nestjs-doctor@latest . --report --timings nestjs-doctor-timings.json
+```
+
+Each module node shows its slowest class's construction time, and the detail panel lists every class slowest-first. Times include waiting on a class's own dependencies, so a shared slow dependency counts again in every class that awaits it. Timings are display-only — they never affect the score, diagnostics, or exit codes.
+
 ---
 
 ## VS Code Extension
@@ -215,6 +235,7 @@ Usage: nestjs-doctor [directory] [options]
   --blocking <level>    Severity that fails the run: none, warning, error
   --min-score <n>       Minimum passing score (0-100)
   --report              Generate an interactive HTML report (--graph also works)
+  --timings <path>      SerializedGraph dump to overlay bootstrap init times on the report
   --config <p>          Path to config file
   --list-rules          List every built-in rule and exit
   --init                Set up the /nestjs-doctor skill for AI coding agents

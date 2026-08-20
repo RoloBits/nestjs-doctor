@@ -101,6 +101,141 @@ describe("module-serializer", () => {
 		expect(serialized.bootstrapRoots).toEqual(["@compass/api/AppModule"]);
 	});
 
+	it("attaches bootstrap timings to the matching module and flags availability", () => {
+		const { project, paths } = createProject({
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AppModule {}
+      `,
+			"cats.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class CatsModule {}
+      `,
+		});
+
+		const timings = new Map([
+			["AppModule", [{ name: "AppService", type: "provider", initTime: 42 }]],
+		]);
+		const serialized = serializeModuleGraph(
+			buildModuleGraph(project, paths),
+			emptyResult,
+			undefined,
+			undefined,
+			timings
+		);
+
+		expect(serialized.timingsAvailable).toBe(true);
+		const app = serialized.modules.find((m) => m.name === "AppModule")!;
+		expect(app.initTimings).toEqual([
+			{ name: "AppService", type: "provider", initTime: 42 },
+		]);
+		// A module the boot never touched carries no field, never a zero.
+		const cats = serialized.modules.find((m) => m.name === "CatsModule")!;
+		expect(cats.initTimings).toBeUndefined();
+	});
+
+	it("leaves timingsAvailable unset when no timings are passed", () => {
+		const { project, paths } = createProject({
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AppModule {}
+      `,
+		});
+
+		const serialized = serializeModuleGraph(
+			buildModuleGraph(project, paths),
+			emptyResult
+		);
+
+		expect(serialized.timingsAvailable).toBeUndefined();
+		expect(serialized.modules[0].initTimings).toBeUndefined();
+	});
+
+	it("joins a bare class name onto the one prefixed module in a monorepo", () => {
+		const { project: api, paths: apiPaths } = createProject({
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AppModule {}
+      `,
+		});
+		const { project: shared, paths: sharedPaths } = createProject({
+			"cats.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class CatsModule {}
+      `,
+		});
+
+		const merged = mergeModuleGraphs(
+			new Map([
+				["api", buildModuleGraph(api, apiPaths)],
+				["shared", buildModuleGraph(shared, sharedPaths)],
+			])
+		);
+		const timings = new Map([
+			["CatsModule", [{ name: "CatsService", type: "provider", initTime: 7 }]],
+		]);
+
+		const serialized = serializeModuleGraph(
+			merged,
+			emptyResult,
+			["api", "shared"],
+			undefined,
+			timings
+		);
+
+		const cats = serialized.modules.find(
+			(m) => m.name === "shared/CatsModule"
+		)!;
+		expect(cats.initTimings).toEqual([
+			{ name: "CatsService", type: "provider", initTime: 7 },
+		]);
+	});
+
+	it("attaches nothing when a bare name matches modules in more than one project", () => {
+		const { project: api, paths: apiPaths } = createProject({
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AppModule {}
+      `,
+		});
+		const { project: worker, paths: workerPaths } = createProject({
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AppModule {}
+      `,
+		});
+
+		const merged = mergeModuleGraphs(
+			new Map([
+				["api", buildModuleGraph(api, apiPaths)],
+				["worker", buildModuleGraph(worker, workerPaths)],
+			])
+		);
+		const timings = new Map([
+			["AppModule", [{ name: "AppService", type: "provider", initTime: 5 }]],
+		]);
+
+		const serialized = serializeModuleGraph(
+			merged,
+			emptyResult,
+			["api", "worker"],
+			undefined,
+			timings
+		);
+
+		expect(serialized.timingsAvailable).toBe(true);
+		for (const mod of serialized.modules) {
+			expect(mod.initTimings).toBeUndefined();
+		}
+	});
+
 	it("leaves project and bootstrapRoots unset for a single project", () => {
 		const { project, paths } = createProject({
 			"app.module.ts": `

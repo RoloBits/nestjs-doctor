@@ -112,7 +112,7 @@ The report includes six tabs:
 
 - **Summary** — health score overview with category breakdown
 - **Diagnosis** — source-level findings with code viewer and fix examples
-- **Modules Graph** — clustered module diagram with a searchable project sidebar, a per-module detail panel (used by, blast radius, providers, imports, exports, wiring), direction-colored animated edges on selection, cycle focus, toggles for `@Global()` reach and external modules, and a problems drawer listing module-wiring findings (rules tagged `module-graph`, custom rules included)
+- **Modules Graph** — clustered module diagram with a searchable project sidebar, a per-module detail panel (used by, blast radius, providers, imports, exports, wiring), direction-colored animated edges on selection, cycle focus, toggles for `@Global()` reach and external modules, and a problems drawer listing module-wiring findings (rules tagged `module-graph`, custom rules included). With `--timings`, each node also shows its slowest class's bootstrap construction time and the detail panel lists every class slowest-first
 - **Endpoints** — traced HTTP routes per controller with their dependency chains; controllers and handlers behind project wrapper decorators (a custom decorator composing `@Controller()` or `@Get()`) are resolved and traced
 - **Schema ER Diagram** — entity-relationship visualization of database models
 - **Lab** — custom rule playground to write and test your own rules
@@ -120,6 +120,26 @@ The report includes six tabs:
 Output: `nestjs-doctor-report.html` in the project root, auto-opened in the default browser.
 
 ![Module Graph](/module-graph.png)
+
+### Bootstrap timings (`--timings`)
+
+Overlays real per-class construction times from a captured boot onto the modules graph. NestJS records `initTime` for every provider and controller during dependency injection; `{ snapshot: true }` assembles them into a `SerializedGraph` you can dump locally (requires `@nestjs/core` >= 9.3). Add to `main.ts` (dev only):
+
+```ts
+import { NestFactory, SerializedGraph } from "@nestjs/core";
+import { writeFileSync } from "node:fs";
+
+const app = await NestFactory.create(AppModule, { snapshot: true });
+writeFileSync("nestjs-doctor-timings.json", app.get(SerializedGraph).toString());
+```
+
+Boot the app once, then:
+
+```bash
+npx nestjs-doctor . --report --timings nestjs-doctor-timings.json
+```
+
+Each time includes waiting on that class's own dependencies, so a shared slow dependency counts again in every class that awaits it — module nodes therefore show the slowest single class, never a sum. Timings are display-only: they never affect the score, diagnostics, or exit codes. An unreadable or unrecognized dump degrades to a stderr warning and the report renders without timings. In a monorepo, a timing attaches only when its module class name is unique across projects.
 
 ## Exit Codes
 

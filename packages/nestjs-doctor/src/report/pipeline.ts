@@ -26,6 +26,7 @@ import {
 	toReportProvider,
 } from "./formatters/report-data.js";
 import { buildHtmlReport } from "./html-report.js";
+import type { ClassTiming } from "./timings.js";
 
 type PipelineStep = () => void | Promise<void>;
 
@@ -35,12 +36,18 @@ abstract class ReportPipeline {
 	protected scanConfig!: ScanConfig;
 	protected readonly steps: PipelineStep[] = [];
 	protected readonly targetPath: string;
+	protected readonly timingsByModule: Map<string, ClassTiming[]> | undefined;
 
 	private readonly configPath: string | undefined;
 
-	constructor(targetPath: string, configPath: string | undefined) {
+	constructor(
+		targetPath: string,
+		configPath: string | undefined,
+		timingsByModule?: Map<string, ClassTiming[]>
+	) {
 		this.targetPath = targetPath;
 		this.configPath = configPath;
+		this.timingsByModule = timingsByModule;
 	}
 
 	abstract buildContext(): this;
@@ -124,6 +131,7 @@ export class SingleProjectReportPipeline extends ReportPipeline {
 						module: moduleGraph.providerToModule.get(provider.name)?.name,
 					})
 				),
+				timingsByModule: this.timingsByModule,
 			});
 		});
 		return this;
@@ -144,9 +152,10 @@ export class MonorepoReportPipeline extends ReportPipeline {
 	constructor(
 		targetPath: string,
 		configPath: string | undefined,
-		monorepo: MonorepoInfo
+		monorepo: MonorepoInfo,
+		timingsByModule?: Map<string, ClassTiming[]>
 	) {
-		super(targetPath, configPath);
+		super(targetPath, configPath, timingsByModule);
 		this.monorepo = monorepo;
 	}
 
@@ -230,6 +239,7 @@ export class MonorepoReportPipeline extends ReportPipeline {
 				files: this.allFiles,
 				providers: this.allProviders,
 				bootstrapRoots: this.bootstrapRoots,
+				timingsByModule: this.timingsByModule,
 			});
 		});
 		return this;

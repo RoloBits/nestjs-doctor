@@ -4,6 +4,7 @@ import {
 	prepareReportData,
 	type ReportProvider,
 } from "./formatters/report-data.js";
+import type { ClassTiming } from "./timings.js";
 import {
 	getCodeMirrorImportMap,
 	getCodeMirrorScript,
@@ -25,6 +26,7 @@ export function buildHtmlReport(
 		files?: string[];
 		projects?: string[];
 		providers?: ReportProvider[];
+		timingsByModule?: Map<string, ClassTiming[]>;
 	}
 ): string {
 	const data = prepareReportData(moduleGraph, result, options);

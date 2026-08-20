@@ -34,6 +34,7 @@ Usage: nestjs-doctor [directory] [options]
   --blocking <level>    Severity that fails the run: none, warning, error
   --min-score <n>       Minimum passing score (0-100). Exits with code 1 if below threshold
   --report              Generate an interactive HTML report (--graph also works)
+  --timings <path>      SerializedGraph dump to overlay bootstrap init times on the report
   --config <p>          Path to config file
   --list-rules          List every built-in rule and exit
   --init                Set up the /nestjs-doctor skill for AI coding agents

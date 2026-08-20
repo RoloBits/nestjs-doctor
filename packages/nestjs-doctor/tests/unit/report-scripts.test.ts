@@ -38,4 +38,22 @@ describe("report scripts", () => {
 		expect(scripts).toContain("node.expandedElsewhere");
 		expect(scripts).toContain("Calls drawn at another call site");
 	});
+
+	it("appends the ms segment to a node's sub-label only when it carries timings", () => {
+		expect(scripts).toContain("if (n.initTimings && n.initTimings.length > 0)");
+		expect(scripts).toContain('sub += " \\u00b7 " + mgFormatMs');
+	});
+
+	it("adds a slowest-class line to the tooltip when timings are present", () => {
+		expect(scripts).toContain("slowest\\u00a0class");
+	});
+
+	it("renders the Bootstrap timings section only when the graph has timings", () => {
+		expect(scripts).toContain("if (graph.timingsAvailable)");
+		expect(scripts).toContain('mgSection("Bootstrap timings"');
+	});
+
+	it("shows an explanatory empty state instead of a bare 0ms for an unmatched module", () => {
+		expect(scripts).toContain("No bootstrap timing data");
+	});
 });

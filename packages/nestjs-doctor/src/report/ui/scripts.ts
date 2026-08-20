@@ -428,9 +428,19 @@ function mgEndpointsOf(controllerClass) {
 }
 
 // ── Modules graph: build ──
+function mgFormatMs(ms) {
+  var r = Math.round(ms * 10) / 10;
+  if (r < 1) return "<1ms";
+  if (r < 10) return r.toFixed(1) + "ms";
+  return Math.round(ms) + "ms";
+}
+
 function mgMeasureNode(n) {
   var label = getDisplayName(n);
   var sub = n.providers.length + "p \\u00b7 " + n.controllers.length + "c";
+  if (n.initTimings && n.initTimings.length > 0) {
+    sub += " \\u00b7 " + mgFormatMs(n.initTimings[0].initTime);
+  }
   mgCtx.font = "bold 12px " + MG_FONT;
   var lw = mgCtx.measureText(label).width;
   mgCtx.font = "10px " + MG_FONT;
@@ -459,6 +469,7 @@ function mgBuild() {
       providerTokens: m.providerTokens || [],
       controllers: m.controllers || [],
       dynamicImports: m.dynamicImports || null,
+      initTimings: m.initTimings || null,
       x: 0, y: 0, w: 0, h: MG_NODE_H
     };
     mgMeasureNode(n);
@@ -484,6 +495,7 @@ function mgBuild() {
           external: true,
           imports: [], exports: [], providers: [], providerTokens: [], controllers: [],
           dynamicImports: null,
+          initTimings: null,
           x: 0, y: 0, w: 0, h: MG_NODE_H
         };
         mgMeasureNode(xn);
@@ -970,6 +982,9 @@ function mgShowTooltip(n, sx, sy) {
   bits.push(n.providers.length + "\\u00a0providers");
   bits.push(n.controllers.length + "\\u00a0controllers");
   bits.push(n.imports.length + "\\u00a0imports");
+  if (n.initTimings && n.initTimings.length > 0) {
+    bits.push(mgFormatMs(n.initTimings[0].initTime) + "\\u00a0slowest\\u00a0class");
+  }
   el.innerHTML = '<div class="tt-name">' + mgEsc(getDisplayName(n)) + '</div>' +
     '<div class="tt-table">' + mgEsc(bits.join(" \\u00b7 ")) + '</div>';
   el.style.display = "block";
@@ -1705,6 +1720,21 @@ function mgProvidersHtml(n) {
   return html;
 }
 
+function mgTimingsHtml(n) {
+  if (!n.initTimings || n.initTimings.length === 0) {
+    return '<div class="md-empty">No bootstrap timing data \\u2014 this module was not part of the captured boot, or its name is ambiguous across projects.</div>';
+  }
+  var html = '<div class="md-group">';
+  for (var i = 0; i < n.initTimings.length; i++) {
+    var t = n.initTimings[i];
+    html += '<div class="md-row">' + mgNameHtml(t.name, mgKindOf(t.name)) +
+      '<span class="md-badge md-scope">' + mgEsc(t.type) + '</span>' +
+      '<span class="md-blast-count">' + mgEsc(mgFormatMs(t.initTime)) + '</span>' +
+      '</div>';
+  }
+  return html + '</div>';
+}
+
 function mgExportsHtml(n) {
   var groups = { Services: [], Repositories: [], Others: [] };
   for (var i = 0; i < n.exports.length; i++) {
@@ -1804,6 +1834,10 @@ function mgShowDetail(n) {
     "What a change here can break: every module that imports this one, directly or transitively.") + mgBlastHtml(n);
   html += mgSection("Providers", mgProviderGroups(n).count,
     "What this module registers in its providers array, grouped by kind.") + mgProvidersHtml(n);
+  if (graph.timingsAvailable) {
+    html += mgSection("Bootstrap timings", n.initTimings ? n.initTimings.length : undefined,
+      "Time NestJS spent constructing each class during the captured boot. Each number includes waiting on that class's own dependencies, so a shared slow dependency counts again in every class that awaits it.") + mgTimingsHtml(n);
+  }
   if (n.imports.length > 0) {
     html += mgSection("Imports", n.imports.length,
       "Modules this one depends on; their exports become injectable here.") + '<ul>';
