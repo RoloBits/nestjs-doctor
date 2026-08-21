@@ -55,11 +55,17 @@ lines, and a commit status carrying the score. The full report is also mirrored
 into the run's job summary.
 
 `fetch-depth: 0` matters for the default scope. The action compares against the
-**merge base** of your branch and its target; a shallow checkout cannot resolve
-one, so it falls back to the base branch tip — and if it cannot reach that
-either, to reporting every finding in the changed files. The comment says which
-of those happened, and `silence-missing-baseline-warning` hides the notice if
-you would rather live with the fallback.
+**merge base** of your branch and its target, which a shallow checkout cannot
+resolve. It then degrades in steps:
+
+| Reachable | Compares against |
+|---|---|
+| Merge base | The merge base. What you want |
+| Base branch tip only | The tip |
+| Neither | Nothing, so it reports every finding in the changed files |
+
+The comment says which happened. `silence-missing-baseline-warning` hides the
+notice if you would rather live with the fallback.
 
 ## Inputs
 
@@ -124,10 +130,11 @@ would produce nonsense from a partial view, so `--scope` narrows only what gets
 | `changed` | Findings the change introduced, measured against the base (the action's default) |
 
 `changed` checks the base revision out into a temporary git worktree, scans it
-with the same rules and config, and subtracts what was already there. Findings
-are matched on rule, file, message, and source text — never on line number — so
-an unrelated edit higher up in a file does not make an old finding look new. The
-comment also reports how many findings the change **resolved**.
+with the same rules and config, and subtracts what was already there.
+
+- Findings match on rule, file, message, and source text. Never on line number,
+  so an edit higher up a file does not make an old finding look new.
+- The comment also reports how many findings the change **resolved**.
 
 `lines` reports only findings whose line falls inside a diff hunk. Schema
 findings describe an entity rather than a line, so they never appear at this

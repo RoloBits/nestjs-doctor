@@ -15,7 +15,7 @@ Run it from a project root:
 npx nestjs-doctor@latest .
 ```
 
-To review every pull request, install the CI workflow:
+Install the CI workflow to review every pull request:
 
 ```bash
 npx nestjs-doctor@latest ci install
@@ -23,13 +23,13 @@ npx nestjs-doctor@latest ci install
 
 ## What you get
 
-- **A score.** Weighted by severity and category, normalised by project size, so
+- **Score:** weighted by severity and category, normalised by project size, so
   it means the same thing next month as it does today.
-- **Findings with a file, a line, and a rule id** you can suppress or configure.
-  Schema findings name an entity instead of a line.
-- **A visual report.** Your module graph, traced endpoints, the schema ER
-  diagram, and a boot trace.
-- **A pull request reviewer** that comments only on what the change introduced.
+- **Findings:** each carries a file, a line, and a rule id you can suppress or
+  configure. Schema findings name an entity instead of a line.
+- **Report:** the module graph, traced endpoints, the schema ER diagram, and a
+  boot trace.
+- **Pull request reviewer:** comments only on what the change introduced.
 
 ## No AI at scan time
 
@@ -41,15 +41,6 @@ laptop and in CI, which is what makes it usable as a gate.
 
 ESLint reads a file. nestjs-doctor reads the application: which modules import
 which, which providers are actually injected, which endpoints have a guard,
-which entities the ORM defines. Rules that need that picture cannot be written
-as lint rules, which is why circular module dependencies and unused providers
-show up here and not there.
-
-Run both.
-
-## Next
-
-- [Quickstart](/docs/setup) — scan a project and read the output
-- [The report](/docs/report) — the interactive HTML view
-- [GitHub Actions setup](/docs/ci) — review every pull request
-- [Rules](/docs/rules) — all 50, by category
+which entities the ORM defines. A lint rule cannot see that picture, so it
+cannot check it. Circular module dependencies and unused providers show up here
+and not there.

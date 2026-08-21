@@ -6,16 +6,17 @@ export const metadata = docsMetadata["/docs/coding-agents"];
 
 # Coding agents
 
+Install the agent skill:
+
 ```bash
 npx nestjs-doctor@latest --init
 ```
 
-Installs a skill that teaches your agent to run the scan, read the findings, and
-fix them in the order that matters: security, then correctness, then
-architecture, then performance.
+Installs a skill that teaches your agent to run the scan and read the findings.
+It fixes them in order: security, correctness, architecture, performance.
 
-It detects and installs for Claude Code, Cursor, Codex, OpenCode, Windsurf,
-Amp, Antigravity, and Gemini CLI, by looking for each one's config directory or
+It installs for Claude Code, Cursor, Codex, OpenCode, Windsurf, Amp,
+Antigravity, and Gemini CLI. Detection looks for each one's config directory or
 binary. Windsurf is the exception: it has no skills directory, so the content is
 appended to `~/.codeium/windsurf/memories/global_rules.md`.
 
@@ -29,13 +30,12 @@ The rules are deterministic and the score is a function of the findings, so the
 agent gets the same answer you do. It is a check it can run and re-run, not an
 opinion it has to trust.
 
-Ask it to run the scan after a change and fix what it introduced. The score
-tells it whether the fix worked.
+Ask it to run the scan after a change and fix what it introduced.
 
 ## Writing rules for your own conventions
 
 A second skill, `nestjs-doctor-create-rule`, walks an agent through writing a
 custom rule: choosing the scope, matching the AST, and verifying the rule loads.
-Useful when the convention you want enforced is specific to your codebase.
+Use it when the convention you want enforced is specific to your codebase.
 
 See [Custom rules](/docs/custom-rules) for the interface it writes against.

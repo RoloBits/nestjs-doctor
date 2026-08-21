@@ -50,11 +50,11 @@ else's backlog.
 Gates on the 0–100 project health score. Unset by default; set it to a number
 and the run fails whenever the score falls below it.
 
-The score **always reflects the whole project**, whatever `scope` says. That is
-a deliberate invariant: narrowing a report must never make a codebase look
-healthier than it is. The practical consequence is that `min-score` is a gate on
-the repository's overall health, not on the change — a pull request touching one
-file can fail it because of debt somewhere else entirely.
+The score **always reflects the whole project**, whatever `scope` says.
+Narrowing a report must never make a codebase look healthier than it is.
+
+So `min-score` gates the repository's health, not the change. A pull request
+touching one file can fail it because of debt somewhere else.
 
 So the two gates answer different questions:
 

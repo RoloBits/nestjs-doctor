@@ -71,7 +71,17 @@ Two `@Module()` classes sharing one name are handled by directory:
 
 ### Package Imports
 
-Names imported from a bare package specifier (anything that is not a relative path or a tsconfig path alias) are recorded in `packageImports` with their specifier. In a monorepo merge, such a name binds to a module in another sub-project only when the specifier, or a parent of it, is itself a scanned workspace package that declares the module. `import { SharedModule } from '@myorg/shared'` creates a cross-project edge when `@myorg/shared` is a workspace package in the scan; a module that happens to share its name with an npm export does not.
+Names imported from a bare package specifier, meaning anything that is not a
+relative path or a tsconfig path alias, are recorded in `packageImports` with
+their specifier.
+
+In a monorepo merge, such a name binds to a module in another sub-project only
+when the specifier, or a parent of it, is itself a scanned workspace package
+that declares the module.
+
+- `import { SharedModule } from '@myorg/shared'` creates a cross-project edge
+  when `@myorg/shared` is a workspace package in the scan.
+- A module that happens to share its name with an npm export does not.
 
 ### Import Resolution
 

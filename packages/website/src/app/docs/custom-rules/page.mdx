@@ -155,7 +155,14 @@ You can also suppress them per-file via `ignore.rules`:
 
 ## Using AI to Create Rules
 
-If you have an AI coding agent set up, `/nestjs-doctor-create-rule` can write custom rules for you. Install it with `npx nestjs-doctor --init`, then call `/nestjs-doctor-create-rule` in your agent's chat. It checks whether the detection is doable with static analysis, picks file or project scope, writes the `.ts` file, sets `customRulesDir` in your config, and runs nestjs-doctor to make sure the rule loads.
+Install it with `npx nestjs-doctor --init`, then call
+`/nestjs-doctor-create-rule` in your agent's chat. It:
+
+1. Checks the detection is possible with static analysis.
+2. Picks file or project scope.
+3. Writes the `.ts` file.
+4. Sets `customRulesDir` in your config.
+5. Runs nestjs-doctor to confirm the rule loads.
 
 ## Rule Lab
 

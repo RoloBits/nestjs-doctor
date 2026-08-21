@@ -83,9 +83,25 @@ const config = eval(raw);
 | `nestjs-doctor-ignore-next-line <rules>` | The line below the comment |
 | `nestjs-doctor-ignore-file <rules>` | Every line in the file |
 
-The rule list is space- or comma-separated; omitting it suppresses every rule for that scope. Because every rule id has the form `category/name`, only tokens containing `/` are treated as rules — so a `-- reason` trailer is ignored wherever it sits (its words carry no slash). A directive is only honoured inside a real comment: TypeScript source has its string/template/regex-literal contents blanked (via the AST) before parsing, so a directive that merely appears inside a string cannot suppress a real finding.
+How a directive is parsed:
 
-TypeScript source text is resolved from the in-memory AST project (no extra disk reads); Prisma `.prisma` schema files are not in that project, so they are read from disk on demand. Each file is parsed at most once per pass. Because line-scoped directives key off the diagnostic's `line`, they apply only to code diagnostics — schema diagnostics (which have no line) are suppressed only by `nestjs-doctor-ignore-file`, including a directive placed anywhere in a `schema.prisma` file.
+- The rule list is space- or comma-separated. Omit it to suppress every rule for
+  that scope.
+- Only tokens containing `/` count as rule ids, since every id is
+  `category/name`. A `-- reason` trailer is therefore ignored wherever it sits.
+- Only real comments are honoured. String, template and regex contents are
+  blanked via the AST before parsing, so a directive inside a string cannot
+  suppress anything.
+
+What it reads, and what it can reach:
+
+- TypeScript comes from the in-memory AST project, with no extra disk reads.
+  Prisma `.prisma` files are not in that project, so they are read on demand.
+- Each file is parsed at most once per pass.
+- Line-scoped directives key off the diagnostic's `line`, so they only apply to
+  code diagnostics. Schema diagnostics have no line and can only be suppressed
+  with `nestjs-doctor-ignore-file`, including one placed anywhere in
+  `schema.prisma`.
 
 ### Performance
 

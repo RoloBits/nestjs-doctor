@@ -6,7 +6,7 @@ export const metadata = docsMetadata["/docs/setup"];
 
 # Quickstart
 
-Run this at your project root.
+Run this at your project root:
 
 ```bash
 npx nestjs-doctor@latest .
@@ -20,12 +20,12 @@ downloads the package the first time.
 
 ## Reading the output
 
-The score is weighted by severity and category, then normalised by project size,
-so a small project with three errors scores worse than a large one with three.
+The score is weighted by severity and category, then normalised by project
+size. A small project with three errors scores worse than a large one with three.
 It always covers the whole project, whatever you scope the report to.
 
 Findings are grouped by rule, worst first. Add `--verbose` for the file and line
-behind each one.
+behind each one:
 
 ```bash
 npx nestjs-doctor@latest . --verbose
@@ -33,12 +33,14 @@ npx nestjs-doctor@latest . --verbose
 
 ## Installing it
 
-`npx` is enough for a one-off. Install it to pin one version for everyone, or to
-use the VS Code extension, which loads nestjs-doctor from your workspace.
+Install it to pin one version for everyone:
 
 ```bash
 npm install -D nestjs-doctor
 ```
+
+`npx` is enough for a one-off. The VS Code extension needs the install, because
+it loads nestjs-doctor from your workspace.
 
 ## Exit codes
 

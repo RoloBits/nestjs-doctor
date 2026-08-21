@@ -6,6 +6,8 @@ export const metadata = docsMetadata["/docs/report"];
 
 # The report
 
+Write the interactive HTML report:
+
 ```bash
 npx nestjs-doctor@latest . --report
 ```
@@ -13,7 +15,7 @@ npx nestjs-doctor@latest . --report
 Writes `nestjs-doctor-report.html` to the project root and opens it. One file,
 no server, no build step. Commit it or attach it to a pull request.
 
-It does load three things from a CDN when opened: the graph layout library, the
+It loads three things from a CDN when opened: the graph layout library, the
 code viewer, and the logo. Offline, the module graph falls back to a plain grid
 and the code viewers do not load. Everything else works.
 
@@ -30,13 +32,13 @@ and the code viewers do not load. Everything else works.
 | Schema | The ER diagram extracted from your ORM |
 | Lab | A playground for writing a custom rule against your own code |
 
-Pick a module in the graph and the detail panel lists what it imports, exports,
+Pick a module in the graph. The detail panel lists what it imports, exports,
 provides, and what breaks if you change it.
 
 ## Boot trace
 
 The graph can overlay how long each class took to construct during a real boot.
-NestJS records that itself; `--timings` reads the dump.
+NestJS records the timings itself, and `--timings` reads the dump:
 
 ```bash
 npx nestjs-doctor@latest . --report --timings nestjs-doctor-timings.json

@@ -171,7 +171,16 @@ The rule uses `traceProviderEdges` to walk each module's providers and controlle
 |--------|------|---------|-------------|
 | `ignoreForwardRefCycles` | `boolean` | `false` | Suppress diagnostics for cycles where every edge in the cycle direction is wrapped in `forwardRef()`. |
 
-When enabled, a 2-module cycle in which both modules use `forwardRef(() => Other)` is suppressed. For longer cycles (A → B → C → A), every consecutive edge must be wrapped. Cycles with **any** plain edge — including one-sided `forwardRef()`, which still throws at runtime in NestJS — continue to be flagged. Default behavior is unchanged: cycles are reported as `error` regardless of `forwardRef()`.
+When enabled:
+
+- A 2-module cycle is suppressed when **both** modules use
+  `forwardRef(() => Other)`.
+- A longer cycle (A → B → C → A) needs **every** consecutive edge wrapped.
+- Any plain edge still gets flagged, including a one-sided `forwardRef()`, which
+  throws at runtime in NestJS anyway.
+
+The default is unchanged: cycles are reported as `error` whatever `forwardRef()`
+does.
 
 ```json
 {
