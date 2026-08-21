@@ -3,7 +3,7 @@
 import { ChevronRight, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { NavSection } from "@/lib/docs-navigation";
 import { DOCS_NAV } from "@/lib/docs-navigation";
 
@@ -15,13 +15,21 @@ const SidebarSection = ({
 	pathname: string;
 }) => {
 	const isActive = section.items.some((item) => item.href === pathname);
-	const [isOpen, setIsOpen] = useState(isActive);
+	const [override, setOverride] = useState<boolean | null>(null);
+	const isOpen = override ?? isActive;
+
+	// The layout stays mounted across docs routes, so a manual toggle has to be
+	// dropped on navigation or the new page's group never opens.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: pathname is the trigger
+	useEffect(() => {
+		setOverride(null);
+	}, [pathname]);
 
 	return (
 		<div className="mb-2">
 			<button
 				className="flex w-full items-center gap-1 py-1.5 font-medium text-neutral-400 text-sm hover:text-white"
-				onClick={() => setIsOpen((prev) => !prev)}
+				onClick={() => setOverride(!isOpen)}
 				type="button"
 			>
 				<ChevronRight

@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface Heading {
 	depth: number;
@@ -14,22 +14,34 @@ const HEADING_SELECTOR = ".docs-content h2[id], .docs-content h3[id]";
 const ACTIVE_OFFSET = 120;
 const BOTTOM_SLACK = 2;
 
+/** The hover anchor lives inside the heading, so it has to be left out. */
+const headingText = (node: HTMLElement) =>
+	[...node.childNodes]
+		.filter(
+			(child) => (child as HTMLElement).dataset?.headingAnchor === undefined
+		)
+		.map((child) => child.textContent ?? "")
+		.join("")
+		.trim();
+
 export const Toc = () => {
 	const pathname = usePathname();
 	const [headings, setHeadings] = useState<Heading[]>([]);
 	const [activeId, setActiveId] = useState<string>("");
+	const [marker, setMarker] = useState({ height: 0, top: 0 });
+	const listRef = useRef<HTMLUListElement>(null);
 
 	// The layout stays mounted across docs routes, so the path is the signal to
 	// re-read the headings even though the effect body never uses it.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: pathname is the trigger
 	useEffect(() => {
 		const found = [...document.querySelectorAll<HTMLElement>(HEADING_SELECTOR)]
-			.filter((node) => node.textContent)
 			.map((node) => ({
 				depth: node.tagName === "H2" ? 2 : 3,
 				id: node.id,
-				text: node.textContent ?? "",
-			}));
+				text: headingText(node),
+			}))
+			.filter((heading) => heading.text);
 		setHeadings(found);
 
 		if (found.length === 0) {
@@ -80,6 +92,19 @@ export const Toc = () => {
 		};
 	}, [pathname]);
 
+	useEffect(() => {
+		const list = listRef.current;
+		if (!(list && activeId)) {
+			return;
+		}
+		const row = list.querySelector<HTMLElement>(
+			`[data-toc-id="${CSS.escape(activeId)}"]`
+		);
+		if (row) {
+			setMarker({ height: row.offsetHeight, top: row.offsetTop });
+		}
+	}, [activeId]);
+
 	const handleClick = useCallback((id: string) => {
 		setActiveId(id);
 	}, []);
@@ -99,24 +124,40 @@ export const Toc = () => {
 			>
 				On this page
 			</p>
-			<ul className="border-white/10 border-l">
-				{headings.map((heading) => (
-					<li key={heading.id}>
-						<a
-							aria-current={activeId === heading.id ? "true" : undefined}
-							className={`block py-1 text-sm transition-colors ${heading.depth === 3 ? "pl-6" : "pl-3"} ${
-								activeId === heading.id
-									? "-ml-px border-nest-red border-l text-white"
-									: "text-neutral-400 hover:text-neutral-200"
-							}`}
-							href={`#${heading.id}`}
-							onClick={() => handleClick(heading.id)}
-						>
-							{heading.text}
-						</a>
-					</li>
-				))}
-			</ul>
+			<div className="relative">
+				<span
+					aria-hidden="true"
+					className="absolute left-0 w-px bg-white/10"
+					style={{ height: "100%" }}
+				/>
+				<span
+					aria-hidden="true"
+					className="absolute left-0 w-px bg-nest-red transition-[transform,height] duration-200 ease-out motion-reduce:transition-none"
+					style={{
+						height: `${marker.height}px`,
+						transform: `translateY(${marker.top}px)`,
+					}}
+				/>
+				<ul ref={listRef}>
+					{headings.map((heading) => (
+						<li key={heading.id}>
+							<a
+								aria-current={activeId === heading.id ? "true" : undefined}
+								className={`block py-1.5 text-sm no-underline transition-colors ${heading.depth === 3 ? "pl-7" : "pl-4"} ${
+									activeId === heading.id
+										? "text-white"
+										: "text-neutral-400 hover:text-neutral-200"
+								}`}
+								data-toc-id={heading.id}
+								href={`#${heading.id}`}
+								onClick={() => handleClick(heading.id)}
+							>
+								{heading.text}
+							</a>
+						</li>
+					))}
+				</ul>
+			</div>
 		</nav>
 	);
 };
