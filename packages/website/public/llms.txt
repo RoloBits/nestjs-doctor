@@ -71,6 +71,31 @@ npx nestjs-doctor . --staged --blocking error   # pre-commit hook
 The score always reflects the whole project, whatever the scope. `--min-score`
 gates on that score; `--blocking` gates on the reported findings.
 
+## Boot trace
+
+`--timings` overlays real per-class construction times on the report's module graph. A scan never runs the app, so the numbers come from a NestJS boot: add this to `main.ts` (development only), boot once, then scan. Needs `@nestjs/core` 9.3.9+ for class times, and Nest 11.1.4+ for the `instrument` option that also times `onModuleInit` and `onApplicationBootstrap`.
+
+```typescript
+const t0 = performance.now();
+const app = await NestFactory.create(AppModule, { snapshot: true });
+const createMs = performance.now() - t0;
+await app.init();
+const initMs = performance.now() - t0;
+await app.listen(3000);
+const startupMs = performance.now() - t0;
+const graph = JSON.parse(app.get(SerializedGraph).toString());
+Object.assign(graph, { createMs, initMs, startupMs });
+writeFileSync("nestjs-doctor-timings.json", JSON.stringify(graph));
+```
+
+```bash
+npx nestjs-doctor . --report --timings nestjs-doctor-timings.json
+```
+
+Each class's time includes waiting on its own dependencies, so a shared slow dependency counts again in every class that awaits it. Module nodes show the slowest single class, never a sum. Timings are display-only and never affect the score, the diagnostics, or the exit code. An unusable dump degrades to a stderr warning.
+
+Docs: https://www.nestjs.doctor/docs/report/boot-trace
+
 ## GitHub Action
 
 Scaffold the workflow with `npx nestjs-doctor@latest ci install`, which writes

@@ -56,9 +56,9 @@ rule playground get their own tabs.
 
 ![Module Graph](https://nestjs.doctor/module-graph.png)
 
-Pass `--timings` a graph dump from a real `nest start` and the module graph
-gains a boot trace. The 800ms hiding in an `onModuleInit` becomes a bar.
-[Report docs →](https://nestjs.doctor/docs/pipeline/output)
+Add a few lines to `main.ts`, boot once, and `--timings` overlays the real
+construction times on the module graph. The 800ms hiding in an `onModuleInit`
+becomes a bar. [Boot trace docs →](https://nestjs.doctor/docs/report/boot-trace)
 
 ### 3. Run in CI
 
