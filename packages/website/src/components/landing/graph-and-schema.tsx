@@ -21,7 +21,7 @@ const EDGES = [
 
 const TONE = {
 	cycle: "border-nest-red text-nest-red",
-	plain: "border-white/30 text-white/[0.88]",
+	plain: "border-white/30 text-white/[0.92]",
 	root: "border-white bg-white text-black",
 } as const;
 
@@ -65,17 +65,17 @@ const ModuleGraph = () => (
 					{node.name}
 				</span>
 			))}
-			<span className="absolute bottom-2 left-3 flex items-center gap-2 text-[11px] text-white/55">
+			<span className="absolute bottom-2 left-3 flex items-center gap-2 text-[11px] text-white/70">
 				<span className="inline-block h-2 w-2 bg-nest-red" />
 				blast radius of PrismaModule · 2 dependents
 			</span>
 		</div>
 		<div className="border-white/30 border-t">
 			<div className="flex justify-between border-white/15 border-b px-4 py-2">
-				<span className="font-bold text-[11px] text-white/55 uppercase tracking-[0.08em]">
+				<span className="font-bold text-[11px] text-white/75 uppercase tracking-[0.08em]">
 					Fig. 04a — Boot trace
 				</span>
-				<span className="text-[11px] text-white/55">
+				<span className="text-[11px] text-white/70">
 					nest start · ready in 1.94s
 				</span>
 			</div>
@@ -86,7 +86,7 @@ const ModuleGraph = () => (
 				>
 					<span className="text-[11px] leading-tight">
 						{entry.name}
-						<span className="block text-white/55">{entry.hook}</span>
+						<span className="block text-white/70">{entry.hook}</span>
 					</span>
 					<span className="h-1.5 bg-white/10">
 						<span
@@ -94,7 +94,7 @@ const ModuleGraph = () => (
 							style={{ width: `${entry.width}%` }}
 						/>
 					</span>
-					<span className="text-right text-[11px] text-white/[0.88]">
+					<span className="text-right text-[11px] text-white/[0.92]">
 						{entry.ms}ms
 					</span>
 				</div>
@@ -160,7 +160,7 @@ const SchemaDiagram = () => (
 					<div className="px-2.5 py-1.5 text-[11px] leading-relaxed">
 						{entity.fields.map(([field, type]) => (
 							<div key={field}>
-								{field} <span className="text-white/55">{type}</span>
+								{field} <span className="text-white/70">{type}</span>
 							</div>
 						))}
 					</div>
@@ -171,8 +171,8 @@ const SchemaDiagram = () => (
 			<span className="bg-nest-red px-2 py-px font-bold text-white uppercase tracking-[0.06em]">
 				Error
 			</span>
-			<span className="text-white/55">schema/require-primary-key</span>
-			<span className="text-white/[0.88]">
+			<span className="text-white/70">schema/require-primary-key</span>
+			<span className="text-white/[0.92]">
 				Entity 'Payment' has no primary key
 			</span>
 		</div>

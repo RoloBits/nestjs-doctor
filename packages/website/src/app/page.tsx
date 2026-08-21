@@ -58,11 +58,11 @@ const Home = () => (
 			</section>
 
 			<footer className="border-white/30 border-t py-5 pb-10">
-				<div className="flex flex-wrap justify-between gap-3 font-bold text-[11px] text-white/55 uppercase tracking-[0.1em]">
+				<div className="flex flex-wrap justify-between gap-3 font-bold text-[11px] text-white/75 uppercase tracking-[0.1em]">
 					<span>
 						NDX-001 · nestjs-doctor · MIT · will look the same next year
 					</span>
-					<span className="font-extralight normal-case tracking-[0.06em]">
+					<span className="normal-case tracking-[0.06em]">
 						no telemetry · no network calls at scan time · RoloBits
 					</span>
 				</div>

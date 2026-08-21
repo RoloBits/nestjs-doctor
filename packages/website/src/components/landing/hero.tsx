@@ -25,11 +25,11 @@ const CopyCommand = () => {
 
 	return (
 		<div className="inline-flex max-w-full items-stretch border border-white/30">
-			<span className="flex items-center border-white/30 border-r px-3.5 font-bold text-[11px] text-white/55 tracking-[0.08em]">
+			<span className="flex items-center border-white/30 border-r px-3.5 font-bold text-[11px] text-white/70 tracking-[0.08em]">
 				Rx
 			</span>
 			<code className="overflow-x-auto whitespace-nowrap px-4 py-3 text-[#f2f1ef]">
-				<span className="text-white/55">$ </span>
+				<span className="text-white/70">$ </span>
 				{COMMAND}
 			</code>
 			<button
@@ -86,7 +86,7 @@ export const Hero = () => (
 				The deterministic, visual devtool for NestJS that{" "}
 				<span className="font-bold text-nest-red">catches AI mistakes.</span>
 			</h1>
-			<p className="mb-5 max-w-[66ch] text-[13px] text-white/[0.88] leading-relaxed">
+			<p className="mb-5 max-w-[66ch] text-[13px] text-white/[0.92] leading-relaxed">
 				An opinionated rule set for an opinionated framework, a reviewer for
 				your PRs. Maps your modules, database, and boot in a visual report.
 				Extends with rules you write yourself.
@@ -94,7 +94,7 @@ export const Hero = () => (
 
 			<CopyCommand />
 
-			<p className="mt-5 inline-block border-white/15 border-t border-b py-2 font-bold text-[11px] text-white/[0.88] uppercase tracking-[0.08em]">
+			<p className="mt-5 inline-block border-white/15 border-t border-b py-2 font-bold text-[11px] text-white/[0.92] uppercase tracking-[0.08em]">
 				0 network calls · 0 AI calls · same output every run
 			</p>
 		</div>
@@ -105,7 +105,7 @@ export const Hero = () => (
 			meta="$ npx -y nestjs-doctor@latest ."
 		>
 			<Recording />
-			<div className="border-white/30 border-t px-4 py-2 font-bold text-[11px] text-white/55 uppercase tracking-[0.08em]">
+			<div className="border-white/30 border-t px-4 py-2 font-bold text-[11px] text-white/75 uppercase tracking-[0.08em]">
 				Recording · real scan, real findings · loops
 			</div>
 		</Figure>
@@ -127,7 +127,7 @@ export const Nav = () => (
 				{ href: "https://github.com/RoloBits/nestjs-doctor", label: "github" },
 			].map((link) => (
 				<a
-					className="inline-flex items-center border border-white/30 px-4 py-1.5 font-bold text-[11px] text-white/70 uppercase tracking-[0.08em] no-underline transition-colors hover:border-white hover:bg-white hover:text-black"
+					className="inline-flex items-center border border-white/30 px-4 py-1.5 font-bold text-[11px] text-white/75 uppercase tracking-[0.08em] no-underline transition-colors hover:border-white hover:bg-white hover:text-black"
 					href={link.href}
 					key={link.href}
 				>
