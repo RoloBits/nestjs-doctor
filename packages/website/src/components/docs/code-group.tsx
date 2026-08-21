@@ -29,7 +29,7 @@ export const CodeGroup = ({
 					</button>
 				))}
 			</div>
-			<div className="[&>pre]:mb-0 [&>pre]:rounded-none [&>pre]:border-0">
+			<div className="[&>div]:m-0 [&>div]:rounded-none [&>div]:border-0">
 				{children[active]}
 			</div>
 		</div>
