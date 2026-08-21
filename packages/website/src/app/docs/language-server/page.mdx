@@ -1,0 +1,95 @@
+import { BreadcrumbJsonLd } from "@/components/json-ld";
+import { docsMetadata } from "@/lib/docs-metadata";
+export const metadata = docsMetadata["/docs/language-server"];
+
+<BreadcrumbJsonLd path="/docs/language-server" />
+
+# Language server
+
+The rules ship as a standalone language server, `nestjs-doctor-lsp` on npm. Any
+editor with an LSP client runs them, Neovim and Helix and Emacs among them. The
+[VS Code extension](/docs/vscode-extension) is one such client, wrapping this
+same server.
+
+## Install
+
+The server loads the analysis engine from the project you open, so add it there:
+
+```bash
+npm install -D nestjs-doctor
+```
+
+The server itself needs no install. `npx` fetches it from npm on first run.
+
+## Start it
+
+Every client spawns the same binary over stdio:
+
+```bash
+npx nestjs-doctor-lsp --stdio
+```
+
+It answers `initialize` with `textDocumentSync: 1` and no other capability.
+There is no hover, no code action, and no formatting. It publishes diagnostics
+and nothing else.
+
+Each diagnostic carries `nestjs-doctor` as its source and the rule id as its
+code. A schema finding has no line, so it lands on line 1 of the file that
+declares the entity.
+
+## Client configuration
+
+Neovim 0.11 or newer reads this from `init.lua`:
+
+```lua
+vim.lsp.config("nestjs_doctor", {
+	cmd = { "npx", "nestjs-doctor-lsp", "--stdio" },
+	filetypes = { "typescript" },
+	root_markers = { "package.json" },
+})
+
+vim.lsp.enable("nestjs_doctor")
+```
+
+`root_markers` decides which directory the client sends as `rootUri`, and that
+directory is the one the server scans. A client that sends neither `rootUri`
+nor the deprecated `rootPath` has nothing to scan and fails on the first
+attempt.
+
+## When it scans
+
+| Trigger | What runs |
+|---|---|
+| The client sends `initialized` | A full scan |
+| A `.ts` file is saved | The saved file, then the project rules |
+| The client sends a `nestjs-doctor/scan` request | A full scan |
+
+Editing without saving publishes nothing, because the server handles `didSave`
+and not `didChange`. Saves are debounced, and a save of anything other than a
+`.ts` file is ignored.
+
+## Settings
+
+While starting, the server asks the client for the `nestjsDoctor` configuration
+section. The four settings are the ones the
+[VS Code extension](/docs/vscode-extension#configuration) exposes, with the same
+defaults. Send them the way your client sends configuration, which in Neovim is
+the `settings` table on the server config.
+
+A client that never answers the `workspace/configuration` request leaves the
+server waiting, and no scan runs. Answering with `null` is fine and the defaults
+apply.
+
+## Troubleshooting
+
+When `nestjs-doctor` is missing from the project you opened, the server sends
+this warning and stops:
+
+```text
+nestjs-doctor is not installed in this workspace. Run: npm install nestjs-doctor
+```
+
+A client that does not display server messages shows nothing at all, so check
+the install first when no diagnostics appear. Rule configuration comes from the
+project's `nestjs-doctor.config.json`, the same file the CLI reads. See
+[Configuration](/docs/configuration).

@@ -19,13 +19,13 @@ npm install -D nestjs-doctor
 ## CLI Options
 
 ```
-Usage: nestjs-doctor [directory] [options]
+Usage: nestjs-doctor [OPTIONS] [PATH]
 
 Commands:
   ci install            Scaffold .github/workflows/nestjs-doctor.yml
 
 Options:
-  --verbose             Show file paths, line numbers, and source context per diagnostic
+  --verbose             Show file paths and line numbers per diagnostic
   --score               Output only the numeric score (for CI)
   --json                JSON output (for tooling)
   --format <f>          console (default), json, sarif, gitlab, markdown, github
@@ -42,15 +42,20 @@ Options:
   --config <p>          Path to config file
   --force               Overwrite an existing file (with ci install)
   --list-rules          List every built-in rule and exit
-  --init                Set up the /nestjs-doctor skill for AI coding agents
+  --init                Set up the nestjs-doctor skills for AI coding agents
+  --version             Print the version and exit
   -h, --help            Show help
 ```
+
+The `--blocking` default depends on the output mode: `error` for the console
+report and `--format github`, `none` for `--score` and for the json, sarif,
+gitlab, and markdown formats.
 
 Exit codes: 0 = pass, 1 = a gate failed (min-score or blocking), 2 = bad input.
 
 ## Scoping to a change
 
-The whole project is always analysed — cross-file rules need it — so `--scope`
+The whole project is always analyzed, because cross-file rules need it. `--scope`
 only narrows what gets reported.
 
 - `full` — every finding in the project (the default)
@@ -81,9 +86,10 @@ Scaffold the workflow with `npx nestjs-doctor@latest ci install`, which writes
 Reports only what the pull request introduced, posts a sticky summary comment,
 inline review comments on the changed lines, and a commit status. Inputs:
 `directory`, `scope`, `blocking`, `min-score`, `config`, `comment`,
-`review-comments`, `commit-status`, `sarif`, `sarif-file`, `node-version`,
-`version`. Outputs: `score`, `label`, `total-issues`, `fixed-issues`,
-`error-count`, `warning-count`, `affected-files`, `report-file`, `sarif-file`.
+`review-comments`, `commit-status`, `sarif`, `sarif-file`,
+`silence-missing-baseline-warning`, `github-token`, `node-version`, `version`.
+Outputs: `score`, `label`, `total-issues`, `fixed-issues`, `error-count`,
+`warning-count`, `affected-files`, `report-file`, `sarif-file`.
 
 ## Configuration
 
@@ -105,16 +111,19 @@ Optional. Create `nestjs-doctor.config.json` in your project root:
 }
 ```
 
-Also works as a `"nestjs-doctor"` key in `package.json`.
+Also read from `.nestjs-doctor.json`, or a `"nestjs-doctor"` key in
+`package.json`. The first one found is used whole, and `--config` overrides all
+three.
 
 Options:
 - `include` (string[]) — Glob patterns to scan. Default: `["**/*.ts"]`
-- `exclude` (string[]) — Glob patterns to skip. Default includes node_modules, dist, build, coverage, test files, mocks, seeders
+- `exclude` (string[]) — Glob patterns to skip, appended to the defaults (node_modules, dist, build, coverage, test files, mocks, seeders)
 - `minScore` (number) — Minimum passing score (0-100)
 - `ignore.rules` (string[]) — Rule IDs to suppress
 - `ignore.files` (string[]) — Glob patterns for files whose diagnostics are hidden
-- `rules` (Record<string, boolean>) — Enable/disable individual rules
-- `categories` (Record<string, boolean>) — Enable/disable entire categories (security, correctness, architecture, performance)
+- `rules` (Record<string, boolean | RuleOverride>) — Disable a rule with `false` or `{ "enabled": false }`; the object form also carries rule options under `excludeClasses` or `options`
+- `categories` (Record<string, boolean>) — Enable/disable entire categories (security, correctness, architecture, performance, schema)
+- `customRulesDir` (string) — Directory of custom `.ts` rule files
 
 ## Monorepo Support
 
@@ -125,7 +134,7 @@ Auto-detected using five strategies (first match wins): `nest-cli.json` monorepo
 Weighted by severity and category, normalized by file count.
 
 Severity weights: error = 3.0, warning = 1.5, info = 0.5
-Category multipliers: security = 1.5x, correctness = 1.3x, architecture = 1.0x, performance = 0.8x
+Category multipliers: security = 1.5x, correctness = 1.3x, schema = 1.1x, architecture = 1.0x, performance = 0.8x
 
 Score labels: 90-100 = Excellent, 75-89 = Good, 50-74 = Fair, 25-49 = Poor, 0-24 = Critical
 
@@ -145,19 +154,36 @@ mono.subProjects;   // [{ name: "api", result }, ...]
 mono.combined;      // Merged DiagnoseResult
 ```
 
+Both take an optional second argument, `{ config }`, with a path to a config file.
+
 ## AI Coding Agents
 
-Run `--init` to auto-detect installed agents and install the nestjs-doctor skill:
+Run `--init` to auto-detect installed agents and install two skills, one for
+running the scan and one for writing a custom rule:
 
 ```bash
 npx nestjs-doctor --init
 ```
 
-Supported agents: Claude Code, Amp Code, Cursor, OpenCode, Windsurf, Antigravity, Gemini CLI, Codex. A project-level fallback is always written to `.agents/nestjs-doctor/`.
+Supported agents: Claude Code, Amp Code, Cursor, OpenCode, Windsurf, Antigravity, Gemini CLI, Codex. A project-level fallback is always written to `.agents/nestjs-doctor/` and `.agents/nestjs-doctor-create-rule/`.
 
-## Rules (40)
+## Editors
 
-### Security (9)
+VS Code: install the NestJS Doctor extension from the Marketplace, and add `nestjs-doctor` as a devDependency of the project.
+
+Any other editor: the language server is published separately and speaks LSP over stdio.
+
+```bash
+npx nestjs-doctor-lsp --stdio
+```
+
+The client has to send a workspace root (`rootUri`, or `rootPath`), and `nestjs-doctor` has to be a dependency of the project it points at. The server loads the engine from there.
+
+Docs: https://www.nestjs.doctor/docs/language-server
+
+## Rules (50)
+
+### Security (10)
 
 - `no-hardcoded-secrets` (error) — API keys, tokens, passwords in source code
 - `no-eval` (error) — eval() or new Function() usage
@@ -168,8 +194,9 @@ Supported agents: Claude Code, Amp Code, Cursor, OpenCode, Windsurf, Antigravity
 - `no-exposed-env-vars` (warning) — Direct process.env in Injectable/Controller
 - `no-exposed-stack-trace` (warning) — error.stack exposed in responses
 - `no-raw-entity-in-response` (warning) — Returning ORM entities directly from controllers
+- `require-guards-on-endpoints` (warning) — Endpoints without @UseGuards() at class or method level
 
-### Correctness (14)
+### Correctness (20)
 
 - `no-missing-injectable` (error) — Provider with constructor deps missing @Injectable()
 - `no-duplicate-routes` (error) — Same method + path + version twice in a controller
@@ -178,6 +205,8 @@ Supported agents: Claude Code, Amp Code, Cursor, OpenCode, Windsurf, Antigravity
 - `no-missing-filter-catch` (error) — @Catch() class missing catch()
 - `no-missing-interceptor-method` (error) — Interceptor class missing intercept()
 - `require-inject-decorator` (error) — Untyped constructor param without @Inject()
+- `param-decorator-matches-route` (error) — @Param() name with no matching :param in the route path
+- `factory-inject-matches-params` (error) — useFactory inject array length differs from the factory parameter count
 - `prefer-readonly-injection` (warning) — Constructor DI params missing readonly
 - `require-lifecycle-interface` (warning) — Lifecycle method without corresponding interface
 - `no-empty-handlers` (info) — HTTP handler with empty body
@@ -185,6 +214,10 @@ Supported agents: Claude Code, Amp Code, Cursor, OpenCode, Windsurf, Antigravity
 - `no-duplicate-module-metadata` (warning) — Duplicate entries in @Module() arrays
 - `no-missing-module-decorator` (warning) — Class named *Module without @Module()
 - `no-fire-and-forget-async` (warning) — Async call without await in non-handler methods
+- `no-duplicate-decorators` (warning) — Same decorator twice on a single target
+- `validated-non-primitive-needs-type` (warning) — Non-primitive DTO property with class-validator decorators missing @Type()
+- `validate-nested-array-each` (warning) — @ValidateNested() on an array property without { each: true }
+- `injectable-must-be-provided` (info) — @Injectable() class not registered in any module's providers
 
 ### Architecture (10)
 
@@ -208,6 +241,14 @@ Supported agents: Claude Code, Amp Code, Cursor, OpenCode, Windsurf, Antigravity
 - `no-request-scope-abuse` (warning) — Scope.REQUEST creates new instance per request
 - `no-unused-module-exports` (info) — Module exports unused by importers
 - `no-orphan-modules` (info) — Module never imported by any other module
+
+### Schema (3)
+
+- `require-primary-key` (error) — Entity with no primary key column
+- `require-timestamps` (warning) — Entity missing createdAt/updatedAt columns
+- `require-cascade-rule` (info) — Relation with no explicit onDelete behavior
+
+Schema rules run against entities extracted from Prisma, TypeORM, Drizzle, or MikroORM. They report against an entity, so their findings carry no line number.
 
 ## Links
 

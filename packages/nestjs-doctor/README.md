@@ -134,7 +134,7 @@ constructor(private readonly prisma: PrismaService) {}
 ## Editors and tooling
 
 - **VS Code:** [NestJS Doctor](https://marketplace.visualstudio.com/items?itemName=rolobits.nestjs-doctor-vscode) surfaces the same rules as you type. [Docs →](https://nestjs.doctor/docs/vscode-extension)
-- **Any other editor:** `npx nestjs-doctor-lsp --stdio` speaks LSP, so Neovim, Helix, Zed, and Emacs get the same rules. [Docs →](https://nestjs.doctor/docs/vscode-extension#any-other-editor)
+- **Any other editor:** `npx nestjs-doctor-lsp --stdio` speaks LSP, so Neovim, Helix, and Emacs get the same rules. [Docs →](https://nestjs.doctor/docs/language-server)
 - **Other CI:** GitLab Code Quality, SARIF for any code-scanning backend, or a markdown body to post yourself. [Docs →](https://nestjs.doctor/docs/ci)
 - **Node API:** `diagnose()` plus an incremental API for editors and long-running processes. [Docs →](https://nestjs.doctor/docs/reference/node-api)
 - **Monorepos:** detected from `nest-cli.json`, pnpm workspaces, `package.json` workspaces, Nx, or Lerna. [Docs →](https://nestjs.doctor/docs/pipeline/project-detection)

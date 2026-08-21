@@ -39,7 +39,7 @@ export const docsMetadata: Record<string, Metadata> = {
 	"/docs/reference/node-api": {
 		title: "Node API",
 		description:
-			"Call nestjs-doctor from Node: scanProject, the incremental scanning API for editors, and the AnalysisContext it exposes to rules.",
+			"Call nestjs-doctor from Node: diagnose, the incremental scanning API for editors, and the AnalysisContext it exposes to rules.",
 	},
 	"/docs/configuration": {
 		title: "Configuration",
@@ -60,6 +60,11 @@ export const docsMetadata: Record<string, Metadata> = {
 		title: "VS Code extension",
 		description:
 			"Run the same 50 rules as the CLI inline in your editor, with diagnostics in the Problems panel.",
+	},
+	"/docs/language-server": {
+		title: "Language server",
+		description:
+			"Run the same rules as the CLI in any editor that speaks LSP: Neovim, Helix, Emacs, or any other client. Start nestjs-doctor-lsp over stdio and get diagnostics on save.",
 	},
 	"/docs/pipeline": {
 		title: "Pipeline overview",
