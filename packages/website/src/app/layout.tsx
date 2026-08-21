@@ -38,7 +38,10 @@ export const metadata: Metadata = {
 		card: "summary_large_image",
 		images: [TWITTER_IMAGE_PATH],
 	},
-	icons: { icon: "/favicon.svg" },
+	icons: {
+		icon: [{ url: "/favicon.png", type: "image/png" }],
+		apple: "/logo.png",
+	},
 };
 
 export default function RootLayout({

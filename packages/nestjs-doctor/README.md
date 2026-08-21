@@ -18,8 +18,9 @@
   <a href="https://marketplace.visualstudio.com/items?itemName=rolobits.nestjs-doctor-vscode"><img src="https://img.shields.io/visual-studio-marketplace/v/rolobits.nestjs-doctor-vscode?style=flat&colorA=18181b&colorB=18181b&label=vscode" alt="vscode"></a>
 </p>
 
-nestjs-doctor scans your codebase and reports findings across security,
-correctness, architecture, performance, and schema, then scores it 0-100.
+An opinionated rule set for an opinionated framework. nestjs-doctor scans your
+codebase and reports findings across security, correctness, architecture,
+performance, and schema, then scores it 0-100.
 
 No AI at scan time and no network calls. The same commit scores the same on your
 laptop and in CI. Reads schemas from Prisma, TypeORM, Drizzle and MikroORM, and
