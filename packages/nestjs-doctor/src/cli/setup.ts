@@ -139,13 +139,14 @@ export class CliSetup {
 	/** `nestjs-doctor ci install` scaffolds the workflow and exits. */
 	handleCiInstall(): this {
 		this.steps.push(async () => {
-			const [group, verb] = this.args._ ?? [];
-			if (group !== "ci" || verb === undefined) {
+			const [group, verb, ...rest] = this.args._ ?? [];
+			if (group !== "ci" || !verb) {
 				return true;
 			}
-			if (verb !== "install") {
+			if (verb !== "install" || rest.length > 0) {
+				const given = [verb, ...rest].join(" ");
 				failWith(
-					`Unknown command: "ci ${verb}". Try: nestjs-doctor ci install`
+					`Unknown command: "ci ${given}". Try: nestjs-doctor ci install`
 				);
 			}
 			const { runCiInstall } = await import("./ci-install.js");

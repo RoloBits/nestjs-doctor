@@ -17,7 +17,7 @@ const main = defineCommand({
 		name: "nestjs-doctor",
 		version,
 		description:
-			"Static analysis tool for NestJS — health score, diagnostics, and interactive HTML report",
+			"Static analysis tool for NestJS — health score, diagnostics, and interactive HTML report.\nCommands: ci install (scaffold .github/workflows/nestjs-doctor.yml)",
 	},
 	args: {
 		path: {

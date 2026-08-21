@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { lstatSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { findGitRepo, runGit } from "../engine/git.js";
@@ -7,30 +7,53 @@ import { logger } from "./ui/logger.js";
 const ORIGIN_HEAD_RE = /^origin\/(.+)$/;
 const WORKFLOW_FILE = join(".github", "workflows", "nestjs-doctor.yml");
 
+type InstallStatus = "created" | "exists" | "failed" | "no-repo" | "symlink";
+
 interface CiInstallResult {
-	status: "created" | "exists" | "failed";
+	branch?: string;
+	reason?: string;
+	status: InstallStatus;
 	workflowPath: string;
 }
 
-/** Branch the repository's `origin` points at, or `main` when git can't say. */
+const refExists = (root: string, ref: string): boolean =>
+	runGit(root, ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`]) !==
+	null;
+
+const shortRef = (root: string, ref: string): string | undefined =>
+	runGit(root, ["symbolic-ref", "--quiet", "--short", ref])?.trim() ||
+	undefined;
+
+/** Branch the workflow's push trigger is keyed to. Every candidate is verified. */
 export const resolveDefaultBranch = (root: string): string => {
-	const head = runGit(root, [
-		"symbolic-ref",
-		"--short",
-		"refs/remotes/origin/HEAD",
-	]);
-	const match = head?.trim().match(ORIGIN_HEAD_RE);
-	if (match) {
-		return match[1];
+	const named = shortRef(root, "refs/remotes/origin/HEAD")?.match(
+		ORIGIN_HEAD_RE
+	)?.[1];
+	if (named && refExists(root, `origin/${named}`)) {
+		return named;
 	}
 	for (const branch of ["main", "master"]) {
-		if (
-			runGit(root, ["rev-parse", "--verify", "--quiet", `origin/${branch}`])
-		) {
+		if (refExists(root, `origin/${branch}`)) {
 			return branch;
 		}
 	}
-	return "main";
+	return shortRef(root, "HEAD") ?? "main";
+};
+
+/** Path of the first symlink on the way to the workflow, or null when there is none. */
+const findSymlink = (root: string): string | null => {
+	const segments = [".github", join(".github", "workflows"), WORKFLOW_FILE];
+	for (const segment of segments) {
+		const candidate = join(root, segment);
+		try {
+			if (lstatSync(candidate).isSymbolicLink()) {
+				return candidate;
+			}
+		} catch {
+			// Missing segments are created below.
+		}
+	}
+	return null;
 };
 
 export const buildWorkflow = (
@@ -46,9 +69,9 @@ on:
   # Reviews the pull request and reports only what the change introduced.
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-  # Scans ${defaultBranch} on every push, so the score keeps a trend line.
+  # Scans the default branch on every push, so the score keeps a trend line.
   push:
-    branches: ["${defaultBranch}"]
+    branches: [${JSON.stringify(defaultBranch)}]
 
 permissions:
   contents: read
@@ -74,6 +97,7 @@ jobs:
       - uses: RoloBits/nestjs-doctor@v1
         # Advisory by default: the action comments and publishes a commit status,
         # and never fails the check. Uncomment a key below to change that.
+        # Every input: https://nestjs.doctor/docs/ci
         # with:
         #   blocking: error           # Fail on: none (default), warning, error
         #   min-score: "80"           # Fail when the whole-project score drops below this
@@ -86,58 +110,81 @@ jobs:
         #   version: "1.2.3"          # Pin the nestjs-doctor version (default: latest)
 `;
 
-const writeWorkflow = async (
-	workflowPath: string,
-	content: string
-): Promise<boolean> => {
-	try {
-		await mkdir(dirname(workflowPath), { recursive: true });
-		await writeFile(workflowPath, content, "utf-8");
-		return true;
-	} catch {
-		return false;
-	}
-};
-
 /** Writes the pull request workflow into the repository that contains `targetPath`. */
 export const installCiWorkflow = async (
 	targetPath: string,
 	force: boolean
 ): Promise<CiInstallResult> => {
 	const repo = findGitRepo(targetPath);
-	const root = repo?.root ?? targetPath;
-	const workflowPath = join(root, WORKFLOW_FILE);
-
-	if (existsSync(workflowPath) && !force) {
-		return { status: "exists", workflowPath };
+	if (!repo) {
+		return { status: "no-repo", workflowPath: join(targetPath, WORKFLOW_FILE) };
 	}
 
-	const content = buildWorkflow(resolveDefaultBranch(root));
-	const written = await writeWorkflow(workflowPath, content);
-	return { status: written ? "created" : "failed", workflowPath };
+	const symlink = findSymlink(repo.root);
+	if (symlink) {
+		return { status: "symlink", workflowPath: symlink };
+	}
+
+	const workflowPath = join(repo.root, WORKFLOW_FILE);
+	const branch = resolveDefaultBranch(repo.root);
+	try {
+		await mkdir(dirname(workflowPath), { recursive: true });
+		await writeFile(workflowPath, buildWorkflow(branch), {
+			encoding: "utf-8",
+			flag: force ? "w" : "wx",
+		});
+		return { branch, status: "created", workflowPath };
+	} catch (error) {
+		const code = (error as NodeJS.ErrnoException).code;
+		if (code === "EEXIST") {
+			return { status: "exists", workflowPath };
+		}
+		return { reason: code ?? "unknown", status: "failed", workflowPath };
+	}
+};
+
+const display = (workflowPath: string): string => {
+	const fromCwd = relative(process.cwd(), workflowPath);
+	// An empty or upward path means the file sits outside cwd; show it in full.
+	return fromCwd && !fromCwd.startsWith("..") ? fromCwd : workflowPath;
 };
 
 export const runCiInstall = async (
 	targetPath: string,
 	force: boolean
 ): Promise<number> => {
-	const { status, workflowPath } = await installCiWorkflow(targetPath, force);
-	const fromCwd = relative(process.cwd(), workflowPath);
-	// An empty or upward path means the file sits outside cwd; show it in full.
-	const shown = fromCwd && !fromCwd.startsWith("..") ? fromCwd : workflowPath;
+	const result = await installCiWorkflow(targetPath, force);
+	const shown = display(result.workflowPath);
 
-	if (status === "failed") {
-		logger.error(`Could not write ${shown}`);
+	if (result.status === "no-repo") {
+		logger.error(
+			"Not a git repository, so there is no repository root to write to."
+		);
+		logger.dim("Run this from your project, or `git init` first.");
+		return 2;
+	}
+
+	if (result.status === "symlink") {
+		logger.error(`Refusing to write through a symlink: ${shown}`);
+		logger.dim(
+			"Replace it with a real directory or file, then run this again."
+		);
+		return 2;
+	}
+
+	if (result.status === "failed") {
+		logger.error(`Could not write ${shown} (${result.reason})`);
 		return 1;
 	}
 
-	if (status === "exists") {
+	if (result.status === "exists") {
 		logger.warn(`${shown} already exists — left untouched.`);
 		logger.dim("Run with --force to replace it.");
 		return 0;
 	}
 
 	logger.success(`Created ${shown}`);
+	logger.dim(`Push trigger keyed to the ${result.branch} branch.`);
 	logger.break();
 	logger.dim(
 		"Commit it and open a pull request. nestjs-doctor comments on what the change introduced,"

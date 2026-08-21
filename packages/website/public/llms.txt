@@ -21,6 +21,10 @@ npm install -D nestjs-doctor
 ```
 Usage: nestjs-doctor [directory] [options]
 
+Commands:
+  ci install            Scaffold .github/workflows/nestjs-doctor.yml
+
+Options:
   --verbose             Show file paths, line numbers, and source context per diagnostic
   --score               Output only the numeric score (for CI)
   --json                JSON output (for tooling)
@@ -36,6 +40,7 @@ Usage: nestjs-doctor [directory] [options]
   --report              Generate an interactive HTML report (--graph also works)
   --timings <path>      SerializedGraph dump to overlay bootstrap init times on the report
   --config <p>          Path to config file
+  --force               Overwrite an existing file (with ci install)
   --list-rules          List every built-in rule and exit
   --init                Set up the /nestjs-doctor skill for AI coding agents
   -h, --help            Show help
@@ -62,6 +67,9 @@ The score always reflects the whole project, whatever the scope. `--min-score`
 gates on that score; `--blocking` gates on the reported findings.
 
 ## GitHub Action
+
+Scaffold the workflow with `npx nestjs-doctor@latest ci install`, which writes
+.github/workflows/nestjs-doctor.yml at the git repository root. Or add it by hand:
 
 ```yaml
 - uses: actions/checkout@v4
