@@ -1,122 +1,116 @@
 ---
 name: nestjs-doctor
-description: Scan a NestJS project with nestjs-doctor, present a health report, and fix issues interactively
-disable-model-invocation: true
+description: Use after writing or changing NestJS code, before committing, when a nestjs-doctor check fails in CI, or when the user asks to scan, audit, review, or clean up a Nest project, or mentions circular modules, unused providers, a missing guard, an ORM leaking into a controller, or a slow boot. Runs a deterministic 50-rule scan over security, correctness, architecture, performance, and database schema, then fixes what it finds.
 allowed-tools: Bash, Read, Edit, Glob, Grep, Write
 ---
 
-# /nestjs-doctor — NestJS Health Scanner & Fixer
+# nestjs-doctor
 
 > v0.8.0
 
-Scan the NestJS codebase, present a prioritized health report, and offer to fix every issue found.
+50 rules over security, correctness, architecture, performance, and database
+schema, scored 0-100. No network calls and no model at scan time, so the same
+commit scores the same on a laptop and in CI.
 
-## Step 1: Scan
+## After changing NestJS code
 
-Run nestjs-doctor and capture the full JSON output:
+Report only what the change introduced:
 
-```!
-npx nestjs-doctor $ARGUMENTS --json 2>/dev/null
+```bash
+npx nestjs-doctor@latest . --scope changed --base origin/main --verbose
 ```
 
-## Step 2: Summarize
+Fix anything new before committing.
 
-Parse the JSON output above. Present a summary:
+The whole project is analysed either way. Narrowing the scope narrows the
+report, never the analysis, so a change that breaks a cross-file rule is caught
+even when the file it is reported against was never touched.
 
-- **Score**: value / 100 (label)
-- **Severity counts**: errors, warnings, info
-- **Project info**: name, NestJS version, ORM, file count, module count
+`--scope changed` needs a git repository and the base commit present in the
+checkout. Without either it widens the report and says so on stderr, rather
+than going quiet and looking clean.
 
-## Step 3: Report
+## Auditing a whole project
 
-Group diagnostics by severity (errors first, then warnings, then info). Within each severity, group by category (security > correctness > architecture > performance).
+```bash
+npx nestjs-doctor@latest . --verbose
+```
 
-For each group show:
-- Rule name and severity
-- Message and help text
-- Number of occurrences
-- Affected file paths (with line numbers)
+Work down by severity: errors, then warnings, then info. Security and
+correctness weigh most in the score, performance least.
 
-If there are more than 30 diagnostics, show the top 30 (prioritizing errors and warnings) and ask if the user wants to see the rest.
+## Fixing a finding
 
-## Step 4: Offer to Fix
+Every diagnostic carries a rule id and a `help` line naming the fix. Apply it in
+the smallest place that resolves it, then re-run the same command and confirm
+the finding is gone and nothing new appeared.
 
-Ask the developer what they want to fix:
-1. **Fix all** — apply fixes for every diagnostic
-2. **Fix by category** — fix all issues in a specific category (security, correctness, architecture, performance)
-3. **Fix specific rules** — fix only specific rule violations
-4. **Review only** — no changes, just the report
+A `schema/*` finding names an entity rather than a line, because those three
+rules report against the model instead of a file position.
 
-## Step 5: Fix
+Never suppress a finding to move the number. The score is only worth something
+while it reflects the code.
 
-For each diagnostic to fix:
-1. Read the affected file
-2. Apply the appropriate fix based on the rule (see Fix Guide below)
-3. Explain what was changed and why
+## When a rule is wrong for this project
 
-### Fix Guide by Rule
+Reach for the narrowest control that works, in this order:
 
-#### Security
+1. One line: `// nestjs-doctor-ignore-next-line <rule-id>` above it.
+2. One file: `// nestjs-doctor-ignore-file <rule-id>` at the top.
+3. One rule everywhere: `"rules": { "<rule-id>": false }` in
+   `nestjs-doctor.config.json`.
+4. A whole category: `"categories": { "performance": false }`.
 
-- **no-hardcoded-secrets**: Extract the secret value to an environment variable. Import `ConfigService`, inject it, and use `this.configService.get('ENV_VAR_NAME')`. Add the env var name to `.env.example` if it exists.
-- **no-wildcard-cors**: Replace `origin: '*'` or `origin: true` with an explicit allowlist array or `configService.get('CORS_ORIGINS').split(',')`.
-- **no-unsafe-raw-query**: Replace template literal interpolation in raw SQL with parameterized queries. Use `$1, $2` placeholders (Postgres) or `?` (MySQL) and pass values as the second argument.
-- **no-eval**: Remove `eval()` or `new Function()`. Replace with safe alternatives: `JSON.parse()` for JSON, a proper expression parser for dynamic evaluation, or refactor to avoid dynamic code execution entirely.
-- **no-csrf-disabled**: Remove the code that explicitly disables CSRF protection, or, if it's intentional, suppress it with a `// nestjs-doctor-ignore security/no-csrf-disabled -- <reason>` comment on that line.
-- **no-dangerous-redirects**: Validate redirect URLs against an allowlist of trusted domains. Never pass user input directly to `res.redirect()`.
-- **no-weak-crypto**: Replace `createHash('md5')` or `createHash('sha1')` with `createHash('sha256')` or stronger.
-- **no-exposed-env-vars**: Replace direct `process.env.X` access with `ConfigService`. Inject `ConfigService` and use `this.configService.get('X')` or `this.configService.getOrThrow('X')`.
-- **require-validation-pipe**: Add a validation pipe. Either add `@UsePipes(new ValidationPipe())` to the handler/controller, or use a global validation pipe in `main.ts`, or add a DTO class with `class-validator` decorators.
-- **no-exposed-stack-trace**: Remove `error.stack` from response objects. Log the stack trace server-side with `this.logger.error(error.stack)` and return a generic error message to the client.
-- **require-auth-guard**: Add `@UseGuards(AuthGuard)` to the controller class or individual routes. If intentionally public, add a comment explaining why.
+Config lives in `nestjs-doctor.config.json`, `.nestjs-doctor.json`, or a
+`"nestjs-doctor"` key in `package.json`. The loader reads JSON only and uses
+whichever it finds first, whole.
 
-#### Correctness
+There is no severity override. `severity` is declared in the config type and no
+engine code reads it, so setting it changes nothing.
 
-- **no-missing-injectable**: Add `@Injectable()` decorator to the class. Import it from `@nestjs/common`.
-- **no-duplicate-routes**: Remove or rename the duplicate route. Change the HTTP method or path to make each route unique.
-- **no-missing-guard-method**: Add the `canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean>` method to the guard class. Implement `CanActivate` interface.
-- **no-missing-pipe-method**: Add the `transform(value: any, metadata: ArgumentMetadata)` method to the pipe class. Implement `PipeTransform` interface.
-- **no-missing-filter-catch**: Add the `catch(exception: T, host: ArgumentHost)` method to the exception filter class. Implement `ExceptionFilter` interface.
-- **no-missing-interceptor-method**: Add the `intercept(context: ExecutionContext, next: CallHandler): Observable<any>` method. Implement `NestInterceptor` interface.
-- **require-inject-decorator**: Add `@Inject('TOKEN_NAME')` decorator to untyped constructor parameters, or add a proper type annotation.
-- **prefer-readonly-injection**: Add the `readonly` modifier to constructor-injected parameters: `constructor(private readonly myService: MyService)`.
-- **require-lifecycle-interface**: Add the corresponding interface to the class implements clause. E.g., if using `onModuleInit()`, add `implements OnModuleInit`.
-- **no-empty-handlers**: Add implementation to the empty HTTP handler. If it's a placeholder, add a `throw new NotImplementedException()`.
-- **no-async-without-await**: Either add an `await` expression, remove the `async` keyword, or if it intentionally returns a Promise, remove `async` and return the promise directly.
-- **no-duplicate-module-metadata**: Remove duplicate entries from `@Module()` arrays (providers, controllers, imports, exports).
-- **no-missing-module-decorator**: Add `@Module({})` decorator to the class. Import it from `@nestjs/common`.
+## Machine-readable output
 
-#### Architecture
+```bash
+npx nestjs-doctor@latest . --json
+```
 
-- **no-business-logic-in-controllers**: Extract the business logic (loops, complex conditionals, data transforms) into a service method. The controller should only call the service and return the result.
-- **no-repository-in-controllers**: Remove the repository injection from the controller. Create or use an existing service that wraps the repository, and inject that service instead.
-- **no-orm-in-controllers**: Remove PrismaService/EntityManager/DataSource injection from the controller. Create or use an existing service that wraps the ORM operations.
-- **no-circular-module-deps**: Break the circular dependency. Extract shared functionality into a separate module, use `forwardRef(() => Module)`, or restructure the module boundaries.
-- **no-manual-instantiation**: Replace `new SomeService()` with constructor injection. Add the service to the module's providers and inject it via the constructor.
-- **no-orm-in-services**: Consider introducing a repository layer. Create a repository class that wraps ORM operations, and inject the repository into the service instead of the ORM directly.
-- **no-god-module**: Split the module into smaller, focused feature modules. Group related providers together and create dedicated modules for each feature area.
-- **no-god-service**: Split the service into smaller, focused services. Extract groups of related methods into separate service classes.
-- **require-feature-modules**: Move providers out of AppModule into dedicated feature modules. Create feature modules and register providers there instead.
-- **prefer-constructor-injection**: Replace `@Inject()` property injection with constructor injection. Move the dependency to a constructor parameter.
-- **require-module-boundaries**: Replace deep imports (`import { X } from '../other-module/services/x.service'`) with imports through the module's public API (barrel file / index.ts).
-- **prefer-interface-injection**: Consider creating an interface/abstract class for the dependency and injecting that instead of the concrete implementation.
-- **no-barrel-export-internals**: Remove repository re-exports from barrel files. Repositories should only be accessible within their own module.
+`--json`, `--score`, and `--format sarif|gitlab|markdown` default `--blocking` to
+`none`, so they report without failing. The console report and `--format github`
+default to `error`. Pass `--blocking` explicitly whenever the exit code matters.
 
-#### Performance
+Two warnings are suppressed entirely in those modes rather than sent to stderr:
+a custom rule that failed to load, and a run below `--min-score`. Under `--json`
+a min-score failure exits 1 with no message on either stream.
 
-- **no-sync-io**: Replace synchronous I/O (`readFileSync`, `writeFileSync`, etc.) with async equivalents (`readFile`, `writeFile` from `fs/promises`).
-- **no-query-in-loop**: Replace the N+1 query pattern. Use batch queries, `Promise.all()`, or eager loading/joins to fetch all related data in a single query.
-- **no-blocking-constructor**: Move async operations and loops out of the constructor into `onModuleInit()` lifecycle hook. Implement `OnModuleInit` interface.
-- **no-dynamic-require**: Replace `require(variable)` with a static import or a switch/map pattern that uses static `require()` calls.
-- **no-unused-providers**: Remove the unused provider from the module's providers array, or start using it. If it's intended for external consumers, add it to the module's exports.
-- **no-logging-in-loops**: Move logging outside the loop, log a summary after the loop completes, or use conditional logging (e.g., log every Nth iteration).
-- **no-unnecessary-async**: Remove the `async` keyword since the function contains no `await` expressions. If it returns a Promise, return it directly without `async`.
-- **prefer-pagination**: Add pagination parameters (`skip`/`take`, `limit`/`offset`, or cursor-based) to `findMany()`/`find()` calls to avoid loading unbounded result sets.
-- **no-unused-module-exports**: Remove the unused export from the module's exports array, or start importing the module where the exported provider is needed.
-- **no-orphan-modules**: Import this module in another module that needs it, or remove it if it's truly unused. If it's the root module, this can be ignored.
+## Continuous integration
 
-## Step 6: Verify
+```bash
+npx nestjs-doctor@latest ci install
+```
 
-After applying fixes, suggest re-running the scan:
+Writes `.github/workflows/nestjs-doctor.yml`, which reviews each pull request
+against its base branch. It comments and sets a status but never fails until
+`blocking` or `min-score` is set. Only `pull_request` events are gated; every
+other event scans the whole project and exits 0.
 
-> Fixes applied. Run `/nestjs-doctor` again to verify the score improved.
+## A slow boot
+
+Construction times need a real boot, which a scan never performs. Use the
+`nestjs-boot-trace` skill.
+
+## Flags
+
+| Flag | Purpose |
+| ---- | ------- |
+| `--scope changed` | Report only what the change introduced |
+| `--base <ref>` | The branch or commit to compare against |
+| `--staged` | Report on the files in the git index |
+| `--verbose` | Show the file and line behind every finding |
+| `--json` | The full result, for tooling |
+| `--score` | The number alone |
+| `--report` | Write an interactive HTML report |
+| `--timings <path>` | Overlay real boot times on the report |
+| `--min-score <n>` | Fail below a score |
+| `--blocking <level>` | Fail on `error`, `warning`, or never with `none` |
+| `--config <path>` | Use a specific config file |
+| `--list-rules` | Print every built-in rule and exit |

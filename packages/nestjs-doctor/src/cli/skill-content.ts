@@ -1,117 +1,119 @@
 export const SKILL_TEMPLATE = `---
-description: Scan a NestJS project with nestjs-doctor, present a health report, and fix issues interactively
-disable-model-invocation: true
+name: nestjs-doctor
+description: Use after writing or changing NestJS code, before committing, when a nestjs-doctor check fails in CI, or when the user asks to scan, audit, review, or clean up a Nest project, or mentions circular modules, unused providers, a missing guard, an ORM leaking into a controller, or a slow boot. Runs a deterministic 50-rule scan over security, correctness, architecture, performance, and database schema, then fixes what it finds.
 allowed-tools: Bash, Read, Edit, Glob, Grep, Write
 ---
 
-# /nestjs-doctor — NestJS Health Scanner & Fixer
+# nestjs-doctor
 
-> v0.4.18
+> v0.0.0
 
-Scan the NestJS codebase, present a prioritized health report, and offer to fix every issue found.
+50 rules over security, correctness, architecture, performance, and database
+schema, scored 0-100. No network calls and no model at scan time, so the same
+commit scores the same on a laptop and in CI.
 
-## Step 1: Scan
+## After changing NestJS code
 
-Run nestjs-doctor and capture the full JSON output:
+Report only what the change introduced:
 
-\`\`\`!
-npx nestjs-doctor $ARGUMENTS --json 2>/dev/null
+\`\`\`bash
+npx nestjs-doctor@latest . --scope changed --base origin/main --verbose
 \`\`\`
 
-## Step 2: Summarize
+Fix anything new before committing.
 
-Parse the JSON output above. Present a summary:
+The whole project is analysed either way. Narrowing the scope narrows the
+report, never the analysis, so a change that breaks a cross-file rule is caught
+even when the file it is reported against was never touched.
 
-- **Score**: value / 100 (label)
-- **Severity counts**: errors, warnings, info
-- **Project info**: name, NestJS version, ORM, file count, module count
+\`--scope changed\` needs a git repository and the base commit present in the
+checkout. Without either it widens the report and says so on stderr, rather
+than going quiet and looking clean.
 
-## Step 3: Report
+## Auditing a whole project
 
-Group diagnostics by severity (errors first, then warnings, then info). Within each severity, group by category (security > correctness > architecture > performance).
+\`\`\`bash
+npx nestjs-doctor@latest . --verbose
+\`\`\`
 
-For each group show:
-- Rule name and severity
-- Message and help text
-- Number of occurrences
-- Affected file paths (with line numbers)
+Work down by severity: errors, then warnings, then info. Security and
+correctness weigh most in the score, performance least.
 
-If there are more than 30 diagnostics, show the top 30 (prioritizing errors and warnings) and ask if the user wants to see the rest.
+## Fixing a finding
 
-## Step 4: Offer to Fix
+Every diagnostic carries a rule id and a \`help\` line naming the fix. Apply it in
+the smallest place that resolves it, then re-run the same command and confirm
+the finding is gone and nothing new appeared.
 
-Ask the developer what they want to fix:
-1. **Fix all** — apply fixes for every diagnostic
-2. **Fix by category** — fix all issues in a specific category (security, correctness, architecture, performance)
-3. **Fix specific rules** — fix only specific rule violations
-4. **Review only** — no changes, just the report
+A \`schema/*\` finding names an entity rather than a line, because those three
+rules report against the model instead of a file position.
 
-## Step 5: Fix
+Never suppress a finding to move the number. The score is only worth something
+while it reflects the code.
 
-For each diagnostic to fix:
-1. Read the affected file
-2. Apply the appropriate fix based on the rule (see Fix Guide below)
-3. Explain what was changed and why
+## When a rule is wrong for this project
 
-### Fix Guide by Rule
+Reach for the narrowest control that works, in this order:
 
-#### Security
+1. One line: \`// nestjs-doctor-ignore-next-line <rule-id>\` above it.
+2. One file: \`// nestjs-doctor-ignore-file <rule-id>\` at the top.
+3. One rule everywhere: \`"rules": { "<rule-id>": false }\` in
+   \`nestjs-doctor.config.json\`.
+4. A whole category: \`"categories": { "performance": false }\`.
 
-- **no-hardcoded-secrets**: Extract the secret value to an environment variable. Import \`ConfigService\`, inject it, and use \`this.configService.get('ENV_VAR_NAME')\`. Add the env var name to \`.env.example\` if it exists.
-- **no-eval**: Remove \`eval()\` or \`new Function()\`. Replace with safe alternatives: \`JSON.parse()\` for JSON, a proper expression parser for dynamic evaluation, or refactor to avoid dynamic code execution entirely.
-- **no-csrf-disabled**: Remove the code that explicitly disables CSRF protection, or, if it's intentional, suppress it with a \`// nestjs-doctor-ignore security/no-csrf-disabled -- <reason>\` comment on that line.
-- **no-dangerous-redirects**: Validate redirect URLs against an allowlist of trusted domains. Never pass user input directly to \`res.redirect()\`.
-- **no-weak-crypto**: Replace \`createHash('md5')\` or \`createHash('sha1')\` with \`createHash('sha256')\` or stronger.
-- **no-exposed-env-vars**: Replace direct \`process.env.X\` access with \`ConfigService\`. Inject \`ConfigService\` and use \`this.configService.get('X')\` or \`this.configService.getOrThrow('X')\`.
-- **no-exposed-stack-trace**: Remove \`error.stack\` from response objects. Log the stack trace server-side with \`this.logger.error(error.stack)\` and return a generic error message to the client.
-- **no-synchronize-in-production**: Set \`synchronize: false\` in TypeORM config. Use migrations (\`typeorm migration:generate\` and \`typeorm migration:run\`) for production schema changes. If needed only for development, guard with \`synchronize: process.env.NODE_ENV !== 'production'\`.
-- **no-raw-entity-in-response**: Create a DTO class for the response and map entity fields to it. Alternatively, use \`class-transformer\`'s \`@Exclude()\` decorator on sensitive entity fields and \`@SerializeOptions()\` on the controller. Never return raw ORM entities from controller methods.
+Config lives in \`nestjs-doctor.config.json\`, \`.nestjs-doctor.json\`, or a
+\`"nestjs-doctor"\` key in \`package.json\`. The loader reads JSON only and uses
+whichever it finds first, whole.
 
-#### Correctness
+There is no severity override. \`severity\` is declared in the config type and no
+engine code reads it, so setting it changes nothing.
 
-- **no-missing-injectable**: Add \`@Injectable()\` decorator to the class. Import it from \`@nestjs/common\`.
-- **no-duplicate-routes**: Remove or rename the duplicate route. Change the HTTP method or path to make each route unique.
-- **no-missing-guard-method**: Add the \`canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean>\` method to the guard class. Implement \`CanActivate\` interface.
-- **no-missing-pipe-method**: Add the \`transform(value: any, metadata: ArgumentMetadata)\` method to the pipe class. Implement \`PipeTransform\` interface.
-- **no-missing-filter-catch**: Add the \`catch(exception: T, host: ArgumentHost)\` method to the exception filter class. Implement \`ExceptionFilter\` interface.
-- **no-missing-interceptor-method**: Add the \`intercept(context: ExecutionContext, next: CallHandler): Observable<any>\` method. Implement \`NestInterceptor\` interface.
-- **require-inject-decorator**: Add \`@Inject('TOKEN_NAME')\` decorator to untyped constructor parameters, or add a proper type annotation.
-- **prefer-readonly-injection**: Add the \`readonly\` modifier to constructor-injected parameters: \`constructor(private readonly myService: MyService)\`.
-- **require-lifecycle-interface**: Add the corresponding interface to the class implements clause. E.g., if using \`onModuleInit()\`, add \`implements OnModuleInit\`.
-- **no-empty-handlers**: Add implementation to the empty HTTP handler. If it's a placeholder, add a \`throw new NotImplementedException()\`.
-- **no-async-without-await**: If the message says "returns a Promise directly", remove the \`async\` keyword since a \`new Promise()\` is already being constructed manually. Otherwise, either add an \`await\` expression or remove the \`async\` keyword.
-- **no-duplicate-module-metadata**: Remove duplicate entries from \`@Module()\` arrays (providers, controllers, imports, exports).
-- **no-missing-module-decorator**: Add \`@Module({})\` decorator to the class. Import it from \`@nestjs/common\`.
-- **no-fire-and-forget-async**: Add \`await\` before the async call to properly handle rejections. If fire-and-forget is intentional, prefix with \`void\` and add a \`.catch()\` handler: \`void this.service.sendEmail().catch(err => this.logger.error(err))\`.
+## Machine-readable output
 
-#### Architecture
+\`\`\`bash
+npx nestjs-doctor@latest . --json
+\`\`\`
 
-- **no-business-logic-in-controllers**: Extract the business logic (loops, complex conditionals, data transforms) into a service method. The controller should only call the service and return the result.
-- **no-repository-in-controllers**: Remove the repository injection from the controller. Create or use an existing service that wraps the repository, and inject that service instead.
-- **no-orm-in-controllers**: Remove PrismaService/EntityManager/DataSource injection from the controller. Create or use an existing service that wraps the ORM operations.
-- **no-circular-module-deps**: Break the circular dependency. Extract shared functionality into a separate module, use \`forwardRef(() => Module)\`, or restructure the module boundaries.
-- **no-manual-instantiation**: Replace \`new SomeService()\` with constructor injection. Add the service to the module's providers and inject it via the constructor.
-- **no-service-locator**: Replace \`this.moduleRef.get(SomeService)\` with constructor injection: add \`private readonly someService: SomeService\` to the constructor. If the service is truly dynamic or lazily resolved, document the reason with a comment.
-- **no-orm-in-services**: Consider introducing a repository layer. Create a repository class that wraps ORM operations, and inject the repository into the service instead of the ORM directly.
-- **prefer-constructor-injection**: Replace \`@Inject()\` property injection with constructor injection. Move the dependency to a constructor parameter.
-- **require-module-boundaries**: Replace deep imports (\`import { X } from '../other-module/services/x.service'\`) with imports through the module's public API (barrel file / index.ts).
-- **no-barrel-export-internals**: Remove repository re-exports from barrel files. Repositories should only be accessible within their own module.
+\`--json\`, \`--score\`, and \`--format sarif|gitlab|markdown\` default \`--blocking\` to
+\`none\`, so they report without failing. The console report and \`--format github\`
+default to \`error\`. Pass \`--blocking\` explicitly whenever the exit code matters.
 
-#### Performance
+Two warnings are suppressed entirely in those modes rather than sent to stderr:
+a custom rule that failed to load, and a run below \`--min-score\`. Under \`--json\`
+a min-score failure exits 1 with no message on either stream.
 
-- **no-sync-io**: Replace synchronous I/O (\`readFileSync\`, \`writeFileSync\`, etc.) with async equivalents (\`readFile\`, \`writeFile\` from \`fs/promises\`).
-- **no-blocking-constructor**: Move async operations and loops out of the constructor into \`onModuleInit()\` lifecycle hook. Implement \`OnModuleInit\` interface.
-- **no-dynamic-require**: Replace \`require(variable)\` with a static import or a switch/map pattern that uses static \`require()\` calls.
-- **no-unused-providers**: Remove the unused provider from the module's providers array, or start using it. Providers with self-activating decorators (@Cron, @OnEvent, @Process) are automatically excluded. If it's intended for external consumers, add it to the module's exports.
-- **no-request-scope-abuse**: Remove \`Scope.REQUEST\` unless the provider genuinely needs per-request state (e.g., request-scoped context like \`REQUEST\` object). Use \`Scope.DEFAULT\` (singleton) or \`Scope.TRANSIENT\` instead. Remember that request scope propagates to all dependents.
-- **no-unused-module-exports**: Remove the unused export from the module's exports array, or start importing the module where the exported provider is needed.
-- **no-orphan-modules**: Import this module in another module that needs it, or remove it if it's truly unused. If it's the root module, this can be ignored.
+## Continuous integration
 
-## Step 6: Verify
+\`\`\`bash
+npx nestjs-doctor@latest ci install
+\`\`\`
 
-After applying fixes, suggest re-running the scan:
+Writes \`.github/workflows/nestjs-doctor.yml\`, which reviews each pull request
+against its base branch. It comments and sets a status but never fails until
+\`blocking\` or \`min-score\` is set. Only \`pull_request\` events are gated; every
+other event scans the whole project and exits 0.
 
-> Fixes applied. Run \`/nestjs-doctor\` again to verify the score improved.
+## A slow boot
+
+Construction times need a real boot, which a scan never performs. Use the
+\`nestjs-boot-trace\` skill.
+
+## Flags
+
+| Flag | Purpose |
+| ---- | ------- |
+| \`--scope changed\` | Report only what the change introduced |
+| \`--base <ref>\` | The branch or commit to compare against |
+| \`--staged\` | Report on the files in the git index |
+| \`--verbose\` | Show the file and line behind every finding |
+| \`--json\` | The full result, for tooling |
+| \`--score\` | The number alone |
+| \`--report\` | Write an interactive HTML report |
+| \`--timings <path>\` | Overlay real boot times on the report |
+| \`--min-score <n>\` | Fail below a score |
+| \`--blocking <level>\` | Fail on \`error\`, \`warning\`, or never with \`none\` |
+| \`--config <path>\` | Use a specific config file |
+| \`--list-rules\` | Print every built-in rule and exit |
 `;
 
 export const CREATE_RULE_SKILL_TEMPLATE = `---
@@ -509,4 +511,107 @@ If the user isn't sure what to check, suggest these common custom rules:
 | Require services have test files | project | correctness | \`require("fs").existsSync(provider.filePath.replace(".ts", ".spec.ts"))\` |
 | Detect providers in multiple modules | project | architecture | Count each provider name across \`moduleGraph.modules.values()\` entries' \`providers[]\` — flag if > 1 |
 | Require DTO validation pipes on POST/PUT | file | correctness | Check \`@Post()\`/\`@Put()\` handler params for \`@Body()\` + \`@UsePipes(ValidationPipe)\` or global pipe |
+`;
+
+export const BOOT_TRACE_SKILL_TEMPLATE = `---
+name: nestjs-boot-trace
+description: Use when a NestJS application is slow to start, when the user asks why boot takes so long or which provider or onModuleInit is expensive, or when they mention --timings, boot timings, or the boot trace. Instruments main.ts, captures one real boot, and overlays per-class construction times on the module graph.
+allowed-tools: Bash, Read, Edit, Glob, Grep, Write
+---
+
+# NestJS boot trace
+
+> v0.0.0
+
+A scan reads source files and never runs the application, so construction time
+does not exist for it to measure. NestJS records it during a boot. This skill
+captures that boot and feeds it back into the report.
+
+It edits the user's \`src/main.ts\`. Say so before you start, and offer to revert
+it at the end.
+
+## 1. Check the version
+
+\`\`\`bash
+npm ls @nestjs/core
+\`\`\`
+
+\`@nestjs/core\` 9.3.9 or newer records \`initTime\` for every provider and
+controller. Nest 11.1.4 or newer also accepts the \`instrument\` option, which
+times \`onModuleInit\` and \`onApplicationBootstrap\` per class. Below 11.1.4, skip
+\`hookTimings\` and \`instrument\`; class construction times still work.
+
+## 2. Instrument the bootstrap
+
+Add to \`src/main.ts\`, for development only:
+
+\`\`\`ts
+import { writeFileSync } from "node:fs";
+import { performance } from "node:perf_hooks";
+import { NestFactory, SerializedGraph } from "@nestjs/core";
+
+const hookTimings: { className: string; hook: string; ms: number }[] = [];
+
+const t0 = performance.now();
+const app = await NestFactory.create(AppModule, {
+  snapshot: true,
+  instrument: {
+    instanceDecorator(instance: any) {
+      if (!instance || typeof instance !== "object") return instance;
+      for (const hook of ["onModuleInit", "onApplicationBootstrap"]) {
+        const original = instance[hook];
+        if (typeof original !== "function") continue;
+        try {
+          instance[hook] = async function (...args: unknown[]) {
+            const start = performance.now();
+            try { return await original.apply(this, args); }
+            finally { hookTimings.push({ className: this.constructor.name, hook, ms: performance.now() - start }); }
+          };
+        } catch {} // frozen instances stay untimed
+      }
+      return instance;
+    },
+  },
+});
+const createMs = performance.now() - t0;
+await app.init();
+const initMs = performance.now() - t0;
+await app.listen(3000);
+const startupMs = performance.now() - t0;
+
+const graph = JSON.parse(app.get(SerializedGraph).toString());
+Object.assign(graph, { createMs, initMs, startupMs, hookTimings });
+writeFileSync("nestjs-doctor-timings.json", JSON.stringify(graph));
+\`\`\`
+
+\`snapshot: true\` is what makes NestJS record \`initTime\`. The three
+\`performance.now()\` markers become the lifecycle strip. \`instanceDecorator\`
+replaces a method on every instance in the application, so keep it behind an
+environment check or a separate entry point rather than shipping it.
+
+## 3. Boot once, then scan
+
+\`\`\`bash
+npx nestjs-doctor@latest . --report --timings nestjs-doctor-timings.json
+\`\`\`
+
+Relative paths resolve against the scanned directory. Without \`--report\` the
+flag is ignored, with a warning. A missing file, invalid JSON, or a dump
+without \`initTime\` each warn on stderr and still render the report, so check
+stderr before trusting an empty trace.
+
+## 4. Read the result
+
+Each class's time includes waiting on its own dependencies. A shared slow
+dependency therefore counts again in every class that awaits it.
+
+Read down a cascade until the number drops. The class where it drops owns the
+time. If \`UsersService\` reads 120ms and the \`SlowService\` it injects reads 119ms,
+\`SlowService\` owns it.
+
+A module node shows its slowest single class, never a sum.
+
+## 5. Put main.ts back
+
+Revert the instrumentation unless the user asked to keep it behind a flag.
 `;

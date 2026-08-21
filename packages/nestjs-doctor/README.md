@@ -83,8 +83,11 @@ Install the agent skill:
 npx nestjs-doctor@latest --init
 ```
 
-The agent then runs the scan itself and fixes what it finds. Works with Claude
-Code, Cursor, Codex, OpenCode, Windsurf, Gemini CLI, and more.
+Installs three skills: `nestjs-doctor` for scanning after a change,
+`nestjs-boot-trace` for a slow start, and `nestjs-doctor-create-rule` for
+conventions of your own. The first runs without being asked, after the agent
+writes Nest code. Works with Claude Code, Cursor, Codex, OpenCode, Windsurf,
+Gemini CLI, and more.
 [Agent docs →](https://nestjs.doctor/docs/coding-agents)
 
 ### 5. Configure rules
