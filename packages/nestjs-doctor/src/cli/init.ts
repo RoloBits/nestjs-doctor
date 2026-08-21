@@ -2,13 +2,25 @@ import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
-import {
-	BOOT_TRACE_SKILL_TEMPLATE,
-	CREATE_RULE_SKILL_TEMPLATE,
-	SKILL_TEMPLATE,
-} from "./skill-content.js";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { logger } from "./ui/logger.js";
+
+// The build copies skills/ to dist/skills. Which directory the bundled entry
+// reports depends on how it was chunked, so both places are tried.
+const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
+const SKILL_ROOTS = [
+	join(MODULE_DIR, "skills"),
+	join(MODULE_DIR, "..", "skills"),
+];
+
+const skillFile = (name: string): string => {
+	const root =
+		SKILL_ROOTS.find((candidate) =>
+			existsSync(join(candidate, name, "SKILL.md"))
+		) ?? SKILL_ROOTS[0];
+	return join(root, name, "SKILL.md");
+};
 
 const VERSION_LINE_RE = /^> v.+$/m;
 const FRONTMATTER_RE = /^---\n[\s\S]*?\n---\n+/;
@@ -281,17 +293,24 @@ export const initSkill = async (
 	targetPath: string,
 	version: string
 ): Promise<void> => {
-	const skills: SkillContents = {
-		main: SKILL_TEMPLATE.replace(VERSION_LINE_RE, `> v${version}`),
-		createRule: CREATE_RULE_SKILL_TEMPLATE.replace(
-			VERSION_LINE_RE,
-			`> v${version}`
-		),
-		bootTrace: BOOT_TRACE_SKILL_TEMPLATE.replace(
-			VERSION_LINE_RE,
-			`> v${version}`
-		),
+	const read = async (name: string): Promise<string> => {
+		const body = await readFile(skillFile(name), "utf-8");
+		return body.replace(VERSION_LINE_RE, `> v${version}`);
 	};
+
+	let skills: SkillContents;
+	try {
+		skills = {
+			bootTrace: await read("nestjs-boot-trace"),
+			createRule: await read("nestjs-doctor-create-rule"),
+			main: await read("nestjs-doctor"),
+		};
+	} catch {
+		logger.error(
+			`Could not read the skill sources at ${SKILL_ROOTS[0]}. Reinstall nestjs-doctor.`
+		);
+		return;
+	}
 
 	let installed = 0;
 

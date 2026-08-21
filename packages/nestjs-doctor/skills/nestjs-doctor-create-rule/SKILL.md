@@ -1,6 +1,6 @@
 ---
-description: Create a custom nestjs-doctor rule that detects a specific pattern or anti-pattern in a NestJS codebase
-disable-model-invocation: true
+name: nestjs-doctor-create-rule
+description: Use when the user wants a convention of their own enforced, asks for a custom nestjs-doctor rule, or says the built-in rules do not cover something their team cares about. Walks through choosing the scope, matching the AST with ts-morph, registering the rule, and verifying it loads.
 allowed-tools: Bash, Read, Edit, Glob, Grep, Write
 ---
 

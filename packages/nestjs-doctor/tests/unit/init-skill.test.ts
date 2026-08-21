@@ -2,11 +2,17 @@ import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const FAKE_HOME = "/fake-home";
-const FAKE_SKILL_TEMPLATE = "# Skill\n\n> v0.0.0\n\nSome content.";
-const FAKE_CREATE_RULE_TEMPLATE =
-	"# Create Rule\n\n> v0.0.0\n\nCreate rule content.";
-const FAKE_BOOT_TRACE_TEMPLATE =
-	"---\nname: nestjs-boot-trace\n---\n\n# Boot Trace\n\n> v0.0.0\n\nBoot trace content.";
+const SKILL_FIXTURES: Record<string, string> = {
+	"nestjs-boot-trace":
+		"---\nname: nestjs-boot-trace\n---\n\n# Boot Trace\n\n> v0.0.0\n\nBoot trace content.",
+	"nestjs-doctor":
+		"---\nname: nestjs-doctor\n---\n\n# Skill\n\n> v0.0.0\n\nSome content.",
+	"nestjs-doctor-create-rule":
+		"---\nname: nestjs-doctor-create-rule\n---\n\n# Create Rule\n\n> v0.0.0\n\nCreate rule content.",
+};
+const missingSkills = new Set<string>();
+const BACKSLASH_RE = /\\/g;
+const SKILL_PATH_RE = /\/skills\/([^/]+)\/SKILL\.md$/;
 const FAKE_VERSION = "1.2.3";
 
 const mockState = {
@@ -37,6 +43,10 @@ vi.mock("node:fs/promises", () => ({
 	readFile: (p: string) => {
 		if (mockState.existingFileContents.has(p)) {
 			return Promise.resolve(mockState.existingFileContents.get(p)!);
+		}
+		const skill = p.replace(BACKSLASH_RE, "/").match(SKILL_PATH_RE)?.[1];
+		if (skill && SKILL_FIXTURES[skill] && !missingSkills.has(skill)) {
+			return Promise.resolve(SKILL_FIXTURES[skill]);
 		}
 		return Promise.reject(new Error(`ENOENT: ${p}`));
 	},
@@ -73,12 +83,6 @@ vi.mock("node:child_process", () => ({
 	},
 }));
 
-vi.mock("../../src/cli/skill-content.js", () => ({
-	SKILL_TEMPLATE: FAKE_SKILL_TEMPLATE,
-	CREATE_RULE_SKILL_TEMPLATE: FAKE_CREATE_RULE_TEMPLATE,
-	BOOT_TRACE_SKILL_TEMPLATE: FAKE_BOOT_TRACE_TEMPLATE,
-}));
-
 const mockLogger = {
 	success: vi.fn(),
 	error: vi.fn(),
@@ -94,6 +98,7 @@ vi.mock("../../src/cli/ui/logger.js", () => ({
 }));
 
 beforeEach(() => {
+	missingSkills.clear();
 	mockState.existingPaths.clear();
 	mockState.existingFileContents.clear();
 	mockState.failingWritePaths.clear();
@@ -250,6 +255,19 @@ describe("initSkill", () => {
 		expect(writes.appends.get(rulesPath)).toContain(
 			"<!-- nestjs-doctor:start -->"
 		);
+	});
+
+	it("stops with an actionable error when a skill source is missing", async () => {
+		mockState.existingPaths.add(join(FAKE_HOME, ".claude"));
+		missingSkills.add("nestjs-boot-trace");
+
+		const initSkill = await loadInitSkill();
+		await initSkill("/project", FAKE_VERSION);
+
+		expect(mockLogger.error).toHaveBeenCalledWith(
+			expect.stringContaining("Reinstall nestjs-doctor")
+		);
+		expect(writes.files.size).toBe(0);
 	});
 
 	it("writes AGENTS.md as the skill body with the frontmatter stripped", async () => {

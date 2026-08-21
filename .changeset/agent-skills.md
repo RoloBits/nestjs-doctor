@@ -19,3 +19,9 @@ rather than eight lines, and the two can no longer drift.
 Re-running `--init` now updates Windsurf. It matched on a bare heading and
 returned early, so any user who had installed once never received another
 change. The block is delimited and replaced in place.
+
+The skills are real markdown in `skills/<name>/SKILL.md`, copied into
+`dist/skills` and read from there at install time, so the published package
+ships them as files rather than as strings baked into the bundle. Each one is
+validated at build time, which caught a `create-rule` skill that had no `name:`
+in its frontmatter.

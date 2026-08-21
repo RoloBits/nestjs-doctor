@@ -14,8 +14,7 @@
     "version": "changeset version && pnpm install --no-frozen-lockfile && node scripts/sync-skill-version.mjs",
     "release": "pnpm build && changeset publish",
     "knip": "knip",
-    "prepare": "husky",
-    "generate:skills": "pnpm --filter nestjs-doctor generate:skills"
+    "prepare": "husky"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.6",

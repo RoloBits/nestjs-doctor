@@ -28,9 +28,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "generate:skills": "node scripts/generate-skill-content.mjs",
-    "check:skills": "node scripts/generate-skill-content.mjs --check",
-    "prebuild": "node scripts/generate-skill-content.mjs --check"
+    "postbuild": "node scripts/copy-skills.mjs",
+    "smoke:packed": "node scripts/smoke-packed-install.mjs"
   },
   "keywords": [
     "nestjs",
