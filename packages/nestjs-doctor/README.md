@@ -50,6 +50,32 @@ Self-contained HTML file with six sections: score summary, source-level diagnost
 
 ![Module Graph](https://nestjs.doctor/module-graph.png)
 
+### Bootstrap timings
+
+The module graph can overlay how long each class took to construct during a real boot — the same data NestJS Devtools reads, kept local. Requires `@nestjs/core` >= 9.3.10. Add this to your `main.ts` (dev only):
+
+```ts
+import { writeFileSync } from "node:fs";
+import { performance } from "node:perf_hooks";
+import { NestFactory, SerializedGraph } from "@nestjs/core";
+
+const t0 = performance.now();
+const app = await NestFactory.create(AppModule, { snapshot: true });
+await app.listen(3000);
+const startupMs = performance.now() - t0;
+const graph = JSON.parse(app.get(SerializedGraph).toString());
+graph.startupMs = startupMs;
+writeFileSync("nestjs-doctor-timings.json", JSON.stringify(graph));
+```
+
+Boot the app once, then:
+
+```bash
+npx nestjs-doctor@latest . --report --timings nestjs-doctor-timings.json
+```
+
+The report header shows `time to start ≈ <ms>` — wall time from bootstrap start until the app was listening, lifecycle hooks included. A dump without `startupMs` falls back to `boot ≈ <ms>`, the slowest construction chain. Each module node shows its slowest class's construction time. Selecting a module fills the bottom dock's Boot trace tab: its classes slowest-first with proportional bars, color-coded by class type. Each row expands in place into its injection cascade — nested bars where an amber segment marks each class's own work, so you can read down the chain to the class that actually owns the time. Times include waiting on a class's own dependencies, so a shared slow dependency counts again in every class that awaits it. Timings are display-only — they never affect the score, diagnostics, or exit codes.
+
 ---
 
 ## VS Code Extension
@@ -215,6 +241,7 @@ Usage: nestjs-doctor [directory] [options]
   --blocking <level>    Severity that fails the run: none, warning, error
   --min-score <n>       Minimum passing score (0-100)
   --report              Generate an interactive HTML report (--graph also works)
+  --timings <path>      SerializedGraph dump to overlay bootstrap init times on the report
   --config <p>          Path to config file
   --list-rules          List every built-in rule and exit
   --init                Set up the /nestjs-doctor skill for AI coding agents

@@ -1,3 +1,4 @@
+import { logger } from "../cli/ui/logger.js";
 import { detectMonorepo } from "../engine/project-detector.js";
 import {
 	logMonorepoSummary,
@@ -9,19 +10,31 @@ import {
 	MonorepoReportPipeline,
 	SingleProjectReportPipeline,
 } from "./pipeline.js";
+import { type BootstrapTimings, loadBootstrapTimings } from "./timings.js";
 
 /** Detect monorepo vs single project and run the appropriate report pipeline */
 export const runReport = async (
 	targetPath: string,
-	configPath: string | undefined
+	configPath: string | undefined,
+	timingsPath?: string
 ): Promise<void> => {
 	const monorepo = await detectMonorepo(targetPath);
+
+	let bootTimings: BootstrapTimings | undefined;
+	if (timingsPath) {
+		const { timings, warnings } = loadBootstrapTimings(targetPath, timingsPath);
+		bootTimings = timings;
+		for (const warning of warnings) {
+			logger.warn(warning);
+		}
+	}
 
 	if (monorepo) {
 		const pipeline = new MonorepoReportPipeline(
 			targetPath,
 			configPath,
-			monorepo
+			monorepo,
+			bootTimings
 		);
 		await pipeline
 			.resolveConfig()
@@ -36,7 +49,11 @@ export const runReport = async (
 		return;
 	}
 
-	const pipeline = new SingleProjectReportPipeline(targetPath, configPath);
+	const pipeline = new SingleProjectReportPipeline(
+		targetPath,
+		configPath,
+		bootTimings
+	);
 	await pipeline
 		.resolveConfig()
 		.buildContext()

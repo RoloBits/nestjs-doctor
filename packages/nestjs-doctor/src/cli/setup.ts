@@ -53,6 +53,7 @@ export interface CliArgs {
 	scope: string | undefined;
 	score: boolean;
 	staged: boolean;
+	timings: string | undefined;
 	verbose: boolean;
 }
 
@@ -149,7 +150,7 @@ export class CliSetup {
 		this.steps.push(async () => {
 			if (this.args.report) {
 				const { runReport } = await import("../report/setup.js");
-				await runReport(this.targetPath, this.args.config);
+				await runReport(this.targetPath, this.args.config, this.args.timings);
 				return false;
 			}
 			return true;
@@ -189,6 +190,10 @@ export class CliSetup {
 			if (!shouldContinue) {
 				return null;
 			}
+		}
+
+		if (this.args.timings) {
+			logger.warn("--timings is ignored without --report");
 		}
 
 		const format = resolveFormat(this.args);

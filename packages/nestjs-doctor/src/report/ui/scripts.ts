@@ -34,6 +34,7 @@ graph.projects = graph.projects || [];
 graph.circularDeps = graph.circularDeps || [];
 graph.circularDepRecommendations = graph.circularDepRecommendations || {};
 graph.bootstrapRoots = graph.bootstrapRoots || [];
+graph.timingsTrace = graph.timingsTrace || {};
 
 // ── Score helpers ──
 function getScoreColor(v) {
@@ -63,7 +64,28 @@ function makeScoreRingSvg(size, strokeW, value) {
   if (project.framework) badges.push('<span class="meta-badge">' + project.framework + '</span>');
   if (project.orm) badges.push('<span class="meta-badge">' + project.orm + '</span>');
   badges.push('<span class="meta-badge">' + graph.modules.length + ' modules</span>');
+  if (graph.timingsAvailable) {
+    let bootMs = 0;
+    let bootName = "";
+    for (const node of Object.values(graph.timingsTrace)) {
+      if (node.initTime > bootMs) {
+        bootMs = node.initTime;
+        bootName = node.name;
+      }
+    }
+    if (graph.startupMs) {
+      badges.push('<span class="meta-badge" id="boot-badge" style="cursor:pointer" title="From bootstrap start until the app was listening, measured by the snippet. Slowest construction chain: ' +
+        mgEsc(bootName) + ' \\u2014 click to open it in the modules graph">time to start \\u2248 ' + mgEsc(mgFormatMs(graph.startupMs)) + '</span>');
+    } else if (bootMs > 0) {
+      badges.push('<span class="meta-badge" id="boot-badge" style="cursor:pointer" title="Slowest construction chain: ' +
+        mgEsc(bootName) + ' \\u2014 click to open it in the modules graph. Add startupMs to the dump for full time-to-start">boot \\u2248 ' + mgEsc(mgFormatMs(bootMs)) + '</span>');
+    }
+  }
   meta.innerHTML = badges.join("");
+  const bootBadge = document.getElementById("boot-badge");
+  if (bootBadge) {
+    bootBadge.addEventListener("click", () => mgJumpToSlowestBoot());
+  }
 })();
 
 // ── Diagnosis count badge ──
@@ -111,6 +133,7 @@ function switchTab(name) {
     mgSelected = null;
     mgFocusSet = null;
     mgCycleFocus = null;
+    mgSyncTraceDrawer(null);
   }
 
   if (name === "diagnosis" && !diagnosisRendered) { renderDiagnosis(); diagnosisRendered = true; }
@@ -428,9 +451,19 @@ function mgEndpointsOf(controllerClass) {
 }
 
 // ── Modules graph: build ──
+function mgFormatMs(ms) {
+  var r = Math.round(ms * 10) / 10;
+  if (r < 1) return "<1ms";
+  if (r < 10) return r.toFixed(1) + "ms";
+  return Math.round(ms) + "ms";
+}
+
 function mgMeasureNode(n) {
   var label = getDisplayName(n);
   var sub = n.providers.length + "p \\u00b7 " + n.controllers.length + "c";
+  if (n.initTimings && n.initTimings.length > 0) {
+    sub += " \\u00b7 " + mgFormatMs(n.initTimings[0].initTime);
+  }
   mgCtx.font = "bold 12px " + MG_FONT;
   var lw = mgCtx.measureText(label).width;
   mgCtx.font = "10px " + MG_FONT;
@@ -459,6 +492,7 @@ function mgBuild() {
       providerTokens: m.providerTokens || [],
       controllers: m.controllers || [],
       dynamicImports: m.dynamicImports || null,
+      initTimings: m.initTimings || null,
       x: 0, y: 0, w: 0, h: MG_NODE_H
     };
     mgMeasureNode(n);
@@ -484,6 +518,7 @@ function mgBuild() {
           external: true,
           imports: [], exports: [], providers: [], providerTokens: [], controllers: [],
           dynamicImports: null,
+          initTimings: null,
           x: 0, y: 0, w: 0, h: MG_NODE_H
         };
         mgMeasureNode(xn);
@@ -522,9 +557,13 @@ function mgBuild() {
 function mgResize() {
   if (!mgCanvas) return;
   var wrap = document.getElementById("mg-wrap");
-  mgW = wrap.clientWidth;
-  mgH = wrap.clientHeight;
-  if (mgW === 0 || mgH === 0) return;
+  var w = wrap.clientWidth;
+  var h = wrap.clientHeight;
+  if (w === 0 || h === 0) return;
+  // Resetting canvas.width clears the bitmap; skip when geometry is unchanged.
+  if (w === mgW && h === mgH) { mgScheduleRedraw(); return; }
+  mgW = w;
+  mgH = h;
   mgCanvas.width = mgW * mgDpr;
   mgCanvas.height = mgH * mgDpr;
   mgCanvas.style.width = mgW + "px";
@@ -970,6 +1009,9 @@ function mgShowTooltip(n, sx, sy) {
   bits.push(n.providers.length + "\\u00a0providers");
   bits.push(n.controllers.length + "\\u00a0controllers");
   bits.push(n.imports.length + "\\u00a0imports");
+  if (n.initTimings && n.initTimings.length > 0) {
+    bits.push(mgFormatMs(n.initTimings[0].initTime) + "\\u00a0slowest\\u00a0class");
+  }
   el.innerHTML = '<div class="tt-name">' + mgEsc(getDisplayName(n)) + '</div>' +
     '<div class="tt-table">' + mgEsc(bits.join(" \\u00b7 ")) + '</div>';
   el.style.display = "block";
@@ -1185,11 +1227,47 @@ function mgBindEvents() {
     more.style.display = "none";
   });
 
-  document.getElementById("mg-problems-header").addEventListener("click", function() {
-    var drawer = document.getElementById("mg-problems");
-    var open = drawer.classList.toggle("open");
-    document.getElementById("mg-problems-chevron").textContent = open ? "\\u25BE" : "\\u25B4";
+  document.getElementById("mg-dock-header").addEventListener("click", function(ev) {
+    var dock = document.getElementById("mg-dock");
+    var tabEl = ev.target.closest(".mg-dock-tab");
+    if (tabEl && !(dock.classList.contains("open") && dock.dataset.active === tabEl.dataset.dockTab)) {
+      mgDockShow(tabEl.dataset.dockTab);
+      return;
+    }
+    var open = dock.classList.toggle("open");
+    document.getElementById("mg-dock-chevron").textContent = open ? "\\u25BE" : "\\u25B4";
     mgResize();
+  });
+
+  document.getElementById("mg-trace-body").addEventListener("click", function(ev) {
+    var row = ev.target.closest(".mg-trace-expandable");
+    if (!row) return;
+    var path = row.dataset.path;
+    if (row.classList.contains("expanded")) {
+      row.classList.remove("expanded");
+      var next = row.nextElementSibling;
+      while (next && next.dataset && next.dataset.path &&
+             next.dataset.path.indexOf(path + "/") === 0) {
+        var gone = next;
+        next = next.nextElementSibling;
+        gone.remove();
+      }
+    } else {
+      row.classList.add("expanded");
+      var node = mgTraceNode(row.dataset.trace);
+      if (!node) return;
+      var depth = parseInt(row.dataset.depth, 10) + 1;
+      var html = "";
+      for (var i = 0; i < node.deps.length; i++) {
+        html += mgTraceRowHtml(node.deps[i], depth, path + "/" + node.deps[i]);
+      }
+      row.insertAdjacentHTML("afterend", html);
+    }
+    mgResize();
+  });
+
+  document.getElementById("detail-badges").addEventListener("click", function(ev) {
+    if (ev.target.closest("#detail-timings-btn")) mgOpenTraceDrawer();
   });
 
   window.addEventListener("resize", function() { if (activeTab === "modules") mgResize(); });
@@ -1372,6 +1450,7 @@ function renderModules() {
   mgBuild();
   mgBuildTree();
   mgBuildProblems();
+  mgSyncTraceDrawer(null);
   mgApplyExternalVisibility();
   if (mgNodes.length === 0) {
     document.getElementById("mg-empty-state").classList.add("visible");
@@ -1705,6 +1784,166 @@ function mgProvidersHtml(n) {
   return html;
 }
 
+var mgTraceMax = 1;
+var MG_TRACE_COLORS = {
+  provider: "34,211,238",
+  controller: "167,139,250",
+  injectable: "52,211,153",
+  middleware: "244,114,182"
+};
+
+function mgTraceNode(id) {
+  return Object.prototype.hasOwnProperty.call(graph.timingsTrace, id)
+    ? graph.timingsTrace[id] : null;
+}
+
+function mgTraceColor(type) {
+  return Object.prototype.hasOwnProperty.call(MG_TRACE_COLORS, type)
+    ? MG_TRACE_COLORS[type] : "107,114,128";
+}
+
+function mgDockShow(name) {
+  document.getElementById("mg-dock").dataset.active = name;
+  var dock = document.getElementById("mg-dock");
+  if (!dock.classList.contains("open")) {
+    dock.classList.add("open");
+    document.getElementById("mg-dock-chevron").textContent = "\\u25BE";
+  }
+  mgResize();
+}
+
+function mgTraceBadgeHtml(type) {
+  var rgb = mgTraceColor(type);
+  return '<span class="md-badge" style="color:rgb(' + rgb + ');background:rgba(' + rgb + ',0.12)">' +
+    mgEsc(type) + '</span>';
+}
+
+function mgTraceBarHtml(initTime, deps, type, reused) {
+  var frac = Math.max(0, Math.min(1, initTime / mgTraceMax));
+  var width = (frac * 100).toFixed(2);
+  if (reused) {
+    return '<span class="mg-trace-track">' +
+      '<span class="mg-trace-bar" style="width:' + width + '%;background:transparent;box-shadow:inset 0 0 0 1px rgba(' + mgTraceColor(type) + ',0.5)"></span>' +
+      '</span>';
+  }
+  // Slowest dep this class could actually have waited on: a dep slower than
+  // the class itself was pre-built, so it never entered this class's clock.
+  var slowestDep = 0;
+  for (var d = 0; d < deps.length; d++) {
+    var dep = mgTraceNode(deps[d]);
+    if (dep && dep.initTime <= initTime) { slowestDep = dep.initTime; break; }
+  }
+  var selfFrac = Math.max(0, Math.min(frac, (initTime - slowestDep) / mgTraceMax));
+  return '<span class="mg-trace-track">' +
+    '<span class="mg-trace-bar" style="width:' + width + '%;background:rgba(' + mgTraceColor(type) + ',0.4)"></span>' +
+    (selfFrac > 0.002 ? '<span class="mg-trace-self" style="left:' + ((frac - selfFrac) * 100).toFixed(2) + '%;width:' + (selfFrac * 100).toFixed(2) + '%"></span>' : '') +
+    '</span>';
+}
+
+function mgTraceRowHtml(id, depth, path) {
+  var node = mgTraceNode(id);
+  if (!node) return "";
+  var ancestors = path.split("/");
+  ancestors.pop();
+  var cyc = ancestors.indexOf(id) >= 0;
+  var expandable = !cyc && depth < 20 && node.deps.length > 0;
+  // Slower than its consumer means the dep already existed when the consumer loaded.
+  var parent = ancestors.length > 0 ? mgTraceNode(ancestors[ancestors.length - 1]) : null;
+  var reused = parent !== null && node.initTime > parent.initTime;
+  return '<div class="mg-trace-row' + (expandable ? ' mg-trace-expandable' : '') +
+    (reused ? ' mg-trace-reused' : '') + '"' +
+    ' data-trace="' + mgEsc(id) + '" data-path="' + mgEsc(path) + '" data-depth="' + depth + '">' +
+    '<span class="mg-trace-label" style="padding-left:' + (Math.min(depth, 8) * 16) + 'px">' +
+    '<span class="mg-trace-caret">' + (expandable ? "\\u25B8" : "") + '</span>' +
+    '<span class="mg-trace-name">' + mgEsc(node.name) + '</span>' +
+    mgTraceBadgeHtml(node.type) +
+    (reused ? '<span class="mg-trace-reused-tag" title="Already built when this parent loaded \\u2014 its cost is counted at its first consumer">reused</span>' : '') +
+    (cyc ? '<span class="mg-trace-cycle" title="circular dependency">\\u21BB</span>' : '') +
+    '</span>' +
+    mgTraceBarHtml(node.initTime, node.deps, node.type, reused) +
+    '<span class="mg-trace-time">' + mgEsc(mgFormatMs(node.initTime)) + '</span>' +
+    '</div>';
+}
+
+function mgShowModuleTrace(n) {
+  var list = n.initTimings;
+  mgTraceMax = list[0].initTime > 0 ? list[0].initTime : 1;
+  var html = "";
+  // The parser writes every timed class into the trace, so rows never miss it.
+  for (var i = 0; i < list.length; i++) {
+    html += mgTraceRowHtml(list[i].id, 0, list[i].id);
+  }
+  document.getElementById("mg-trace-ms").textContent =
+    getDisplayName(n) + " \\u00b7 " + mgFormatMs(list[0].initTime);
+  document.getElementById("mg-trace-body").innerHTML = html;
+}
+
+var mgTraceSyncedName = null;
+
+function mgSyncTraceDrawer(n) {
+  var mod = n && !n.external && graph.timingsAvailable &&
+    n.initTimings && n.initTimings.length > 0 ? n : null;
+  var tab = document.getElementById("mg-dock-tab-trace");
+  if (!graph.timingsAvailable) {
+    tab.style.display = "none";
+    return;
+  }
+  tab.style.display = "";
+  if (mod) {
+    // Re-selecting the same module keeps its expanded cascade rows.
+    if (mgTraceSyncedName === mod.name) return;
+    mgTraceSyncedName = mod.name;
+    mgShowModuleTrace(mod);
+  } else {
+    mgTraceSyncedName = null;
+    document.getElementById("mg-trace-ms").textContent = "";
+    document.getElementById("mg-trace-body").innerHTML =
+      '<div class="mg-trace-note">' +
+      (n ? mgEsc("No timing data for " + getDisplayName(n) + " \\u2014 it was not part of the captured boot, or its module name repeats across projects.")
+         : "Select a module to see its bootstrap timings.") +
+      '</div>';
+  }
+  mgResize();
+}
+
+function mgOpenTraceDrawer() {
+  mgDockShow("trace");
+}
+
+function mgJumpToSlowestBoot() {
+  switchTab("modules");
+  var maxId = null;
+  var maxT = -1;
+  for (var e = 0, entries = Object.entries(graph.timingsTrace); e < entries.length; e++) {
+    if (entries[e][1].initTime > maxT) {
+      maxT = entries[e][1].initTime;
+      maxId = entries[e][0];
+    }
+  }
+  var owner = null;
+  var largest = null;
+  var largestT = -1;
+  for (var i = 0; i < graph.modules.length; i++) {
+    var m = graph.modules[i];
+    if (!m.initTimings || m.initTimings.length === 0) continue;
+    for (var j = 0; j < m.initTimings.length; j++) {
+      if (m.initTimings[j].id === maxId) owner = m;
+    }
+    if (m.initTimings[0].initTime > largestT) {
+      largestT = m.initTimings[0].initTime;
+      largest = m;
+    }
+  }
+  var target = owner || largest;
+  var node = target && mgNodeMap[target.name];
+  if (node) {
+    mgShowDetail(node);
+    mgFlyToNode(node);
+  }
+  mgOpenTraceDrawer();
+  mgScheduleRedraw();
+}
+
 function mgExportsHtml(n) {
   var groups = { Services: [], Repositories: [], Others: [] };
   for (var i = 0; i < n.exports.length; i++) {
@@ -1767,6 +2006,7 @@ function mgClearSelection() {
   mgSelected = null;
   mgFocusSet = null;
   mgCycleFocus = null;
+  mgSyncTraceDrawer(null);
   mgSyncTree(null);
   mgScheduleRedraw();
 }
@@ -1789,7 +2029,12 @@ function mgShowDetail(n) {
   if (n.isGlobal) badges += '<span class="md-badge md-global">global</span>';
   if (circularModules.has(n.name)) badges += '<span class="md-badge md-cycle">in cycle</span>';
   if (rootModules.has(n.name)) badges += '<span class="md-badge md-root">root</span>';
+  if (graph.timingsAvailable && n.initTimings && n.initTimings.length > 0) {
+    badges += '<span class="md-badge md-use" id="detail-timings-btn" title="Open the bootstrap timings drawer">' +
+      mgEsc(mgFormatMs(n.initTimings[0].initTime)) + ' \\u00b7 trace \\u25BE</span>';
+  }
   document.getElementById("detail-badges").innerHTML = badges;
+  mgSyncTraceDrawer(n);
 
   document.getElementById("detail-path").textContent =
     n.filePath + (n.line ? ":" + n.line : "");

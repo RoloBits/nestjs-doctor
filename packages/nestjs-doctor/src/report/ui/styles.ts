@@ -204,21 +204,63 @@ body.mg-resizing { cursor: col-resize; user-select: none; }
 #mg-info-pop dd { color: #999; margin: 2px 0 0 0; line-height: 1.4; }
 #mg-info-pop code { background: rgba(255,255,255,0.08); padding: 1px 4px; border-radius: 3px; font-size: 11px; }
 
-/* ── Problems drawer (Graph tab) ── */
-#mg-problems {
+/* ── Bottom dock: problems + boot trace tabs (Graph tab) ── */
+#mg-dock {
   border-top: 1px solid var(--border); background: var(--surface);
-  flex-shrink: 0; display: flex; flex-direction: column;
-  max-height: 40%;
+  flex-shrink: 0; display: flex; flex-direction: column; max-height: 45%;
 }
-#mg-problems-header {
+#mg-dock-header {
   display: flex; align-items: center; gap: 8px;
-  padding: 8px 14px; cursor: pointer; user-select: none;
+  padding: 6px 14px; cursor: pointer; user-select: none;
 }
-#mg-problems-header:hover { background: rgba(255,255,255,0.03); }
-.mg-problems-title { font-size: 12px; font-weight: 600; color: var(--white); }
+#mg-dock-header:hover { background: rgba(255,255,255,0.03); }
+.mg-dock-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; color: var(--text-dim);
+  padding: 3px 8px; border-radius: 4px;
+}
+.mg-dock-tab:hover { color: var(--white); }
+#mg-dock[data-active="problems"] #mg-dock-tab-problems,
+#mg-dock[data-active="trace"] #mg-dock-tab-trace { color: var(--white); background: rgba(255,255,255,0.06); }
+.mg-trace-legend { display: none; font-size: 10px; color: var(--text-dim); }
+#mg-dock[data-active="trace"] .mg-trace-legend { display: inline; }
+.mg-trace-legend-self {
+  display: inline-block; width: 14px; height: 8px; border-radius: 2px;
+  background: #fbbf24; vertical-align: middle;
+}
+#mg-trace-body {
+  display: none; overflow-y: auto;
+  border-top: 1px solid var(--border); padding: 6px 0;
+}
+#mg-dock.open[data-active="trace"] #mg-trace-body { display: block; }
+.mg-trace-row { display: flex; align-items: center; gap: 10px; padding: 2px 14px; font-size: 11px; }
+.mg-trace-label {
+  width: 300px; flex-shrink: 0; display: flex; align-items: center; gap: 6px;
+  color: #ccc; overflow: hidden; white-space: nowrap;
+}
+.mg-trace-name { overflow: hidden; text-overflow: ellipsis; }
+.mg-trace-track { position: relative; flex: 1; height: 12px; background: rgba(255,255,255,0.03); border-radius: 2px; }
+.mg-trace-bar { position: absolute; left: 0; top: 1px; height: 10px; border-radius: 2px; background: rgba(34,211,238,0.35); min-width: 2px; }
+.mg-trace-self { position: absolute; top: 1px; height: 10px; border-radius: 2px; background: #fbbf24; }
+.mg-trace-time { width: 64px; flex-shrink: 0; text-align: right; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.mg-trace-note { padding: 4px 14px; font-size: 11px; color: var(--text-dim); }
+.mg-trace-caret {
+  width: 12px; flex-shrink: 0; display: inline-block;
+  color: var(--text-dim); transition: transform 0.12s;
+}
+.mg-trace-row.expanded .mg-trace-caret { transform: rotate(90deg); }
+.mg-trace-expandable { cursor: pointer; }
+.mg-trace-expandable:hover { background: rgba(255,255,255,0.05); }
+.mg-trace-cycle { color: var(--text-dim); }
+.mg-trace-reused { opacity: 0.55; }
+.mg-trace-reused-tag {
+  font-size: 10px; color: var(--text-dim);
+  border: 1px solid var(--border); border-radius: 3px; padding: 0 4px;
+}
+
 .mg-problems-chevron { color: var(--text-dim); font-size: 11px; }
 #mg-problems-list { display: none; overflow-y: auto; border-top: 1px solid var(--border); }
-#mg-problems.open #mg-problems-list { display: block; }
+#mg-dock.open[data-active="problems"] #mg-problems-list { display: block; }
 .mg-problem-row {
   display: flex; align-items: baseline; gap: 8px;
   padding: 4px 14px; font-size: 12px; color: #ccc;
