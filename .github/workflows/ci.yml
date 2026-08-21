@@ -32,6 +32,7 @@ jobs:
       - run: pnpm knip
       - run: pnpm typecheck
       - run: pnpm build
+      - run: pnpm --filter nestjs-doctor smoke:packed
 
   test:
     # The scanner normalises paths, shells out to git, and resolves tsconfig

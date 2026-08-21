@@ -12,30 +12,67 @@ Install the agent skill:
 npx nestjs-doctor@latest --init
 ```
 
-Installs a skill that teaches your agent to run the scan and read the findings.
-It fixes them in order: security, correctness, architecture, performance.
+Installs three skills:
+
+| Skill | What it is for |
+| ----- | -------------- |
+| `nestjs-doctor` | Scan after a change, fix what it introduced |
+| `nestjs-boot-trace` | Find out why the application is slow to start |
+| `nestjs-doctor-create-rule` | Write a rule for a convention of your own |
+
+The first one is the everyday skill. Its description tells the agent to reach
+for it after writing Nest code and before committing, so it runs without being
+asked.
 
 It installs for Claude Code, Cursor, Codex, OpenCode, Windsurf, Amp,
 Antigravity, and Gemini CLI. Detection looks for each one's config directory or
-binary. Windsurf is the exception: it has no skills directory, so the content is
-appended to `~/.codeium/windsurf/memories/global_rules.md`.
+binary. Windsurf is the exception: it has no skills directory, so the content goes into
+`~/.codeium/windsurf/memories/global_rules.md`, inside a delimited block that a
+later `--init` replaces rather than duplicating.
 
-It also always writes `.agents/nestjs-doctor/` and
-`.agents/nestjs-doctor-create-rule/` in the project itself, whatever it detected.
-Commit those and every contributor gets the skill without running anything.
+It also always writes `.agents/nestjs-doctor/`, `.agents/nestjs-boot-trace/`,
+and `.agents/nestjs-doctor-create-rule/` in the project itself, whatever it
+detected. Commit those and every contributor gets the skills without running
+anything.
 
-## Why a skill and not a prompt
+Re-run `--init` after upgrading. It overwrites what it wrote before, so the
+skills track the version of the CLI you have.
+
+A skill that needs more than one file carries a `references/` directory, copied
+in beside its `SKILL.md`. `nestjs-doctor-create-rule` uses it for the rule API,
+worked examples, and ts-morph patterns, so the skill itself stays short and the
+detail loads only when a rule is actually being written.
+
+## What the skill knows that a prompt does not
 
 The rules are deterministic and the score is a function of the findings, so the
 agent gets the same answer you do. It is a check it can run and re-run, not an
 opinion it has to trust.
 
-Ask it to run the scan after a change and fix what it introduced.
+The skill also carries the things an agent gets wrong on its own:
+
+- Narrowing the scope narrows the report, never the analysis, so a cross-file
+  break still surfaces.
+- `--scope changed` degrades loudly instead of going quiet and looking clean.
+- Suppress with the narrowest control that works, starting at one line.
+- `severity` in the config file is read by nothing, so setting it does nothing.
+- `--json` and `--score` default `--blocking` to `none` and swallow two
+  warnings, so a run below `--min-score` exits `1` with no message.
+
+The skills ship inside the package. Nothing is fetched at run time, so an
+agent's instructions cannot change under it.
+
+## A slow boot
+
+`nestjs-boot-trace` handles the one thing a scan cannot: construction time only
+exists while the application runs. The skill instruments `main.ts`, captures one
+boot, overlays the real times on the module graph, and puts `main.ts` back. See
+[Boot trace](/docs/report/boot-trace).
 
 ## Writing rules for your own conventions
 
-A second skill, `nestjs-doctor-create-rule`, walks an agent through writing a
-custom rule: choosing the scope, matching the AST, and verifying the rule loads.
+`nestjs-doctor-create-rule` walks an agent through writing a custom rule:
+choosing the scope, matching the AST, and verifying the rule loads.
 Use it when the convention you want enforced is specific to your codebase.
 
 See [Custom rules](/docs/custom-rules) for the interface it writes against.

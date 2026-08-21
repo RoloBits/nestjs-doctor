@@ -27,7 +27,9 @@
     "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "postbuild": "node scripts/copy-skills.mjs",
+    "smoke:packed": "node scripts/smoke-packed-install.mjs"
   },
   "keywords": [
     "nestjs",
