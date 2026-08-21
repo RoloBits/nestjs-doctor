@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <b>Diagnose and fix your NestJS code in one command.</b>
+  <b>The deterministic NestJS devtool that catches AI mistakes.</b>
 </p>
 
 <p align="center">
@@ -18,713 +18,131 @@
   <a href="https://marketplace.visualstudio.com/items?itemName=rolobits.nestjs-doctor-vscode"><img src="https://img.shields.io/visual-studio-marketplace/v/rolobits.nestjs-doctor-vscode?style=flat&colorA=18181b&colorB=18181b&label=vscode" alt="vscode"></a>
 </p>
 
-<p align="center">
-  50 built-in rules across <b>security</b>, <b>performance</b>, <b>correctness</b>, <b>architecture</b>, and <b>schema</b>. Outputs a <b>0-100 score</b> with actionable diagnostics. Zero config. Monorepo support. Catches the anti-patterns that AI-generated code introduce (slop code).
-</p>
+An opinionated rule set for an opinionated framework. nestjs-doctor scans your
+codebase and reports issues across **security**, **correctness**,
+**architecture**, **performance**, and **schema**, then scores it 0-100.
+
+No AI at scan time, no network calls — the same commit scores the same on your
+laptop and in CI. Reads schemas from Prisma, TypeORM, Drizzle and MikroORM, and
+handles monorepos.
+
+[Website →](https://nestjs.doctor/docs)
 
 ---
 
-## Quick Start
+## Install
+
+### 1. Quick start
+
+Run this at your project root to get an audit.
 
 ```bash
 npx nestjs-doctor@latest .
 ```
 
-With file paths and line numbers:
-
-```bash
-npx nestjs-doctor@latest . --verbose
-```
-
 ![CLI Output](https://nestjs.doctor/cli-output.png)
 
----
+Add `--verbose` for file paths and line numbers.
 
-## Report
+### 2. Open the report
 
 ```bash
 npx nestjs-doctor@latest . --report
 ```
 
-Self-contained HTML file with six sections: score summary, source-level diagnostics with code viewer, interactive module graph, traced HTTP endpoints, schema ER diagram, and a custom rule playground. Controllers and routes hidden behind project wrapper decorators (a custom decorator composing `@Controller()` or `@Get()`) are resolved and traced. Opens in your browser.
+A self-contained HTML file: score summary, diagnostics with a code viewer, an
+interactive module graph, traced HTTP endpoints, the schema ER diagram, and a
+playground for writing your own rules.
 
 ![Module Graph](https://nestjs.doctor/module-graph.png)
 
-### Bootstrap timings
+Add `--timings` with a graph dump from a real `nest start` and the graph gains a
+boot trace, so the 800ms hiding in an `onModuleInit` shows up as a bar.
+[Report docs →](https://nestjs.doctor/docs/pipeline/output)
 
-The module graph can overlay how long each class took to construct during a real boot — the same data NestJS Devtools reads, kept local. Requires `@nestjs/core` >= 9.3.10. Add this to your `main.ts` (dev only):
-
-```ts
-import { writeFileSync } from "node:fs";
-import { performance } from "node:perf_hooks";
-import { NestFactory, SerializedGraph } from "@nestjs/core";
-
-const t0 = performance.now();
-const app = await NestFactory.create(AppModule, { snapshot: true });
-const createMs = performance.now() - t0;
-await app.init();
-const initMs = performance.now() - t0;
-await app.listen(3000);
-const startupMs = performance.now() - t0;
-const graph = JSON.parse(app.get(SerializedGraph).toString());
-Object.assign(graph, { createMs, initMs, startupMs });
-writeFileSync("nestjs-doctor-timings.json", JSON.stringify(graph));
-```
-
-Optionally (Nest >= 11.1.4), record per-class `onModuleInit`/`onApplicationBootstrap` durations by adding an `instrument` option to `create()` and a `const hookTimings: { className: string; hook: string; ms: number }[] = []` above it, then including `hookTimings` in the `Object.assign`:
-
-```ts
-instrument: {
-  instanceDecorator(instance: any) {
-    if (!instance || typeof instance !== "object") return instance;
-    for (const hook of ["onModuleInit", "onApplicationBootstrap"]) {
-      const original = instance[hook];
-      if (typeof original !== "function") continue;
-      try {
-        instance[hook] = async function (...args: unknown[]) {
-          const start = performance.now();
-          try { return await original.apply(this, args); }
-          finally { hookTimings.push({ className: this.constructor.name, hook, ms: performance.now() - start }); }
-        };
-      } catch {} // frozen instances stay untimed
-    }
-    return instance;
-  },
-},
-```
-
-Boot the app once, then:
-
-```bash
-npx nestjs-doctor@latest . --report --timings nestjs-doctor-timings.json
-```
-
-The report header shows `time to start ≈ <ms>` — wall time from bootstrap start until the app was listening, lifecycle hooks included. A dump without `startupMs` falls back to `boot ≈ <ms>`, the slowest construction chain. With the phase markers, the Boot trace tab tops with a segmented strip — `create · lifecycle hooks · listen` — and per-class hook durations render as `+120ms init` chips on trace rows. Each module node shows its slowest class's construction time. Selecting a module fills the bottom dock's Boot trace tab: its classes slowest-first with proportional bars, color-coded by class type. Each row expands in place into its injection cascade — nested bars where an amber segment marks each class's own work, so you can read down the chain to the class that actually owns the time. Times include waiting on a class's own dependencies, so a shared slow dependency counts again in every class that awaits it. A dependency provably built before its parent renders hollow with a `reused` tag; one that has its own top-level row shows `listed above` instead, and repeated transient hook runs merge into one `×N` chip. Timings are display-only — they never affect the score, diagnostics, or exit codes.
-
----
-
-## VS Code Extension
-
-Install [NestJS Doctor](https://marketplace.visualstudio.com/items?itemName=rolobits.nestjs-doctor-vscode) from the VS Code Marketplace. Requires `nestjs-doctor` as a dev dependency — the extension's LSP server loads it from your workspace.
-
-```bash
-npm install -D nestjs-doctor
-```
-
-Same 50 rules as the CLI, surfaced as inline diagnostics in the editor and in the Problems panel. Files are scanned on open and on save with a configurable debounce.
-
-Use `NestJS Doctor: Scan Project` from the command palette to trigger a full scan manually.
-
----
-
-## GitHub Action
-
-Reviews every pull request and reports **only what the change introduced**, not
-your existing backlog. Posts a sticky summary comment, inline review comments on
-the changed lines, and a commit status with the score.
-
-Scaffold the workflow:
+### 3. Run in CI
 
 ```bash
 npx nestjs-doctor@latest ci install
 ```
 
-The file always lands at the git repository root, so running it from a package
-directory in a monorepo still writes to the right place. It refuses to run
-outside a repository rather than guessing, and leaves an existing file alone
-unless you pass `--force`.
+Writes `.github/workflows/nestjs-doctor.yml`. The action reviews every pull
+request and reports **only what the change introduced**, not your existing
+backlog: a sticky summary comment, inline review comments on the changed lines,
+and a commit status with the score.
 
-What it writes is a fuller version of the workflow below: same triggers and
-permissions, plus `ready_for_review` in the pull request types, a concurrency
-guard, and the common inputs commented out, so the check stays advisory until
-you choose a gate. The push trigger is keyed to the branch `origin/HEAD` points
-at, falling back to `origin/main`, `origin/master`, then the checked out branch
-— it prints which one it chose.
+It never fails a check until you ask it to — set `blocking` or `min-score` when
+your team is ready. [CI docs →](https://nestjs.doctor/docs/ci)
 
-```yaml
-# .github/workflows/nestjs-doctor.yml
-name: NestJS Doctor
-
-on:
-  pull_request:
-  push:
-    branches: [main]
-
-permissions:
-  contents: read
-  pull-requests: write
-  statuses: write
-
-jobs:
-  doctor:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # required for `scope: changed`
-      - uses: RoloBits/nestjs-doctor@v1
-```
-
-`fetch-depth: 0` matters. `scope: changed` compares against the **merge base**
-of your branch and its target, which a shallow checkout can't resolve — the
-action falls back to the base branch tip, or, if it can't reach that either, to
-reporting every finding in the changed files. It says which happened in the
-comment.
-
-### Inputs
-
-| Input | Default | Description |
-|-------|---------|-------------|
-| `directory` | `.` | Project directory to scan |
-| `scope` | `changed` | `changed` (only what the pull request introduced), `files` (everything in the changed files), `lines` (only the changed lines), `full` (the whole project) |
-| `blocking` | `none` | Severity that fails the workflow: `none`, `warning`, `error` |
-| `min-score` | — | Fail when the project's score drops below this |
-| `config` | — | Path to a config file |
-| `comment` | `true` | Sticky pull request summary comment |
-| `review-comments` | `true` | Inline review comments on changed lines |
-| `commit-status` | `true` | Commit status with the score |
-| `sarif` | `false` | Also write a SARIF report |
-| `sarif-file` | `nestjs-doctor.sarif` | Where the SARIF report goes |
-| `silence-missing-baseline-warning` | `false` | Hide the degraded-scope warning |
-| `github-token` | `${{ github.token }}` | Token used to comment and set the status |
-| `node-version` | `22` | Node.js version |
-| `version` | `latest` | nestjs-doctor version to run |
-
-### Failing the build
-
-Out of the box the action **never fails** — it comments and sets a status, and
-you decide what to do about it. Enforcement is opt-in through two independent
-gates, and either one failing fails the run.
-
-```yaml
-      - uses: RoloBits/nestjs-doctor@v1
-        with:
-          blocking: error # any error the change introduced fails the run
-          min-score: 80 # …and so does a project score below 80
-```
-
-`blocking` gates on the findings **actually reported**, so with the default
-`scope: changed` it fires only on what the pull request introduced — your
-existing backlog cannot fail somebody else's pull request. `none` (the default)
-never fails, `warning` fails on any error or warning, `error` on errors only.
-
-`min-score` gates on the **whole project**, always, whatever the scope. That is
-deliberate — narrowing a report must not make a codebase look healthier than it
-is — but it does mean a high enough threshold can fail a pull request for debt
-it did not create. Use `blocking` on its own to gate purely on the change.
-
-### Outputs
-
-`score`, `label`, `total-issues`, `fixed-issues`, `error-count`,
-`warning-count`, `affected-files`, `report-file`, `sarif-file`.
-
-Pushes to the default branch always scan the whole project and never fail the
-run — they are a health snapshot, surfaced through the job summary and the
-commit status, so `main` doesn't go red on pre-existing findings.
-
-### Code scanning
-
-Turn on `sarif` to send findings to the repository's Security tab:
-
-```yaml
-      - uses: RoloBits/nestjs-doctor@v1
-        id: doctor
-        with:
-          scope: full
-          sarif: "true"
-      - uses: github/codeql-action/upload-sarif@v3
-        if: always() && steps.doctor.outputs.sarif-file != ''
-        with:
-          sarif_file: ${{ steps.doctor.outputs.sarif-file }}
-```
-
-Add `security-events: write` to the job's `permissions`.
-
----
-
-## CI
-
-Pin it as a devDependency:
+### 4. Install for agents
 
 ```bash
-npm install -D nestjs-doctor
+npx nestjs-doctor@latest --init
 ```
 
-Use `--min-score` to gate on a minimum health score:
+Installs a skill so your coding agent runs the scan and fixes what it finds.
+Works with Claude Code, Cursor, Codex, OpenCode, Windsurf, Gemini CLI, and more.
+[Agent docs →](https://nestjs.doctor/docs/setup#ai-coding-agents)
 
-```bash
-npx nestjs-doctor . --min-score 75
-```
+### 5. Configure rules
 
-Or wire it into `package.json`:
+Optional. Drop a `nestjs-doctor.config.json` in your project root to turn rules
+or whole categories off, override a severity, set a score floor, or point at
+your own rules directory. It also works as a `"nestjs-doctor"` key in
+`package.json`.
 
 ```json
 {
-  "scripts": {
-    "health": "nestjs-doctor . --min-score 75"
-  }
-}
-```
-
-Exit codes: `1` if a gate fails, `2` for bad input.
-
-```
-Usage: nestjs-doctor [directory] [options]
-
-Commands:
-  ci install            Scaffold .github/workflows/nestjs-doctor.yml
-
-Options:
-  --verbose             Show file paths and line numbers per diagnostic
-  --score               Output only the numeric score (for CI)
-  --json                JSON output (for tooling)
-  --format <f>          console (default), json, sarif, gitlab, markdown, github
-  --output <path>       Write the formatted output to a file instead of stdout
-  --json-compact        Emit JSON-based formats without indentation
-  --scope <s>           full (default), files, lines, changed
-  --base <ref>          Git ref to compare against (auto-detected)
-  --staged              Scope to the staged files, for pre-commit hooks
-  --changed-files-from  Path to a newline-separated list of changed files
-  --blocking <level>    Severity that fails the run: none, warning, error
-  --min-score <n>       Minimum passing score (0-100)
-  --report              Generate an interactive HTML report (--graph also works)
-  --timings <path>      SerializedGraph dump to overlay bootstrap init times on the report
-  --config <p>          Path to config file
-  --list-rules          List every built-in rule and exit
-  --init                Set up the /nestjs-doctor skill for AI coding agents
-  --force               Overwrite an existing file (with `ci install`)
-  -h, --help            Show help
-```
-
-### Scoping to a change
-
-The whole project is always analysed — cross-file rules like
-`no-circular-module-deps` and `no-unused-providers` need it — so `--scope` only
-narrows what gets **reported**.
-
-| Scope | Reports |
-|-------|---------|
-| `full` | Every finding in the project (the default) |
-| `files` | Findings in files the change touched |
-| `lines` | Findings on the lines the change touched |
-| `changed` | Findings the change introduced, measured against the base revision |
-
-```bash
-# What did this branch introduce?
-npx nestjs-doctor . --scope changed --base origin/main
-
-# Pre-commit hook: only what you are about to commit
-npx nestjs-doctor . --staged --blocking error
-```
-
-`changed` scans the base revision in a temporary git worktree and subtracts the
-findings that were already there. Findings are matched on rule, file, message,
-and source text rather than line number, so unrelated edits above a finding
-don't make it look new. If the base can't be reached the scan degrades to
-`files` and warns rather than reporting a delta it never measured.
-
-**The score always reflects the whole project**, whatever the scope — narrowing
-the report can't make a codebase look healthier than it is. `--min-score` gates
-on that project score; `--blocking` gates on the reported findings.
-
-### Blocking
-
-| Level | Fails the run when |
-|-------|--------------------|
-| `none` | Never — advisory only |
-| `warning` | Any error or warning is reported |
-| `error` | Any error is reported |
-
-The default preserves long-standing behaviour: `error` for the console report,
-`none` for `--json` and `--score`, which historically only failed on
-`--min-score`. Pass `--blocking` explicitly to make both paths behave the same.
-
-### Other CI systems
-
-```bash
-# GitLab Code Quality widget
-npx nestjs-doctor . --format gitlab --output gl-code-quality-report.json
-
-# SARIF, for any code-scanning backend
-npx nestjs-doctor . --format sarif --output nestjs-doctor.sarif
-
-# A markdown body to post as a merge request comment
-npx nestjs-doctor . --format markdown --output comment.md
-```
-
----
-
-## AI Coding Agents
-
-Ships with skills for popular AI coding agents. Run `--init` to auto-detect installed agents and install the nestjs-doctor skill for each one:
-
-```bash
-npm install -D nestjs-doctor
-npx nestjs-doctor --init
-```
-
-| Agent | Detection | Skill location |
-|-------|-----------|----------------|
-| Claude Code | `~/.claude` exists | `~/.claude/skills/nestjs-doctor/` |
-| Amp Code | `~/.amp` exists | `~/.config/amp/skills/nestjs-doctor/` |
-| Cursor | `~/.cursor` exists | `~/.cursor/skills/nestjs-doctor/` |
-| OpenCode | `opencode` CLI or `~/.config/opencode` | `~/.config/opencode/skills/nestjs-doctor/` |
-| Windsurf | `~/.codeium` exists | Appends to `~/.codeium/windsurf/memories/global_rules.md` |
-| Antigravity | `agy` CLI or `~/.gemini/antigravity` | `~/.gemini/antigravity/skills/nestjs-doctor/` |
-| Gemini CLI | `gemini` CLI or `~/.gemini` | `~/.gemini/skills/nestjs-doctor/` |
-| Codex | `codex` CLI or `~/.codex` | `~/.codex/skills/nestjs-doctor/` |
-
-A project-level fallback is always written to `.agents/nestjs-doctor/`. Commit it so every contributor gets the skill automatically.
-
-### Skills
-
-`--init` installs two skills per agent:
-
-| Skill | Command | Description |
-|-------|---------|-------------|
-| nestjs-doctor | `/nestjs-doctor` | Runs the scan, shows the report, and fixes what it can |
-| nestjs-doctor-create-rule | `/nestjs-doctor-create-rule` | Scaffolds a custom rule: checks feasibility, writes the `.ts` file, updates config, verifies it loads |
-
----
-
-## Configuration
-
-Optional. Create `nestjs-doctor.config.json` in your project root:
-
-```json
-{
-  "minScore": 75,
-  "ignore": {
-    "rules": ["architecture/no-orm-in-services"],
-    "files": ["src/generated/**"]
-  },
+  "minScore": 80,
   "rules": {
-    "architecture/no-barrel-export-internals": false
-  },
-  "categories": {
-    "performance": false
-  }
-}
-```
-
-Also works as a `"nestjs-doctor"` key in `package.json`.
-
-| Key | Type | Description |
-|-----|------|-------------|
-| `include` | `string[]` | Glob patterns to scan (default: `["**/*.ts"]`) |
-| `exclude` | `string[]` | Glob patterns to skip (default includes `node_modules`, `dist`, `build`, `coverage`, `*.spec.ts`, `*.test.ts`, `*.e2e-spec.ts`, `*.e2e-test.ts`, `*.d.ts`, `test/`, `tests/`, `__tests__/`, `__mocks__/`, `__fixtures__/`, `mock/`, `mocks/`, `*.mock.ts`, `seeder/`, `seeders/`, `*.seed.ts`, `*.seeder.ts`) |
-| `minScore` | `number` | Minimum passing score (0-100). Exits with code 1 if below threshold |
-| `ignore.rules` | `string[]` | Rule IDs to suppress |
-| `ignore.files` | `string[]` | Glob patterns for files whose diagnostics are hidden |
-| `rules` | `Record<string, RuleOverride \| boolean>` | Enable/disable individual rules, override severity, and pass rule-specific options |
-| `categories` | `Record<string, boolean>` | Enable/disable entire categories |
-| `customRulesDir` | `string` | Path to a directory containing custom rule files |
-
-Example rule-specific override:
-
-```json
-{
-  "rules": {
+    "performance/no-sync-io": false,
     "architecture/no-manual-instantiation": {
       "excludeClasses": ["Logger", "PinoLogger"]
     }
-  }
-}
-```
-
-### Inline suppression
-
-Silence a rule from within the source — useful for one-off exceptions that don't warrant a config change. Write the directive inside a `//` or `/* */` comment:
-
-```typescript
-// Suppress on the same line
-const config = eval(raw); // nestjs-doctor-ignore security/no-eval
-
-// Suppress on the next line
-// nestjs-doctor-ignore-next-line security/no-eval
-const config = eval(raw);
-
-// Suppress for the entire file (put it anywhere, typically at the top)
-// nestjs-doctor-ignore-file security/no-eval
-```
-
-| Directive | Scope |
-|-----------|-------|
-| `nestjs-doctor-ignore <rules>` | The line the comment is on |
-| `nestjs-doctor-ignore-line <rules>` | The line the comment is on |
-| `nestjs-doctor-ignore-next-line <rules>` | The line below the comment |
-| `nestjs-doctor-ignore-file <rules>` | Every line in the file |
-
-`disable` is accepted as an alias for `ignore` (e.g. `nestjs-doctor-disable-next-line`), matching the muscle memory of other linters.
-
-The rule list is space- or comma-separated (`security/no-eval, security/no-weak-crypto`). Omit it to suppress **all** rules for that scope. An optional `-- reason` trailer is ignored, so you can document why:
-
-```typescript
-const token = sign(payload); // nestjs-doctor-ignore security/no-weak-crypto -- legacy HS256, migration tracked in #42
-```
-
-Directives must live on a single line, inside a real comment — a directive that only appears inside a string literal is ignored. Put the `-- reason` after the rules (a bare ignore whose reason contains a slash is read as naming a rule).
-
-The line-scoped forms match only code diagnostics — schema diagnostics have no line, so suppress those with `nestjs-doctor-ignore-file`, either in the entity source (TypeORM / MikroORM / Drizzle) or directly in `schema.prisma` (Prisma).
-
----
-
-## Custom Rules
-
-Extend the built-in rule set with project-specific checks. Only `.ts` files are supported.
-
-### Rule shape
-
-Each `.ts` file in the custom rules directory must export an object with a `meta` descriptor and a `check` function:
-
-```typescript
-import type { RuleContext } from "nestjs-doctor";
-
-export const noTodoComments = {
-  meta: {
-    id: "no-todo-comments",
-    category: "correctness",        // "security" | "performance" | "correctness" | "architecture" | "schema"
-    severity: "warning",            // "error" | "warning" | "info"
-    description: "TODO comments should be resolved before merging",
-    help: "Replace the TODO with an implementation or open an issue.",
-    // scope: "file",              // optional — "file" (default) or "project"
   },
-  check(context: RuleContext) {
-    const text = context.sourceFile.getFullText();
-    const regex = /\/\/\s*TODO/gi;
-    let match: RegExpExecArray | null;
-    while ((match = regex.exec(text)) !== null) {
-      const pos = context.sourceFile.getLineAndColumnAtPos(match.index);
-      context.report({
-        message: "Unresolved TODO comment",
-        filePath: context.filePath,
-        line: pos.line,
-      });
-    }
-  },
-};
-```
-
-Rule IDs are automatically prefixed with `custom/` (e.g. `no-todo-comments` becomes `custom/no-todo-comments`).
-
-### Usage
-
-Set `customRulesDir` in your config file:
-
-```json
-{
-  "customRulesDir": "./rules"
+  "categories": { "performance": false }
 }
 ```
 
-### Error handling
-
-Invalid rules produce warnings but never crash the scan. Common issues — missing `check` function, invalid category/severity, syntax errors — are surfaced in CLI output so you can fix them without blocking the rest of the analysis.
+[Configuration →](https://nestjs.doctor/docs/configuration) ·
+[Custom rules →](https://nestjs.doctor/docs/custom-rules)
 
 ---
 
-## Monorepo Support
+## Rules
 
-Monorepo detection supports five strategies (checked in priority order — first match wins):
+50 built-in rules. Every finding carries a file, a line, and a rule id you can
+suppress or configure.
 
-### 1. `nest-cli.json` (takes precedence)
+| Category | Rules | Catches |
+|---|---|---|
+| [Security](https://nestjs.doctor/docs/rules/security) | 10 | Hardcoded secrets, `eval`, weak crypto, TypeORM `synchronize: true`, endpoints with no guard |
+| [Correctness](https://nestjs.doctor/docs/rules/correctness) | 20 | Fire-and-forget promises, missing `@Injectable()`, lifecycle hooks without their interface, param decorators that do not match the route |
+| [Architecture](https://nestjs.doctor/docs/rules/architecture) | 10 | ORM in controllers, business logic in controllers, circular module dependencies, manual instantiation instead of DI |
+| [Performance](https://nestjs.doctor/docs/rules/performance) | 7 | Sync I/O, blocking constructors, request-scope abuse, orphan modules, unused providers |
+| [Schema](https://nestjs.doctor/docs/rules/schema) | 3 | Missing primary keys, missing timestamps, relations with no `onDelete` |
 
-When `"monorepo": true` is set, each sub-project is scanned independently and results are merged.
+Suppress a single finding inline:
 
-```json
-{
-  "monorepo": true,
-  "projects": {
-    "api": { "root": "apps/api" },
-    "admin": { "root": "apps/admin" },
-    "shared": { "root": "libs/shared" }
-  }
-}
-```
-
-### 2. `pnpm-workspace.yaml` (pnpm / Turborepo)
-
-Reads `pnpm-workspace.yaml`, expands the `packages` globs, and filters to packages that depend on `@nestjs/core` or `@nestjs/common`.
-
-```yaml
-packages:
-  - "apps/*"
-  - "packages/*"
-```
-
-### 3. `package.json` workspaces (npm / Yarn)
-
-Reads the `workspaces` field from the root `package.json`. Both array and object formats are supported. Skipped when `pnpm-workspace.yaml` exists to avoid duplicate detection.
-
-```json
-{
-  "workspaces": ["apps/*", "packages/*"]
-}
-```
-
-```json
-{
-  "workspaces": {
-    "packages": ["apps/*", "packages/*"]
-  }
-}
-```
-
-### 4. `nx.json` (Nx)
-
-Detects `nx.json` and discovers sub-projects by scanning for `project.json` files. Each project must have a `package.json` with a NestJS dependency to be included.
-
-```json
-// nx.json
-{
-  "targetDefaults": { "build": { "dependsOn": ["^build"] } }
-}
-```
-
-### 5. `lerna.json` (standalone Lerna)
-
-Reads `lerna.json` when `useWorkspaces` is **not** set. Uses the `packages` globs (defaults to `["packages/*"]`). When `useWorkspaces` is `true`, detection is handled by strategy 3 instead.
-
-```json
-{
-  "packages": ["packages/*"]
-}
-```
-
-Non-NestJS packages are always filtered out automatically — only packages with `@nestjs/core` or `@nestjs/common` are included.
-
-If a monorepo is detected but no NestJS packages are found, nestjs-doctor emits a warning and falls back to single-project mode.
-
-Output includes a combined score and a per-project breakdown.
-
----
-
-## Schema Analysis
-
-Auto-detected from Prisma schema files (`schema.prisma`), TypeORM/MikroORM entity decorators (`@Entity()`), or Drizzle table declarations (`pgTable(...)` / `mysqlTable(...)` / `sqliteTable(...)`). When a schema is found, nestjs-doctor extracts entity-relationship data and:
-
-- Renders an **interactive ER diagram** in the Schema tab of the HTML report (sidebar entity tree + canvas diagram + problems panel)
-- Runs **3 schema-specific rules** covering primary keys, timestamps, and cascade configuration
-
-Supported ORMs: **Prisma**, **TypeORM**, **Drizzle**, **MikroORM**.
-
-See the [schema rules documentation](https://nestjs.doctor/docs/rules/schema) for the full rule list.
-
----
-
-## Scoring
-
-Weighted by severity and category, normalized by file count:
-
-| Severity | Weight | | Category | Multiplier |
-|----------|--------|-|----------|------------|
-| error | 3.0 | | security | 1.5x |
-| warning | 1.5 | | correctness | 1.3x |
-| info | 0.5 | | schema | 1.1x |
-| | | | architecture | 1.0x |
-| | | | performance | 0.8x |
-
-| Score | Label |
-|-------|-------|
-| 90-100 | Excellent |
-| 75-89 | Good |
-| 50-74 | Fair |
-| 25-49 | Poor |
-| 0-24 | Critical |
-
----
-
-## Node.js API
-
-```typescript
-import { diagnose, diagnoseMonorepo } from "nestjs-doctor";
-
-const result = await diagnose("./my-nestjs-app");
-result.score;       // { value: 82, label: "Good" }
-result.diagnostics; // Diagnostic[]
-result.summary;     // { total, errors, warnings, info, byCategory }
-
-const mono = await diagnoseMonorepo("./my-monorepo");
-mono.isMonorepo;    // true
-mono.subProjects;   // [{ name: "api", result }, ...]
-mono.combined;      // Merged DiagnoseResult
+```ts
+// nestjs-doctor-ignore-next-line architecture/no-orm-in-controllers
+constructor(private readonly prisma: PrismaService) {}
 ```
 
 ---
 
-## Rules (50)
+## Editors and tooling
 
-### Security (10)
+- **VS Code** — [NestJS Doctor](https://marketplace.visualstudio.com/items?itemName=rolobits.nestjs-doctor-vscode) surfaces the same rules as you type. [Docs →](https://nestjs.doctor/docs/vscode-extension)
+- **Other CI** — GitLab Code Quality, SARIF for any code-scanning backend, or a markdown body to post yourself. [Docs →](https://nestjs.doctor/docs/ci)
+- **Node API** — `scanProject()` and an incremental API for editors and long-running processes. [Docs →](https://nestjs.doctor/docs/setup#nodejs-api)
+- **Monorepos** — detected from `nest-cli.json`, pnpm workspaces, `package.json` workspaces, Nx, or Lerna. [Docs →](https://nestjs.doctor/docs/pipeline/project-detection)
 
-| Rule | Severity | What it catches |
-|------|----------|-----------------|
-| `no-hardcoded-secrets` | error | API keys, tokens, passwords in source code |
-| `no-eval` | error | `eval()` or `new Function()` usage |
-| `no-csrf-disabled` | error | Explicitly disabling CSRF protection |
-| `no-dangerous-redirects` | error | Redirects with user-controlled input |
-| `no-synchronize-in-production` | error | `synchronize: true` in TypeORM config -- can drop columns/tables |
-| `no-weak-crypto` | warning | `createHash('md5')` or `createHash('sha1')` |
-| `no-exposed-env-vars` | warning | Direct `process.env` in Injectable/Controller |
-| `no-exposed-stack-trace` | warning | `error.stack` exposed in responses |
-| `no-raw-entity-in-response` | warning | Returning ORM entities directly from controllers -- leaks internal fields |
-| `require-guards-on-endpoints` | warning | Endpoints without `@UseGuards()` at class or method level |
+---
 
-### Correctness (20)
+## Contributing
 
-| Rule | Severity | What it catches |
-|------|----------|-----------------|
-| `no-missing-injectable` | error | Provider with constructor deps missing `@Injectable()` |
-| `no-duplicate-routes` | error | Same method + path + version twice in a controller |
-| `no-missing-guard-method` | error | Guard class missing `canActivate()` |
-| `no-missing-pipe-method` | error | Pipe class missing `transform()` |
-| `no-missing-filter-catch` | error | `@Catch()` class missing `catch()` |
-| `no-missing-interceptor-method` | error | Interceptor class missing `intercept()` |
-| `require-inject-decorator` | error | Untyped constructor param without `@Inject()` |
-| `prefer-readonly-injection` | warning | Constructor DI params missing `readonly` |
-| `require-lifecycle-interface` | warning | Lifecycle method without corresponding interface |
-| `no-empty-handlers` | info | HTTP handler with empty body |
-| `no-async-without-await` | warning | Async function/method with no `await` |
-| `no-duplicate-module-metadata` | warning | Duplicate entries in `@Module()` arrays |
-| `no-missing-module-decorator` | warning | Class named `*Module` without `@Module()` |
-| `no-fire-and-forget-async` | warning | Async call without `await` in non-handler methods |
-| `param-decorator-matches-route` | error | `@Param()` name doesn't match any `:param` in the route path |
-| `factory-inject-matches-params` | error | `useFactory` inject array length mismatches factory parameter count |
-| `no-duplicate-decorators` | warning | Same decorator appears twice on a single target |
-| `validated-non-primitive-needs-type` | warning | Non-primitive DTO property with class-validator decorators missing `@Type()` |
-| `validate-nested-array-each` | warning | `@ValidateNested()` on array property missing `{ each: true }` |
-| `injectable-must-be-provided` | info | `@Injectable()` class not registered in any module's providers |
+Issues and pull requests welcome. `pnpm check && pnpm typecheck && pnpm test`
+before opening one.
 
-### Architecture (10)
-
-| Rule | Severity | What it catches |
-|------|----------|-----------------|
-| `no-business-logic-in-controllers` | error | Loops, branches, data transforms in HTTP handlers |
-| `no-repository-in-controllers` | error | Repository injection in controllers |
-| `no-orm-in-controllers` | error | PrismaService / EntityManager / DataSource in controllers |
-| `no-circular-module-deps` | error | Cycles in `@Module()` import graph |
-| `no-manual-instantiation` | error | `new SomeService()` for injectable classes |
-| `no-orm-in-services` | info | Services using ORM directly (should use repositories) |
-| `no-service-locator` | warning | `ModuleRef.get()`/`resolve()` hides dependencies |
-| `prefer-constructor-injection` | warning | `@Inject()` property injection |
-| `require-module-boundaries` | info | Deep imports into other modules' internals |
-| `no-barrel-export-internals` | info | Re-exporting repositories from barrel files |
-
-### Performance (7)
-
-| Rule | Severity | What it catches |
-|------|----------|-----------------|
-| `no-sync-io` | warning | `readFileSync`, `writeFileSync`, etc. |
-| `no-blocking-constructor` | warning | Loops in Injectable/Controller constructors |
-| `no-dynamic-require` | warning | `require()` with non-literal argument |
-| `no-unused-providers` | warning | Provider never injected and no self-activating decorators |
-| `no-request-scope-abuse` | warning | `Scope.REQUEST` creates new instance per request |
-| `no-unused-module-exports` | info | Module exports unused by importers |
-| `no-orphan-modules` | info | Module never imported by any other module |
-
-### Schema (3)
-
-| Rule | Severity | What it catches |
-|------|----------|-----------------|
-| `schema/require-primary-key` | error | Entity without a primary key column |
-| `schema/require-timestamps` | warning | Entity missing createdAt/updatedAt columns |
-| `schema/require-cascade-rule` | info | Relation missing explicit onDelete behavior |
+MIT © [RoloBits](https://github.com/RoloBits)
