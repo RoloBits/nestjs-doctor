@@ -34,6 +34,7 @@ const main = defineCommand({
 		const ctx = await new CliSetup(args as CliArgs, version)
 			.resolveTargetPath()
 			.handleListRules()
+			.handleCiInstall()
 			.validateTargetPath()
 			.handleInit()
 			.handleReport()

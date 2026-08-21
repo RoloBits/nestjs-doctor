@@ -123,6 +123,18 @@ Reviews every pull request and reports **only what the change introduced**, not
 your existing backlog. Posts a sticky summary comment, inline review comments on
 the changed lines, and a commit status with the score.
 
+Scaffold the workflow from the repository root:
+
+```bash
+npx nestjs-doctor@latest ci install
+```
+
+It writes `.github/workflows/nestjs-doctor.yml`, keyed to the branch
+`origin/HEAD` points at, and leaves an existing file alone unless you pass
+`--force`. What it writes is the workflow below plus a concurrency guard and
+every input from the table further down as a comment, so the check stays
+advisory until you choose a gate.
+
 ```yaml
 # .github/workflows/nestjs-doctor.yml
 name: NestJS Doctor
@@ -270,6 +282,7 @@ Usage: nestjs-doctor [directory] [options]
   --config <p>          Path to config file
   --list-rules          List every built-in rule and exit
   --init                Set up the /nestjs-doctor skill for AI coding agents
+  --force               Overwrite an existing file (with `ci install`)
   -h, --help            Show help
 ```
 
