@@ -19,6 +19,7 @@ const EDGES = [
 	{ from: 0, to: 3, cycle: false },
 	{ from: 1, to: 2, cycle: true },
 	{ from: 2, to: 5, cycle: true },
+	{ from: 5, to: 1, cycle: true },
 	{ from: 3, to: 5, cycle: false },
 	{ from: 2, to: 4, cycle: false },
 ] as const;
@@ -89,7 +90,7 @@ const ModuleGraph = () => (
 		</div>
 		<div className="flex items-center gap-2 border-white/15 border-t px-4 py-2 text-[11px] text-white/70">
 			<span className="inline-block h-2 w-2 bg-nest-red" />
-			blast radius of PrismaModule · 2 dependents
+			cycle · AuthModule → UsersModule → PrismaModule → AuthModule
 		</div>
 		<div className="border-white/30 border-t">
 			{BOOT.map((entry) => (
