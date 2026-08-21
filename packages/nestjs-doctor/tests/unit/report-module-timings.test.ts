@@ -31,6 +31,63 @@ function loadFormatMs(): (ms: number) => string {
 	return factory() as (ms: number) => string;
 }
 
+/** Pulls the trace row builder out of the emitted script and runs it. */
+function loadTraceRow(
+	graph: unknown
+): (id: string, depth: number, path: string) => string {
+	const scripts = getReportScripts(EMPTY);
+	const sliceOf = (start: string, end: string) => {
+		const a = scripts.indexOf(start);
+		const b = scripts.indexOf(end);
+		if (a < 0 || b <= a) {
+			throw new Error(`slice ${start} not found in the emitted report script`);
+		}
+		return scripts.slice(a, b);
+	};
+	const source =
+		sliceOf("function mgFormatMs", "function mgMeasureNode") +
+		sliceOf("function mgEsc", "var MG_INFO_ICON") +
+		sliceOf("var mgTraceMax", "function mgShowModuleTrace");
+	const factory = new Function(
+		"graph",
+		`${source}
+		mgTraceMax = 100;
+		return mgTraceRowHtml;`
+	);
+	return factory(graph) as (id: string, depth: number, path: string) => string;
+}
+
+describe("mgTraceRowHtml", () => {
+	const graph = {
+		timingsTrace: {
+			ta: {
+				name: "BookingController",
+				type: "controller",
+				initTime: 0.9,
+				deps: ["tb"],
+			},
+			tb: {
+				name: "SchedulingService",
+				type: "provider",
+				initTime: 67,
+				deps: [],
+			},
+		},
+	};
+	const row = loadTraceRow(graph);
+
+	it("marks a dep slower than its parent as reused", () => {
+		const html = row("tb", 1, "ta/tb");
+		expect(html).toContain("mg-trace-reused");
+		expect(html).toContain("already built for an earlier consumer");
+	});
+
+	it("never marks a top-level row as reused", () => {
+		expect(row("ta", 0, "ta")).not.toContain("mg-trace-reused");
+		expect(row("tb", 0, "tb")).not.toContain("mg-trace-reused");
+	});
+});
+
 describe("mgFormatMs", () => {
 	const format = loadFormatMs();
 

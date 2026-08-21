@@ -138,6 +138,10 @@ function switchTab(name) {
     mgFocusSet = null;
     mgCycleFocus = null;
     mgSyncTraceDrawer(null);
+    if (modulesRendered) {
+      mgSyncTree(null);
+      mgScheduleRedraw();
+    }
   }
 
   if (name === "diagnosis" && !diagnosisRendered) { renderDiagnosis(); diagnosisRendered = true; }
@@ -1872,12 +1876,16 @@ function mgRenderPhases() {
     return;
   }
   var html = '<div class="mg-phase-strip">';
+  var caption = "";
   for (var j = 0; j < parts.length; j++) {
     var seg = parts[j];
     html += '<span class="mg-phase-seg" style="width:' + ((seg.ms / total) * 100).toFixed(2) +
       '%;background:rgba(' + seg.rgb + ',0.4)" title="' + mgEsc(seg.tip) + '"></span>';
+    caption += (j > 0 ? " \\u00b7 " : "") +
+      '<span style="color:rgb(' + seg.rgb + ')">' + mgEsc(seg.label) + '</span> ' +
+      mgEsc(mgFormatMs(seg.ms));
   }
-  html += '</div><div class="mg-trace-note">' + mgEsc(mgPhaseCaption(parts)) + '</div>';
+  html += '</div><div class="mg-trace-note">' + caption + '</div>';
   el.innerHTML = html;
 }
 
@@ -1901,7 +1909,7 @@ function mgTraceBarHtml(initTime, deps, type, reused) {
   var frac = Math.max(0, Math.min(1, initTime / mgTraceMax));
   var width = (frac * 100).toFixed(2);
   if (reused) {
-    return '<span class="mg-trace-track">' +
+    return '<span class="mg-trace-track" title="' + mgEsc(mgFormatMs(initTime) + " total \\u2014 already built for an earlier consumer; not paid here") + '">' +
       '<span class="mg-trace-bar" style="width:' + width + '%;background:transparent;box-shadow:inset 0 0 0 1px rgba(' + mgTraceColor(type) + ',0.5)"></span>' +
       '</span>';
   }
@@ -1913,7 +1921,9 @@ function mgTraceBarHtml(initTime, deps, type, reused) {
     if (dep && dep.initTime <= initTime) { slowestDep = dep.initTime; break; }
   }
   var selfFrac = Math.max(0, Math.min(frac, (initTime - slowestDep) / mgTraceMax));
-  return '<span class="mg-trace-track">' +
+  var tip = mgFormatMs(initTime) + " total" +
+    (slowestDep > 0 ? " \\u2014 \\u2248" + mgFormatMs(slowestDep) + " waiting on dependencies, \\u2248" + mgFormatMs(Math.max(0, initTime - slowestDep)) + " own work" : " \\u2014 all own work");
+  return '<span class="mg-trace-track" title="' + mgEsc(tip) + '">' +
     '<span class="mg-trace-bar" style="width:' + width + '%;background:rgba(' + mgTraceColor(type) + ',0.4)"></span>' +
     (selfFrac > 0.002 ? '<span class="mg-trace-self" style="left:' + ((frac - selfFrac) * 100).toFixed(2) + '%;width:' + (selfFrac * 100).toFixed(2) + '%"></span>' : '') +
     '</span>';
@@ -1980,7 +1990,7 @@ function mgSyncTraceDrawer(n) {
     document.getElementById("mg-trace-body").innerHTML =
       '<div class="mg-trace-note">' +
       (n ? mgEsc("No timing data for " + getDisplayName(n) + " \\u2014 it was not part of the captured boot, or its module name repeats across projects.")
-         : "Select a module to see its bootstrap timings.") +
+         : "Select a module to see its boot trace.") +
       '</div>';
   }
   mgResize();
@@ -2110,8 +2120,8 @@ function mgShowDetail(n) {
   if (circularModules.has(n.name)) badges += '<span class="md-badge md-cycle">in cycle</span>';
   if (rootModules.has(n.name)) badges += '<span class="md-badge md-root">root</span>';
   if (graph.timingsAvailable && n.initTimings && n.initTimings.length > 0) {
-    badges += '<span class="md-badge md-use" id="detail-timings-btn" title="Open the bootstrap timings drawer">' +
-      mgEsc(mgFormatMs(n.initTimings[0].initTime)) + ' \\u00b7 trace \\u25BE</span>';
+    badges += '<span class="md-badge md-use" id="detail-timings-btn" title="Open the Boot trace">' +
+      mgEsc(mgFormatMs(n.initTimings[0].initTime)) + ' \\u00b7 trace \\u25B8</span>';
     badges += mgHookChipHtml(n.hookTimings);
   }
   document.getElementById("detail-badges").innerHTML = badges;

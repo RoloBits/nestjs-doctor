@@ -264,7 +264,13 @@ body.mg-resizing { cursor: col-resize; user-select: none; }
 }
 .mg-trace-hook { font-size: 9px; padding: 0 4px; border-radius: 3px; flex-shrink: 0; }
 
-.mg-problems-chevron { color: var(--text-dim); font-size: 11px; }
+.mg-problems-chevron {
+  color: var(--text-dim); font-size: 12px;
+  padding: 2px 8px; border: 1px solid var(--border); border-radius: 4px;
+}
+#mg-trace-ms:empty { display: none; }
+#boot-badge { color: #22d3ee; }
+#boot-badge:hover { text-decoration: underline; }
 #mg-problems-list { display: none; overflow-y: auto; border-top: 1px solid var(--border); }
 #mg-dock.open[data-active="problems"] #mg-problems-list { display: block; }
 .mg-problem-row {
