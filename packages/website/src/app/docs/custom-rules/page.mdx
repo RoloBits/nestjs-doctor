@@ -75,13 +75,19 @@ A `tags` value that is not an array of strings is dropped with a warning, and th
 
 ### The `check` function
 
-The `check` function receives a `RuleContext` with three members:
+The `check` function receives a `RuleContext`. The first three members are what most rules need, and the rest carry facts a single file cannot see:
 
 | Member | What it is |
 |---|---|
 | `sourceFile` | The ts-morph `SourceFile` for the file being analyzed |
 | `filePath` | The absolute path to that file |
 | `report(diagnostic)` | Emits a diagnostic with `filePath`, `message`, `help`, `line`, and `column` |
+| `config` | The resolved config for the project |
+| `diProviders` | Class names NestJS instantiates itself |
+| `guards` | Composed guard decorators, globally registered guards, and guarded base classes |
+| `moduleDirectories` | Directories that hold a module file, for boundary checks |
+
+Every member after `report` is optional. Absent means the fact was not determined, which is not the same as empty.
 
 For project-scoped rules (`scope: "project"`), the context carries the whole project instead of a single file.
 

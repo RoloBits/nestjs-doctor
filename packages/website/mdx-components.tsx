@@ -1,18 +1,41 @@
 import type { MDXComponents } from "mdx/types";
 import { CodeBlock } from "@/components/docs/code-block";
 
-/** Reveals on heading hover; sits in the gutter so the text never shifts. */
-const Anchor = ({ id }: { id?: string }) =>
-	id ? (
-		<a
-			aria-label="Link to this section"
-			className="absolute -left-6 hidden text-neutral-600 no-underline opacity-0 transition-opacity hover:text-neutral-400 group-hover:opacity-100 lg:inline"
-			data-heading-anchor=""
-			href={`#${id}`}
-		>
-			#
-		</a>
-	) : null;
+const ANCHOR_CLASS =
+	"absolute -left-6 top-0 hidden text-neutral-600 no-underline opacity-0 transition-opacity hover:text-neutral-400 focus-visible:opacity-100 group-hover:opacity-100 lg:inline";
+
+/**
+ * A heading with a gutter link beside it. The link is a sibling rather than a
+ * child, so it stays out of the heading's accessible name.
+ */
+const Heading = ({
+	as: Tag,
+	children,
+	className,
+	id,
+	spacing,
+}: {
+	as: "h2" | "h3";
+	children?: React.ReactNode;
+	className: string;
+	id?: string;
+	spacing: string;
+}) => (
+	<div className={`group relative ${spacing}`}>
+		{id ? (
+			<a
+				aria-label="Link to this section"
+				className={ANCHOR_CLASS}
+				href={`#${id}`}
+			>
+				#
+			</a>
+		) : null}
+		<Tag className={`scroll-mt-20 font-medium text-white ${className}`} id={id}>
+			{children}
+		</Tag>
+	</div>
+);
 
 export function useMDXComponents(components: MDXComponents): MDXComponents {
 	return {
@@ -22,23 +45,25 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
 				{...props}
 			/>
 		),
-		h2: ({ children, ...props }) => (
-			<h2
-				className="group relative mt-14 mb-4 scroll-mt-20 font-medium text-white text-xl sm:text-2xl"
-				{...props}
+		h2: ({ children, id }) => (
+			<Heading
+				as="h2"
+				className="text-xl sm:text-2xl"
+				id={id}
+				spacing="mt-14 mb-4"
 			>
-				<Anchor id={props.id} />
 				{children}
-			</h2>
+			</Heading>
 		),
-		h3: ({ children, ...props }) => (
-			<h3
-				className="group relative mt-8 mb-3 scroll-mt-20 font-medium text-lg text-white sm:text-xl"
-				{...props}
+		h3: ({ children, id }) => (
+			<Heading
+				as="h3"
+				className="text-lg sm:text-xl"
+				id={id}
+				spacing="mt-8 mb-3"
 			>
-				<Anchor id={props.id} />
 				{children}
-			</h3>
+			</Heading>
 		),
 		h4: (props) => (
 			<h4

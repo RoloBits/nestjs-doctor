@@ -64,12 +64,22 @@ through `updateFile`:
 ```typescript
 import { updateModuleGraphForFile, updateProvidersForFile } from "nestjs-doctor";
 
-updateModuleGraphForFile(context.moduleGraph, context.astProject, filePath);
+updateModuleGraphForFile(
+  context.moduleGraph,
+  context.astProject,
+  filePath,
+  context.pathAliases,
+);
 updateProvidersForFile(context.providers, context.astProject, filePath);
 ```
 
 Both return `void` and mutate the object handed to them. That object is the one
 the context holds, so a later `checkProject(context)` reads the updated graph.
+
+Pass `context.pathAliases`. It defaults to an empty map, and
+`updateProvidersForFile` has no such parameter. Omit it and the file's aliased
+imports stop resolving, so that module's edges vanish with no error.
+
 `getRules()` is exported alongside them and returns every built-in rule as
 `AnyRule[]`.
 
@@ -85,7 +95,10 @@ The `prepareAnalysis` function returns an `AnalysisContext` that holds:
 | `fileRules` | `Rule[]` | File-scoped rules (filtered by config) |
 | `projectRules` | `ProjectRule[]` | Project-scoped rules (filtered by config) |
 | `moduleGraph` | `ModuleGraph` | Import/export graph |
+| `endpointGraph` | `EndpointGraph` | Traced HTTP routes and the dependencies each one pulls |
 | `providers` | `Map<string, ProviderInfo>` | Resolved NestJS providers |
+| `guardDecorators` | `GuardDecoratorIndex` | Per file, the names of the wrapper decorators that apply `@UseGuards()` |
+| `pathAliases` | `PathAliasMap` | tsconfig `paths` aliases, each mapped to its absolute targets |
 | `project` | `ProjectInfo` | Detected project metadata (name, version, ORM, framework) |
 | `schemaGraph` | `SchemaGraph \| undefined` | Extracted database schema (if ORM detected) |
 | `schemaRules` | `SchemaRule[]` | Schema-scoped rules (filtered by config) |

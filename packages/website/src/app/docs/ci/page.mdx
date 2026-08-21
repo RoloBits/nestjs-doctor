@@ -131,10 +131,13 @@ warning naming the one it needs.
 | Changed-file API fallback | `pull-requests: read` |
 | SARIF upload (via `github/codeql-action/upload-sarif`) | `security-events: write` |
 
-## Pushes to the default branch
+## Runs outside a pull request
 
-A push run always scans the whole project and never fails, whatever `blocking`
-says. It is a health snapshot, surfaced through the job summary and the commit
+Only a `pull_request` event is gated. Every other event forces `scope: full` and
+exits `0`, whatever `blocking` says. That covers `push` on any branch,
+`workflow_dispatch`, and `schedule` alike.
+
+Such a run is a health snapshot, surfaced through the job summary and the commit
 status. `main` does not go red on findings that were already there.
 
 ## Scope

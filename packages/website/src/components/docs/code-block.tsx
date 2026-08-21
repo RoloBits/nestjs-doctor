@@ -54,14 +54,14 @@ export const CodeBlock = ({
 			setCopied(true);
 			setTimeout(() => setCopied(false), RESET_MS);
 		} catch {
-			// Clipboard blocked; the code stays selectable.
+			// The clipboard was refused; the code stays selectable.
 		}
 	}, []);
 
 	return (
 		<div className="group relative mt-4 mb-4 overflow-hidden rounded-lg border border-white/10 bg-[#0d0d0d]">
 			<pre
-				className={`overflow-x-auto py-4 pr-14 pl-4 text-sm leading-relaxed ${className ?? ""}`}
+				className={`overflow-x-auto py-4 pr-14 pl-4 ${className ?? ""}`}
 				ref={ref}
 				{...props}
 			/>

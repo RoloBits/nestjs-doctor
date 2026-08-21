@@ -86,6 +86,6 @@ stricter than local runs. Both gates are CLI flags too. See
 
 ## Exit codes
 
-A push to the default branch always exits `0`, whatever the gates say. See
-[Pushes to the default branch](/docs/ci#pushes-to-the-default-branch) and
-[Exit codes](/docs/reference/cli#exit-codes).
+Only a `pull_request` event is gated. Every other event exits `0`, whatever the
+gates say. See [Runs outside a pull request](/docs/ci#runs-outside-a-pull-request)
+and [Exit codes](/docs/reference/cli#exit-codes).

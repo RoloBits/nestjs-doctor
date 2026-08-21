@@ -64,17 +64,17 @@ See [Config loading](/docs/pipeline/config-loading) for implementation details.
 | `minScore` | `number` | Minimum passing score (0-100) |
 | `ignore.rules` | `string[]` | Rule IDs to suppress |
 | `ignore.files` | `string[]` | Glob patterns for files whose diagnostics are hidden |
-| `rules` | `Record<string, RuleOverride \| boolean>` | Enable/disable individual rules, or override severity |
+| `rules` | `Record<string, RuleOverride \| boolean>` | Enable/disable individual rules, and pass rule options |
 | `categories` | `Record<string, boolean>` | Enable/disable entire categories |
 | `customRulesDir` | `string` | Path to a directory of custom `.ts` rule files |
 
-Set a rule to `false` to disable it, or to an object to override its severity:
+Set a rule to `false` to disable it. The object form does the same through `enabled`:
 
 ```json
 {
   "rules": {
     "architecture/no-barrel-export-internals": false,
-    "security/no-hardcoded-secret": { "enabled": true, "severity": "error" }
+    "security/no-hardcoded-secret": { "enabled": false }
   }
 }
 ```
@@ -142,7 +142,7 @@ See [Diagnostic filtering](/docs/pipeline/diagnostic-filtering) for details.
 
 These patterns are always excluded, and your `exclude` config is additive to them:
 
-- `node_modules/**`, `dist/**`, `build/**`, `coverage/**`
+- `**/node_modules/**`, `**/dist/**`, `**/build/**`, `**/coverage/**`
 - `**/*.spec.ts`, `**/*.test.ts`, `**/*.e2e-spec.ts`, `**/*.e2e-test.ts`
 - `**/*.d.ts`
 - `**/test/**`, `**/tests/**`, `**/__tests__/**`
@@ -161,10 +161,10 @@ Monorepo mode is auto-detected. Five strategies are checked in order, first matc
 
 | Strategy | Detected by | Notes |
 |---|---|---|
-| `nest-cli.json` | `"monorepo": true` plus a non-empty `projects` map | Each entry's `root` is the sub-project path |
+| `nest-cli.json` | `"monorepo": true` plus a non-empty `projects` map | Each entry's `root` is the sub-project path, falling back to the entry name when `root` is absent |
 | `pnpm-workspace.yaml` | its `packages` globs | pnpm, and Turborepo on pnpm |
 | `package.json` workspaces | a `workspaces` array, or the Yarn `{ "packages": [...] }` object | Skipped when `pnpm-workspace.yaml` exists |
-| `nx.json` | every `project.json` beside it | A project with no `package.json` counts when one of its `*.module.ts` files imports `@nestjs/common` |
+| `nx.json` | every `project.json` beside it | When the `package.json` check does not match, the project still counts if one of its `*.module.ts` files contains the text `@nestjs/common` |
 | `lerna.json` | its `packages` globs, defaulting to `["packages/*"]` | Skipped when `useWorkspaces` is `true`, which the `package.json` strategy already covers |
 
 The `nest-cli.json` strategy reads the sub-project roots straight from the file:
@@ -180,7 +180,9 @@ The `nest-cli.json` strategy reads the sub-project roots straight from the file:
 }
 ```
 
-Every other strategy resolves its globs to packages, then keeps only those depending on `@nestjs/core` or `@nestjs/common`. If none qualify, nestjs-doctor warns and falls back to single-project mode.
+Three strategies resolve their globs to packages: `pnpm-workspace.yaml`, `package.json` workspaces, and `lerna.json`. Each keeps only the packages depending on `@nestjs/core` or `@nestjs/common`. The `nx.json` strategy adds the module-file fallback listed in the table.
+
+If no package qualifies, nestjs-doctor warns and falls back to single-project mode.
 
 Each sub-project is scanned independently. A `nestjs-doctor.config.json` inside a sub-project's root replaces the root config for that project. The report shows a combined score plus a per-project breakdown.
 

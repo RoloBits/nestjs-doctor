@@ -90,11 +90,13 @@ Workspace globs resolve the same way as in strategy 2, filtering to packages wit
 
 ### Strategy 4: `nx.json` (Nx)
 
-Detects the presence of `nx.json`, then scans for `project.json` files throughout the repo (excluding `node_modules` and the root-level `project.json`). For each project directory with a `project.json`, reads the sibling `package.json`. The project is included only if it depends on `@nestjs/core` or `@nestjs/common`.
+Detects the presence of `nx.json`, then scans for `project.json` files throughout the repo (excluding `node_modules` and the root-level `project.json`). For each project directory with a `project.json`, reads the sibling `package.json`. The project is included when that file depends on `@nestjs/core` or `@nestjs/common`.
+
+A failed `package.json` check does not end it. Nx projects declare their dependencies at the workspace root, so many have no `package.json` at all. The strategy then globs the project's `**/*.module.ts` files and includes the project when one of them contains the text `@nestjs/common`. It is a substring match on the file, not an import check, and it runs for a project whose `package.json` exists without a Nest dependency too.
 
 ### Strategy 5: `lerna.json` (standalone Lerna)
 
-Reads `lerna.json` and uses its `packages` globs, defaulting to `["packages/*"]` when they are not specified. This strategy only activates when `useWorkspaces` is not set. With `useWorkspaces: true`, Lerna delegates to npm or Yarn workspaces, so strategy 3 handles detection instead.
+Reads `lerna.json` and uses its `packages` globs, defaulting to `["packages/*"]` when they are not specified. Skipped when `useWorkspaces` is `true`. Lerna then delegates to npm or Yarn workspaces, so strategy 3 handles detection instead.
 
 A minimal `lerna.json`:
 
@@ -104,13 +106,11 @@ A minimal `lerna.json`:
 }
 ```
 
-Non-NestJS packages are always filtered out automatically across all strategies.
-
 ### Fallback warning
 
 Some repos carry monorepo markers but no NestJS package. The markers are `lerna.json`, `turbo.json`, `nx.json`, `pnpm-workspace.yaml`, and a `workspaces` field in `package.json`. When a marker is present and no strategy finds a NestJS package, nestjs-doctor warns and falls back to single-project mode.
 
-If a strategy does match, the pipeline runs stages 2-9 independently for each sub-project, then aggregates the results into a combined score.
+If a strategy does match, the pipeline runs stages 1-9 independently for each sub-project, then aggregates the results into a combined score.
 
 ## Single project detection
 

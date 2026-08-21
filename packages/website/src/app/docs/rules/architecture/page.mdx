@@ -11,24 +11,28 @@ export const metadata = docsMetadata["/docs/rules/architecture"];
 
 | Rule | Severity | What it catches |
 |------|----------|-----------------|
-| `no-business-logic-in-controllers` | error | Loops, branches, data transforms in HTTP handlers |
+| `no-business-logic-in-controllers` | error | Loops, `switch`, a second branch, or repeated array ops in handlers |
 | `no-repository-in-controllers` | error | Repository injection in controllers |
 | `no-orm-in-controllers` | error | ORM types or ORM-binding decorators injected into controllers |
 | `no-circular-module-deps` | error | Cycles in the `@Module()` import graph |
-| `no-manual-instantiation` | error | `new SomeService()` for injectable classes |
+| `no-manual-instantiation` | error | `new SomeService()` for a class registered as a provider |
 | `no-service-locator` | warning | `ModuleRef.get()`/`resolve()` usage |
 | `prefer-constructor-injection` | warning | `@Inject()` property injection |
 | `no-orm-in-services` | info | Services using ORM directly (should use repositories) |
-| `require-module-boundaries` | info | Deep imports into other modules' internals |
+| `require-module-boundaries` | info | Relative imports into another module's internal directories |
 | `no-barrel-export-internals` | info | Re-exporting repositories from barrel files |
 
 ---
 
 ## no-business-logic-in-controllers
 
-Detects loops, conditional branches, and data transformations inside HTTP handler methods.
+Detects loops, `switch` statements, a second branch, and repeated array transformations inside HTTP handler methods.
 
 **Why:** A controller receives a request, calls the matching service method, and returns the response. Business logic in a controller cannot be reused, is harder to test, and violates the single responsibility principle.
+
+**Note:** The thresholds are not one each. A single `if` is allowed, and an `if` whose every branch only throws never counts at all, so guard clauses are free.
+
+A `for`, `for...of`, `for...in`, `while`, or `switch` reports on the first occurrence. Array operations (`map`, `filter`, `reduce`, `sort`, `flatMap`) report only when more than one appears in the handler.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -64,6 +68,8 @@ export class OrderController {
 Detects direct repository injection in controller constructors.
 
 **Why:** Controllers should depend on services, not repositories. Direct repository access bypasses business logic validation and creates tight coupling to the data layer.
+
+**Note:** Imports are a second trigger. In a file that declares routes, any import whose specifier contains `/repositories` is reported, once per file rather than once per controller.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -156,16 +162,18 @@ export class OrderModule {}
 
 ### Which provider to extract
 
-The rule traces provider-level dependencies to find what creates each module edge. It then names the providers to extract into a shared module, choosing the edge with the fewest of them.
+The rule traces provider-level dependencies to find what creates each module edge. It then names the dependency to extract into a shared module, choosing the edge with the fewest of them.
 
 Treat `forwardRef()` as a last resort. It defers resolution at runtime and leaves the architectural coupling in place.
 
-A reported cycle lists each edge and the suggested extraction:
+A cycle through three modules reports one diagnostic. The message names the cycle, and the help below it lists every edge and the extraction candidate:
 
 ```
-AuthModule → UserModule: AuthService (in AuthModule) injects UserService (from UserModule)
-UserModule → OrderModule: UserNotifier (in UserModule) injects OrderService (from OrderModule)
-Consider extracting AuthService into a shared module — it would break the weakest edge (1 dependency).
+Circular module dependency detected: AuthModule -> UserModule -> OrderModule
+AuthModule -> UserModule: AuthService (in AuthModule) injects UserService (from UserModule)
+UserModule -> OrderModule: UserNotifier (in UserModule) injects OrderService (from OrderModule)
+OrderModule -> AuthModule: OrderService (in OrderModule) injects AuthService (from AuthModule)
+Consider extracting UserService into a shared module — it would break the AuthModule -> UserModule edge (1 dependency).
 ```
 
 `traceProviderEdges` walks each module's providers and controllers and checks which constructor parameters resolve to providers from the target module. The edge with the fewest provider dependencies is the extraction candidate.
@@ -176,7 +184,7 @@ Consider extracting AuthService into a shared module — it would break the weak
 
 - A 2-module cycle is suppressed when both modules use
   `forwardRef(() => Other)`.
-- A longer cycle (A → B → C → A) needs every consecutive edge wrapped.
+- A longer cycle (`A -> B -> C -> A`) needs every consecutive edge wrapped.
 - Any plain edge still gets flagged, including a one-sided `forwardRef()`, which
   throws at runtime in NestJS anyway.
 
@@ -206,23 +214,27 @@ Detects `new SomeService()` for classes that should be injected via NestJS DI.
 
 **Why:** Manually instantiating injectable classes bypasses the DI container, so constructor dependencies are not resolved. It also breaks scoping and lifecycle hooks.
 
+**Note:** The class name has to end in `Service`, `Repository`, `Gateway`, `Resolver`, `Guard`, `Interceptor`, `Pipe`, or `Filter`. `new OrderValidator()` is not matched by any of them.
+
+The class must also be one the scan found as a provider. A plain class, or one from `node_modules` that happens to end in `Service`, is skipped.
+
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
 @Injectable()
-export class OrderService {
-  processOrder() {
-    const validator = new OrderValidator();  // manual instantiation
-    validator.validate(order);
+export class CheckoutService {
+  process(cart: Cart) {
+    const orders = new OrderService();  // manual instantiation
+    return orders.create(cart);
   }
 }
 ```
 ```typescript
 @Injectable()
-export class OrderService {
-  constructor(private readonly validator: OrderValidator) {}
+export class CheckoutService {
+  constructor(private readonly orders: OrderService) {}
 
-  processOrder() {
-    this.validator.validate(order);
+  process(cart: Cart) {
+    return this.orders.create(cart);
   }
 }
 ```
@@ -248,6 +260,8 @@ If your project intentionally allows manual construction for specific classes
 Detects `ModuleRef.get()` or `ModuleRef.resolve()` calls that dynamically look up providers.
 
 **Why:** The service locator pattern hides dependencies. The constructor signature no longer reflects the real dependency set. Use constructor injection instead.
+
+**Note:** The receiver has to be written `moduleRef` or `this.moduleRef`. A parameter under another name, such as `this.ref.get(SomeService)`, is not matched even when its type is `ModuleRef`.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -333,16 +347,27 @@ export class UserService {
 
 Detects deep imports that reach into another module's internal files.
 
-**Why:** Importing from `../other-module/services/internal.service` creates tight coupling to another module's internal structure. Import from the module's public API (barrel file) instead.
+**Why:** Importing from `../order/repositories/order.repository` creates tight coupling to another module's internal structure. Import from the module's public API (barrel file) instead.
+
+A relative specifier reports when it contains `../` and one of these directory segments:
+
+| Kind | Segment |
+|------|---------|
+| Data access | `/repositories/`, `/entities/` |
+| Transport shapes | `/dto/` |
+| Request pipeline | `/guards/`, `/interceptors/`, `/pipes/` |
+| Authentication | `/strategies/` |
+
+The list is fixed, so `../order/validators/order.validator` is not matched. An import that resolves back inside its own module is skipped as well.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
 // In user module:
-import { OrderValidator } from '../order/validators/order.validator';
+import { OrderRepository } from '../order/repositories/order.repository';
 ```
 ```typescript
 // In user module:
-import { OrderValidator } from '../order';
+import { OrderService } from '../order';
 // Or better: inject via DI through the module system
 ```
 </CodeGroup>

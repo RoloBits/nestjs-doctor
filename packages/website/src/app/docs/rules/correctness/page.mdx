@@ -13,10 +13,10 @@ export const metadata = docsMetadata["/docs/rules/correctness"];
 |------|----------|-----------------|
 | `no-missing-injectable` | error | Provider with constructor deps missing `@Injectable()` |
 | `no-duplicate-routes` | error | Same method + path twice in a controller |
-| `no-missing-guard-method` | error | Guard class missing `canActivate()` |
-| `no-missing-pipe-method` | error | Pipe class missing `transform()` |
+| `no-missing-guard-method` | error | Class named `*Guard` missing `canActivate()` |
+| `no-missing-pipe-method` | error | Class named `*Pipe` missing `transform()` |
 | `no-missing-filter-catch` | error | `@Catch()` class missing `catch()` |
-| `no-missing-interceptor-method` | error | Interceptor missing `intercept()` |
+| `no-missing-interceptor-method` | error | Class named `*Interceptor` missing `intercept()` |
 | `require-inject-decorator` | error | Untyped constructor param without `@Inject()` |
 | `param-decorator-matches-route` | error | `@Param()` name doesn't match any `:param` in the route path |
 | `factory-inject-matches-params` | error | `useFactory` inject array length mismatches factory parameter count |
@@ -96,9 +96,13 @@ export class UserController {
 
 ## no-missing-guard-method
 
-Detects guard classes (using `@Injectable()` or implementing `CanActivate`) that are missing the `canActivate()` method. This rule identifies guards by the `Guard` class name suffix.
+Detects classes named `*Guard` that carry `@Injectable()` and are missing the `canActivate()` method.
 
 **Why:** A guard without `canActivate()` will cause a runtime error when NestJS tries to invoke it.
+
+**Note:** Three gates decide whether a class is checked. The name must end in `Guard`, the class must carry `@Injectable()`, and it must have no `extends` clause.
+
+An `implements CanActivate` clause is never read, so a class named `Authorizer` is not checked whatever it implements. A guard that extends a base class is skipped too, because `canActivate()` can come from the parent, as in `extends AuthGuard('jwt')`.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -121,9 +125,11 @@ export class AuthGuard implements CanActivate {
 
 ## no-missing-pipe-method
 
-Detects pipe classes missing the `transform()` method.
+Detects classes named `*Pipe` that carry `@Injectable()` and are missing the `transform()` method.
 
 **Why:** Pipes must implement `transform()` or NestJS will throw at runtime.
+
+**Note:** The same three gates as [`no-missing-guard-method`](#no-missing-guard-method) apply: the `Pipe` name suffix, `@Injectable()`, and no `extends` clause. An `implements PipeTransform` clause is not read.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -172,9 +178,11 @@ export class HttpFilter implements ExceptionFilter {
 
 ## no-missing-interceptor-method
 
-Detects interceptor classes missing the `intercept()` method.
+Detects classes named `*Interceptor` that carry `@Injectable()` and are missing the `intercept()` method.
 
 **Why:** Interceptors must implement `intercept()` or NestJS will throw at runtime.
+
+**Note:** The same three gates as [`no-missing-guard-method`](#no-missing-guard-method) apply: the `Interceptor` name suffix, `@Injectable()`, and no `extends` clause. An `implements NestInterceptor` clause is not read.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -341,9 +349,19 @@ export class AppService implements OnModuleInit {
 
 ## no-async-without-await
 
-Detects async functions or methods that never use `await`. HTTP handlers with route decorators are exempted, as `async` is conventional for controller methods.
+Detects async functions or methods that never use `await`.
 
 **Why:** An async function without `await` creates an unnecessary promise wrapper. Either remove `async` or add the missing `await`.
+
+Framework entry points are exempt, because Nest awaits what they return. A method carrying one of these decorators is never reported:
+
+| Kind | Decorators |
+|------|------------|
+| HTTP routes | `@Get`, `@Post`, `@Put`, `@Patch`, `@Delete`, `@Head`, `@Options`, `@All` |
+| GraphQL | `@Query`, `@Mutation`, `@Subscription`, `@ResolveField`, `@ResolveProperty`, `@ResolveReference` |
+| Microservices | `@MessagePattern`, `@EventPattern`, `@GrpcMethod`, `@GrpcStreamMethod` |
+| WebSockets | `@SubscribeMessage` |
+| ts-rest | `@TsRestHandler` |
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -448,9 +466,13 @@ export class OrderService {
 
 ## no-duplicate-decorators
 
-Detects the same decorator appearing twice on a single class, method, or property. Stackable decorators like `@ApiResponse` are allowed.
+Detects the same decorator appearing twice on a single class, method, property, or constructor parameter.
 
 **Why:** A duplicate decorator is almost always a copy-paste error. The second occurrence silently overwrites the first or has no effect.
+
+**Note:** Most decorators are compared by their full text. `@ApiResponse({ status: 200 })` and `@ApiResponse({ status: 404 })` are two decorators, but writing either one twice verbatim is still reported.
+
+A target can carry only one `@Controller`, `@Injectable`, `@Module`, `@Catch`, `@Entity`, `@Global`, `@Resolver`, `@WebSocketGateway`, or route decorator. For those the second occurrence is reported even when its arguments differ.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript

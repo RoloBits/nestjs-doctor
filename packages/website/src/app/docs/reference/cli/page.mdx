@@ -60,8 +60,13 @@ and to the whole project when it is not. In CI, check out with `fetch-depth: 0`.
 | `--report` | Build the interactive HTML report. `--graph` is an alias |
 | `--timings <path>` | Overlay boot timings on the report's module graph |
 
-Warnings always go to stderr, whatever the format, so a machine-readable
-payload on stdout stays parseable.
+Only the payload goes to stdout, so a machine-readable one stays parseable.
+Warnings print on stderr.
+
+Two of them are suppressed instead in machine-readable mode, meaning `--score`
+and every format except `console` and `github`. A custom rule that failed to
+load is silent, and a run below `--min-score` exits `1` with no message on
+either stream.
 
 ## Gates
 
@@ -74,7 +79,7 @@ payload on stdout stays parseable.
 when the flag is omitted. `--blocking` has no single default. It is set by the
 output mode:
 
-| Output mode | Default `--blocking` |
+| Output mode | Default |
 |---|---|
 | The console report | `error` |
 | `--format github` | `error` |

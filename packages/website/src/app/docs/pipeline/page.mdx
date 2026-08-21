@@ -25,11 +25,11 @@ How nestjs-doctor works from CLI invocation to final output.
 
 ## Stages
 
-The pipeline has 10 stages. In a monorepo, stages 2-9 run once per sub-project.
+The pipeline has 10 stages. In a monorepo, stages 1-9 run once per sub-project.
 
 | # | Stage | Source | Scope |
 |---|-------|--------|-------|
-| 1 | [Config loading](/docs/pipeline/config-loading) | `src/engine/config/loader.ts` | Once |
+| 1 | [Config loading](/docs/pipeline/config-loading) | `src/engine/config/loader.ts` | Root, then per project |
 | 2 | [Project detection](/docs/pipeline/project-detection) | `src/engine/project-detector.ts` | Per project |
 | 3 | [File collection](/docs/pipeline/file-collection) | `src/engine/file-collector.ts` | Per project |
 | 4 | [AST parsing](/docs/pipeline/ast-parsing) | `src/engine/graph/ast-parser.ts` | Per project |
@@ -49,4 +49,4 @@ The `autoScan()` and `scanMonorepo()` functions in `src/engine/scanner.ts` wire 
 Stages that do not depend on each other run concurrently:
 
 - **Single-project mode:** config loading and custom rule resolution run first. Project detection and file collection then run together via `Promise.all`. The remaining stages run in order, from AST parsing through scoring.
-- **Monorepo mode:** file collection for every sub-project runs in parallel. Each sub-project then runs AST parsing through scoring concurrently, again via `Promise.all`.
+- **Monorepo mode:** file collection for every sub-project runs in parallel via `Promise.all`. The sub-projects themselves are then built one at a time. Each context is dropped before the next one is built, so peak memory stays close to a single project.

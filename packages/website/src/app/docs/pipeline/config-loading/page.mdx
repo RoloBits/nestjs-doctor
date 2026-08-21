@@ -57,12 +57,14 @@ User config is merged with `DEFAULT_CONFIG`:
 const DEFAULT_CONFIG = {
   include: ["**/*.ts"],
   exclude: [
-    "node_modules/**", "dist/**", "build/**", "coverage/**",
+    "**/node_modules/**", "**/dist/**", "**/build/**", "**/coverage/**",
     "**/*.spec.ts", "**/*.test.ts", "**/*.e2e-spec.ts", "**/*.e2e-test.ts",
     "**/*.d.ts", "**/test/**", "**/tests/**", "**/__tests__/**",
     "**/__mocks__/**", "**/__fixtures__/**", "**/mock/**", "**/mocks/**",
     "**/*.mock.ts", "**/seeder/**", "**/seeders/**",
     "**/*.seed.ts", "**/*.seeder.ts",
+    "*.config.ts", "*.config.js", "*.config.mjs",
+    "*.config.cjs", "*.config.mts", "*.config.cts",
   ],
 }
 ```

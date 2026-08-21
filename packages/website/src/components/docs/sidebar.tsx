@@ -18,8 +18,7 @@ const SidebarSection = ({
 	const [override, setOverride] = useState<boolean | null>(null);
 	const isOpen = override ?? isActive;
 
-	// The layout stays mounted across docs routes, so a manual toggle has to be
-	// dropped on navigation or the new page's group never opens.
+	// Drops a manual toggle whenever the route changes.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: pathname is the trigger
 	useEffect(() => {
 		setOverride(null);

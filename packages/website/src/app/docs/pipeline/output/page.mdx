@@ -102,14 +102,17 @@ Generates a self-contained HTML file with an interactive report:
 npx nestjs-doctor . --report
 ```
 
-The report has six tabs:
+The report has up to six tabs:
 
 - **Summary:** health score overview with a category breakdown.
 - **Diagnosis:** source-level diagnostics with a code viewer and fix examples.
 - **Modules Graph:** clustered module diagram with a searchable project sidebar and a per-module detail panel (used by, blast radius, providers, imports, exports, wiring). Selecting a module animates its edges, colored by direction, and the view offers cycle focus plus toggles for `@Global()` reach and external modules. A Module problems drawer lists module-wiring diagnostics from rules tagged `module-graph`, custom rules included.
-- **Endpoints:** traced HTTP routes per controller with their dependency chains. Controllers and handlers behind a project wrapper decorator, meaning a custom decorator composing `@Controller()` or `@Get()`, are resolved and traced too.
+- **Endpoints:** badged `Beta`, traced HTTP routes per controller with their dependency chains. Controllers and handlers behind a project wrapper decorator, meaning a custom decorator composing `@Controller()` or `@Get()`, are resolved and traced too.
 - **Relational Schema:** entity-relationship diagram of the database models.
 - **Lab:** custom rule playground for writing and testing your own rules.
+
+Endpoints and Relational Schema stay hidden until there is data, so a project
+with no controllers and no ORM entities sees four.
 
 The file is written to `nestjs-doctor-report.html` in the project root and auto-opened in the default browser.
 
@@ -207,8 +210,10 @@ opens the same tab.
 
 | Code | Meaning |
 |------|---------|
-| `0` | Score is at or above threshold (or no threshold set) |
-| `1` | Score is below `--min-score` threshold, or errors were found |
+| `0` | Passed |
+| `1` | A gate failed |
 | `2` | Invalid input (bad path, invalid flags) |
 
-All output formats respect exit codes. The `--min-score` check happens after output, so you always see the report even when the exit code is 1.
+Two gates produce `1`: the `--min-score` threshold, and the severity gate set by `--blocking`. The severity gate defaults per output mode, so the same findings exit `1` under the console report and `0` under `--format json`. See [Exit codes](/docs/reference/cli#exit-codes) for the defaults.
+
+Both gates run after output, so the report is always emitted, whatever the exit code.

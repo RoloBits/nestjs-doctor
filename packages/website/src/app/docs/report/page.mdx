@@ -15,9 +15,12 @@ npx nestjs-doctor@latest . --report
 Writes `nestjs-doctor-report.html` to the project root and opens it. One file,
 no server, no build step. Commit it or attach it to a pull request.
 
-It loads three things from a CDN when opened: the graph layout library, the
-code viewer, and the logo. Offline, the module graph falls back to a plain grid
-and the code viewers do not load. Everything else works.
+Three things load from the network when opened. The graph layout library and
+the logo are one request each. The code viewer is a CodeMirror import map, so
+it pulls 18 modules from esm.sh.
+
+Offline, the module graph falls back to a plain grid and the code viewers do
+not load. Everything else works.
 
 ![Module graph](/module-graph.png)
 
@@ -27,10 +30,14 @@ and the code viewers do not load. Everything else works.
 |---|---|
 | Summary | The score, the category breakdown, and the counts behind them |
 | Diagnosis | Every finding with a code viewer and a fix example |
-| Modules graph | Your real module graph, clustered, with cycles in red |
+| Modules Graph | Your real module graph, clustered, with cycles in red |
 | Endpoints | Traced HTTP routes per controller and the dependencies each one pulls |
-| Schema | The ER diagram extracted from your ORM |
+| Relational Schema | The ER diagram extracted from your ORM |
 | Lab | A playground for writing a custom rule against your own code |
+
+Endpoints and Relational Schema stay hidden until there is data. A project with
+no controllers and no ORM entities sees four tabs. The Endpoints tab is badged
+`Beta`.
 
 Pick a module in the graph. The detail panel lists what it imports, exports,
 provides, and what breaks if you change it.

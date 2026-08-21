@@ -14,16 +14,6 @@ const HEADING_SELECTOR = ".docs-content h2[id], .docs-content h3[id]";
 const ACTIVE_OFFSET = 120;
 const BOTTOM_SLACK = 2;
 
-/** The hover anchor lives inside the heading, so it has to be left out. */
-const headingText = (node: HTMLElement) =>
-	[...node.childNodes]
-		.filter(
-			(child) => (child as HTMLElement).dataset?.headingAnchor === undefined
-		)
-		.map((child) => child.textContent ?? "")
-		.join("")
-		.trim();
-
 export const Toc = () => {
 	const pathname = usePathname();
 	const [headings, setHeadings] = useState<Heading[]>([]);
@@ -31,15 +21,14 @@ export const Toc = () => {
 	const [marker, setMarker] = useState({ height: 0, top: 0 });
 	const listRef = useRef<HTMLUListElement>(null);
 
-	// The layout stays mounted across docs routes, so the path is the signal to
-	// re-read the headings even though the effect body never uses it.
+	// Re-reads the headings on every docs route.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: pathname is the trigger
 	useEffect(() => {
 		const found = [...document.querySelectorAll<HTMLElement>(HEADING_SELECTOR)]
 			.map((node) => ({
 				depth: node.tagName === "H2" ? 2 : 3,
 				id: node.id,
-				text: headingText(node),
+				text: node.textContent ?? "",
 			}))
 			.filter((heading) => heading.text);
 		setHeadings(found);
@@ -50,8 +39,7 @@ export const Toc = () => {
 		}
 
 		const sync = () => {
-			// At the bottom the last heading can sit above any threshold, so it would
-			// never become current on its own.
+			// Marks the last heading current once the page is scrolled to the end.
 			const atBottom =
 				window.innerHeight + window.scrollY >=
 				document.body.scrollHeight - BOTTOM_SLACK;
@@ -92,18 +80,25 @@ export const Toc = () => {
 		};
 	}, [pathname]);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: headings re-renders the rows this measures
 	useEffect(() => {
 		const list = listRef.current;
 		if (!(list && activeId)) {
 			return;
 		}
-		const row = list.querySelector<HTMLElement>(
-			`[data-toc-id="${CSS.escape(activeId)}"]`
-		);
-		if (row) {
-			setMarker({ height: row.offsetHeight, top: row.offsetTop });
-		}
-	}, [activeId]);
+		// Both offsets read 0 while the column is hidden below xl.
+		const measure = () => {
+			const row = list.querySelector<HTMLElement>(
+				`[data-toc-id="${CSS.escape(activeId)}"]`
+			);
+			if (row?.offsetHeight) {
+				setMarker({ height: row.offsetHeight, top: row.offsetTop });
+			}
+		};
+		measure();
+		window.addEventListener("resize", measure);
+		return () => window.removeEventListener("resize", measure);
+	}, [activeId, headings]);
 
 	const handleClick = useCallback((id: string) => {
 		setActiveId(id);

@@ -73,17 +73,6 @@ body {
 	color: #e2e8f0;
 }
 
-/* Shiki tokens keep their own colours; the container owns the frame. */
-.docs-content pre {
-	background: transparent;
-}
-
-/* The key column stays on one line; descriptions wrap. */
-.docs-content table th:first-child,
-.docs-content table td:first-child {
-	white-space: nowrap;
-}
-
 .docs-content table tr:last-child td {
 	border-bottom: 0;
 }
