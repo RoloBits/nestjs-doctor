@@ -40,7 +40,7 @@ Run this at your project root to get an audit.
 npx nestjs-doctor@latest .
 ```
 
-![CLI Output](https://nestjs.doctor/cli-output.png)
+![nestjs-doctor scoring a project 35 out of 100, an agent fixing the findings, and a rescan scoring 100](https://nestjs.doctor/demo.gif)
 
 Add `--verbose` for file paths and line numbers.
 
