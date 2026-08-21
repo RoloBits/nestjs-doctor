@@ -223,11 +223,15 @@ body.mg-resizing { cursor: col-resize; user-select: none; }
 #mg-dock[data-active="problems"] #mg-dock-tab-problems,
 #mg-dock[data-active="trace"] #mg-dock-tab-trace { color: var(--white); background: rgba(255,255,255,0.06); }
 .mg-trace-legend {
-  display: none; font-size: 10px; color: var(--text-dim);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  min-width: 0; flex-shrink: 1;
+  display: none; font-size: 10px; color: var(--text-dim); min-width: 0;
 }
 #mg-dock.open[data-active="trace"] .mg-trace-legend { display: inline; }
+#mg-float-tip {
+  position: fixed; z-index: 100; display: none;
+  pointer-events: none; max-width: 380px;
+}
+#detail-timings-btn { cursor: pointer; }
+#detail-timings-btn:hover { text-decoration: underline; }
 .mg-trace-legend-self {
   display: inline-block; width: 14px; height: 8px; border-radius: 2px;
   background: #fbbf24; vertical-align: middle;

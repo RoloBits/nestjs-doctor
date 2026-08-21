@@ -75,6 +75,12 @@ describe("report scripts", () => {
 		expect(scripts).toContain("mg-trace-reused-tag");
 	});
 
+	it("renders dock tooltips through the floating body-level layer", () => {
+		expect(scripts).toContain('tip.id = "mg-float-tip"');
+		expect(scripts).toContain('bind("mg-dock")');
+		expect(scripts).toContain('bind("header-meta")');
+	});
+
 	it("guards trace lookups against inherited object keys", () => {
 		expect(scripts).toContain(
 			"Object.prototype.hasOwnProperty.call(graph.timingsTrace, id)"

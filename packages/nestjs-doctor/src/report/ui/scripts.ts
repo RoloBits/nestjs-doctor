@@ -76,12 +76,12 @@ function makeScoreRingSvg(size, strokeW, value) {
     }
     if (graph.startupMs) {
       const phaseCaption = mgPhaseCaption(mgPhaseParts());
-      badges.push('<span class="meta-badge has-tip tip-wide" id="boot-badge" style="cursor:pointer" data-tip="From bootstrap start until the app was listening, measured by the nestjs-doctor snippet in your main.ts.' +
+      badges.push('<span class="meta-badge" id="boot-badge" style="cursor:pointer" data-tip="From bootstrap start until the app was listening, measured by the nestjs-doctor snippet in your main.ts.' +
         (phaseCaption ? " " + mgEsc(phaseCaption) + "." : "") +
         ' Slowest construction chain: ' +
         mgEsc(bootName) + ' \\u2014 click to open it in the modules graph">time to start \\u2248 ' + mgEsc(mgFormatMs(graph.startupMs)) + '</span>');
     } else if (bootMs > 0) {
-      badges.push('<span class="meta-badge has-tip tip-wide" id="boot-badge" style="cursor:pointer" data-tip="Slowest construction chain: ' +
+      badges.push('<span class="meta-badge" id="boot-badge" style="cursor:pointer" data-tip="Slowest construction chain: ' +
         mgEsc(bootName) + ' \\u2014 click to open it in the modules graph. Add startupMs to the dump for full time-to-start">boot \\u2248 ' + mgEsc(mgFormatMs(bootMs)) + '</span>');
     }
   }
@@ -90,6 +90,39 @@ function makeScoreRingSvg(size, strokeW, value) {
   if (bootBadge) {
     bootBadge.addEventListener("click", () => mgJumpToSlowestBoot());
   }
+})();
+
+// ── Floating tooltip for data-tip elements inside clipping containers ──
+(function() {
+  const tip = document.createElement("div");
+  tip.className = "schema-tooltip";
+  tip.id = "mg-float-tip";
+  document.body.appendChild(tip);
+  function bind(rootId) {
+    const root = document.getElementById(rootId);
+    if (!root) return;
+    root.addEventListener("mouseover", (ev) => {
+      const el = ev.target.closest("[data-tip]");
+      if (!el || !root.contains(el)) {
+        tip.style.display = "none";
+        return;
+      }
+      tip.textContent = el.getAttribute("data-tip");
+      tip.style.display = "block";
+      const r = el.getBoundingClientRect();
+      const tr = tip.getBoundingClientRect();
+      const x = Math.max(8, Math.min(r.left, window.innerWidth - tr.width - 8));
+      let y = r.top - tr.height - 6;
+      if (y < 8) y = r.bottom + 6;
+      tip.style.left = x + "px";
+      tip.style.top = y + "px";
+    });
+    root.addEventListener("mouseleave", () => {
+      tip.style.display = "none";
+    });
+  }
+  bind("mg-dock");
+  bind("header-meta");
 })();
 
 // ── Diagnosis count badge ──
@@ -1818,7 +1851,7 @@ function mgHookChipHtml(hooks) {
     var h = hooks[i];
     var meta = MG_HOOK_META[Object.prototype.hasOwnProperty.call(MG_HOOK_META, h.hook) ? h.hook : ""] ||
       { label: h.hook, rgb: "107,114,128" };
-    html += '<span class="mg-trace-hook has-tip tip-wide" style="color:rgb(' + meta.rgb + ');background:rgba(' + meta.rgb + ',0.12)"' +
+    html += '<span class="mg-trace-hook" style="color:rgb(' + meta.rgb + ');background:rgba(' + meta.rgb + ',0.12)"' +
       ' data-tip="' + mgEsc(h.hook + " took " + mgFormatMs(h.ms)) + '">+' +
       mgEsc(mgFormatMs(h.ms)) + ' ' + mgEsc(meta.label) + '</span>';
   }
@@ -1873,7 +1906,7 @@ function mgRenderPhases() {
   for (var j = 0; j < parts.length; j++) {
     var seg = parts[j];
     html += '<span class="mg-phase-seg" style="width:' + ((seg.ms / total) * 100).toFixed(2) +
-      '%;background:rgba(' + seg.rgb + ',0.4)" title="' + mgEsc(seg.tip) + '"></span>';
+      '%;background:rgba(' + seg.rgb + ',0.4)" data-tip="' + mgEsc(seg.tip) + '"></span>';
     caption += (j > 0 ? " \\u00b7 " : "") +
       '<span style="color:rgb(' + seg.rgb + ')">' + mgEsc(seg.label) + '</span> ' +
       mgEsc(mgFormatMs(seg.ms));
@@ -1902,7 +1935,7 @@ function mgTraceBarHtml(initTime, deps, type, reused) {
   var frac = Math.max(0, Math.min(1, initTime / mgTraceMax));
   var width = (frac * 100).toFixed(2);
   if (reused) {
-    return '<span class="mg-trace-track has-tip tip-wide" data-tip="' + mgEsc(mgFormatMs(initTime) + " total \\u2014 already built for an earlier consumer; not paid here") + '">' +
+    return '<span class="mg-trace-track" data-tip="' + mgEsc(mgFormatMs(initTime) + " total \\u2014 already built for an earlier consumer; not paid here") + '">' +
       '<span class="mg-trace-bar" style="width:' + width + '%;background:transparent;box-shadow:inset 0 0 0 1px rgba(' + mgTraceColor(type) + ',0.5)"></span>' +
       '</span>';
   }
@@ -1916,7 +1949,7 @@ function mgTraceBarHtml(initTime, deps, type, reused) {
   var selfFrac = Math.max(0, Math.min(frac, (initTime - slowestDep) / mgTraceMax));
   var tip = mgFormatMs(initTime) + " total" +
     (slowestDep > 0 ? " \\u2014 \\u2248" + mgFormatMs(slowestDep) + " waiting on dependencies, \\u2248" + mgFormatMs(Math.max(0, initTime - slowestDep)) + " own work" : " \\u2014 all own work");
-  return '<span class="mg-trace-track has-tip tip-wide" data-tip="' + mgEsc(tip) + '">' +
+  return '<span class="mg-trace-track" data-tip="' + mgEsc(tip) + '">' +
     '<span class="mg-trace-bar" style="width:' + width + '%;background:rgba(' + mgTraceColor(type) + ',0.4)"></span>' +
     (selfFrac > 0.002 ? '<span class="mg-trace-self" style="left:' + ((frac - selfFrac) * 100).toFixed(2) + '%;width:' + (selfFrac * 100).toFixed(2) + '%"></span>' : '') +
     '</span>';
@@ -1937,11 +1970,11 @@ function mgTraceRowHtml(id, depth, path, inherited) {
     ' data-trace="' + mgEsc(id) + '" data-path="' + mgEsc(path) + '" data-depth="' + depth + '">' +
     '<span class="mg-trace-label" style="padding-left:' + (Math.min(depth, 8) * 16) + 'px">' +
     '<span class="mg-trace-caret">' + (expandable ? "\\u25B8" : "") + '</span>' +
-    '<span class="mg-trace-name has-tip tip-wide" data-tip="' + mgEsc(node.name) + '">' + mgEsc(node.name) + '</span>' +
+    '<span class="mg-trace-name" data-tip="' + mgEsc(node.name) + '">' + mgEsc(node.name) + '</span>' +
     mgTraceBadgeHtml(node.type) +
     mgHookChipHtml(node.hooks) +
-    (reused ? '<span class="mg-trace-reused-tag has-tip tip-wide" data-tip="Already built when this parent loaded \\u2014 its cost is counted at its first consumer">reused</span>' : '') +
-    (cyc ? '<span class="mg-trace-cycle has-tip" data-tip="circular dependency">\\u21BB</span>' : '') +
+    (reused ? '<span class="mg-trace-reused-tag" data-tip="Already built when this parent loaded \\u2014 its cost is counted at its first consumer">reused</span>' : '') +
+    (cyc ? '<span class="mg-trace-cycle" data-tip="circular dependency">\\u21BB</span>' : '') +
     '</span>' +
     mgTraceBarHtml(node.initTime, node.deps, node.type, reused) +
     '<span class="mg-trace-time">' + mgEsc(mgFormatMs(node.initTime)) + '</span>' +
