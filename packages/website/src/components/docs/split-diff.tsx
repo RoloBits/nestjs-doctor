@@ -1,5 +1,6 @@
 import { type BundledLanguage, codeToTokens, type ThemedToken } from "shiki";
 import { CopyButton } from "./copy-button";
+import { SplitPanes } from "./split-panes";
 
 const THEME = "github-dark-default";
 const TRAILING_NEWLINE = /\n$/;
@@ -129,10 +130,10 @@ const Side = ({
 	tone: "del" | "add" | "same";
 }) => {
 	if (!cell) {
-		return <div className="h-[1.7em] bg-white/[0.03]" />;
+		return <div className="h-[1.7em] w-full bg-white/[0.03]" />;
 	}
 	return (
-		<div className={`flex h-[1.7em] ${TONE_BG[tone]}`}>
+		<div className={`flex h-[1.7em] w-full ${TONE_BG[tone]}`}>
 			<span className="w-9 shrink-0 select-none pr-2 text-right text-white/25">
 				{cell.no}
 			</span>
@@ -181,35 +182,45 @@ export const SplitDiff = async ({
 
 	return (
 		<div className="mt-4 mb-4 overflow-hidden rounded-lg border border-white/10 bg-[#0d0d0d] text-[13px] leading-[1.7]">
-			<div className="grid grid-cols-2 border-white/10 border-b font-medium text-[11px] text-white/60 uppercase tracking-wide">
-				<div className="truncate border-white/10 border-r px-3 py-2">
-					{labels[0]}
-				</div>
-				<div className="flex items-center justify-between gap-2 px-3 py-1.5">
-					<span className="truncate">{labels[1]}</span>
-					<CopyButton label="Copy file" text={after} />
-				</div>
-			</div>
-			<div className="grid grid-cols-2">
-				<div className="overflow-x-auto border-white/10 border-r py-2">
-					{rows.map((row) => (
-						<Side
-							cell={row.left}
-							key={`l-${rowKey(row)}`}
-							tone={row.kind === "change" && row.left ? "del" : "same"}
-						/>
-					))}
-				</div>
-				<div className="overflow-x-auto py-2">
-					{rows.map((row) => (
-						<Side
-							cell={row.right}
-							key={`r-${rowKey(row)}`}
-							tone={row.kind === "change" && row.right ? "add" : "same"}
-						/>
-					))}
-				</div>
-			</div>
+			<SplitPanes
+				left={
+					<div className="flex min-w-0 flex-col">
+						<div className="truncate border-white/10 border-b px-3 py-2 font-medium text-[11px] text-white/60 uppercase tracking-wide">
+							{labels[0]}
+						</div>
+						<div className="overflow-x-auto py-2">
+							<div className="w-max min-w-full">
+								{rows.map((row) => (
+									<Side
+										cell={row.left}
+										key={`l-${rowKey(row)}`}
+										tone={row.kind === "change" && row.left ? "del" : "same"}
+									/>
+								))}
+							</div>
+						</div>
+					</div>
+				}
+				right={
+					<div className="flex min-w-0 flex-col">
+						<div className="flex items-center justify-between gap-2 border-white/10 border-b px-3 py-1.5 font-medium text-[11px] text-white/60 uppercase tracking-wide">
+							<span className="truncate">{labels[1]}</span>
+							<CopyButton label="Copy file" text={after} />
+						</div>
+						<div className="overflow-x-auto py-2">
+							<div className="w-max min-w-full">
+								{rows.map((row) => (
+									<Side
+										cell={row.right}
+										key={`r-${rowKey(row)}`}
+										tone={row.kind === "change" && row.right ? "add" : "same"}
+									/>
+								))}
+							</div>
+						</div>
+					</div>
+				}
+			/>
 		</div>
 	);
 };
