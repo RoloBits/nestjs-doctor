@@ -107,6 +107,11 @@ function makeScoreRingSvg(size, strokeW, value) {
         tip.style.display = "none";
         return;
       }
+      // A name tooltip only helps when the name is actually truncated.
+      if (el.classList.contains("mg-trace-name") && el.scrollWidth <= el.clientWidth) {
+        tip.style.display = "none";
+        return;
+      }
       tip.textContent = el.getAttribute("data-tip");
       tip.style.display = "block";
       const r = el.getBoundingClientRect();
@@ -123,6 +128,7 @@ function makeScoreRingSvg(size, strokeW, value) {
   }
   bind("mg-dock");
   bind("header-meta");
+  bind("detail-badges");
 })();
 
 // ── Diagnosis count badge ──
@@ -2146,7 +2152,7 @@ function mgShowDetail(n) {
   if (circularModules.has(n.name)) badges += '<span class="md-badge md-cycle">in cycle</span>';
   if (rootModules.has(n.name)) badges += '<span class="md-badge md-root">root</span>';
   if (graph.timingsAvailable && n.initTimings && n.initTimings.length > 0) {
-    badges += '<span class="md-badge md-use" id="detail-timings-btn" title="Open the Boot trace">' +
+    badges += '<span class="md-badge md-use" id="detail-timings-btn" data-tip="Open the Boot trace">' +
       mgEsc(mgFormatMs(n.initTimings[0].initTime)) + ' \\u00b7 trace \\u25B8</span>';
     badges += mgHookChipHtml(n.hookTimings);
   }
