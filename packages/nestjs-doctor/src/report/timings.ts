@@ -9,8 +9,9 @@ export interface ClassTiming {
 	type: string;
 }
 
-/** One lifecycle hook's duration for one class, in milliseconds. */
+/** One lifecycle hook's total duration for one class, in milliseconds. */
 export interface HookTiming {
+	count?: number;
 	hook: string;
 	ms: number;
 }
@@ -101,11 +102,16 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 	const dumpNodes = nodes as Record<string, DumpNode>;
 	const moduleLabels = new Map<string, string>();
 	const moduleLabelCounts = new Map<string, number>();
-	// Hook timings join by class name, so any repeated label is ambiguous.
+	// Counts class-node labels; hook entries only join to a unique label.
+	// Module nodes are excluded: a module class also appears as a class node.
 	const labelCounts = new Map<string, number>();
 	for (const [id, node] of Object.entries(dumpNodes)) {
 		const meta = node?.metadata;
-		if (meta?.internal !== true && typeof node?.label === "string") {
+		if (
+			meta?.internal !== true &&
+			meta?.type !== "module" &&
+			typeof node?.label === "string"
+		) {
 			labelCounts.set(node.label, (labelCounts.get(node.label) ?? 0) + 1);
 		}
 		if (
@@ -205,13 +211,18 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 		for (const entry of rawHooks as Record<string, unknown>[]) {
 			const className = entry?.className;
 			const hook = entry?.hook;
-			const ms = asPositiveMs(entry?.ms);
+			const ms = entry?.ms;
 			if (
 				typeof className !== "string" ||
 				typeof hook !== "string" ||
-				ms === undefined
+				typeof ms !== "number" ||
+				!Number.isFinite(ms) ||
+				ms < 0
 			) {
 				malformed++;
+				continue;
+			}
+			if (ms === 0) {
 				continue;
 			}
 			if (labelCounts.get(className) !== 1) {
@@ -219,7 +230,14 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 				continue;
 			}
 			const list = hooksByClass.get(className) ?? [];
-			list.push({ hook, ms });
+			// Transient providers report once per instance; merge into one total.
+			const existing = list.find((h) => h.hook === hook);
+			if (existing) {
+				existing.ms += ms;
+				existing.count = (existing.count ?? 1) + 1;
+			} else {
+				list.push({ hook, ms });
+			}
 			hooksByClass.set(className, list);
 		}
 		if (malformed > 0) {
@@ -240,7 +258,7 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 		}
 	}
 
-	let startupMs = asPositiveMs((data as { startupMs?: unknown }).startupMs);
+	const startupMs = asPositiveMs((data as { startupMs?: unknown }).startupMs);
 	const createMs = asPositiveMs((data as { createMs?: unknown }).createMs);
 	const moduleInitMs = asPositiveMs(
 		(data as { moduleInitMs?: unknown }).moduleInitMs
@@ -255,7 +273,6 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 		warnings.push(
 			"--timings: phase markers are out of order; report generated without the phase breakdown"
 		);
-		startupMs = undefined;
 	} else if (
 		createMs !== undefined ||
 		moduleInitMs !== undefined ||

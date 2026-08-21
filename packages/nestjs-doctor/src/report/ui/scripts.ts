@@ -35,7 +35,6 @@ graph.circularDeps = graph.circularDeps || [];
 graph.circularDepRecommendations = graph.circularDepRecommendations || {};
 graph.bootstrapRoots = graph.bootstrapRoots || [];
 graph.timingsTrace = graph.timingsTrace || {};
-graph.phases = graph.phases || null;
 
 // ── Score helpers ──
 function getScoreColor(v) {
@@ -75,7 +74,9 @@ function makeScoreRingSvg(size, strokeW, value) {
       }
     }
     if (graph.startupMs) {
-      const phaseCaption = mgPhaseCaption(mgPhaseParts());
+      const phaseCaption = mgPhaseParts()
+        .map((s) => s.label + " " + mgFormatMs(s.ms))
+        .join(" \\u00b7 ");
       badges.push('<span class="meta-badge" id="boot-badge" style="cursor:pointer" data-tip="From bootstrap start until the app was listening, measured by the nestjs-doctor snippet in your main.ts.' +
         (phaseCaption ? " " + mgEsc(phaseCaption) + "." : "") +
         ' Slowest construction chain: ' +
@@ -98,21 +99,29 @@ function makeScoreRingSvg(size, strokeW, value) {
   tip.className = "schema-tooltip";
   tip.id = "mg-float-tip";
   document.body.appendChild(tip);
+  let shown = null;
   function bind(rootId) {
     const root = document.getElementById(rootId);
     if (!root) return;
     root.addEventListener("mouseover", (ev) => {
       const el = ev.target.closest("[data-tip]");
       if (!el || !root.contains(el)) {
+        shown = null;
         tip.style.display = "none";
         return;
       }
-      // A name tooltip only helps when the name is actually truncated.
+      if (el === shown) return;
+      // Skips the tip when the name is fully visible.
       if (el.classList.contains("mg-trace-name") && el.scrollWidth <= el.clientWidth) {
+        shown = null;
         tip.style.display = "none";
         return;
       }
+      shown = el;
       tip.textContent = el.getAttribute("data-tip");
+      // A leftover left offset would constrain the width measurement.
+      tip.style.left = "0px";
+      tip.style.top = "0px";
       tip.style.display = "block";
       const r = el.getBoundingClientRect();
       const tr = tip.getBoundingClientRect();
@@ -123,6 +132,7 @@ function makeScoreRingSvg(size, strokeW, value) {
       tip.style.top = y + "px";
     });
     root.addEventListener("mouseleave", () => {
+      shown = null;
       tip.style.display = "none";
     });
   }
@@ -1293,14 +1303,13 @@ function mgBindEvents() {
       var node = mgTraceNode(row.dataset.trace);
       if (!node) return;
       var depth = parseInt(row.dataset.depth, 10) + 1;
-      var parentReused = row.classList.contains("mg-trace-reused");
-      var body = document.getElementById("mg-trace-body");
+      var parentMark = row.dataset.mark || null;
       var html = "";
       for (var i = 0; i < node.deps.length; i++) {
         var depId = node.deps[i];
-        // A class already visible in this trace was built once; later rows show it reused.
-        var dup = body.querySelector('.mg-trace-row[data-trace="' + CSS.escape(depId) + '"]') !== null;
-        html += mgTraceRowHtml(depId, depth, path + "/" + depId, parentReused || dup);
+        // A dep with its own top-level row is detailed there, not paid again here.
+        var mode = parentMark || (mgTraceTopIds[depId] === true ? "listed" : null);
+        html += mgTraceRowHtml(depId, depth, path + "/" + depId, mode);
       }
       row.insertAdjacentHTML("afterend", html);
     }
@@ -1310,8 +1319,6 @@ function mgBindEvents() {
   document.getElementById("detail-badges").addEventListener("click", function(ev) {
     if (ev.target.closest("#detail-timings-btn")) mgOpenTraceDrawer();
   });
-
-  mgRenderPhases();
 
   window.addEventListener("resize", function() { if (activeTab === "modules") mgResize(); });
 }
@@ -1493,6 +1500,7 @@ function renderModules() {
   mgBuild();
   mgBuildTree();
   mgBuildProblems();
+  mgRenderPhases();
   mgSyncTraceDrawer(null);
   mgApplyExternalVisibility();
   if (mgNodes.length === 0) {
@@ -1855,18 +1863,22 @@ function mgHookChipHtml(hooks) {
   var html = "";
   for (var i = 0; i < hooks.length; i++) {
     var h = hooks[i];
-    var meta = MG_HOOK_META[Object.prototype.hasOwnProperty.call(MG_HOOK_META, h.hook) ? h.hook : ""] ||
-      { label: h.hook, rgb: "107,114,128" };
+    var meta = Object.prototype.hasOwnProperty.call(MG_HOOK_META, h.hook)
+      ? MG_HOOK_META[h.hook]
+      : { label: h.hook, rgb: "107,114,128" };
+    var times = h.count && h.count > 1 ? " across " + h.count + " instances" : "";
     html += '<span class="mg-trace-hook" style="color:rgb(' + meta.rgb + ');background:rgba(' + meta.rgb + ',0.12)"' +
-      ' data-tip="' + mgEsc(h.hook + " took " + mgFormatMs(h.ms)) + '">+' +
-      mgEsc(mgFormatMs(h.ms)) + ' ' + mgEsc(meta.label) + '</span>';
+      ' data-tip="' + mgEsc(h.hook + " took " + mgFormatMs(h.ms) + times) + '">+' +
+      mgEsc(mgFormatMs(h.ms)) + ' ' + mgEsc(meta.label) +
+      (h.count && h.count > 1 ? ' \\u00d7' + h.count : '') + '</span>';
   }
   return html;
 }
 
 function mgPhaseParts() {
   var p = graph.phases;
-  if (!p) return [];
+  // Without createMs the earlier boundaries are unknown, so segments would mislabel.
+  if (!p || typeof p.createMs !== "number") return [];
   var parts = [];
   var prev = 0;
   function push(label, end, rgb, tip) {
@@ -1882,19 +1894,14 @@ function mgPhaseParts() {
     push("lifecycle hooks", p.initMs, "52,211,153", "lifecycle hooks \\u2014 onModuleInit and onApplicationBootstrap");
   }
   if (typeof graph.startupMs === "number") {
-    var afterInit = typeof p.initMs === "number";
-    push(afterInit ? "listen" : "hooks + listen", graph.startupMs, "107,114,128",
-      afterInit ? "listen \\u2014 binding the HTTP server" : "hooks + listen \\u2014 everything after NestFactory.create");
+    var tail = typeof p.initMs === "number"
+      ? { label: "listen", tip: "listen \\u2014 binding the HTTP server" }
+      : typeof p.moduleInitMs === "number"
+        ? { label: "bootstrap + listen", tip: "bootstrap + listen \\u2014 onApplicationBootstrap hooks and the server bind" }
+        : { label: "hooks + listen", tip: "hooks + listen \\u2014 everything after NestFactory.create" };
+    push(tail.label, graph.startupMs, "107,114,128", tail.tip);
   }
   return parts;
-}
-
-function mgPhaseCaption(parts) {
-  var bits = [];
-  for (var i = 0; i < parts.length; i++) {
-    bits.push(parts[i].label + " " + mgFormatMs(parts[i].ms));
-  }
-  return bits.join(" \\u00b7 ");
 }
 
 function mgRenderPhases() {
@@ -1937,11 +1944,11 @@ function mgTraceBadgeHtml(type) {
     mgEsc(type) + '</span>';
 }
 
-function mgTraceBarHtml(initTime, deps, type, reused) {
+function mgTraceBarHtml(initTime, deps, type, hollowTip) {
   var frac = Math.max(0, Math.min(1, initTime / mgTraceMax));
   var width = (frac * 100).toFixed(2);
-  if (reused) {
-    return '<span class="mg-trace-track" data-tip="' + mgEsc(mgFormatMs(initTime) + " total \\u2014 already built for an earlier consumer; not paid here") + '">' +
+  if (hollowTip) {
+    return '<span class="mg-trace-track" data-tip="' + mgEsc(mgFormatMs(initTime) + " total \\u2014 " + hollowTip) + '">' +
       '<span class="mg-trace-bar" style="width:' + width + '%;background:transparent;box-shadow:inset 0 0 0 1px rgba(' + mgTraceColor(type) + ',0.5)"></span>' +
       '</span>';
   }
@@ -1961,7 +1968,7 @@ function mgTraceBarHtml(initTime, deps, type, reused) {
     '</span>';
 }
 
-function mgTraceRowHtml(id, depth, path, inherited) {
+function mgTraceRowHtml(id, depth, path, mode) {
   var node = mgTraceNode(id);
   if (!node) return "";
   var ancestors = path.split("/");
@@ -1970,29 +1977,40 @@ function mgTraceRowHtml(id, depth, path, inherited) {
   var expandable = !cyc && depth < 20 && node.deps.length > 0;
   // Slower than its consumer means the dep already existed when the consumer loaded.
   var parent = ancestors.length > 0 ? mgTraceNode(ancestors[ancestors.length - 1]) : null;
-  var reused = inherited === true || (parent !== null && node.initTime > parent.initTime);
+  var reused = mode === "reused" || (parent !== null && node.initTime > parent.initTime);
+  var listed = !reused && mode === "listed";
+  var mark = reused
+    ? { cls: " mg-trace-reused", tag: "reused", tip: "Already built when this parent loaded \\u2014 its cost is counted at its first consumer", bar: "already built for an earlier consumer; not paid here" }
+    : listed
+      ? { cls: " mg-trace-reused", tag: "listed above", tip: "Has its own row at the top of this trace \\u2014 the cost is detailed there", bar: "detailed in its own row at the top of this trace" }
+      : null;
   return '<div class="mg-trace-row' + (expandable ? ' mg-trace-expandable' : '') +
-    (reused ? ' mg-trace-reused' : '') + '"' +
-    ' data-trace="' + mgEsc(id) + '" data-path="' + mgEsc(path) + '" data-depth="' + depth + '">' +
+    (mark ? mark.cls : '') + '"' +
+    ' data-trace="' + mgEsc(id) + '" data-path="' + mgEsc(path) + '" data-depth="' + depth + '"' +
+    (mark ? ' data-mark="' + (reused ? "reused" : "listed") + '"' : '') + '>' +
     '<span class="mg-trace-label" style="padding-left:' + (Math.min(depth, 8) * 16) + 'px">' +
     '<span class="mg-trace-caret">' + (expandable ? "\\u25B8" : "") + '</span>' +
     '<span class="mg-trace-name" data-tip="' + mgEsc(node.name) + '">' + mgEsc(node.name) + '</span>' +
     mgTraceBadgeHtml(node.type) +
     mgHookChipHtml(node.hooks) +
-    (reused ? '<span class="mg-trace-reused-tag" data-tip="Already built when this parent loaded \\u2014 its cost is counted at its first consumer">reused</span>' : '') +
+    (mark ? '<span class="mg-trace-reused-tag" data-tip="' + mark.tip + '">' + mark.tag + '</span>' : '') +
     (cyc ? '<span class="mg-trace-cycle" data-tip="circular dependency">\\u21BB</span>' : '') +
     '</span>' +
-    mgTraceBarHtml(node.initTime, node.deps, node.type, reused) +
+    mgTraceBarHtml(node.initTime, node.deps, node.type, mark ? mark.bar : null) +
     '<span class="mg-trace-time">' + mgEsc(mgFormatMs(node.initTime)) + '</span>' +
     '</div>';
 }
 
+var mgTraceTopIds = {};
+
 function mgShowModuleTrace(n) {
   var list = n.initTimings;
   mgTraceMax = list[0].initTime > 0 ? list[0].initTime : 1;
+  mgTraceTopIds = {};
   var html = "";
   // The parser writes every timed class into the trace, so rows never miss it.
   for (var i = 0; i < list.length; i++) {
+    mgTraceTopIds[list[i].id] = true;
     html += mgTraceRowHtml(list[i].id, 0, list[i].id);
   }
   document.getElementById("mg-trace-ms").textContent =
@@ -2151,9 +2169,11 @@ function mgShowDetail(n) {
   if (n.isGlobal) badges += '<span class="md-badge md-global">global</span>';
   if (circularModules.has(n.name)) badges += '<span class="md-badge md-cycle">in cycle</span>';
   if (rootModules.has(n.name)) badges += '<span class="md-badge md-root">root</span>';
-  if (graph.timingsAvailable && n.initTimings && n.initTimings.length > 0) {
-    badges += '<span class="md-badge md-use" id="detail-timings-btn" data-tip="Open the Boot trace">' +
-      mgEsc(mgFormatMs(n.initTimings[0].initTime)) + ' \\u00b7 trace \\u25B8</span>';
+  if (graph.timingsAvailable) {
+    if (n.initTimings && n.initTimings.length > 0) {
+      badges += '<span class="md-badge md-use" id="detail-timings-btn" data-tip="Open the Boot trace">' +
+        mgEsc(mgFormatMs(n.initTimings[0].initTime)) + ' \\u00b7 trace \\u25B8</span>';
+    }
     badges += mgHookChipHtml(n.hookTimings);
   }
   document.getElementById("detail-badges").innerHTML = badges;

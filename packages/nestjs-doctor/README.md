@@ -79,11 +79,13 @@ instrument: {
     for (const hook of ["onModuleInit", "onApplicationBootstrap"]) {
       const original = instance[hook];
       if (typeof original !== "function") continue;
-      instance[hook] = async function (...args) {
-        const start = performance.now();
-        try { return await original.apply(this, args); }
-        finally { hookTimings.push({ className: this.constructor.name, hook, ms: performance.now() - start }); }
-      };
+      try {
+        instance[hook] = async function (...args) {
+          const start = performance.now();
+          try { return await original.apply(this, args); }
+          finally { hookTimings.push({ className: this.constructor.name, hook, ms: performance.now() - start }); }
+        };
+      } catch {} // frozen instances stay untimed
     }
     return instance;
   },

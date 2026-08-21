@@ -122,7 +122,9 @@ describe("module-serializer", () => {
 					[{ id: "c1", name: "AppService", type: "provider", initTime: 42 }],
 				],
 			]),
-			hooksByClass: new Map(),
+			hooksByClass: new Map([
+				["AppModule", [{ hook: "onModuleInit", ms: 30 }]],
+			]),
 			trace: {
 				c1: { name: "AppService", type: "provider", initTime: 42, deps: [] },
 			},
@@ -141,6 +143,7 @@ describe("module-serializer", () => {
 		expect(app.initTimings).toEqual([
 			{ id: "c1", name: "AppService", type: "provider", initTime: 42 },
 		]);
+		expect(app.hookTimings).toEqual([{ hook: "onModuleInit", ms: 30 }]);
 		// A module the boot never touched carries no field, never a zero.
 		const cats = serialized.modules.find((m) => m.name === "CatsModule")!;
 		expect(cats.initTimings).toBeUndefined();

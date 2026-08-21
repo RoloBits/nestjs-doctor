@@ -215,17 +215,14 @@ describe("parseBootstrapTimings", () => {
 		base.startupMs = 180;
 
 		const ok = parseBootstrapTimings(JSON.stringify(base));
-		expect(ok.phases).toEqual({
-			createMs: 100,
-			initMs: 150,
-			moduleInitMs: undefined,
-		});
+		expect(ok.phases).toEqual({ createMs: 100, initMs: 150 });
 		expect(ok.startupMs).toBe(180);
 
 		base.initMs = 90;
 		const bad = parseBootstrapTimings(JSON.stringify(base));
 		expect(bad.phases).toBeUndefined();
-		expect(bad.startupMs).toBeUndefined();
+		// A standalone-valid startupMs survives; only the breakdown is dropped.
+		expect(bad.startupMs).toBe(180);
 		expect(bad.warnings.join(" ")).toContain("out of order");
 	});
 
@@ -250,10 +247,38 @@ describe("parseBootstrapTimings", () => {
 			JSON.stringify(base)
 		);
 		expect(trace.tc1.hooks).toEqual([{ hook: "onModuleInit", ms: 120.4 }]);
+		expect(warnings.join(" ")).toContain("1 hookTimings entries are malformed");
 		expect(trace.tc2.hooks).toBeUndefined();
 		expect(hooksByClass.get("DogsService")).toBeUndefined();
-		expect(warnings.join(" ")).toContain("2 hookTimings entries are malformed");
 		expect(warnings.join(" ")).toContain("2 hook timings name classes");
+	});
+
+	it("merges per-instance hook entries and joins module-class hooks", () => {
+		const base = JSON.parse(
+			dump({
+				m1: moduleNode("CatsModule"),
+				mc: classNode("CatsModule", "m1", 1),
+				c1: classNode("TransientProv", "m1", 2),
+			})
+		);
+		base.hookTimings = [
+			{ className: "TransientProv", hook: "onModuleInit", ms: 20 },
+			{ className: "TransientProv", hook: "onModuleInit", ms: 19 },
+			{ className: "CatsModule", hook: "onModuleInit", ms: 800 },
+			{ className: "TransientProv", hook: "onModuleInit", ms: 0 },
+		];
+
+		const { hooksByClass, warnings } = parseBootstrapTimings(
+			JSON.stringify(base)
+		);
+		expect(hooksByClass.get("TransientProv")).toEqual([
+			{ hook: "onModuleInit", ms: 39, count: 2 },
+		]);
+		// The module node does not make its class-node label ambiguous.
+		expect(hooksByClass.get("CatsModule")).toEqual([
+			{ hook: "onModuleInit", ms: 800 },
+		]);
+		expect(warnings.join(" ")).not.toContain("malformed");
 	});
 
 	it("warns when a valid dump carries no timings at all", () => {

@@ -237,8 +237,8 @@ body.mg-resizing { cursor: col-resize; user-select: none; }
   background: #fbbf24; vertical-align: middle;
 }
 #mg-trace-phases { display: none; padding: 8px 14px 2px; border-top: 1px solid var(--border); }
-#mg-dock.open[data-active="trace"] #mg-trace-phases { display: block; }
-#mg-trace-phases:empty { display: none; }
+#mg-dock.open[data-active="trace"] #mg-trace-phases:not(:empty) { display: block; }
+#mg-trace-phases .mg-trace-note { padding: 4px 0 0; }
 .mg-phase-strip { display: flex; gap: 2px; height: 10px; margin-bottom: 4px; }
 .mg-phase-seg { border-radius: 2px; min-width: 2px; }
 #mg-trace-body {
