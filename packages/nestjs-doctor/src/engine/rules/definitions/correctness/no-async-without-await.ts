@@ -26,6 +26,7 @@ export const noAsyncWithoutAwait: Rule = {
 		id: "correctness/no-async-without-await",
 		category: "correctness",
 		severity: "warning",
+		surfaces: ["cli"],
 		description:
 			"Async functions/methods should contain at least one await expression",
 		help: "Either add an await expression or remove the async keyword. Framework entry points are exempted, since Nest awaits what they return: route handlers, GraphQL resolvers, WebSocket, microservice, ts-rest and gRPC handlers.",

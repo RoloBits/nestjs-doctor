@@ -7,6 +7,7 @@ export const preferReadonlyInjection: Rule = {
 		id: "correctness/prefer-readonly-injection",
 		category: "correctness",
 		severity: "warning",
+		surfaces: ["cli"],
 		description:
 			"Constructor DI parameters should be readonly to prevent accidental reassignment",
 		help: "Add the 'readonly' modifier to the constructor parameter.",

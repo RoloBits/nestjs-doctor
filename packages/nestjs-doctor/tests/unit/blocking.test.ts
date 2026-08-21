@@ -6,25 +6,31 @@ import {
 	shouldBlock,
 	validateBlockingArg,
 } from "../../src/cli/blocking.js";
-import type { DiagnoseSummary } from "../../src/common/result.js";
+import type {
+	Diagnostic,
+	DiagnosticSurface,
+	Severity,
+} from "../../src/common/diagnostic.js";
 
-const summary = (
-	errors: number,
-	warnings: number,
-	info = 0
-): DiagnoseSummary => ({
-	total: errors + warnings + info,
-	errors,
-	warnings,
-	info,
-	byCategory: {
-		security: 0,
-		performance: 0,
-		correctness: 0,
-		architecture: 0,
-		schema: 0,
-	},
-});
+const at = (severity: Severity, surfaces?: DiagnosticSurface[]): Diagnostic =>
+	({
+		category: "correctness",
+		column: 1,
+		filePath: "a.ts",
+		help: "",
+		line: 1,
+		message: "",
+		rule: "correctness/example",
+		severity,
+		...(surfaces ? { surfaces } : {}),
+	}) as Diagnostic;
+
+/** Diagnostics with no surfaces declared, which is every rule by default. */
+const found = (errors: number, warnings: number, info = 0): Diagnostic[] => [
+	...Array.from({ length: errors }, () => at("error")),
+	...Array.from({ length: warnings }, () => at("warning")),
+	...Array.from({ length: info }, () => at("info")),
+];
 
 describe("blocking levels", () => {
 	it("exposes exactly the three documented levels", () => {
@@ -67,24 +73,40 @@ describe("resolveBlocking", () => {
 
 describe("shouldBlock", () => {
 	it("never blocks at level none", () => {
-		expect(shouldBlock(summary(9, 9, 9), "none")).toBe(false);
+		expect(shouldBlock(found(9, 9, 9), "none")).toBe(false);
 	});
 
 	it("blocks at level error only when errors are present", () => {
-		expect(shouldBlock(summary(1, 0), "error")).toBe(true);
-		expect(shouldBlock(summary(0, 5), "error")).toBe(false);
-		expect(shouldBlock(summary(0, 0, 5), "error")).toBe(false);
+		expect(shouldBlock(found(1, 0), "error")).toBe(true);
+		expect(shouldBlock(found(0, 5), "error")).toBe(false);
+		expect(shouldBlock(found(0, 0, 5), "error")).toBe(false);
 	});
 
 	it("blocks at level warning on errors or warnings, but not on info", () => {
-		expect(shouldBlock(summary(0, 1), "warning")).toBe(true);
-		expect(shouldBlock(summary(2, 0), "warning")).toBe(true);
-		expect(shouldBlock(summary(0, 0, 3), "warning")).toBe(false);
+		expect(shouldBlock(found(0, 1), "warning")).toBe(true);
+		expect(shouldBlock(found(2, 0), "warning")).toBe(true);
+		expect(shouldBlock(found(0, 0, 3), "warning")).toBe(false);
 	});
 
-	it("passes a clean summary at every level", () => {
+	it("passes a clean run at every level", () => {
 		for (const level of BLOCKING_LEVELS) {
-			expect(shouldBlock(summary(0, 0), level)).toBe(false);
+			expect(shouldBlock(found(0, 0), level)).toBe(false);
 		}
+	});
+
+	it("ignores diagnostics that are not on the ciFailure surface", () => {
+		const reportOnly = [at("error", ["cli"]), at("warning", ["cli"])];
+		expect(shouldBlock(reportOnly, "error")).toBe(false);
+		expect(shouldBlock(reportOnly, "warning")).toBe(false);
+	});
+
+	it("still blocks when a gating diagnostic sits beside report-only ones", () => {
+		const mixed = [at("error", ["cli"]), at("error")];
+		expect(shouldBlock(mixed, "error")).toBe(true);
+	});
+
+	it("blocks on a rule that opted into ciFailure explicitly", () => {
+		const explicit = [at("error", ["cli", "ciFailure"])];
+		expect(shouldBlock(explicit, "error")).toBe(true);
 	});
 });

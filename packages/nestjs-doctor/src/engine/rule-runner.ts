@@ -84,6 +84,9 @@ function runFileRulesOnFile(
 					...(Array.isArray(rule.meta.tags)
 						? { tags: [...rule.meta.tags] }
 						: {}),
+					...(Array.isArray(rule.meta.surfaces)
+						? { surfaces: [...rule.meta.surfaces] }
+						: {}),
 					sourceLines,
 				});
 			},
@@ -144,6 +147,9 @@ export function runProjectRules(
 					...(Array.isArray(rule.meta.tags)
 						? { tags: [...rule.meta.tags] }
 						: {}),
+					...(Array.isArray(rule.meta.surfaces)
+						? { surfaces: [...rule.meta.surfaces] }
+						: {}),
 				});
 			},
 		};
@@ -178,6 +184,9 @@ export function runSchemaRules(
 					severity: rule.meta.severity,
 					...(Array.isArray(rule.meta.tags)
 						? { tags: [...rule.meta.tags] }
+						: {}),
+					...(Array.isArray(rule.meta.surfaces)
+						? { surfaces: [...rule.meta.surfaces] }
 						: {}),
 				});
 			},

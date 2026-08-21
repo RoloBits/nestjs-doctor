@@ -55,6 +55,21 @@ export const myRule = {
 | `help`        | `string`   | Yes      | Fix guidance shown alongside diagnostics                                |
 | `scope`       | `string`   | No       | `"file"` (default) or `"project"`                                       |
 | `tags`        | `string[]` | No       | Labels stamped onto every diagnostic the rule emits                     |
+| `surfaces`    | `string[]` | No       | Where the rule may appear. Omitted means everywhere                     |
+
+### Surfaces
+
+A rule appears on three surfaces by default: `cli` for the report, `score` for
+the 0-100 number, and `ciFailure` for `--blocking`. Naming a subset narrows it:
+
+```ts
+surfaces: ["cli"],
+```
+
+That rule still shows every finding and still says how to fix it. It cannot
+move the score and cannot fail a build. Use it for a rule that encodes a
+preference rather than a defect, so a project that disagrees is not punished
+for it.
 
 ### Tags
 
