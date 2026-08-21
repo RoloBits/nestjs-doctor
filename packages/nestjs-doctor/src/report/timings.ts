@@ -74,6 +74,7 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 
 	const dumpNodes = nodes as Record<string, DumpNode>;
 	const moduleLabels = new Map<string, string>();
+	const moduleLabelCounts = new Map<string, number>();
 	for (const [id, node] of Object.entries(dumpNodes)) {
 		const meta = node?.metadata;
 		if (
@@ -82,12 +83,16 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 			typeof node.label === "string"
 		) {
 			moduleLabels.set(id, node.label);
+			moduleLabelCounts.set(
+				node.label,
+				(moduleLabelCounts.get(node.label) ?? 0) + 1
+			);
 		}
 	}
 
 	const modules = new Map<string, ClassTiming[]>();
-	// Ids are prefixed: the graph is embedded as an object literal, where a bare
-	// "__proto__" key would act as a prototype setter instead of a data key.
+	let ambiguousModuleClasses = 0;
+	// Ids get a "t" prefix so an id like "__proto__" stays a plain object key.
 	const trace: Record<string, TraceNode> = {};
 	for (const [rawId, node] of Object.entries(dumpNodes)) {
 		const meta = node?.metadata;
@@ -111,10 +116,15 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 		}
 		const type = typeof meta.type === "string" ? meta.type : "provider";
 		const id = `t${rawId}`;
+		trace[id] = { name: node.label, type, initTime, deps: [] };
+		// Two dump modules sharing a name would merge their class lists; skip both.
+		if (moduleLabelCounts.get(moduleName) !== 1) {
+			ambiguousModuleClasses++;
+			continue;
+		}
 		const list = modules.get(moduleName) ?? [];
 		list.push({ id, name: node.label, type, initTime });
 		modules.set(moduleName, list);
-		trace[id] = { name: node.label, type, initTime, deps: [] };
 	}
 
 	const edges = (data as { edges?: unknown }).edges;
@@ -150,6 +160,11 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 			"--timings: no class init times found in the dump — was it produced with NestFactory.create(AppModule, { snapshot: true })?"
 		);
 	}
+	if (ambiguousModuleClasses > 0) {
+		warnings.push(
+			`--timings: ${ambiguousModuleClasses} class timings belong to module names that appear more than once in the dump; they are not attached to a module`
+		);
+	}
 
 	const rawStartup = (data as { startupMs?: unknown }).startupMs;
 	const startupMs =
@@ -178,7 +193,7 @@ export function loadBootstrapTimings(
 		};
 	}
 	const { modules, startupMs, trace, warnings } = parseBootstrapTimings(raw);
-	return modules.size > 0
+	return modules.size > 0 || startupMs !== undefined
 		? { timings: { byModule: modules, startupMs, trace }, warnings }
 		: { warnings };
 }

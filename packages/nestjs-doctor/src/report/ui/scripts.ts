@@ -75,10 +75,10 @@ function makeScoreRingSvg(size, strokeW, value) {
     }
     if (graph.startupMs) {
       badges.push('<span class="meta-badge" id="boot-badge" style="cursor:pointer" title="From bootstrap start until the app was listening, measured by the snippet. Slowest construction chain: ' +
-        mgEsc(bootName) + ' \\u2014 click to open it in the modules graph">time to start \\u2248 ' + mgFormatMs(graph.startupMs) + '</span>');
+        mgEsc(bootName) + ' \\u2014 click to open it in the modules graph">time to start \\u2248 ' + mgEsc(mgFormatMs(graph.startupMs)) + '</span>');
     } else if (bootMs > 0) {
       badges.push('<span class="meta-badge" id="boot-badge" style="cursor:pointer" title="Slowest construction chain: ' +
-        mgEsc(bootName) + ' \\u2014 click to open it in the modules graph. Add startupMs to the dump for full time-to-start">boot \\u2248 ' + mgFormatMs(bootMs) + '</span>');
+        mgEsc(bootName) + ' \\u2014 click to open it in the modules graph. Add startupMs to the dump for full time-to-start">boot \\u2248 ' + mgEsc(mgFormatMs(bootMs)) + '</span>');
     }
   }
   meta.innerHTML = badges.join("");
@@ -133,6 +133,7 @@ function switchTab(name) {
     mgSelected = null;
     mgFocusSet = null;
     mgCycleFocus = null;
+    mgSyncTraceDrawer(null);
   }
 
   if (name === "diagnosis" && !diagnosisRendered) { renderDiagnosis(); diagnosisRendered = true; }
@@ -1229,7 +1230,7 @@ function mgBindEvents() {
   document.getElementById("mg-dock-header").addEventListener("click", function(ev) {
     var dock = document.getElementById("mg-dock");
     var tabEl = ev.target.closest(".mg-dock-tab");
-    if (tabEl) {
+    if (tabEl && !(dock.classList.contains("open") && dock.dataset.active === tabEl.dataset.dockTab)) {
       mgDockShow(tabEl.dataset.dockTab);
       return;
     }
@@ -1797,7 +1798,8 @@ function mgTraceNode(id) {
 }
 
 function mgTraceColor(type) {
-  return MG_TRACE_COLORS[type] || "107,114,128";
+  return Object.prototype.hasOwnProperty.call(MG_TRACE_COLORS, type)
+    ? MG_TRACE_COLORS[type] : "107,114,128";
 }
 
 function mgDockShow(name) {
@@ -1824,9 +1826,13 @@ function mgTraceBarHtml(initTime, deps, type, reused) {
       '<span class="mg-trace-bar" style="width:' + width + '%;background:transparent;box-shadow:inset 0 0 0 1px rgba(' + mgTraceColor(type) + ',0.5)"></span>' +
       '</span>';
   }
-  // deps are sorted slowest-first by the parser.
-  var d0 = deps.length > 0 ? mgTraceNode(deps[0]) : null;
-  var slowestDep = d0 ? d0.initTime : 0;
+  // Slowest dep this class could actually have waited on: a dep slower than
+  // the class itself was pre-built, so it never entered this class's clock.
+  var slowestDep = 0;
+  for (var d = 0; d < deps.length; d++) {
+    var dep = mgTraceNode(deps[d]);
+    if (dep && dep.initTime <= initTime) { slowestDep = dep.initTime; break; }
+  }
   var selfFrac = Math.max(0, Math.min(frac, (initTime - slowestDep) / mgTraceMax));
   return '<span class="mg-trace-track">' +
     '<span class="mg-trace-bar" style="width:' + width + '%;background:rgba(' + mgTraceColor(type) + ',0.4)"></span>' +
@@ -1841,15 +1847,13 @@ function mgTraceRowHtml(id, depth, path) {
   ancestors.pop();
   var cyc = ancestors.indexOf(id) >= 0;
   var expandable = !cyc && depth < 20 && node.deps.length > 0;
-  // A dep slower than its consumer cannot have been built by it: the consumer's
-  // time includes any wait, so this dep already existed and its cost was paid
-  // at its first consumer.
+  // Slower than its consumer means the dep already existed when the consumer loaded.
   var parent = ancestors.length > 0 ? mgTraceNode(ancestors[ancestors.length - 1]) : null;
   var reused = parent !== null && node.initTime > parent.initTime;
   return '<div class="mg-trace-row' + (expandable ? ' mg-trace-expandable' : '') +
     (reused ? ' mg-trace-reused' : '') + '"' +
     ' data-trace="' + mgEsc(id) + '" data-path="' + mgEsc(path) + '" data-depth="' + depth + '">' +
-    '<span class="mg-trace-label" style="padding-left:' + (depth * 16) + 'px">' +
+    '<span class="mg-trace-label" style="padding-left:' + (Math.min(depth, 8) * 16) + 'px">' +
     '<span class="mg-trace-caret">' + (expandable ? "\\u25B8" : "") + '</span>' +
     '<span class="mg-trace-name">' + mgEsc(node.name) + '</span>' +
     mgTraceBadgeHtml(node.type) +
@@ -1874,6 +1878,8 @@ function mgShowModuleTrace(n) {
   document.getElementById("mg-trace-body").innerHTML = html;
 }
 
+var mgTraceSyncedName = null;
+
 function mgSyncTraceDrawer(n) {
   var mod = n && !n.external && graph.timingsAvailable &&
     n.initTimings && n.initTimings.length > 0 ? n : null;
@@ -1884,11 +1890,18 @@ function mgSyncTraceDrawer(n) {
   }
   tab.style.display = "";
   if (mod) {
+    // Re-selecting the same module keeps its expanded cascade rows.
+    if (mgTraceSyncedName === mod.name) return;
+    mgTraceSyncedName = mod.name;
     mgShowModuleTrace(mod);
   } else {
+    mgTraceSyncedName = null;
     document.getElementById("mg-trace-ms").textContent = "";
     document.getElementById("mg-trace-body").innerHTML =
-      '<div class="mg-trace-note">Select a module to see its bootstrap timings.</div>';
+      '<div class="mg-trace-note">' +
+      (n ? mgEsc("No timing data for " + getDisplayName(n) + " \\u2014 it was not part of the captured boot, or its module name repeats across projects.")
+         : "Select a module to see its bootstrap timings.") +
+      '</div>';
   }
   mgResize();
 }
@@ -1899,19 +1912,34 @@ function mgOpenTraceDrawer() {
 
 function mgJumpToSlowestBoot() {
   switchTab("modules");
-  var bestMod = null;
-  var bestT = -1;
-  for (var i = 0; i < graph.modules.length; i++) {
-    var m = graph.modules[i];
-    if (m.initTimings && m.initTimings.length > 0 && m.initTimings[0].initTime > bestT) {
-      bestT = m.initTimings[0].initTime;
-      bestMod = m;
+  var maxId = null;
+  var maxT = -1;
+  for (var e = 0, entries = Object.entries(graph.timingsTrace); e < entries.length; e++) {
+    if (entries[e][1].initTime > maxT) {
+      maxT = entries[e][1].initTime;
+      maxId = entries[e][0];
     }
   }
-  var node = bestMod && mgNodeMap[bestMod.name];
-  if (!node) return;
-  mgShowDetail(node);
-  mgFlyToNode(node);
+  var owner = null;
+  var largest = null;
+  var largestT = -1;
+  for (var i = 0; i < graph.modules.length; i++) {
+    var m = graph.modules[i];
+    if (!m.initTimings || m.initTimings.length === 0) continue;
+    for (var j = 0; j < m.initTimings.length; j++) {
+      if (m.initTimings[j].id === maxId) owner = m;
+    }
+    if (m.initTimings[0].initTime > largestT) {
+      largestT = m.initTimings[0].initTime;
+      largest = m;
+    }
+  }
+  var target = owner || largest;
+  var node = target && mgNodeMap[target.name];
+  if (node) {
+    mgShowDetail(node);
+    mgFlyToNode(node);
+  }
   mgOpenTraceDrawer();
   mgScheduleRedraw();
 }

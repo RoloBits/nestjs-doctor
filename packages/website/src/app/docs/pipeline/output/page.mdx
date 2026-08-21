@@ -123,7 +123,7 @@ Output: `nestjs-doctor-report.html` in the project root, auto-opened in the defa
 
 ### Bootstrap timings (`--timings`)
 
-Overlays real per-class construction times from a captured boot onto the modules graph. NestJS records `initTime` for every provider and controller during dependency injection; `{ snapshot: true }` assembles them into a `SerializedGraph` you can dump locally (requires `@nestjs/core` >= 9.3). Add to `main.ts` (dev only):
+Overlays real per-class construction times from a captured boot onto the modules graph. NestJS records `initTime` for every provider and controller during dependency injection; `{ snapshot: true }` assembles them into a `SerializedGraph` you can dump locally (requires `@nestjs/core` >= 9.3.9). Add to `main.ts` (dev only):
 
 ```ts
 import { writeFileSync } from "node:fs";

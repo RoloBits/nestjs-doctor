@@ -192,6 +192,10 @@ export class CliSetup {
 			}
 		}
 
+		if (this.args.timings) {
+			logger.warn("--timings is ignored without --report");
+		}
+
 		const format = resolveFormat(this.args);
 		const score = this.args.score ?? false;
 		const isMachineReadable = score || isMachineReadableFormat(format);

@@ -73,7 +73,7 @@ export const flags = {
 	timings: {
 		type: "string",
 		description:
-			"Path to a SerializedGraph JSON dump (from app.get(SerializedGraph)) to overlay bootstrap init times on the report's module graph",
+			"Path to a SerializedGraph JSON dump (from app.get(SerializedGraph)) to overlay bootstrap init times on the report's module graph; relative paths resolve against the scanned directory",
 	},
 	init: {
 		type: "boolean",

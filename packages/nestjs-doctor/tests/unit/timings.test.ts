@@ -150,6 +150,27 @@ describe("parseBootstrapTimings", () => {
 		]);
 	});
 
+	it("attaches no classes to a module name that appears more than once in the dump", () => {
+		const { modules, trace, warnings } = parseBootstrapTimings(
+			dump({
+				m1: moduleNode("SharedModule"),
+				m2: moduleNode("SharedModule"),
+				c1: classNode("BillingService", "m1", 5),
+				c2: classNode("AuthService", "m2", 3),
+				m3: moduleNode("CatsModule"),
+				c3: classNode("CatsService", "m3", 2),
+			})
+		);
+
+		expect(modules.get("SharedModule")).toBeUndefined();
+		expect(modules.get("CatsModule")).toHaveLength(1);
+		// The classes keep their own trace entries; only the module join is refused.
+		expect(trace.tc1.name).toBe("BillingService");
+		expect(warnings.join(" ")).toContain(
+			"2 class timings belong to module names that appear more than once"
+		);
+	});
+
 	it("returns an empty map and a warning for JSON that does not parse", () => {
 		const { modules, warnings } = parseBootstrapTimings("not json {");
 
@@ -221,5 +242,21 @@ describe("loadBootstrapTimings", () => {
 			{ id: "tc1", name: "CatsService", type: "provider", initTime: 12 },
 		]);
 		expect(timings?.trace.tc1.deps).toEqual([]);
+	});
+
+	it("keeps a snippet-measured startupMs even when no class timings parsed", () => {
+		writeFileSync(
+			join(dir, "startup-only.json"),
+			'{"nodes":{},"startupMs":4200}'
+		);
+
+		const { timings, warnings } = loadBootstrapTimings(
+			dir,
+			"startup-only.json"
+		);
+
+		expect(timings?.startupMs).toBe(4200);
+		expect(timings?.byModule.size).toBe(0);
+		expect(warnings.join(" ")).toContain("no class init times");
 	});
 });
