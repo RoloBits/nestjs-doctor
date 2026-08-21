@@ -26,8 +26,9 @@ asked.
 
 It installs for Claude Code, Cursor, Codex, OpenCode, Windsurf, Amp,
 Antigravity, and Gemini CLI. Detection looks for each one's config directory or
-binary. Windsurf is the exception: it has no skills directory, so the content is
-appended to `~/.codeium/windsurf/memories/global_rules.md`.
+binary. Windsurf is the exception: it has no skills directory, so the content goes into
+`~/.codeium/windsurf/memories/global_rules.md`, inside a delimited block that a
+later `--init` replaces rather than duplicating.
 
 It also always writes `.agents/nestjs-doctor/`, `.agents/nestjs-boot-trace/`,
 and `.agents/nestjs-doctor-create-rule/` in the project itself, whatever it
@@ -36,6 +37,11 @@ anything.
 
 Re-run `--init` after upgrading. It overwrites what it wrote before, so the
 skills track the version of the CLI you have.
+
+A skill that needs more than one file carries a `references/` directory, copied
+in beside its `SKILL.md`. `nestjs-doctor-create-rule` uses it for the rule API,
+worked examples, and ts-morph patterns, so the skill itself stays short and the
+detail loads only when a rule is actually being written.
 
 ## What the skill knows that a prompt does not
 

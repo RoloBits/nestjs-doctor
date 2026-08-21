@@ -183,14 +183,15 @@ Both take an optional second argument, `{ config }`, with a path to a config fil
 
 ## AI Coding Agents
 
-Run `--init` to auto-detect installed agents and install three skills, one for
-running the scan and one for writing a custom rule:
+Run `--init` to auto-detect installed agents and install three skills: one for
+running the scan after a change, one for tracing a slow boot, and one for
+writing a custom rule.
 
 ```bash
 npx nestjs-doctor --init
 ```
 
-Supported agents: Claude Code, Amp Code, Cursor, OpenCode, Windsurf, Antigravity, Gemini CLI, Codex. A project-level fallback is always written to `.agents/nestjs-doctor/`, `.agents/nestjs-boot-trace/`, and `.agents/nestjs-doctor-create-rule/`. Re-running `--init` overwrites what it wrote before.
+Supported agents: Claude Code, Amp Code, Cursor, OpenCode, Windsurf, Antigravity, Gemini CLI, Codex. A project-level fallback is always written to `.agents/nestjs-doctor/`, `.agents/nestjs-boot-trace/`, and `.agents/nestjs-doctor-create-rule/`. Re-running `--init` overwrites what it wrote before. A skill that carries a `references/` directory, as `nestjs-doctor-create-rule` does, has it copied alongside its `SKILL.md`.
 
 ## Editors
 

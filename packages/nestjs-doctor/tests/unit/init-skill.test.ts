@@ -283,7 +283,10 @@ describe("initSkill", () => {
 			"references"
 		);
 		expect(writes.copies.has(target)).toBe(true);
-		expect(writes.copies.get(target)).toMatch(CREATE_RULE_REFS_RE);
+		// join() gives backslashes on Windows, so compare on posix separators.
+		expect(writes.copies.get(target)?.replace(BACKSLASH_RE, "/")).toMatch(
+			CREATE_RULE_REFS_RE
+		);
 	});
 
 	it("copies nothing when a skill has no references directory", async () => {
