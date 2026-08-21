@@ -21,6 +21,21 @@ NestJS measures it already. Booting with `{ snapshot: true }` records an
 `initTime` for every class and assembles a `SerializedGraph`. Writing that
 graph to disk takes one change to `main.ts`, and `--timings` reads it back.
 
+## Let an agent do it
+
+The change below is mechanical, and an agent can make it:
+
+```bash
+npx nestjs-doctor@latest --init
+```
+
+That installs a `nestjs-boot-trace` skill. Ask for a boot trace and the agent
+edits `main.ts`, boots once, runs the scan, reads the cascade, and puts
+`main.ts` back. It works in Claude Code, Cursor, Codex, and the other agents on
+[Coding agents](/docs/coding-agents).
+
+The rest of this page is the same work by hand.
+
 ## Capture the dump
 
 Two versions gate what you get:

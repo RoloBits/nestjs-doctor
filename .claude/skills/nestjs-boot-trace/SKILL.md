@@ -12,8 +12,8 @@ A scan reads source files and never runs the application, so construction time
 does not exist for it to measure. NestJS records it during a boot. This skill
 captures that boot and feeds it back into the report.
 
-It edits the user's `src/main.ts`. Say so before you start, and offer to revert
-it at the end.
+It edits the user's `src/main.ts`. Say so before you start, and revert it at
+the end unless they ask to keep it.
 
 ## 1. Check the version
 
