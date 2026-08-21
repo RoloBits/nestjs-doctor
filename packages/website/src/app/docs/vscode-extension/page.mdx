@@ -62,6 +62,20 @@ The extension also respects your project's `nestjs-doctor.config.json` for rule 
 Open the command palette (`Cmd+Shift+P` / `Ctrl+Shift+P`) and run
 `NestJS Doctor: Scan Project` to force a full scan.
 
+## Any other editor
+
+The language server ships as its own package, so any client that speaks LSP
+runs the same rules. Start it over stdio:
+
+```bash
+npx nestjs-doctor-lsp --stdio
+```
+
+It answers `initialize` with `textDocumentSync: 1`, and it scans the directory
+your client sends as `rootUri`. The engine is loaded from that directory, so
+`nestjs-doctor` has to be a dependency of the project you open, exactly as it
+does for the VS Code extension.
+
 ## Troubleshooting
 
 Install both dependencies first:
