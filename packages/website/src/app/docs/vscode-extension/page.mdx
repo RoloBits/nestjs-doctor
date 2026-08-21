@@ -21,7 +21,7 @@ The extension's LSP server loads `nestjs-doctor` from your workspace `node_modul
 
 ## How It Works
 
-The extension activates automatically when your workspace contains `@nestjs/core` in `node_modules` or when you open a TypeScript file. It starts a Language Server (LSP) that runs nestjs-doctor's analysis in the background using the [incremental scanning API](/docs/setup#incremental-scanning-api).
+The extension activates automatically when your workspace contains `@nestjs/core` in `node_modules` or when you open a TypeScript file. It starts a Language Server (LSP) that runs nestjs-doctor's analysis in the background using the [incremental scanning API](/docs/reference/node-api#incremental-scanning).
 
 Diagnostics appear inline in the editor and in the **Problems** panel, just like TypeScript or ESLint errors. The status bar shows a summary indicator while scanning.
 

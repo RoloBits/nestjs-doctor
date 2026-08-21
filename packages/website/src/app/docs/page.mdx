@@ -26,6 +26,7 @@ npx nestjs-doctor@latest ci install
 - **A score.** Weighted by severity and category, normalised by project size, so
   it means the same thing next month as it does today.
 - **Findings with a file, a line, and a rule id** you can suppress or configure.
+  Schema findings name an entity instead of a line.
 - **A visual report.** Your module graph, traced endpoints, the schema ER
   diagram, and a boot trace.
 - **A pull request reviewer** that comments only on what the change introduced.
@@ -35,9 +36,6 @@ npx nestjs-doctor@latest ci install
 The rules are static analysis over the TypeScript AST. No model calls, no
 network, no telemetry during a scan. The same commit scores the same on your
 laptop and in CI, which is what makes it usable as a gate.
-
-That is also what makes it useful next to an agent: it is a check the agent can
-run and re-run, not an opinion it has to trust.
 
 ## How it fits with ESLint
 

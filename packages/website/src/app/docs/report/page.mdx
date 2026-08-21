@@ -10,9 +10,12 @@ export const metadata = docsMetadata["/docs/report"];
 npx nestjs-doctor@latest . --report
 ```
 
-Writes `nestjs-doctor-report.html` to the project root and opens it. The file is
-self-contained: no server, no assets to host, nothing fetched at runtime. Commit
-it, attach it to a pull request, or open it from a CI artifact.
+Writes `nestjs-doctor-report.html` to the project root and opens it. One file,
+no server, no build step. Commit it or attach it to a pull request.
+
+It does load three things from a CDN when opened: the graph layout library, the
+code viewer, and the logo. Offline, the module graph falls back to a plain grid
+and the code viewers do not load. Everything else works.
 
 ![Module graph](/module-graph.png)
 
@@ -40,7 +43,7 @@ npx nestjs-doctor@latest . --report --timings nestjs-doctor-timings.json
 ```
 
 Producing the dump takes one change to `main.ts`, documented in
-[Output](/docs/pipeline/output#bootstrap-timings). Boot the app once, then scan.
+[Output](/docs/pipeline/output#bootstrap-timings---timings). Boot the app once, then scan.
 
 Each class's time includes waiting on its own dependencies, so a shared slow
 dependency counts again in every class that awaits it. Module nodes show the

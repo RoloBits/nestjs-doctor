@@ -14,9 +14,14 @@ Installs a skill that teaches your agent to run the scan, read the findings, and
 fix them in the order that matters: security, then correctness, then
 architecture, then performance.
 
-Detected and installed for: Claude Code, Cursor, Codex, OpenCode, Windsurf,
-Amp, Antigravity, and Gemini CLI. Anything else gets the same files in
-`.agents/`, which most tools read.
+It detects and installs for Claude Code, Cursor, Codex, OpenCode, Windsurf,
+Amp, Antigravity, and Gemini CLI, by looking for each one's config directory or
+binary. Windsurf is the exception: it has no skills directory, so the content is
+appended to `~/.codeium/windsurf/memories/global_rules.md`.
+
+It also always writes `.agents/nestjs-doctor/` and
+`.agents/nestjs-doctor-create-rule/` in the project itself, whatever it detected.
+Commit those and every contributor gets the skill without running anything.
 
 ## Why a skill and not a prompt
 

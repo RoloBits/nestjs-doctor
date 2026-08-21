@@ -8,11 +8,9 @@ export const metadata = docsMetadata["/docs/ci/gates"];
 
 The action is **advisory by default**. `blocking` is `none` and `min-score` is
 unset, so a fresh install comments, annotates, and sets a status without ever
-turning a pull request red. Enforcement is something you turn on when you are
-ready for it.
+turning a pull request red. Enforcement is off until you set `blocking` or `min-score`.
 
-Two gates decide the outcome, they are independent, and either one failing fails
-the run.
+Two independent gates decide the outcome. Either one failing fails the run.
 
 ```yaml
       - uses: RoloBits/nestjs-doctor@v1
@@ -25,7 +23,7 @@ That configuration fails a pull request when it introduces any error-severity
 finding, **and separately** when the project's health score is below 80. Drop
 either input to use only the other gate.
 
-### `blocking` — gate on findings
+## `blocking` — gate on findings
 
 Gates on the findings the run actually **reported**, which the `scope` input
 decides. With the default `scope: changed`, that is only what the pull request
@@ -37,7 +35,7 @@ introduced.
 | `warning` | Any error or warning is reported |
 | `error` | Any error is reported |
 
-This is the gate to reach for first. Because it follows the scope, a repository
+Because it follows the scope, a repository
 with a thousand pre-existing findings can adopt `blocking: error` on day one:
 the gate only ever sees what each pull request adds, so nobody inherits somebody
 else's backlog.
@@ -47,7 +45,7 @@ else's backlog.
 > flag. The action sidesteps that by always passing `--blocking` explicitly, so
 > the action's default is `none` whichever way you look at it.
 
-### `min-score` — gate on the score
+## `min-score` — gate on the score
 
 Gates on the 0–100 project health score. Unset by default; set it to a number
 and the run fails whenever the score falls below it.
@@ -65,11 +63,10 @@ So the two gates answer different questions:
 | `blocking` | Did this change make things worse? | The reported scope |
 | `min-score` | Is the project healthy enough? | The whole project |
 
-Pick `blocking` alone to hold the line on new code. Add `min-score` when you
-also want a floor under the codebase as a whole, and expect to raise it over
-time rather than setting it at today's number and forgetting it.
+Use `blocking` alone for new code. Add `min-score` for a floor on the
+repository as a whole.
 
-### Setting the threshold in config instead
+## Setting the threshold in config instead
 
 `minScore` is also a config-file key, so a repository can carry its floor in
 `nestjs-doctor.config.js` and have local runs, the pre-commit hook, and CI all
@@ -85,7 +82,7 @@ The action's `min-score` input **overrides** that when set, which is the hook fo
 holding CI to a higher bar than a local run. Leave the input empty and the config
 value applies.
 
-### Which findings count
+## Which findings count
 
 Both gates count whatever the run reports, so the config file is the third lever.
 Disable a rule or a whole category and it stops counting toward either gate — see
@@ -95,17 +92,16 @@ the same way: a suppressed finding is not reported, so it cannot fail a gate.
 Point the action at a CI-specific file with the `config` input when you want CI
 stricter than what contributors run locally.
 
-### Exit codes
+## Exit codes
 
 `0` pass · `1` a gate failed · `2` bad input.
 
-A push to the default branch always exits `0`, whatever the gates say — see
-below.
+A push to the default branch always exits `0`, whatever the gates say. See
+[Pushes to the default branch](/docs/ci#pushes-to-the-default-branch).
 
 ## Gates on the command line
 
-The same two gates the action exposes, as flags. Everything under
-[Failing the build](#failing-the-build) applies here too — what each gate sees,
+The same two gates the action exposes, as flags. Everything above applies here too — what each gate sees,
 and why `--min-score` is a whole-project measure whatever the scope.
 
 ```bash

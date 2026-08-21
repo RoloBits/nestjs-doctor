@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 interface Heading {
@@ -13,9 +14,13 @@ const ACTIVE_ZONE_TOP = 0.12;
 const ACTIVE_ZONE_BOTTOM = 0.55;
 
 export const Toc = () => {
+	const pathname = usePathname();
 	const [headings, setHeadings] = useState<Heading[]>([]);
 	const [activeId, setActiveId] = useState<string>("");
 
+	// The layout stays mounted across docs routes, so the path is the signal to
+	// re-read the headings even though the effect body never uses it.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: pathname is the trigger
 	useEffect(() => {
 		const found = [...document.querySelectorAll<HTMLElement>(HEADING_SELECTOR)]
 			.filter((node) => node.textContent)
@@ -51,7 +56,7 @@ export const Toc = () => {
 			}
 		}
 		return () => observer.disconnect();
-	}, []);
+	}, [pathname]);
 
 	if (headings.length < 2) {
 		return null;

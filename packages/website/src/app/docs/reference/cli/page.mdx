@@ -25,6 +25,7 @@ The directory defaults to the current one.
 | `--verbose` | Show the file and line behind every finding |
 | `--config <path>` | Use a specific config file instead of auto-detecting |
 | `--list-rules` | Print every built-in rule and exit |
+| `-h`, `--help` | Print usage and exit |
 
 ## Scope
 
@@ -41,8 +42,9 @@ need the whole project, so the score always covers all of it.
 | `--staged` | Scope to staged files, for a pre-commit hook |
 | `--changed-files-from <path>` | Read the changed file list from a file, for CI |
 
-`changed` needs history. In CI, check out with `fetch-depth: 0`, or it falls
-back to reporting every finding in the changed files and says so.
+`changed` needs history. Without a reachable base ref it degrades wider and says
+so: to every finding in the changed files when `--changed-files-from` is set,
+and to the whole project when it is not. In CI, check out with `fetch-depth: 0`.
 
 ## Output
 
@@ -53,7 +55,7 @@ back to reporting every finding in the changed files and says so.
 | `--json-compact` | Emit JSON formats without indentation |
 | `--output <path>` | Write to a file instead of stdout |
 | `--score` | Print only the number |
-| `--report` | Build the interactive HTML report |
+| `--report` | Build the interactive HTML report. `--graph` is an alias |
 | `--timings <path>` | Overlay boot timings on the report's module graph |
 
 ## Gates
@@ -63,9 +65,10 @@ back to reporting every finding in the changed files and says so.
 | `--blocking <level>` | Severity that fails the run: `none`, `warning`, `error` |
 | `--min-score <n>` | Fail when the project's score is below this |
 
-`--blocking` defaults to `error` for the console report and `none` for `--json`
-and `--score`, because those exit codes predate the flag. Set it explicitly and
-every mode agrees.
+`--blocking` defaults to `error` for the console report and for
+`--format github`, and to `none` for `--score` and for the formats that replace
+the console report: `json`, `sarif`, `gitlab`, and `markdown`. Those exit codes
+predate the flag. Set it explicitly and every mode agrees.
 
 ## Agents
 

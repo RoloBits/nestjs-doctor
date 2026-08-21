@@ -6,9 +6,8 @@ export const metadata = docsMetadata["/docs/ci"];
 
 # GitHub Actions setup
 
-Running a linter on a codebase that predates it produces a wall of findings
-nobody reads. nestjs-doctor solves that by reporting only what a change
-introduced, and leaving the existing backlog to the score.
+The action reports only what a pull request introduced, so an existing backlog
+stays out of the review.
 
 ## Scaffolding the workflow
 
@@ -142,7 +141,3 @@ npx nestjs-doctor . --scope changed --base origin/main
 npx nestjs-doctor . --staged --blocking error
 ```
 
-## Next
-
-- [Failing the build](/docs/ci/gates) — gate a pull request on the findings or the score
-- [Other CI providers](/docs/ci/other-providers) — GitLab, SARIF, markdown, pre-commit

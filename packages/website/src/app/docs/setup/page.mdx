@@ -12,8 +12,9 @@ Run this at your project root.
 npx nestjs-doctor@latest .
 ```
 
-No install, no config file, no network calls. It reads your TypeScript, runs 50
-rules, and prints a score out of 100.
+No config file, nothing to set up. It reads your TypeScript, runs 50 rules, and
+prints a score out of 100. The scan itself makes no network calls, though `npx`
+downloads the package the first time.
 
 ![CLI output](/cli-output.png)
 
@@ -32,8 +33,8 @@ npx nestjs-doctor@latest . --verbose
 
 ## Installing it
 
-`npx` is enough for a one-off. Install it when you want the same version pinned
-for everyone, or the VS Code extension, which loads it from your workspace.
+`npx` is enough for a one-off. Install it to pin one version for everyone, or to
+use the VS Code extension, which loads nestjs-doctor from your workspace.
 
 ```bash
 npm install -D nestjs-doctor
@@ -47,12 +48,7 @@ npm install -D nestjs-doctor
 | `1` | A gate failed: errors were found, or the score is below `--min-score` |
 | `2` | Bad input: the path does not exist, or a flag is invalid |
 
-The console report exits `1` on any error-severity finding. `--json` and
-`--score` exit `0` unless you set a gate, because those exit codes predate the
-`--blocking` flag. Pass `--blocking error` to make every mode agree.
+The console report exits `1` on any error-severity finding. The machine-readable
+formats exit `0` unless you set a gate. See
+[`--blocking`](/docs/reference/cli#gates) for which format defaults to what.
 
-## Next
-
-- [The report](/docs/report) — the interactive HTML view
-- [Coding agents](/docs/coding-agents) — let your agent run and fix it
-- [GitHub Actions setup](/docs/ci) — review every pull request

@@ -6,9 +6,8 @@ export const metadata = docsMetadata["/docs/reference/node-api"];
 
 # Node API
 
-Everything the CLI does is available as a function. The package ships types.
-
-nestjs-doctor can be used programmatically:
+`diagnose()` returns the same result the CLI formats. Types ship with the
+package.
 
 ```typescript
 import { diagnose, diagnoseMonorepo } from "nestjs-doctor";
@@ -24,11 +23,13 @@ mono.subProjects; // [{ name: "api", result }, ...]
 mono.combined; // Merged DiagnoseResult
 ```
 
-See the [pipeline overview](/docs/pipeline) for details on the `DiagnoseResult` structure.
+`DiagnoseResult` carries `score`, `diagnostics`, `summary`, `project`,
+`ruleErrors`, `elapsedMs`, and `schema` when an ORM was detected.
 
 ## Incremental scanning
 
-For tooling that needs fine-grained control — such as editor integrations and language servers — nestjs-doctor exports an incremental scanning API. Instead of running a full `diagnose()` call, you can prepare a scan context once and then re-scan individual files as they change.
+For editors and language servers: prepare the context once, then re-scan
+single files as they change instead of calling `diagnose()` again.
 
 ```typescript
 import {
@@ -62,21 +63,15 @@ const allFileResults = checkAllFiles(context);
 const projectResults = checkProject(context);
 ```
 
-### Granular Updates
+### Granular updates
 
-If you need to update the module graph or providers independently (for example, after editing multiple files before re-scanning):
+Update the graph or providers without a re-scan:
 
 ```typescript
 updateModuleGraphForFile(context.moduleGraph, context.astProject, filePath);
 updateProvidersForFile(context.providers, context.astProject, filePath);
-```
 
-### Listing Rules
-
-```typescript
-import { getRules } from "nestjs-doctor";
-
-const rules = getRules(); // all built-in rules (AnyRule[])
+const rules = getRules(); // every built-in rule (AnyRule[])
 ```
 
 ### `AnalysisContext`
