@@ -52,8 +52,9 @@ vim.lsp.enable("nestjs_doctor")
 ```
 
 `root_markers` decides which directory the client sends as `rootUri`, and that
-directory is the one the server scans. A client that sends no `rootUri` has
-nothing to scan and fails on the first attempt.
+directory is the one the server scans. A client that sends neither `rootUri`
+nor the deprecated `rootPath` has nothing to scan and fails on the first
+attempt.
 
 ## When it scans
 

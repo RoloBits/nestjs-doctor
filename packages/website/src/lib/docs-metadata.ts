@@ -39,7 +39,7 @@ export const docsMetadata: Record<string, Metadata> = {
 	"/docs/reference/node-api": {
 		title: "Node API",
 		description:
-			"Call nestjs-doctor from Node: scanProject, the incremental scanning API for editors, and the AnalysisContext it exposes to rules.",
+			"Call nestjs-doctor from Node: diagnose, the incremental scanning API for editors, and the AnalysisContext it exposes to rules.",
 	},
 	"/docs/configuration": {
 		title: "Configuration",
