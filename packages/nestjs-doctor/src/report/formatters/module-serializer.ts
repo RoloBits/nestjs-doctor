@@ -3,13 +3,20 @@ import {
 	findCircularDeps,
 	type ModuleGraph,
 } from "../../engine/graph/module-graph.js";
-import type { BootstrapTimings, ClassTiming, TraceNode } from "../timings.js";
+import type {
+	BootPhases,
+	BootstrapTimings,
+	ClassTiming,
+	HookTiming,
+	TraceNode,
+} from "../timings.js";
 
 interface SerializedModuleNode {
 	controllers: string[];
 	dynamicImports?: Record<string, string>;
 	exports: string[];
 	filePath: string;
+	hookTimings?: HookTiming[];
 	imports: string[];
 	initTimings?: ClassTiming[];
 	isGlobal?: boolean;
@@ -26,6 +33,7 @@ interface SerializedModuleGraph {
 	circularDeps: string[][];
 	edges: Array<{ from: string; to: string }>;
 	modules: SerializedModuleNode[];
+	phases?: BootPhases;
 	projects: string[];
 	startupMs?: number;
 	timingsAvailable?: boolean;
@@ -58,10 +66,12 @@ export function serializeModuleGraph(
 	const modules: SerializedModuleNode[] = [];
 	for (const node of graph.modules.values()) {
 		let initTimings: ClassTiming[] | undefined;
+		let hookTimings: HookTiming[] | undefined;
 		if (timings) {
 			const bare = bareModuleName(node);
 			if (bareNameCounts.get(bare) === 1) {
 				initTimings = timings.byModule.get(bare);
+				hookTimings = timings.hooksByClass.get(bare);
 			}
 		}
 		modules.push({
@@ -78,6 +88,7 @@ export function serializeModuleGraph(
 			line: node.line,
 			dynamicImports: node.dynamicImports,
 			initTimings,
+			hookTimings,
 		});
 	}
 
@@ -110,6 +121,7 @@ export function serializeModuleGraph(
 		circularDepRecommendations,
 		projects: projects ?? [],
 		bootstrapRoots,
+		phases: timings?.phases,
 		startupMs: timings?.startupMs,
 		timingsAvailable: timings ? true : undefined,
 		timingsTrace: timings?.trace,

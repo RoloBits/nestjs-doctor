@@ -217,17 +217,30 @@ body.mg-resizing { cursor: col-resize; user-select: none; }
 .mg-dock-tab {
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 12px; font-weight: 600; color: var(--text-dim);
-  padding: 3px 8px; border-radius: 4px;
+  padding: 3px 8px; border-radius: 4px; white-space: nowrap;
 }
 .mg-dock-tab:hover { color: var(--white); }
 #mg-dock[data-active="problems"] #mg-dock-tab-problems,
 #mg-dock[data-active="trace"] #mg-dock-tab-trace { color: var(--white); background: rgba(255,255,255,0.06); }
-.mg-trace-legend { display: none; font-size: 10px; color: var(--text-dim); }
-#mg-dock[data-active="trace"] .mg-trace-legend { display: inline; }
+.mg-trace-legend {
+  display: none; font-size: 10px; color: var(--text-dim); min-width: 0;
+}
+#mg-dock.open[data-active="trace"] .mg-trace-legend { display: inline; }
+#mg-float-tip {
+  position: fixed; z-index: 100; display: none;
+  pointer-events: none; max-width: 380px;
+}
+#detail-timings-btn { cursor: pointer; }
+#detail-timings-btn:hover { text-decoration: underline; }
 .mg-trace-legend-self {
   display: inline-block; width: 14px; height: 8px; border-radius: 2px;
   background: #fbbf24; vertical-align: middle;
 }
+#mg-trace-phases { display: none; padding: 8px 14px 2px; border-top: 1px solid var(--border); }
+#mg-dock.open[data-active="trace"] #mg-trace-phases:not(:empty) { display: block; }
+#mg-trace-phases .mg-trace-note { padding: 4px 0 0; }
+.mg-phase-strip { display: flex; gap: 2px; height: 10px; margin-bottom: 4px; }
+.mg-phase-seg { border-radius: 2px; min-width: 2px; }
 #mg-trace-body {
   display: none; overflow-y: auto;
   border-top: 1px solid var(--border); padding: 6px 0;
@@ -257,8 +270,15 @@ body.mg-resizing { cursor: col-resize; user-select: none; }
   font-size: 10px; color: var(--text-dim);
   border: 1px solid var(--border); border-radius: 3px; padding: 0 4px;
 }
+.mg-trace-hook { font-size: 9px; padding: 0 4px; border-radius: 3px; flex-shrink: 0; }
 
-.mg-problems-chevron { color: var(--text-dim); font-size: 11px; }
+.mg-problems-chevron {
+  color: var(--text-dim); font-size: 12px;
+  padding: 2px 8px; border: 1px solid var(--border); border-radius: 4px;
+}
+#mg-trace-ms:empty { display: none; }
+#boot-badge { color: #22d3ee; }
+#boot-badge:hover { text-decoration: underline; }
 #mg-problems-list { display: none; overflow-y: auto; border-top: 1px solid var(--border); }
 #mg-dock.open[data-active="problems"] #mg-problems-list { display: block; }
 .mg-problem-row {

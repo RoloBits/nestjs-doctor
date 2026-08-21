@@ -75,6 +75,12 @@ describe("report scripts", () => {
 		expect(scripts).toContain("mg-trace-reused-tag");
 	});
 
+	it("renders dock tooltips through the floating body-level layer", () => {
+		expect(scripts).toContain('tip.id = "mg-float-tip"');
+		expect(scripts).toContain('bind("mg-dock")');
+		expect(scripts).toContain('bind("header-meta")');
+	});
+
 	it("guards trace lookups against inherited object keys", () => {
 		expect(scripts).toContain(
 			"Object.prototype.hasOwnProperty.call(graph.timingsTrace, id)"
@@ -90,5 +96,17 @@ describe("report scripts", () => {
 	it("jumps from the boot badge to the module owning the slowest chain", () => {
 		expect(scripts).toContain("function mgJumpToSlowestBoot");
 		expect(scripts).toContain('id="boot-badge"');
+	});
+
+	it("renders the lifecycle phase strip from the dump's markers", () => {
+		expect(scripts).toContain("function mgRenderPhases");
+		expect(scripts).toContain("mg-phase-strip");
+		expect(scripts).toContain('"lifecycle hooks"');
+	});
+
+	it("shows per-class hook durations as chips on trace rows", () => {
+		expect(scripts).toContain("function mgHookChipHtml");
+		expect(scripts).toContain("mgHookChipHtml(node.hooks)");
+		expect(scripts).toContain("mgHookChipHtml(n.hookTimings)");
 	});
 });
