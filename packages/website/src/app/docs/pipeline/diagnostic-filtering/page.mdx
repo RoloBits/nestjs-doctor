@@ -4,37 +4,34 @@ export const metadata = docsMetadata["/docs/pipeline/diagnostic-filtering"];
 
 <BreadcrumbJsonLd path="/docs/pipeline/diagnostic-filtering" />
 
-# Diagnostic Filtering
+# Diagnostic filtering
 
 **Source:** `src/engine/filter-diagnostics.ts`
 
-## What
+Removes diagnostics that match the user's ignore configuration, after every rule
+has run. Silencing a known diagnostic or excluding a generated file therefore
+does not require turning the rule off: `no-orm-in-services` can run everywhere
+and still stay quiet inside a legacy module.
 
-Removes diagnostics that match the user's ignore configuration after all rules have run.
-
-## Why
-
-Users may want to suppress known issues or exclude generated files from results without disabling the rule entirely. For example, you might want `no-orm-in-services` to run everywhere except in your legacy module.
-
-## Input
+Input is the diagnostics, the config, and the project root:
 
 ```typescript
 diagnostics: Diagnostic[]          // all diagnostics from rule execution
 config: NestjsDoctorConfig         // contains ignore.rules and ignore.files
-targetPath: string                 // root directory (used to convert absolute paths to relative for glob matching)
+targetPath: string                 // root directory, used to make paths relative for glob matching
 ```
 
-## Output
+The result is a subset of the input:
 
 ```typescript
 Diagnostic[]    // filtered array (subset of input)
 ```
 
-## How It Works
+## How it works
 
-Two filtering mechanisms:
+The config ignores run first. A second pass then reads suppression comments in the source.
 
-### Rule Ignoring
+### Rule ignoring
 
 `ignore.rules` contains rule IDs to suppress:
 
@@ -46,9 +43,9 @@ Two filtering mechanisms:
 }
 ```
 
-Exact match against the diagnostic's `rule` field. All diagnostics from that rule are removed.
+The match is exact against the diagnostic's `rule` field. Every diagnostic from that rule is removed.
 
-### File Ignoring
+### File ignoring
 
 `ignore.files` contains glob patterns for files whose diagnostics should be hidden:
 
@@ -62,11 +59,11 @@ Exact match against the diagnostic's `rule` field. All diagnostics from that rul
 
 File paths are normalized to forward slashes before matching, so patterns work across platforms.
 
-### Inline Suppression
+### Inline suppression
 
 **Source:** `src/engine/inline-suppressions.ts`
 
-After config-based filtering, a second pass (`filterSuppressedDiagnostics`) removes diagnostics silenced by comments in the source itself. Directives use the `ignore` verb (or `disable` as an alias) inside a `//` or `/* */` comment:
+After config-based filtering, a second pass (`filterSuppressedDiagnostics`) removes diagnostics silenced by comments in the source itself. Directives use the `ignore` verb, or `disable` as an alias, inside a `//` or `/* */` comment:
 
 ```typescript
 const config = eval(raw); // nestjs-doctor-ignore security/no-eval
@@ -76,6 +73,8 @@ const config = eval(raw);
 
 // nestjs-doctor-ignore-file security/no-eval
 ```
+
+Each directive covers a different scope:
 
 | Directive | Scope |
 |-----------|-------|
@@ -89,7 +88,7 @@ How a directive is parsed:
   that scope.
 - Only tokens containing `/` count as rule ids, since every id is
   `category/name`. A `-- reason` trailer is therefore ignored wherever it sits.
-- Only real comments are honoured. String, template and regex contents are
+- Only real comments are honored. String, template and regex contents are
   blanked via the AST before parsing, so a directive inside a string cannot
   suppress anything.
 
@@ -105,16 +104,18 @@ What it reads, and what it can reach:
 
 ### Performance
 
-If no ignore config is set (the default), the filter returns the original array immediately without iterating. The inline-suppression pass skips any file whose source contains no `nestjs-doctor-ignore`/`-disable` token.
+If no ignore config is set, which is the default, the filter returns the original array immediately without iterating. The inline-suppression pass skips any file whose source contains no `nestjs-doctor-ignore`/`-disable` token.
 
-## Difference from `rules` Config
+## Difference from `rules` config
 
-- **`config.rules`** disables a rule entirely — it never runs
-- **`config.ignore.rules`** lets the rule run but hides its output
+- **`config.rules`:** disables a rule entirely. It never runs.
+- **`config.ignore.rules`:** lets the rule run, then hides its output.
 
-This distinction matters for project-scoped rules that cross-reference data. For example, `no-missing-injectable` checks providers against the module graph. Disabling it with `config.rules` means the rule will not run at all. Ignoring it with `config.ignore.rules` means the rule runs (maintaining data consistency) but its diagnostics are hidden.
+The distinction matters for project-scoped rules that cross-reference data. For example, `no-missing-injectable` checks providers against the module graph.
 
-## Debugging Tips
+Disabling it with `config.rules` means the rule never runs. Ignoring it with `config.ignore.rules` means the rule runs and its diagnostics are hidden.
+
+## Debugging tips
 
 - If diagnostics are disappearing unexpectedly, check `ignore.rules` and `ignore.files` in your config.
 - File patterns use glob syntax via [`picomatch`](https://github.com/micromatch/picomatch). Double-star `**` matches any depth.

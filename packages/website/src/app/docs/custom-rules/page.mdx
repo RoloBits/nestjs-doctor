@@ -4,9 +4,9 @@ export const metadata = docsMetadata["/docs/custom-rules"];
 
 <BreadcrumbJsonLd path="/docs/custom-rules" />
 
-# Custom Rules
+# Custom rules
 
-Extend the built-in rule set with project-specific checks. Custom rules let you encode domain conventions, enforce team standards, or flag patterns unique to your codebase — anything the built-in rules don't cover.
+Extend the built-in rule set with project-specific checks. Custom rules encode domain conventions, team standards, or patterns the built-in rules don't cover.
 
 ## Setup
 
@@ -19,13 +19,13 @@ Extend the built-in rule set with project-specific checks. Custom rules let you 
 }
 ```
 
-3. Add `.ts` files to that directory — each file should export a rule object.
+3. Add `.ts` files to that directory. Each file exports a rule object.
 
 Only `.ts` files are loaded. Subdirectories are ignored.
 
-## Rule Shape
+## Rule shape
 
-Every custom rule must export an object with two properties: `meta` (a descriptor) and `check` (the inspection function).
+Every custom rule exports an object with two properties, `meta` (a descriptor) and `check` (the inspection function):
 
 ```typescript
 import type { RuleContext } from "nestjs-doctor";
@@ -36,15 +36,15 @@ export const myRule = {
     category: "correctness",
     severity: "warning",
     description: "Short explanation of what this rule checks",
-    help: "Actionable advice on how to fix a violation.",
+    help: "Actionable advice on how to fix it.",
   },
   check(context: RuleContext) {
-    // inspect context.sourceFile, call context.report() for each violation
+    // inspect context.sourceFile, call context.report() per diagnostic
   },
 };
 ```
 
-### `meta` Fields
+### `meta` fields
 
 | Field         | Type       | Required | Description                                                             |
 | ------------- | ---------- | -------- | ----------------------------------------------------------------------- |
@@ -58,7 +58,7 @@ export const myRule = {
 
 ### Tags
 
-Tags let the report group a rule's findings with related built-in rules. The one tag with built-in behavior today is `"module-graph"`: diagnostics carrying it appear in the Modules Graph tab's problems drawer, next to the built-in module-wiring findings.
+The one tag with behavior today is `"module-graph"`. Diagnostics carrying it appear in the Modules Graph tab's problems drawer, beside the built-in module-wiring ones:
 
 ```typescript
 meta: {
@@ -71,17 +71,19 @@ meta: {
 },
 ```
 
-A `tags` value that is not an array of strings is dropped with a warning. The rule still loads and runs.
+A `tags` value that is not an array of strings is dropped with a warning, and the rule still runs.
 
-### `check` Function
+### The `check` function
 
-The `check` function receives a `RuleContext` object with:
+The `check` function receives a `RuleContext` with three members:
 
-- **`sourceFile`** — the ts-morph `SourceFile` AST node for the current file
-- **`filePath`** — the absolute path to the file being inspected
-- **`report(diagnostic)`** — call this to emit a diagnostic with `filePath`, `message`, `help`, `line`, and `column`
+| Member | What it is |
+|---|---|
+| `sourceFile` | The ts-morph `SourceFile` for the file being analyzed |
+| `filePath` | The absolute path to that file |
+| `report(diagnostic)` | Emits a diagnostic with `filePath`, `message`, `help`, `line`, and `column` |
 
-For project-scoped rules (`scope: "project"`), the context includes the full project information instead of a single file.
+For project-scoped rules (`scope: "project"`), the context carries the whole project instead of a single file.
 
 ## Example
 
@@ -116,44 +118,28 @@ export const noTodoComments = {
 };
 ```
 
-## ID Prefixing
+The line and column come from ts-morph: `getLineAndColumnAtPos` turns a character offset into the 1-indexed position a diagnostic expects.
 
-Rule IDs are automatically prefixed with `custom/`. For example, a rule with `id: "no-todo-comments"` appears as `custom/no-todo-comments` in the scan output. This avoids collisions with built-in rules and makes it clear which diagnostics come from your custom checks.
+## ID prefixing
 
-## Error Handling
+Rule IDs are automatically prefixed with `custom/`, so `id: "no-todo-comments"` reports as `custom/no-todo-comments`. The prefix avoids collisions with built-in rules.
 
-Invalid rules produce warnings but never crash the scan. Common issues are surfaced in CLI output:
+## When a rule fails to load
+
+Invalid rules produce warnings but never crash the scan. Common causes are surfaced in CLI output:
 
 - Missing or non-function `check` export
 - Invalid `category` or `severity` values
 - Missing required `meta` fields
 - Syntax errors in the rule file
 
-Fix the warning and re-run — the rest of the analysis continues unaffected.
+Fix the warning and re-run. The rest of the scan continues unaffected.
 
-## Disabling Custom Rules
+## Disabling custom rules
 
-Custom rules can be toggled just like built-in rules, using the `custom/` prefix:
+Toggle a custom rule by its prefixed id, through the same `rules` and `ignore.rules` keys built-in rules use. See [Configuration](/docs/configuration).
 
-```json
-{
-  "rules": {
-    "custom/no-todo-comments": false
-  }
-}
-```
-
-You can also suppress them per-file via `ignore.rules`:
-
-```json
-{
-  "ignore": {
-    "rules": ["custom/no-todo-comments"]
-  }
-}
-```
-
-## Using AI to Create Rules
+## Using AI to create rules
 
 Install it with `npx nestjs-doctor --init`, then call
 `/nestjs-doctor-create-rule` in your agent's chat. It:
@@ -164,12 +150,12 @@ Install it with `npx nestjs-doctor --init`, then call
 4. Sets `customRulesDir` in your config.
 5. Runs nestjs-doctor to confirm the rule loads.
 
-## Rule Lab
+## The Lab tab
 
-The Report includes a **Lab** tab where you can write and test custom rules in the browser
+The HTML report has a Lab tab for writing and testing custom rules in the browser:
 
 ```bash
 npx nestjs-doctor . --report
 ```
 
-**Recommended workflow:** use `/nestjs-doctor-create-rule` to scaffold a rule, test it in the Lab, then save the `.ts` file to your `customRulesDir`.
+Scaffold a rule with `/nestjs-doctor-create-rule`, test it in the Lab, then save the `.ts` file to your `customRulesDir`.

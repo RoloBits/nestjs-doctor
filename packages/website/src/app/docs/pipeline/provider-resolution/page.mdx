@@ -4,26 +4,24 @@ export const metadata = docsMetadata["/docs/pipeline/provider-resolution"];
 
 <BreadcrumbJsonLd path="/docs/pipeline/provider-resolution" />
 
-# Provider Resolution
+# Provider resolution
 
 **Source:** `src/engine/graph/type-resolver.ts`
 
-## What
+Extracts dependency information from every `@Injectable()` class: constructor
+dependencies, public method count, and file location. Rules like
+`no-unused-providers`, `no-missing-injectable`, and
+`no-business-logic-in-controllers` need to know which providers exist, what they
+depend on, and how many methods they expose.
 
-Extracts dependency information from all `@Injectable()` classes — their constructor dependencies, public method count, and file location.
-
-## Why
-
-Rules like `no-unused-providers`, `no-missing-injectable`, and `no-business-logic-in-controllers` need to know which providers exist, what they depend on, and how many methods they expose.
-
-## Input
+Input is the parsed project and the file list:
 
 ```typescript
 project: Project     // ts-morph AST project
-files: string[]      // file paths to scan
+files: string[]      // file paths to analyze
 ```
 
-## Output
+The result maps each provider name to its info:
 
 ```typescript
 Map<string, ProviderInfo>
@@ -37,16 +35,16 @@ interface ProviderInfo {
 }
 ```
 
-## How It Works
+## How it works
 
 For each file, finds all classes decorated with `@Injectable()`:
 
-1. **Extract constructor parameters** — each parameter's type becomes a dependency name
-2. **Normalize type names** using `extractSimpleTypeName()`:
+1. **Extract constructor parameters:** each parameter's type becomes a dependency name.
+2. **Normalize type names:** `extractSimpleTypeName()` reduces the annotation to a bare class name.
    - `import("@prisma/client").PrismaService` → `PrismaService`
    - `Repository<User>` → `Repository`
    - `ConfigService` → `ConfigService`
-3. **Count public methods** — methods with no access modifier or explicit `public`
+3. **Count public methods:** methods with no access modifier, or an explicit `public`.
 
 ### Example
 
@@ -77,7 +75,7 @@ The resolver produces:
 }
 ```
 
-## Debugging Tips
+## Debugging tips
 
-- Only classes with `@Injectable()` are resolved. Controllers (which use `@Controller()`) are not included in the providers map — they are handled separately during rule execution.
-- If a dependency name looks wrong (e.g., includes import paths), check the type annotation on the constructor parameter.
+- Only classes with `@Injectable()` are resolved. Controllers use `@Controller()`, so they are absent from the providers map and are handled separately during rule execution.
+- If a dependency name looks wrong, for example because it still contains an import path, check the type annotation on the constructor parameter.

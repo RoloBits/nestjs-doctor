@@ -5,7 +5,7 @@ export const metadata = docsMetadata["/docs/rules/performance"];
 
 <BreadcrumbJsonLd path="/docs/rules/performance" />
 
-# Performance Rules
+# Performance rules
 
 7 rules that detect performance anti-patterns and dead code.
 
@@ -85,7 +85,7 @@ export class CacheService implements OnModuleInit {
 
 Detects `require()` calls with non-literal (dynamic) arguments.
 
-**Why:** Dynamic requires prevent bundlers from performing static analysis on dependencies, can load unexpected modules, and pose a security risk if the argument originates from user input.
+**Why:** A dynamic `require()` defeats bundler static analysis and can load an unexpected module. When the argument comes from user input, it is also a security risk.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -120,7 +120,7 @@ export class PluginLoader {
 
 Detects `@Injectable()` providers that are never injected by any other provider or controller.
 
-**Why:** Unused providers are dead code. They increase module initialization time, obscure the dependency graph, and should be removed. Self-activating providers — classes that use framework decorators like `@Cron()`, `@OnEvent()`, or `@Process()` — are automatically excluded since they are instantiated and activated by the framework without needing to be injected elsewhere.
+**Why:** Unused providers are dead code. They add to module initialization time and obscure the dependency graph.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -140,7 +140,9 @@ export class UserModule {}
 ```
 </CodeGroup>
 
-**Note:** This rule skips infrastructure classes (Guards, Interceptors, Filters, Middleware, Strategies, Subscribers, etc.) and self-activating providers with framework decorators (`@Cron`, `@OnEvent`, `@Process`, `@Interval`, `@SubscribeMessage`, etc.).
+**Note:** The rule skips infrastructure classes: guards, interceptors, filters, pipes, middleware, strategies, subscribers, listeners, processors, consumers, workers, schedulers, and health indicators.
+
+It also skips self-activating providers. A provider is self-activating when it carries a decorator such as `@Cron`, `@OnEvent`, or `@Process`. Implementing a framework contract such as `OnModuleInit` or `CanActivate` counts too.
 
 ---
 
@@ -148,7 +150,7 @@ export class UserModule {}
 
 Detects providers using `Scope.REQUEST` which creates a new instance per HTTP request.
 
-**Why:** Request-scoped providers disable singleton optimization. Every provider in the dependency chain also becomes request-scoped, causing significant overhead on high-traffic endpoints.
+**Why:** Request-scoped providers disable singleton optimization. Every provider in the dependency chain also becomes request-scoped, which costs real time on high-traffic endpoints.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -204,13 +206,15 @@ Detects modules that are never imported by any other module.
 
 **Why:** An orphan module (other than the root `AppModule`) is likely dead code or a module that was accidentally disconnected from the module tree.
 
-**What counts as a root:** a module is never flagged when it is an application entry point. That covers `AppModule`, modules declared in an `app.module.ts` or `root.module.ts` file, and any module handed to `NestFactory.create()`, nest-commander's `CommandFactory.run()`, or a bootstrap helper whose implementation reaches either factory (e.g. a shared `standaloneBootstrap(RootModule)` from a bootstrap library).
+**What counts as a root:** an application entry point is never flagged. That covers `AppModule` and any module declared in an `app.module.ts` or `root.module.ts` file.
 
-**Monorepos:** findings are checked against the merged workspace graph. A module imported by another sub-project, including through a workspace package specifier like `@myorg/shared`, is not an orphan even though its own project never imports it.
+It also covers a module handed to `NestFactory.create()` or to nest-commander's `CommandFactory.run()`. The call can be indirect, through a bootstrap helper whose implementation reaches either factory, such as a shared `standaloneBootstrap(RootModule)`.
+
+**Monorepos:** diagnostics are checked against the merged workspace graph. A module imported by another sub-project is not an orphan, even when its own project never imports it. That includes an import through a workspace package specifier like `@myorg/shared`.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
-// analytics.module.ts — never imported anywhere
+// analytics.module.ts: never imported anywhere
 @Module({
   providers: [AnalyticsService],
 })

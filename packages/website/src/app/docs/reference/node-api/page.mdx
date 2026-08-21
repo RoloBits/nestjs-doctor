@@ -6,8 +6,8 @@ export const metadata = docsMetadata["/docs/reference/node-api"];
 
 # Node API
 
-`diagnose()` returns the same result the CLI formats. Types ship with the
-package.
+Types ship with the package. `diagnose()` returns the same result the CLI
+formats:
 
 ```typescript
 import { diagnose, diagnoseMonorepo } from "nestjs-doctor";
@@ -28,8 +28,8 @@ mono.combined; // Merged DiagnoseResult
 
 ## Incremental scanning
 
-For editors and language servers: prepare the context once, then re-scan
-single files as they change instead of calling `diagnose()` again.
+Editors and language servers prepare the context once, then re-scan single
+files as they change instead of calling `diagnose()` again:
 
 ```typescript
 import {
@@ -38,41 +38,40 @@ import {
   checkFile,
   checkAllFiles,
   checkProject,
-  updateModuleGraphForFile,
-  updateProvidersForFile,
-  getRules,
 } from "nestjs-doctor";
-```
 
-### Lifecycle
-
-```typescript
-// 1. Prepare the analysis context (parses all files, builds module graph, resolves providers)
 const { context, customRuleWarnings } = await prepareAnalysis("./my-nestjs-app");
 
-// 2. When a file changes, update it in the context
 updateFile(context, "/absolute/path/to/changed-file.ts");
 
-// 3. Re-scan just that file (file-scoped rules only)
 const { diagnostics, errors } = checkFile(context, "/absolute/path/to/changed-file.ts");
-
-// 4. Or re-run all file-scoped rules across every file
 const allFileResults = checkAllFiles(context);
-
-// 5. Or re-run project-scoped rules (module graph, circular deps, etc.)
 const projectResults = checkProject(context);
 ```
 
+`prepareAnalysis` parses every file, builds the module graph, and resolves the
+providers. `updateFile` re-parses one file and refreshes the module graph, the
+providers, and the endpoint and schema graphs.
+
+`checkFile` runs the file-scoped rules on that one file, and `checkAllFiles`
+runs them across every file. `checkProject` runs the project-scoped ones.
+
 ### Granular updates
 
-Update the graph or providers without a re-scan:
+Refresh the module graph or the provider map on their own, without going
+through `updateFile`:
 
 ```typescript
+import { updateModuleGraphForFile, updateProvidersForFile } from "nestjs-doctor";
+
 updateModuleGraphForFile(context.moduleGraph, context.astProject, filePath);
 updateProvidersForFile(context.providers, context.astProject, filePath);
-
-const rules = getRules(); // every built-in rule (AnyRule[])
 ```
+
+Both return `void` and mutate the object handed to them. That object is the one
+the context holds, so a later `checkProject(context)` reads the updated graph.
+`getRules()` is exported alongside them and returns every built-in rule as
+`AnyRule[]`.
 
 ### `AnalysisContext`
 

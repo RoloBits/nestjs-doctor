@@ -8,15 +8,11 @@ export const metadata = docsMetadata["/docs/pipeline/output"];
 
 **Source:** `src/cli/formatters/console-reporter.ts`, `src/cli/formatters/json-reporter.ts`
 
-## What
+Renders the finished scan in the requested format. Humans want the visual
+console report, while CI pipelines and tooling integrations want the machine
+formats, `--score` and `--json`.
 
-Renders the final scan results in the requested format.
-
-## Why
-
-Different use cases need different formats. Humans want the visual console report. CI pipelines want `--score` or `--json`. Tooling integrations want structured JSON they can parse.
-
-## Input
+Input is the scan result:
 
 ```typescript
 interface DiagnoseResult {
@@ -38,21 +34,22 @@ interface DiagnoseSummary {
 }
 ```
 
-## Output Formats
+## Output formats
 
-### Console Report (default)
+### Console report (default)
 
 The visual report includes:
 
 - ASCII art NestJS bird (happy, neutral, or sad based on score)
 - Score display: `82 / 100  ★★★★☆  Good`
 - Score bar visualization
-- Summary: error/warning/info counts, file count, elapsed time
+- Summary: error, warning and info counts, file count, elapsed time
 - Project info: name, NestJS version, ORM, module count
 - Diagnostics grouped by rule, sorted by severity
 - With `--verbose`: file paths and line numbers per diagnostic
 
 Color coding:
+
 - Green: score >= 75
 - Yellow: score >= 50
 - Red: score &lt; 50
@@ -71,9 +68,9 @@ Useful for piping into other tools:
 npx nestjs-doctor . --json | jq '.diagnostics[] | select(.severity == "error")'
 ```
 
-### Score Only (`--score`)
+### Score only (`--score`)
 
-Just the numeric score:
+The numeric score and nothing else:
 
 ```bash
 npx nestjs-doctor . --score
@@ -86,12 +83,9 @@ Useful for CI scripts that need to capture the score:
 SCORE=$(npx nestjs-doctor . --score)
 ```
 
-### Monorepo Report
+### Monorepo report
 
-In monorepo mode, the console report shows:
-
-1. Combined score and diagnostics (same as single project)
-2. Per-project breakdown table:
+In monorepo mode, the console report shows the combined score and diagnostics first, exactly as it does for a single project. A per-project breakdown table follows:
 
 ```
   Project     Score    Files   Errors  Warnings  Info
@@ -100,7 +94,7 @@ In monorepo mode, the console report shows:
   shared      95/100   18      0       1         0
 ```
 
-### HTML Report (`--report`)
+### HTML report (`--report`)
 
 Generates a self-contained HTML file with an interactive report:
 
@@ -108,22 +102,24 @@ Generates a self-contained HTML file with an interactive report:
 npx nestjs-doctor . --report
 ```
 
-The report includes six tabs:
+The report has six tabs:
 
-- **Summary** — health score overview with category breakdown
-- **Diagnosis** — source-level findings with code viewer and fix examples
-- **Modules Graph** — clustered module diagram with a searchable project sidebar, a per-module detail panel (used by, blast radius, providers, imports, exports, wiring), direction-colored animated edges on selection, cycle focus, toggles for `@Global()` reach and external modules, and a problems drawer listing module-wiring findings (rules tagged `module-graph`, custom rules included). With `--timings`, each node also shows its slowest class's bootstrap construction time and the detail panel lists every class slowest-first
-- **Endpoints** — traced HTTP routes per controller with their dependency chains; controllers and handlers behind project wrapper decorators (a custom decorator composing `@Controller()` or `@Get()`) are resolved and traced
-- **Schema ER Diagram** — entity-relationship visualization of database models
-- **Lab** — custom rule playground to write and test your own rules
+- **Summary:** health score overview with a category breakdown.
+- **Diagnosis:** source-level diagnostics with a code viewer and fix examples.
+- **Modules Graph:** clustered module diagram with a searchable project sidebar and a per-module detail panel (used by, blast radius, providers, imports, exports, wiring). Selecting a module animates its edges, colored by direction, and the view offers cycle focus plus toggles for `@Global()` reach and external modules. A Module problems drawer lists module-wiring diagnostics from rules tagged `module-graph`, custom rules included.
+- **Endpoints:** traced HTTP routes per controller with their dependency chains. Controllers and handlers behind a project wrapper decorator, meaning a custom decorator composing `@Controller()` or `@Get()`, are resolved and traced too.
+- **Relational Schema:** entity-relationship diagram of the database models.
+- **Lab:** custom rule playground for writing and testing your own rules.
 
-Output: `nestjs-doctor-report.html` in the project root, auto-opened in the default browser.
+The file is written to `nestjs-doctor-report.html` in the project root and auto-opened in the default browser.
 
-![Module Graph](/module-graph.png)
+![The Modules Graph tab](/module-graph.png)
 
 ### Bootstrap timings (`--timings`)
 
-Overlays real per-class construction times from a captured boot onto the modules graph. NestJS records `initTime` for every provider and controller during dependency injection; `{ snapshot: true }` assembles them into a `SerializedGraph` you can dump locally (requires `@nestjs/core` >= 9.3.10). Add to `main.ts` (dev only):
+Overlays real per-class construction times from a captured boot onto the modules graph. NestJS records `initTime` for every provider and controller during dependency injection. Passing `{ snapshot: true }` assembles them into a `SerializedGraph` you can dump locally, which needs `@nestjs/core` 9.3.10 or newer.
+
+Add this to `main.ts`, for development only:
 
 ```ts
 import { writeFileSync } from "node:fs";
@@ -142,7 +138,7 @@ Object.assign(graph, { createMs, initMs, startupMs });
 writeFileSync("nestjs-doctor-timings.json", JSON.stringify(graph));
 ```
 
-Optionally (Nest >= 11.1.4), record per-class `onModuleInit`/`onApplicationBootstrap` durations by adding an `instrument` option to `create()` and a `const hookTimings: { className: string; hook: string; ms: number }[] = []` above it, then including `hookTimings` in the `Object.assign`:
+Nest 11.1.4 and newer can also record per-class `onModuleInit` and `onApplicationBootstrap` durations. Declare `const hookTimings: { className: string; hook: string; ms: number }[] = []` above `create()`, pass the `instrument` option below to it, then include `hookTimings` in the `Object.assign`:
 
 ```ts
 instrument: {
@@ -172,7 +168,7 @@ npx nestjs-doctor . --report --timings nestjs-doctor-timings.json
 
 #### Reading a time
 
-Each time **includes waiting on that class's own dependencies**. Two
+Each time includes waiting on that class's own dependencies. Two
 consequences:
 
 - A shared slow dependency counts again in every class that awaits it.
@@ -187,7 +183,7 @@ time.
 |---|---|---|
 | `time to start ≈ <ms>` | Header badge | Bootstrap start until `app.listen()` resolved, hooks included, from `startupMs`. Without it, falls back to `boot ≈ <ms>`, the slowest construction chain |
 | Lifecycle strip | Top of the Boot trace tab | `create · lifecycle hooks · listen`, from the `createMs` and `initMs` markers |
-| Proportional bars | Per class, slowest first | Colour-coded by type: provider, controller, injectable, middleware |
+| Proportional bars | Per class, slowest first | Color-coded by type: provider, controller, injectable, middleware |
 | Amber segment | Inside an expanded row | The part not explained by the class's slowest dependency, so roughly its own work |
 | `+120ms init` chip | On a trace row | A `hookTimings` entry, joined only when the class name is unique in the dump. Repeated entries from transient providers merge into one `×N` chip |
 | `reused` tag | Dimmed, hollow row | The dependency was already built when its parent loaded, so its cost was paid at its first consumer. Carries down the subtree |
@@ -201,13 +197,13 @@ opens the same tab.
 
 - Timings are display-only. They never affect the score, diagnostics, or exit
   codes.
-- An unreadable or unrecognised dump degrades to a stderr warning, and the
+- An unreadable or unrecognized dump degrades to a stderr warning, and the
   report renders without timings.
 - Out-of-order phase markers drop the lifecycle strip, also with a warning.
 - In a monorepo, a timing attaches only when its module class name is unique
   across projects.
 
-## Exit Codes
+## Exit codes
 
 | Code | Meaning |
 |------|---------|

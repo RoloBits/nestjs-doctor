@@ -8,7 +8,7 @@ export const metadata = docsMetadata["/docs/configuration"];
 
 Configuration is optional. nestjs-doctor applies reasonable defaults when no configuration file is present.
 
-## Config File
+## Config file
 
 Create `nestjs-doctor.config.json` in your project root:
 
@@ -41,7 +41,9 @@ Or use a `"nestjs-doctor"` key in `package.json`:
 }
 ```
 
-## Config Resolution
+The loader never merges the two. Whichever it finds first is used whole.
+
+## Config resolution
 
 The config loader searches for configuration in this order:
 
@@ -51,7 +53,7 @@ The config loader searches for configuration in this order:
 4. `"nestjs-doctor"` key in `package.json`
 5. Built-in defaults
 
-The first match takes precedence. See [Config Loading](/docs/pipeline/config-loading) for implementation details.
+See [Config loading](/docs/pipeline/config-loading) for implementation details.
 
 ## Options
 
@@ -66,7 +68,7 @@ The first match takes precedence. See [Config Loading](/docs/pipeline/config-loa
 | `categories` | `Record<string, boolean>` | Enable/disable entire categories |
 | `customRulesDir` | `string` | Path to a directory of custom `.ts` rule files |
 
-Rules can be set to `false` to disable them, or configured with an object to override severity:
+Set a rule to `false` to disable it, or to an object to override its severity:
 
 ```json
 {
@@ -89,7 +91,7 @@ Rule objects can also include rule-specific options. Example for `no-manual-inst
 }
 ```
 
-Some rules accept options under a nested `options` key. Example for `no-circular-module-deps`, which can opt out of cycles whose every consecutive edge is wrapped in `forwardRef()`:
+Some rules accept options under a nested `options` key:
 
 ```json
 {
@@ -101,9 +103,11 @@ Some rules accept options under a nested `options` key. Example for `no-circular
 }
 ```
 
-## Inline Suppression
+`ignoreForwardRefCycles` drops a cycle when every consecutive edge in it is wrapped in `forwardRef()`.
 
-For one-off exceptions that don't belong in the config file, suppress a rule directly in the source with an `ignore` comment (`disable` works as an alias):
+## Inline suppression
+
+Suppress a rule in the source with an `ignore` comment. `disable` is an alias, accepted everywhere `ignore` is:
 
 ```typescript
 const config = eval(raw); // nestjs-doctor-ignore security/no-eval
@@ -120,19 +124,23 @@ const config = eval(raw);
 | `nestjs-doctor-ignore-next-line <rules>` | The line below the comment |
 | `nestjs-doctor-ignore-file <rules>` | Every line in the file |
 
-`disable` works everywhere `ignore` does. The rule list is space- or comma-separated; omit it to suppress every rule for that scope. A `-- reason` trailer (placed after the rules) is ignored, so you can document the exception inline. A directive only counts inside a real comment — one that merely appears inside a string literal is ignored.
+The rule list is space- or comma-separated, and omitting it covers every rule in that scope. A `-- reason` trailer after the rules is ignored, so you can note why inline.
 
-Inline suppression runs _after_ config-based filtering, so the two mechanisms compose. Line-scoped directives (`-line` / `-next-line`) match only code diagnostics. Schema diagnostics (`schema/*`) have no line and are suppressed only by `nestjs-doctor-ignore-file` — placed in the entity source for TypeORM/MikroORM/Drizzle, or directly in `schema.prisma` for Prisma:
+A directive counts only inside a real comment. String contents are blanked first, so one sitting in a string literal does nothing.
+
+Suppression runs after config-based filtering, so the two compose. `-line` and `-next-line` match only code diagnostics.
+
+Schema diagnostics (`schema/*`) have no line, so only `nestjs-doctor-ignore-file` suppresses them. Put it in the entity source for TypeORM, MikroORM, and Drizzle, or in `schema.prisma` for Prisma:
 
 ```prisma
 // nestjs-doctor-ignore-file schema/require-timestamps
 ```
 
-See [Diagnostic Filtering](/docs/pipeline/diagnostic-filtering) for details.
+See [Diagnostic filtering](/docs/pipeline/diagnostic-filtering) for details.
 
-## Default Excludes
+## Default excludes
 
-These patterns are always excluded (your `exclude` config is additive):
+These patterns are always excluded, and your `exclude` config is additive to them:
 
 - `node_modules/**`, `dist/**`, `build/**`, `coverage/**`
 - `**/*.spec.ts`, `**/*.test.ts`, `**/*.e2e-spec.ts`, `**/*.e2e-test.ts`
@@ -140,17 +148,26 @@ These patterns are always excluded (your `exclude` config is additive):
 - `**/test/**`, `**/tests/**`, `**/__tests__/**`
 - `**/__mocks__/**`, `**/__fixtures__/**`, `**/mock/**`, `**/mocks/**`, `**/*.mock.ts`
 - `**/seeder/**`, `**/seeders/**`, `**/*.seed.ts`, `**/*.seeder.ts`
+- Root-level `*.config.ts`, `*.config.js`, `*.config.mjs`, `*.config.cjs`, `*.config.mts`, `*.config.cts`
 
-## Include vs Exclude Behavior
+## Include and exclude
 
-- **`exclude`** patterns are **additive** to defaults. Your patterns are appended, so safety exclusions like `node_modules` are never accidentally removed.
-- **`include`** patterns **replace** defaults entirely. If you set `include`, only those patterns are scanned.
+- **`exclude`:** additive. Your patterns are appended to the defaults, so `node_modules` is never dropped by accident.
+- **`include`:** replacing. Set it and only your patterns are scanned.
 
-## Monorepo Support
+## Monorepos
 
-Monorepo mode is auto-detected using five strategies (checked in priority order — first match wins):
+Monorepo mode is auto-detected. Five strategies are checked in order, first match wins.
 
-### 1. `nest-cli.json` (takes precedence)
+| Strategy | Detected by | Notes |
+|---|---|---|
+| `nest-cli.json` | `"monorepo": true` plus a non-empty `projects` map | Each entry's `root` is the sub-project path |
+| `pnpm-workspace.yaml` | its `packages` globs | pnpm, and Turborepo on pnpm |
+| `package.json` workspaces | a `workspaces` array, or the Yarn `{ "packages": [...] }` object | Skipped when `pnpm-workspace.yaml` exists |
+| `nx.json` | every `project.json` beside it | A project with no `package.json` counts when one of its `*.module.ts` files imports `@nestjs/common` |
+| `lerna.json` | its `packages` globs, defaulting to `["packages/*"]` | Skipped when `useWorkspaces` is `true`, which the `package.json` strategy already covers |
+
+The `nest-cli.json` strategy reads the sub-project roots straight from the file:
 
 ```json
 {
@@ -163,62 +180,10 @@ Monorepo mode is auto-detected using five strategies (checked in priority order 
 }
 ```
 
-### 2. `pnpm-workspace.yaml` (pnpm / Turborepo)
+Every other strategy resolves its globs to packages, then keeps only those depending on `@nestjs/core` or `@nestjs/common`. If none qualify, nestjs-doctor warns and falls back to single-project mode.
 
-```yaml
-packages:
-  - "apps/*"
-  - "packages/*"
-```
-
-### 3. `package.json` workspaces (npm / Yarn)
-
-Both array and object formats are supported. Skipped when `pnpm-workspace.yaml` exists.
-
-```json
-{
-  "workspaces": ["apps/*", "packages/*"]
-}
-```
-
-### 4. `nx.json` (Nx)
-
-Discovers sub-projects by scanning for `project.json` files alongside `nx.json`.
-
-### 5. `lerna.json` (standalone Lerna)
-
-Used when `useWorkspaces` is not set. Defaults to `["packages/*"]` if no `packages` globs are specified. When `useWorkspaces` is `true`, detection falls through to strategy 3.
-
-```json
-{
-  "packages": ["packages/*"]
-}
-```
-
-Non-NestJS packages are always filtered out — only packages with `@nestjs/core` or `@nestjs/common` are included. If a monorepo is detected but no NestJS packages are found, nestjs-doctor emits a warning and falls back to single-project mode.
-
-Each sub-project is scanned independently. Per-project config files are supported — place a `nestjs-doctor.config.json` inside a sub-project's root to override the root config for that project.
-
-The report shows a combined score plus a per-project breakdown.
+Each sub-project is scanned independently. A `nestjs-doctor.config.json` inside a sub-project's root replaces the root config for that project. The report shows a combined score plus a per-project breakdown.
 
 ## Scoring
 
-Scores are weighted by severity and category, normalized by file count:
-
-| Severity | Weight | | Category | Multiplier |
-|----------|--------|-|----------|------------|
-| error | 3.0 | | security | 1.5x |
-| warning | 1.5 | | correctness | 1.3x |
-| info | 0.5 | | schema | 1.1x |
-| | | | architecture | 1.0x |
-| | | | performance | 0.8x |
-
-| Score | Label |
-|-------|-------|
-| 90-100 | Excellent |
-| 75-89 | Good |
-| 50-74 | Fair |
-| 25-49 | Poor |
-| 0-24 | Critical |
-
-See [Scoring](/docs/pipeline/scoring) for the full formula and calibration details.
+The score is weighted by severity and category, then normalized by file count. See [Scoring](/docs/pipeline/scoring) for the weights and the labels.

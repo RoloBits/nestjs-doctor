@@ -11,8 +11,10 @@ integrations that need more than a bare command.
 
 ## Code scanning
 
-SARIF sends findings to the repository's Security tab, where they persist across
-runs as alerts rather than living only in a pull request comment.
+SARIF sends findings to the repository's Security tab. They persist across runs
+as alerts rather than living only in a pull request comment.
+
+Add the scan and the upload step to `.github/workflows/nestjs-doctor.yml`:
 
 ```yaml
 permissions:
@@ -36,13 +38,15 @@ steps:
 
 Every result carries a `partialFingerprints` entry derived from the rule, path,
 message, and source text. Without it GitHub computes its own fingerprint from
-surrounding source, and an edit near a finding closes the old alert and opens an
-identical new one.
+the surrounding source. An edit near a finding then closes the old alert and
+opens an identical new one.
 
 ## GitLab
 
 The `gitlab` format emits the CodeClimate subset GitLab's Code Quality widget
 reads, so findings appear on the merge request diff.
+
+Add the job to `.gitlab-ci.yml`:
 
 ```yaml
 nestjs-doctor:
@@ -53,6 +57,9 @@ nestjs-doctor:
     reports:
       codequality: gl-code-quality-report.json
 ```
+
+`--format gitlab` defaults `--blocking` to `none`, so the job passes whatever it
+reports. Pass `--blocking error` to fail the pipeline instead.
 
 ## Other output formats
 
@@ -68,24 +75,27 @@ nestjs-doctor:
 `--output <path>` writes the payload to a file instead of stdout, and
 `--json-compact` drops the indentation from the JSON-based formats.
 
-`github` is additive rather than a replacement: it prints annotations and
-appends the markdown report to `$GITHUB_STEP_SUMMARY` while still printing the
-readable console report to the log. GitHub caps annotations at ten errors and
-ten warnings per step and silently drops the rest, so the annotations are a
-convenience — the job summary carries every finding.
+`github` is additive rather than a replacement. It prints annotations and
+appends the markdown report to `$GITHUB_STEP_SUMMARY`, while still printing the
+readable console report to the log.
+
+GitHub caps annotations at ten errors and ten warnings per step and silently
+drops the rest. The annotations are a convenience; the job summary carries every
+finding.
 
 ## Pre-commit hook
 
+Gate a commit from `.husky/pre-commit`:
+
 ```bash
-# .husky/pre-commit
 npx nestjs-doctor . --staged --blocking error
 ```
 
-`--staged` scopes to the files in the git index. The project is still analysed
-in full, so a change that breaks a cross-file rule is caught even when the file
-it is reported against is not part of the commit.
+`--staged` scopes to the files in the git index. The project is still analyzed
+in full. A change that breaks a cross-file rule is caught even when the file it
+is reported against is not in the commit.
 
-Running from inside a hook is safe: git exports `GIT_DIR`, `GIT_INDEX_FILE`, and
-friends to every hook, and children inherit them, so nestjs-doctor clears those
-before shelling out to git and resolves everything against the directory it was
-pointed at.
+Running from inside a hook is safe. Git exports `GIT_DIR`, `GIT_INDEX_FILE`, and
+friends to every hook, and children inherit them. nestjs-doctor clears those
+before shelling out to git, so it resolves everything against the directory it
+was pointed at.

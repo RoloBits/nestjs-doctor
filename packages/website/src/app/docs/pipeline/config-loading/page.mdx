@@ -4,26 +4,23 @@ export const metadata = docsMetadata["/docs/pipeline/config-loading"];
 
 <BreadcrumbJsonLd path="/docs/pipeline/config-loading" />
 
-# Config Loading
+# Config loading
 
 **Source:** `src/engine/config/loader.ts`
 
-## What
+Resolves and merges user configuration with built-in defaults. A fallback chain
+means nestjs-doctor runs with no configuration at all. A config file then
+changes which files are scanned, which rules are enabled, and which diagnostics
+are ignored.
 
-Resolves and merges user configuration with built-in defaults.
-
-## Why
-
-Users need to customize which files to scan, which rules to enable/disable, and which diagnostics to ignore. The config loader provides a fallback chain so nestjs-doctor works without configuration but remains fully customizable.
-
-## Input
+Input is the project root plus an optional explicit config path:
 
 ```typescript
 targetPath: string      // project root directory
 configPath?: string     // explicit config file path (from --config flag)
 ```
 
-## Output
+The result is the resolved config:
 
 ```typescript
 interface NestjsDoctorConfig {
@@ -39,19 +36,20 @@ interface NestjsDoctorConfig {
 }
 ```
 
-## How It Works
+## How it works
 
-### Resolution Order
+### Resolution order
 
 The loader tries these locations in order and uses the first match:
 
-1. **Explicit path** — if `--config path/to/config.json` was passed
-2. **`nestjs-doctor.config.json`** — in the project root
-3. **`.nestjs-doctor.json`** — dotfile variant
-4. **`package.json`** — the `"nestjs-doctor"` key
-5. **Built-in defaults** — if nothing else is found
+1. **Explicit path:** if `--config path/to/config.json` was passed. This
+   bypasses the rest of the chain.
+2. **`nestjs-doctor.config.json`:** in the project root
+3. **`.nestjs-doctor.json`:** dotfile variant
+4. **`package.json`:** the `"nestjs-doctor"` key
+5. **Built-in defaults:** if nothing else is found
 
-### Merge Strategy
+### Merge strategy
 
 User config is merged with `DEFAULT_CONFIG`:
 
@@ -71,13 +69,8 @@ const DEFAULT_CONFIG = {
 
 Key merge behaviors:
 
-- **`exclude`** is **additive** — your patterns are appended to the defaults, so safety exclusions like `node_modules` are never accidentally removed
-- **`include`** **replaces** the default entirely — if you set it, only your patterns are used
-- **`rules`** and **`categories`** are shallow-merged
-- **`ignore`** replaces the default (empty) ignore config
+- **`exclude`:** additive. Your patterns are appended to the defaults, so safety exclusions like `node_modules` are never dropped by accident.
+- **`include`:** replaces the default entirely. If you set it, only your patterns are used.
+- **`rules` and `categories`:** shallow-merged.
+- **`ignore`:** replaces the default, which is empty.
 
-## Debugging Tips
-
-- If a file is not being scanned, check whether it matches an exclude pattern. The default excludes are extensive (test files, mocks, seeders, declaration files).
-- If a rule is not running, check both `rules` (individual toggle) and `categories` (category-level toggle) in config.
-- Use `--config` to point to a specific config file and bypass the search chain.

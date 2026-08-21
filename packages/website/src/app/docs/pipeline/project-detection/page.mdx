@@ -4,28 +4,25 @@ export const metadata = docsMetadata["/docs/pipeline/project-detection"];
 
 <BreadcrumbJsonLd path="/docs/pipeline/project-detection" />
 
-# Project Detection
+# Project detection
 
 **Source:** `src/engine/project-detector.ts`
 
-## What
+Detects whether the target is a monorepo or a single project, and extracts
+project metadata: NestJS version, ORM, and HTTP framework. Detection runs early
+so the pipeline knows whether to loop over sub-projects or scan once. The
+metadata is shown in the report and read by ORM-specific rules like
+`no-orm-in-controllers` and `no-raw-entity-in-response`.
 
-Detects whether the target is a monorepo or single project, and extracts project metadata (NestJS version, ORM, HTTP framework).
+## Monorepo detection
 
-## Why
-
-- **Monorepo detection** happens early so the pipeline knows whether to loop over sub-projects or scan once.
-- **Project metadata** is displayed in the report and used by ORM-specific rules like `no-orm-in-controllers` and `no-raw-entity-in-response`.
-
-## Monorepo Detection
-
-### Input
+Input is the root directory to check:
 
 ```typescript
 targetPath: string    // root directory to check
 ```
 
-### Output
+The result is a map of sub-projects, or `null`:
 
 ```typescript
 interface MonorepoInfo {
@@ -41,6 +38,8 @@ Five detection strategies are tried in priority order. The first match wins.
 Reads `nest-cli.json` and checks for:
 - `monorepo: true`
 - A `projects` map with at least one entry
+
+A matching file looks like this:
 
 ```json
 {
@@ -59,6 +58,8 @@ Reads `pnpm-workspace.yaml` and:
 2. Globs for `package.json` files matching those patterns
 3. Filters to packages that have `@nestjs/core` or `@nestjs/common` in `dependencies`, `devDependencies`, or `peerDependencies`
 
+The patterns it reads:
+
 ```yaml
 packages:
   - "apps/*"
@@ -67,13 +68,15 @@ packages:
 
 ### Strategy 3: `package.json` workspaces (npm / Yarn)
 
-If no `pnpm-workspace.yaml` exists, reads the `workspaces` field from the root `package.json`. Both array and object (Yarn classic) formats are supported:
+If no `pnpm-workspace.yaml` exists, reads the `workspaces` field from the root `package.json`. Both the array form and the object form (Yarn classic) are supported:
 
 ```json
 {
   "workspaces": ["apps/*", "packages/*"]
 }
 ```
+
+The object form nests the globs under `packages`:
 
 ```json
 {
@@ -83,15 +86,17 @@ If no `pnpm-workspace.yaml` exists, reads the `workspaces` field from the root `
 }
 ```
 
-Resolves workspace globs the same way as strategy 2 — filters to packages with `@nestjs/core` or `@nestjs/common`. Skipped when `pnpm-workspace.yaml` exists to avoid duplicate detection (pnpm repos may have both).
+Workspace globs resolve the same way as in strategy 2, filtering to packages with `@nestjs/core` or `@nestjs/common`. This strategy is skipped when `pnpm-workspace.yaml` exists, because pnpm repos may have both and would otherwise be detected twice.
 
 ### Strategy 4: `nx.json` (Nx)
 
-Detects the presence of `nx.json`, then scans for `project.json` files throughout the repo (excluding `node_modules` and the root-level `project.json`). For each project directory with a `project.json`, reads the sibling `package.json` and includes the project only if it depends on `@nestjs/core` or `@nestjs/common`.
+Detects the presence of `nx.json`, then scans for `project.json` files throughout the repo (excluding `node_modules` and the root-level `project.json`). For each project directory with a `project.json`, reads the sibling `package.json`. The project is included only if it depends on `@nestjs/core` or `@nestjs/common`.
 
 ### Strategy 5: `lerna.json` (standalone Lerna)
 
-Reads `lerna.json` and uses its `packages` globs (defaults to `["packages/*"]` when not specified). Only activates when `useWorkspaces` is **not** set — if `useWorkspaces: true`, Lerna delegates to npm/Yarn workspaces and strategy 3 handles detection instead.
+Reads `lerna.json` and uses its `packages` globs, defaulting to `["packages/*"]` when they are not specified. This strategy only activates when `useWorkspaces` is not set. With `useWorkspaces: true`, Lerna delegates to npm or Yarn workspaces, so strategy 3 handles detection instead.
+
+A minimal `lerna.json`:
 
 ```json
 {
@@ -103,19 +108,19 @@ Non-NestJS packages are always filtered out automatically across all strategies.
 
 ### Fallback warning
 
-If none of the strategies find NestJS packages but the directory looks like a monorepo (contains `lerna.json`, `turbo.json`, `nx.json`, `pnpm-workspace.yaml`, or a `workspaces` field in `package.json`), nestjs-doctor emits a warning and falls back to single-project mode.
+Some repos carry monorepo markers but no NestJS package. The markers are `lerna.json`, `turbo.json`, `nx.json`, `pnpm-workspace.yaml`, and a `workspaces` field in `package.json`. When a marker is present and no strategy finds a NestJS package, nestjs-doctor warns and falls back to single-project mode.
 
-If detected by any strategy, the pipeline runs stages 2-9 independently for each sub-project, then aggregates results into a combined score.
+If a strategy does match, the pipeline runs stages 2-9 independently for each sub-project, then aggregates the results into a combined score.
 
-## Single Project Detection
+## Single project detection
 
-### Input
+Input is the project root:
 
 ```typescript
 targetPath: string    // project root directory
 ```
 
-### Output
+The result is the project metadata:
 
 ```typescript
 interface ProjectInfo {
@@ -128,11 +133,13 @@ interface ProjectInfo {
 }
 ```
 
-### How It Works
+### How it works
 
-Reads `package.json` and inspects `dependencies` + `devDependencies`:
+Reads the project's `package.json` and inspects `dependencies` plus
+`devDependencies`. An ORM that shows as `null` is missing from both.
 
-**ORM detection** (first match takes precedence):
+ORM detection takes the first match:
+
 1. `@prisma/client` → `"prisma"`
 2. `typeorm` → `"typeorm"`
 3. `@mikro-orm/core` → `"mikro-orm"`
@@ -140,13 +147,10 @@ Reads `package.json` and inspects `dependencies` + `devDependencies`:
 5. `mongoose` → `"mongoose"`
 6. `drizzle-orm` → `"drizzle"`
 
-**Framework detection:**
+Framework detection:
+
 - `@nestjs/platform-fastify` → `"fastify"`
 - `@nestjs/platform-express` or `@nestjs/core` → `"express"`
 
-**NestJS version** is extracted from `@nestjs/core` with semver operators (`^`, `~`, `>=`) stripped.
+The NestJS version comes from `@nestjs/core`, with semver operators (`^`, `~`, `>=`) stripped.
 
-## Debugging Tips
-
-- If the ORM shows as `null`, check that the ORM package is in `dependencies` or `devDependencies` in the project's `package.json`.
-- Monorepo detection tries five strategies in order: `nest-cli.json`, `pnpm-workspace.yaml`, `package.json` workspaces (npm/Yarn), `nx.json` (Nx), and `lerna.json` (standalone Lerna). Only packages with `@nestjs/core` or `@nestjs/common` are included.

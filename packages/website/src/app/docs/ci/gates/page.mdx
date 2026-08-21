@@ -6,11 +6,12 @@ export const metadata = docsMetadata["/docs/ci/gates"];
 
 # Failing the build
 
-The action is **advisory by default**. `blocking` is `none` and `min-score` is
-unset, so a fresh install comments, annotates, and sets a status without ever
-turning a pull request red. Enforcement is off until you set `blocking` or `min-score`.
+The action is advisory by default: `blocking` is `none` and `min-score` is
+unset. A fresh install comments, annotates, and sets a status without turning a
+pull request red.
 
-Two independent gates decide the outcome. Either one failing fails the run.
+Two independent gates decide the outcome, and either one failing fails the run.
+Turn both on in `.github/workflows/nestjs-doctor.yml`:
 
 ```yaml
       - uses: RoloBits/nestjs-doctor@v1
@@ -19,104 +20,72 @@ Two independent gates decide the outcome. Either one failing fails the run.
           min-score: 80
 ```
 
-That configuration fails a pull request when it introduces any error-severity
-finding, **and separately** when the project's health score is below 80. Drop
-either input to use only the other gate.
+Drop either input to use only the other gate.
 
-## `blocking` — gate on findings
+## `blocking`: gate on findings
 
-Gates on the findings the run actually **reported**, which the `scope` input
-decides. With the default `scope: changed`, that is only what the pull request
-introduced.
+Gates on the findings the run reported, which the `scope` input decides. With
+the default `scope: changed`, that is only what the pull request introduced.
 
 | Level | Fails when |
 |-------|-----------|
-| `none` | Never. The default — report only |
+| `none` | Never. The default; report only |
 | `warning` | Any error or warning is reported |
 | `error` | Any error is reported |
 
-Because it follows the scope, a repository
-with a thousand pre-existing findings can adopt `blocking: error` on day one:
-the gate only ever sees what each pull request adds, so nobody inherits somebody
-else's backlog.
+Because it follows the scope, a repository with a thousand pre-existing findings
+can adopt `blocking: error` on day one. The gate only ever sees what each pull
+request adds, so nobody inherits somebody else's backlog.
 
-> The CLI's `--blocking` default varies by output mode — `error` for the console
-> report, `none` for `--json` and `--score` — because those exit codes predate the
-> flag. The action sidesteps that by always passing `--blocking` explicitly, so
-> the action's default is `none` whichever way you look at it.
+The CLI's `--blocking` default varies by output mode. The action always passes
+the flag explicitly, so its own default is `none` either way.
 
-## `min-score` — gate on the score
+## `min-score`: gate on the score
 
-Gates on the 0–100 project health score. Unset by default; set it to a number
+Gates on the 0-100 project health score. Unset by default. Set it to a number
 and the run fails whenever the score falls below it.
 
-The score **always reflects the whole project**, whatever `scope` says.
-Narrowing a report must never make a codebase look healthier than it is.
+The score always reflects the whole project, whatever `scope` says. Narrowing a
+report must never make a codebase look healthier than it is.
 
-So `min-score` gates the repository's health, not the change. A pull request
-touching one file can fail it because of debt somewhere else.
+So the two gates measure different things. `blocking` sees the reported scope,
+`min-score` the whole project, so a pull request touching one file can fail on
+debt somewhere else.
 
-So the two gates answer different questions:
-
-| Gate | Question | Sees |
-|------|----------|------|
-| `blocking` | Did this change make things worse? | The reported scope |
-| `min-score` | Is the project healthy enough? | The whole project |
-
-Use `blocking` alone for new code. Add `min-score` for a floor on the
-repository as a whole.
+Use `blocking` alone for new code. Add `min-score` for a floor on the repository
+as a whole.
 
 ## Setting the threshold in config instead
 
-`minScore` is also a config-file key, so a repository can carry its floor in
-`nestjs-doctor.config.js` and have local runs, the pre-commit hook, and CI all
+`minScore` is also a config-file key. Carry the floor in
+`nestjs-doctor.config.json` and local runs, the pre-commit hook, and CI all
 agree on it:
 
-```js
-export default {
-  minScore: 75,
-};
+```json
+{
+  "minScore": 75
+}
 ```
 
-The action's `min-score` input **overrides** that when set, which is the hook for
-holding CI to a higher bar than a local run. Leave the input empty and the config
-value applies.
+The action's `min-score` input overrides that when set, which holds CI to a
+higher bar than a local run. Leave the input empty and the config value
+applies.
 
 ## Which findings count
 
-Both gates count whatever the run reports, so the config file is the third lever.
-Disable a rule or a whole category and it stops counting toward either gate — see
-[Configuration](/docs/configuration). Inline `nestjs-doctor-ignore` comments work
-the same way: a suppressed finding is not reported, so it cannot fail a gate.
+Both gates count whatever the run reports, so the config file is the third
+lever. Disable a rule or a whole category and it stops counting toward either
+gate. See [Configuration](/docs/configuration).
 
-Point the action at a CI-specific file with the `config` input when you want CI
-stricter than what contributors run locally.
+Inline `nestjs-doctor-ignore` comments work the same way. A suppressed finding
+is not reported, so it cannot fail a gate.
+
+Point the action at a CI-specific file with the `config` input to hold CI
+stricter than local runs. Both gates are CLI flags too. See
+[Gates](/docs/reference/cli#gates).
 
 ## Exit codes
 
-`0` pass · `1` a gate failed · `2` bad input.
-
 A push to the default branch always exits `0`, whatever the gates say. See
-[Pushes to the default branch](/docs/ci#pushes-to-the-default-branch).
-
-## Gates on the command line
-
-The same two gates the action exposes, as flags. Everything above applies here too — what each gate sees,
-and why `--min-score` is a whole-project measure whatever the scope.
-
-```bash
-# Fail on anything this branch introduced, and on a project score under 80
-npx nestjs-doctor . --scope changed --base origin/main --blocking error --min-score 80
-```
-
-| Flag | Gates on | Default |
-|------|----------|---------|
-| `--blocking none\|warning\|error` | The reported findings | `error` for the console report, `none` for `--json` and `--score` |
-| `--min-score <0-100>` | The whole-project score | Off |
-
-The split default for `--blocking` reproduces the exit codes that shipped before
-the flag existed: the console report already failed on errors, while `--json`
-and `--score` failed only on `--min-score`. Pass `--blocking` explicitly and
-every output mode behaves the same.
-
-Exit codes: `0` pass, `1` a gate failed, `2` bad input.
+[Pushes to the default branch](/docs/ci#pushes-to-the-default-branch) and
+[Exit codes](/docs/reference/cli#exit-codes).

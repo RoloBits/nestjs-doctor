@@ -6,6 +6,8 @@ export const metadata = docsMetadata["/docs/reference/cli"];
 
 # CLI reference
 
+Run a scan without installing anything:
+
 ```bash
 npx nestjs-doctor@latest [directory] [options]
 ```
@@ -22,28 +24,28 @@ The directory defaults to the current one.
 
 | Flag | Does |
 |---|---|
-| `--verbose` | Show the file and line behind every finding |
+| `--verbose` | Show the file and line behind every diagnostic |
 | `--config <path>` | Use a specific config file instead of auto-detecting |
 | `--list-rules` | Print every built-in rule and exit |
 | `-h`, `--help` | Print usage and exit |
 
 ## Scope
 
-Scoping changes **what is reported**, never what is analysed. Cross-file rules
+Scoping changes what is reported, never what is analyzed. Cross-file rules
 need the whole project, so the score always covers all of it.
 
 | Flag | Does |
 |---|---|
 | `--scope full` | Everything. The default |
-| `--scope files` | Findings in the changed files |
-| `--scope lines` | Findings on the changed lines |
+| `--scope files` | Diagnostics in the changed files |
+| `--scope lines` | Diagnostics on the changed lines |
 | `--scope changed` | Only what the change introduced, compared against the merge base |
 | `--base <ref>` | The ref to compare against. Auto-detected when omitted |
 | `--staged` | Scope to staged files, for a pre-commit hook |
 | `--changed-files-from <path>` | Read the changed file list from a file, for CI |
 
 `changed` needs history. Without a reachable base ref it degrades wider and says
-so: to every finding in the changed files when `--changed-files-from` is set,
+so: to every diagnostic in the changed files when `--changed-files-from` is set,
 and to the whole project when it is not. In CI, check out with `fetch-depth: 0`.
 
 ## Output
@@ -58,6 +60,9 @@ and to the whole project when it is not. In CI, check out with `fetch-depth: 0`.
 | `--report` | Build the interactive HTML report. `--graph` is an alias |
 | `--timings <path>` | Overlay boot timings on the report's module graph |
 
+Warnings always go to stderr, whatever the format, so a machine-readable
+payload on stdout stays parseable.
+
 ## Gates
 
 | Flag | Does |
@@ -65,10 +70,18 @@ and to the whole project when it is not. In CI, check out with `fetch-depth: 0`.
 | `--blocking <level>` | Severity that fails the run: `none`, `warning`, `error` |
 | `--min-score <n>` | Fail when the project's score is below this |
 
-`--blocking` defaults to `error` for the console report and for
-`--format github`, and to `none` for `--score` and for the formats that replace
-the console report: `json`, `sarif`, `gitlab`, and `markdown`. Those exit codes
-predate the flag. Set it explicitly and every mode agrees.
+`--min-score` overrides the config file's `minScore`, which applies on its own
+when the flag is omitted. `--blocking` has no single default. It is set by the
+output mode:
+
+| Output mode | Default `--blocking` |
+|---|---|
+| The console report | `error` |
+| `--format github` | `error` |
+| `--score`, and the formats that replace the console report: `json`, `sarif`, `gitlab`, `markdown` | `none` |
+
+Those exit codes predate the flag. Set `--blocking` explicitly and every mode
+agrees.
 
 ## Agents
 
@@ -78,8 +91,13 @@ predate the flag. Set it explicitly and every mode agrees.
 
 ## Exit codes
 
+Every run ends in one of three codes:
+
 | Code | Meaning |
 |------|---------|
 | `0` | Passed |
 | `1` | A gate failed |
 | `2` | Bad input: the path does not exist, or a flag is invalid |
+
+The score gate is checked before the severity gate, so a run below `--min-score`
+exits `1` whether or not any diagnostic was blocking.
