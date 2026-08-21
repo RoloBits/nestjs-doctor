@@ -4,230 +4,55 @@ export const metadata = docsMetadata["/docs/setup"];
 
 <BreadcrumbJsonLd path="/docs/setup" />
 
-# Setup
+# Quickstart
 
-## Quick Start
-
-Run directly with npx:
+Run this at your project root.
 
 ```bash
 npx nestjs-doctor@latest .
 ```
 
-For file paths and line numbers:
+No install, no config file, no network calls. It reads your TypeScript, runs 50
+rules, and prints a score out of 100.
+
+![CLI output](/cli-output.png)
+
+## Reading the output
+
+The score is weighted by severity and category, then normalised by project size,
+so a small project with three errors scores worse than a large one with three.
+It always covers the whole project, whatever you scope the report to.
+
+Findings are grouped by rule, worst first. Add `--verbose` for the file and line
+behind each one.
 
 ```bash
 npx nestjs-doctor@latest . --verbose
 ```
 
-No configuration or plugins are required.
+## Installing it
 
-## Installation
-
-Install as a dev dependency for consistent CI runs:
-
-```bash
-npm install -D nestjs-doctor
-```
-
-## CLI Usage
-
-```
-Usage: nestjs-doctor [directory] [options]
-
-Commands:
-  ci install            Scaffold .github/workflows/nestjs-doctor.yml
-
-Options:
-  --verbose             Show file paths and line numbers per diagnostic
-  --score               Output only the numeric score (for CI)
-  --json                JSON output (for tooling)
-  --format <f>          console (default), json, sarif, gitlab, markdown, github
-  --output <path>       Write the formatted output to a file instead of stdout
-  --json-compact        Emit JSON-based formats without indentation
-  --scope <s>           full (default), files, lines, changed
-  --base <ref>          Git ref to compare against (auto-detected)
-  --staged              Scope to the staged files, for pre-commit hooks
-  --changed-files-from  Path to a newline-separated list of changed files
-  --blocking <level>    Severity that fails the run: none, warning, error
-  --min-score <n>       Minimum passing score (0-100)
-  --report              Generate an interactive HTML report (--graph also works)
-  --timings <path>      SerializedGraph dump to overlay bootstrap init times on the report
-  --config <p>          Path to config file
-  --list-rules          List every built-in rule and exit
-  --init                Set up the /nestjs-doctor skill for AI coding agents
-  --force               Overwrite an existing file (with `ci install`)
-  -h, --help            Show help
-```
-
-See [CI & Pull Requests](/docs/ci) for `--scope`, `--blocking`, and the official
-GitHub Action.
-
-## CI Integration
-
-Use `--min-score` to enforce a minimum health score in your CI pipeline:
-
-```bash
-npx nestjs-doctor . --min-score 75
-```
-
-Or add it as a script in `package.json`:
-
-```json
-{
-  "scripts": {
-    "health": "nestjs-doctor . --min-score 75"
-  }
-}
-```
-
-### Exit Codes
-
-| Code | Meaning                                 |
-| ---- | --------------------------------------- |
-| `0`  | Both gates passed                       |
-| `1`  | A gate failed — see below               |
-| `2`  | Invalid input (bad path, invalid flags) |
-
-Two independent gates can fail a run. `--min-score` compares the project's
-health score against a threshold. `--blocking` fails on reported findings at or
-above a severity: `error` (the default for the console report), `warning`, or
-`none`.
-
-`--json` and `--score` default to `--blocking none`, so they fail only on
-`--min-score` — the behaviour they had before `--blocking` existed. Pass
-`--blocking` explicitly to make every output mode behave the same.
-
-## Report
-
-```bash
-npx nestjs-doctor@latest . --report
-```
-
-Self-contained HTML file with five sections: score summary, source-level diagnostics with code viewer, interactive module graph, schema ER diagram, and a [custom rule](/docs/custom-rules) playground. Opens in your browser.
-
-![Module Graph](/module-graph.png)
-
-## AI Coding Agents
-
-Ships with skills for popular AI coding agents. Run `--init` to auto-detect installed agents and install the nestjs-doctor skill for each one:
+`npx` is enough for a one-off. Install it when you want the same version pinned
+for everyone, or the VS Code extension, which loads it from your workspace.
 
 ```bash
 npm install -D nestjs-doctor
-npx nestjs-doctor --init
 ```
 
-| Agent | Detection | Skill location |
-|-------|-----------|----------------|
-| Claude Code | `~/.claude` exists | `~/.claude/skills/nestjs-doctor/` |
-| Amp Code | `~/.amp` exists | `~/.config/amp/skills/nestjs-doctor/` |
-| Cursor | `~/.cursor` exists | `~/.cursor/skills/nestjs-doctor/` |
-| OpenCode | `opencode` CLI or `~/.config/opencode` | `~/.config/opencode/skills/nestjs-doctor/` |
-| Windsurf | `~/.codeium` exists | Appends to `~/.codeium/windsurf/memories/global_rules.md` |
-| Antigravity | `agy` CLI or `~/.gemini/antigravity` | `~/.gemini/antigravity/skills/nestjs-doctor/` |
-| Gemini CLI | `gemini` CLI or `~/.gemini` | `~/.gemini/skills/nestjs-doctor/` |
-| Codex | `codex` CLI or `~/.codex` | `~/.codex/skills/nestjs-doctor/` |
+## Exit codes
 
-A project-level fallback is always written to `.agents/nestjs-doctor/`. Commit it so every contributor gets the skill automatically.
+| Code | Meaning |
+|------|---------|
+| `0` | Passed |
+| `1` | A gate failed: errors were found, or the score is below `--min-score` |
+| `2` | Bad input: the path does not exist, or a flag is invalid |
 
-### Skills
+The console report exits `1` on any error-severity finding. `--json` and
+`--score` exit `0` unless you set a gate, because those exit codes predate the
+`--blocking` flag. Pass `--blocking error` to make every mode agree.
 
-`--init` installs two skills per agent:
+## Next
 
-| Skill | Command | Description |
-|-------|---------|-------------|
-| nestjs-doctor | `/nestjs-doctor` | Runs the scan, shows the report, and fixes what it can |
-| nestjs-doctor-create-rule | `/nestjs-doctor-create-rule` | Scaffolds a custom rule: checks feasibility, writes the `.ts` file, updates config, verifies it loads |
-
-See [Custom Rules](/docs/custom-rules) for the rule format.
-
-## Node.js API
-
-nestjs-doctor can be used programmatically:
-
-```typescript
-import { diagnose, diagnoseMonorepo } from "nestjs-doctor";
-
-const result = await diagnose("./my-nestjs-app");
-result.score; // { value: 82, label: "Good" }
-result.diagnostics; // Diagnostic[]
-result.summary; // { total, errors, warnings, info, byCategory }
-
-const mono = await diagnoseMonorepo("./my-monorepo");
-mono.isMonorepo; // true
-mono.subProjects; // [{ name: "api", result }, ...]
-mono.combined; // Merged DiagnoseResult
-```
-
-See the [pipeline overview](/docs/pipeline) for details on the `DiagnoseResult` structure.
-
-## Incremental Scanning API
-
-For tooling that needs fine-grained control — such as editor integrations and language servers — nestjs-doctor exports an incremental scanning API. Instead of running a full `diagnose()` call, you can prepare a scan context once and then re-scan individual files as they change.
-
-```typescript
-import {
-  prepareAnalysis,
-  updateFile,
-  checkFile,
-  checkAllFiles,
-  checkProject,
-  updateModuleGraphForFile,
-  updateProvidersForFile,
-  getRules,
-} from "nestjs-doctor";
-```
-
-### Lifecycle
-
-```typescript
-// 1. Prepare the analysis context (parses all files, builds module graph, resolves providers)
-const { context, customRuleWarnings } = await prepareAnalysis("./my-nestjs-app");
-
-// 2. When a file changes, update it in the context
-updateFile(context, "/absolute/path/to/changed-file.ts");
-
-// 3. Re-scan just that file (file-scoped rules only)
-const { diagnostics, errors } = checkFile(context, "/absolute/path/to/changed-file.ts");
-
-// 4. Or re-run all file-scoped rules across every file
-const allFileResults = checkAllFiles(context);
-
-// 5. Or re-run project-scoped rules (module graph, circular deps, etc.)
-const projectResults = checkProject(context);
-```
-
-### Granular Updates
-
-If you need to update the module graph or providers independently (for example, after editing multiple files before re-scanning):
-
-```typescript
-updateModuleGraphForFile(context.moduleGraph, context.astProject, filePath);
-updateProvidersForFile(context.providers, context.astProject, filePath);
-```
-
-### Listing Rules
-
-```typescript
-import { getRules } from "nestjs-doctor";
-
-const rules = getRules(); // all built-in rules (AnyRule[])
-```
-
-### `AnalysisContext`
-
-The `prepareAnalysis` function returns an `AnalysisContext` that holds:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `astProject` | `Project` | ts-morph project with all source files |
-| `config` | `NestjsDoctorConfig` | Resolved configuration |
-| `files` | `string[]` | Collected file paths |
-| `fileRules` | `Rule[]` | File-scoped rules (filtered by config) |
-| `projectRules` | `ProjectRule[]` | Project-scoped rules (filtered by config) |
-| `moduleGraph` | `ModuleGraph` | Import/export graph |
-| `providers` | `Map<string, ProviderInfo>` | Resolved NestJS providers |
-| `project` | `ProjectInfo` | Detected project metadata (name, version, ORM, framework) |
-| `schemaGraph` | `SchemaGraph \| undefined` | Extracted database schema (if ORM detected) |
-| `schemaRules` | `SchemaRule[]` | Schema-scoped rules (filtered by config) |
-| `targetPath` | `string` | Root directory of the scanned project |
+- [The report](/docs/report) — the interactive HTML view
+- [Coding agents](/docs/coding-agents) — let your agent run and fix it
+- [GitHub Actions setup](/docs/ci) — review every pull request

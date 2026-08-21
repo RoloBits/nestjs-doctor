@@ -1,0 +1,91 @@
+import { BreadcrumbJsonLd } from "@/components/json-ld";
+import { docsMetadata } from "@/lib/docs-metadata";
+export const metadata = docsMetadata["/docs/ci/other-providers"];
+
+<BreadcrumbJsonLd path="/docs/ci/other-providers" />
+
+# Other CI providers
+
+nestjs-doctor is a CLI, so anything that runs Node can run it. These are the
+integrations that need more than a bare command.
+
+## Code scanning
+
+SARIF sends findings to the repository's Security tab, where they persist across
+runs as alerts rather than living only in a pull request comment.
+
+```yaml
+permissions:
+  contents: read
+  security-events: write
+
+steps:
+  - uses: actions/checkout@v4
+    with:
+      fetch-depth: 0
+  - uses: RoloBits/nestjs-doctor@v1
+    id: doctor
+    with:
+      scope: full
+      sarif: "true"
+  - uses: github/codeql-action/upload-sarif@v3
+    if: always() && steps.doctor.outputs.sarif-file != ''
+    with:
+      sarif_file: ${{ steps.doctor.outputs.sarif-file }}
+```
+
+Every result carries a `partialFingerprints` entry derived from the rule, path,
+message, and source text. Without it GitHub computes its own fingerprint from
+surrounding source, and an edit near a finding closes the old alert and opens an
+identical new one.
+
+## GitLab
+
+The `gitlab` format emits the CodeClimate subset GitLab's Code Quality widget
+reads, so findings appear on the merge request diff.
+
+```yaml
+nestjs-doctor:
+  image: node:22
+  script:
+    - npx nestjs-doctor@latest . --format gitlab --output gl-code-quality-report.json
+  artifacts:
+    reports:
+      codequality: gl-code-quality-report.json
+```
+
+## Other output formats
+
+| Format | Use |
+|--------|-----|
+| `console` | Human-readable report (default) |
+| `json` | The full result object, for tooling |
+| `sarif` | SARIF 2.1.0, for code scanning |
+| `gitlab` | GitLab Code Quality report |
+| `markdown` | A comment body for any pull or merge request |
+| `github` | Workflow annotations plus a job summary, alongside the console report |
+
+`--output <path>` writes the payload to a file instead of stdout, and
+`--json-compact` drops the indentation from the JSON-based formats.
+
+`github` is additive rather than a replacement: it prints annotations and
+appends the markdown report to `$GITHUB_STEP_SUMMARY` while still printing the
+readable console report to the log. GitHub caps annotations at ten errors and
+ten warnings per step and silently drops the rest, so the annotations are a
+convenience — the job summary carries every finding.
+
+## Pre-commit hook
+
+```bash
+# .husky/pre-commit
+npx nestjs-doctor . --staged --blocking error
+```
+
+`--staged` scopes to the files in the git index. The project is still analysed
+in full, so a change that breaks a cross-file rule is caught even when the file
+it is reported against is not part of the commit.
+
+Running from inside a hook is safe: git exports `GIT_DIR`, `GIT_INDEX_FILE`, and
+friends to every hook, and children inherit them, so nestjs-doctor clears those
+before shelling out to git and resolves everything against the directory it was
+pointed at.

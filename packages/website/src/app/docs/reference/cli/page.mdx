@@ -1,0 +1,82 @@
+import { BreadcrumbJsonLd } from "@/components/json-ld";
+import { docsMetadata } from "@/lib/docs-metadata";
+export const metadata = docsMetadata["/docs/reference/cli"];
+
+<BreadcrumbJsonLd path="/docs/reference/cli" />
+
+# CLI reference
+
+```bash
+npx nestjs-doctor@latest [directory] [options]
+```
+
+The directory defaults to the current one.
+
+## Commands
+
+| Command | Does |
+|---|---|
+| `ci install` | Writes `.github/workflows/nestjs-doctor.yml` at the repository root. Add `--force` to replace an existing file |
+
+## Scanning
+
+| Flag | Does |
+|---|---|
+| `--verbose` | Show the file and line behind every finding |
+| `--config <path>` | Use a specific config file instead of auto-detecting |
+| `--list-rules` | Print every built-in rule and exit |
+
+## Scope
+
+Scoping changes **what is reported**, never what is analysed. Cross-file rules
+need the whole project, so the score always covers all of it.
+
+| Flag | Does |
+|---|---|
+| `--scope full` | Everything. The default |
+| `--scope files` | Findings in the changed files |
+| `--scope lines` | Findings on the changed lines |
+| `--scope changed` | Only what the change introduced, compared against the merge base |
+| `--base <ref>` | The ref to compare against. Auto-detected when omitted |
+| `--staged` | Scope to staged files, for a pre-commit hook |
+| `--changed-files-from <path>` | Read the changed file list from a file, for CI |
+
+`changed` needs history. In CI, check out with `fetch-depth: 0`, or it falls
+back to reporting every finding in the changed files and says so.
+
+## Output
+
+| Flag | Does |
+|---|---|
+| `--format <f>` | `console` (default), `json`, `sarif`, `gitlab`, `markdown`, `github` |
+| `--json` | Shorthand for `--format json` |
+| `--json-compact` | Emit JSON formats without indentation |
+| `--output <path>` | Write to a file instead of stdout |
+| `--score` | Print only the number |
+| `--report` | Build the interactive HTML report |
+| `--timings <path>` | Overlay boot timings on the report's module graph |
+
+## Gates
+
+| Flag | Does |
+|---|---|
+| `--blocking <level>` | Severity that fails the run: `none`, `warning`, `error` |
+| `--min-score <n>` | Fail when the project's score is below this |
+
+`--blocking` defaults to `error` for the console report and `none` for `--json`
+and `--score`, because those exit codes predate the flag. Set it explicitly and
+every mode agrees.
+
+## Agents
+
+| Flag | Does |
+|---|---|
+| `--init` | Install the skill for your coding agent. See [Coding agents](/docs/coding-agents) |
+
+## Exit codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Passed |
+| `1` | A gate failed |
+| `2` | Bad input: the path does not exist, or a flag is invalid |

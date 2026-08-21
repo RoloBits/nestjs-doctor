@@ -1,0 +1,50 @@
+import { BreadcrumbJsonLd } from "@/components/json-ld";
+import { docsMetadata } from "@/lib/docs-metadata";
+export const metadata = docsMetadata["/docs/report"];
+
+<BreadcrumbJsonLd path="/docs/report" />
+
+# The report
+
+```bash
+npx nestjs-doctor@latest . --report
+```
+
+Writes `nestjs-doctor-report.html` to the project root and opens it. The file is
+self-contained: no server, no assets to host, nothing fetched at runtime. Commit
+it, attach it to a pull request, or open it from a CI artifact.
+
+![Module graph](/module-graph.png)
+
+## What is in it
+
+| Tab | Shows |
+|---|---|
+| Summary | The score, the category breakdown, and the counts behind them |
+| Diagnosis | Every finding with a code viewer and a fix example |
+| Modules graph | Your real module graph, clustered, with cycles in red |
+| Endpoints | Traced HTTP routes per controller and the dependencies each one pulls |
+| Schema | The ER diagram extracted from your ORM |
+| Lab | A playground for writing a custom rule against your own code |
+
+Pick a module in the graph and the detail panel lists what it imports, exports,
+provides, and what breaks if you change it.
+
+## Boot trace
+
+The graph can overlay how long each class took to construct during a real boot.
+NestJS records that itself; `--timings` reads the dump.
+
+```bash
+npx nestjs-doctor@latest . --report --timings nestjs-doctor-timings.json
+```
+
+Producing the dump takes one change to `main.ts`, documented in
+[Output](/docs/pipeline/output#bootstrap-timings). Boot the app once, then scan.
+
+Each class's time includes waiting on its own dependencies, so a shared slow
+dependency counts again in every class that awaits it. Module nodes show the
+slowest single class, never a sum. Read down the cascade until the number drops:
+the class where it drops owns the time.
+
+Timings never affect the score, the diagnostics, or the exit code.

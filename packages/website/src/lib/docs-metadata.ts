@@ -7,9 +7,39 @@ export const docsMetadata: Record<string, Metadata> = {
 			"Diagnostic CLI tool that scans NestJS codebases and produces a health score across security, correctness, architecture, performance, and schema.",
 	},
 	"/docs/setup": {
-		title: "Setup Guide",
+		title: "Quickstart",
 		description:
-			"Install and run nestjs-doctor. CLI usage, CI integration, HTML report generation, and Node.js API.",
+			"Scan a NestJS project in one command, then read the score, the diagnostics, and the exit code.",
+	},
+	"/docs/report": {
+		title: "The report",
+		description:
+			"Generate the interactive HTML report: score summary, diagnostics with a code viewer, module graph, endpoint traces, schema ER diagram, and the boot trace.",
+	},
+	"/docs/coding-agents": {
+		title: "Coding agents",
+		description:
+			"Install the nestjs-doctor skill for Claude Code, Cursor, Codex, OpenCode, Windsurf, Gemini CLI, and other agents so they scan and fix as they work.",
+	},
+	"/docs/ci/gates": {
+		title: "Failing the build",
+		description:
+			"Gate a pull request on nestjs-doctor: blocking by severity, min-score on the whole project, exit codes, and which findings count.",
+	},
+	"/docs/ci/other-providers": {
+		title: "Other CI providers",
+		description:
+			"Run nestjs-doctor outside GitHub Actions: GitLab Code Quality, SARIF for any code-scanning backend, markdown output, and pre-commit hooks.",
+	},
+	"/docs/reference/cli": {
+		title: "CLI reference",
+		description:
+			"Every nestjs-doctor command and flag: scanning, scope, output formats, gates, the report, and exit codes.",
+	},
+	"/docs/reference/node-api": {
+		title: "Node API",
+		description:
+			"Call nestjs-doctor from Node: scanProject, the incremental scanning API for editors, and the AnalysisContext it exposes to rules.",
 	},
 	"/docs/configuration": {
 		title: "Configuration",
@@ -22,7 +52,7 @@ export const docsMetadata: Record<string, Metadata> = {
 			"Extend nestjs-doctor with project-specific checks. Encode domain conventions, enforce team standards, or flag patterns unique to your codebase.",
 	},
 	"/docs/ci": {
-		title: "CI & Pull Requests",
+		title: "GitHub Actions setup",
 		description:
 			"Run nestjs-doctor in CI. Official GitHub Action with sticky pull request comments, inline review comments, and commit statuses; diff-scoped scanning that reports only what a change introduced; SARIF and GitLab Code Quality output.",
 	},

@@ -10,39 +10,33 @@ export interface NavSection {
 
 export const DOCS_NAV: NavSection[] = [
 	{
-		title: "Introduction",
+		title: "Overview",
 		items: [
-			{ title: "Overview", href: "/docs" },
-			{ title: "Setup", href: "/docs/setup" },
-			{ title: "Configuration", href: "/docs/configuration" },
-			{ title: "Custom Rules", href: "/docs/custom-rules" },
-			{ title: "CI & Pull Requests", href: "/docs/ci" },
-			{ title: "VS Code Extension", href: "/docs/vscode-extension" },
+			{ title: "What is nestjs-doctor?", href: "/docs" },
+			{ title: "Quickstart", href: "/docs/setup" },
+			{ title: "The report", href: "/docs/report" },
 		],
 	},
 	{
-		title: "Pipeline",
+		title: "Getting started",
 		items: [
-			{ title: "Overview", href: "/docs/pipeline" },
-			{ title: "Config Loading", href: "/docs/pipeline/config-loading" },
-			{
-				title: "Project Detection",
-				href: "/docs/pipeline/project-detection",
-			},
-			{ title: "File Collection", href: "/docs/pipeline/file-collection" },
-			{ title: "AST Parsing", href: "/docs/pipeline/ast-parsing" },
-			{ title: "Module Graph", href: "/docs/pipeline/module-graph" },
-			{
-				title: "Provider Resolution",
-				href: "/docs/pipeline/provider-resolution",
-			},
-			{ title: "Rule Execution", href: "/docs/pipeline/rule-execution" },
-			{
-				title: "Diagnostic Filtering",
-				href: "/docs/pipeline/diagnostic-filtering",
-			},
-			{ title: "Scoring", href: "/docs/pipeline/scoring" },
-			{ title: "Output", href: "/docs/pipeline/output" },
+			{ title: "Coding agents", href: "/docs/coding-agents" },
+			{ title: "VS Code extension", href: "/docs/vscode-extension" },
+		],
+	},
+	{
+		title: "CI & pull requests",
+		items: [
+			{ title: "GitHub Actions setup", href: "/docs/ci" },
+			{ title: "Failing the build", href: "/docs/ci/gates" },
+			{ title: "Other CI providers", href: "/docs/ci/other-providers" },
+		],
+	},
+	{
+		title: "Configuration",
+		items: [
+			{ title: "Config files", href: "/docs/configuration" },
+			{ title: "Custom rules", href: "/docs/custom-rules" },
 		],
 	},
 	{
@@ -54,6 +48,35 @@ export const DOCS_NAV: NavSection[] = [
 			{ title: "Architecture", href: "/docs/rules/architecture" },
 			{ title: "Performance", href: "/docs/rules/performance" },
 			{ title: "Schema", href: "/docs/rules/schema" },
+		],
+	},
+	{
+		title: "Reference",
+		items: [
+			{ title: "CLI", href: "/docs/reference/cli" },
+			{ title: "Node API", href: "/docs/reference/node-api" },
+			{ title: "Scoring", href: "/docs/pipeline/scoring" },
+		],
+	},
+	{
+		title: "Internals",
+		items: [
+			{ title: "Pipeline overview", href: "/docs/pipeline" },
+			{ title: "Config loading", href: "/docs/pipeline/config-loading" },
+			{ title: "Project detection", href: "/docs/pipeline/project-detection" },
+			{ title: "File collection", href: "/docs/pipeline/file-collection" },
+			{ title: "AST parsing", href: "/docs/pipeline/ast-parsing" },
+			{ title: "Module graph", href: "/docs/pipeline/module-graph" },
+			{
+				title: "Provider resolution",
+				href: "/docs/pipeline/provider-resolution",
+			},
+			{ title: "Rule execution", href: "/docs/pipeline/rule-execution" },
+			{
+				title: "Diagnostic filtering",
+				href: "/docs/pipeline/diagnostic-filtering",
+			},
+			{ title: "Output", href: "/docs/pipeline/output" },
 		],
 	},
 ];

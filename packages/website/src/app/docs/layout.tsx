@@ -1,5 +1,6 @@
 import { DocsHeader } from "@/components/docs/docs-header";
 import { Sidebar } from "@/components/docs/sidebar";
+import { Toc } from "@/components/docs/toc";
 
 export default function DocsLayout({
 	children,
@@ -14,6 +15,7 @@ export default function DocsLayout({
 				<main className="docs-content min-w-0 flex-1 px-6 py-8 sm:px-10 lg:px-16">
 					<div className="mx-auto max-w-3xl">{children}</div>
 				</main>
+				<Toc />
 			</div>
 		</div>
 	);

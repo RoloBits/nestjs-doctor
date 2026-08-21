@@ -4,15 +4,13 @@ export const metadata = docsMetadata["/docs/ci"];
 
 <BreadcrumbJsonLd path="/docs/ci" />
 
-# CI & Pull Requests
+# GitHub Actions setup
 
 Running a linter on a codebase that predates it produces a wall of findings
 nobody reads. nestjs-doctor solves that by reporting only what a change
 introduced, and leaving the existing backlog to the score.
 
-## GitHub Action
-
-### Scaffolding the workflow
+## Scaffolding the workflow
 
 ```bash
 npx nestjs-doctor@latest ci install
@@ -64,7 +62,7 @@ either, to reporting every finding in the changed files. The comment says which
 of those happened, and `silence-missing-baseline-warning` hides the notice if
 you would rather live with the fallback.
 
-### Inputs
+## Inputs
 
 | Input | Default | Description |
 |-------|---------|-------------|
@@ -83,105 +81,7 @@ you would rather live with the fallback.
 | `node-version` | `22` | Node.js version |
 | `version` | `latest` | nestjs-doctor version to run |
 
-### Failing the build
-
-The action is **advisory by default**. `blocking` is `none` and `min-score` is
-unset, so a fresh install comments, annotates, and sets a status without ever
-turning a pull request red. Enforcement is something you turn on when you are
-ready for it.
-
-Two gates decide the outcome, they are independent, and either one failing fails
-the run.
-
-```yaml
-      - uses: RoloBits/nestjs-doctor@v1
-        with:
-          blocking: error
-          min-score: 80
-```
-
-That configuration fails a pull request when it introduces any error-severity
-finding, **and separately** when the project's health score is below 80. Drop
-either input to use only the other gate.
-
-#### `blocking` — gate on findings
-
-Gates on the findings the run actually **reported**, which the `scope` input
-decides. With the default `scope: changed`, that is only what the pull request
-introduced.
-
-| Level | Fails when |
-|-------|-----------|
-| `none` | Never. The default — report only |
-| `warning` | Any error or warning is reported |
-| `error` | Any error is reported |
-
-This is the gate to reach for first. Because it follows the scope, a repository
-with a thousand pre-existing findings can adopt `blocking: error` on day one:
-the gate only ever sees what each pull request adds, so nobody inherits somebody
-else's backlog.
-
-> The CLI's `--blocking` default varies by output mode — `error` for the console
-> report, `none` for `--json` and `--score` — because those exit codes predate the
-> flag. The action sidesteps that by always passing `--blocking` explicitly, so
-> the action's default is `none` whichever way you look at it.
-
-#### `min-score` — gate on the score
-
-Gates on the 0–100 project health score. Unset by default; set it to a number
-and the run fails whenever the score falls below it.
-
-The score **always reflects the whole project**, whatever `scope` says. That is
-a deliberate invariant: narrowing a report must never make a codebase look
-healthier than it is. The practical consequence is that `min-score` is a gate on
-the repository's overall health, not on the change — a pull request touching one
-file can fail it because of debt somewhere else entirely.
-
-So the two gates answer different questions:
-
-| Gate | Question | Sees |
-|------|----------|------|
-| `blocking` | Did this change make things worse? | The reported scope |
-| `min-score` | Is the project healthy enough? | The whole project |
-
-Pick `blocking` alone to hold the line on new code. Add `min-score` when you
-also want a floor under the codebase as a whole, and expect to raise it over
-time rather than setting it at today's number and forgetting it.
-
-#### Setting the threshold in config instead
-
-`minScore` is also a config-file key, so a repository can carry its floor in
-`nestjs-doctor.config.js` and have local runs, the pre-commit hook, and CI all
-agree on it:
-
-```js
-export default {
-  minScore: 75,
-};
-```
-
-The action's `min-score` input **overrides** that when set, which is the hook for
-holding CI to a higher bar than a local run. Leave the input empty and the config
-value applies.
-
-#### Which findings count
-
-Both gates count whatever the run reports, so the config file is the third lever.
-Disable a rule or a whole category and it stops counting toward either gate — see
-[Configuration](/docs/configuration). Inline `nestjs-doctor-ignore` comments work
-the same way: a suppressed finding is not reported, so it cannot fail a gate.
-
-Point the action at a CI-specific file with the `config` input when you want CI
-stricter than what contributors run locally.
-
-#### Exit codes
-
-`0` pass · `1` a gate failed · `2` bad input.
-
-A push to the default branch always exits `0`, whatever the gates say — see
-below.
-
-### Outputs
+## Outputs
 
 `score`, `label`, `total-issues`, `fixed-issues`, `error-count`,
 `warning-count`, `affected-files`, `report-file`, `sarif-file`.
@@ -192,7 +92,7 @@ below.
       - run: echo "Health is ${{ steps.doctor.outputs.score }}/100"
 ```
 
-### Permissions
+## Permissions
 
 The action degrades rather than failing when a permission is missing, and logs a
 warning naming the one it needs.
@@ -204,7 +104,7 @@ warning naming the one it needs.
 | Changed-file API fallback | `pull-requests: read` |
 | SARIF upload (via `github/codeql-action/upload-sarif`) | `security-events: write` |
 
-### Pushes to the default branch
+## Pushes to the default branch
 
 A push run always scans the whole project and never fails, whatever `blocking`
 says. It is a health snapshot — surfaced through the job summary and the commit
@@ -242,106 +142,7 @@ npx nestjs-doctor . --scope changed --base origin/main
 npx nestjs-doctor . --staged --blocking error
 ```
 
-## Gates on the command line
+## Next
 
-The same two gates the action exposes, as flags. Everything under
-[Failing the build](#failing-the-build) applies here too — what each gate sees,
-and why `--min-score` is a whole-project measure whatever the scope.
-
-```bash
-# Fail on anything this branch introduced, and on a project score under 80
-npx nestjs-doctor . --scope changed --base origin/main --blocking error --min-score 80
-```
-
-| Flag | Gates on | Default |
-|------|----------|---------|
-| `--blocking none\|warning\|error` | The reported findings | `error` for the console report, `none` for `--json` and `--score` |
-| `--min-score <0-100>` | The whole-project score | Off |
-
-The split default for `--blocking` reproduces the exit codes that shipped before
-the flag existed: the console report already failed on errors, while `--json`
-and `--score` failed only on `--min-score`. Pass `--blocking` explicitly and
-every output mode behaves the same.
-
-Exit codes: `0` pass, `1` a gate failed, `2` bad input.
-
-## Code scanning
-
-SARIF sends findings to the repository's Security tab, where they persist across
-runs as alerts rather than living only in a pull request comment.
-
-```yaml
-permissions:
-  contents: read
-  security-events: write
-
-steps:
-  - uses: actions/checkout@v4
-    with:
-      fetch-depth: 0
-  - uses: RoloBits/nestjs-doctor@v1
-    id: doctor
-    with:
-      scope: full
-      sarif: "true"
-  - uses: github/codeql-action/upload-sarif@v3
-    if: always() && steps.doctor.outputs.sarif-file != ''
-    with:
-      sarif_file: ${{ steps.doctor.outputs.sarif-file }}
-```
-
-Every result carries a `partialFingerprints` entry derived from the rule, path,
-message, and source text. Without it GitHub computes its own fingerprint from
-surrounding source, and an edit near a finding closes the old alert and opens an
-identical new one.
-
-## GitLab
-
-The `gitlab` format emits the CodeClimate subset GitLab's Code Quality widget
-reads, so findings appear on the merge request diff.
-
-```yaml
-nestjs-doctor:
-  image: node:22
-  script:
-    - npx nestjs-doctor@latest . --format gitlab --output gl-code-quality-report.json
-  artifacts:
-    reports:
-      codequality: gl-code-quality-report.json
-```
-
-## Other output formats
-
-| Format | Use |
-|--------|-----|
-| `console` | Human-readable report (default) |
-| `json` | The full result object, for tooling |
-| `sarif` | SARIF 2.1.0, for code scanning |
-| `gitlab` | GitLab Code Quality report |
-| `markdown` | A comment body for any pull or merge request |
-| `github` | Workflow annotations plus a job summary, alongside the console report |
-
-`--output <path>` writes the payload to a file instead of stdout, and
-`--json-compact` drops the indentation from the JSON-based formats.
-
-`github` is additive rather than a replacement: it prints annotations and
-appends the markdown report to `$GITHUB_STEP_SUMMARY` while still printing the
-readable console report to the log. GitHub caps annotations at ten errors and
-ten warnings per step and silently drops the rest, so the annotations are a
-convenience — the job summary carries every finding.
-
-## Pre-commit hook
-
-```bash
-# .husky/pre-commit
-npx nestjs-doctor . --staged --blocking error
-```
-
-`--staged` scopes to the files in the git index. The project is still analysed
-in full, so a change that breaks a cross-file rule is caught even when the file
-it is reported against is not part of the commit.
-
-Running from inside a hook is safe: git exports `GIT_DIR`, `GIT_INDEX_FILE`, and
-friends to every hook, and children inherit them, so nestjs-doctor clears those
-before shelling out to git and resolves everything against the directory it was
-pointed at.
+- [Failing the build](/docs/ci/gates) — gate a pull request on the findings or the score
+- [Other CI providers](/docs/ci/other-providers) — GitLab, SARIF, markdown, pre-commit
