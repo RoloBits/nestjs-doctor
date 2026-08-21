@@ -52,7 +52,7 @@ Self-contained HTML file with six sections: score summary, source-level diagnost
 
 ### Bootstrap timings
 
-The module graph can overlay how long each class took to construct during a real boot — the same data NestJS Devtools reads, kept local. Requires `@nestjs/core` >= 9.3.9. Add this to your `main.ts` (dev only):
+The module graph can overlay how long each class took to construct during a real boot — the same data NestJS Devtools reads, kept local. Requires `@nestjs/core` >= 9.3.10. Add this to your `main.ts` (dev only):
 
 ```ts
 import { writeFileSync } from "node:fs";
@@ -65,8 +65,9 @@ const createMs = performance.now() - t0;
 await app.init();
 const initMs = performance.now() - t0;
 await app.listen(3000);
+const startupMs = performance.now() - t0;
 const graph = JSON.parse(app.get(SerializedGraph).toString());
-Object.assign(graph, { createMs, initMs, startupMs: performance.now() - t0 });
+Object.assign(graph, { createMs, initMs, startupMs });
 writeFileSync("nestjs-doctor-timings.json", JSON.stringify(graph));
 ```
 
