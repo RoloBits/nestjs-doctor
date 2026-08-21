@@ -27,7 +27,10 @@
     "dev": "tsdown --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "generate:skills": "node scripts/generate-skill-content.mjs",
+    "check:skills": "node scripts/generate-skill-content.mjs --check",
+    "prebuild": "node scripts/generate-skill-content.mjs --check"
   },
   "keywords": [
     "nestjs",

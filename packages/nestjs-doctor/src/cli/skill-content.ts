@@ -1,3 +1,109 @@
+// Generated from skills/<name>/SKILL.md by scripts/generate-skill-content.mjs.
+// Edit the markdown, then run `pnpm generate:skills`.
+
+export const BOOT_TRACE_SKILL_TEMPLATE = `---
+name: nestjs-boot-trace
+description: Use when a NestJS application is slow to start, when the user asks why boot takes so long or which provider or onModuleInit is expensive, or when they mention --timings, boot timings, or the boot trace. Instruments main.ts, captures one real boot, and overlays per-class construction times on the module graph.
+allowed-tools: Bash, Read, Edit, Glob, Grep, Write
+---
+
+# NestJS boot trace
+
+> v0.0.0
+
+A scan reads source files and never runs the application, so construction time
+does not exist for it to measure. NestJS records it during a boot. This skill
+captures that boot and feeds it back into the report.
+
+It edits the user's \`src/main.ts\`. Say so before you start, and offer to revert
+it at the end.
+
+## 1. Check the version
+
+\`\`\`bash
+npm ls @nestjs/core
+\`\`\`
+
+\`@nestjs/core\` 9.3.9 or newer records \`initTime\` for every provider and
+controller. Nest 11.1.4 or newer also accepts the \`instrument\` option, which
+times \`onModuleInit\` and \`onApplicationBootstrap\` per class. Below 11.1.4, skip
+\`hookTimings\` and \`instrument\`; class construction times still work.
+
+## 2. Instrument the bootstrap
+
+Add to \`src/main.ts\`, for development only:
+
+\`\`\`ts
+import { writeFileSync } from "node:fs";
+import { performance } from "node:perf_hooks";
+import { NestFactory, SerializedGraph } from "@nestjs/core";
+
+const hookTimings: { className: string; hook: string; ms: number }[] = [];
+
+const t0 = performance.now();
+const app = await NestFactory.create(AppModule, {
+  snapshot: true,
+  instrument: {
+    instanceDecorator(instance: any) {
+      if (!instance || typeof instance !== "object") return instance;
+      for (const hook of ["onModuleInit", "onApplicationBootstrap"]) {
+        const original = instance[hook];
+        if (typeof original !== "function") continue;
+        try {
+          instance[hook] = async function (...args: unknown[]) {
+            const start = performance.now();
+            try { return await original.apply(this, args); }
+            finally { hookTimings.push({ className: this.constructor.name, hook, ms: performance.now() - start }); }
+          };
+        } catch {} // frozen instances stay untimed
+      }
+      return instance;
+    },
+  },
+});
+const createMs = performance.now() - t0;
+await app.init();
+const initMs = performance.now() - t0;
+await app.listen(3000);
+const startupMs = performance.now() - t0;
+
+const graph = JSON.parse(app.get(SerializedGraph).toString());
+Object.assign(graph, { createMs, initMs, startupMs, hookTimings });
+writeFileSync("nestjs-doctor-timings.json", JSON.stringify(graph));
+\`\`\`
+
+\`snapshot: true\` is what makes NestJS record \`initTime\`. The three
+\`performance.now()\` markers become the lifecycle strip. \`instanceDecorator\`
+replaces a method on every instance in the application, so keep it behind an
+environment check or a separate entry point rather than shipping it.
+
+## 3. Boot once, then scan
+
+\`\`\`bash
+npx nestjs-doctor@latest . --report --timings nestjs-doctor-timings.json
+\`\`\`
+
+Relative paths resolve against the scanned directory. Without \`--report\` the
+flag is ignored, with a warning. A missing file, invalid JSON, or a dump
+without \`initTime\` each warn on stderr and still render the report, so check
+stderr before trusting an empty trace.
+
+## 4. Read the result
+
+Each class's time includes waiting on its own dependencies. A shared slow
+dependency therefore counts again in every class that awaits it.
+
+Read down a cascade until the number drops. The class where it drops owns the
+time. If \`UsersService\` reads 120ms and the \`SlowService\` it injects reads 119ms,
+\`SlowService\` owns it.
+
+A module node shows its slowest single class, never a sum.
+
+## 5. Put main.ts back
+
+Revert the instrumentation unless the user asked to keep it behind a flag.
+`;
+
 export const SKILL_TEMPLATE = `---
 name: nestjs-doctor
 description: Use after writing or changing NestJS code, before committing, when a nestjs-doctor check fails in CI, or when the user asks to scan, audit, review, or clean up a Nest project, or mentions circular modules, unused providers, a missing guard, an ORM leaking into a controller, or a slow boot. Runs a deterministic 50-rule scan over security, correctness, architecture, performance, and database schema, then fixes what it finds.
@@ -124,7 +230,7 @@ allowed-tools: Bash, Read, Edit, Glob, Grep, Write
 
 # /nestjs-doctor-create-rule — Generate a Custom nestjs-doctor Rule
 
-> v0.4.10
+> v0.0.0
 
 Create a custom rule for nestjs-doctor that detects a specific pattern or anti-pattern in the user's NestJS codebase.
 
@@ -511,107 +617,4 @@ If the user isn't sure what to check, suggest these common custom rules:
 | Require services have test files | project | correctness | \`require("fs").existsSync(provider.filePath.replace(".ts", ".spec.ts"))\` |
 | Detect providers in multiple modules | project | architecture | Count each provider name across \`moduleGraph.modules.values()\` entries' \`providers[]\` — flag if > 1 |
 | Require DTO validation pipes on POST/PUT | file | correctness | Check \`@Post()\`/\`@Put()\` handler params for \`@Body()\` + \`@UsePipes(ValidationPipe)\` or global pipe |
-`;
-
-export const BOOT_TRACE_SKILL_TEMPLATE = `---
-name: nestjs-boot-trace
-description: Use when a NestJS application is slow to start, when the user asks why boot takes so long or which provider or onModuleInit is expensive, or when they mention --timings, boot timings, or the boot trace. Instruments main.ts, captures one real boot, and overlays per-class construction times on the module graph.
-allowed-tools: Bash, Read, Edit, Glob, Grep, Write
----
-
-# NestJS boot trace
-
-> v0.0.0
-
-A scan reads source files and never runs the application, so construction time
-does not exist for it to measure. NestJS records it during a boot. This skill
-captures that boot and feeds it back into the report.
-
-It edits the user's \`src/main.ts\`. Say so before you start, and offer to revert
-it at the end.
-
-## 1. Check the version
-
-\`\`\`bash
-npm ls @nestjs/core
-\`\`\`
-
-\`@nestjs/core\` 9.3.9 or newer records \`initTime\` for every provider and
-controller. Nest 11.1.4 or newer also accepts the \`instrument\` option, which
-times \`onModuleInit\` and \`onApplicationBootstrap\` per class. Below 11.1.4, skip
-\`hookTimings\` and \`instrument\`; class construction times still work.
-
-## 2. Instrument the bootstrap
-
-Add to \`src/main.ts\`, for development only:
-
-\`\`\`ts
-import { writeFileSync } from "node:fs";
-import { performance } from "node:perf_hooks";
-import { NestFactory, SerializedGraph } from "@nestjs/core";
-
-const hookTimings: { className: string; hook: string; ms: number }[] = [];
-
-const t0 = performance.now();
-const app = await NestFactory.create(AppModule, {
-  snapshot: true,
-  instrument: {
-    instanceDecorator(instance: any) {
-      if (!instance || typeof instance !== "object") return instance;
-      for (const hook of ["onModuleInit", "onApplicationBootstrap"]) {
-        const original = instance[hook];
-        if (typeof original !== "function") continue;
-        try {
-          instance[hook] = async function (...args: unknown[]) {
-            const start = performance.now();
-            try { return await original.apply(this, args); }
-            finally { hookTimings.push({ className: this.constructor.name, hook, ms: performance.now() - start }); }
-          };
-        } catch {} // frozen instances stay untimed
-      }
-      return instance;
-    },
-  },
-});
-const createMs = performance.now() - t0;
-await app.init();
-const initMs = performance.now() - t0;
-await app.listen(3000);
-const startupMs = performance.now() - t0;
-
-const graph = JSON.parse(app.get(SerializedGraph).toString());
-Object.assign(graph, { createMs, initMs, startupMs, hookTimings });
-writeFileSync("nestjs-doctor-timings.json", JSON.stringify(graph));
-\`\`\`
-
-\`snapshot: true\` is what makes NestJS record \`initTime\`. The three
-\`performance.now()\` markers become the lifecycle strip. \`instanceDecorator\`
-replaces a method on every instance in the application, so keep it behind an
-environment check or a separate entry point rather than shipping it.
-
-## 3. Boot once, then scan
-
-\`\`\`bash
-npx nestjs-doctor@latest . --report --timings nestjs-doctor-timings.json
-\`\`\`
-
-Relative paths resolve against the scanned directory. Without \`--report\` the
-flag is ignored, with a warning. A missing file, invalid JSON, or a dump
-without \`initTime\` each warn on stderr and still render the report, so check
-stderr before trusting an empty trace.
-
-## 4. Read the result
-
-Each class's time includes waiting on its own dependencies. A shared slow
-dependency therefore counts again in every class that awaits it.
-
-Read down a cascade until the number drops. The class where it drops owns the
-time. If \`UsersService\` reads 120ms and the \`SlowService\` it injects reads 119ms,
-\`SlowService\` owns it.
-
-A module node shows its slowest single class, never a sum.
-
-## 5. Put main.ts back
-
-Revert the instrumentation unless the user asked to keep it behind a flag.
 `;
