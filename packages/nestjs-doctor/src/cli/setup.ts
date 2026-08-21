@@ -37,10 +37,12 @@ interface SetupContext {
 }
 
 export interface CliArgs {
+	_: string[];
 	base: string | undefined;
 	blocking: string | undefined;
 	"changed-files-from": string | undefined;
 	config: string | undefined;
+	force: boolean;
 	format: string | undefined;
 	init: boolean;
 	json: boolean;
@@ -130,6 +132,29 @@ export class CliSetup {
 				return false;
 			}
 			return true;
+		});
+		return this;
+	}
+
+	/** `nestjs-doctor ci install` scaffolds the workflow and exits. */
+	handleCiInstall(): this {
+		this.steps.push(async () => {
+			const [group, verb, ...rest] = this.args._ ?? [];
+			if (group !== "ci" || !verb) {
+				return true;
+			}
+			if (verb !== "install" || rest.length > 0) {
+				const given = [verb, ...rest].join(" ");
+				failWith(
+					`Unknown command: "ci ${given}". Try: nestjs-doctor ci install`
+				);
+			}
+			const { runCiInstall } = await import("./ci-install.js");
+			const code = await runCiInstall(process.cwd(), this.args.force ?? false);
+			if (code !== 0) {
+				process.exit(code);
+			}
+			return false;
 		});
 		return this;
 	}

@@ -35,6 +35,10 @@ npm install -D nestjs-doctor
 ```
 Usage: nestjs-doctor [directory] [options]
 
+Commands:
+  ci install            Scaffold .github/workflows/nestjs-doctor.yml
+
+Options:
   --verbose             Show file paths and line numbers per diagnostic
   --score               Output only the numeric score (for CI)
   --json                JSON output (for tooling)
@@ -52,6 +56,7 @@ Usage: nestjs-doctor [directory] [options]
   --config <p>          Path to config file
   --list-rules          List every built-in rule and exit
   --init                Set up the /nestjs-doctor skill for AI coding agents
+  --force               Overwrite an existing file (with `ci install`)
   -h, --help            Show help
 ```
 

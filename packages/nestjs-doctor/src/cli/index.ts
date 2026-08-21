@@ -17,7 +17,7 @@ const main = defineCommand({
 		name: "nestjs-doctor",
 		version,
 		description:
-			"Static analysis tool for NestJS — health score, diagnostics, and interactive HTML report",
+			"Static analysis tool for NestJS — health score, diagnostics, and interactive HTML report.\nCommands: ci install (scaffold .github/workflows/nestjs-doctor.yml)",
 	},
 	args: {
 		path: {
@@ -34,6 +34,7 @@ const main = defineCommand({
 		const ctx = await new CliSetup(args as CliArgs, version)
 			.resolveTargetPath()
 			.handleListRules()
+			.handleCiInstall()
 			.validateTargetPath()
 			.handleInit()
 			.handleReport()

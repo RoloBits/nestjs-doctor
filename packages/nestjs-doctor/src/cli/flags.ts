@@ -81,6 +81,11 @@ export const flags = {
 			"Set up the nestjs-doctor skill for AI coding agents (Claude Code, Cursor, Codex, etc.)",
 		default: false,
 	},
+	force: {
+		type: "boolean",
+		description: "Overwrite an existing file (with `ci install`)",
+		default: false,
+	},
 	"list-rules": {
 		type: "boolean",
 		description: "List every built-in rule and exit",

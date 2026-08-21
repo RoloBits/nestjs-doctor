@@ -12,6 +12,22 @@ introduced, and leaving the existing backlog to the score.
 
 ## GitHub Action
 
+### Scaffolding the workflow
+
+```bash
+npx nestjs-doctor@latest ci install
+```
+
+Writes `.github/workflows/nestjs-doctor.yml` and prints which branch it keyed the push trigger to.
+
+**Where it writes.** Always at the git repository root, so running it from `apps/api` in a monorepo still lands the file in the right place. Outside a git repository it refuses rather than dropping a `.github/` tree into whatever directory you happen to be in.
+
+**What it will not touch.** An existing workflow is left alone unless you pass `--force`, and a symlink anywhere on the path (`.github`, `.github/workflows`, or the file itself) is refused outright, so the write can never escape the repository through one.
+
+**Which branch the push trigger uses.** The branch `origin/HEAD` points at, verified to still exist; then `origin/main`, then `origin/master`, then the branch you have checked out. A clone made with `--single-branch`, or a remote added by hand, has no `origin/HEAD` at all — that is why the fallback chain exists, and why the command tells you what it picked.
+
+**What it writes** is a fuller version of the workflow below: the same triggers and permissions, plus `ready_for_review` in the pull request types, a concurrency guard that cancels superseded runs, and the common inputs commented out. The check comments and sets a status but never fails until you uncomment `blocking` or `min-score`.
+
 ```yaml
 # .github/workflows/nestjs-doctor.yml
 name: NestJS Doctor

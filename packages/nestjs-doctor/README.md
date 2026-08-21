@@ -123,6 +123,24 @@ Reviews every pull request and reports **only what the change introduced**, not
 your existing backlog. Posts a sticky summary comment, inline review comments on
 the changed lines, and a commit status with the score.
 
+Scaffold the workflow:
+
+```bash
+npx nestjs-doctor@latest ci install
+```
+
+The file always lands at the git repository root, so running it from a package
+directory in a monorepo still writes to the right place. It refuses to run
+outside a repository rather than guessing, and leaves an existing file alone
+unless you pass `--force`.
+
+What it writes is a fuller version of the workflow below: same triggers and
+permissions, plus `ready_for_review` in the pull request types, a concurrency
+guard, and the common inputs commented out, so the check stays advisory until
+you choose a gate. The push trigger is keyed to the branch `origin/HEAD` points
+at, falling back to `origin/main`, `origin/master`, then the checked out branch
+— it prints which one it chose.
+
 ```yaml
 # .github/workflows/nestjs-doctor.yml
 name: NestJS Doctor
@@ -253,6 +271,10 @@ Exit codes: `1` if a gate fails, `2` for bad input.
 ```
 Usage: nestjs-doctor [directory] [options]
 
+Commands:
+  ci install            Scaffold .github/workflows/nestjs-doctor.yml
+
+Options:
   --verbose             Show file paths and line numbers per diagnostic
   --score               Output only the numeric score (for CI)
   --json                JSON output (for tooling)
@@ -270,6 +292,7 @@ Usage: nestjs-doctor [directory] [options]
   --config <p>          Path to config file
   --list-rules          List every built-in rule and exit
   --init                Set up the /nestjs-doctor skill for AI coding agents
+  --force               Overwrite an existing file (with `ci install`)
   -h, --help            Show help
 ```
 
