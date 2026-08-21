@@ -1,8 +1,5 @@
 import { SoftwareApplicationJsonLd } from "@/components/json-ld";
-import {
-	ModuleGraphSection,
-	SchemaSection,
-} from "@/components/landing/graph-and-schema";
+import { GraphAndSchema } from "@/components/landing/graph-and-schema";
 import { Hero, Nav } from "@/components/landing/hero";
 import { PrReview } from "@/components/landing/pr-review";
 import { Doc } from "@/components/landing/primitives";
@@ -36,8 +33,7 @@ const Home = () => (
 			</div>
 
 			<PrReview />
-			<ModuleGraphSection />
-			<SchemaSection />
+			<GraphAndSchema />
 
 			<section className="py-14">
 				<div className="flex flex-wrap gap-2">

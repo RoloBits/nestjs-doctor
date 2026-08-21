@@ -1,49 +1,18 @@
 "use client";
 
-import { Check, Copy } from "lucide-react";
 import Image from "next/image";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
+import { CommandBlock } from "./command-block";
 import { Figure } from "./primitives";
 
 const COMMAND = "npx -y nestjs-doctor@latest .";
-const COPIED_RESET_MS = 1600;
 
-const CopyCommand = () => {
-	const [copied, setCopied] = useState(false);
-
-	const handleCopy = useCallback(async () => {
-		try {
-			await navigator.clipboard.writeText(COMMAND);
-			setCopied(true);
-			setTimeout(() => setCopied(false), COPIED_RESET_MS);
-		} catch {
-			// Clipboard is unavailable outside a secure context.
-		}
-	}, []);
-
-	const Icon = copied ? Check : Copy;
-
-	return (
-		<div className="inline-flex max-w-full items-stretch border border-white/30">
-			<span className="flex items-center border-white/30 border-r px-3.5 font-bold text-[11px] text-white/70 tracking-[0.08em]">
-				Rx
-			</span>
-			<code className="overflow-x-auto whitespace-nowrap px-4 py-3 text-[#f2f1ef]">
-				<span className="text-white/70">$ </span>
-				{COMMAND}
-			</code>
-			<button
-				aria-label="Copy the command"
-				className="flex items-center border-white/30 border-l px-4 text-white/70 transition-colors hover:bg-white hover:text-black"
-				onClick={handleCopy}
-				type="button"
-			>
-				<Icon size={14} />
-			</button>
-		</div>
-	);
-};
-
+const POINTS = [
+	"An opinionated rule set for an opinionated framework.",
+	"A reviewer for your PRs.",
+	"Maps your modules, database, and boot in a visual report.",
+	"Extends with rules you write yourself.",
+];
 /** Some browsers defer autoplay until the element is ready. */
 const Recording = () => {
 	const ref = useRef<HTMLVideoElement>(null);
@@ -83,16 +52,17 @@ export const Hero = () => (
 	<section className="grid min-h-0 flex-1 gap-12 border-white/15 border-b py-6 lg:grid-cols-[52fr_48fr]">
 		<div className="self-center">
 			<h1 className="mt-0 mb-4 text-balance font-extralight text-[#f2f1ef] text-[clamp(30px,3.4vw,46px)] leading-[1.08] tracking-[-0.02em]">
-				The deterministic, visual devtool for NestJS that{" "}
-				<span className="font-bold text-nest-red">catches AI mistakes.</span>
+				The deterministic,{" "}
+				<span className="font-normal text-nest-red">NestJS</span> devtool that{" "}
+				<span className="font-normal text-nest-red">catches AI mistakes</span>
 			</h1>
-			<p className="mb-5 max-w-[66ch] text-[13px] text-white/[0.92] leading-relaxed">
-				An opinionated rule set for an opinionated framework, a reviewer for
-				your PRs. Maps your modules, database, and boot in a visual report.
-				Extends with rules you write yourself.
-			</p>
+			<div className="mb-5 max-w-[66ch] space-y-1 text-[13px] text-white/[0.92] leading-relaxed">
+				{POINTS.map((point) => (
+					<p key={point}>{point}</p>
+				))}
+			</div>
 
-			<CopyCommand />
+			<CommandBlock command={COMMAND} />
 
 			<p className="mt-5 inline-block border-white/15 border-t border-b py-2 font-bold text-[11px] text-white/[0.92] uppercase tracking-[0.08em]">
 				0 network calls · 0 AI calls · same output every run

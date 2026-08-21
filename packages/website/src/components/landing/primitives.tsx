@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { CommandBlock } from "./command-block";
 
 export const Doc = ({ children }: { children: ReactNode }) => (
 	<div className="landing bg-black font-mono font-normal text-[#e8e8e8] text-[13px] leading-relaxed">
@@ -47,6 +48,40 @@ export const Figure = ({
 	</figure>
 );
 
+/** Two compact exhibits side by side: figure, then title, then a line of copy. */
+export const SectionPair = ({
+	items,
+}: {
+	items: {
+		title: string;
+		copy: ReactNode;
+		figure: ReactNode;
+		command: string;
+		docs: { href: string; label: string };
+	}[];
+}) => (
+	<section className="grid gap-12 border-white/15 border-b py-10 lg:grid-cols-2">
+		{items.map((item) => (
+			<div key={item.title}>
+				{item.figure}
+				<h2 className="mt-5 mb-3 font-bold text-[#f2f1ef] text-xl leading-tight tracking-[-0.01em]">
+					{item.title}
+				</h2>
+				<CommandBlock command={item.command} />
+				<div className="mt-3 max-w-[52ch] text-[13px] text-white/[0.92] leading-relaxed [&_b]:text-white [&_code]:bg-white/10 [&_code]:px-1.5 [&_code]:py-px [&_code]:text-white">
+					{item.copy}
+				</div>
+				<a
+					className="mt-3 inline-block text-nest-red underline underline-offset-4"
+					href={item.docs.href}
+				>
+					{item.docs.label} →
+				</a>
+			</div>
+		))}
+	</section>
+);
+
 export const Section = ({
 	title,
 	copy,
@@ -58,9 +93,9 @@ export const Section = ({
 	figure: ReactNode;
 	figureLeft?: boolean;
 }) => (
-	<section className="border-white/15 border-b py-14">
+	<section className="border-white/15 border-b py-10">
 		<div
-			className={`grid items-start gap-12 lg:grid-cols-[5fr_7fr] ${figureLeft ? "lg:grid-cols-[7fr_5fr]" : ""}`}
+			className={`grid items-center gap-12 lg:grid-cols-[5fr_7fr] ${figureLeft ? "lg:grid-cols-[7fr_5fr]" : ""}`}
 		>
 			<div className={figureLeft ? "lg:order-2" : ""}>
 				<h2 className="mt-0 mb-5 max-w-[40ch] text-balance font-bold text-2xl text-[#f2f1ef] leading-tight tracking-[-0.01em]">

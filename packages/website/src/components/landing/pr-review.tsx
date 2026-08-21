@@ -1,3 +1,4 @@
+import { CommandBlock } from "./command-block";
 import { Figure, Section } from "./primitives";
 
 const G = {
@@ -370,24 +371,18 @@ export const PrReview = () => (
 	<Section
 		copy={
 			<>
+				<CommandBlock command="npx nestjs-doctor@latest ci install" />
 				<p>
-					Run <code>npx nestjs-doctor@latest ci install</code> from the project
-					root, or copy the workflow from the CI docs. nestjs-doctor reports the
-					issues each pull request introduces.
+					Runs as a required check. It comments on the issues the pull request
+					introduces, and blocks at the severity you choose.
 				</p>
 				<p>
-					The action scans the PR and the base branch, then reports the delta.
-					Pre-existing findings stay out of the conversation —{" "}
-					<b>a comment only appears on a line this PR added.</b>
-				</p>
-				<p>
-					One sticky summary comment, updated in place on every push. No comment
-					spam, no re-litigating old debt.
-				</p>
-				<p>
-					The check fails when the score drops below your gate. The full score
-					still reflects the whole project — narrowing the review never hides
-					existing damage.
+					<a
+						className="text-nest-red underline underline-offset-4"
+						href="/docs/ci"
+					>
+						CI docs →
+					</a>
 				</p>
 			</>
 		}
