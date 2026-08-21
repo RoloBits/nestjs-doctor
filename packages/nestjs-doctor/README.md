@@ -19,22 +19,20 @@
 </p>
 
 An opinionated rule set for an opinionated framework. nestjs-doctor scans your
-codebase and reports issues across **security**, **correctness**,
-**architecture**, **performance**, and **schema**, then scores it 0-100.
+codebase and reports findings across security, correctness, architecture,
+performance, and schema, then scores it 0-100.
 
-No AI at scan time, no network calls — the same commit scores the same on your
+No AI at scan time and no network calls. The same commit scores the same on your
 laptop and in CI. Reads schemas from Prisma, TypeORM, Drizzle and MikroORM, and
 handles monorepos.
 
 [Website →](https://nestjs.doctor/docs)
 
----
-
 ## Install
 
 ### 1. Quick start
 
-Run this at your project root to get an audit.
+Run this at your project root:
 
 ```bash
 npx nestjs-doctor@latest .
@@ -46,50 +44,53 @@ Add `--verbose` for file paths and line numbers.
 
 ### 2. Open the report
 
+Build `nestjs-doctor-report.html`:
+
 ```bash
 npx nestjs-doctor@latest . --report
 ```
 
-A self-contained HTML file: score summary, diagnostics with a code viewer, an
-interactive module graph, traced HTTP endpoints, the schema ER diagram, and a
-playground for writing your own rules.
+One self-contained file: score summary, findings with a code viewer, and an
+interactive module graph. Traced HTTP endpoints, the schema ER diagram, and a
+rule playground get their own tabs.
 
 ![Module Graph](https://nestjs.doctor/module-graph.png)
 
-Add `--timings` with a graph dump from a real `nest start` and the graph gains a
-boot trace, so the 800ms hiding in an `onModuleInit` shows up as a bar.
+Pass `--timings` a graph dump from a real `nest start` and the module graph
+gains a boot trace. The 800ms hiding in an `onModuleInit` becomes a bar.
 [Report docs →](https://nestjs.doctor/docs/pipeline/output)
 
 ### 3. Run in CI
+
+Write `.github/workflows/nestjs-doctor.yml`:
 
 ```bash
 npx nestjs-doctor@latest ci install
 ```
 
-Writes `.github/workflows/nestjs-doctor.yml`. The action reviews every pull
-request and reports **only what the change introduced**, not your existing
-backlog: a sticky summary comment, inline review comments on the changed lines,
-and a commit status with the score.
+The action reviews every pull request and reports only what the change
+introduced, not the existing backlog. It posts a sticky summary comment, inline
+review comments on the changed lines, and a commit status with the score.
 
-It never fails a check until you ask it to — set `blocking` or `min-score` when
-your team is ready. [CI docs →](https://nestjs.doctor/docs/ci)
+It never fails a check until you ask it to. Set `blocking` or `min-score` when
+ready. [CI docs →](https://nestjs.doctor/docs/ci)
 
 ### 4. Install for agents
+
+Install the agent skill:
 
 ```bash
 npx nestjs-doctor@latest --init
 ```
 
-Installs a skill so your coding agent runs the scan and fixes what it finds.
-Works with Claude Code, Cursor, Codex, OpenCode, Windsurf, Gemini CLI, and more.
+The agent then runs the scan itself and fixes what it finds. Works with Claude
+Code, Cursor, Codex, OpenCode, Windsurf, Gemini CLI, and more.
 [Agent docs →](https://nestjs.doctor/docs/coding-agents)
 
 ### 5. Configure rules
 
-Optional. Drop a `nestjs-doctor.config.json` in your project root to turn rules
-or whole categories off, override a severity, set a score floor, or point at
-your own rules directory. It also works as a `"nestjs-doctor"` key in
-`package.json`.
+Optional. Drop a `nestjs-doctor.config.json` at your project root to turn rules
+or categories off, set a score floor, or point at a custom rules directory:
 
 ```json
 {
@@ -104,15 +105,16 @@ your own rules directory. It also works as a `"nestjs-doctor"` key in
 }
 ```
 
+The same shape works as `.nestjs-doctor.json`, or as a `"nestjs-doctor"` key in
+`package.json`.
+
 [Configuration →](https://nestjs.doctor/docs/configuration) ·
 [Custom rules →](https://nestjs.doctor/docs/custom-rules)
 
----
-
 ## Rules
 
-50 built-in rules. Every finding carries a file, a line, and a rule id you can
-suppress or configure.
+50 built-in rules. Every finding carries a file and a rule id you can suppress
+or configure, plus a line unless it reports against a schema entity.
 
 | Category | Rules | Catches |
 |---|---|---|
@@ -129,16 +131,12 @@ Suppress a single finding inline:
 constructor(private readonly prisma: PrismaService) {}
 ```
 
----
-
 ## Editors and tooling
 
-- **VS Code** — [NestJS Doctor](https://marketplace.visualstudio.com/items?itemName=rolobits.nestjs-doctor-vscode) surfaces the same rules as you type. [Docs →](https://nestjs.doctor/docs/vscode-extension)
-- **Other CI** — GitLab Code Quality, SARIF for any code-scanning backend, or a markdown body to post yourself. [Docs →](https://nestjs.doctor/docs/ci)
-- **Node API** — `scanProject()` and an incremental API for editors and long-running processes. [Docs →](https://nestjs.doctor/docs/reference/node-api)
-- **Monorepos** — detected from `nest-cli.json`, pnpm workspaces, `package.json` workspaces, Nx, or Lerna. [Docs →](https://nestjs.doctor/docs/pipeline/project-detection)
-
----
+- **VS Code:** [NestJS Doctor](https://marketplace.visualstudio.com/items?itemName=rolobits.nestjs-doctor-vscode) surfaces the same rules as you type. [Docs →](https://nestjs.doctor/docs/vscode-extension)
+- **Other CI:** GitLab Code Quality, SARIF for any code-scanning backend, or a markdown body to post yourself. [Docs →](https://nestjs.doctor/docs/ci)
+- **Node API:** `diagnose()` plus an incremental API for editors and long-running processes. [Docs →](https://nestjs.doctor/docs/reference/node-api)
+- **Monorepos:** detected from `nest-cli.json`, pnpm workspaces, `package.json` workspaces, Nx, or Lerna. [Docs →](https://nestjs.doctor/docs/pipeline/project-detection)
 
 ## Contributing
 

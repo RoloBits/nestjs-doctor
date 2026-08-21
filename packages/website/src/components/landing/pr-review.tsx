@@ -1,4 +1,3 @@
-import { CommandBlock } from "./command-block";
 import { Figure, Section } from "./primitives";
 
 const G = {
@@ -369,9 +368,9 @@ const PullRequestMock = () => (
 
 export const PrReview = () => (
 	<Section
+		command="npx nestjs-doctor@latest ci install"
 		copy={
 			<>
-				<CommandBlock command="npx nestjs-doctor@latest ci install" />
 				<p>
 					Runs as a required check. It comments on the issues the pull request
 					introduces, and blocks at the severity you choose.

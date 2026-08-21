@@ -87,21 +87,24 @@ export const Section = ({
 	copy,
 	figure,
 	figureLeft = false,
+	command,
 }: {
 	title: string;
 	copy: ReactNode;
 	figure: ReactNode;
 	figureLeft?: boolean;
+	command?: string;
 }) => (
 	<section className="border-white/15 border-b py-10">
 		<div
-			className={`grid items-center gap-12 lg:grid-cols-[5fr_7fr] ${figureLeft ? "lg:grid-cols-[7fr_5fr]" : ""}`}
+			className={`grid items-start gap-12 lg:grid-cols-[5fr_7fr] ${figureLeft ? "lg:grid-cols-[7fr_5fr]" : ""}`}
 		>
-			<div className={figureLeft ? "lg:order-2" : ""}>
+			<div className={figureLeft ? "lg:order-2 lg:pt-10" : "lg:pt-10"}>
 				<h2 className="mt-0 mb-5 max-w-[40ch] text-balance font-bold text-2xl text-[#f2f1ef] leading-tight tracking-[-0.01em]">
 					{title}
 				</h2>
-				<div className="space-y-4 text-[13px] text-white/[0.92] leading-relaxed [&_b]:text-white [&_code]:bg-white/10 [&_code]:px-1.5 [&_code]:py-px [&_code]:text-white">
+				{command ? <CommandBlock command={command} /> : null}
+				<div className="mt-4 space-y-4 text-[13px] text-white/[0.92] leading-relaxed [&_b]:text-white [&_code]:bg-white/10 [&_code]:px-1.5 [&_code]:py-px [&_code]:text-white">
 					{copy}
 				</div>
 			</div>
