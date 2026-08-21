@@ -100,6 +100,8 @@ export const Nav = () => (
 					className="inline-flex items-center border border-white/30 px-4 py-1.5 font-bold text-[11px] text-white/75 uppercase tracking-[0.08em] no-underline transition-colors hover:border-white hover:bg-white hover:text-black"
 					href={link.href}
 					key={link.href}
+					rel={link.href.startsWith("http") ? "noreferrer" : undefined}
+					target={link.href.startsWith("http") ? "_blank" : undefined}
 				>
 					{link.label}
 				</a>

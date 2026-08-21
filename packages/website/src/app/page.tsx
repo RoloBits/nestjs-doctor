@@ -46,6 +46,8 @@ const Home = () => (
 							}`}
 							href={link.href}
 							key={link.href}
+							rel={link.href.startsWith("http") ? "noreferrer" : undefined}
+							target={link.href.startsWith("http") ? "_blank" : undefined}
 						>
 							{link.label}
 						</a>
@@ -55,11 +57,17 @@ const Home = () => (
 
 			<footer className="border-white/30 border-t py-5 pb-10">
 				<div className="flex flex-wrap justify-between gap-3 font-bold text-[11px] text-white/75 uppercase tracking-[0.1em]">
-					<span>
-						NDX-001 · nestjs-doctor · MIT · will look the same next year
-					</span>
+					<span>nestjs-doctor · MIT</span>
 					<span className="normal-case tracking-[0.06em]">
-						no telemetry · no network calls at scan time · RoloBits
+						no telemetry · no network calls at scan time ·{" "}
+						<a
+							className="text-white/75 underline decoration-white/30 underline-offset-2 transition-colors hover:text-white hover:decoration-white"
+							href="https://x.com/FranLoPy"
+							rel="noreferrer"
+							target="_blank"
+						>
+							RoloBits
+						</a>
 					</span>
 				</div>
 			</footer>
