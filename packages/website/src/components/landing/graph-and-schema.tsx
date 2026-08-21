@@ -263,16 +263,16 @@ export const GraphAndSchema = () => (
 				title: "See the architecture your imports actually form.",
 				copy: (
 					<p>
-						Draws the module graph your imports actually form. Add{" "}
+						Draws the module graph your imports actually form. Add a few lines
+						to <code>main.ts</code>, boot once, and{" "}
 						<a
 							className="text-nest-red underline underline-offset-4"
-							href="/docs/pipeline/output"
+							href="/docs/report/boot-trace"
 						>
 							<code>--timings</code>
 						</a>{" "}
-						with a graph dump from a real <code>nest start</code> and every
-						lifecycle hook gets a bar, so the 800ms hiding in an{" "}
-						<code>onModuleInit</code> stops being a hunch.
+						overlays the real construction times. The 800ms hiding in an{" "}
+						<code>onModuleInit</code> becomes a bar.
 					</p>
 				),
 				figure: <ModuleGraph />,

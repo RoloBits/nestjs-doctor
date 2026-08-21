@@ -94,7 +94,7 @@ npx nestjs-doctor . --report --timings nestjs-doctor-timings.json
 
 Each class's time includes waiting on its own dependencies, so a shared slow dependency counts again in every class that awaits it. Module nodes show the slowest single class, never a sum. Timings are display-only and never affect the score, the diagnostics, or the exit code. An unusable dump degrades to a stderr warning.
 
-Docs: https://www.nestjs.doctor/docs/report/boot-trace
+Docs: https://nestjs.doctor/docs/report/boot-trace
 
 ## GitHub Action
 
@@ -204,7 +204,7 @@ npx nestjs-doctor-lsp --stdio
 
 The client has to send a workspace root (`rootUri`, or `rootPath`), and `nestjs-doctor` has to be a dependency of the project it points at. The server loads the engine from there.
 
-Docs: https://www.nestjs.doctor/docs/language-server
+Docs: https://nestjs.doctor/docs/language-server
 
 ## Rules (50)
 
@@ -277,6 +277,6 @@ Schema rules run against entities extracted from Prisma, TypeORM, Drizzle, or Mi
 
 ## Links
 
-- Docs: https://www.nestjs.doctor/docs
+- Docs: https://nestjs.doctor/docs
 - npm: https://npmjs.com/package/nestjs-doctor
 - GitHub: https://github.com/RoloBits/nestjs-doctor
