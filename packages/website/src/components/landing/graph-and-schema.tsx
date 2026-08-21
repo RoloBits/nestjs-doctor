@@ -54,7 +54,7 @@ const BOOT = [
 ];
 
 const ModuleGraph = () => (
-	<Figure caption="Fig. 04 — Module graph" meta="6 modules · 1 cycle">
+	<Figure caption="Fig. 03 — Module graph" meta="6 modules · 1 cycle">
 		<div className={BODY}>
 			<svg
 				aria-hidden="true"
@@ -177,7 +177,7 @@ const LEVEL = {
 
 const SchemaDiagram = () => (
 	<Figure
-		caption="Fig. 05 — Entity relation sketch"
+		caption="Fig. 04 — Entity relation sketch"
 		meta="prisma · 12 entities"
 	>
 		<div className={BODY}>
