@@ -44,19 +44,9 @@ provides, and what breaks if you change it.
 
 ## Boot trace
 
-The graph can overlay how long each class took to construct during a real boot.
-NestJS records the timings itself, and `--timings` reads the dump:
+The graph can overlay how long every provider and controller took to construct
+during one real boot. Lifecycle hook durations come along with them.
 
-```bash
-npx nestjs-doctor@latest . --report --timings nestjs-doctor-timings.json
-```
-
-Producing the dump takes one change to `main.ts`, documented in
-[Output](/docs/pipeline/output#bootstrap-timings---timings). Boot the app once, then scan.
-
-Each class's time includes waiting on its own dependencies, so a shared slow
-dependency counts again in every class that awaits it. Module nodes show the
-slowest single class, never a sum. Read down the cascade until the number drops:
-the class where it drops owns the time.
-
-Timings never affect the score, the diagnostics, or the exit code.
+Producing those numbers needs one change to `main.ts`, because a scan never
+runs your application. [Boot trace](/docs/report/boot-trace) covers the change
+and how to read the result.

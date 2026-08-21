@@ -16,6 +16,11 @@ export const docsMetadata: Record<string, Metadata> = {
 		description:
 			"Generate the interactive HTML report: score summary, diagnostics with a code viewer, module graph, endpoint traces, schema ER diagram, and the boot trace.",
 	},
+	"/docs/report/boot-trace": {
+		title: "Boot trace",
+		description:
+			"Overlay real per-class construction times on the report's module graph: the main.ts change that captures a NestJS boot, and how to read the result.",
+	},
 	"/docs/coding-agents": {
 		title: "Coding agents",
 		description:

@@ -1,0 +1,155 @@
+import { BreadcrumbJsonLd } from "@/components/json-ld";
+import { CodeGroup } from "@/components/docs/code-group";
+import { SplitDiff } from "@/components/docs/split-diff";
+import { docsMetadata } from "@/lib/docs-metadata";
+export const metadata = docsMetadata["/docs/report/boot-trace"];
+
+<BreadcrumbJsonLd path="/docs/report/boot-trace" />
+
+# Boot trace
+
+The module graph can overlay how long every provider and controller took to
+construct during one real boot. A slow constructor or `onModuleInit` stops
+being a guess and becomes a bar with a number on it.
+
+## Why it needs a change to your code
+
+A scan reads source files. It never runs your application, so construction time
+does not exist for it to measure.
+
+NestJS measures it already. Booting with `{ snapshot: true }` records an
+`initTime` for every class and assembles a `SerializedGraph`. Writing that
+graph to disk takes one change to `main.ts`, and `--timings` reads it back.
+
+## Capture the dump
+
+Two versions gate what you get:
+
+- **Class construction times:** `@nestjs/core` 9.3.9 or newer, which added `initTime`.
+- **Lifecycle hook times:** Nest 11.1.4 or newer, which added the `instrument` option.
+
+export const STOCK = `import { NestFactory } from "@nestjs/core";
+import { AppModule } from "./app.module";
+
+const app = await NestFactory.create(AppModule);
+await app.listen(3000);`;
+
+export const V9 = `import { writeFileSync } from "node:fs";
+import { performance } from "node:perf_hooks";
+import { NestFactory, SerializedGraph } from "@nestjs/core";
+import { AppModule } from "./app.module";
+
+const t0 = performance.now();
+const app = await NestFactory.create(AppModule, { snapshot: true });
+const createMs = performance.now() - t0;
+await app.init();
+const initMs = performance.now() - t0;
+await app.listen(3000);
+const startupMs = performance.now() - t0;
+
+const graph = JSON.parse(app.get(SerializedGraph).toString());
+Object.assign(graph, { createMs, initMs, startupMs });
+writeFileSync("nestjs-doctor-timings.json", JSON.stringify(graph));`;
+
+export const V11 = `import { writeFileSync } from "node:fs";
+import { performance } from "node:perf_hooks";
+import { NestFactory, SerializedGraph } from "@nestjs/core";
+import { AppModule } from "./app.module";
+
+const hookTimings: { className: string; hook: string; ms: number }[] = [];
+
+const t0 = performance.now();
+const app = await NestFactory.create(AppModule, {
+  snapshot: true,
+  instrument: {
+    instanceDecorator(instance: any) {
+      if (!instance || typeof instance !== "object") return instance;
+      for (const hook of ["onModuleInit", "onApplicationBootstrap"]) {
+        const original = instance[hook];
+        if (typeof original !== "function") continue;
+        try {
+          instance[hook] = async function (...args: unknown[]) {
+            const start = performance.now();
+            try { return await original.apply(this, args); }
+            finally { hookTimings.push({ className: this.constructor.name, hook, ms: performance.now() - start }); }
+          };
+        } catch {} // frozen instances stay untimed
+      }
+      return instance;
+    },
+  },
+});
+const createMs = performance.now() - t0;
+await app.init();
+const initMs = performance.now() - t0;
+await app.listen(3000);
+const startupMs = performance.now() - t0;
+
+const graph = JSON.parse(app.get(SerializedGraph).toString());
+Object.assign(graph, { createMs, initMs, startupMs, hookTimings });
+writeFileSync("nestjs-doctor-timings.json", JSON.stringify(graph));`;
+
+Pick your version. The right column is what `src/main.ts` becomes, and it is
+development-only either way:
+
+<CodeGroup labels={["NestJS 9.3.9+", "NestJS 11.1.4+"]}>
+
+<SplitDiff after={V9} before={STOCK} labels={["main.ts", "main.ts, instrumented"]} />
+
+<SplitDiff after={V11} before={STOCK} labels={["main.ts", "main.ts, instrumented"]} />
+
+</CodeGroup>
+
+`snapshot: true` is the part that makes NestJS record `initTime`. The three
+`performance.now()` markers become the lifecycle strip. On 11.1.4 and newer,
+`instanceDecorator` wraps each instance's hooks so their durations land in
+`hookTimings`.
+
+That decorator replaces a method on every instance in the application. Keep it
+out of production behind an environment check or a separate entry point.
+
+Boot the app once, then scan:
+
+```bash
+npx nestjs-doctor@latest . --report --timings nestjs-doctor-timings.json
+```
+
+Relative paths resolve against the scanned directory. Without `--report` the
+flag is ignored, with a warning.
+
+## Read a time
+
+Each class's time includes waiting on its own dependencies. A shared slow
+dependency therefore counts again in every class that awaits it.
+
+Read down a cascade until the number drops. The class where it drops owns the
+time. If `UsersService` reads 120ms and the `SlowService` it injects reads
+119ms, `SlowService` owns it.
+
+A module node shows its slowest single class, never a sum.
+
+## What the report shows
+
+| Element | Where | Means |
+|---|---|---|
+| `time to start ≈ <ms>` | Header badge | Bootstrap start until `app.listen()` resolved, hooks included, from `startupMs`. Without it, falls back to `boot ≈ <ms>`, the slowest construction chain |
+| Lifecycle strip | Top of the Boot trace tab | `create · lifecycle hooks · listen`, from the `createMs` and `initMs` markers |
+| Proportional bars | Per class, slowest first | Colored by type: provider, controller, injectable, middleware |
+| Amber segment | On a class bar | The share not explained by that class's slowest dependency, so roughly its own work |
+| `+120ms init` chip | On a trace row | A `hookTimings` entry, joined only when the class name is unique in the dump. Repeated entries from transient providers merge into one `×N` chip |
+| `reused` tag | Dimmed, hollow row | The dependency was already built when its parent loaded, so its cost was paid at its first consumer |
+| `listed above` tag | On a repeat | The dependency has its own top-level row, so its cost is not drawn twice |
+
+Either tag carries down to the rows nested under it. Selecting a module fills
+the Boot trace tab, which shares the bottom dock with Module problems. A trace
+button next to the module's name in the detail panel opens the same tab.
+
+## Limits
+
+- Timings are display-only. They never affect the score, the diagnostics, or
+  the exit code.
+- An unreadable, malformed, or unrecognized dump degrades to a stderr warning,
+  and the report renders without timings.
+- Out-of-order phase markers drop the lifecycle strip, also with a warning.
+- A timing attaches to a module only when that module's class name is unique,
+  inside the dump and across a monorepo's projects.
