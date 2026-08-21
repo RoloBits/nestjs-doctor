@@ -13,6 +13,7 @@ const SKILL_FIXTURES: Record<string, string> = {
 const missingSkills = new Set<string>();
 const BACKSLASH_RE = /\\/g;
 const SKILL_PATH_RE = /\/skills\/([^/]+)\/SKILL\.md$/;
+const CREATE_RULE_REFS_RE = /nestjs-doctor-create-rule\/references$/;
 const FAKE_VERSION = "1.2.3";
 
 const mockState = {
@@ -20,12 +21,14 @@ const mockState = {
 	existingFileContents: new Map<string, string>(),
 	failingWritePaths: new Set<string>(),
 	availableCommands: new Set<string>(),
+	skillsHaveReferences: false,
 };
 
 const writes = {
 	files: new Map<string, string>(),
 	appends: new Map<string, string>(),
 	dirs: new Set<string>(),
+	copies: new Map<string, string>(),
 };
 
 vi.mock("node:os", () => ({
@@ -34,7 +37,9 @@ vi.mock("node:os", () => ({
 
 vi.mock("node:fs", () => ({
 	existsSync: (p: string) =>
-		mockState.existingPaths.has(p) || mockState.existingFileContents.has(p),
+		mockState.existingPaths.has(p) ||
+		mockState.existingFileContents.has(p) ||
+		(mockState.skillsHaveReferences && p.endsWith("references")),
 }));
 
 const WHICH_RE = /^(which|where)\s+/;
@@ -59,6 +64,10 @@ vi.mock("node:fs/promises", () => ({
 	},
 	appendFile: (p: string, content: string) => {
 		writes.appends.set(p, content);
+		return Promise.resolve();
+	},
+	cp: (from: string, to: string) => {
+		writes.copies.set(to, from);
 		return Promise.resolve();
 	},
 	mkdir: (p: string) => {
@@ -99,6 +108,7 @@ vi.mock("../../src/cli/ui/logger.js", () => ({
 
 beforeEach(() => {
 	missingSkills.clear();
+	mockState.skillsHaveReferences = false;
 	mockState.existingPaths.clear();
 	mockState.existingFileContents.clear();
 	mockState.failingWritePaths.clear();
@@ -107,6 +117,7 @@ beforeEach(() => {
 	writes.files.clear();
 	writes.appends.clear();
 	writes.dirs.clear();
+	writes.copies.clear();
 
 	vi.clearAllMocks();
 });
@@ -255,6 +266,33 @@ describe("initSkill", () => {
 		expect(writes.appends.get(rulesPath)).toContain(
 			"<!-- nestjs-doctor:start -->"
 		);
+	});
+
+	it("copies a skill's references directory alongside SKILL.md", async () => {
+		mockState.existingPaths.add(join(FAKE_HOME, ".claude"));
+		mockState.skillsHaveReferences = true;
+
+		const initSkill = await loadInitSkill();
+		await initSkill("/project", FAKE_VERSION);
+
+		const target = join(
+			FAKE_HOME,
+			".claude",
+			"skills",
+			"nestjs-doctor-create-rule",
+			"references"
+		);
+		expect(writes.copies.has(target)).toBe(true);
+		expect(writes.copies.get(target)).toMatch(CREATE_RULE_REFS_RE);
+	});
+
+	it("copies nothing when a skill has no references directory", async () => {
+		mockState.existingPaths.add(join(FAKE_HOME, ".claude"));
+
+		const initSkill = await loadInitSkill();
+		await initSkill("/project", FAKE_VERSION);
+
+		expect(writes.copies.size).toBe(0);
 	});
 
 	it("stops with an actionable error when a skill source is missing", async () => {

@@ -55,7 +55,19 @@ try {
 		throw new Error(`--init wrote no .agents/${missing.join(", .agents/")}`);
 	}
 
-	process.stdout.write(`Packed install ok: ${installed.join(", ")}\n`);
+	// references/ only reaches the user if the installer copies the directory.
+	const refs = readdirSync(
+		join(project, ".agents", "nestjs-doctor-create-rule", "references")
+	).sort();
+	if (refs.length === 0) {
+		throw new Error(
+			"--init wrote no references/ for nestjs-doctor-create-rule"
+		);
+	}
+
+	process.stdout.write(
+		`Packed install ok: ${installed.join(", ")} (+${refs.length} references)\n`
+	);
 } catch (error) {
 	failed = true;
 	process.stderr.write(`${error.stderr ?? ""}${error.message}\n`);

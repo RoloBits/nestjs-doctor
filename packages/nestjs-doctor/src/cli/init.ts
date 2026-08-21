@@ -1,6 +1,6 @@
 import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { appendFile, cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -47,33 +47,42 @@ const isCommandAvailable = (command: string): boolean => {
 
 const writeAgentsOnly = async (
 	directory: string,
-	skillContent: string
+	skill: Skill
 ): Promise<void> => {
 	await mkdir(directory, { recursive: true });
 	await writeFile(
 		join(directory, "AGENTS.md"),
-		toAgentsContent(skillContent),
+		toAgentsContent(skill.body),
 		"utf-8"
 	);
 };
 
 const writeSkillPair = async (
 	directory: string,
-	skillContent: string
+	skill: Skill
 ): Promise<void> => {
 	await mkdir(directory, { recursive: true });
-	await writeFile(join(directory, "SKILL.md"), skillContent, "utf-8");
+	await writeFile(join(directory, "SKILL.md"), skill.body, "utf-8");
 	await writeFile(
 		join(directory, "AGENTS.md"),
-		toAgentsContent(skillContent),
+		toAgentsContent(skill.body),
 		"utf-8"
 	);
+	const references = join(skill.source, "references");
+	if (existsSync(references)) {
+		await cp(references, join(directory, "references"), { recursive: true });
+	}
 };
 
+interface Skill {
+	body: string;
+	source: string;
+}
+
 interface SkillContents {
-	bootTrace: string;
-	createRule: string;
-	main: string;
+	bootTrace: Skill;
+	createRule: Skill;
+	main: Skill;
 }
 
 interface SkillTarget {
@@ -186,9 +195,9 @@ const SKILL_TARGETS: SkillTarget[] = [
 			const end = "<!-- nestjs-doctor:end -->";
 			const block = [
 				start,
-				toAgentsContent(skills.main),
-				toAgentsContent(skills.createRule),
-				toAgentsContent(skills.bootTrace),
+				toAgentsContent(skills.main.body),
+				toAgentsContent(skills.createRule.body),
+				toAgentsContent(skills.bootTrace.body),
 				end,
 			].join("\n");
 
@@ -293,9 +302,13 @@ export const initSkill = async (
 	targetPath: string,
 	version: string
 ): Promise<void> => {
-	const read = async (name: string): Promise<string> => {
-		const body = await readFile(skillFile(name), "utf-8");
-		return body.replace(VERSION_LINE_RE, `> v${version}`);
+	const read = async (name: string): Promise<Skill> => {
+		const file = skillFile(name);
+		const body = await readFile(file, "utf-8");
+		return {
+			body: body.replace(VERSION_LINE_RE, `> v${version}`),
+			source: dirname(file),
+		};
 	};
 
 	let skills: SkillContents;

@@ -25,3 +25,9 @@ The skills are real markdown in `skills/<name>/SKILL.md`, copied into
 ships them as files rather than as strings baked into the bundle. Each one is
 validated at build time, which caught a `create-rule` skill that had no `name:`
 in its frontmatter.
+
+The create-rule skill is split. Its 18KB was mostly reference material that
+only matters once you are writing the rule, so the type signatures, the two
+worked examples, and the ts-morph patterns moved to `references/` and load on
+demand. `--init` copies a skill's `references/` directory alongside its
+`SKILL.md`.
