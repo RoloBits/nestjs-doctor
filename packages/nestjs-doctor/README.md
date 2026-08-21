@@ -82,7 +82,7 @@ npx nestjs-doctor@latest --init
 
 Installs a skill so your coding agent runs the scan and fixes what it finds.
 Works with Claude Code, Cursor, Codex, OpenCode, Windsurf, Gemini CLI, and more.
-[Agent docs →](https://nestjs.doctor/docs/setup#ai-coding-agents)
+[Agent docs →](https://nestjs.doctor/docs/coding-agents)
 
 ### 5. Configure rules
 
@@ -135,7 +135,7 @@ constructor(private readonly prisma: PrismaService) {}
 
 - **VS Code** — [NestJS Doctor](https://marketplace.visualstudio.com/items?itemName=rolobits.nestjs-doctor-vscode) surfaces the same rules as you type. [Docs →](https://nestjs.doctor/docs/vscode-extension)
 - **Other CI** — GitLab Code Quality, SARIF for any code-scanning backend, or a markdown body to post yourself. [Docs →](https://nestjs.doctor/docs/ci)
-- **Node API** — `scanProject()` and an incremental API for editors and long-running processes. [Docs →](https://nestjs.doctor/docs/setup#nodejs-api)
+- **Node API** — `scanProject()` and an incremental API for editors and long-running processes. [Docs →](https://nestjs.doctor/docs/reference/node-api)
 - **Monorepos** — detected from `nest-cli.json`, pnpm workspaces, `package.json` workspaces, Nx, or Lerna. [Docs →](https://nestjs.doctor/docs/pipeline/project-detection)
 
 ---

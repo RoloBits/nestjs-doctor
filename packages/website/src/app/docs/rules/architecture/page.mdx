@@ -5,30 +5,34 @@ export const metadata = docsMetadata["/docs/rules/architecture"];
 
 <BreadcrumbJsonLd path="/docs/rules/architecture" />
 
-# Architecture Rules
+# Architecture rules
 
 10 rules that enforce clean layering, dependency injection patterns, and module boundaries.
 
 | Rule | Severity | What it catches |
 |------|----------|-----------------|
-| `no-business-logic-in-controllers` | error | Loops, branches, data transforms in HTTP handlers |
+| `no-business-logic-in-controllers` | error | Loops, `switch`, a second branch, or repeated array ops in handlers |
 | `no-repository-in-controllers` | error | Repository injection in controllers |
-| `no-orm-in-controllers` | error | ORM types in controllers: PrismaService, EntityManager, EntityRepository, DataSource, DrizzleService, MikroORM, MongooseModel |
-| `no-circular-module-deps` | error | Cycles in `@Module()` import graph — names the providers to extract |
-| `no-manual-instantiation` | error | `new SomeService()` for injectable classes |
-| `no-orm-in-services` | info | Services using ORM directly (should use repositories) |
+| `no-orm-in-controllers` | error | ORM types or ORM-binding decorators injected into controllers |
+| `no-circular-module-deps` | error | Cycles in the `@Module()` import graph |
+| `no-manual-instantiation` | error | `new SomeService()` for a class registered as a provider |
 | `no-service-locator` | warning | `ModuleRef.get()`/`resolve()` usage |
 | `prefer-constructor-injection` | warning | `@Inject()` property injection |
-| `require-module-boundaries` | info | Deep imports into other modules' internals |
+| `no-orm-in-services` | info | Services using ORM directly (should use repositories) |
+| `require-module-boundaries` | info | Relative imports into another module's internal directories |
 | `no-barrel-export-internals` | info | Re-exporting repositories from barrel files |
 
 ---
 
 ## no-business-logic-in-controllers
 
-Detects loops, conditional branches, and data transformations inside HTTP handler methods.
+Detects loops, `switch` statements, a second branch, and repeated array transformations inside HTTP handler methods.
 
-**Why:** Controllers should delegate business logic to services — they receive a request, call the appropriate service method, and return the response. Business logic in controllers cannot be reused, is harder to test, and violates the single responsibility principle.
+**Why:** A controller receives a request, calls the matching service method, and returns the response. Business logic in a controller cannot be reused, is harder to test, and violates the single responsibility principle.
+
+**Note:** The thresholds are not one each. A single `if` is allowed, and an `if` whose every branch only throws never counts at all, so guard clauses are free.
+
+A `for`, `for...of`, `for...in`, `while`, or `switch` reports on the first occurrence. Array operations (`map`, `filter`, `reduce`, `sort`, `flatMap`) report only when more than one appears in the handler.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -65,6 +69,8 @@ Detects direct repository injection in controller constructors.
 
 **Why:** Controllers should depend on services, not repositories. Direct repository access bypasses business logic validation and creates tight coupling to the data layer.
 
+**Note:** Imports are a second trigger. In a file that declares routes, any import whose specifier contains `/repositories` is reported, once per file rather than once per controller.
+
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
 @Controller('users')
@@ -87,7 +93,10 @@ export class UserController {
 
 ## no-orm-in-controllers
 
-Detects ORM types (`PrismaService`, `PrismaClient`, `EntityManager`, `EntityRepository`, `DataSource`, `Repository`, `Connection`, `MongooseModel`, `MikroORM`, `DrizzleService`) and ORM-binding decorators (`@InjectRepository`, `@InjectModel`, `@InjectEntityManager`) injected directly in controllers.
+Detects data access injected straight into a controller. Two shapes count:
+
+- **ORM types:** `PrismaService`, `PrismaClient`, `EntityManager`, `EntityRepository`, `DataSource`, `Repository`, `Connection`, `MongooseModel`, `MikroORM`, `DrizzleService`.
+- **ORM-binding decorators:** `@InjectRepository`, `@InjectModel`, `@InjectEntityManager`.
 
 **Why:** Applies the same layering constraint as `no-repository-in-controllers`, extended to other ORM access patterns. Controllers should access data through a service layer.
 
@@ -133,11 +142,11 @@ Detects cycles in the `@Module()` import graph and names the specific providers 
 export class UserModule {}
 
 // order.module.ts
-@Module({ imports: [UserModule] })  // Circular!
+@Module({ imports: [UserModule] })  // circular import
 export class OrderModule {}
 ```
 ```typescript
-// shared.module.ts — extract shared logic
+// shared.module.ts: extract shared logic
 @Module({ providers: [SharedService], exports: [SharedService] })
 export class SharedModule {}
 
@@ -151,27 +160,35 @@ export class OrderModule {}
 ```
 </CodeGroup>
 
-### Smart suggestions
+### Which provider to extract
 
-The rule traces provider-level dependencies to identify *why* each module edge exists, then suggests which specific providers to extract into a shared module to break the cycle at the weakest edge. `forwardRef()` is treated as a last-resort escape hatch — it only defers resolution at runtime, it does not address the architectural coupling.
+The rule traces provider-level dependencies to find what creates each module edge. It then names the dependency to extract into a shared module, choosing the edge with the fewest of them.
 
-**Example output:**
+Treat `forwardRef()` as a last resort. It defers resolution at runtime and leaves the architectural coupling in place.
+
+A cycle through three modules reports one diagnostic. The message names the cycle, and the help below it lists every edge and the extraction candidate:
 
 ```
-AuthModule → UserModule: AuthService (in AuthModule) injects UserService (from UserModule)
-UserModule → OrderModule: UserNotifier (in UserModule) injects OrderService (from OrderModule)
-Consider extracting AuthService into a shared module — it would break the weakest edge (1 dependency).
+Circular module dependency detected: AuthModule -> UserModule -> OrderModule
+AuthModule -> UserModule: AuthService (in AuthModule) injects UserService (from UserModule)
+UserModule -> OrderModule: UserNotifier (in UserModule) injects OrderService (from OrderModule)
+OrderModule -> AuthModule: OrderService (in OrderModule) injects AuthService (from AuthModule)
+Consider extracting UserService into a shared module — it would break the AuthModule -> UserModule edge (1 dependency).
 ```
 
-The rule uses `traceProviderEdges` to walk each module's providers and controllers, checking which constructor parameters resolve to providers from the target module. The edge with the fewest provider dependencies is flagged as the best candidate for extraction.
+`traceProviderEdges` walks each module's providers and controllers and checks which constructor parameters resolve to providers from the target module. The edge with the fewest provider dependencies is the extraction candidate.
 
 ### Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `ignoreForwardRefCycles` | `boolean` | `false` | Suppress diagnostics for cycles where every edge in the cycle direction is wrapped in `forwardRef()`. |
+`ignoreForwardRefCycles` is a `boolean` and defaults to `false`. It suppresses a cycle when every edge in the cycle direction is wrapped in `forwardRef()`:
 
-When enabled, a 2-module cycle in which both modules use `forwardRef(() => Other)` is suppressed. For longer cycles (A → B → C → A), every consecutive edge must be wrapped. Cycles with **any** plain edge — including one-sided `forwardRef()`, which still throws at runtime in NestJS — continue to be flagged. Default behavior is unchanged: cycles are reported as `error` regardless of `forwardRef()`.
+- A 2-module cycle is suppressed when both modules use
+  `forwardRef(() => Other)`.
+- A longer cycle (`A -> B -> C -> A`) needs every consecutive edge wrapped.
+- Any plain edge still gets flagged, including a one-sided `forwardRef()`, which
+  throws at runtime in NestJS anyway.
+
+Set the option in the rule config:
 
 ```json
 {
@@ -183,9 +200,11 @@ When enabled, a 2-module cycle in which both modules use `forwardRef(() => Other
 }
 ```
 
-> Detection looks for a call expression whose callee is the bare identifier `forwardRef`. The check is textual — it does not verify that the symbol resolves to `@nestjs/common`'s `forwardRef`, so a locally-defined `forwardRef` would also match. Aliased imports (`import { forwardRef as fr }`) and namespace access (`Nest.forwardRef(...)`) are not recognized — use the bare imported name to benefit from the opt-out.
+**Note:** Detection matches a call expression whose callee is the bare identifier `forwardRef`. The check is textual: it does not verify that the symbol resolves to `@nestjs/common`, so a locally defined `forwardRef` matches too.
 
-> Dynamic module patterns like `ConfigModule.forRoot()`, `forwardRef()`, spread syntax, and helper function calls are fully resolved during graph construction. You do not need to restructure your code to use plain identifiers for accurate cycle detection. See [Module Graph — Import Resolution](/docs/pipeline/module-graph) for the full list of supported patterns.
+Aliased imports (`import { forwardRef as fr }`) and namespace access (`Nest.forwardRef(...)`) are not recognized. Use the bare imported name to get the opt-out.
+
+Dynamic module patterns are resolved during graph construction: `ConfigModule.forRoot()`, `forwardRef()`, spread syntax, and helper function calls. Cycle detection is accurate without restructuring the code into plain identifiers. See [Module graph: import resolution](/docs/pipeline/module-graph) for the full list of supported patterns.
 
 ---
 
@@ -195,23 +214,27 @@ Detects `new SomeService()` for classes that should be injected via NestJS DI.
 
 **Why:** Manually instantiating injectable classes bypasses the DI container, so constructor dependencies are not resolved. It also breaks scoping and lifecycle hooks.
 
+**Note:** The class name has to end in `Service`, `Repository`, `Gateway`, `Resolver`, `Guard`, `Interceptor`, `Pipe`, or `Filter`. `new OrderValidator()` is not matched by any of them.
+
+The class must also be one the scan found as a provider. A plain class, or one from `node_modules` that happens to end in `Service`, is skipped.
+
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
 @Injectable()
-export class OrderService {
-  processOrder() {
-    const validator = new OrderValidator();  // Manual instantiation!
-    validator.validate(order);
+export class CheckoutService {
+  process(cart: Cart) {
+    const orders = new OrderService();  // manual instantiation
+    return orders.create(cart);
   }
 }
 ```
 ```typescript
 @Injectable()
-export class OrderService {
-  constructor(private readonly validator: OrderValidator) {}
+export class CheckoutService {
+  constructor(private readonly orders: OrderService) {}
 
-  processOrder() {
-    this.validator.validate(order);
+  process(cart: Cart) {
+    return this.orders.create(cart);
   }
 }
 ```
@@ -232,38 +255,13 @@ If your project intentionally allows manual construction for specific classes
 
 ---
 
-## no-orm-in-services
-
-Detects services using ORM types directly (`PrismaService`, `EntityManager`, `DataSource`, `Connection`, `MongooseModel`, `MikroORM`, `DrizzleService`) or ORM-binding decorators (`@InjectRepository`, `@InjectModel`, `@InjectEntityManager`) instead of going through a repository layer.
-
-**Why:** When services depend on ORM types directly, switching ORMs or data sources requires changing every service. A repository layer provides a clean abstraction boundary.
-
-> **Note:** Typed repository wrappers — TypeORM's `Repository<T>` and MikroORM's `EntityRepository<T>` — are intentionally **allowed** in services because they are themselves the canonical repository abstraction. Classes named `*Repository`/`*Repo` are also skipped (so a custom repository implementation can inject whatever it needs).
-
-> **Note:** If your project follows the [official NestJS Prisma recipe](https://docs.nestjs.com/recipes/prisma) (injecting `PrismaService` directly) or the [official @mikro-orm/nestjs setup](https://mikro-orm.io/docs/usage-with-nestjs) (injecting `EntityManager` / `@InjectRepository`), you can disable this rule in your configuration.
-
-<CodeGroup labels={["Bad", "Good"]}>
-```typescript
-@Injectable()
-export class UserService {
-  constructor(private readonly prisma: PrismaService) {}
-}
-```
-```typescript
-@Injectable()
-export class UserService {
-  constructor(private readonly userRepo: UserRepository) {}
-}
-```
-</CodeGroup>
-
----
-
 ## no-service-locator
 
 Detects `ModuleRef.get()` or `ModuleRef.resolve()` calls that dynamically look up providers.
 
-**Why:** The service locator pattern hides dependencies — the constructor signature no longer reflects the true dependency set. Use constructor injection instead.
+**Why:** The service locator pattern hides dependencies. The constructor signature no longer reflects the real dependency set. Use constructor injection instead.
+
+**Note:** The receiver has to be written `moduleRef` or `this.moduleRef`. A parameter under another name, such as `this.ref.get(SomeService)`, is not matched even when its type is `ModuleRef`.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -315,20 +313,61 @@ export class UserService {
 
 ---
 
+## no-orm-in-services
+
+Detects services that reach the ORM directly instead of going through a repository layer. Two shapes count:
+
+- **ORM types:** `PrismaService`, `PrismaClient`, `EntityManager`, `DataSource`, `Connection`, `MongooseModel`, `MikroORM`, `DrizzleService`.
+- **ORM-binding decorators:** `@InjectRepository`, `@InjectModel`, `@InjectEntityManager`.
+
+**Why:** When services depend on ORM types directly, switching ORMs or data sources requires changing every service. A repository layer provides a clean abstraction boundary.
+
+**Note:** TypeORM's `Repository<T>` and MikroORM's `EntityRepository<T>` are allowed in services. They are the repository abstraction the rule asks for. Classes named `*Repository` or `*Repo` are skipped as well, so a custom repository can inject whatever it needs.
+
+Two official setups inject these types on purpose. The [NestJS Prisma recipe](https://docs.nestjs.com/recipes/prisma) injects `PrismaService`, and the [@mikro-orm/nestjs setup](https://mikro-orm.io/docs/usage-with-nestjs) injects `EntityManager` or uses `@InjectRepository`. Disable this rule if the project follows either.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Injectable()
+export class UserService {
+  constructor(private readonly prisma: PrismaService) {}
+}
+```
+```typescript
+@Injectable()
+export class UserService {
+  constructor(private readonly userRepo: UserRepository) {}
+}
+```
+</CodeGroup>
+
+---
+
 ## require-module-boundaries
 
 Detects deep imports that reach into another module's internal files.
 
-**Why:** Importing from `../other-module/services/internal.service` creates tight coupling to another module's internal structure. Import from the module's public API (barrel file) instead.
+**Why:** Importing from `../order/repositories/order.repository` creates tight coupling to another module's internal structure. Import from the module's public API (barrel file) instead.
+
+A relative specifier reports when it contains `../` and one of these directory segments:
+
+| Kind | Segment |
+|------|---------|
+| Data access | `/repositories/`, `/entities/` |
+| Transport shapes | `/dto/` |
+| Request pipeline | `/guards/`, `/interceptors/`, `/pipes/` |
+| Authentication | `/strategies/` |
+
+The list is fixed, so `../order/validators/order.validator` is not matched. An import that resolves back inside its own module is skipped as well.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
 // In user module:
-import { OrderValidator } from '../order/validators/order.validator';
+import { OrderRepository } from '../order/repositories/order.repository';
 ```
 ```typescript
 // In user module:
-import { OrderValidator } from '../order';
+import { OrderService } from '../order';
 // Or better: inject via DI through the module system
 ```
 </CodeGroup>
@@ -345,7 +384,7 @@ Detects barrel files (index.ts) that re-export internal implementation details l
 ```typescript
 // user/index.ts
 export { UserService } from './user.service';
-export { UserRepository } from './user.repository';  // Internal!
+export { UserRepository } from './user.repository';  // internal, not part of the public API
 ```
 ```typescript
 // user/index.ts

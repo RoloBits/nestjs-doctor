@@ -72,3 +72,11 @@ body {
 	line-height: 1.7;
 	color: #e2e8f0;
 }
+
+.docs-content table tr:last-child td {
+	border-bottom: 0;
+}
+
+.docs-content > div > :first-child {
+	margin-top: 0;
+}

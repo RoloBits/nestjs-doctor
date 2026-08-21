@@ -1,0 +1,91 @@
+import { BreadcrumbJsonLd } from "@/components/json-ld";
+import { docsMetadata } from "@/lib/docs-metadata";
+export const metadata = docsMetadata["/docs/ci/gates"];
+
+<BreadcrumbJsonLd path="/docs/ci/gates" />
+
+# Failing the build
+
+The action is advisory by default: `blocking` is `none` and `min-score` is
+unset. A fresh install comments, annotates, and sets a status without turning a
+pull request red.
+
+Two independent gates decide the outcome, and either one failing fails the run.
+Turn both on in `.github/workflows/nestjs-doctor.yml`:
+
+```yaml
+      - uses: RoloBits/nestjs-doctor@v1
+        with:
+          blocking: error
+          min-score: 80
+```
+
+Drop either input to use only the other gate.
+
+## `blocking`: gate on findings
+
+Gates on the findings the run reported, which the `scope` input decides. With
+the default `scope: changed`, that is only what the pull request introduced.
+
+| Level | Fails when |
+|-------|-----------|
+| `none` | Never. The default; report only |
+| `warning` | Any error or warning is reported |
+| `error` | Any error is reported |
+
+Because it follows the scope, a repository with a thousand pre-existing findings
+can adopt `blocking: error` on day one. The gate only ever sees what each pull
+request adds, so nobody inherits somebody else's backlog.
+
+The CLI's `--blocking` default varies by output mode. The action always passes
+the flag explicitly, so its own default is `none` either way.
+
+## `min-score`: gate on the score
+
+Gates on the 0-100 project health score. Unset by default. Set it to a number
+and the run fails whenever the score falls below it.
+
+The score always reflects the whole project, whatever `scope` says. Narrowing a
+report must never make a codebase look healthier than it is.
+
+So the two gates measure different things. `blocking` sees the reported scope,
+`min-score` the whole project, so a pull request touching one file can fail on
+debt somewhere else.
+
+Use `blocking` alone for new code. Add `min-score` for a floor on the repository
+as a whole.
+
+## Setting the threshold in config instead
+
+`minScore` is also a config-file key. Carry the floor in
+`nestjs-doctor.config.json` and local runs, the pre-commit hook, and CI all
+agree on it:
+
+```json
+{
+  "minScore": 75
+}
+```
+
+The action's `min-score` input overrides that when set, which holds CI to a
+higher bar than a local run. Leave the input empty and the config value
+applies.
+
+## Which findings count
+
+Both gates count whatever the run reports, so the config file is the third
+lever. Disable a rule or a whole category and it stops counting toward either
+gate. See [Configuration](/docs/configuration).
+
+Inline `nestjs-doctor-ignore` comments work the same way. A suppressed finding
+is not reported, so it cannot fail a gate.
+
+Point the action at a CI-specific file with the `config` input to hold CI
+stricter than local runs. Both gates are CLI flags too. See
+[Gates](/docs/reference/cli#gates).
+
+## Exit codes
+
+Only a `pull_request` event is gated. Every other event exits `0`, whatever the
+gates say. See [Runs outside a pull request](/docs/ci#runs-outside-a-pull-request)
+and [Exit codes](/docs/reference/cli#exit-codes).

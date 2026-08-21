@@ -7,9 +7,39 @@ export const docsMetadata: Record<string, Metadata> = {
 			"Diagnostic CLI tool that scans NestJS codebases and produces a health score across security, correctness, architecture, performance, and schema.",
 	},
 	"/docs/setup": {
-		title: "Setup Guide",
+		title: "Quickstart",
 		description:
-			"Install and run nestjs-doctor. CLI usage, CI integration, HTML report generation, and Node.js API.",
+			"Scan a NestJS project in one command, then read the score, the diagnostics, and the exit code.",
+	},
+	"/docs/report": {
+		title: "The report",
+		description:
+			"Generate the interactive HTML report: score summary, diagnostics with a code viewer, module graph, endpoint traces, schema ER diagram, and the boot trace.",
+	},
+	"/docs/coding-agents": {
+		title: "Coding agents",
+		description:
+			"Install the nestjs-doctor skill for Claude Code, Cursor, Codex, OpenCode, Windsurf, Gemini CLI, and other agents so they scan and fix as they work.",
+	},
+	"/docs/ci/gates": {
+		title: "Failing the build",
+		description:
+			"Gate a pull request on nestjs-doctor: blocking by severity, min-score on the whole project, exit codes, and which findings count.",
+	},
+	"/docs/ci/other-providers": {
+		title: "Other CI providers",
+		description:
+			"Run nestjs-doctor outside GitHub Actions: GitLab Code Quality, SARIF for any code-scanning backend, markdown output, and pre-commit hooks.",
+	},
+	"/docs/reference/cli": {
+		title: "CLI reference",
+		description:
+			"Every nestjs-doctor command and flag: scanning, scope, output formats, gates, the report, and exit codes.",
+	},
+	"/docs/reference/node-api": {
+		title: "Node API",
+		description:
+			"Call nestjs-doctor from Node: scanProject, the incremental scanning API for editors, and the AnalysisContext it exposes to rules.",
 	},
 	"/docs/configuration": {
 		title: "Configuration",
@@ -17,62 +47,62 @@ export const docsMetadata: Record<string, Metadata> = {
 			"Configure nestjs-doctor with nestjs-doctor.config.json. Customize file patterns, enable or disable rules, ignore specific diagnostics, and suppress rules inline with comments.",
 	},
 	"/docs/custom-rules": {
-		title: "Custom Rules",
+		title: "Custom rules",
 		description:
 			"Extend nestjs-doctor with project-specific checks. Encode domain conventions, enforce team standards, or flag patterns unique to your codebase.",
 	},
 	"/docs/ci": {
-		title: "CI & Pull Requests",
+		title: "GitHub Actions setup",
 		description:
 			"Run nestjs-doctor in CI. Official GitHub Action with sticky pull request comments, inline review comments, and commit statuses; diff-scoped scanning that reports only what a change introduced; SARIF and GitLab Code Quality output.",
 	},
 	"/docs/vscode-extension": {
-		title: "VS Code Extension",
+		title: "VS Code extension",
 		description:
-			"Get inline diagnostics from nestjs-doctor directly in your editor. Same 50 rules, zero friction.",
+			"Run the same 50 rules as the CLI inline in your editor, with diagnostics in the Problems panel.",
 	},
 	"/docs/pipeline": {
-		title: "Pipeline Overview",
+		title: "Pipeline overview",
 		description:
 			"How nestjs-doctor works from CLI invocation to final output. Ten-stage pipeline covering config loading, AST parsing, rule execution, and scoring.",
 	},
 	"/docs/pipeline/config-loading": {
-		title: "Config Loading",
+		title: "Config loading",
 		description:
 			"How nestjs-doctor resolves and merges user configuration with built-in defaults at the start of each scan.",
 	},
 	"/docs/pipeline/project-detection": {
-		title: "Project Detection",
+		title: "Project detection",
 		description:
 			"How nestjs-doctor detects monorepos vs single projects and extracts metadata like NestJS version, ORM, and HTTP framework.",
 	},
 	"/docs/pipeline/file-collection": {
-		title: "File Collection",
+		title: "File collection",
 		description:
 			"How nestjs-doctor globs the project directory for TypeScript files matching include and exclude patterns from the config.",
 	},
 	"/docs/pipeline/ast-parsing": {
-		title: "AST Parsing",
+		title: "AST parsing",
 		description:
 			"How nestjs-doctor creates a ts-morph Project instance and loads collected files for TypeScript AST analysis.",
 	},
 	"/docs/pipeline/module-graph": {
-		title: "Module Graph",
+		title: "Module graph",
 		description:
 			"How nestjs-doctor builds a directed dependency graph of NestJS @Module() classes and their relationships.",
 	},
 	"/docs/pipeline/provider-resolution": {
-		title: "Provider Resolution",
+		title: "Provider resolution",
 		description:
 			"How nestjs-doctor extracts dependency information from @Injectable() classes including constructor dependencies and method counts.",
 	},
 	"/docs/pipeline/rule-execution": {
-		title: "Rule Execution",
+		title: "Rule execution",
 		description:
-			"How nestjs-doctor runs all enabled rules against the project AST and collects diagnostics. The core analysis step.",
+			"How nestjs-doctor runs all enabled rules against the project AST and collects diagnostics. The stage that produces every diagnostic.",
 	},
 	"/docs/pipeline/diagnostic-filtering": {
-		title: "Diagnostic Filtering",
+		title: "Diagnostic filtering",
 		description:
 			"How nestjs-doctor removes diagnostics matching the user's ignore configuration after all rules have run.",
 	},
@@ -87,33 +117,33 @@ export const docsMetadata: Record<string, Metadata> = {
 			"How nestjs-doctor renders final scan results in console, JSON, or HTML format depending on the use case.",
 	},
 	"/docs/rules": {
-		title: "Rules Overview",
+		title: "Rules",
 		description:
 			"50 built-in rules across five categories: security, correctness, architecture, performance, and schema.",
 	},
 	"/docs/rules/security": {
-		title: "Security Rules",
+		title: "Security rules",
 		description:
 			"10 rules that detect security vulnerabilities and unsafe patterns in NestJS applications.",
 	},
 	"/docs/rules/correctness": {
-		title: "Correctness Rules",
+		title: "Correctness rules",
 		description:
 			"20 rules that detect bugs, missing decorators, and runtime errors in NestJS applications.",
 	},
 	"/docs/rules/architecture": {
-		title: "Architecture Rules",
+		title: "Architecture rules",
 		description:
 			"10 rules that enforce clean layering, dependency injection patterns, and module boundaries.",
 	},
 	"/docs/rules/performance": {
-		title: "Performance Rules",
+		title: "Performance rules",
 		description:
 			"7 rules that detect performance anti-patterns and dead code in NestJS applications.",
 	},
 	"/docs/rules/schema": {
-		title: "Schema Rules",
+		title: "Schema rules",
 		description:
-			"3 rules that validate database schema design — primary keys, timestamps, and relation configuration.",
+			"3 rules that validate database schema design: primary keys, timestamps, and relation configuration.",
 	},
 };

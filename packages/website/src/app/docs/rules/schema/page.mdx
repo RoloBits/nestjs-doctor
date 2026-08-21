@@ -5,9 +5,9 @@ export const metadata = docsMetadata["/docs/rules/schema"];
 
 <BreadcrumbJsonLd path="/docs/rules/schema" />
 
-# Schema Rules
+# Schema rules
 
-3 rules that validate your database schema design — primary keys, timestamps, and relation configuration. These rules run against entity-relation data extracted from Prisma schema files, TypeORM/MikroORM entity decorators, or Drizzle table declarations.
+3 rules that validate database schema design: primary keys, timestamps, and relation configuration. They run against entity-relation data extracted from Prisma schema files, TypeORM and MikroORM entity decorators, or Drizzle table declarations.
 
 | Rule | Severity | What it catches |
 |------|----------|-----------------|
@@ -18,6 +18,8 @@ export const metadata = docsMetadata["/docs/rules/schema"];
 ---
 
 ## require-primary-key
+
+**Scope:** Schema
 
 Detects entities that have no primary key column.
 
@@ -42,6 +44,8 @@ model Product {
 ---
 
 ## require-timestamps
+
+**Scope:** Schema
 
 Detects entities missing `createdAt`/`updatedAt` timestamp columns.
 
@@ -70,9 +74,11 @@ model Post {
 
 ## require-cascade-rule
 
+**Scope:** Schema
+
 Detects owning-side relations (ManyToOne/OneToOne) without an explicit `onDelete` behavior.
 
-**Why:** Without explicit onDelete behavior, the database default (usually RESTRICT or NO ACTION) may cause unexpected constraint errors when deleting parent records. Being explicit about cascade behavior makes the data model self-documenting.
+**Why:** Without an explicit `onDelete`, the database default applies, usually RESTRICT or NO ACTION. Deleting a parent record then fails with a constraint error. An explicit cascade behavior also makes the data model self-documenting.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```prisma

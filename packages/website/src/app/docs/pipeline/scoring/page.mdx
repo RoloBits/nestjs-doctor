@@ -8,22 +8,19 @@ export const metadata = docsMetadata["/docs/pipeline/scoring"];
 
 **Source:** `src/engine/scorer/index.ts`, `src/engine/scorer/weights.ts`, `src/engine/scorer/labels.ts`
 
-## What
-
 Converts filtered diagnostics into a 0-100 health score with a quality label.
+One number lets you track progress over time, set a CI threshold with
+`--min-score`, and compare projects. The weights are chosen so a security error
+costs more than an info-level performance hint.
 
-## Why
-
-A single number makes it easy to track progress over time, set CI thresholds with `--min-score`, and compare projects. The weighted formula ensures security errors impact the score more than info-level performance hints.
-
-## Input
+Input is the filtered diagnostics and the file count:
 
 ```typescript
 diagnostics: Diagnostic[]    // filtered diagnostics
 fileCount: number            // total files scanned
 ```
 
-## Output
+The result is the score and its label:
 
 ```typescript
 interface Score {
@@ -34,6 +31,8 @@ interface Score {
 
 ## Formula
 
+The score starts at 100 and loses points for every diagnostic:
+
 ```
 penalty per diagnostic = SEVERITY_WEIGHT × CATEGORY_MULTIPLIER
 total penalty = sum of all diagnostic penalties
@@ -42,7 +41,7 @@ score = 100 − (totalPenalty / fileCount) × PENALTY_SCALE
 
 The score is clamped to the 0-100 range.
 
-### Severity Weights
+### Severity weights
 
 | Severity | Weight |
 |----------|--------|
@@ -50,19 +49,19 @@ The score is clamped to the 0-100 range.
 | warning | 1.5 |
 | info | 0.5 |
 
-### Category Multipliers
+### Category multipliers
 
 | Category | Multiplier | Rationale |
 |----------|------------|-----------|
-| security | 1.5x | Security issues are the most impactful |
+| security | 1.5x | The most impactful category |
 | correctness | 1.3x | Bugs that cause runtime errors |
 | schema | 1.1x | Database structural integrity |
-| architecture | 1.0x | Structural issues that grow over time |
-| performance | 0.8x | Important but less critical than correctness |
+| architecture | 1.0x | Slows the project down as it grows |
+| performance | 0.8x | Important, but less critical than correctness |
 
-### Penalty Scale
+### Penalty scale
 
-`PENALTY_SCALE = 10` — a calibration constant. Combined with severity weights and category multipliers, it produces intuitive scores:
+`PENALTY_SCALE = 10` is a calibration constant. Combined with the severity weights and category multipliers, it produces scores on this scale:
 
 | Scenario | Score |
 |----------|-------|
@@ -73,7 +72,7 @@ The score is clamped to the 0-100 range.
 
 ### Normalization
 
-Score is divided by `fileCount` so projects of different sizes are comparable. A 500-file project with 10 errors scores the same as a 50-file project with 1 error (same density).
+The score is divided by `fileCount` so projects of different sizes are comparable. A 500-file project with 10 errors scores the same as a 50-file project with 1 error, because the density is the same.
 
 ## Labels
 
@@ -85,12 +84,12 @@ Score is divided by `fileCount` so projects of different sizes are comparable. A
 | 25-49 | Poor |
 | 0-24 | Critical |
 
-## Monorepo Scoring
+## Monorepo scoring
 
-In a monorepo, each sub-project gets its own score. The combined score is calculated from the merged diagnostics of all sub-projects divided by the total file count across all projects.
+In a monorepo, each sub-project gets its own score. The combined score comes from the merged diagnostics of every sub-project, divided by the total file count across all of them.
 
-## Debugging Tips
+## Debugging tips
 
-- If the score seems too low, check for high-severity rules producing many diagnostics. A single security error per file adds `3.0 × 1.5 = 4.5` penalty points.
-- The score is normalized by file count. Adding more files (without new issues) will improve the score.
-- Use `--json` to see the full diagnostic list and understand exactly what's contributing to the penalty.
+- If the score seems too low, look for high-severity rules producing many diagnostics. A single security error per file adds `3.0 × 1.5 = 4.5` penalty points.
+- The score is normalized by file count. Adding files without adding diagnostics raises the score.
+- Use `--json` to see the full diagnostic list and what is contributing to the penalty.

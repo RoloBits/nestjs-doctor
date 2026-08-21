@@ -1,0 +1,105 @@
+import { BreadcrumbJsonLd } from "@/components/json-ld";
+import { docsMetadata } from "@/lib/docs-metadata";
+export const metadata = docsMetadata["/docs/reference/node-api"];
+
+<BreadcrumbJsonLd path="/docs/reference/node-api" />
+
+# Node API
+
+Types ship with the package. `diagnose()` returns the same result the CLI
+formats:
+
+```typescript
+import { diagnose, diagnoseMonorepo } from "nestjs-doctor";
+
+const result = await diagnose("./my-nestjs-app");
+result.score; // { value: 82, label: "Good" }
+result.diagnostics; // Diagnostic[]
+result.summary; // { total, errors, warnings, info, byCategory }
+
+const mono = await diagnoseMonorepo("./my-monorepo");
+mono.isMonorepo; // true
+mono.subProjects; // [{ name: "api", result }, ...]
+mono.combined; // Merged DiagnoseResult
+```
+
+`DiagnoseResult` carries `score`, `diagnostics`, `summary`, `project`,
+`ruleErrors`, `elapsedMs`, and `schema` when an ORM was detected.
+
+## Incremental scanning
+
+Editors and language servers prepare the context once, then re-scan single
+files as they change instead of calling `diagnose()` again:
+
+```typescript
+import {
+  prepareAnalysis,
+  updateFile,
+  checkFile,
+  checkAllFiles,
+  checkProject,
+} from "nestjs-doctor";
+
+const { context, customRuleWarnings } = await prepareAnalysis("./my-nestjs-app");
+
+updateFile(context, "/absolute/path/to/changed-file.ts");
+
+const { diagnostics, errors } = checkFile(context, "/absolute/path/to/changed-file.ts");
+const allFileResults = checkAllFiles(context);
+const projectResults = checkProject(context);
+```
+
+`prepareAnalysis` parses every file, builds the module graph, and resolves the
+providers. `updateFile` re-parses one file and refreshes the module graph, the
+providers, and the endpoint and schema graphs.
+
+`checkFile` runs the file-scoped rules on that one file, and `checkAllFiles`
+runs them across every file. `checkProject` runs the project-scoped ones.
+
+### Granular updates
+
+Refresh the module graph or the provider map on their own, without going
+through `updateFile`:
+
+```typescript
+import { updateModuleGraphForFile, updateProvidersForFile } from "nestjs-doctor";
+
+updateModuleGraphForFile(
+  context.moduleGraph,
+  context.astProject,
+  filePath,
+  context.pathAliases,
+);
+updateProvidersForFile(context.providers, context.astProject, filePath);
+```
+
+Both return `void` and mutate the object handed to them. That object is the one
+the context holds, so a later `checkProject(context)` reads the updated graph.
+
+Pass `context.pathAliases`. It defaults to an empty map, and
+`updateProvidersForFile` has no such parameter. Omit it and the file's aliased
+imports stop resolving, so that module's edges vanish with no error.
+
+`getRules()` is exported alongside them and returns every built-in rule as
+`AnyRule[]`.
+
+### `AnalysisContext`
+
+The `prepareAnalysis` function returns an `AnalysisContext` that holds:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `astProject` | `Project` | ts-morph project with all source files |
+| `config` | `NestjsDoctorConfig` | Resolved configuration |
+| `files` | `string[]` | Collected file paths |
+| `fileRules` | `Rule[]` | File-scoped rules (filtered by config) |
+| `projectRules` | `ProjectRule[]` | Project-scoped rules (filtered by config) |
+| `moduleGraph` | `ModuleGraph` | Import/export graph |
+| `endpointGraph` | `EndpointGraph` | Traced HTTP routes and the dependencies each one pulls |
+| `providers` | `Map<string, ProviderInfo>` | Resolved NestJS providers |
+| `guardDecorators` | `GuardDecoratorIndex` | Per file, the names of the wrapper decorators that apply `@UseGuards()` |
+| `pathAliases` | `PathAliasMap` | tsconfig `paths` aliases, each mapped to its absolute targets |
+| `project` | `ProjectInfo` | Detected project metadata (name, version, ORM, framework) |
+| `schemaGraph` | `SchemaGraph \| undefined` | Extracted database schema (if ORM detected) |
+| `schemaRules` | `SchemaRule[]` | Schema-scoped rules (filtered by config) |
+| `targetPath` | `string` | Root directory of the scanned project |

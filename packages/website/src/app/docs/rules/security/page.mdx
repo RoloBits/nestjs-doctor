@@ -5,7 +5,7 @@ export const metadata = docsMetadata["/docs/rules/security"];
 
 <BreadcrumbJsonLd path="/docs/rules/security" />
 
-# Security Rules
+# Security rules
 
 10 rules that detect security vulnerabilities and unsafe patterns.
 
@@ -13,13 +13,13 @@ export const metadata = docsMetadata["/docs/rules/security"];
 |------|----------|-----------------|
 | `no-hardcoded-secrets` | error | API keys, tokens, passwords in source code |
 | `no-eval` | error | `eval()` or `new Function()` usage |
-| `no-csrf-disabled` | error | Explicitly disabling CSRF protection |
+| `no-csrf-disabled` | error | `csrf: false` or `csrfProtection: false` in an options object |
 | `no-dangerous-redirects` | error | Redirects with user-controlled input |
 | `no-synchronize-in-production` | error | `synchronize: true` in TypeORM config |
 | `no-weak-crypto` | warning | `createHash('md5')` or `createHash('sha1')` |
 | `no-exposed-env-vars` | warning | Direct `process.env` in Injectable/Controller |
 | `no-exposed-stack-trace` | warning | `error.stack` exposed in responses |
-| `no-raw-entity-in-response` | warning | Returning ORM entities directly from controllers |
+| `no-raw-entity-in-response` | warning | Handler return type named `*Entity` or `*Model` |
 | `require-guards-on-endpoints` | warning | Endpoints without `@UseGuards()` at class or method level |
 
 ---
@@ -81,18 +81,26 @@ export class CalcService {
 
 ## no-csrf-disabled
 
-Detects explicitly disabled CSRF protection.
+Detects a `csrf` or `csrfProtection` property set to `false`.
 
 **Why:** CSRF protection prevents cross-site request forgery attacks. Disabling it exposes your API to unauthorized actions from other sites.
 
+**Note:** Those two property names are the only thing the rule reads, and the initializer has to be the literal `false`. A call like `csurf({ cookie: false })` is not matched, because `cookie` is a different property.
+
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
-app.use(csurf({ cookie: false }));
-// or
-const csrfOptions = { csrf: false };
+// security.config.ts
+export const securityConfig = {
+  csrf: false,
+  csrfProtection: false,
+};
 ```
 ```typescript
-app.use(csurf({ cookie: true }));
+// security.config.ts
+export const securityConfig = {
+  csrf: true,
+  csrfProtection: true,
+};
 ```
 </CodeGroup>
 
@@ -100,9 +108,11 @@ app.use(csurf({ cookie: true }));
 
 ## no-dangerous-redirects
 
-Detects redirects that use user-controlled input without validation.
+Detects a redirect whose argument is a parameter decorated with `@Query()` or `@Param()`.
 
 **Why:** Open redirects allow attackers to redirect users to malicious sites using your domain as a trusted intermediary.
+
+**Note:** The match is on the argument itself, not on the code around it. Wrapping `res.redirect(url)` in an allowlist check still reports, because the argument is still the decorated parameter. Redirect to a different value instead, such as the result of a lookup:
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -112,15 +122,23 @@ redirect(@Query('url') url: string, @Res() res: Response) {
 }
 ```
 ```typescript
+const DESTINATIONS = new Map([
+  ['home', 'https://example.com'],
+  ['app', 'https://app.example.com'],
+]);
+
 @Get('redirect')
-redirect(@Query('url') url: string, @Res() res: Response) {
-  const allowed = ['https://example.com', 'https://app.example.com'];
-  if (allowed.includes(url)) {
-    res.redirect(url);
+redirect(@Query('to') to: string, @Res() res: Response) {
+  const destination = DESTINATIONS.get(to);
+  if (!destination) {
+    throw new BadRequestException('Unknown destination');
   }
+  res.redirect(destination);
 }
 ```
 </CodeGroup>
+
+The same match applies to `@Redirect()`, when its argument is the decorated parameter.
 
 ---
 
@@ -224,17 +242,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
 ## no-raw-entity-in-response
 
-Detects returning ORM entities directly from controller methods.
+Detects controller handlers whose return type names an ORM entity.
 
 **Why:** ORM entities may contain internal fields (passwords, soft-delete flags, relation metadata) that should not be exposed. Use DTOs to control the response shape.
+
+**Note:** The entity is recognized by name. The return type has to contain a name ending in `Entity` or `Model`, so a handler returning `Promise<User>` is not matched. A type containing `Dto`, `DTO`, or `Response` is skipped.
+
+The type comes from the checker, not from the text of the annotation. A handler with no annotation whose body infers `any` never matches, so annotate the return type to get the check.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
 @Controller('users')
 export class UserController {
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.userRepo.findOne(id); // Returns raw entity
+  findOne(@Param('id') id: string): Promise<UserEntity> {
+    return this.userRepo.findOneOrFail(id); // Returns raw entity
   }
 }
 ```
@@ -242,7 +264,7 @@ export class UserController {
 @Controller('users')
 export class UserController {
   @Get(':id')
-  async findOne(@Param('id') id: string) {
+  async findOne(@Param('id') id: string): Promise<UserResponseDto> {
     const user = await this.userService.findOne(id);
     return new UserResponseDto(user); // Controlled shape
   }
@@ -258,14 +280,14 @@ Detects controller endpoints that are not protected by `@UseGuards()` at the cla
 
 **Why:** Unguarded endpoints are accessible to anyone. Controllers or individual routes can opt out with `@Public()`, `@AllowAnonymous()`, `@SkipAuth()`, or `@IsPublic()` at the class or method level.
 
-> **Note:** If your app uses a global guard via `APP_GUARD`, all endpoints are already protected. You can disable this rule in your config: `{ "rules": { "security/require-guards-on-endpoints": false } }`.
+**Note:** A guard registered globally through `APP_GUARD` already protects every endpoint, and the rule reports nothing for the whole project. The token has to be written as `APP_GUARD`; an aliased import is not matched.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
 @Controller('orders')
 export class OrderController {
   @Get()
-  findAll() {  // No guard!
+  findAll() {  // no guard
     return this.orderService.findAll();
   }
 }

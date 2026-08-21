@@ -4,22 +4,20 @@ export const metadata = docsMetadata["/docs/pipeline/rule-execution"];
 
 <BreadcrumbJsonLd path="/docs/pipeline/rule-execution" />
 
-# Rule Execution
+# Rule execution
 
 **Source:** `src/engine/rule-runner.ts`
 
-## What
+Runs every enabled rule against the project AST and collects diagnostics. Rules
+inspect the AST and the project structure, then report anti-patterns as
+diagnostics that say what is wrong and how to fix it.
 
-Runs all enabled rules against the project AST and collects diagnostics.
+See the [rules overview](/docs/rules) for how to write and register a rule.
 
-## Why
-
-This is the core analysis step. Rules inspect the AST and project structure to find anti-patterns, producing diagnostics that describe what's wrong and how to fix it.
-
-## Input
+Input is the parsed project, the file list, the enabled rules, and the graphs they read:
 
 ```typescript
-project: Project                          // AST from the parsing step
+project: Project                          // AST from the AST parsing stage
 files: string[]                           // file paths
 rules: AnyRule[]                          // enabled rules (after config filtering)
 options: {
@@ -29,11 +27,11 @@ options: {
 }
 ```
 
-## Output
+The result is the diagnostics, plus any rule that threw:
 
 ```typescript
 interface RunRulesResult {
-  diagnostics: Diagnostic[]    // all issues found
+  diagnostics: Diagnostic[]    // every diagnostic reported
   errors: RuleError[]          // rules that threw exceptions
 }
 
@@ -47,7 +45,7 @@ interface DiagnosticBase {
   severity: Severity    // "error" | "warning" | "info"
   scope?: RuleScope     // "file" | "project" | "schema"
   filePath: string
-  message: string       // what's wrong
+  message: string       // what is wrong
   help: string          // how to fix it
 }
 
@@ -55,7 +53,7 @@ interface DiagnosticBase {
 interface CodeDiagnostic extends DiagnosticBase {
   line: number
   column: number
-  sourceLines?: SourceLine[]  // source context around the issue
+  sourceLines?: SourceLine[]  // source context around the diagnostic
 }
 
 // Schema-scoped rules emit SchemaDiagnostic
@@ -70,13 +68,13 @@ interface SourceLine {
 }
 ```
 
-## How It Works
+## How it works
 
-### Rule Categories
+### Rule scopes
 
-Rules are separated into three types by their `meta.scope`:
+Every rule has one of three scopes, set by `meta.scope`.
 
-**File-scoped rules** (default) run once per source file:
+**File-scoped rules** (the default) run once per source file:
 
 ```
 For each file:
@@ -94,7 +92,7 @@ For each project-scoped rule:
   rule.check(context)
 ```
 
-**Schema-scoped rules** (`scope: "schema"`) run once per schema graph, analyzing entity-relation data extracted from Prisma, TypeORM, Drizzle, or MikroORM:
+**Schema-scoped rules** (`scope: "schema"`) run once per schema graph. They read entity-relation data extracted from Prisma, TypeORM, Drizzle, or MikroORM:
 
 ```
 For each schema-scoped rule:
@@ -102,7 +100,7 @@ For each schema-scoped rule:
   rule.check(context)
 ```
 
-### The `report()` Callback
+### The `report()` callback
 
 Rules call `context.report()` to emit diagnostics. The runner auto-fills `rule`, `category`, and `severity` from the rule's metadata:
 
@@ -118,9 +116,9 @@ context.report({
 // Runner adds: rule, category, severity from this.meta
 ```
 
-### Error Handling
+### Error handling
 
-Each rule call is wrapped in a try-catch. If a rule throws an exception, the error is recorded as a `RuleErrorInfo` and the pipeline continues. A failing rule never crashes the scan.
+Each rule call is wrapped in a try-catch. If a rule throws, the error is recorded and the pipeline continues, so a failing rule never crashes the scan. The recorded shape:
 
 ```typescript
 interface RuleErrorInfo {
@@ -131,21 +129,17 @@ interface RuleErrorInfo {
 
 Rule errors are displayed at the bottom of the console report.
 
-### Rule Filtering
+### Rule filtering
 
 Before execution, the scanner filters rules based on config:
 
-1. Check `config.rules[ruleId]` — `false` disables the rule
-2. Check `config.categories[category]` — `false` disables all rules in that category
-3. If not explicitly disabled, the rule runs
+1. Check `config.rules[ruleId]`. `false` disables the rule.
+2. Check `config.categories[category]`. `false` disables every rule in that category.
+3. If not explicitly disabled, the rule runs.
 
-## Writing a Rule
-
-See the [Rules Overview](/docs/rules) for how to write and register new rules.
-
-## Debugging Tips
+## Debugging tips
 
 - If a rule is not running, check that it is not disabled in config (`rules` or `categories`).
-- If a rule is producing unexpected results, use the [TypeScript AST Viewer](https://ts-ast-viewer.com) to inspect the AST structure of the code being analyzed.
+- If a rule produces unexpected diagnostics, use the [TypeScript AST Viewer](https://ts-ast-viewer.com) to inspect the AST of the code it analyzes.
 - Rule errors appear at the bottom of the console report. Check `ruleErrors` in the JSON output for details.
-- The `report()` callback is the only way to emit diagnostics. If a rule does not call `report()`, no diagnostics are produced.
+- The `report()` callback is the only way to emit a diagnostic. A rule that never calls it produces nothing.

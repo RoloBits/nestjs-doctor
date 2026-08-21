@@ -5,7 +5,7 @@ export const metadata = docsMetadata["/docs/rules/correctness"];
 
 <BreadcrumbJsonLd path="/docs/rules/correctness" />
 
-# Correctness Rules
+# Correctness rules
 
 20 rules that detect bugs, missing decorators, and runtime errors.
 
@@ -13,23 +13,23 @@ export const metadata = docsMetadata["/docs/rules/correctness"];
 |------|----------|-----------------|
 | `no-missing-injectable` | error | Provider with constructor deps missing `@Injectable()` |
 | `no-duplicate-routes` | error | Same method + path twice in a controller |
-| `no-missing-guard-method` | error | Guard class missing `canActivate()` |
-| `no-missing-pipe-method` | error | Pipe class missing `transform()` |
+| `no-missing-guard-method` | error | Class named `*Guard` missing `canActivate()` |
+| `no-missing-pipe-method` | error | Class named `*Pipe` missing `transform()` |
 | `no-missing-filter-catch` | error | `@Catch()` class missing `catch()` |
-| `no-missing-interceptor-method` | error | Interceptor missing `intercept()` |
+| `no-missing-interceptor-method` | error | Class named `*Interceptor` missing `intercept()` |
 | `require-inject-decorator` | error | Untyped constructor param without `@Inject()` |
+| `param-decorator-matches-route` | error | `@Param()` name doesn't match any `:param` in the route path |
+| `factory-inject-matches-params` | error | `useFactory` inject array length mismatches factory parameter count |
 | `prefer-readonly-injection` | warning | Constructor DI params missing `readonly` |
 | `require-lifecycle-interface` | warning | Lifecycle method without interface |
-| `no-empty-handlers` | info | HTTP handler with empty body |
 | `no-async-without-await` | warning | Async function with no `await` |
 | `no-duplicate-module-metadata` | warning | Duplicate entries in `@Module()` arrays |
 | `no-missing-module-decorator` | warning | Class named `*Module` without `@Module()` |
 | `no-fire-and-forget-async` | warning | Async call without `await` in non-handler methods |
-| `param-decorator-matches-route` | error | `@Param()` name doesn't match any `:param` in the route path |
-| `factory-inject-matches-params` | error | `useFactory` inject array length mismatches factory parameter count |
 | `no-duplicate-decorators` | warning | Same decorator appears twice on a single target |
 | `validated-non-primitive-needs-type` | warning | Non-primitive DTO property with class-validator decorators missing `@Type()` |
 | `validate-nested-array-each` | warning | `@ValidateNested()` on array property missing `{ each: true }` |
+| `no-empty-handlers` | info | HTTP handler with empty body |
 | `injectable-must-be-provided` | info | `@Injectable()` class not registered in any module's providers |
 
 ---
@@ -67,7 +67,7 @@ export class UserService {
 
 Detects two handlers with the same HTTP method, path, and version in a single controller.
 
-**Why:** Duplicate routes produce undefined behavior — only one handler will execute, silently shadowing the other.
+**Why:** Duplicate routes produce undefined behavior. Only one handler runs, silently shadowing the other.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -76,7 +76,7 @@ export class UserController {
   @Get(':id')
   findOne(@Param('id') id: string) { /* ... */ }
 
-  @Get(':id')  // Duplicate!
+  @Get(':id')  // duplicate route
   getUser(@Param('id') id: string) { /* ... */ }
 }
 ```
@@ -96,15 +96,19 @@ export class UserController {
 
 ## no-missing-guard-method
 
-Detects guard classes (using `@Injectable()` or implementing `CanActivate`) that are missing the `canActivate()` method. This rule identifies guards by the `Guard` class name suffix.
+Detects classes named `*Guard` that carry `@Injectable()` and are missing the `canActivate()` method.
 
 **Why:** A guard without `canActivate()` will cause a runtime error when NestJS tries to invoke it.
+
+**Note:** Three gates decide whether a class is checked. The name must end in `Guard`, the class must carry `@Injectable()`, and it must have no `extends` clause.
+
+An `implements CanActivate` clause is never read, so a class named `Authorizer` is not checked whatever it implements. A guard that extends a base class is skipped too, because `canActivate()` can come from the parent, as in `extends AuthGuard('jwt')`.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
 @Injectable()
 export class AuthGuard implements CanActivate {
-  // Missing canActivate()!
+  // missing canActivate()
 }
 ```
 ```typescript
@@ -121,15 +125,17 @@ export class AuthGuard implements CanActivate {
 
 ## no-missing-pipe-method
 
-Detects pipe classes missing the `transform()` method.
+Detects classes named `*Pipe` that carry `@Injectable()` and are missing the `transform()` method.
 
 **Why:** Pipes must implement `transform()` or NestJS will throw at runtime.
+
+**Note:** The same three gates as [`no-missing-guard-method`](#no-missing-guard-method) apply: the `Pipe` name suffix, `@Injectable()`, and no `extends` clause. An `implements PipeTransform` clause is not read.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
 @Injectable()
 export class ParseIntPipe implements PipeTransform {
-  // Missing transform()!
+  // missing transform()
 }
 ```
 ```typescript
@@ -154,7 +160,7 @@ Detects exception filter classes (decorated with `@Catch()`) missing the `catch(
 ```typescript
 @Catch(HttpException)
 export class HttpFilter implements ExceptionFilter {
-  // Missing catch()!
+  // missing catch()
 }
 ```
 ```typescript
@@ -172,15 +178,17 @@ export class HttpFilter implements ExceptionFilter {
 
 ## no-missing-interceptor-method
 
-Detects interceptor classes missing the `intercept()` method.
+Detects classes named `*Interceptor` that carry `@Injectable()` and are missing the `intercept()` method.
 
 **Why:** Interceptors must implement `intercept()` or NestJS will throw at runtime.
+
+**Note:** The same three gates as [`no-missing-guard-method`](#no-missing-guard-method) apply: the `Interceptor` name suffix, `@Injectable()`, and no `extends` clause. An `implements NestInterceptor` clause is not read.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
-  // Missing intercept()!
+  // missing intercept()
 }
 ```
 ```typescript
@@ -217,6 +225,73 @@ export class UserService {
     private readonly connection: Connection,
   ) {}
 }
+```
+</CodeGroup>
+
+---
+
+## param-decorator-matches-route
+
+Detects `@Param()` decorator names that don't match any `:param` segment in the route path (including the controller prefix).
+
+**Why:** A mismatched `@Param()` name silently receives `undefined` at runtime, leading to bugs that are hard to trace.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Controller('users')
+export class UserController {
+  @Get(':id')
+  findOne(@Param('userId') userId: string) {  // 'userId' doesn't match ':id'
+    return this.userService.findOne(userId);
+  }
+}
+```
+```typescript
+@Controller('users')
+export class UserController {
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.userService.findOne(id);
+  }
+}
+```
+</CodeGroup>
+
+---
+
+## factory-inject-matches-params
+
+Detects `useFactory` providers where the `inject` array length doesn't match the factory function's parameter count.
+
+**Why:** NestJS maps inject tokens to factory parameters by position. A count mismatch means the factory receives wrong or missing values, causing silent bugs or runtime errors.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Module({
+  providers: [
+    {
+      provide: 'CONFIG',
+      useFactory: (config) => config.get('db'),  // 1 param
+      inject: [ConfigService, LoggerService],     // 2 tokens
+    },
+  ],
+})
+export class AppModule {}
+```
+```typescript
+@Module({
+  providers: [
+    {
+      provide: 'CONFIG',
+      useFactory: (config, logger) => {           // 2 params
+        logger.log('Loading config');
+        return config.get('db');
+      },
+      inject: [ConfigService, LoggerService],     // 2 tokens
+    },
+  ],
+})
+export class AppModule {}
 ```
 </CodeGroup>
 
@@ -272,38 +347,21 @@ export class AppService implements OnModuleInit {
 
 ---
 
-## no-empty-handlers
-
-Detects HTTP handler methods with empty bodies.
-
-**Why:** An empty handler returns `undefined`, which NestJS serializes as an empty response. This is nearly always unintentional — the handler is either incomplete or should return a value.
-
-<CodeGroup labels={["Bad", "Good"]}>
-```typescript
-@Controller('users')
-export class UserController {
-  @Get()
-  findAll() {}  // Empty body
-}
-```
-```typescript
-@Controller('users')
-export class UserController {
-  @Get()
-  findAll() {
-    return this.userService.findAll();
-  }
-}
-```
-</CodeGroup>
-
----
-
 ## no-async-without-await
 
-Detects async functions or methods that never use `await`. HTTP handlers with route decorators are exempted, as `async` is conventional for controller methods.
+Detects async functions or methods that never use `await`.
 
 **Why:** An async function without `await` creates an unnecessary promise wrapper. Either remove `async` or add the missing `await`.
+
+Framework entry points are exempt, because Nest awaits what they return. A method carrying one of these decorators is never reported:
+
+| Kind | Decorators |
+|------|------------|
+| HTTP routes | `@Get`, `@Post`, `@Put`, `@Patch`, `@Delete`, `@Head`, `@Options`, `@All` |
+| GraphQL | `@Query`, `@Mutation`, `@Subscription`, `@ResolveField`, `@ResolveProperty`, `@ResolveReference` |
+| Microservices | `@MessagePattern`, `@EventPattern`, `@GrpcMethod`, `@GrpcStreamMethod` |
+| WebSockets | `@SubscribeMessage` |
+| ts-rest | `@TsRestHandler` |
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
@@ -340,7 +398,7 @@ Detects duplicate entries in `@Module()` metadata arrays (`imports`, `providers`
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
 @Module({
-  providers: [UserService, AuthService, UserService],  // Duplicate!
+  providers: [UserService, AuthService, UserService],  // duplicate entry
 })
 export class UserModule {}
 ```
@@ -388,8 +446,8 @@ Detects async function calls without `await` in non-handler methods (services, e
 @Injectable()
 export class OrderService {
   complete(orderId: string) {
-    this.notificationService.sendEmail(orderId);  // No await!
-    this.analyticsService.track('order_completed');  // No await!
+    this.notificationService.sendEmail(orderId);  // no await
+    this.analyticsService.track('order_completed');  // no await
   }
 }
 ```
@@ -406,85 +464,22 @@ export class OrderService {
 
 ---
 
-## param-decorator-matches-route
-
-Detects `@Param()` decorator names that don't match any `:param` segment in the route path (including the controller prefix).
-
-**Why:** A mismatched `@Param()` name silently receives `undefined` at runtime, leading to bugs that are hard to trace.
-
-<CodeGroup labels={["Bad", "Good"]}>
-```typescript
-@Controller('users')
-export class UserController {
-  @Get(':id')
-  findOne(@Param('userId') userId: string) {  // 'userId' doesn't match ':id'
-    return this.userService.findOne(userId);
-  }
-}
-```
-```typescript
-@Controller('users')
-export class UserController {
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.userService.findOne(id);
-  }
-}
-```
-</CodeGroup>
-
----
-
-## factory-inject-matches-params
-
-Detects `useFactory` providers where the `inject` array length doesn't match the factory function's parameter count.
-
-**Why:** NestJS maps inject tokens to factory parameters by position. A count mismatch means the factory receives wrong or missing values, causing silent bugs or runtime errors.
-
-<CodeGroup labels={["Bad", "Good"]}>
-```typescript
-@Module({
-  providers: [
-    {
-      provide: 'CONFIG',
-      useFactory: (config) => config.get('db'),  // 1 param
-      inject: [ConfigService, LoggerService],     // 2 tokens!
-    },
-  ],
-})
-export class AppModule {}
-```
-```typescript
-@Module({
-  providers: [
-    {
-      provide: 'CONFIG',
-      useFactory: (config, logger) => {           // 2 params
-        logger.log('Loading config');
-        return config.get('db');
-      },
-      inject: [ConfigService, LoggerService],     // 2 tokens
-    },
-  ],
-})
-export class AppModule {}
-```
-</CodeGroup>
-
----
-
 ## no-duplicate-decorators
 
-Detects the same decorator appearing twice on a single class, method, or property. Stackable decorators like `@ApiResponse` are allowed.
+Detects the same decorator appearing twice on a single class, method, property, or constructor parameter.
 
 **Why:** A duplicate decorator is almost always a copy-paste error. The second occurrence silently overwrites the first or has no effect.
 
+**Note:** Most decorators are compared by their full text. `@ApiResponse({ status: 200 })` and `@ApiResponse({ status: 404 })` are two decorators, but writing either one twice verbatim is still reported.
+
+A target can carry only one `@Controller`, `@Injectable`, `@Module`, `@Catch`, `@Entity`, `@Global`, `@Resolver`, `@WebSocketGateway`, or route decorator. For those the second occurrence is reported even when its arguments differ.
+
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
 @Controller('users')
 export class UserController {
   @Get(':id')
-  @Get(':id')  // Duplicate!
+  @Get(':id')  // duplicate decorator
   findOne(@Param('id') id: string) {
     return this.userService.findOne(id);
   }
@@ -513,7 +508,7 @@ Detects DTO properties with class-validator decorators on non-primitive types th
 ```typescript
 export class CreateOrderDto {
   @ValidateNested()
-  address: AddressDto;  // Missing @Type()!
+  address: AddressDto;  // missing @Type()
 }
 ```
 ```typescript
@@ -536,7 +531,7 @@ Detects `@ValidateNested()` on array-typed properties that are missing `{ each: 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
 export class CreateOrderDto {
-  @ValidateNested()  // Missing { each: true }!
+  @ValidateNested()  // missing { each: true }
   @Type(() => ItemDto)
   items: ItemDto[];
 }
@@ -552,18 +547,45 @@ export class CreateOrderDto {
 
 ---
 
+## no-empty-handlers
+
+Detects HTTP handler methods with empty bodies.
+
+**Why:** An empty handler returns `undefined`, which NestJS serializes as an empty response. This is nearly always unintentional. The handler is either incomplete or should return a value.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+@Controller('users')
+export class UserController {
+  @Get()
+  findAll() {}  // Empty body
+}
+```
+```typescript
+@Controller('users')
+export class UserController {
+  @Get()
+  findAll() {
+    return this.userService.findAll();
+  }
+}
+```
+</CodeGroup>
+
+---
+
 ## injectable-must-be-provided
 
 **Scope:** Project
 
 Detects `@Injectable()` classes that are not registered in any module's `providers` array. Infrastructure classes (guards, pipes, filters, interceptors, etc.) are skipped.
 
-**Why:** An `@Injectable()` class that isn't registered anywhere is either dead code or a forgotten registration — NestJS will throw if you try to inject it.
+**Why:** An `@Injectable()` class that is not registered anywhere is either dead code or a forgotten registration. NestJS throws when something tries to inject it.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
 @Injectable()
-export class UsersService {  // Not in any module's providers!
+export class UsersService {  // not in any module's providers
   findAll() { /* ... */ }
 }
 ```

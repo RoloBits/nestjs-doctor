@@ -4,26 +4,23 @@ export const metadata = docsMetadata["/docs/pipeline/module-graph"];
 
 <BreadcrumbJsonLd path="/docs/pipeline/module-graph" />
 
-# Module Graph
+# Module graph
 
 **Source:** `src/engine/graph/module-graph.ts`
 
-## What
+Builds a directed dependency graph of NestJS `@Module()` classes and their
+relationships. Project-scoped rules read it to answer questions no single file
+can: circular dependencies, unused exports, orphan modules, and cross-module
+boundaries.
 
-Builds a directed dependency graph of NestJS `@Module()` classes and their relationships.
-
-## Why
-
-Project-scoped rules need to understand module relationships. Circular dependency detection, unused export analysis, orphan module identification, and cross-module boundary violations all require a graph representation of the module system.
-
-## Input
+Input is the parsed project and the file list:
 
 ```typescript
 project: Project     // ts-morph AST project
-files: string[]      // file paths to scan
+files: string[]      // file paths to analyze
 ```
 
-## Output
+The result is the graph plus a reverse index from provider to owning module:
 
 ```typescript
 interface ModuleGraph {
@@ -47,39 +44,45 @@ interface ModuleNode {
 }
 ```
 
-## How It Works
+## How it works
 
-### Two-Pass Algorithm
+### Two-pass algorithm
 
-**Pass 1 — Module Collection:**
+**Pass 1, module collection:**
 
 Scans every file for classes decorated with `@Module()`. For each module:
 - Extracts the decorator argument (the metadata object)
 - Parses `imports`, `exports`, `providers`, and `controllers` arrays
 - Creates a `ModuleNode`
 
-**Pass 2 — Edge Building:**
+**Pass 2, edge building:**
 
-For each module's `imports` array, creates directed edges in the graph. Also builds the `providerToModule` reverse index mapping each provider name back to its containing module.
+For each module's `imports` array, creates directed edges in the graph. Also builds the `providerToModule` reverse index, mapping each provider name back to its containing module.
 
-### Same-Name Modules
+### Same-name modules
 
 Two `@Module()` classes sharing one name are handled by directory:
 
-- **Same directory:** metadata is unioned. This is the multi-bootstrap pattern where `standalone.ts` and `lambda.ts` each declare a `BootstrapModule` with a different import list; the graph sees one node with both lists, and `filePaths` records every declaration file.
+- **Same directory:** metadata is unioned. This is the multi-bootstrap pattern, where `standalone.ts` and `lambda.ts` each declare a `BootstrapModule` with a different import list. The graph sees one node holding both lists, and `filePaths` records every declaration file.
 - **Different directories:** the last declaration wins. Two unrelated `SharedModule` classes in different features are not merged.
 
-### Package Imports
+### Package imports
 
-Names imported from a bare package specifier (anything that is not a relative path or a tsconfig path alias) are recorded in `packageImports` with their specifier. In a monorepo merge, such a name binds to a module in another sub-project only when the specifier, or a parent of it, is itself a scanned workspace package that declares the module. `import { SharedModule } from '@myorg/shared'` creates a cross-project edge when `@myorg/shared` is a workspace package in the scan; a module that happens to share its name with an npm export does not.
+A bare package specifier is anything that is neither a relative path nor a tsconfig path alias. Names imported from one are recorded in `packageImports` alongside their specifier.
 
-### Import Resolution
+In a monorepo merge, such a name binds to a module in another sub-project under one condition. The specifier, or a parent of it, must itself be a scanned workspace package that declares the module.
 
-The graph builder recursively resolves import expressions to extract module names from a variety of patterns commonly used in NestJS codebases.
+- `import { SharedModule } from '@myorg/shared'` creates a cross-project edge
+  when `@myorg/shared` is a workspace package in the scan.
+- A module that happens to share its name with an npm export does not.
 
-**Supported patterns:**
+### Import resolution
 
-| Pattern | Example | Resolves To |
+The graph builder resolves import expressions recursively to extract module names. It covers the patterns NestJS codebases use in practice.
+
+Supported patterns:
+
+| Pattern | Example | Resolves to |
 |---------|---------|-------------|
 | Plain identifier | `UsersModule` | `"UsersModule"` |
 | Dynamic module method | `ConfigModule.forRoot({ ... })` | `"ConfigModule"` |
@@ -93,25 +96,23 @@ The graph builder recursively resolves import expressions to extract module name
 | Cross-file variable | `commonImports` (imported from `./shared`) | contents of variable in other file |
 | Chained cross-file calls | `getA()` calls `getB()` in another file | recursively follows the chain |
 
-**Recognized dynamic module methods:** `forRoot`, `forRootAsync`, `forFeature`, `forFeatureAsync`, `forChild`, `forChildAsync`, `register`, `registerAsync`.
+Recognized dynamic module methods: `forRoot`, `forRootAsync`, `forFeature`, `forFeatureAsync`, `forChild`, `forChildAsync`, `register`, `registerAsync`.
 
-**Resolution rules:**
+Resolution rules:
 
-- Resolution is recursive with a depth limit of 5
-- **Same-file functions:** the resolver finds the function declaration (or arrow function variable) and extracts identifiers from its `return` statements
-- **Same-file variables:** the resolver finds the `const`/`let`/`var` declaration and resolves its initializer
-- **Cross-file resolution:** if a function or variable is not found in the current file, the resolver follows `import { name } from './other-file'` declarations and `export { name } from './other-file'` re-exports to locate the definition in the external file, then continues resolving there
-- **Unresolvable expressions** (ternaries, computed values) gracefully return empty — no crash, the import is silently skipped
+- Resolution is recursive, with a depth limit of 5.
+- **Same-file functions:** the resolver finds the function declaration, or the arrow function variable, and extracts identifiers from its `return` statements.
+- **Same-file variables:** the resolver finds the `const`/`let`/`var` declaration and resolves its initializer.
+- **Cross-file resolution:** a name missing from the current file is looked up through `import { name } from './other-file'` declarations and `export { name } from './other-file'` re-exports. The resolver then continues in that file.
+- **Unresolvable expressions:** ternaries and computed values return empty. The import is skipped, with no crash.
 
-**Why this matters:**
-
-Before this resolution engine, `ConfigModule.forRoot(...)` was stored as the raw string `"ConfigModule.forRoot({ isGlobal: true })"`, which never matched a module key and silently dropped the edge. This caused:
+Before this resolution engine, `ConfigModule.forRoot(...)` was stored as the raw string `"ConfigModule.forRoot({ isGlobal: true })"`. That string never matched a module key, so the edge was dropped silently. Three consequences followed:
 
 - False negatives in circular dependency detection
 - False positives in orphan module detection
 - False positives in unused export detection
 
-**Example — multiple patterns in one module:**
+One module can mix every supported pattern:
 
 ```typescript
 const commonImports = [SharedModule, LoggingModule];
@@ -137,9 +138,7 @@ export class AppModule {}
 //   SharedModule, LoggingModule, AuthModule, SessionModule
 ```
 
-**Example — cross-file resolution chain:**
-
-When imports are split across multiple files, the resolver follows the chain recursively:
+When imports are split across several files, the resolver follows the chain recursively:
 
 ```
 app.module.ts
@@ -150,12 +149,11 @@ app.module.ts
   getAppCommonImports() → [ConfigModule.forRoot({...}), LoggerModule, HealthModule]
 ```
 
-The graph builder resolves the full chain and extracts:
-`ConfigModule`, `LoggerModule`, `HealthModule`, `DatabaseModule`, `AdminAuthModule`
+The graph builder resolves the full chain and extracts `ConfigModule`, `LoggerModule`, `HealthModule`, `DatabaseModule`, and `AdminAuthModule`.
 
-### Circular Dependency Detection
+### Circular dependency detection
 
-`findCircularDeps()` uses DFS (depth-first search) with a recursion stack to detect cycles:
+`findCircularDeps()` uses depth-first search with a recursion stack to detect cycles:
 
 ```typescript
 function findCircularDeps(graph: ModuleGraph): string[][] {
@@ -164,15 +162,15 @@ function findCircularDeps(graph: ModuleGraph): string[][] {
 }
 ```
 
-### Helper Functions
+### Helper functions
 
-- `findProviderModule(graph, providerName)` — find which module owns a provider
-- `traceProviderEdges(fromModule, toModule, providers, providerToModule, project, files)` — find which providers/controllers in one module depend on providers in another module. Returns `ProviderEdge[]` with `{ consumer, dependency }`. Used by `no-circular-module-deps` to generate concrete fix suggestions.
+- `findProviderModule(graph, providerName)`: finds which module owns a provider.
+- `traceProviderEdges(fromModule, toModule, providers, providerToModule, project, files)`: finds which providers or controllers in one module depend on providers in another. Returns `ProviderEdge[]` with `{ consumer, dependency }`. Used by `no-circular-module-deps` to generate concrete fix suggestions.
 
-## Debugging Tips
+## Debugging tips
 
-- If a module does not appear in the graph, verify that it has the `@Module()` decorator and is in a file included by the [file collector](/docs/pipeline/file-collection).
-- If a dynamically-imported module (e.g. via `.forRoot()`) does not appear in the graph edges, verify the method name is one of the recognized dynamic module methods listed above.
-- Circular dependency detection works on the `imports` graph. Additionally, `traceProviderEdges` traces provider-level dependencies across module boundaries, enabling concrete suggestions about which providers to extract to break a cycle.
-- If a cross-file function or variable is not resolved, verify the function/variable is exported from its source file and imported with a named import in the module file. Only relative path imports (starting with `./` or `../`) are followed — bare specifiers (e.g., `@nestjs/common`) are skipped.
-- The `providerToModule` index is built from `@Module({ providers: [...] })`. If a provider is not listed in any module's providers array, it will not appear in this index.
+- If a module does not appear in the graph, verify that it carries the `@Module()` decorator. Check too that its file is included by the [file collector](/docs/pipeline/file-collection).
+- If a dynamically imported module such as `.forRoot()` does not appear in the graph edges, check the method name. Only the recognized dynamic module methods listed above are resolved.
+- Circular dependency detection works on the `imports` graph. `traceProviderEdges` goes further and traces provider-level dependencies across module boundaries, which is what makes concrete extraction suggestions possible.
+- If a cross-file function or variable is not resolved, verify that it is exported from its source file. It must also be imported with a named import in the module file. Relative paths (`./` or `../`) are followed, and so are tsconfig path aliases, so an `@app/shared` import resolves. A bare specifier matching no alias, like `@nestjs/common`, is skipped.
+- The `providerToModule` index is built from `@Module({ providers: [...] })`. A provider absent from every module's `providers` array does not appear in this index.

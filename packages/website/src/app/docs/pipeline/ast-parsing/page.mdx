@@ -4,31 +4,30 @@ export const metadata = docsMetadata["/docs/pipeline/ast-parsing"];
 
 <BreadcrumbJsonLd path="/docs/pipeline/ast-parsing" />
 
-# AST Parsing
+# AST parsing
 
 **Source:** `src/engine/graph/ast-parser.ts`
 
-## What
+Creates a [ts-morph](https://ts-morph.com) `Project` and loads every collected
+file into it. Three later stages read that AST: module graph building, provider
+resolution, and rule execution. One shared `Project` means no file is parsed
+twice.
 
-Creates a [ts-morph](https://ts-morph.com) `Project` instance and loads all collected files into it for TypeScript AST analysis.
-
-## Why
-
-Every subsequent step — module graph building, provider resolution, and rule execution — needs to inspect the TypeScript AST (Abstract Syntax Tree). A single shared `Project` instance avoids re-parsing files across stages.
-
-## Input
+Input is the list of absolute paths from the file collection stage:
 
 ```typescript
-files: string[]    // absolute file paths from the file collection step
+files: string[]    // absolute file paths from the file collection stage
 ```
 
-## Output
+The result is a ts-morph `Project` with every source file loaded:
 
 ```typescript
 Project    // ts-morph Project with all source files loaded
 ```
 
-## How It Works
+## How it works
+
+The parser builds the project like this:
 
 ```typescript
 const project = new Project({
@@ -48,13 +47,13 @@ for (const file of files) {
 
 Key configuration choices:
 
-- **`skipFileDependencyResolution: true`** — only analyzes the files you explicitly provide. Does not chase `import` statements into `node_modules` or other directories. This keeps the analysis fast and scoped.
-- **`skipAddingFilesFromTsConfig: true`** — ignores the project's `tsconfig.json` file list. The [file collector](/docs/pipeline/file-collection) already determined which files to include.
-- **`strict: true`** — enables strict type checking for accurate type information.
-- **ESNext target** — uses the latest language features to avoid downlevel transform artifacts in the AST.
+- **`skipFileDependencyResolution: true`:** only the files you provide are analyzed. `import` statements into `node_modules` or other directories are not followed, which keeps the scan fast and scoped.
+- **`skipAddingFilesFromTsConfig: true`:** the project's `tsconfig.json` file list is ignored. The [file collector](/docs/pipeline/file-collection) already decided which files to include.
+- **`strict: true`:** enables strict type checking for accurate type information.
+- **ESNext target:** uses the latest language features, so the AST carries no downlevel transform artifacts.
 
-## Debugging Tips
+## Debugging tips
 
-- If a rule cannot find expected AST nodes, the file may not have been added to the project. Check the [file collection](/docs/pipeline/file-collection) step.
-- ts-morph wraps the TypeScript compiler API. You can use the [TypeScript AST Viewer](https://ts-ast-viewer.com) to explore what the AST looks like for a given code snippet.
-- The `Project` object is passed by reference to all subsequent stages. No files are re-parsed.
+- If a rule cannot find the AST nodes you expect, the file may not have been added to the project. Check the [file collection](/docs/pipeline/file-collection) stage.
+- ts-morph wraps the TypeScript compiler API. Use the [TypeScript AST Viewer](https://ts-ast-viewer.com) to explore the AST for a given code snippet.
+- The `Project` object is passed by reference to every later stage.
