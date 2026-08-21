@@ -70,7 +70,7 @@ const FINDINGS = [
 ];
 
 const PullRequestMock = () => (
-	<Figure caption="Fig. 03 — Pull request review" meta="delta vs base branch">
+	<Figure caption="Fig. 02 — Pull request review" meta="delta vs base branch">
 		<div
 			className="font-sans text-[12px] leading-normal tracking-normal"
 			style={{ background: G.bg, color: "#e6edf3" }}
