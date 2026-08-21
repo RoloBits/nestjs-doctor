@@ -22,6 +22,7 @@ export const DOCS_NAV: NavSection[] = [
 		items: [
 			{ title: "Coding agents", href: "/docs/coding-agents" },
 			{ title: "VS Code extension", href: "/docs/vscode-extension" },
+			{ title: "Language server", href: "/docs/language-server" },
 		],
 	},
 	{

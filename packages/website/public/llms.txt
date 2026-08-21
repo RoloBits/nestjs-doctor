@@ -155,6 +155,20 @@ npx nestjs-doctor --init
 
 Supported agents: Claude Code, Amp Code, Cursor, OpenCode, Windsurf, Antigravity, Gemini CLI, Codex. A project-level fallback is always written to `.agents/nestjs-doctor/`.
 
+## Editors
+
+VS Code: install the NestJS Doctor extension from the Marketplace, and add `nestjs-doctor` as a devDependency of the project.
+
+Any other editor: the language server is published separately and speaks LSP over stdio.
+
+```bash
+npx nestjs-doctor-lsp --stdio
+```
+
+The client has to send `rootUri`, and `nestjs-doctor` has to be a dependency of the project it points at. The server loads the engine from there.
+
+Docs: https://www.nestjs.doctor/docs/language-server
+
 ## Rules (40)
 
 ### Security (9)
