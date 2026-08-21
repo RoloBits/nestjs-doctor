@@ -163,10 +163,11 @@ describe("installCiWorkflow", () => {
 		const result = await installCiWorkflow(nested, false);
 
 		expect(result.status).toBe("created");
-		// git reports the canonical root; on macOS /var resolves to /private/var.
-		expect(result.workflowPath).toBe(
-			path.join(fs.realpathSync(repo), WORKFLOW_PATH)
-		);
+		// git canonicalises the root: /var becomes /private/var on macOS, and a
+		// Windows 8.3 short path becomes its long form. Compare structure, not text.
+		expect(result.workflowPath.endsWith(WORKFLOW_PATH)).toBe(true);
+		expect(result.workflowPath).not.toContain(path.join("apps", "api"));
+		expect(fs.existsSync(path.join(repo, WORKFLOW_PATH))).toBe(true);
 		expect(result.branch).toBe("main");
 	});
 
