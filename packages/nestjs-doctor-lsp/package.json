@@ -1,6 +1,6 @@
 {
   "name": "nestjs-doctor-lsp",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "Language Server Protocol server for nestjs-doctor diagnostics",
   "type": "module",
   "main": "dist/server.cjs",
@@ -39,7 +39,7 @@
     "vscode-languageserver-textdocument": "^1.0.0"
   },
   "peerDependencies": {
-    "nestjs-doctor": "workspace:>=0.8.0"
+    "nestjs-doctor": "workspace:>=0.9.0"
   },
   "devDependencies": {
     "tsdown": "^0.20.3",

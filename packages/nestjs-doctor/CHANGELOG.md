@@ -1,5 +1,143 @@
 # nestjs-doctor
 
+## 0.9.0
+
+### Minor Changes
+
+- 7230094: Rework the agent skills so they fire on their own and cover a slow boot.
+
+  The main skill carried `disable-model-invocation: true` and a description
+  saying what it does rather than when to use it, so an agent that had just
+  written NestJS code never reached for it. Both are fixed, and it now leads
+  with the `--scope changed` regression check instead of a fix menu.
+
+  Adds a `nestjs-boot-trace` skill for `--timings`: check the Nest version,
+  instrument `main.ts`, capture one boot, read the cascade, then revert.
+
+  `AGENTS.md` is now derived from the skill body instead of being a separate
+  stub, so the six agents that only receive `AGENTS.md` get the real guidance
+  rather than eight lines, and the two can no longer drift.
+
+  Re-running `--init` now updates Windsurf. It matched on a bare heading and
+  returned early, so any user who had installed once never received another
+  change. The block is delimited and replaced in place.
+
+  The skills are real markdown in `skills/<name>/SKILL.md`, copied into
+  `dist/skills` and read from there at install time, so the published package
+  ships them as files rather than as strings baked into the bundle. Each one is
+  validated at build time, which caught a `create-rule` skill that had no `name:`
+  in its frontmatter.
+
+  The create-rule skill is split. Its 18KB was mostly reference material that
+  only matters once you are writing the rule, so the type signatures, the two
+  worked examples, and the ts-morph patterns moved to `references/` and load on
+  demand. `--init` copies a skill's `references/` directory alongside its
+  `SKILL.md`.
+
+- 37de413: Segment the boot timeline in the report's Boot trace tab. The documented snippet now stamps `createMs` and `initMs` (via an explicit `app.init()`) alongside `startupMs`; the tab tops with a lifecycle strip — `create · lifecycle hooks · listen`, or four segments when `moduleInitMs` is present — and the header badge tooltip carries the same caption. Out-of-order markers drop the whole breakdown with one stderr warning rather than render a wrong bar.
+
+  An optional `instrument.instanceDecorator` wrapper (Nest >= 11.1.4, documented) records per-class `onModuleInit`/`onApplicationBootstrap` durations as `hookTimings`; they render as `+<ms> init` / `+<ms> bootstrap` chips on trace rows and module headers, joined only when the class name is unique in the dump, with per-instance entries from transient providers merged into one `×N` total. Out-of-order markers keep a valid `startupMs`; only the breakdown is dropped. Old dumps render exactly as before.
+
+  Two deliberate behavior changes in the modules tab: selection, the open dock, and expanded trace rows now survive switching to another top tab and back, and the dock legend shows only while the Boot trace tab is expanded. A dependency with its own top-level row renders hollow with a `listed above` tag when it reappears inside an expanded cascade, so no cost is drawn twice.
+
+- 091f691: Add `--timings <path>` to overlay real bootstrap init times on the HTML report's modules graph. The file is a NestJS `SerializedGraph` dump produced by booting once with `NestFactory.create(AppModule, { snapshot: true })` and writing `app.get(SerializedGraph).toString()` (requires `@nestjs/core` >= 9.3.10). Each module node shows its slowest class's construction time and the tooltip gains a slowest-class line. Selecting a module fills a Boot trace tab in the bottom dock (shared with Module problems): classes slowest-first with proportional bars color-coded by type, each row expandable in place into its injection cascade rendered from the dump's class-to-class edges, with an amber segment marking the part of each class's time not explained by its slowest dependency. The header gains a clickable badge that jumps to the slowest chain's module: `time to start ≈ <ms>` when the dump carries a snippet-measured `startupMs` (bootstrap start until `app.listen()` resolved, lifecycle hooks included), falling back to `boot ≈ <ms>` (slowest construction chain) without it.
+
+  Timings are display-only: they never enter the score, diagnostics, exit codes, or fingerprints, and a report generated without the flag is unchanged. An unreadable or unrecognized dump degrades to a stderr warning and the report renders without timings. In a monorepo, a timing attaches only when its module class name is unique across projects; ambiguous names show the no-data state instead of a guess.
+
+- f02f780: Add `nestjs-doctor ci install`, which scaffolds `.github/workflows/nestjs-doctor.yml` so the pull request review is one command away instead of a copy from the docs. The workflow runs on `pull_request` and on pushes to the default branch, checks out with `fetch-depth: 0` so the scan can reach the merge base, and carries the common action inputs commented out — the check comments and sets a status but never fails until you set `blocking` or `min-score`.
+
+  The file lands at the git repository root, so running it from a package directory in a monorepo still writes to the right place, and the command refuses to run outside a repository rather than dropping a `.github/` tree into the current directory. An existing workflow is left untouched unless `--force` is passed, and a symlink anywhere on the path is refused, so the write cannot escape the repository through one. The push trigger is keyed to the branch `origin/HEAD` points at, verified to still exist, falling back to `origin/main`, `origin/master`, then the checked out branch, and the chosen branch is printed.
+
+  Verbs are read from the positional argument rather than a citty subcommand, so `nestjs-doctor <path>` keeps working exactly as before; only `ci install` and an unrecognised `ci <verb>` are intercepted.
+
+- f0811ec: Add diagnostic surfaces, so a rule can be reported without moving the score.
+
+  `meta.surfaces` names where a rule's diagnostics may appear:
+
+  | Surface     | Where                                                                                                                |
+  | ----------- | -------------------------------------------------------------------------------------------------------------------- |
+  | `cli`       | The console report and the HTML report                                                                               |
+  | `prComment` | The pull request summary, its inline review comments, the GitHub annotations, `--format sarif` and `--format gitlab` |
+  | `score`     | The 0-100 number                                                                                                     |
+  | `ciFailure` | `--blocking`                                                                                                         |
+
+  Omitting it means all four, so every existing rule and every custom rule
+  behaves exactly as before. `--format json` still carries every finding, with
+  `surfaces` on each one, so a consumer filters however it wants.
+
+  `correctness/no-async-without-await` and `correctness/prefer-readonly-injection`
+  are now `["cli"]`. Measured across ten real NestJS repositories, those two were
+  52% of all output, and on one of them 148 of 251 findings. Both encode a
+  preference rather than a defect, and both were dragging every score that met
+  them. They still report every finding in the console and the HTML report, and
+  they no longer comment on a pull request or fail a build.
+
+  Scores rise as a result. On the same ten repositories the change is between
+  0 and +12 points.
+
+  The console appends `· not scored` to a finding that does not reach the score.
+  The HTML report carries a badge beside the rule id, an `N of M not scored` line
+  under the score so the two numbers reconcile, and a **Show not scored**
+  checkbox that starts off.
+
+  Surfaces are configurable. `"rules": { "<id>": { "surfaces": [...] } }`
+  replaces what a rule declares, so a team that does want a style enforced can
+  put it back on the score and the build. A value that is not a list of known
+  surface names is ignored rather than applied, so a typo cannot quietly narrow
+  what gets reported.
+
+  In the editor, a finding that can neither score nor fail a build is reported as
+  a hint rather than a warning, so it stays visible while you write without
+  sitting in the Problems panel beside real defects.
+
+  `DiagnosticSurface`, `BaseDiagnostic`, `onSurface` and `forSurface` are
+  exported, so a custom rule can declare surfaces and a consumer can read them.
+
+  Two Windows fixes for the editor ride along, both older than this change.
+
+  The language server decided a path was absolute by testing for a leading
+  slash. Nothing the scanner reports on Windows has one, because ts-morph uses
+  forward slashes with a drive, so `D:/proj/src/a.ts` was appended to the
+  workspace root anyway and became `D:\proj/D:/proj/src/a.ts`. That points at no
+  file, so every finding attached to nothing.
+
+  The worker also kept one diagnostic cache written from two sources that spell
+  a path differently: a full scan keys by the scanner's path, an edit keys by the
+  document URI converted to a native one. They agree everywhere except Windows,
+  where the first edit added a second entry for the same file, so each finding
+  appeared twice and the set from before the edit never cleared.
+
+### Patch Changes
+
+- b544041: Repoint the two README links that pointed into anchors on the docs Setup page, which is now a quickstart. Agent setup moved to `/docs/coding-agents` and the Node API to `/docs/reference/node-api`. Also fixes the link in the generated HTML report's rule playground, which pointed at an anchor that never existed.
+- 56a536b: Document the standalone language server in the README. `nestjs-doctor-lsp`
+  is published separately and speaks LSP over stdio, so any editor can run
+  the same rules the VS Code extension does.
+- f92fb54: Point the README's language server link at its own docs page. The standalone
+  server now has `/docs/language-server` instead of a section inside the VS Code
+  extension page, where no non-VS-Code user would look for it.
+- e86e189: Correct the README's `--timings` blurb. It said the boot trace reads "a graph
+  dump from a real `nest start`", which implies no code change; the dump only
+  exists after adding the snapshot capture to `main.ts`. The link also pointed at
+  the Internals output page, which no longer documents the flag, and now points
+  at the new Boot trace page.
+- 0bdfbe4: Correct three README claims the source does not support. The Node API
+  section named `scanProject()`, which does not exist; the exported function
+  is `diagnose()`. The config section offered a rule severity override that
+  no engine code reads. And "every finding carries a file, a line" is not
+  true of the three schema rules, which report against an entity and carry
+  no line.
+- 418352d: Rename two tabs in the HTML report. **Diagnosis** is now **Findings**, matching
+  the word the pull request comment already uses, so a reader arriving from
+  "**3 findings**" lands on a tab spelling it the same way. **Lab** is now
+  **Rule Lab**, which says what it is without needing the tab open.
+
+  The `data-tab` values and element ids are unchanged, so a saved report and any
+  tooling reading the markup keep working.
+
+  Each tab also carries an outline icon, in the same stroked style as the icons
+  already in the report, so it inherits the tab's own colour and dims with it.
+
 ## 0.8.0
 
 ### Minor Changes
