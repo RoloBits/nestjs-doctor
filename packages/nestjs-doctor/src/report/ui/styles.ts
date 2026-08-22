@@ -461,7 +461,7 @@ body.mg-resizing { cursor: col-resize; user-select: none; }
   backdrop-filter: blur(8px);
   padding: 12px 14px;
   border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  display: flex; flex-direction: column; align-items: stretch; gap: 8px;
 }
 .filter-rows { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
 .sev-filters, .scope-filters { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -638,6 +638,22 @@ body.mg-resizing { cursor: col-resize; user-select: none; }
   padding: 2px 8px; border-radius: 4px;
   background: rgba(255,255,255,0.06); color: var(--text-muted);
   border: 1px solid var(--border);
+}
+.ov-info {
+  position: relative;
+  display: inline-flex;
+  margin-left: 6px;
+  vertical-align: -2px;
+  color: rgba(255,255,255,0.35);
+  cursor: help;
+}
+.ov-info:hover,
+.ov-info:focus-visible { color: rgba(255,255,255,0.7); outline: none; }
+#diag-notscored-row { padding: 0; }
+.diag-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 2px 0 4px;
 }
 .ov-notscored {
   margin-top: 10px;

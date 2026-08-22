@@ -2591,19 +2591,16 @@ function renderDiagnosis() {
   });
 
   // Collapse-all toggle
-  const collapseAllBtn = sidebarEl.querySelector(".collapse-all-btn");
-  collapseAllBtn.addEventListener("click", function() {
+  function diagSetAllFolders(collapsed) {
     const folders = ruleListEl.querySelectorAll(".tree-folder");
-    let someExpanded = false;
     for (let i = 0; i < folders.length; i++) {
-      if (!folders[i].classList.contains("collapsed")) { someExpanded = true; break; }
+      folders[i].classList.toggle("collapsed", collapsed);
     }
-    for (let i = 0; i < folders.length; i++) {
-      if (someExpanded) folders[i].classList.add("collapsed");
-      else folders[i].classList.remove("collapsed");
-    }
-    collapseAllBtn.classList.toggle("all-collapsed", someExpanded);
-  });
+  }
+  const expandAllBtn = document.getElementById("diag-expand-all");
+  const collapseAllBtn = document.getElementById("diag-collapse-all");
+  if (expandAllBtn) expandAllBtn.addEventListener("click", function() { diagSetAllFolders(false); });
+  if (collapseAllBtn) collapseAllBtn.addEventListener("click", function() { diagSetAllFolders(true); });
 
   // Severity filter
   let activeSev = "all";
@@ -2613,7 +2610,15 @@ function renderDiagnosis() {
   let activeScope = "all";
   const scopePills = sidebarEl.querySelectorAll(".scope-pill");
 
+  let showNotScored = false;
+  const notScoredToggle = document.getElementById("diag-show-notscored");
+
+  function isNotScored(d) {
+    return !!(d.surfaces && d.surfaces.indexOf("score") === -1);
+  }
+
   function isDiagVisible(entry) {
+    if (!showNotScored && isNotScored(entry.d)) return false;
     if (activeSev !== "all" && entry.d.severity !== activeSev) return false;
     if (activeScope !== "all" && entry.d.scope !== activeScope) return false;
     return true;
@@ -2630,6 +2635,14 @@ function renderDiagnosis() {
   }
 
   function updateTreeVisibility() {
+    const countEl = document.getElementById("diag-file-count");
+    if (countEl) {
+      let shownFiles = 0;
+      for (const fp in fileMap) {
+        if (countFileVisibleDiags(fp) > 0) shownFiles++;
+      }
+      countEl.textContent = shownFiles;
+    }
     // 1. File nodes — hide if 0 matching diags, update count + severity icon
     const fileNodes = ruleListEl.querySelectorAll(".tree-file");
     for (let f = 0; f < fileNodes.length; f++) {
@@ -2717,6 +2730,20 @@ function renderDiagnosis() {
       updateTreeVisibility();
     });
   }
+  if (notScoredToggle) {
+    // The row is pointless when nothing is filtered by it.
+    const anyNotScored = diagnostics.some(isNotScored);
+    const hideable = ["diag-notscored-row", "diag-notscored-divider"];
+    for (let hi = 0; hi < hideable.length; hi++) {
+      const el = document.getElementById(hideable[hi]);
+      if (el) el.style.display = anyNotScored ? "" : "none";
+    }
+    notScoredToggle.addEventListener("change", function() {
+      showNotScored = this.checked;
+      updateTreeVisibility();
+    });
+  }
+  updateTreeVisibility();
 }
 
 function escHtml(s) {
@@ -2859,6 +2886,7 @@ function renderSummary() {
   let html = '<div class="summary-grid">';
 
   // Score card (full width)
+  var NOT_SCORED_HELP = 'Reported only \u00b7 never counts toward the score or a build failure';
   var notScoredCount = (diagnostics || []).filter(function (d) {
     return d.surfaces && d.surfaces.indexOf('score') === -1;
   }).length;
@@ -2875,8 +2903,13 @@ function renderSummary() {
     '<div class="ov-breakdown-item"><div class="ov-breakdown-dot" style="background:var(--sev-info)"></div> ' + summary.info + ' info</div>' +
     '</div>' +
     (notScoredCount > 0
-      ? '<div class="ov-notscored" title="Reported only. These count toward neither the score nor --blocking.">' +
-        notScoredCount + ' of ' + (summary.total || 0) + ' not scored</div>'
+      ? '<div class="ov-notscored">' + notScoredCount + ' of ' + (summary.total || 0) +
+        ' not scored' +
+        '<span class="ov-info has-tip" tabindex="0" role="img" aria-label="' + NOT_SCORED_HELP + '" data-tip="' + NOT_SCORED_HELP + '">' +
+        '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>' +
+        '</span>' +
+        '</div>'
       : '') +
     '</div></div></div>';
 

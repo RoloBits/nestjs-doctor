@@ -31,7 +31,29 @@ export function getReportHtml(): string {
 <div class="tab-content" id="tab-diagnosis">
   <div id="diagnosis-sidebar">
     <div class="diagnosis-toolbar">
+      <div class="schema-sidebar-header">
+        <span class="schema-sidebar-title">Files</span>
+        <span class="schema-entity-count" id="diag-file-count"></span>
+        <span style="flex:1"></span>
+        <button class="st-btn has-tip" id="diag-expand-all" aria-label="Expand all" data-tip="Expand all \u00b7 open every folder in the list">
+          <svg viewBox="0 0 17 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="1" y1="3" x2="8" y2="3"/><line x1="1" y1="7" x2="8" y2="7"/><line x1="1" y1="11" x2="8" y2="11"/>
+            <path d="M11 5l2.5 3L16 5"/>
+          </svg>
+        </button>
+        <button class="st-btn has-tip" id="diag-collapse-all" aria-label="Collapse all" data-tip="Collapse all \u00b7 close every folder in the list">
+          <svg viewBox="0 0 17 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="1" y1="3" x2="8" y2="3"/><line x1="1" y1="7" x2="8" y2="7"/><line x1="1" y1="11" x2="8" y2="11"/>
+            <path d="M11 11l2.5-3L16 11"/>
+          </svg>
+        </button>
+      </div>
       <div class="filter-rows">
+        <label class="schema-sync" id="diag-notscored-row">
+          <input type="checkbox" id="diag-show-notscored">
+          <span>Show not scored</span>
+        </label>
+        <hr class="diag-divider" id="diag-notscored-divider">
         <div class="sev-filters">
           <span class="filter-label">Severity</span>
           <button class="sev-pill active" data-sev="all">All</button>
@@ -46,14 +68,6 @@ export function getReportHtml(): string {
           <button class="scope-pill" data-scope="project">Project</button>
         </div>
       </div>
-      <button class="collapse-all-btn" title="Collapse all folders">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="4 14 10 14 10 20"/>
-          <polyline points="20 10 14 10 14 4"/>
-          <line x1="14" y1="10" x2="21" y2="3"/>
-          <line x1="3" y1="21" x2="10" y2="14"/>
-        </svg>
-      </button>
     </div>
     <div id="diagnosis-rule-list"></div>
   </div>
