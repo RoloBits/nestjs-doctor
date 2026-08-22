@@ -311,7 +311,10 @@ describe("scanner integration", () => {
 		}
 		const combined = advisories(result.combined.diagnostics);
 		expect(combined).toHaveLength(1);
-		expect(combined[0].filePath).toBe(join(root, "package.json"));
+		// Diagnostics carry posix paths on every platform.
+		expect(combined[0].filePath).toBe(
+			join(root, "package.json").replaceAll("\\", "/")
+		);
 		expect(existsSync(combined[0].filePath)).toBe(true);
 	});
 
