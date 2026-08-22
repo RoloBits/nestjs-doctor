@@ -142,15 +142,21 @@ function makeScoreRingSvg(size, strokeW, value) {
 })();
 
 // ── Diagnosis count badge ──
-(function() {
+function diagIsNotScored(d) {
+  return !!(d.surfaces && d.surfaces.indexOf("score") === -1);
+}
+/** Matches what the tab lists: the not-scored ones only once they are shown. */
+function setDiagnosisBadge(withNotScored) {
   const badge = document.getElementById("diagnosis-count-badge");
-  if (diagnostics.length > 0) {
-    badge.textContent = diagnostics.length;
-  } else {
-    badge.textContent = "0";
-    badge.classList.add("clean");
+  if (!badge) return;
+  let shown = 0;
+  for (let i = 0; i < diagnostics.length; i++) {
+    if (withNotScored || !diagIsNotScored(diagnostics[i])) shown++;
   }
-})();
+  badge.textContent = shown;
+  badge.classList.toggle("clean", diagnostics.length === 0);
+}
+setDiagnosisBadge(false);
 
 // ── Tab switching ──
 let activeTab = "summary";
@@ -2613,9 +2619,7 @@ function renderDiagnosis() {
   let showNotScored = false;
   const notScoredToggle = document.getElementById("diag-show-notscored");
 
-  function isNotScored(d) {
-    return !!(d.surfaces && d.surfaces.indexOf("score") === -1);
-  }
+  const isNotScored = diagIsNotScored;
 
   function isDiagVisible(entry) {
     if (!showNotScored && isNotScored(entry.d)) return false;
@@ -2739,8 +2743,10 @@ function renderDiagnosis() {
       if (el) el.style.display = anyNotScored ? "" : "none";
     }
     showNotScored = notScoredToggle.checked;
+    setDiagnosisBadge(showNotScored);
     notScoredToggle.addEventListener("change", function() {
       showNotScored = this.checked;
+      setDiagnosisBadge(showNotScored);
       updateTreeVisibility();
     });
   }
