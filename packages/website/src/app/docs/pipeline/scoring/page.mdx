@@ -96,6 +96,10 @@ The score is divided by `fileCount` so projects of different sizes are comparabl
 
 In a monorepo, each sub-project gets its own score. The combined score comes from the merged diagnostics of every sub-project, divided by the total file count across all of them.
 
+Merging drops a diagnostic an earlier sub-project already reported, matched on rule, file, position and message. Two sub-projects sharing a workspace-root `package.json` or ORM schema therefore pay for it once.
+
+A sub-project's own score is then recalculated from the diagnostics the merge kept, over its own file count. That keeps the breakdown table consistent with the combined counts, at the cost of a sub-project scoring higher than it would alone.
+
 ## Debugging tips
 
 - If the score seems too low, look for high-severity rules producing many diagnostics. A single security error per file adds `3.0 × 1.5 = 4.5` penalty points.

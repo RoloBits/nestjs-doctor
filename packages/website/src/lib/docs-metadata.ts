@@ -134,7 +134,7 @@ export const docsMetadata: Record<string, Metadata> = {
 	"/docs/rules/security": {
 		title: "Security rules",
 		description:
-			"10 rules that detect security vulnerabilities and unsafe patterns in NestJS applications.",
+			"12 rules that detect security vulnerabilities, unsafe patterns, and dependencies with a published advisory.",
 	},
 	"/docs/rules/correctness": {
 		title: "Correctness rules",

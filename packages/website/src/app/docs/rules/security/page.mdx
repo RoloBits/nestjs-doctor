@@ -354,14 +354,14 @@ The same check for moderate and low advisories, reported as a warning.
 ```json
 {
   "dependencies": {
-    "@nestjs/platform-fastify": "11.1.10"
+    "@nestjs/core": "11.1.17"
   }
 }
 ```
 ```json
 {
   "dependencies": {
-    "@nestjs/platform-fastify": "11.1.24"
+    "@nestjs/core": "11.1.18"
   }
 }
 ```
@@ -375,14 +375,37 @@ Three tiers, in order:
 
 - the version installed under `node_modules`, which is what your code actually runs
 - otherwise the range, and only when every version it admits is below the fix
-- otherwise nothing, for a spec like `workspace:*` or `11.x` that names no version
+- otherwise the package is unchecked, for a spec like `workspace:*` or `11.x` that names no version
 
 npm installs the highest version a range allows, so `^11.0.1` is quiet: it admits 11.1.18, which is patched. `^10.0.0` against a fix that exists only in 11.1.18 is reported, because no version it admits is patched.
+
+The message names the spec as `package.json` declares it, so it matches the line the finding points at. A project declaring `^10.0.0` with 11.1.16 installed reports this:
+
+```
+⚠ @nestjs/core at ^10.0.0 is affected by CVE-2026-35515 (moderate): an unescaped newline in an SSE field lets an attacker spoof event types. Patched in 11.1.18. · not scored
+  Installed: 11.1.16. Upgrade to @nestjs/core@11.1.18 or newer. See https://github.com/advisories/GHSA-36xv-jgw5-4q75
+```
+
+The resolved version sits in the help text below it. An exact spec is written with an `@` instead, as `@nestjs/core@11.1.17`.
+
+### Nothing checked is still reported
+
+A version that could not be established is a finding, not a silence. The same project reads as clean before an install and finds advisories after one, so the gap has to be visible.
+
+| What happened | Message begins |
+|---|---|
+| A spec names no version | `Could not establish the installed version of`, then the packages |
+| No `package.json` at or above the scanned path | `Found no package.json at or above the scanned path` |
+| `package.json` is not valid JSON | `Could not parse package.json` |
+
+All three come from `no-advisory-nestjs-packages`, so they reach the console and the pull request without moving the score. The search walks up from the scanned directory, so a sub-project with no manifest of its own still finds the workspace root's.
 
 ### What it cannot do
 
 The list ships with the CLI, so a scan makes no network call and the same project scores the same offline. The cost is freshness: an older install knows about fewer advisories, and `npx nestjs-doctor@latest` knows the most.
 
-`package.json` takes no comments, so neither inline directive reaches these findings. Silence one with `ignore.rules` in your config file.
+`package.json` takes no comments, so no inline directive reaches these findings. Silence one with `ignore.rules` in your config file.
 
-Under `--scope changed` or `--scope files` the finding appears only when `package.json` itself changed, which is the scope the GitHub Action uses by default.
+Under `--scope files`, `lines` or `changed`, the finding appears only when `package.json` itself changed. `changed` is the scope the GitHub Action uses by default.
+
+Scanning a subdirectory is the exception. The rule walks up to the nearest `package.json`, and a finding above the scanned directory is always kept. The changed-file set only describes the tree below it.

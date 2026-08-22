@@ -62,11 +62,17 @@ attempt.
 |---|---|
 | The client sends `initialized` | A full scan |
 | A `.ts` file is saved | The saved file, then the project rules |
+| The client reports a watched file changed | A full scan |
 | The client sends a `nestjs-doctor/scan` request | A full scan |
 
 Editing without saving publishes nothing, because the server handles `didSave`
 and not `didChange`. Saves are debounced, and a save of anything other than a
 `.ts` file is ignored.
+
+The watched-file row is what refreshes a dependency finding. The server never
+registers a watcher itself, so the client has to send
+`workspace/didChangeWatchedFiles` for `**/package.json`. A client that does not
+leaves every advisory finding as it was until the session restarts.
 
 ## Settings
 

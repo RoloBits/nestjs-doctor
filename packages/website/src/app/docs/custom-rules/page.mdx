@@ -158,12 +158,25 @@ For project-scoped rules (`scope: "project"`), the context carries the whole pro
 | `files` | Paths of the scanned files |
 | `moduleGraph` | Modules, their imports and exports |
 | `providers` | Every provider and the module that declares it |
+| `config` | The resolved config for the project |
 | `targetPath` | The directory being scanned, for reading a file the scan did not parse |
+| `installRoot` | Where to resolve `node_modules` from, when that is not `targetPath` |
 
 `targetPath` is what a rule uses to reach something outside the TypeScript it
 was given, such as the project's `package.json`. Read it when the rule runs
 rather than caching it: the language server keeps one context alive for the
 whole editing session.
+
+`installRoot` is absent unless the two differ, which happens under
+`--scope changed`. That mode scans a base revision in a throwaway checkout with
+no install, so a rule reading `node_modules` should prefer it:
+
+```typescript
+const root = context.installRoot ?? context.targetPath;
+```
+
+Reading `targetPath` there finds nothing installed. The rule then reports
+against the base revision what it would never report against the working tree.
 
 ## Example
 

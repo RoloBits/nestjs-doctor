@@ -23,13 +23,17 @@ pnpm check        # Lint with Biome (via Ultracite)
 pnpm fix          # Auto-fix lint + formatting
 pnpm typecheck    # TypeScript type checking (run it after pnpm build)
 pnpm knip         # Find unused files, exports, and dependencies
+
+pnpm --filter nestjs-doctor advisories:check   # Refresh check for the advisory table
 ```
 
 A pre-commit hook runs `pnpm check` and `pnpm test` automatically. If either fails, the commit is blocked.
 
+`advisories:check` walks `src/engine/advisories/watched.ts` against the GitHub Advisory Database and prints what the shipped table in `data.ts` is missing. It needs the `gh` CLI. `.github/workflows/advisories.yml` runs it every Monday and opens or comments on an issue when the table is behind.
+
 ## Project structure
 
-This is a pnpm monorepo with two packages:
+This is a pnpm monorepo with four packages:
 
 ```
 packages/
@@ -39,6 +43,7 @@ packages/
       cli/                  # CLI entry point (citty), flags, console output
       common/               # Shared types (Diagnostic, Config, Result, Scope)
       engine/               # Scanner pipeline
+        advisories/         # Watched packages, the shipped advisory table, version matching
         config/             # Config resolution and custom rule loading
         graph/              # AST parsing, module graph, providers, endpoints
         rules/definitions/  # All 52 built-in rules, grouped by category

@@ -103,3 +103,4 @@ The `prepareAnalysis` function returns an `AnalysisContext` that holds:
 | `schemaGraph` | `SchemaGraph \| undefined` | Extracted database schema (if ORM detected) |
 | `schemaRules` | `SchemaRule[]` | Schema-scoped rules (filtered by config) |
 | `targetPath` | `string` | Root directory of the scanned project |
+| `installRoot` | `string \| undefined` | Where to resolve `node_modules` from, when that is not `targetPath` |

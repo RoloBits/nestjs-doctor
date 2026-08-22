@@ -122,7 +122,7 @@ or configure, plus a line unless it reports against a schema entity.
 
 | Category | Rules | Catches |
 |---|---|---|
-| [Security](https://nestjs.doctor/docs/rules/security) | 12 | Hardcoded secrets, `eval`, weak crypto, TypeORM `synchronize: true`, endpoints with no guard |
+| [Security](https://nestjs.doctor/docs/rules/security) | 12 | Hardcoded secrets, `eval`, weak crypto, TypeORM `synchronize: true`, endpoints with no guard, dependencies with a published advisory |
 | [Correctness](https://nestjs.doctor/docs/rules/correctness) | 20 | Fire-and-forget promises, missing `@Injectable()`, lifecycle hooks without their interface, param decorators that do not match the route |
 | [Architecture](https://nestjs.doctor/docs/rules/architecture) | 10 | ORM in controllers, business logic in controllers, circular module dependencies, manual instantiation instead of DI |
 | [Performance](https://nestjs.doctor/docs/rules/performance) | 7 | Sync I/O, blocking constructors, request-scope abuse, orphan modules, unused providers |

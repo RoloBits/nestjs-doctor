@@ -45,8 +45,12 @@ The visual report includes:
 - Score bar visualization
 - Summary: error, warning and info counts, file count, elapsed time
 - Project info: name, NestJS version, ORM, module count
-- Diagnostics grouped by rule, sorted by severity
+- Diagnostics grouped by rule and help text, sorted by severity
 - With `--verbose`: file paths and line numbers per diagnostic
+
+The help text is part of the grouping key, so one rule can print several groups
+when it offers a different fix each time. `security/no-vulnerable-nestjs-packages`
+names a different upgrade target per advisory, and each gets its own group.
 
 Color coding:
 
@@ -93,6 +97,11 @@ In monorepo mode, the console report shows the combined score and diagnostics fi
   admin       78/100   31      2       2         1
   shared      95/100   18      0       1         0
 ```
+
+A finding two sub-projects both report is counted once, against the first of
+them. The error, warning and info columns count only what the combined result
+took, so they add up to the totals above. Each score is recalculated from that
+same kept set.
 
 ### HTML report (`--report`)
 

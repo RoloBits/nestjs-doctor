@@ -52,6 +52,8 @@ report and `--format github`, `none` for `--score` and for the json, sarif,
 gitlab, and markdown formats.
 
 Exit codes: 0 = pass, 1 = a gate failed (min-score or blocking), 2 = bad input.
+`--report` writes HTML, so combining it with `--format`, `--json` or `--score`
+exits 2 rather than writing anything.
 
 ## Scoping to a change
 
@@ -70,6 +72,26 @@ npx nestjs-doctor . --staged --blocking error   # pre-commit hook
 
 The score always reflects the whole project, whatever the scope. `--min-score`
 gates on that score; `--blocking` gates on the reported findings.
+
+`files`, `lines` and `changed` keep a finding whose file sits above the scanned
+directory, because the changed-file set only describes the tree below it.
+
+## Dependency advisories
+
+`security/no-vulnerable-nestjs-packages` (error) and
+`security/no-advisory-nestjs-packages` (warning) read the nearest `package.json`
+at or above the scanned path and match it against an advisory list that ships
+with the CLI. A scan still makes no network call, so the list is only as fresh
+as the installed version.
+
+Which version is checked, in order: the one installed under `node_modules`;
+otherwise the declared range, and only when every version it admits is below the
+fix; otherwise the package is reported as unchecked. A missing, unparseable or
+version-less `package.json` is reported too, never silently skipped.
+
+The warning rule declares `surfaces: ["cli", "prComment"]`, so it never moves
+the score and never fails a build. `package.json` takes no comments, so inline
+directives cannot silence either rule; use `ignore.rules`.
 
 ## Boot trace
 
@@ -221,13 +243,13 @@ Docs: https://nestjs.doctor/docs/language-server
 - `no-csrf-disabled` (error) — Explicitly disabling CSRF protection
 - `no-dangerous-redirects` (error) — Redirects with user-controlled input
 - `no-synchronize-in-production` (error) — synchronize: true in TypeORM config
+- `no-vulnerable-nestjs-packages` (error) — A watched dependency on a version with a critical or high published advisory
 - `no-weak-crypto` (warning) — createHash('md5') or createHash('sha1')
 - `no-exposed-env-vars` (warning) — Direct process.env in Injectable/Controller
 - `no-exposed-stack-trace` (warning) — error.stack exposed in responses
 - `no-raw-entity-in-response` (warning) — Returning ORM entities directly from controllers
 - `require-guards-on-endpoints` (warning) — Endpoints without @UseGuards() at class or method level
-- `security/no-vulnerable-nestjs-packages` (error): a watched package on a version with a critical or high published advisory
-- `security/no-advisory-nestjs-packages` (warning): a watched package on a version with a moderate or low published advisory
+- `no-advisory-nestjs-packages` (warning) — A watched dependency on a version with a moderate or low published advisory, or one whose version could not be established
 
 ### Correctness (20)
 
