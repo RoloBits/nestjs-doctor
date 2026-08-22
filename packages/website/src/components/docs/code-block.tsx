@@ -59,7 +59,7 @@ export const CodeBlock = ({
 	}, []);
 
 	return (
-		<div className="group relative mt-4 mb-4 overflow-hidden rounded-lg border border-white/10 bg-[#0d0d0d]">
+		<div className="group relative mt-4 mb-4 overflow-hidden border border-white/30 bg-[#0d0d0d]">
 			<pre
 				className={`overflow-x-auto py-4 pr-14 pl-4 ${className ?? ""}`}
 				ref={ref}
@@ -67,7 +67,7 @@ export const CodeBlock = ({
 			/>
 			<button
 				aria-label={copied ? "Copied" : "Copy code"}
-				className="absolute top-2.5 right-2.5 rounded p-1.5 text-neutral-500 transition-colors hover:bg-white/5 hover:text-neutral-200"
+				className="absolute top-2.5 right-2.5 p-1.5 text-neutral-500 transition-colors hover:bg-white/5 hover:text-neutral-200"
 				onClick={copy}
 				type="button"
 			>

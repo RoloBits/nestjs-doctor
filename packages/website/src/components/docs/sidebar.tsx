@@ -18,16 +18,20 @@ const SidebarSection = ({
 	const [override, setOverride] = useState<boolean | null>(null);
 	const isOpen = override ?? isActive;
 
-	// Drops a manual toggle whenever the route changes.
+	// Reopens the section holding the new route, in case it was collapsed by
+	// hand. Every other section keeps what the reader set, so following a link
+	// does not close the groups they opened to read alongside it.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: pathname is the trigger
 	useEffect(() => {
-		setOverride(null);
-	}, [pathname]);
+		if (isActive) {
+			setOverride(null);
+		}
+	}, [pathname, isActive]);
 
 	return (
 		<div className="mb-2">
 			<button
-				className="flex w-full items-center gap-1 py-1.5 font-medium text-neutral-400 text-sm hover:text-white"
+				className="flex w-full items-center gap-2 py-1.5 font-bold text-[11px] text-white/75 uppercase tracking-[0.08em] hover:text-white"
 				onClick={() => setOverride(!isOpen)}
 				type="button"
 			>
@@ -44,7 +48,7 @@ const SidebarSection = ({
 						return (
 							<li key={item.href}>
 								<Link
-									className={`block py-1 pl-3 text-sm transition-colors ${
+									className={`block py-1.5 pl-3 text-sm transition-colors ${
 										active
 											? "-ml-px border-nest-red border-l text-white"
 											: "text-neutral-500 hover:text-neutral-300"
@@ -83,7 +87,7 @@ export const Sidebar = () => {
 			{/* Mobile toggle */}
 			<button
 				aria-label="Toggle sidebar"
-				className="fixed top-3 left-3 z-50 rounded border border-white/20 bg-[#0a0a0a] p-1.5 lg:hidden"
+				className="fixed top-3 left-3 z-50 border border-white/30 bg-black p-1.5 lg:hidden"
 				onClick={() => setMobileOpen((prev) => !prev)}
 				type="button"
 			>
@@ -102,7 +106,7 @@ export const Sidebar = () => {
 
 			{/* Sidebar panel */}
 			<aside
-				className={`fixed top-0 left-0 z-40 h-screen w-64 border-white/10 border-r bg-[#0a0a0a] pt-12 transition-transform lg:static lg:z-auto lg:translate-x-0 lg:pt-0 ${
+				className={`fixed top-0 left-0 z-40 h-screen w-64 border-white/15 border-r bg-black pt-12 transition-transform lg:static lg:z-auto lg:translate-x-0 lg:pt-0 ${
 					mobileOpen ? "translate-x-0" : "-translate-x-full"
 				}`}
 			>

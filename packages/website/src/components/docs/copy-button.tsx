@@ -25,7 +25,7 @@ export const CopyButton = ({
 
 	return (
 		<button
-			className="rounded px-2 py-0.5 font-medium text-[11px] text-white/50 uppercase tracking-wide transition-colors hover:bg-white/5 hover:text-white"
+			className="px-2 py-0.5 font-medium text-[11px] text-white/50 uppercase tracking-wide transition-colors hover:bg-white/5 hover:text-white"
 			onClick={copy}
 			type="button"
 		>

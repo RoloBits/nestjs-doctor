@@ -12,7 +12,7 @@ export const CodeGroup = ({
 	const [active, setActive] = useState(0);
 
 	return (
-		<div className="mb-4 overflow-hidden rounded border border-white/10">
+		<div className="mb-4 overflow-hidden border border-white/30">
 			<div className="flex border-white/10 border-b bg-[#111]">
 				{labels.map((label, i) => (
 					<button
@@ -29,9 +29,7 @@ export const CodeGroup = ({
 					</button>
 				))}
 			</div>
-			<div className="[&>div]:m-0 [&>div]:rounded-none [&>div]:border-0">
-				{children[active]}
-			</div>
+			<div className="[&>div]:m-0 [&>div]:border-0">{children[active]}</div>
 		</div>
 	);
 };

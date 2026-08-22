@@ -48,7 +48,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
 		h2: ({ children, id }) => (
 			<Heading
 				as="h2"
-				className="text-xl sm:text-2xl"
+				className="border-white/15 border-b pb-2 text-xl sm:text-2xl"
 				id={id}
 				spacing="mt-14 mb-4"
 			>
@@ -85,7 +85,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
 			if (isInline) {
 				return (
 					<code
-						className="rounded-[5px] border border-white/10 bg-white/[0.07] px-[5px] py-[2px] text-[0.9em] text-white"
+						className="border border-white/20 bg-white/[0.07] px-[5px] py-[2px] text-[0.9em] text-white"
 						{...props}
 					/>
 				);
@@ -94,7 +94,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
 		},
 		pre: CodeBlock,
 		table: (props) => (
-			<div className="mb-4 overflow-x-auto rounded-xl border border-white/15">
+			<div className="mb-4 overflow-x-auto border border-white/30">
 				<table className="w-full border-collapse text-sm" {...props} />
 			</div>
 		),
@@ -120,11 +120,11 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
 		li: (props) => <li className="mb-1.5 leading-relaxed" {...props} />,
 		blockquote: (props) => (
 			<blockquote
-				className="mb-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-neutral-300 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+				className="mb-4 border-white/30 border-l-2 bg-white/[0.03] px-4 py-3 text-neutral-300 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
 				{...props}
 			/>
 		),
-		hr: () => <hr className="my-10 border-white/10" />,
+		hr: () => <hr className="my-10 border-white/15" />,
 		strong: (props) => <strong className="font-medium text-white" {...props} />,
 		...components,
 	};
