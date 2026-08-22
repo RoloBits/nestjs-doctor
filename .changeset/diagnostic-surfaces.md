@@ -17,3 +17,8 @@ them. They still report in full, and they no longer fail a build.
 
 Scores rise as a result. On the same ten repositories the change is between
 0 and +12 points.
+
+Every surface says which findings are report-only: the console appends
+`· not scored`, the pull request comment marks the severity cell, and the HTML
+report carries a badge beside the rule id plus an "N of M not scored" line
+under the score, so the number and the issue count reconcile.

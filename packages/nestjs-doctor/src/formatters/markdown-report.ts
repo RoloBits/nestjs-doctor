@@ -1,5 +1,5 @@
 import type { Category, Diagnostic } from "../common/diagnostic.js";
-import { isCodeDiagnostic } from "../common/diagnostic.js";
+import { isCodeDiagnostic, onSurface } from "../common/diagnostic.js";
 import type { DiagnoseResult, MonorepoResult } from "../common/result.js";
 import type { ScopeInfo } from "../common/scope.js";
 import { toRelativePath } from "../engine/fingerprint.js";
@@ -139,7 +139,7 @@ function renderFindingsTable(
 	const shown = sorted.slice(0, MAX_TABLE_ROWS);
 	const rows = shown.map(
 		(diagnostic) =>
-			`| ${diagnostic.severity} | \`${diagnostic.rule}\` | ${locationOf(diagnostic, targetPath)} | ${escapeCell(diagnostic.message)} |`
+			`| ${diagnostic.severity}${onSurface(diagnostic, "score") ? "" : " (not scored)"} | \`${diagnostic.rule}\` | ${locationOf(diagnostic, targetPath)} | ${escapeCell(diagnostic.message)} |`
 	);
 
 	const overflow =

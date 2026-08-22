@@ -1,4 +1,4 @@
-import type { Diagnostic } from "../../common/diagnostic.js";
+import { type Diagnostic, onSurface } from "../../common/diagnostic.js";
 import type { DiagnoseResult, MonorepoResult } from "../../common/result.js";
 import { highlighter } from "../ui/highlighter.js";
 import { logger } from "../ui/logger.js";
@@ -205,7 +205,11 @@ const printDiagnostics = (
 		const countLabel =
 			count > 1 ? colorizeBySeverity(` (${count})`, first.severity) : "";
 
-		logger.log(`  ${icon} ${first.message}${countLabel}`);
+		const notScored = onSurface(first, "score")
+			? ""
+			: highlighter.dim(" · not scored");
+
+		logger.log(`  ${icon} ${first.message}${countLabel}${notScored}`);
 
 		if (first.help) {
 			logger.dim(`    ${first.help}`);

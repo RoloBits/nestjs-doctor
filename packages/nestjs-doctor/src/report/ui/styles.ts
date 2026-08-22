@@ -639,6 +639,19 @@ body.mg-resizing { cursor: col-resize; user-select: none; }
   background: rgba(255,255,255,0.06); color: var(--text-muted);
   border: 1px solid var(--border);
 }
+.ov-notscored {
+  margin-top: 10px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.4);
+}
+.code-notscored-badge {
+  padding: 2px 6px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 4px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.45);
+  white-space: nowrap;
+}
 .diag-info-item .diag-info-header .diag-linecol {
   font-size: 11px; font-family: monospace; color: var(--text-dim);
 }

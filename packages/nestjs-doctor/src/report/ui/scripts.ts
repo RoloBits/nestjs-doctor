@@ -2535,6 +2535,9 @@ function renderDiagnosis() {
             '<div class="sev-dot" style="background:' + sevColor + '"></div>' +
             '<span class="code-sev-badge ' + d.severity + '">' + d.severity + '</span>' +
             '<span class="code-rule-badge">' + escHtml(d.rule) + '</span>' +
+            (d.surfaces && d.surfaces.indexOf('score') === -1
+              ? '<span class="code-notscored-badge" title="Reported only. Counts toward neither the score nor --blocking.">not scored</span>'
+              : '') +
             locationLabel +
           '</div>' +
           '<div class="diag-info-msg">' + escHtml(d.message) + '</div>';
@@ -2856,6 +2859,9 @@ function renderSummary() {
   let html = '<div class="summary-grid">';
 
   // Score card (full width)
+  var notScoredCount = (diagnostics || []).filter(function (d) {
+    return d.surfaces && d.surfaces.indexOf('score') === -1;
+  }).length;
   html += '<div class="ov-card full-width"><h3>Health Score</h3>' +
     '<div class="ov-score-row">' +
     '<div class="ov-score-ring">' + makeScoreRingSvg(120, 8, sv) + '</div>' +
@@ -2867,7 +2873,12 @@ function renderSummary() {
     '<div class="ov-breakdown-item"><div class="ov-breakdown-dot" style="background:var(--sev-error)"></div> ' + summary.errors + ' errors</div>' +
     '<div class="ov-breakdown-item"><div class="ov-breakdown-dot" style="background:var(--sev-warning)"></div> ' + summary.warnings + ' warnings</div>' +
     '<div class="ov-breakdown-item"><div class="ov-breakdown-dot" style="background:var(--sev-info)"></div> ' + summary.info + ' info</div>' +
-    '</div></div></div></div>';
+    '</div>' +
+    (notScoredCount > 0
+      ? '<div class="ov-notscored" title="Reported only. These count toward neither the score nor --blocking.">' +
+        notScoredCount + ' of ' + (summary.total || 0) + ' not scored</div>'
+      : '') +
+    '</div></div></div>';
 
   // Project info card
   html += '<div class="ov-card"><h3>Project Info</h3><div class="ov-info-grid">' +
