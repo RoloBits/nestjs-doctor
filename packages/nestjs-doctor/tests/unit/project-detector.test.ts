@@ -16,7 +16,7 @@ describe("project-detector", () => {
 	it("detects NestJS version and framework from basic-app", async () => {
 		const info = await detectProject(resolve(FIXTURES, "basic-app"));
 		expect(info.name).toBe("basic-app");
-		expect(info.nestVersion).toBe("10.0.0");
+		expect(info.nestVersion).toBe("11.1.18");
 		expect(info.framework).toBe("express");
 		expect(info.orm).toBeNull();
 	});

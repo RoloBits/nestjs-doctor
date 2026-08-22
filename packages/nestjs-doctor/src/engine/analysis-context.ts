@@ -31,7 +31,11 @@ import {
 	resolveProviders,
 	updateProvidersForFile,
 } from "./graph/type-resolver.js";
-import { detectProject, type MonorepoInfo } from "./project-detector.js";
+import {
+	detectProject,
+	type MonorepoInfo,
+	readDeclaredDependencies,
+} from "./project-detector.js";
 import { filterRules, separateRules } from "./rules/rule-pipeline.js";
 import type { ProjectRule, Rule, SchemaRule } from "./rules/types.js";
 import {
@@ -43,6 +47,7 @@ import {
 export interface AnalysisContext {
 	astProject: Project;
 	config: NestjsDoctorConfig;
+	dependencies: Record<string, string>;
 	endpointGraph: EndpointGraph;
 	fileRules: Rule[];
 	files: string[];
@@ -62,9 +67,10 @@ export async function buildAnalysisContext(
 	scanConfig: ScanConfig
 ): Promise<AnalysisContext> {
 	const { config, fileRules, projectRules, schemaRules } = scanConfig;
-	const [files, project] = await Promise.all([
+	const [files, project, dependencies] = await Promise.all([
 		collectFiles(targetPath, config),
 		detectProject(targetPath),
+		readDeclaredDependencies(targetPath),
 	]);
 	const { aliases: pathAliases, baseUrl } = loadTsconfigResolution(targetPath);
 	const astProject = createAstParser(files, pathAliases, baseUrl);
@@ -76,6 +82,7 @@ export async function buildAnalysisContext(
 	return {
 		astProject,
 		config,
+		dependencies,
 		endpointGraph,
 		fileRules,
 		files,
@@ -158,9 +165,10 @@ async function buildSubProjectContext(
 ): Promise<AnalysisContext> {
 	const { config: rootConfig, combinedRules } = scanConfig;
 	const projectPath = join(targetPath, monorepo.projects.get(name)!);
-	const [project, projectConfig] = await Promise.all([
+	const [project, projectConfig, dependencies] = await Promise.all([
 		detectProject(projectPath),
 		loadConfigWithFallback(projectPath, rootConfig),
+		readDeclaredDependencies(projectPath),
 	]);
 
 	const { aliases: pathAliases, baseUrl } = loadTsconfigResolution(projectPath);
@@ -183,6 +191,7 @@ async function buildSubProjectContext(
 	return {
 		astProject,
 		config: projectConfig,
+		dependencies,
 		endpointGraph,
 		fileRules,
 		files,

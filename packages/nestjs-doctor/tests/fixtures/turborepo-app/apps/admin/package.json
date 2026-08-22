@@ -1,8 +1,8 @@
 {
   "name": "admin",
   "dependencies": {
-    "@nestjs/core": "^10.0.0",
-    "@nestjs/common": "^10.0.0",
+    "@nestjs/core": "^11.1.18",
+    "@nestjs/common": "^11.0.16",
     "@nestjs/platform-express": "^10.0.0"
   }
 }
