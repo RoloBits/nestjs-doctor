@@ -34,6 +34,9 @@ jobs:
       - run: pnpm build
       - run: pnpm typecheck
       - run: pnpm --filter nestjs-doctor smoke:packed
+      # Only the built bundle shows whether the server still pulls the
+      # analyzer in, which no unit test importing src can see.
+      - run: pnpm --filter nestjs-doctor-lsp smoke:bundle
 
   test:
     # The scanner normalises paths, shells out to git, and resolves tsconfig

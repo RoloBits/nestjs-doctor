@@ -16,6 +16,8 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
+    "smoke:bundle": "node scripts/smoke-bundle.mjs",
+    "test": "vitest run",
     "prepack": "pnpm run build",
     "typecheck": "tsc --noEmit"
   },
@@ -40,6 +42,7 @@
     "nestjs-doctor": "workspace:>=0.8.0"
   },
   "devDependencies": {
-    "tsdown": "^0.20.3"
+    "tsdown": "^0.20.3",
+    "vitest": "^3.2.4"
   }
 }
