@@ -1,16 +1,9 @@
 /**
- * Published advisories against the official `@nestjs/*` packages, compared
- * against the versions a project declares.
+ * Published advisories against the official `@nestjs/*` packages.
  *
- * The table ships with the CLI on purpose: a scan makes no network calls, so
- * the same input has to produce the same output on a laptop, in CI, and on a
- * machine with no internet. The cost is that it is only as fresh as the last
- * release. Refresh it with, per package:
- *
- *   gh api "/advisories?ecosystem=npm&affects=@nestjs/core"
- *
- * Every entry below was taken from that endpoint, not from memory. Keep the
- * `ghsa` and `url` fields so the next person can re-check a claim in one click.
+ * Refresh per package with `gh api "/advisories?ecosystem=npm&affects=<pkg>"`.
+ * Skip any record carrying `withdrawn_at`, and map GitHub's `medium` to
+ * `moderate`; `matchAdvisories` filters on exact severity membership.
  */
 
 export interface Advisory {
@@ -41,13 +34,60 @@ export const NESTJS_ADVISORIES: readonly Advisory[] = [
 		url: "https://github.com/advisories/GHSA-85cg-cmq5-qjm7",
 	},
 	{
+		packageName: "@nestjs/platform-fastify",
+		ghsa: "GHSA-6v32-fjc9-9qf6",
+		cve: "CVE-2026-54281",
+		severity: "high",
+		patched: "11.1.24",
+		summary:
+			"middleware is bypassed, so a guarded route can be reached unauthenticated",
+		url: "https://github.com/advisories/GHSA-6v32-fjc9-9qf6",
+	},
+	{
+		packageName: "@nestjs/platform-fastify",
+		ghsa: "GHSA-wf42-42fg-fg84",
+		cve: "CVE-2026-33011",
+		severity: "high",
+		patched: "11.1.16",
+		summary: "a HEAD request bypasses middleware bound with forRoutes",
+		url: "https://github.com/advisories/GHSA-wf42-42fg-fg84",
+	},
+	{
+		packageName: "@nestjs/platform-fastify",
+		ghsa: "GHSA-r4wm-x892-vjmx",
+		cve: "CVE-2026-2293",
+		severity: "high",
+		patched: "11.1.14",
+		summary: "a URL-encoded path bypasses middleware bound with forRoutes",
+		url: "https://github.com/advisories/GHSA-r4wm-x892-vjmx",
+	},
+	{
+		packageName: "@nestjs/platform-fastify",
+		ghsa: "GHSA-8wpr-639p-ccrj",
+		cve: "CVE-2025-69211",
+		severity: "moderate",
+		patched: "11.1.11",
+		summary: "a trailing slash bypasses middleware bound with forRoutes",
+		url: "https://github.com/advisories/GHSA-8wpr-639p-ccrj",
+	},
+	{
+		packageName: "@nestjs/microservices",
+		ghsa: "GHSA-hpwf-8g29-85qm",
+		cve: "CVE-2026-40879",
+		severity: "high",
+		patched: "11.1.19",
+		summary:
+			"a malformed frame stalls JsonSocket, denying service to the transport",
+		url: "https://github.com/advisories/GHSA-hpwf-8g29-85qm",
+	},
+	{
 		packageName: "@nestjs/core",
 		ghsa: "GHSA-36xv-jgw5-4q75",
 		cve: "CVE-2026-35515",
 		severity: "moderate",
 		patched: "11.1.18",
 		summary:
-			"special elements are not neutralised in output used by a downstream component",
+			"an unescaped newline in an SSE field lets an attacker spoof event types",
 		url: "https://github.com/advisories/GHSA-36xv-jgw5-4q75",
 	},
 	{
@@ -56,7 +96,8 @@ export const NESTJS_ADVISORIES: readonly Advisory[] = [
 		cve: "CVE-2023-26108",
 		severity: "moderate",
 		patched: "9.0.5",
-		summary: "StreamableFile discloses information through its pipe",
+		summary:
+			"a cancelled download leaves the StreamableFile stream open, disclosing data",
 		url: "https://github.com/advisories/GHSA-4jpv-8r57-pv7j",
 	},
 	{

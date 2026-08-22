@@ -8,7 +8,7 @@ allowed-tools: Bash, Read, Edit, Glob, Grep, Write
 
 > v0.0.0
 
-50 rules over security, correctness, architecture, performance, and database
+52 rules over security, correctness, architecture, performance, and database
 schema, scored 0-100. No network calls and no model at scan time, so the same
 commit scores the same on a laptop and in CI.
 

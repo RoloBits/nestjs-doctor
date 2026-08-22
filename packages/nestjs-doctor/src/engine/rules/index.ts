@@ -47,7 +47,7 @@ import { noHardcodedSecrets } from "./definitions/security/no-hardcoded-secrets.
 import { noRawEntityInResponse } from "./definitions/security/no-raw-entity-in-response.js";
 import { noSynchronizeInProduction } from "./definitions/security/no-synchronize-in-production.js";
 import {
-	nestjsPackageAdvisory,
+	noAdvisoryNestjsPackages,
 	noVulnerableNestjsPackages,
 } from "./definitions/security/no-vulnerable-nestjs-packages.js";
 import { noWeakCrypto } from "./definitions/security/no-weak-crypto.js";
@@ -103,7 +103,7 @@ export const allRules: AnyRule[] = [
 	noDangerousRedirects,
 	noSynchronizeInProduction,
 	noVulnerableNestjsPackages,
-	nestjsPackageAdvisory,
+	noAdvisoryNestjsPackages,
 	noRawEntityInResponse,
 	requireGuardsOnEndpoints,
 

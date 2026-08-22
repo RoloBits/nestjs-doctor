@@ -1,4 +1,3 @@
-/** A version split for comparison. `pre` is empty for a release. */
 interface Parsed {
 	parts: number[];
 	pre: string[];
@@ -6,7 +5,11 @@ interface Parsed {
 
 const NUMERIC = /^\d+$/;
 const LEADING_V = /^v/;
-const SEMVER = /\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?/;
+const EXACT = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+const CARET = /^\^\s*(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?$/;
+const TILDE = /^~\s*(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?$/;
+const GTE_LT =
+	/^>=\s*(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)\s+<\s*(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/;
 
 function parse(version: string): Parsed | null {
 	const cleaned = version.trim().replace(LEADING_V, "");
@@ -55,8 +58,7 @@ export function compareVersions(a: string, b: string): number | null {
 		if (l === r) {
 			continue;
 		}
-		const bothNumeric = NUMERIC.test(l) && NUMERIC.test(r);
-		if (bothNumeric) {
+		if (NUMERIC.test(l) && NUMERIC.test(r)) {
 			return Number(l) < Number(r) ? -1 : 1;
 		}
 		return l < r ? -1 : 1;
@@ -64,12 +66,81 @@ export function compareVersions(a: string, b: string): number | null {
 	return 0;
 }
 
+const lt = (a: string, b: string) => compareVersions(a, b) === -1;
+const lte = (a: string, b: string) => {
+	const c = compareVersions(a, b);
+	return c === -1 || c === 0;
+};
+
+interface Range {
+	/** Version the range stops below, exclusive. Absent when unbounded. */
+	below?: string;
+	/** Lowest version the range admits, inclusive. */
+	from: string;
+}
+
+/** The versions a spec admits. Null for a form this does not parse. */
+export function parseRange(spec: string): Range | null {
+	const text = spec.trim();
+
+	if (EXACT.test(text)) {
+		return { from: text, below: undefined };
+	}
+
+	const caret = text.match(CARET);
+	if (caret) {
+		const [, major, minor, patch] = caret.map(Number) as unknown as number[];
+		const from = `${major}.${minor}.${patch}`;
+		if (major > 0) {
+			return { from, below: `${major + 1}.0.0` };
+		}
+		if (minor > 0) {
+			return { from, below: `0.${minor + 1}.0` };
+		}
+		return { from, below: `0.0.${patch + 1}` };
+	}
+
+	const tilde = text.match(TILDE);
+	if (tilde) {
+		const [, major, minor, patch] = tilde.map(Number) as unknown as number[];
+		return {
+			from: `${major}.${minor}.${patch}`,
+			below: `${major}.${minor + 1}.0`,
+		};
+	}
+
+	const bounded = text.match(GTE_LT);
+	if (bounded) {
+		return { from: bounded[1], below: bounded[2] };
+	}
+
+	return null;
+}
+
+/** True when no version the range admits reaches `patched`. */
+export function rangeIsWhollyBelow(spec: string, patched: string): boolean {
+	const range = parseRange(spec);
+	if (!range) {
+		return false;
+	}
+	if (range.below === undefined) {
+		return lt(range.from, patched);
+	}
+	return lte(range.below, patched);
+}
+
 /**
- * The version a range like `^11.1.2` or `>=10.4.0 <11` would install today, as
- * far as a lockfile-free read can tell: the lowest version it allows. A range
- * with no concrete floor returns null and the caller reports nothing.
+ * True when the range admits a version reaching `floor`. Compared on the
+ * release triple: a range carrying no prerelease never matches one.
  */
-export function lowestAllowed(range: string): string | null {
-	const match = range.match(SEMVER);
-	return match ? match[0] : null;
+export function rangeReaches(spec: string, floor: string): boolean {
+	const range = parseRange(spec);
+	if (!range) {
+		return false;
+	}
+	const release = floor.split("-")[0];
+	if (range.below === undefined) {
+		return !lt(range.from, release);
+	}
+	return lt(release, range.below);
 }

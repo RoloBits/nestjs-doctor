@@ -64,7 +64,7 @@ export const docsMetadata: Record<string, Metadata> = {
 	"/docs/vscode-extension": {
 		title: "VS Code extension",
 		description:
-			"Run the same 50 rules as the CLI inline in your editor, with diagnostics in the Problems panel.",
+			"Run the same 52 rules as the CLI inline in your editor, with diagnostics in the Problems panel.",
 	},
 	"/docs/language-server": {
 		title: "Language server",
@@ -129,7 +129,7 @@ export const docsMetadata: Record<string, Metadata> = {
 	"/docs/rules": {
 		title: "Rules",
 		description:
-			"50 built-in rules across five categories: security, correctness, architecture, performance, and schema.",
+			"52 built-in rules across five categories: security, correctness, architecture, performance, and schema.",
 	},
 	"/docs/rules/security": {
 		title: "Security rules",

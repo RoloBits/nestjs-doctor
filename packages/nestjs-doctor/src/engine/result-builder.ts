@@ -161,6 +161,7 @@ export function buildMonorepoResult(
 	// each extracts it.
 	const seenSchemaEntities = new Set<string>();
 	const seenSchemaDiagnostics = new Set<string>();
+	const seenProjectDiagnostics = new Set<string>();
 
 	for (const [name, scanResult] of scanResults) {
 		subProjects.push({ name, result: scanResult.result });
@@ -172,6 +173,12 @@ export function buildMonorepoResult(
 					continue;
 				}
 				seenSchemaDiagnostics.add(key);
+			} else {
+				const key = `${diagnostic.rule}\0${diagnostic.filePath}\0${diagnostic.line}\0${diagnostic.message}`;
+				if (seenProjectDiagnostics.has(key)) {
+					continue;
+				}
+				seenProjectDiagnostics.add(key);
 			}
 			allDiagnostics.push(diagnostic);
 		}

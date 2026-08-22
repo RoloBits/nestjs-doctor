@@ -41,7 +41,7 @@ packages/
       engine/               # Scanner pipeline
         config/             # Config resolution and custom rule loading
         graph/              # AST parsing, module graph, providers, endpoints
-        rules/definitions/  # All 50 built-in rules, grouped by category
+        rules/definitions/  # All 52 built-in rules, grouped by category
         schema/             # ORM schema extractors (Prisma, TypeORM, ...)
         scorer/             # Scoring algorithm
       formatters/           # Markdown, SARIF, and GitLab report builders

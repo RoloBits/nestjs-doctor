@@ -4,29 +4,33 @@
 
 Report `@nestjs/*` versions with a published security advisory.
 
-Two rules, because a rule carries one severity and a critical sandbox escape
-does not deserve the same weight as a moderate disclosure:
+Two rules, because a rule carries one severity:
 
 | Rule | Severity | Reports |
 | --- | --- | --- |
 | `security/no-vulnerable-nestjs-packages` | error | critical and high advisories |
-| `security/nestjs-package-advisory` | warning | moderate and low advisories |
+| `security/no-advisory-nestjs-packages` | warning | moderate and low advisories |
 
-Both compare the versions your `package.json` declares against a table that
-ships with the CLI, so a scan still makes no network call and the same project
-scores the same on a laptop, in CI, and offline. The cost is that the table is
-only as fresh as the release; `npx nestjs-doctor@latest` always knows the most.
+The warning rule declares `surfaces: ["cli", "prComment"]`, so it reports in the
+console and on the pull request without moving the score or failing a build. The
+advisory list ships with the CLI, and a release that adds a row must not change
+how anyone's unchanged project scores.
 
-Four advisories are covered today, taken from the GitHub Advisory Database
-rather than written from memory: CVE-2025-54782 in `@nestjs/devtools-integration`
-(critical), CVE-2026-35515 and CVE-2023-26108 in `@nestjs/core`, and
-CVE-2024-29409 in `@nestjs/common`.
+Which version gets checked, in order: the one installed under `node_modules`;
+otherwise the declared range, and only when every version it admits is below the
+fix; otherwise nothing. npm installs the highest version a range allows, so
+`^11.0.1` is quiet because it admits the patched 11.1.18, while `^10.0.0` against
+a fix that exists only in 11.1.18 is reported. A spec naming no version, such as
+`workspace:*` or `11.x`, is skipped rather than guessed at. Peer ranges are not
+read: they constrain a consumer, not this project.
 
-A range is read at its floor, the oldest version it still allows, which is what
-a fresh install without a lockfile produces. `workspace:*` and any range with no
-version in it are skipped rather than guessed at.
+Nine advisories ship, taken from the GitHub Advisory Database: one critical in
+`@nestjs/devtools-integration`, four high across `@nestjs/platform-fastify` and
+`@nestjs/microservices`, and four moderate across `@nestjs/core`,
+`@nestjs/common` and `@nestjs/platform-fastify`.
 
-Worth knowing before you upgrade: the `@nestjs/core` advisory covers every
-version up to 11.1.17 and is patched in 11.1.18, so a project on the 10.x line
-is reported with no 10.x release to move to. It reports as a warning, not an
-error, so it does not fail a build that was passing.
+A scan still makes no network call. The cost is that the list is only as fresh
+as the release, so `npx nestjs-doctor@latest` knows the most.
+
+`package.json` takes no comments, so no inline directive can silence these.
+Use `ignore.rules`.

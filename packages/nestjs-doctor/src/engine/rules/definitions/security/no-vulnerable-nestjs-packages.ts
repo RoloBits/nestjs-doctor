@@ -1,26 +1,41 @@
 import type { Advisory } from "../../../advisories/data.js";
+import { dependencyLine } from "../../../advisories/installed.js";
 import {
 	type AdvisoryMatch,
 	matchAdvisories,
-	packageJsonPath,
+	toPosix,
 } from "../../../advisories/match.js";
 import type { ProjectRule, ProjectRuleContext } from "../../types.js";
 
 const SEVERE = new Set<Advisory["severity"]>(["critical", "high"]);
 const REST = new Set<Advisory["severity"]>(["moderate", "low"]);
 
-const describe = ({ advisory, installed }: AdvisoryMatch) =>
-	`${advisory.packageName}@${installed} is affected by ${advisory.cve} (${advisory.severity}): ${advisory.summary}. Patched in ${advisory.patched}.`;
+const EXACT_SPEC = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+
+const describe = ({ advisory, installed, spec }: AdvisoryMatch): string => {
+	let found: string;
+	if (installed) {
+		found = `${advisory.packageName}@${installed}`;
+	} else if (EXACT_SPEC.test(spec.trim())) {
+		found = `${advisory.packageName}@${spec.trim()}`;
+	} else {
+		found = `${advisory.packageName} at ${spec}, a range with no patched version in it,`;
+	}
+	return `${found} is affected by ${advisory.cve} (${advisory.severity}): ${advisory.summary}. Patched in ${advisory.patched}.`;
+};
 
 const reportAll = (
 	context: ProjectRuleContext,
 	severities: ReadonlySet<Advisory["severity"]>
 ) => {
-	const filePath = packageJsonPath(context.targetPath);
+	const manifestPath = context.dependencies.manifestPath;
+	if (!manifestPath) {
+		return;
+	}
 	for (const match of matchAdvisories(context.dependencies, severities)) {
 		context.report({
-			filePath,
-			line: 1,
+			filePath: toPosix(manifestPath),
+			line: dependencyLine(manifestPath, match.advisory.packageName),
 			column: 1,
 			message: describe(match),
 			help: `Upgrade to ${match.advisory.packageName}@${match.advisory.patched} or newer. See ${match.advisory.url}`,
@@ -28,11 +43,6 @@ const reportAll = (
 	}
 };
 
-/**
- * Split in two because a rule carries one severity for every diagnostic it
- * emits, and a critical sandbox escape does not deserve the same weight as a
- * moderate disclosure.
- */
 export const noVulnerableNestjsPackages: ProjectRule = {
 	meta: {
 		id: "security/no-vulnerable-nestjs-packages",
@@ -41,20 +51,23 @@ export const noVulnerableNestjsPackages: ProjectRule = {
 		scope: "project",
 		description:
 			"Official @nestjs/* packages should not be on a version with a critical or high advisory",
-		help: "Upgrade to the patched version named in the finding. The advisory list ships with the CLI, so a scan makes no network call and an older CLI knows about fewer advisories.",
+		help: "Upgrade to the patched version named in the finding. Silence it with `ignore.rules`; package.json takes no inline comment.",
 	},
 	check: (context) => reportAll(context, SEVERE),
 };
 
-export const nestjsPackageAdvisory: ProjectRule = {
+export const noAdvisoryNestjsPackages: ProjectRule = {
 	meta: {
-		id: "security/nestjs-package-advisory",
+		id: "security/no-advisory-nestjs-packages",
 		category: "security",
 		severity: "warning",
+		// Reported, never scored: the table ships with the CLI, so a release
+		// that adds a row must not move anyone's score or fail their build.
+		surfaces: ["cli", "prComment"],
 		scope: "project",
 		description:
 			"Official @nestjs/* packages should not be on a version with a published advisory",
-		help: "Upgrade to the patched version named in the finding. Where the only patched release is in a later major, treat it as a planned upgrade rather than a hotfix.",
+		help: "Upgrade to the patched version named in the finding. Where the only fix is in a later major, treat it as a planned upgrade.",
 	},
 	check: (context) => reportAll(context, REST),
 };

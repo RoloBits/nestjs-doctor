@@ -32,6 +32,7 @@ import {
 	updateProvidersForFile,
 } from "./graph/type-resolver.js";
 import {
+	type DeclaredDependencies,
 	detectProject,
 	type MonorepoInfo,
 	readDeclaredDependencies,
@@ -47,7 +48,7 @@ import {
 export interface AnalysisContext {
 	astProject: Project;
 	config: NestjsDoctorConfig;
-	dependencies: Record<string, string>;
+	dependencies: DeclaredDependencies;
 	endpointGraph: EndpointGraph;
 	fileRules: Rule[];
 	files: string[];

@@ -440,45 +440,55 @@ export async function looksLikeMonorepo(targetPath: string): Promise<boolean> {
  * Reads the nearest `package.json` at or above `targetPath`, stopping at the
  * repository root so a scan never adopts an unrelated parent's manifest.
  */
-async function readNearestPackageJson(
+/** The nearest package.json and where it was found, walking upward. */
+async function readNearestPackageJsonAt(
 	targetPath: string
-): Promise<PackageJson> {
+): Promise<{ pkg: PackageJson; path: string | null }> {
 	let current = resolve(targetPath);
 
 	for (;;) {
+		const candidate = join(current, "package.json");
 		try {
-			const raw = await readFile(join(current, "package.json"), "utf-8");
-			return JSON.parse(raw) as PackageJson;
+			const raw = await readFile(candidate, "utf-8");
+			return { pkg: JSON.parse(raw) as PackageJson, path: candidate };
 		} catch {
 			// Keep walking.
 		}
 
 		if (existsSync(join(current, ".git"))) {
-			return {};
+			return { pkg: {}, path: null };
 		}
 
 		const parent = dirname(current);
 		if (parent === current) {
-			return {};
+			return { pkg: {}, path: null };
 		}
 		current = parent;
 	}
 }
 
-/** Everything the nearest package.json declares, merged in npm's own order. */
+export interface DeclaredDependencies {
+	/** Absolute path of the manifest the versions came from, or null. */
+	manifestPath: string | null;
+	versions: Record<string, string>;
+}
+
+/**
+ * What the nearest package.json installs, with the path it was read from.
+ * Peer ranges are excluded: they constrain a consumer, not this project.
+ */
 export async function readDeclaredDependencies(
 	targetPath: string
-): Promise<Record<string, string>> {
-	const pkg = await readNearestPackageJson(targetPath);
+): Promise<DeclaredDependencies> {
+	const { pkg, path } = await readNearestPackageJsonAt(targetPath);
 	return {
-		...pkg.dependencies,
-		...pkg.devDependencies,
-		...pkg.peerDependencies,
+		manifestPath: path,
+		versions: { ...pkg.dependencies, ...pkg.devDependencies },
 	};
 }
 
 export async function detectProject(targetPath: string): Promise<ProjectInfo> {
-	const pkg = await readNearestPackageJson(targetPath);
+	const { pkg } = await readNearestPackageJsonAt(targetPath);
 
 	const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
 

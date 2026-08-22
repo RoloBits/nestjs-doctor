@@ -10,6 +10,7 @@ import type {
 import type { SchemaGraph } from "../../common/schema.js";
 import type { ModuleGraph } from "../graph/module-graph.js";
 import type { ProviderInfo } from "../graph/type-resolver.js";
+import type { DeclaredDependencies } from "../project-detector.js";
 
 // ── Shared ──
 
@@ -62,8 +63,7 @@ export interface CodeRuleContext {
 
 export interface ProjectRuleContext {
 	config: NestjsDoctorConfig;
-	/** Versions declared in the nearest package.json, as written. */
-	dependencies: Record<string, string>;
+	dependencies: DeclaredDependencies;
 	files: string[];
 	moduleGraph: ModuleGraph;
 	project: Project;
