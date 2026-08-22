@@ -42,28 +42,21 @@ export function installedVersion(
 	return null;
 }
 
-const KEY_LINE_CACHE = new Map<string, Map<string, number>>();
-
 /** 1-based line of a dependency key in a manifest, or 1 when not found. */
 export function dependencyLine(
 	manifestPath: string,
 	packageName: string
 ): number {
-	let lines = KEY_LINE_CACHE.get(manifestPath);
-	if (!lines) {
-		lines = new Map();
-		try {
-			const text = readFileSync(manifestPath, "utf-8").split("\n");
-			for (let i = 0; i < text.length; i++) {
-				const match = text[i].match(JSON_KEY);
-				if (match && !lines.has(match[1])) {
-					lines.set(match[1], i + 1);
-				}
+	try {
+		const lines = readFileSync(manifestPath, "utf-8").split("\n");
+		for (let i = 0; i < lines.length; i++) {
+			const match = lines[i].match(JSON_KEY);
+			if (match?.[1] === packageName) {
+				return i + 1;
 			}
-		} catch {
-			// An unreadable manifest just means every finding sits on line 1.
 		}
-		KEY_LINE_CACHE.set(manifestPath, lines);
+	} catch {
+		// An unreadable manifest just means the finding sits on line 1.
 	}
-	return lines.get(packageName) ?? 1;
+	return 1;
 }

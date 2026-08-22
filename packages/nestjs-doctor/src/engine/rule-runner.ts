@@ -9,7 +9,6 @@ import type {
 import type { SchemaGraph } from "../common/schema.js";
 import type { ModuleGraph } from "./graph/module-graph.js";
 import type { ProviderInfo } from "./graph/type-resolver.js";
-import type { DeclaredDependencies } from "./project-detector.js";
 import type {
 	CodeRuleContext,
 	GuardFacts,
@@ -32,7 +31,6 @@ interface RunRulesResult {
 
 export interface RunRulesOptions {
 	config: NestjsDoctorConfig;
-	dependencies: DeclaredDependencies;
 	moduleGraph: ModuleGraph;
 	providers: Map<string, ProviderInfo>;
 	targetPath: string;
@@ -140,7 +138,6 @@ export function runProjectRules(
 			moduleGraph: options.moduleGraph,
 			providers: options.providers,
 			config: options.config,
-			dependencies: options.dependencies,
 			targetPath: options.targetPath,
 			report(partial) {
 				diagnostics.push({

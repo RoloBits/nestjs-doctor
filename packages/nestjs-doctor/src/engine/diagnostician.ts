@@ -219,7 +219,6 @@ export function checkProject(context: AnalysisContext): {
 		moduleGraph: context.moduleGraph,
 		providers: context.providers,
 		config: context.config,
-		dependencies: context.dependencies,
 		targetPath: context.targetPath,
 	};
 	const result = runProjectRules(

@@ -150,7 +150,20 @@ The `check` function receives a `RuleContext`. The first three members are what 
 
 Every member after `report` is optional. Absent means the fact was not determined, which is not the same as empty.
 
-For project-scoped rules (`scope: "project"`), the context carries the whole project instead of a single file.
+For project-scoped rules (`scope: "project"`), the context carries the whole project instead of a single file:
+
+| Member | What it holds |
+| ------ | ------------- |
+| `project` | The ts-morph `Project`, every parsed file |
+| `files` | Paths of the scanned files |
+| `moduleGraph` | Modules, their imports and exports |
+| `providers` | Every provider and the module that declares it |
+| `targetPath` | The directory being scanned, for reading a file the scan did not parse |
+
+`targetPath` is what a rule uses to reach something outside the TypeScript it
+was given, such as the project's `package.json`. Read it when the rule runs
+rather than caching it: the language server keeps one context alive for the
+whole editing session.
 
 ## Example
 

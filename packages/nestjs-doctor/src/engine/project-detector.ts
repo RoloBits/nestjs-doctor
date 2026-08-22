@@ -467,26 +467,6 @@ async function readNearestPackageJsonAt(
 	}
 }
 
-export interface DeclaredDependencies {
-	/** Absolute path of the manifest the versions came from, or null. */
-	manifestPath: string | null;
-	versions: Record<string, string>;
-}
-
-/**
- * What the nearest package.json installs, with the path it was read from.
- * Peer ranges are excluded: they constrain a consumer, not this project.
- */
-export async function readDeclaredDependencies(
-	targetPath: string
-): Promise<DeclaredDependencies> {
-	const { pkg, path } = await readNearestPackageJsonAt(targetPath);
-	return {
-		manifestPath: path,
-		versions: { ...pkg.dependencies, ...pkg.devDependencies },
-	};
-}
-
 export async function detectProject(targetPath: string): Promise<ProjectInfo> {
 	const { pkg } = await readNearestPackageJsonAt(targetPath);
 

@@ -1,9 +1,9 @@
 import type { Advisory } from "../../../advisories/data.js";
 import { dependencyLine } from "../../../advisories/installed.js";
+import { findManifest } from "../../../advisories/manifest.js";
 import {
 	type AdvisoryMatch,
 	matchAdvisories,
-	toPosix,
 } from "../../../advisories/match.js";
 import type { ProjectRule, ProjectRuleContext } from "../../types.js";
 
@@ -28,14 +28,14 @@ const reportAll = (
 	context: ProjectRuleContext,
 	severities: ReadonlySet<Advisory["severity"]>
 ) => {
-	const manifestPath = context.dependencies.manifestPath;
-	if (!manifestPath) {
+	const manifest = findManifest(context.targetPath);
+	if (!manifest) {
 		return;
 	}
-	for (const match of matchAdvisories(context.dependencies, severities)) {
+	for (const match of matchAdvisories(manifest, severities)) {
 		context.report({
-			filePath: toPosix(manifestPath),
-			line: dependencyLine(manifestPath, match.advisory.packageName),
+			filePath: manifest.path,
+			line: dependencyLine(manifest.path, match.advisory.packageName),
 			column: 1,
 			message: describe(match),
 			help: `Upgrade to ${match.advisory.packageName}@${match.advisory.patched} or newer. See ${match.advisory.url}`,

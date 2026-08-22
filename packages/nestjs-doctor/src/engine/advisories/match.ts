@@ -1,18 +1,12 @@
-import type { DeclaredDependencies } from "../project-detector.js";
 import type { Advisory } from "./data.js";
 import { NESTJS_ADVISORIES } from "./data.js";
 import { installedVersion } from "./installed.js";
+import type { Manifest } from "./manifest.js";
 import {
 	compareVersions,
 	rangeIsWhollyBelow,
 	rangeReaches,
 } from "./version.js";
-
-const BACKSLASH_RE = /\\/g;
-
-/** Diagnostics carry posix paths, whatever the platform reports. */
-export const toPosix = (path: string): string =>
-	path.replace(BACKSLASH_RE, "/");
 
 export interface AdvisoryMatch {
 	advisory: Advisory;
@@ -36,14 +30,11 @@ function applies(advisory: Advisory, version: string): boolean {
 
 /** Advisories applying to a project, by installed version then by range. */
 export function matchAdvisories(
-	dependencies: DeclaredDependencies,
+	manifest: Manifest,
 	severities: ReadonlySet<Advisory["severity"]>
 ): AdvisoryMatch[] {
-	const { manifestPath, versions } = dependencies;
-	if (!manifestPath) {
-		return [];
-	}
-	const directory = manifestDirOf(toPosix(manifestPath));
+	const { path, versions } = manifest;
+	const directory = manifestDirOf(path);
 	const matches: AdvisoryMatch[] = [];
 
 	for (const advisory of NESTJS_ADVISORIES) {

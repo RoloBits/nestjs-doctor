@@ -42,16 +42,16 @@ const project = (
 		mkdirSync(dir, { recursive: true });
 		writeFileSync(join(dir, "package.json"), JSON.stringify({ name, version }));
 	}
-	return { manifestPath: join(root, "package.json"), versions };
+	return root;
 };
 
 const runRule = (
 	rule: typeof noVulnerableNestjsPackages,
-	dependencies: ReturnType<typeof project>
+	targetPath: string
 ) => {
 	const reported: Partial<CodeDiagnostic>[] = [];
 	rule.check({
-		dependencies,
+		targetPath,
 		report: (d) => reported.push(d),
 	} as unknown as ProjectRuleContext);
 	return reported;
@@ -61,10 +61,10 @@ const run = (
 	versions: Record<string, string>,
 	installed: Record<string, string> = {}
 ) => {
-	const deps = project(versions, installed);
+	const root = project(versions, installed);
 	return [
-		...runRule(noVulnerableNestjsPackages, deps),
-		...runRule(noAdvisoryNestjsPackages, deps),
+		...runRule(noVulnerableNestjsPackages, root),
+		...runRule(noAdvisoryNestjsPackages, root),
 	];
 };
 
@@ -198,13 +198,15 @@ describe("the advisory rules", () => {
 		expect(found.filePath?.endsWith("/package.json")).toBe(true);
 	});
 
-	it("says nothing when there is no manifest at all", () => {
-		const reported: Partial<CodeDiagnostic>[] = [];
-		noAdvisoryNestjsPackages.check({
-			dependencies: { manifestPath: null, versions: {} },
-			report: (d) => reported.push(d),
-		} as unknown as ProjectRuleContext);
-		expect(reported).toEqual([]);
+	it("reads the manifest when it runs, so an edit cannot go stale", () => {
+		const root = project({ "@nestjs/core": "^10.0.0" });
+		expect(runRule(noAdvisoryNestjsPackages, root)).toHaveLength(1);
+
+		writeFileSync(
+			join(root, "package.json"),
+			JSON.stringify({ dependencies: { "@nestjs/core": "^11.1.18" } }, null, 2)
+		);
+		expect(runRule(noAdvisoryNestjsPackages, root)).toEqual([]);
 	});
 });
 
@@ -223,12 +225,12 @@ describe("severity and surfaces", () => {
 	});
 
 	it("routes each advisory to exactly one of the two rules", () => {
-		const deps = project({
+		const root = project({
 			"@nestjs/devtools-integration": "0.2.0",
 			"@nestjs/core": "^10.0.0",
 		});
-		expect(runRule(noVulnerableNestjsPackages, deps)).toHaveLength(1);
-		expect(runRule(noAdvisoryNestjsPackages, deps)).toHaveLength(1);
+		expect(runRule(noVulnerableNestjsPackages, root)).toHaveLength(1);
+		expect(runRule(noAdvisoryNestjsPackages, root)).toHaveLength(1);
 	});
 });
 
@@ -262,12 +264,12 @@ describe("a workspace whose sub-projects share one manifest", () => {
 		);
 		mkdirSync(join(root, "apps", "api"), { recursive: true });
 
-		const [found] = runRule(noAdvisoryNestjsPackages, {
-			manifestPath: join(root, "package.json"),
-			versions: { "@nestjs/core": "^10.0.0" },
-		});
+		const [found] = runRule(
+			noAdvisoryNestjsPackages,
+			join(root, "apps", "api")
+		);
 
-		expect(found.filePath).toBe(join(root, "package.json"));
+		expect(found.filePath).toBe(join(root, "package.json").replace(/\\/g, "/"));
 		expect(found.filePath).not.toContain("apps/api");
 		expect(existsSync(found.filePath as string)).toBe(true);
 	});
