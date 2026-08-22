@@ -105,7 +105,7 @@ npx nestjs-doctor . --report
 The report has up to six tabs:
 
 - **Summary:** health score overview with a category breakdown.
-- **Diagnosis:** source-level diagnostics with a code viewer and fix examples.
+- **Findings:** source-level diagnostics with a code viewer and fix examples.
 - **Modules Graph:** clustered module diagram with a searchable project sidebar and a per-module detail panel (used by, blast radius, providers, imports, exports, wiring). Selecting a module animates its edges, colored by direction, and the view offers cycle focus plus toggles for `@Global()` reach and external modules. A Module problems drawer lists module-wiring diagnostics from rules tagged `module-graph`, custom rules included.
 - **Endpoints:** badged `Beta`, traced HTTP routes per controller with their dependency chains. Controllers and handlers behind a project wrapper decorator, meaning a custom decorator composing `@Controller()` or `@Get()`, are resolved and traced too.
 - **Relational Schema:** entity-relationship diagram of the database models.

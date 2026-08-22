@@ -16,11 +16,11 @@ export function getReportHtml(): string {
 <!-- ── Header Row 2 (Tab bar) ── -->
 <div id="header-row2">
   <button class="tab-btn active" data-tab="summary">Summary</button>
-  <button class="tab-btn" data-tab="diagnosis">Diagnosis <span class="count-badge" id="diagnosis-count-badge"></span></button>
+  <button class="tab-btn" data-tab="diagnosis">Findings <span class="count-badge" id="diagnosis-count-badge"></span></button>
   <button class="tab-btn" data-tab="modules">Modules Graph</button>
   <button class="tab-btn" data-tab="endpoints" id="tab-btn-endpoints" style="display:none">Endpoints <span class="beta-badge">Beta</span></button>
   <button class="tab-btn" data-tab="schema" id="tab-btn-schema" style="display:none">Relational Schema</button>
-  <button class="tab-btn" data-tab="lab">Lab</button>
+  <button class="tab-btn" data-tab="lab">Rule Lab</button>
   <div class="tab-spacer"></div>
 </div>
 
