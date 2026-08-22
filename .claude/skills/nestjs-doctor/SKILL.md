@@ -39,6 +39,10 @@ npx nestjs-doctor@latest . --verbose
 Work down by severity: errors, then warnings, then info. Security and
 correctness weigh most in the score, performance least.
 
+Some rules are report-only. They are listed with everything else but count
+toward neither the score nor `--blocking`, so fixing one moves no number. Fix
+it because the code reads better, not to raise the score.
+
 ## Fixing a finding
 
 Every diagnostic carries a rule id and a `help` line naming the fix. Apply it in

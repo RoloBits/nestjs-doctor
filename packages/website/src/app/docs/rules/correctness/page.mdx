@@ -303,6 +303,8 @@ Detects constructor DI parameters missing the `readonly` modifier.
 
 **Why:** Injected dependencies should not be reassigned. The `readonly` modifier prevents accidental mutation and communicates intent.
 
+**Note:** Report-only. It is listed in full and counts toward neither the score nor `--blocking`, because it is a house style rather than a defect. See [Surfaces](/docs/custom-rules#surfaces).
+
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
 @Injectable()
@@ -362,6 +364,8 @@ Framework entry points are exempt, because Nest awaits what they return. A metho
 | Microservices | `@MessagePattern`, `@EventPattern`, `@GrpcMethod`, `@GrpcStreamMethod` |
 | WebSockets | `@SubscribeMessage` |
 | ts-rest | `@TsRestHandler` |
+
+**Note:** Report-only. It is listed in full and counts toward neither the score nor `--blocking`, because it is a house style rather than a defect. See [Surfaces](/docs/custom-rules#surfaces).
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript

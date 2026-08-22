@@ -156,7 +156,10 @@ Auto-detected using five strategies (first match wins): `nest-cli.json` monorepo
 
 ## Scoring
 
-Weighted by severity and category, normalized by file count.
+Weighted by severity and category, normalized by file count. Only rules whose
+`meta.surfaces` includes `score` are counted; a rule set to `["cli"]` is
+reported in full and weighs nothing. `correctness/no-async-without-await` and
+`correctness/prefer-readonly-injection` are report-only.
 
 Severity weights: error = 3.0, warning = 1.5, info = 0.5
 Category multipliers: security = 1.5x, correctness = 1.3x, schema = 1.1x, architecture = 1.0x, performance = 0.8x
