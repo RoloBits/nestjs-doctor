@@ -459,11 +459,10 @@ body.mg-resizing { cursor: col-resize; user-select: none; }
   position: sticky; top: 0; z-index: 5;
   background: rgba(17,17,17,0.95);
   backdrop-filter: blur(8px);
-  padding: 12px 14px;
   border-bottom: 1px solid var(--border);
-  display: flex; flex-direction: column; align-items: stretch; gap: 8px;
+  display: flex; flex-direction: column; align-items: stretch;
 }
-.filter-rows { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+.filter-rows { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; padding: 0 16px 12px; }
 .sev-filters, .scope-filters { display: flex; flex-wrap: wrap; gap: 6px; }
 .filter-label {
   font-size: 10px;
@@ -649,11 +648,11 @@ body.mg-resizing { cursor: col-resize; user-select: none; }
 }
 .ov-info:hover,
 .ov-info:focus-visible { color: rgba(255,255,255,0.7); outline: none; }
-#diag-notscored-row { padding: 0; }
+#diag-notscored-row { margin: 0 -16px; }
 .diag-divider {
   border: none;
   border-top: 1px solid var(--border);
-  margin: 2px 0 4px;
+  margin: 0 -16px 10px;
 }
 .ov-notscored {
   margin-top: 10px;
