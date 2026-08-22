@@ -48,7 +48,7 @@ const SidebarSection = ({
 						return (
 							<li key={item.href}>
 								<Link
-									className={`block py-1 pl-3 text-[13px] transition-colors ${
+									className={`block py-1.5 pl-3 text-sm transition-colors ${
 										active
 											? "-ml-px border-nest-red border-l text-white"
 											: "text-neutral-500 hover:text-neutral-300"
