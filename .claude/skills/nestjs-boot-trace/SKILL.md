@@ -6,7 +6,7 @@ allowed-tools: Bash, Read, Edit, Glob, Grep, Write
 
 # NestJS boot trace
 
-> v0.8.0
+> v0.9.0
 
 A scan reads source files and never runs the application, so construction time
 does not exist for it to measure. NestJS records it during a boot. This skill
