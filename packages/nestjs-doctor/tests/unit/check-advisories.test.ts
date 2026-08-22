@@ -36,7 +36,9 @@ const run = (ghBody: string): { code: number; out: string } => {
 	}
 };
 
-describe("advisories:check", () => {
+// The stub below is a POSIX shell script, which Windows cannot execute. The
+// command itself runs on a maintainer's machine and on the Linux weekly job.
+describe.skipIf(process.platform === "win32")("advisories:check", () => {
 	it("says the table is current when the database agrees", () => {
 		const { code, out } = run('echo "[]"');
 
