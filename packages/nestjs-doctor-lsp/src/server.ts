@@ -12,6 +12,7 @@ import {
 	TextDocumentSyncKind,
 } from "vscode-languageserver/node";
 import { groupByFile } from "./convert.js";
+import { publishDiagnostics } from "./publish.js";
 import type {
 	ServerMessage,
 	WorkerData,
@@ -42,44 +43,6 @@ let workerReady = false;
 let pendingMessages: ServerMessage[] = [];
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 let saveReceivedAt = 0;
-
-function diagnosticsEqual(a: LspDiagnostic[], b: LspDiagnostic[]): boolean {
-	if (a.length !== b.length) {
-		return false;
-	}
-	for (let i = 0; i < a.length; i++) {
-		const da = a[i];
-		const db = b[i];
-		if (
-			da.code !== db.code ||
-			da.message !== db.message ||
-			da.severity !== db.severity ||
-			da.range.start.line !== db.range.start.line ||
-			da.range.start.character !== db.range.start.character
-		) {
-			return false;
-		}
-	}
-	return true;
-}
-
-function publishDiagnostics(grouped: Map<string, LspDiagnostic[]>) {
-	for (const uri of cache.keys()) {
-		if (!grouped.has(uri)) {
-			connection.sendDiagnostics({ uri, diagnostics: [] });
-		}
-	}
-
-	for (const [uri, diagnostics] of grouped) {
-		const cached = cache.get(uri);
-		if (cached && diagnosticsEqual(cached, diagnostics)) {
-			continue;
-		}
-		connection.sendDiagnostics({ uri, diagnostics });
-	}
-
-	cache = grouped;
-}
 
 function sendToWorker(msg: ServerMessage) {
 	if (!activeWorker) {
@@ -122,7 +85,9 @@ function spawnWorker() {
 				msg.diagnostics as Parameters<typeof groupByFile>[0],
 				workspaceRoot
 			);
-			publishDiagnostics(grouped);
+			cache = publishDiagnostics(cache, grouped, (uri, diagnostics) =>
+				connection.sendDiagnostics({ uri, diagnostics })
+			);
 
 			if (saveReceivedAt > 0) {
 				const e2eMs = performance.now() - saveReceivedAt;
