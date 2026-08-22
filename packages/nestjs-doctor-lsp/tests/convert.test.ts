@@ -1,16 +1,20 @@
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import type { Diagnostic } from "nestjs-doctor";
 import { describe, expect, it } from "vitest";
 import { DiagnosticSeverity } from "vscode-languageserver";
 import { groupByFile } from "../src/convert.js";
 
-const ROOT = "/repo";
+const ROOT = resolve("/repo");
+const SERVICE = resolve("/repo/src/a.service.ts");
+const uriOf = (path: string) => pathToFileURL(path).toString();
 
 const code = (overrides: Partial<Diagnostic> = {}): Diagnostic =>
 	({
 		rule: "performance/no-sync-io",
 		category: "performance",
 		severity: "warning",
-		filePath: "/repo/src/a.service.ts",
+		filePath: SERVICE,
 		message: "Synchronous I/O blocks the event loop.",
 		help: "Use the async variant.",
 		line: 4,
@@ -82,14 +86,25 @@ describe("groupByFile", () => {
 	it("converts to a file URI and groups every finding under it", () => {
 		const grouped = groupByFile([code({ line: 1 }), code({ line: 2 })], ROOT);
 
-		expect([...grouped.keys()]).toEqual(["file:///repo/src/a.service.ts"]);
-		expect(grouped.get("file:///repo/src/a.service.ts")).toHaveLength(2);
+		expect([...grouped.keys()]).toEqual([uriOf(SERVICE)]);
+		expect(grouped.get(uriOf(SERVICE))).toHaveLength(2);
 	});
 
 	it("resolves a relative path against the workspace root", () => {
 		const grouped = groupByFile([code({ filePath: "src/b.ts" })], ROOT);
 
-		expect([...grouped.keys()]).toEqual(["file:///repo/src/b.ts"]);
+		expect([...grouped.keys()]).toEqual([uriOf(resolve(ROOT, "src/b.ts"))]);
+	});
+
+	it("leaves an already absolute path alone instead of joining it again", () => {
+		// The scanner reports forward slashes on every platform, so on Windows a
+		// path arrives as D:/proj/src/a.ts and never starts with a slash.
+		const scanned = resolve("/repo/src/a.service.ts").replace(/\\/g, "/");
+		const grouped = groupByFile([code({ filePath: scanned })], ROOT);
+
+		const [uri] = [...grouped.keys()];
+		expect(uri).toBe(uriOf(SERVICE));
+		expect(uri).not.toContain("repo/src/a.service.ts/");
 	});
 
 	it("converts one-based positions to the editor's zero-based range", () => {

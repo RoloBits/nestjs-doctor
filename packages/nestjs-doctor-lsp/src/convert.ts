@@ -1,3 +1,4 @@
+import { isAbsolute, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { Diagnostic, DiagnosticSurface, Severity } from "nestjs-doctor";
 import {
@@ -42,9 +43,11 @@ export function groupByFile(
 	const grouped = new Map<string, LspDiagnostic[]>();
 
 	for (const d of diagnostics) {
-		const absolutePath = d.filePath.startsWith("/")
+		// A leading slash is not what absolute looks like on Windows, where a
+		// scanned path arrives drive-prefixed as D:/proj/src/a.ts.
+		const absolutePath = isAbsolute(d.filePath)
 			? d.filePath
-			: `${workspaceRoot}/${d.filePath}`;
+			: resolve(workspaceRoot, d.filePath);
 		const uri = pathToFileURL(absolutePath).toString();
 
 		let list = grouped.get(uri);
