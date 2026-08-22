@@ -9,3 +9,7 @@ the word the pull request comment already uses, so a reader arriving from
 
 The `data-tab` values and element ids are unchanged, so a saved report and any
 tooling reading the markup keep working.
+
+Each tab also carries an outline icon, in the same stroked style as the icons
+already in the report, so it inherits the tab's own colour and dims with it.
+
