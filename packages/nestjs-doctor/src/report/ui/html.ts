@@ -48,12 +48,12 @@ export function getReportHtml(): string {
           </svg>
         </button>
       </div>
+      <label class="schema-sync" id="diag-notscored-row">
+        <input type="checkbox" id="diag-show-notscored">
+        <span>Show not scored</span>
+      </label>
+      <hr class="diag-divider" id="diag-notscored-divider">
       <div class="filter-rows">
-        <label class="schema-sync" id="diag-notscored-row">
-          <input type="checkbox" id="diag-show-notscored">
-          <span>Show not scored</span>
-        </label>
-        <hr class="diag-divider" id="diag-notscored-divider">
         <div class="sev-filters">
           <span class="filter-label">Severity</span>
           <button class="sev-pill active" data-sev="all">All</button>

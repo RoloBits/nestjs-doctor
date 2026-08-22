@@ -462,7 +462,7 @@ body.mg-resizing { cursor: col-resize; user-select: none; }
   border-bottom: 1px solid var(--border);
   display: flex; flex-direction: column; align-items: stretch;
 }
-.filter-rows { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; padding: 0 16px 12px; }
+.filter-rows { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; padding: 10px 16px 12px; }
 .sev-filters, .scope-filters { display: flex; flex-wrap: wrap; gap: 6px; }
 .filter-label {
   font-size: 10px;
@@ -648,11 +648,11 @@ body.mg-resizing { cursor: col-resize; user-select: none; }
 }
 .ov-info:hover,
 .ov-info:focus-visible { color: rgba(255,255,255,0.7); outline: none; }
-#diag-notscored-row { margin: 0 -16px; }
+
 .diag-divider {
   border: none;
   border-top: 1px solid var(--border);
-  margin: 0 -16px 10px;
+  margin: 0;
 }
 .ov-notscored {
   margin-top: 10px;
