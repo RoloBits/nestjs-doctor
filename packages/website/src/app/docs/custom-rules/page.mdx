@@ -8,6 +8,25 @@ export const metadata = docsMetadata["/docs/custom-rules"];
 
 Extend the built-in rule set with project-specific checks. Custom rules encode domain conventions, team standards, or patterns the built-in rules don't cover.
 
+## Let an agent do it
+
+Writing a rule is mostly matching an AST, and an agent can do it:
+
+```bash
+npx nestjs-doctor@latest --init
+```
+
+That installs a `nestjs-doctor-create-rule` skill. Describe the convention you
+want enforced and the agent checks static analysis can see it, picks file or
+project scope, writes the `.ts` file, points `customRulesDir` at it, and runs a
+scan to confirm the rule loads. It works in Claude Code, Cursor, Codex, and the
+other agents on [Coding agents](/docs/coding-agents).
+
+A rule it cannot detect statically is worth knowing about early. The skill says
+so instead of writing something that never fires.
+
+The rest of this page is the same work by hand.
+
 ## Setup
 
 1. Create a directory for your rules (e.g. `rules/` at your project root).
@@ -187,17 +206,6 @@ Fix the warning and re-run. The rest of the scan continues unaffected.
 
 Toggle a custom rule by its prefixed id, through the same `rules` and `ignore.rules` keys built-in rules use. See [Configuration](/docs/configuration).
 
-## Using AI to create rules
-
-Install it with `npx nestjs-doctor --init`, then call
-`/nestjs-doctor-create-rule` in your agent's chat. It:
-
-1. Checks the detection is possible with static analysis.
-2. Picks file or project scope.
-3. Writes the `.ts` file.
-4. Sets `customRulesDir` in your config.
-5. Runs nestjs-doctor to confirm the rule loads.
-
 ## The Rule Lab tab
 
 The HTML report has a Rule Lab tab for writing and testing custom rules in the browser:
@@ -206,4 +214,4 @@ The HTML report has a Rule Lab tab for writing and testing custom rules in the b
 npx nestjs-doctor . --report
 ```
 
-Scaffold a rule with `/nestjs-doctor-create-rule`, test it in the Lab, then save the `.ts` file to your `customRulesDir`.
+Scaffold a rule with `/nestjs-doctor-create-rule`, test it in the Rule Lab, then save the `.ts` file to your `customRulesDir`.
