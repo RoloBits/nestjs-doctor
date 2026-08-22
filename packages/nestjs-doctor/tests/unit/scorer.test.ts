@@ -17,6 +17,30 @@ function makeDiagnostic(overrides: Partial<Diagnostic> = {}): Diagnostic {
 }
 
 describe("scorer", () => {
+	it("leaves the score untouched by report-only diagnostics", () => {
+		const gating = makeDiagnostic({ severity: "error" });
+		const reportOnly = makeDiagnostic({
+			severity: "error",
+			surfaces: ["cli"],
+		});
+
+		const alone = calculateScore([gating], 10);
+		const withNoise = calculateScore(
+			[gating, ...Array.from({ length: 50 }, () => reportOnly)],
+			10
+		);
+
+		expect(withNoise.value).toBe(alone.value);
+	});
+
+	it("counts a diagnostic that lists the score surface", () => {
+		const scored = makeDiagnostic({
+			severity: "error",
+			surfaces: ["cli", "score"],
+		});
+		expect(calculateScore([scored], 10).value).toBeLessThan(100);
+	});
+
 	it("returns 100 for no diagnostics", () => {
 		const score = calculateScore([], 10);
 		expect(score.value).toBe(100);

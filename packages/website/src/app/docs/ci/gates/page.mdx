@@ -73,9 +73,14 @@ applies.
 
 ## Which findings count
 
-Both gates count whatever the run reports, so the config file is the third
-lever. Disable a rule or a whole category and it stops counting toward either
-gate. See [Configuration](/docs/configuration).
+Both gates count what the run reports, with one exception: a rule can be
+report-only. Those appear in the report and count toward neither gate, and they
+do not comment on the pull request either, because they encode a preference
+rather than a defect. A project that wants one enforced can say so per rule.
+See [Surfaces](/docs/custom-rules#surfaces).
+
+The config file is the third lever. Disable a rule or a whole category and it
+stops counting toward either gate. See [Configuration](/docs/configuration).
 
 Inline `nestjs-doctor-ignore` comments work the same way. A suppressed finding
 is not reported, so it cannot fail a gate.

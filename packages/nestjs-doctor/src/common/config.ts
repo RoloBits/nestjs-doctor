@@ -1,10 +1,12 @@
-import type { Category, Severity } from "./diagnostic.js";
+import type { Category, DiagnosticSurface, Severity } from "./diagnostic.js";
 
 export interface RuleOverride {
 	enabled?: boolean;
 	excludeClasses?: string[];
 	options?: Record<string, unknown>;
 	severity?: Severity;
+	/** Replaces the rule's own `meta.surfaces`. */
+	surfaces?: DiagnosticSurface[];
 }
 
 export interface NestjsDoctorIgnoreConfig {

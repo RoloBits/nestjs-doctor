@@ -55,6 +55,48 @@ export const myRule = {
 | `help`        | `string`   | Yes      | Fix guidance shown alongside diagnostics                                |
 | `scope`       | `string`   | No       | `"file"` (default) or `"project"`                                       |
 | `tags`        | `string[]` | No       | Labels stamped onto every diagnostic the rule emits                     |
+| `surfaces`    | `string[]` | No       | Where the rule may appear. Omitted means everywhere                     |
+
+### Surfaces
+
+A rule appears on four surfaces by default:
+
+| Surface | Where |
+| ------- | ----- |
+| `cli` | The console report and the HTML report |
+| `prComment` | The pull request summary, its inline review comments, the GitHub annotations, `--format sarif` and `--format gitlab` |
+| `score` | The 0-100 number |
+| `ciFailure` | `--blocking` |
+
+`--format json` is the exception: it carries every finding, with `surfaces` on
+each one, so a consumer filters however it wants.
+
+Naming a subset narrows it:
+
+```ts
+surfaces: ["cli"],
+```
+
+That rule still shows every finding and still says how to fix it. It never
+comments on a pull request, never moves the score, and never fails a build.
+Use it for a rule that encodes a preference rather than a defect, so a project
+that disagrees is not punished for it.
+
+A project can decide otherwise. `surfaces` on a rule override replaces what the
+rule declares:
+
+```json
+{
+  "rules": {
+    "correctness/prefer-readonly-injection": {
+      "surfaces": ["cli", "prComment", "score", "ciFailure"]
+    }
+  }
+}
+```
+
+That is how a team that does want a house style enforced puts it back on the
+score and the build.
 
 ### Tags
 

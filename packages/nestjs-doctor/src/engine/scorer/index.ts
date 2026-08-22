@@ -1,4 +1,4 @@
-import type { Diagnostic } from "../../common/diagnostic.js";
+import { type Diagnostic, onSurface } from "../../common/diagnostic.js";
 import type { Score } from "../../common/result.js";
 import { getScoreLabel } from "./labels.js";
 import { CATEGORY_MULTIPLIERS, SEVERITY_WEIGHTS } from "./weights.js";
@@ -35,6 +35,9 @@ export function calculateScore(
 	let totalPenalty = 0;
 
 	for (const d of diagnostics) {
+		if (!onSurface(d, "score")) {
+			continue;
+		}
 		const severityWeight = SEVERITY_WEIGHTS[d.severity];
 		const categoryMultiplier = CATEGORY_MULTIPLIERS[d.category];
 		totalPenalty += severityWeight * categoryMultiplier;

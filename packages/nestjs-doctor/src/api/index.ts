@@ -17,13 +17,16 @@ export type {
 	Category,
 	CodeDiagnostic,
 	Diagnostic,
+	DiagnosticSurface,
 	SchemaDiagnostic,
 	Severity,
 } from "../common/diagnostic.js";
 // biome-ignore lint/performance/noBarrelFile: this is the public API surface
 export {
+	forSurface,
 	isCodeDiagnostic,
 	isSchemaDiagnostic,
+	onSurface,
 } from "../common/diagnostic.js";
 export type {
 	DependencyType,

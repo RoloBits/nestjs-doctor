@@ -68,7 +68,7 @@ See [Config loading](/docs/pipeline/config-loading) for implementation details.
 | `categories` | `Record<string, boolean>` | Enable/disable entire categories |
 | `customRulesDir` | `string` | Path to a directory of custom `.ts` rule files |
 
-Set a rule to `false` to disable it. The object form does the same through `enabled`:
+Set a rule to `false` to disable it. The object form does the same through `enabled`, and `surfaces` decides where the rule may appear (see [Surfaces](/docs/custom-rules#surfaces)):
 
 ```json
 {

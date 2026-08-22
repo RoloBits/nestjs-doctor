@@ -29,6 +29,14 @@ interface Score {
 }
 ```
 
+## What counts
+
+A rule declares which surfaces it appears on. Only diagnostics carrying the
+`score` surface reach the formula below. A rule marked `surfaces: ["cli"]`
+still reports every finding in the console and the HTML report, and weighs
+nothing, which keeps a matter of taste from moving a number meant to track
+defects. See [Custom rules](/docs/custom-rules#surfaces).
+
 ## Formula
 
 The score starts at 100 and loses points for every diagnostic:

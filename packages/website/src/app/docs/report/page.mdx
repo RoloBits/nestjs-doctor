@@ -42,6 +42,16 @@ no controllers and no ORM entities sees four tabs. The Endpoints tab is badged
 Pick a module in the graph. The detail panel lists what it imports, exports,
 provides, and what breaks if you change it.
 
+## Findings that do not score
+
+A rule can report without moving the score. Summary shows how many under the
+number, as `70 of 407 not scored`, so the two reconcile. Diagnosis hides those
+findings behind a **Show not scored** checkbox above the severity filters, and
+badges each one `not scored` beside its rule id when you turn it on.
+
+Which rules those are is up to the rule and your config. See
+[Custom rules](/docs/custom-rules#surfaces).
+
 ## Boot trace
 
 The graph can overlay how long every provider and controller took to construct

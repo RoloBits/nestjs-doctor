@@ -363,7 +363,10 @@ runs:
             // alone rather than acting on nothing.
             return;
           }
-          const diagnostics = Array.isArray(report.diagnostics) ? report.diagnostics : [];
+          const all = Array.isArray(report.diagnostics) ? report.diagnostics : [];
+          // A rule kept off the prComment surface never comments on a pull
+          // request, and never counts as a reason to keep an old thread open.
+          const diagnostics = all.filter((d) => !d || !Array.isArray(d.surfaces) || d.surfaces.includes("prComment"));
 
           const MARKER = "<!-- nestjs-doctor:review -->";
           const KEY_RE = /<!-- nestjs-doctor:key ([A-Za-z0-9+/=]+) -->/;

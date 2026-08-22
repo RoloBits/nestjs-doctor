@@ -3,6 +3,7 @@ import type { NestjsDoctorConfig } from "../../common/config.js";
 import type {
 	Category,
 	CodeDiagnostic,
+	DiagnosticSurface,
 	SchemaDiagnostic,
 	Severity,
 } from "../../common/diagnostic.js";
@@ -21,6 +22,11 @@ export interface RuleMeta {
 	id: string;
 	scope?: RuleScope;
 	severity: Severity;
+	/**
+	 * Where the rule's diagnostics may appear. Omitted means every surface.
+	 * `["cli"]` reports without touching the score or failing a build.
+	 */
+	surfaces?: readonly DiagnosticSurface[];
 	/**
 	 * Labels stamped onto every diagnostic the rule emits. `module-graph`
 	 * marks module wiring rules for the report's problems drawer.

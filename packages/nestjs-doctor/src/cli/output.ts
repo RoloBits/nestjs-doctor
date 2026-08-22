@@ -60,7 +60,7 @@ function enforceGates(
 		process.exit(FAILURE_EXIT_CODE);
 	}
 
-	if (shouldBlock(result.summary, options.blocking)) {
+	if (shouldBlock(result.diagnostics, options.blocking)) {
 		process.exit(FAILURE_EXIT_CODE);
 	}
 }

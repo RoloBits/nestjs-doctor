@@ -1,4 +1,5 @@
 import type { NestjsDoctorConfig } from "../../common/config.js";
+import type { DiagnosticSurface } from "../../common/diagnostic.js";
 import type { AnyRule, ProjectRule, Rule, SchemaRule } from "./types.js";
 import { isProjectRule, isSchemaRule } from "./types.js";
 
@@ -27,26 +28,63 @@ export function mergeRules(
 	return merged;
 }
 
+const KNOWN_SURFACES: readonly DiagnosticSurface[] = [
+	"cli",
+	"prComment",
+	"score",
+	"ciFailure",
+];
+
+/** True for a non-empty array naming only known surfaces. */
+const isSurfaceList = (value: unknown): value is DiagnosticSurface[] =>
+	Array.isArray(value) &&
+	value.length > 0 &&
+	value.every((entry) => KNOWN_SURFACES.includes(entry as DiagnosticSurface));
+
+/**
+ * A rule with `config.rules[id].surfaces` applied over its own declaration.
+ * An unusable override is ignored, so a typo widens rather than narrows.
+ */
+const withConfiguredSurfaces = (
+	config: NestjsDoctorConfig,
+	rule: AnyRule
+): AnyRule => {
+	const ruleConfig = config.rules?.[rule.meta.id];
+	const surfaces =
+		typeof ruleConfig === "object" ? ruleConfig.surfaces : undefined;
+	if (surfaces === undefined || !isSurfaceList(surfaces)) {
+		return rule;
+	}
+	// check is bound so a class-instance rule keeps its prototype methods.
+	return {
+		...rule,
+		check: rule.check.bind(rule),
+		meta: { ...rule.meta, surfaces },
+	} as AnyRule;
+};
+
 export function filterRules(
 	config: NestjsDoctorConfig,
 	rules: AnyRule[]
 ): AnyRule[] {
-	return rules.filter((rule) => {
-		const ruleConfig = config.rules?.[rule.meta.id];
-		if (ruleConfig === false) {
-			return false;
-		}
-		if (typeof ruleConfig === "object" && ruleConfig.enabled === false) {
-			return false;
-		}
+	return rules
+		.filter((rule) => {
+			const ruleConfig = config.rules?.[rule.meta.id];
+			if (ruleConfig === false) {
+				return false;
+			}
+			if (typeof ruleConfig === "object" && ruleConfig.enabled === false) {
+				return false;
+			}
 
-		const categoryEnabled = config.categories?.[rule.meta.category];
-		if (categoryEnabled === false) {
-			return false;
-		}
+			const categoryEnabled = config.categories?.[rule.meta.category];
+			if (categoryEnabled === false) {
+				return false;
+			}
 
-		return true;
-	});
+			return true;
+		})
+		.map((rule) => withConfiguredSurfaces(config, rule));
 }
 
 export function separateRules(rules: AnyRule[]): {

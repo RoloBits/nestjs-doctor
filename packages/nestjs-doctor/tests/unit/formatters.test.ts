@@ -367,3 +367,62 @@ describe("GitHub Actions annotations", () => {
 		expect(buildAnnotations(resultWith(many), ROOT)).toHaveLength(10);
 	});
 });
+
+describe("surface filtering across formatters", () => {
+	const reportOnly = code({
+		line: 4,
+		rule: "correctness/prefer-readonly-injection",
+		category: "correctness",
+		surfaces: ["cli"],
+	});
+	const everywhere = code({ line: 9 });
+	const result = resultWith([reportOnly, everywhere]);
+
+	it("counts only prComment findings in the markdown headline", () => {
+		const markdown = buildMarkdownReport(result, {
+			targetPath: ROOT,
+			version: "1.0.0",
+		});
+
+		expect(markdown).toContain("**1 finding** reported");
+		expect(markdown).toContain("<b>Findings (1)</b>");
+		expect(markdown).toContain("| performance | 1 |");
+		expect(markdown).not.toContain("prefer-readonly-injection");
+	});
+
+	it("keeps the score whole-project even when the counts narrow", () => {
+		const markdown = buildMarkdownReport(result, {
+			targetPath: ROOT,
+			version: "1.0.0",
+		});
+
+		expect(markdown).toContain("**Score 72/100");
+	});
+
+	it("drops the whole findings block when nothing reaches the comment", () => {
+		const markdown = buildMarkdownReport(resultWith([reportOnly]), {
+			targetPath: ROOT,
+			version: "1.0.0",
+		});
+
+		expect(markdown).toContain("No findings reported.");
+		expect(markdown).not.toContain("<summary><b>Findings");
+		expect(markdown).not.toContain("| Category | Findings |");
+	});
+
+	it("spends no annotation on a finding kept off the comment", () => {
+		const lines = buildAnnotations(result, ROOT);
+
+		expect(lines).toHaveLength(1);
+		expect(lines[0]).toContain("performance/no-sync-io");
+	});
+
+	it("leaves it out of sarif and gitlab too", () => {
+		const sarif = buildSarifLog(result, ROOT, "1.0.0");
+		const gitlab = buildCodeQualityReport(result, ROOT);
+
+		expect(sarif.runs[0].results).toHaveLength(1);
+		expect(gitlab).toHaveLength(1);
+		expect(gitlab[0].check_name).toBe("performance/no-sync-io");
+	});
+});

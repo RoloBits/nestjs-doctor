@@ -76,6 +76,7 @@
   "scripts": {
     "build": "tsdown && cp ../nestjs-doctor-lsp/dist/server.cjs dist/server.cjs && cp ../nestjs-doctor-lsp/dist/scan-worker.cjs dist/scan-worker.cjs",
     "dev": "pnpm --filter nestjs-doctor-lsp build && tsdown --watch",
+    "verify:package": "node scripts/verify-package.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -89,6 +90,7 @@
   "license": "MIT",
   "devDependencies": {
     "@types/vscode": "^1.85.0",
+    "nestjs-doctor-lsp": "workspace:*",
     "tsdown": "^0.20.3"
   }
 }

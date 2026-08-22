@@ -1,5 +1,6 @@
+import { isAbsolute, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import type { Diagnostic, Severity } from "nestjs-doctor";
+import type { Diagnostic, DiagnosticSurface, Severity } from "nestjs-doctor";
 import {
 	DiagnosticSeverity,
 	type Diagnostic as LspDiagnostic,
@@ -11,6 +12,11 @@ const severityMap: Record<Severity, DiagnosticSeverity> = {
 	info: DiagnosticSeverity.Information,
 };
 
+/** Inlined rather than imported: nestjs-doctor is resolved from the user's
+ *  workspace, so the server bundle must not require it. */
+const on = (d: Diagnostic, surface: DiagnosticSurface): boolean =>
+	d.surfaces?.includes(surface) ?? true;
+
 function toRange(line: number, column: number) {
 	const l = Math.max(line - 1, 0);
 	const c = Math.max(column - 1, 0);
@@ -19,13 +25,14 @@ function toRange(line: number, column: number) {
 
 function toLspDiagnostic(d: Diagnostic): LspDiagnostic {
 	const range = "line" in d ? toRange(d.line, d.column) : toRange(1, 1);
+	const advisory = !(on(d, "score") || on(d, "ciFailure"));
 	return {
 		range,
-		severity: severityMap[d.severity],
+		severity: advisory ? DiagnosticSeverity.Hint : severityMap[d.severity],
 		code: d.rule,
 		source: "nestjs-doctor",
 		message: d.message,
-		data: { help: d.help, category: d.category },
+		data: { advisory, category: d.category, help: d.help },
 	};
 }
 
@@ -36,9 +43,11 @@ export function groupByFile(
 	const grouped = new Map<string, LspDiagnostic[]>();
 
 	for (const d of diagnostics) {
-		const absolutePath = d.filePath.startsWith("/")
+		// A leading slash is not what absolute looks like on Windows, where a
+		// scanned path arrives drive-prefixed as D:/proj/src/a.ts.
+		const absolutePath = isAbsolute(d.filePath)
 			? d.filePath
-			: `${workspaceRoot}/${d.filePath}`;
+			: resolve(workspaceRoot, d.filePath);
 		const uri = pathToFileURL(absolutePath).toString();
 
 		let list = grouped.get(uri);

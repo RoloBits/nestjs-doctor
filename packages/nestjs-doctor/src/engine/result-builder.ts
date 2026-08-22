@@ -1,4 +1,9 @@
-import { type Diagnostic, isSchemaDiagnostic } from "../common/diagnostic.js";
+import {
+	type Diagnostic,
+	type DiagnosticSurface,
+	forSurface,
+	isSchemaDiagnostic,
+} from "../common/diagnostic.js";
 import type { EndpointNode } from "../common/endpoint.js";
 import type {
 	DiagnoseResult,
@@ -50,6 +55,21 @@ export function withScopedDiagnostics(
 		summary: buildSummary(diagnostics),
 		...(scope ? { scope } : {}),
 	};
+}
+
+/**
+ * The result as one surface sees it: diagnostics and counts narrowed, score
+ * left alone because it always reflects the whole project.
+ */
+export function withSurface(
+	result: DiagnoseResult,
+	surface: DiagnosticSurface
+): DiagnoseResult {
+	const diagnostics = forSurface(result.diagnostics, surface);
+	if (diagnostics.length === result.diagnostics.length) {
+		return result;
+	}
+	return { ...result, diagnostics, summary: buildSummary(diagnostics) };
 }
 
 function buildSummary(diagnostics: Diagnostic[]): DiagnoseSummary {

@@ -1,4 +1,4 @@
-import type { DiagnoseSummary } from "../common/result.js";
+import { type Diagnostic, onSurface } from "../common/diagnostic.js";
 
 /** Severity at or above which findings fail the run. */
 export type BlockingLevel = "none" | "warning" | "error";
@@ -28,16 +28,19 @@ export function resolveBlocking(
 	return isMachineReadable ? "none" : "error";
 }
 
-/** True when the findings in `summary` should fail the run at `level`. */
+/** True when the findings in `diagnostics` should fail the run at `level`. */
 export function shouldBlock(
-	summary: DiagnoseSummary,
+	diagnostics: Diagnostic[],
 	level: BlockingLevel
 ): boolean {
 	if (level === "none") {
 		return false;
 	}
+	const gating = diagnostics.filter((d) => onSurface(d, "ciFailure"));
 	if (level === "warning") {
-		return summary.errors + summary.warnings > 0;
+		return gating.some(
+			(d) => d.severity === "error" || d.severity === "warning"
+		);
 	}
-	return summary.errors > 0;
+	return gating.some((d) => d.severity === "error");
 }

@@ -2,6 +2,7 @@ import { createRequire } from "node:module";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
 import { parentPort, workerData } from "node:worker_threads";
+import { DiagnosticCache, isMissingAnalyzer } from "./diagnostic-cache.js";
 import type {
 	ServerMessage,
 	WorkerData,
@@ -34,16 +35,7 @@ interface NestjsDoctorApi {
 }
 
 let ctx: ScanContext | null = null;
-const fileDiagCache = new Map<string, unknown[]>();
-
-function collectAllDiagnostics(projectDiagnostics: unknown[]): unknown[] {
-	const all: unknown[] = [];
-	for (const diags of fileDiagCache.values()) {
-		all.push(...diags);
-	}
-	all.push(...projectDiagnostics);
-	return all;
-}
+const fileDiagCache = new DiagnosticCache();
 
 function handleFileChanged(api: NestjsDoctorApi, filePath: string) {
 	if (!ctx) {
@@ -57,7 +49,7 @@ function handleFileChanged(api: NestjsDoctorApi, filePath: string) {
 	const elapsedMs = performance.now() - start;
 	post({
 		kind: "result",
-		diagnostics: collectAllDiagnostics(projectResult.diagnostics),
+		diagnostics: fileDiagCache.withProject(projectResult.diagnostics),
 		elapsedMs,
 		scanType: "incremental",
 	});
@@ -69,21 +61,14 @@ function handleFullScan(api: NestjsDoctorApi) {
 	}
 	const start = performance.now();
 	const fileResult = api.checkAllFiles(ctx);
-	fileDiagCache.clear();
-	for (const d of fileResult.diagnostics as Array<{ filePath?: string }>) {
-		const key = d.filePath ?? "";
-		let list = fileDiagCache.get(key);
-		if (!list) {
-			list = [];
-			fileDiagCache.set(key, list);
-		}
-		list.push(d);
-	}
+	fileDiagCache.replaceAll(
+		fileResult.diagnostics as Array<{ filePath?: string }>
+	);
 	const projectResult = api.checkProject(ctx);
 	const elapsedMs = performance.now() - start;
 	post({
 		kind: "result",
-		diagnostics: collectAllDiagnostics(projectResult.diagnostics),
+		diagnostics: fileDiagCache.withProject(projectResult.diagnostics),
 		elapsedMs,
 		scanType: "full",
 	});
@@ -118,7 +103,7 @@ async function initialize() {
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
 
-		if (message.includes("Cannot find module 'nestjs-doctor'")) {
+		if (isMissingAnalyzer(message)) {
 			post({ kind: "missing" });
 		} else {
 			post({ kind: "error", message });

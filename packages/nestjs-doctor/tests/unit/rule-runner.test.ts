@@ -1,6 +1,8 @@
 import { Project } from "ts-morph";
 import { describe, expect, it } from "vitest";
 import type { NestjsDoctorConfig } from "../../src/common/config.js";
+import type { DiagnosticSurface } from "../../src/common/diagnostic.js";
+import { onSurface } from "../../src/common/diagnostic.js";
 import type { SchemaEntity, SchemaGraph } from "../../src/common/schema.js";
 import { runFileRules, runSchemaRules } from "../../src/engine/rule-runner.js";
 import { separateRules } from "../../src/engine/rules/rule-pipeline.js";
@@ -252,5 +254,66 @@ describe("runFileRules", () => {
 		expect(errors).toHaveLength(0);
 		expect(diagnostics).toHaveLength(1);
 		expect(diagnostics[0].message).toBe("config received");
+	});
+});
+
+describe("surfaces on reported diagnostics", () => {
+	const reporting = (id: string, surfaces?: DiagnosticSurface[]): Rule => ({
+		meta: {
+			id,
+			category: "correctness",
+			severity: "warning",
+			description: "",
+			help: "",
+			...(surfaces ? { surfaces } : {}),
+		},
+		check(context) {
+			context.report({
+				filePath: context.filePath,
+				message: "reported",
+				help: "",
+				line: 1,
+				column: 1,
+			});
+		},
+	});
+
+	it("stamps a file rule's surfaces onto every diagnostic it reports", () => {
+		const project = new Project({ useInMemoryFileSystem: true });
+		project.createSourceFile("test.ts", "const value = 1;");
+
+		const { diagnostics } = runFileRules(
+			project,
+			["test.ts"],
+			[reporting("correctness/stamped", ["cli"])]
+		);
+
+		expect(diagnostics).toHaveLength(1);
+		expect(diagnostics[0].surfaces).toEqual(["cli"]);
+	});
+
+	it("leaves surfaces off when the rule declares none", () => {
+		const project = new Project({ useInMemoryFileSystem: true });
+		project.createSourceFile("test.ts", "const value = 1;");
+
+		const { diagnostics } = runFileRules(
+			project,
+			["test.ts"],
+			[reporting("correctness/unstamped")]
+		);
+
+		expect(diagnostics[0]).not.toHaveProperty("surfaces");
+		expect(onSurface(diagnostics[0], "score")).toBe(true);
+	});
+
+	it("copies the array so a rule cannot mutate its own declaration", () => {
+		const project = new Project({ useInMemoryFileSystem: true });
+		project.createSourceFile("test.ts", "const value = 1;");
+		const rule = reporting("correctness/copied", ["cli", "score"]);
+
+		const { diagnostics } = runFileRules(project, ["test.ts"], [rule]);
+		diagnostics[0].surfaces?.push("ciFailure");
+
+		expect(rule.meta.surfaces).toEqual(["cli", "score"]);
 	});
 });
