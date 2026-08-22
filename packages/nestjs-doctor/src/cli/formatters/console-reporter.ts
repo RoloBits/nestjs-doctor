@@ -369,7 +369,10 @@ export function printMonorepoReport(
 	logger.break();
 
 	for (const subProject of monorepoResult.subProjects) {
-		const { name, result } = subProject;
+		const { name } = subProject;
+		// Same narrowing the combined report above uses, so a line here cannot
+		// count findings the tree never shows.
+		const result = withSurface(subProject.result, "cli");
 		const scoreText = colorizeByScore(
 			String(result.score.value),
 			result.score.value
