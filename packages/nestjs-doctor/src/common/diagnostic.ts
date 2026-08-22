@@ -6,7 +6,7 @@ export type Severity = "error" | "warning" | "info";
  * Where a diagnostic is allowed to appear. A rule can be reported without
  * moving the score or failing a build.
  */
-export type DiagnosticSurface = "cli" | "score" | "ciFailure";
+export type DiagnosticSurface = "cli" | "prComment" | "score" | "ciFailure";
 
 export type Category =
 	| "security"

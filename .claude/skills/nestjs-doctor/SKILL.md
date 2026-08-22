@@ -39,9 +39,10 @@ npx nestjs-doctor@latest . --verbose
 Work down by severity: errors, then warnings, then info. Security and
 correctness weigh most in the score, performance least.
 
-Some rules are report-only. They are listed with everything else but count
-toward neither the score nor `--blocking`, so fixing one moves no number. Fix
-it because the code reads better, not to raise the score.
+Some rules are report-only. They are listed with everything else but never
+comment on a pull request, move the score, or fail a build, so fixing one moves
+no number. Fix it because the code reads better, not to raise the score. A
+project can put one back with `"rules": { "<id>": { "surfaces": [...] } }`.
 
 ## Fixing a finding
 

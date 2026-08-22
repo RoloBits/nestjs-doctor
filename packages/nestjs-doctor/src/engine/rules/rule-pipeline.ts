@@ -27,26 +27,42 @@ export function mergeRules(
 	return merged;
 }
 
+/** A rule with `config.rules[id].surfaces` applied over its own declaration. */
+const withConfiguredSurfaces = (
+	config: NestjsDoctorConfig,
+	rule: AnyRule
+): AnyRule => {
+	const ruleConfig = config.rules?.[rule.meta.id];
+	const surfaces =
+		typeof ruleConfig === "object" ? ruleConfig.surfaces : undefined;
+	if (!surfaces) {
+		return rule;
+	}
+	return { ...rule, meta: { ...rule.meta, surfaces } } as AnyRule;
+};
+
 export function filterRules(
 	config: NestjsDoctorConfig,
 	rules: AnyRule[]
 ): AnyRule[] {
-	return rules.filter((rule) => {
-		const ruleConfig = config.rules?.[rule.meta.id];
-		if (ruleConfig === false) {
-			return false;
-		}
-		if (typeof ruleConfig === "object" && ruleConfig.enabled === false) {
-			return false;
-		}
+	return rules
+		.filter((rule) => {
+			const ruleConfig = config.rules?.[rule.meta.id];
+			if (ruleConfig === false) {
+				return false;
+			}
+			if (typeof ruleConfig === "object" && ruleConfig.enabled === false) {
+				return false;
+			}
 
-		const categoryEnabled = config.categories?.[rule.meta.category];
-		if (categoryEnabled === false) {
-			return false;
-		}
+			const categoryEnabled = config.categories?.[rule.meta.category];
+			if (categoryEnabled === false) {
+				return false;
+			}
 
-		return true;
-	});
+			return true;
+		})
+		.map((rule) => withConfiguredSurfaces(config, rule));
 }
 
 export function separateRules(rules: AnyRule[]): {

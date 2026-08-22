@@ -156,10 +156,11 @@ Auto-detected using five strategies (first match wins): `nest-cli.json` monorepo
 
 ## Scoring
 
-Weighted by severity and category, normalized by file count. Only rules whose
-`meta.surfaces` includes `score` are counted; a rule set to `["cli"]` is
+Weighted by severity and category, normalized by file count. A rule declares
+surfaces: `cli`, `prComment`, `score`, `ciFailure`, all four by default. Only
+rules whose surfaces include `score` are counted; a rule set to `["cli"]` is
 reported in full and weighs nothing. `correctness/no-async-without-await` and
-`correctness/prefer-readonly-injection` are report-only.
+`correctness/prefer-readonly-injection` are report-only, so they also never comment on a pull request. Override per rule with `"rules": { "<id>": { "surfaces": [...] } }`.
 
 Severity weights: error = 3.0, warning = 1.5, info = 0.5
 Category multipliers: security = 1.5x, correctness = 1.3x, schema = 1.1x, architecture = 1.0x, performance = 0.8x

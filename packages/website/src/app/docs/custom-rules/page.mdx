@@ -59,17 +59,41 @@ export const myRule = {
 
 ### Surfaces
 
-A rule appears on three surfaces by default: `cli` for the report, `score` for
-the 0-100 number, and `ciFailure` for `--blocking`. Naming a subset narrows it:
+A rule appears on four surfaces by default:
+
+| Surface | Where |
+| ------- | ----- |
+| `cli` | The console report and the HTML report |
+| `prComment` | The pull request summary and its inline review comments |
+| `score` | The 0-100 number |
+| `ciFailure` | `--blocking` |
+
+Naming a subset narrows it:
 
 ```ts
 surfaces: ["cli"],
 ```
 
-That rule still shows every finding and still says how to fix it. It cannot
-move the score and cannot fail a build. Use it for a rule that encodes a
-preference rather than a defect, so a project that disagrees is not punished
-for it.
+That rule still shows every finding and still says how to fix it. It never
+comments on a pull request, never moves the score, and never fails a build.
+Use it for a rule that encodes a preference rather than a defect, so a project
+that disagrees is not punished for it.
+
+A project can decide otherwise. `surfaces` on a rule override replaces what the
+rule declares:
+
+```json
+{
+  "rules": {
+    "correctness/prefer-readonly-injection": {
+      "surfaces": ["cli", "prComment", "score", "ciFailure"]
+    }
+  }
+}
+```
+
+That is how a team that does want a house style enforced puts it back on the
+score and the build.
 
 ### Tags
 

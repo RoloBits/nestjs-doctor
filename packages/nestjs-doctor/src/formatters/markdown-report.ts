@@ -135,11 +135,13 @@ function renderFindingsTable(
 		return [];
 	}
 
-	const sorted = sortDiagnostics(result.diagnostics);
+	const sorted = sortDiagnostics(
+		result.diagnostics.filter((d) => onSurface(d, "prComment"))
+	);
 	const shown = sorted.slice(0, MAX_TABLE_ROWS);
 	const rows = shown.map(
 		(diagnostic) =>
-			`| ${diagnostic.severity}${onSurface(diagnostic, "score") ? "" : " (not scored)"} | \`${diagnostic.rule}\` | ${locationOf(diagnostic, targetPath)} | ${escapeCell(diagnostic.message)} |`
+			`| ${diagnostic.severity} | \`${diagnostic.rule}\` | ${locationOf(diagnostic, targetPath)} | ${escapeCell(diagnostic.message)} |`
 	);
 
 	const overflow =

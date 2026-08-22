@@ -437,6 +437,8 @@ runs:
           const wanted = new Map();
           for (const diagnostic of diagnostics) {
             if (!diagnostic || typeof diagnostic.line !== "number" || diagnostic.line <= 0) continue;
+            // A rule kept off the prComment surface never comments on a pull request.
+            if (Array.isArray(diagnostic.surfaces) && !diagnostic.surfaces.includes("prComment")) continue;
             const repoPath = toRepoPath(diagnostic.filePath);
             if (!repoPath) continue;
             const commentable = commentableByFile.get(repoPath);

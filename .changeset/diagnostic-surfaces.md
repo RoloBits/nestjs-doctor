@@ -22,3 +22,11 @@ Every surface says which findings are report-only: the console appends
 `· not scored`, the pull request comment marks the severity cell, and the HTML
 report carries a badge beside the rule id plus an "N of M not scored" line
 under the score, so the number and the issue count reconcile.
+
+A pull request comment is its own surface. `prComment` keeps a report-only rule
+out of the summary table and out of the inline review comments, so a house
+style never lands as a review note on someone's branch.
+
+Surfaces are also configurable. `"rules": { "<id>": { "surfaces": [...] } }`
+replaces what a rule declares, so a team that does want a style enforced can
+put it back on the score and the build.

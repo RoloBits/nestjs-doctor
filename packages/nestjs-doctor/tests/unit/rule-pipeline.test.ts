@@ -25,6 +25,50 @@ function stubRule(
 	} as AnyRule;
 }
 
+describe("filterRules surfaces", () => {
+	it("leaves a rule's own surfaces alone when config says nothing", () => {
+		const rule = stubRule("correctness/example");
+		rule.meta.surfaces = ["cli"];
+
+		const [only] = filterRules({} as NestjsDoctorConfig, [rule]);
+
+		expect(only.meta.surfaces).toEqual(["cli"]);
+	});
+
+	it("replaces them when the rule override names surfaces", () => {
+		const rule = stubRule("correctness/example");
+		rule.meta.surfaces = ["cli"];
+		const config = {
+			rules: {
+				"correctness/example": {
+					surfaces: ["cli", "prComment", "score", "ciFailure"],
+				},
+			},
+		} as unknown as NestjsDoctorConfig;
+
+		const [only] = filterRules(config, [rule]);
+
+		expect(only.meta.surfaces).toEqual([
+			"cli",
+			"prComment",
+			"score",
+			"ciFailure",
+		]);
+	});
+
+	it("does not mutate the registered rule", () => {
+		const rule = stubRule("correctness/example");
+		rule.meta.surfaces = ["cli"];
+		const config = {
+			rules: { "correctness/example": { surfaces: ["score"] } },
+		} as unknown as NestjsDoctorConfig;
+
+		filterRules(config, [rule]);
+
+		expect(rule.meta.surfaces).toEqual(["cli"]);
+	});
+});
+
 describe("filterRules", () => {
 	it("excludes a rule disabled with `false`", () => {
 		const rules = [
