@@ -18,11 +18,15 @@ const SidebarSection = ({
 	const [override, setOverride] = useState<boolean | null>(null);
 	const isOpen = override ?? isActive;
 
-	// Drops a manual toggle whenever the route changes.
+	// Reopens the section holding the new route, in case it was collapsed by
+	// hand. Every other section keeps what the reader set, so following a link
+	// does not close the groups they opened to read alongside it.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: pathname is the trigger
 	useEffect(() => {
-		setOverride(null);
-	}, [pathname]);
+		if (isActive) {
+			setOverride(null);
+		}
+	}, [pathname, isActive]);
 
 	return (
 		<div className="mb-2">
