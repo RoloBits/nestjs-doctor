@@ -63,19 +63,21 @@ export function dependencyLine(
 				continue;
 			}
 			const indent = lines[i].length - lines[i].trimStart().length;
-			if (key === block && blockIndent === null) {
+			// The shallowest match wins, so a nested "dependencies" under
+			// something like "pnpm" does not stand in for the real one.
+			if (key === block && (blockIndent === null || indent < blockIndent)) {
 				blockIndent = indent;
 				continue;
 			}
 			if (blockIndent === null) {
 				continue;
 			}
-			// A key no deeper than the block's own key has left the block.
-			if (indent <= blockIndent) {
-				break;
-			}
 			if (key === packageName) {
 				return i + 1;
+			}
+			// A key shallower than the block's own key has left the block.
+			if (indent < blockIndent) {
+				break;
 			}
 		}
 	} catch {

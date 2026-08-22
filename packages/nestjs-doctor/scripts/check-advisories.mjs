@@ -90,10 +90,11 @@ for (const pkg of packages) {
 	}
 }
 
-// A package that could not be queried was not checked, so nothing below can
-// claim the table is current.
-const stale =
-	unreachable.length > 0 ? [] : [...shipped].filter((k) => !seen.has(k));
+// A row for a package that could not be queried is unknown, not stale.
+const skipped = new Set(unreachable);
+const stale = [...shipped].filter(
+	(key) => !(seen.has(key) || skipped.has(key.split(" ")[0]))
+);
 
 console.log(
 	`Checked ${packages.length} packages against ${shipped.size} shipped rows.`

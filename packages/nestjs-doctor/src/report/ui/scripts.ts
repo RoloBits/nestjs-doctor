@@ -2514,7 +2514,7 @@ function renderDiagnosis() {
     for (let j = 0; j < sorted.length; j++) {
       const entry = sorted[j];
       const rule = entry.d.rule;
-      // Keyed with the help text, so one rule can list several fixes.
+      // Keyed with the help text.
       const key = rule + "\u0000" + (entry.d.help || "");
       if (!ruleGroupMap[key]) {
         ruleGroupMap[key] = { rule: rule, entries: [] };

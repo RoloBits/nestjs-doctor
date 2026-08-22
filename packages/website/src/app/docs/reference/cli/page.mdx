@@ -48,9 +48,10 @@ need the whole project, so the score always covers all of it.
 so: to every diagnostic in the changed files when `--changed-files-from` is set,
 and to the whole project when it is not. In CI, check out with `fetch-depth: 0`.
 
-`files`, `lines` and `changed` keep a finding whose file sits above the scanned
-directory. The changed-file set describes the scanned tree only, so a
-`package.json` one level up is never known to be unchanged.
+`files` and `lines` keep a finding whose file sits above the scanned directory.
+The changed-file set describes the scanned tree only, so a `package.json` one
+level up is never known to be unchanged. `changed` still drops it, because it
+compares against the base revision rather than the file list.
 
 ## Output
 

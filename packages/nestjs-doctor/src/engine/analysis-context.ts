@@ -197,6 +197,7 @@ async function buildSubProjectContext(
 		schemaGraph,
 		schemaRules,
 		targetPath: projectPath,
+		...(scanConfig.installRoot ? { installRoot: scanConfig.installRoot } : {}),
 	};
 }
 

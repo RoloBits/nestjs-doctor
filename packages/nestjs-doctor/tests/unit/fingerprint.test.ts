@@ -48,8 +48,7 @@ describe("toRelativePath", () => {
 	});
 
 	it("stays relative when the file sits outside the target", () => {
-		// An absolute path differs per machine, so the identity it feeds would
-		// change between a local run and CI.
+		// The identity this feeds must not vary by machine.
 		expect(toRelativePath("/repo/src", "/elsewhere/b.ts")).toBe(
 			"../../elsewhere/b.ts"
 		);

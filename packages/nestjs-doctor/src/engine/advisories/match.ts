@@ -68,7 +68,7 @@ export function matchAdvisories(
 		const { spec } = declaration;
 		const installed = versionOf(advisory.packageName);
 
-		// Runs before the severity filter, so every declared package is covered.
+		// Runs before the severity filter.
 		if (installed ? !parse(installed) : !parseRange(spec)) {
 			unchecked.add(advisory.packageName);
 			continue;

@@ -46,10 +46,11 @@ jobs:
         run: |
           set -euo pipefail
           {
-            echo "\`pnpm advisories:check\` found advisories the shipped table is missing."
+            echo "\`pnpm advisories:check\` did not agree with the shipped table."
             echo
-            echo "Add them to \`packages/nestjs-doctor/src/engine/advisories/data.ts\`."
-            echo "Take the wider bound where a record's range and its first patched version disagree."
+            echo "Rows to add go in \`packages/nestjs-doctor/src/engine/advisories/data.ts\`."
+            echo "Skip any record carrying \`withdrawn_at\`, and write GitHub's \`medium\` as \`moderate\`, which is the value the rules filter on."
+            echo "A package the run could not query was not checked at all, so the table says nothing about it either way."
             echo
             echo '```'
             cat report.txt

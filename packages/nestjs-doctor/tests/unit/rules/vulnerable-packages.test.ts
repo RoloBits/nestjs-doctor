@@ -158,7 +158,7 @@ describe("the advisory rules", () => {
 		).toEqual([]);
 	});
 
-	it("reports what is installed, not what the range allows", () => {
+	it("matches on the install even when the range admits a fix", () => {
 		const [found] = run(
 			{ "@nestjs/core": "^11.0.1" },
 			{ "@nestjs/core": "11.1.17" }
@@ -288,7 +288,7 @@ describe("how the finding names the version", () => {
 		expect(found.message).toContain("@nestjs/devtools-integration@0.2.0");
 	});
 
-	it("names the installed version over the spec when both are known", () => {
+	it("puts the installed version in the help, not the message", () => {
 		const [found] = run(
 			{ "@nestjs/core": "^10.0.0" },
 			{ "@nestjs/core": "10.4.1" }
@@ -460,7 +460,6 @@ describe("nothing to check", () => {
 
 describe("review round three", () => {
 	it("reports a critical-only package as unchecked", () => {
-		// The severity filter used to run first, so these never reached it.
 		const [found] = run({ "@nestjs/devtools-integration": "workspace:*" });
 		expect(found.message).toContain("Could not establish");
 		expect(found.message).toContain("@nestjs/devtools-integration");
@@ -486,10 +485,17 @@ describe("review round three", () => {
 	});
 
 	it("names the declared spec, so the message survives an install", () => {
-		const [found] = run({ "@nestjs/core": "^10.0.0" });
-		expect(found.message).toContain("@nestjs/core at ^10.0.0");
-		expect(found.message).not.toContain("Installed:");
-		expect(found.help).toContain("Upgrade to @nestjs/core@11.1.18");
+		const withoutInstall = run({ "@nestjs/core": "^10.0.0" })[0];
+		const withInstall = run(
+			{ "@nestjs/core": "^10.0.0" },
+			{ "@nestjs/core": "10.4.1" }
+		)[0];
+
+		// Identical either way, which is what lets a base revision match.
+		expect(withInstall.message).toBe(withoutInstall.message);
+		expect(withInstall.message).toContain("@nestjs/core at ^10.0.0");
+		expect(withInstall.help).toContain("Installed: 10.4.1");
+		expect(withoutInstall.help).toContain("Nothing installed");
 	});
 
 	it("finds a dependency line in a tab-indented manifest", () => {
@@ -516,17 +522,30 @@ describe("review round three", () => {
 		expect(found.line).toBe(5);
 	});
 
-	it("stops climbing for a manifest after the walk limit", () => {
+	const manifestAtDepth = (levels: number): string => {
 		const outer = mkdtempSync(join(tmpdir(), "nd-deep-"));
 		roots.push(outer);
 		writeFileSync(
 			join(outer, "package.json"),
 			JSON.stringify({ dependencies: { "@nestjs/core": "^10.0.0" } })
 		);
-		const deep = join(outer, ...Array.from({ length: 10 }, (_, i) => `d${i}`));
+		const deep = join(
+			outer,
+			...Array.from({ length: levels }, (_, i) => `d${i}`)
+		);
 		mkdirSync(deep, { recursive: true });
+		return deep;
+	};
 
-		const [found] = runRule(noAdvisoryNestjsPackages, deep);
+	it("still finds a manifest a deep sub-project sits under", () => {
+		const [found] = runRule(noAdvisoryNestjsPackages, manifestAtDepth(12));
+
+		expect(found.message).toContain("@nestjs/core at ^10.0.0");
+	});
+
+	it("stops climbing past the walk limit", () => {
+		const [found] = runRule(noAdvisoryNestjsPackages, manifestAtDepth(30));
+
 		expect(found.message).toContain("Found no package.json");
 	});
 });

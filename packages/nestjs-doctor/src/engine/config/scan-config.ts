@@ -14,10 +14,7 @@ export interface ScanConfig {
 	config: NestjsDoctorConfig;
 	customRuleWarnings: string[];
 	fileRules: Rule[];
-	/**
-	 * Where to resolve `node_modules` from, when that is not the scanned path.
-	 * A base revision is scanned in a worktree that has no install of its own.
-	 */
+	/** Where to resolve `node_modules` from, when not the scanned path. */
 	installRoot?: string;
 	projectRules: ProjectRule[];
 	schemaRules: SchemaRule[];

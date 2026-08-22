@@ -3,8 +3,11 @@ import { dirname, join, resolve } from "node:path";
 
 const BACKSLASH_RE = /\\/g;
 
-/** How far either walk climbs before giving up. */
-export const MAX_WALK = 8;
+/**
+ * How far either walk climbs before giving up. High enough that a real tree
+ * reaches its root; `.git` is what normally stops the climb.
+ */
+export const MAX_WALK = 24;
 
 export type DependencyBlock = "dependencies" | "devDependencies";
 

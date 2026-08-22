@@ -5,9 +5,11 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Diagnostic } from "../../src/common/diagnostic.js";
 import { computeBaselineDelta } from "../../src/engine/baseline.js";
+import { detectMonorepo } from "../../src/engine/project-detector.js";
 import {
 	buildAnalysisContext,
 	diagnose,
+	reduceSubProjects,
 	resolveScanConfig,
 } from "../../src/engine/scanner.js";
 import { applyScope, resolveScope } from "../../src/engine/scope.js";
@@ -199,5 +201,111 @@ describe("diff-scoped scanning", () => {
 		);
 		expect(delta.available).toBe(false);
 		expect(delta.introduced).toBe(diagnostics);
+	});
+});
+
+describe("advisory findings under changed scope", () => {
+	const roots: string[] = [];
+
+	afterAll(() => {
+		for (const dir of roots) {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	/** A workspace whose install is vulnerable and whose manifest is at the root. */
+	const workspace = (monorepo: boolean): string => {
+		const root = mkdtempSync(join(tmpdir(), "nd-adv-scope-"));
+		roots.push(root);
+		const run = (...args: string[]) =>
+			execFileSync("git", args, { cwd: root, stdio: "ignore" });
+		run("init");
+		run("config", "user.email", "t@t.t");
+		run("config", "user.name", "t");
+		writeFileSync(join(root, ".gitignore"), "node_modules\n");
+		writeFileSync(
+			join(root, "package.json"),
+			JSON.stringify({ name: "w", dependencies: { "@nestjs/core": "^11.1.0" } })
+		);
+		const src = monorepo ? join(root, "apps", "api", "src") : join(root, "src");
+		mkdirSync(src, { recursive: true });
+		if (monorepo) {
+			writeFileSync(join(root, "nx.json"), "{}");
+			writeFileSync(
+				join(root, "apps", "api", "project.json"),
+				JSON.stringify({ name: "api" })
+			);
+		}
+		writeFileSync(
+			join(src, "app.module.ts"),
+			"import { Module } from '@nestjs/common';\n@Module({})\nexport class M {}\n"
+		);
+		// Not versioned, so both revisions share it.
+		const installed = join(root, "node_modules", "@nestjs", "core");
+		mkdirSync(installed, { recursive: true });
+		writeFileSync(
+			join(installed, "package.json"),
+			JSON.stringify({ name: "@nestjs/core", version: "11.1.16" })
+		);
+		run("add", "-A");
+		run("commit", "-m", "base");
+		writeFileSync(join(src, "other.ts"), "export const x = 1;\n");
+		run("add", "-A");
+		run("commit", "-m", "an unrelated change");
+		return root;
+	};
+
+	const introducedAdvisories = async (
+		root: string,
+		monorepo: boolean
+	): Promise<{ available: boolean; count: number }> => {
+		const scanConfig = await resolveScanConfig(root);
+		const info = monorepo ? await detectMonorepo(root) : null;
+		const diagnostics = info
+			? [
+					...(
+						await reduceSubProjects(
+							root,
+							scanConfig,
+							info,
+							(_n, context) => diagnose(context).diagnostics
+						)
+					).values(),
+				].flat()
+			: diagnose(await buildAnalysisContext(root, scanConfig)).diagnostics;
+		const scope = resolveScope({
+			mode: "changed",
+			targetPath: root,
+			base: "HEAD~1",
+		});
+		const delta = await computeBaselineDelta(
+			diagnostics,
+			scope,
+			root,
+			scanConfig,
+			info ?? undefined
+		);
+
+		return {
+			available: delta.available,
+			count: delta.introduced.filter((d) => d.rule.endsWith("-nestjs-packages"))
+				.length,
+		};
+	};
+
+	it("does not blame an unrelated commit for a pre-existing advisory", async () => {
+		expect(await introducedAdvisories(workspace(false), false)).toEqual({
+			available: true,
+			count: 0,
+		});
+	});
+
+	it("does the same for a monorepo sub-project", async () => {
+		// The base revision is scanned in a worktree with no node_modules, so
+		// without installRoot the two sides resolve differently.
+		expect(await introducedAdvisories(workspace(true), true)).toEqual({
+			available: true,
+			count: 0,
+		});
 	});
 });

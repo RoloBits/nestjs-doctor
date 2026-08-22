@@ -98,7 +98,7 @@ In a monorepo, each sub-project gets its own score. The combined score comes fro
 
 Merging drops a diagnostic an earlier sub-project already reported, matched on rule, file, position and message. Two sub-projects sharing a workspace-root `package.json` or ORM schema therefore pay for it once.
 
-A sub-project's own score is then recalculated from the diagnostics the merge kept, over its own file count. That keeps the breakdown table consistent with the combined counts, at the cost of a sub-project scoring higher than it would alone.
+A sub-project carries the diagnostics the merge kept, so the breakdown table stays consistent with the combined counts. Its score is not recalculated from them: a score always describes the whole project it was measured on, never the subset a report shows.
 
 ## Debugging tips
 

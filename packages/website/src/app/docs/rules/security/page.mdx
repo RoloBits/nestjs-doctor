@@ -408,4 +408,4 @@ The list ships with the CLI, so a scan makes no network call and the same projec
 
 Under `--scope files`, `lines` or `changed`, the finding appears only when `package.json` itself changed. `changed` is the scope the GitHub Action uses by default.
 
-Scanning a subdirectory is the exception. The rule walks up to the nearest `package.json`, and a finding above the scanned directory is always kept. The changed-file set only describes the tree below it.
+Scanning a subdirectory is the exception under `files` and `lines`. The rule walks up to the nearest `package.json`, and the changed-file set only describes the tree below it, so a finding above the scanned directory is kept. `changed` compares against the base revision, so it drops an advisory neither revision introduced.

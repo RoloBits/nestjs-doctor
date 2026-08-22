@@ -73,8 +73,9 @@ npx nestjs-doctor . --staged --blocking error   # pre-commit hook
 The score always reflects the whole project, whatever the scope. `--min-score`
 gates on that score; `--blocking` gates on the reported findings.
 
-`files`, `lines` and `changed` keep a finding whose file sits above the scanned
-directory, because the changed-file set only describes the tree below it.
+`files` and `lines` keep a finding whose file sits above the scanned directory,
+because the changed-file set only describes the tree below it. `changed` compares
+against the base revision instead, so an unchanged manifest is still dropped.
 
 ## Dependency advisories
 

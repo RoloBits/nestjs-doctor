@@ -181,8 +181,7 @@ export function applyScope(
 
 	const files = scope.files;
 	const root = scope.repo ? `${toPosix(scope.repo.targetPath)}/` : null;
-	// A changed-file set covers the scanned tree only, so anything above it
-	// stays in the report.
+	// True for a path the changed-file set does not cover.
 	const outsideScan = (diagnostic: Diagnostic): boolean =>
 		root !== null && !toPosix(diagnostic.filePath).startsWith(root);
 	const inChangedFile = (diagnostic: Diagnostic): boolean =>

@@ -526,19 +526,29 @@ describe("grouping key", () => {
 		return lines;
 	};
 
-	it("keeps one group per rule when the help text is shared", () => {
+	it("counts repeats of one finding as a single line", () => {
 		const lines = linesFor([
 			makeDiagnostic({ rule: "rule-a", filePath: "a.ts", message: "foo" }),
-			makeDiagnostic({ rule: "rule-a", filePath: "b.ts", message: "bar" }),
+			makeDiagnostic({ rule: "rule-a", filePath: "b.ts", message: "foo" }),
 		]);
+		const shown = lines.filter((l) => l.includes("foo"));
 
-		// One line for the rule, not one per distinct message.
-		expect(
-			lines.filter((l) => l.includes("foo") || l.includes("bar"))
-		).toHaveLength(1);
+		expect(shown).toHaveLength(1);
+		expect(shown[0]).toContain("(2)");
 	});
 
-	it("splits a rule that carries a different fix per finding", () => {
+	it("collapses distinct messages that share one fix, printing the first", () => {
+		const lines = linesFor([
+			makeDiagnostic({ rule: "rule-a", message: "foo", help: "same fix" }),
+			makeDiagnostic({ rule: "rule-a", message: "bar", help: "same fix" }),
+		]);
+
+		// Long-standing behaviour: the group prints first.message and a count.
+		expect(lines.filter((l) => l.includes("foo"))).toHaveLength(1);
+		expect(lines.some((l) => l.includes("bar"))).toBe(false);
+	});
+
+	it("gives a rule with several fixes a line for each", () => {
 		const lines = linesFor([
 			makeDiagnostic({
 				rule: "security/no-advisory-nestjs-packages",

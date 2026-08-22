@@ -166,34 +166,36 @@ export function buildMonorepoResult(
 	for (const [name, scanResult] of scanResults) {
 		moduleGraphs.set(name, scanResult.moduleGraph);
 		const kept: Diagnostic[] = [];
-		const localKeys = new Set<string>();
+		const localSchemaKeys = new Set<string>();
+		const localProjectKeys = new Set<string>();
 		for (const diagnostic of scanResult.result.diagnostics) {
 			const key = isSchemaDiagnostic(diagnostic)
 				? `${diagnostic.rule}\0${diagnostic.filePath}\0${diagnostic.entity}\0${diagnostic.message}`
 				: `${diagnostic.rule}\0${diagnostic.filePath}\0${diagnostic.line}\0${diagnostic.column}\0${diagnostic.message}`;
-			const seen = isSchemaDiagnostic(diagnostic)
-				? seenSchemaDiagnostics
-				: seenProjectDiagnostics;
+			const schema = isSchemaDiagnostic(diagnostic);
+			const seen = schema ? seenSchemaDiagnostics : seenProjectDiagnostics;
+			const local = schema ? localSchemaKeys : localProjectKeys;
 			// Drops only what an earlier sub-project already reported.
-			if (seen.has(key) && !localKeys.has(key)) {
+			if (seen.has(key) && !local.has(key)) {
 				continue;
 			}
-			localKeys.add(key);
+			local.add(key);
 			kept.push(diagnostic);
 			allDiagnostics.push(diagnostic);
 		}
-		for (const key of localKeys) {
+		for (const key of localSchemaKeys) {
 			seenSchemaDiagnostics.add(key);
+		}
+		for (const key of localProjectKeys) {
 			seenProjectDiagnostics.add(key);
 		}
-		// Carries what the combined result took, so the breakdown adds up.
+		// Carries the diagnostics the combined result took. Score untouched.
 		subProjects.push({
 			name,
 			result: {
 				...scanResult.result,
 				diagnostics: kept,
 				summary: buildSummary(kept),
-				score: calculateScore(kept, scanResult.result.project.fileCount),
 			},
 		});
 		allRuleErrors.push(...scanResult.result.ruleErrors);
