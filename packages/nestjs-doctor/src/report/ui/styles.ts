@@ -85,6 +85,8 @@ canvas:active { cursor: grabbing; }
   transition: color 0.15s, border-color 0.15s;
   display: flex; align-items: center; gap: 6px;
 }
+.tab-icon { width: 15px; height: 15px; flex-shrink: 0; opacity: 0.75; }
+.tab-btn:hover .tab-icon, .tab-btn.active .tab-icon { opacity: 1; }
 .tab-btn:hover { color: var(--text); }
 .tab-btn.active { color: var(--white); border-bottom-color: var(--nest-red); }
 .tab-btn .count-badge {

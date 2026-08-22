@@ -29,11 +29,11 @@ not load. Everything else works.
 | Tab | Shows |
 |---|---|
 | Summary | The score, the category breakdown, and the counts behind them |
-| Diagnosis | Every finding with a code viewer and a fix example |
+| Findings | Every finding with a code viewer and a fix example |
 | Modules Graph | Your real module graph, clustered, with cycles in red |
 | Endpoints | Traced HTTP routes per controller and the dependencies each one pulls |
 | Relational Schema | The ER diagram extracted from your ORM |
-| Lab | A playground for writing a custom rule against your own code |
+| Rule Lab | A playground for writing a custom rule against your own code |
 
 Endpoints and Relational Schema stay hidden until there is data. A project with
 no controllers and no ORM entities sees four tabs. The Endpoints tab is badged
@@ -45,7 +45,7 @@ provides, and what breaks if you change it.
 ## Findings that do not score
 
 A rule can report without moving the score. Summary shows how many under the
-number, as `70 of 407 not scored`, so the two reconcile. Diagnosis hides those
+number, as `70 of 407 not scored`, so the two reconcile. Findings hides those
 findings behind a **Show not scored** checkbox above the severity filters, and
 badges each one `not scored` beside its rule id when you turn it on.
 
