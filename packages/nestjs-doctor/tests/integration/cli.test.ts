@@ -390,6 +390,72 @@ describe("scanner integration", () => {
 		expect(perProject).toBe(result.combined.diagnostics.length);
 	});
 
+	describe("nx-shared-manifest fixture", () => {
+		const scan = async () => {
+			const root = resolve(FIXTURES, "nx-shared-manifest");
+			const scanConfig = await resolveScanConfig(root);
+			const monorepo = await detectMonorepo(root);
+			const { result } = await scanMonorepo(root, scanConfig, monorepo!);
+			return { root, result };
+		};
+
+		it("reports the shared root manifest once, not once per sub-project", async () => {
+			const { root, result } = await scan();
+			const advisories = result.combined.diagnostics.filter((d) =>
+				d.rule.endsWith("-nestjs-packages")
+			);
+
+			expect(advisories).toHaveLength(1);
+			expect(advisories[0].filePath).toBe(
+				join(root, "package.json").replaceAll("\\", "/")
+			);
+		});
+
+		it("keeps both calls when one rule fires twice inside one sub-project", async () => {
+			const { result } = await scan();
+
+			expect(
+				result.combined.diagnostics.filter((d) => d.rule.includes("no-eval"))
+			).toHaveLength(2);
+		});
+
+		it("sums the breakdown to the combined totals", async () => {
+			const { result } = await scan();
+			const perProject = result.subProjects.reduce(
+				(n, s) => n + s.result.diagnostics.length,
+				0
+			);
+
+			expect(perProject).toBe(result.combined.diagnostics.length);
+		});
+
+		it("gives the shared finding to exactly one sub-project", async () => {
+			const { result } = await scan();
+			const counts = result.subProjects.map(
+				(s) =>
+					s.result.diagnostics.filter((d) =>
+						d.rule.endsWith("-nestjs-packages")
+					).length
+			);
+
+			expect(counts.reduce((a, b) => a + b, 0)).toBe(1);
+		});
+
+		it("scores a sub-project on what it scanned, not on what it shows", async () => {
+			// The shared root schema is the case where dedupe removes findings
+			// that count toward a score, so it is the one that can inflate.
+			const root = resolve(FIXTURES, "root-schema-monorepo");
+			const scanConfig = await resolveScanConfig(root);
+			const monorepo = await detectMonorepo(root);
+			const { result } = await scanMonorepo(root, scanConfig, monorepo!);
+
+			const scores = result.subProjects.map((s) => s.result.score.value);
+			// Both inherit the same schema, so neither may look better than the
+			// other for having reported it second.
+			expect(new Set(scores).size).toBe(1);
+		});
+	});
+
 	it("scans monorepo with multiple sub-projects", async () => {
 		const targetPath = resolve(FIXTURES, "monorepo-app");
 		const scanConfig = await resolveScanConfig(targetPath);
