@@ -2,7 +2,7 @@
 "nestjs-doctor": minor
 ---
 
-Report `@nestjs/*` versions with a published security advisory.
+Report package versions with a published security advisory.
 
 Two rules, because a rule carries one severity:
 
@@ -28,10 +28,17 @@ It reports as unchecked and names the package, because the same project reads as
 clean before an install and finds advisories after one, and silence there is
 indistinguishable from having nothing to report.
 
-Nine advisories ship, taken from the GitHub Advisory Database: one critical in
-`@nestjs/devtools-integration`, four high across `@nestjs/platform-fastify` and
-`@nestjs/microservices`, and four moderate across `@nestjs/core`,
-`@nestjs/common` and `@nestjs/platform-fastify`.
+Sixty packages are watched: every package published under the `@nestjs` scope,
+plus the third-party packages a Nest project installs deliberately. Eleven
+advisories against them ship, taken from the GitHub Advisory Database: one
+critical in `@nestjs/devtools-integration`, four high across
+`@nestjs/platform-fastify` and `@nestjs/microservices`, five moderate across
+`@nestjs/core`, `@nestjs/common`, `@nestjs/platform-fastify` and
+`@sentry/nestjs`, and one low in `@sentry/nestjs`.
+
+`pnpm advisories:check` walks the watched list against the database and reports
+what the shipped table is missing. It is a maintenance command, never part of a
+scan.
 
 A scan still makes no network call. The cost is that the list is only as fresh
 as the release, so `npx nestjs-doctor@latest` knows the most.

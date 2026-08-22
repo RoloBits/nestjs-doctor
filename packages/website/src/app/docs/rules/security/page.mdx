@@ -15,14 +15,14 @@ export const metadata = docsMetadata["/docs/rules/security"];
 | `no-eval` | error | `eval()` or `new Function()` usage |
 | `no-csrf-disabled` | error | `csrf: false` or `csrfProtection: false` in an options object |
 | `no-dangerous-redirects` | error | Redirects with user-controlled input |
-| `no-vulnerable-nestjs-packages` | error | An `@nestjs/*` version with a critical or high advisory |
+| `no-vulnerable-nestjs-packages` | error | A watched package on a version with a critical or high advisory |
 | `no-synchronize-in-production` | error | `synchronize: true` in TypeORM config |
 | `no-weak-crypto` | warning | `createHash('md5')` or `createHash('sha1')` |
 | `no-exposed-env-vars` | warning | Direct `process.env` in Injectable/Controller |
 | `no-exposed-stack-trace` | warning | `error.stack` exposed in responses |
 | `no-raw-entity-in-response` | warning | Handler return type named `*Entity` or `*Model` |
 | `require-guards-on-endpoints` | warning | Endpoints without `@UseGuards()` at class or method level |
-| `no-advisory-nestjs-packages` | warning | An `@nestjs/*` version with a moderate or low advisory |
+| `no-advisory-nestjs-packages` | warning | A watched package on a version with a moderate or low advisory |
 
 ---
 
@@ -316,7 +316,12 @@ export class OrderController {
 
 ## no-vulnerable-nestjs-packages
 
-Reports an `@nestjs/*` package on a version with a critical or high advisory.
+Reports a watched package on a version with a critical or high advisory.
+
+The watched set is every package published under the `@nestjs` scope, plus the
+third-party packages a Nest project installs deliberately, such as
+`@sentry/nestjs` and `nestjs-pino`. A package outside that set is never checked,
+so the rule says nothing about it either way.
 
 **Why:** an advisory is a defect with a public identifier and a known fix, so it belongs in the same pass as everything else rather than an audit nobody runs.
 

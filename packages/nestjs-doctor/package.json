@@ -29,7 +29,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "postbuild": "node scripts/copy-skills.mjs",
-    "smoke:packed": "node scripts/smoke-packed-install.mjs"
+    "smoke:packed": "node scripts/smoke-packed-install.mjs",
+    "advisories:check": "node scripts/check-advisories.mjs"
   },
   "keywords": [
     "nestjs",

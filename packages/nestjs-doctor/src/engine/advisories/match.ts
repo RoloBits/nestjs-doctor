@@ -44,6 +44,16 @@ export function matchAdvisories(
 	const directory = manifestDirOf(path);
 	const matches: AdvisoryMatch[] = [];
 	const unchecked = new Set<string>();
+	// One walk per package, not per row: several advisories share a package.
+	const resolved = new Map<string, string | null>();
+	const versionOf = (name: string): string | null => {
+		let version = resolved.get(name);
+		if (version === undefined) {
+			version = installedVersion(directory, name);
+			resolved.set(name, version);
+		}
+		return version;
+	};
 
 	for (const advisory of NESTJS_ADVISORIES) {
 		if (!severities.has(advisory.severity)) {
@@ -55,7 +65,7 @@ export function matchAdvisories(
 		}
 		const { spec } = declaration;
 
-		const installed = installedVersion(directory, advisory.packageName);
+		const installed = versionOf(advisory.packageName);
 		if (!(installed || parseRange(spec))) {
 			unchecked.add(advisory.packageName);
 			continue;

@@ -26,7 +26,8 @@ const describe = ({
 	} else {
 		found = `${advisory.packageName} at ${spec}, a range with no patched version in it,`;
 	}
-	return `${found} is affected by ${advisory.cve} (${advisory.severity}): ${advisory.summary}. Patched in ${advisory.patched}.`;
+	const id = advisory.cve ?? advisory.ghsa;
+	return `${found} is affected by ${id} (${advisory.severity}): ${advisory.summary}. Patched in ${advisory.patched}.`;
 };
 
 const reportAll = (

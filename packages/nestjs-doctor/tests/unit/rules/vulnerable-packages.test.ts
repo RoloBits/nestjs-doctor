@@ -16,6 +16,7 @@ import {
 	rangeIsWhollyBelow,
 	rangeReaches,
 } from "../../../src/engine/advisories/version.js";
+import { WATCHED_PACKAGES } from "../../../src/engine/advisories/watched.js";
 import {
 	noAdvisoryNestjsPackages,
 	noVulnerableNestjsPackages,
@@ -238,9 +239,12 @@ describe("the advisory table", () => {
 	it("names a real advisory for every entry", () => {
 		for (const advisory of NESTJS_ADVISORIES) {
 			expect(advisory.ghsa).toMatch(GHSA_ID);
-			expect(advisory.cve).toMatch(CVE_ID);
+			// Not every advisory gets a CVE assigned.
+			if (advisory.cve !== undefined) {
+				expect(advisory.cve).toMatch(CVE_ID);
+			}
 			expect(advisory.url).toContain(advisory.ghsa);
-			expect(advisory.packageName.startsWith("@nestjs/")).toBe(true);
+			expect(WATCHED_PACKAGES).toContain(advisory.packageName);
 			expect(compareVersions(advisory.patched, "0.0.0")).toBe(1);
 		}
 	});
@@ -379,5 +383,40 @@ describe("defects the second review found", () => {
 				d.message?.includes("Could not establish")
 			)
 		).toEqual([]);
+	});
+});
+
+describe("ecosystem packages", () => {
+	it("reports a vulnerable @sentry/nestjs in the affected window", () => {
+		const [found] = run({ "@sentry/nestjs": "10.20.0" });
+		expect(found.message).toContain("CVE-2025-65944");
+		expect(found.message).toContain("Patched in 10.27.0");
+	});
+
+	it("says nothing below the window the advisory opens at", () => {
+		expect(run({ "@sentry/nestjs": "10.9.0" })).toEqual([]);
+	});
+
+	it("says nothing once patched", () => {
+		expect(run({ "@sentry/nestjs": "10.27.0" })).toEqual([]);
+	});
+
+	it("names the GHSA when the advisory has no CVE", () => {
+		const [found] = run({ "@sentry/nestjs": "8.20.0" });
+		expect(found.message).toContain("GHSA-r5w7-f542-q2j4");
+		expect(found.message).not.toContain("undefined");
+	});
+});
+
+describe("the watched list", () => {
+	it("only carries advisories for packages it watches", () => {
+		const watched = new Set(WATCHED_PACKAGES);
+		for (const advisory of NESTJS_ADVISORIES) {
+			expect(watched.has(advisory.packageName)).toBe(true);
+		}
+	});
+
+	it("names every package once", () => {
+		expect(new Set(WATCHED_PACKAGES).size).toBe(WATCHED_PACKAGES.length);
 	});
 });
