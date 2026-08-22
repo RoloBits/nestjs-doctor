@@ -1,6 +1,6 @@
 # NestJS Doctor
 
-> Diagnose and fix your NestJS code in one command. 50 built-in rules across security, performance, correctness, architecture, and schema. Outputs a 0-100 score with actionable diagnostics. Zero config. Monorepo support. Ships an official GitHub Action that reports only what a pull request introduced.
+> Diagnose and fix your NestJS code in one command. 52 built-in rules across security, performance, correctness, architecture, and schema. Outputs a 0-100 score with actionable diagnostics. Zero config. Monorepo support. Ships an official GitHub Action that reports only what a pull request introduced.
 
 ## Quick Start
 

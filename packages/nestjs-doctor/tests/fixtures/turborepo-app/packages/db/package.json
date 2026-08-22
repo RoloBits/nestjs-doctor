@@ -2,7 +2,7 @@
   "name": "@acme/db",
   "main": "src/index.ts",
   "dependencies": {
-    "@nestjs/common": "^10.0.0",
+    "@nestjs/common": "^11.0.16",
     "@prisma/client": "^5.0.0"
   }
 }

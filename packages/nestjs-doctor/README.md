@@ -116,7 +116,7 @@ The same shape works as `.nestjs-doctor.json`, or as a `"nestjs-doctor"` key in
 
 ## Rules
 
-50 built-in rules. Every finding carries a file and a rule id you can suppress
+52 built-in rules. Every finding carries a file and a rule id you can suppress
 or configure, plus a line unless it reports against a schema entity.
 
 | Category | Rules | Catches |

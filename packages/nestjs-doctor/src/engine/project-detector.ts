@@ -465,6 +465,18 @@ async function readNearestPackageJson(
 	}
 }
 
+/** Everything the nearest package.json declares, merged in npm's own order. */
+export async function readDeclaredDependencies(
+	targetPath: string
+): Promise<Record<string, string>> {
+	const pkg = await readNearestPackageJson(targetPath);
+	return {
+		...pkg.dependencies,
+		...pkg.devDependencies,
+		...pkg.peerDependencies,
+	};
+}
+
 export async function detectProject(targetPath: string): Promise<ProjectInfo> {
 	const pkg = await readNearestPackageJson(targetPath);
 

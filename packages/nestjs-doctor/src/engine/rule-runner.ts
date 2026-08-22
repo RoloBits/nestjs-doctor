@@ -31,8 +31,10 @@ interface RunRulesResult {
 
 export interface RunRulesOptions {
 	config: NestjsDoctorConfig;
+	dependencies: Record<string, string>;
 	moduleGraph: ModuleGraph;
 	providers: Map<string, ProviderInfo>;
+	targetPath: string;
 }
 
 /** Project-wide facts handed to file rules that need more than one file. */
@@ -137,6 +139,8 @@ export function runProjectRules(
 			moduleGraph: options.moduleGraph,
 			providers: options.providers,
 			config: options.config,
+			dependencies: options.dependencies,
+			targetPath: options.targetPath,
 			report(partial) {
 				diagnostics.push({
 					...partial,

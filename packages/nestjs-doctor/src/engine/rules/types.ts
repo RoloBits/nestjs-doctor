@@ -62,6 +62,8 @@ export interface CodeRuleContext {
 
 export interface ProjectRuleContext {
 	config: NestjsDoctorConfig;
+	/** Versions declared in the nearest package.json, as written. */
+	dependencies: Record<string, string>;
 	files: string[];
 	moduleGraph: ModuleGraph;
 	project: Project;
@@ -69,6 +71,7 @@ export interface ProjectRuleContext {
 	report(
 		diagnostic: Omit<CodeDiagnostic, "rule" | "category" | "severity" | "scope">
 	): void;
+	targetPath: string;
 }
 
 export interface SchemaRuleContext {

@@ -21,6 +21,8 @@ export const metadata = docsMetadata["/docs/rules/security"];
 | `no-exposed-stack-trace` | warning | `error.stack` exposed in responses |
 | `no-raw-entity-in-response` | warning | Handler return type named `*Entity` or `*Model` |
 | `require-guards-on-endpoints` | warning | Endpoints without `@UseGuards()` at class or method level |
+| `no-vulnerable-nestjs-packages` | error | An `@nestjs/*` version with a critical or high advisory |
+| `nestjs-package-advisory` | warning | An `@nestjs/*` version with a moderate or low advisory |
 
 ---
 
@@ -309,3 +311,33 @@ export class OrderController {
 }
 ```
 </CodeGroup>
+
+## no-vulnerable-nestjs-packages
+
+## nestjs-package-advisory
+
+Both compare the `@nestjs/*` versions your `package.json` declares against
+published advisories. They are one check split across two rules because a rule
+carries a single severity, and a critical sandbox escape does not deserve the
+same weight as a moderate disclosure.
+
+**Why:** an advisory against a framework package is a defect with a known fix
+and a public identifier, so it is worth reporting at the same moment as
+everything else, rather than in a separate audit nobody runs.
+
+The advisory list ships with the CLI. A scan makes no network call, so the same
+project scores the same on a laptop, in CI, and on a machine with no internet.
+The trade-off is that the list is only as fresh as the CLI: an older install
+knows about fewer advisories, and `npx nestjs-doctor@latest` always knows the
+most.
+
+A version range is read at its floor, the oldest version it still allows, since
+that is what a fresh install without a lockfile can produce. `^11.1.17` is
+therefore read as `11.1.17`. A `workspace:*` or any range with no version in it
+is skipped rather than guessed at.
+
+Where the only patched release sits in a later major, the finding says so and
+is a planned upgrade rather than a hotfix. That is the case today for
+`@nestjs/core`: the advisory covers every version up to 11.1.17 and the fix
+ships in 11.1.18, so a project on the 10.x line is reported with no 10.x
+release to move to.
