@@ -405,17 +405,18 @@ describe("console-reporter", () => {
 	});
 });
 
-describe("printConsoleReport surfaces", () => {
-	const capture = (): { lines: string[]; restore: () => void } => {
-		const lines: string[] = [];
-		const spy = vi
-			.spyOn(console, "log")
-			.mockImplementation((...args: unknown[]) => {
-				lines.push(args.join(" "));
-			});
-		return { lines, restore: () => spy.mockRestore() };
-	};
+const ANSI_RE = /\u001B\[[0-9;]*m/g;
 
+/** Colour is on whenever CI is set, so strip it before matching on text. */
+const capture = (): { lines: string[]; restore: () => void } => {
+	const lines: string[] = [];
+	const spy = vi.spyOn(console, "log").mockImplementation((...args) => {
+		lines.push(args.join(" ").replace(ANSI_RE, ""));
+	});
+	return { lines, restore: () => spy.mockRestore() };
+};
+
+describe("printConsoleReport surfaces", () => {
 	const reportOnly = makeDiagnostic({
 		rule: "correctness/prefer-readonly-injection",
 		message: "Constructor parameter 'repo' should be readonly.",
@@ -489,12 +490,7 @@ describe("printMonorepoReport surfaces", () => {
 			},
 		});
 
-		const lines: string[] = [];
-		const spy = vi
-			.spyOn(console, "log")
-			.mockImplementation((...args: unknown[]) => {
-				lines.push(args.join(" "));
-			});
+		const { lines, restore } = capture();
 		printMonorepoReport(
 			{
 				combined: makeResult({ diagnostics: [reportOnly, offCli] }),
@@ -504,7 +500,7 @@ describe("printMonorepoReport surfaces", () => {
 			} as never,
 			false
 		);
-		spy.mockRestore();
+		restore();
 
 		const line = lines.find((l) => l.includes("api:")) ?? "";
 		expect(line).toContain("1 warnings");
