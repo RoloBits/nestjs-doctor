@@ -7,5 +7,11 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["website", "nestjs-doctor-vscode"]
+  "ignore": [
+    "website"
+  ],
+  "privatePackages": {
+    "version": true,
+    "publish": false
+  }
 }

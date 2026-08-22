@@ -45,3 +45,18 @@ sitting in the Problems panel beside real defects.
 
 `DiagnosticSurface`, `BaseDiagnostic`, `onSurface` and `forSurface` are
 exported, so a custom rule can declare surfaces and a consumer can read them.
+
+Two Windows fixes for the editor ride along, both older than this change.
+
+The language server decided a path was absolute by testing for a leading
+slash. Nothing the scanner reports on Windows has one, because ts-morph uses
+forward slashes with a drive, so `D:/proj/src/a.ts` was appended to the
+workspace root anyway and became `D:\proj/D:/proj/src/a.ts`. That points at no
+file, so every finding attached to nothing.
+
+The worker also kept one diagnostic cache written from two sources that spell
+a path differently: a full scan keys by the scanner's path, an edit keys by the
+document URI converted to a native one. They agree everywhere except Windows,
+where the first edit added a second entry for the same file, so each finding
+appeared twice and the set from before the edit never cleared.
+
