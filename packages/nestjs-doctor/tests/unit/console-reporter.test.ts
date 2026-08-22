@@ -5,7 +5,9 @@ import {
 	getNestBirds,
 	getSeverityIcon,
 	getStarRating,
+	printConsoleReport,
 	printFramedBox,
+	printMonorepoReport,
 } from "../../src/cli/formatters/console-reporter.js";
 import type { Diagnostic } from "../../src/common/diagnostic.js";
 
@@ -400,5 +402,112 @@ describe("console-reporter", () => {
 			// Should NOT show --verbose hint in verbose mode
 			expect(fullOutput).not.toContain("Run with --verbose");
 		});
+	});
+});
+
+describe("printConsoleReport surfaces", () => {
+	const capture = (): { lines: string[]; restore: () => void } => {
+		const lines: string[] = [];
+		const spy = vi
+			.spyOn(console, "log")
+			.mockImplementation((...args: unknown[]) => {
+				lines.push(args.join(" "));
+			});
+		return { lines, restore: () => spy.mockRestore() };
+	};
+
+	const reportOnly = makeDiagnostic({
+		rule: "correctness/prefer-readonly-injection",
+		message: "Constructor parameter 'repo' should be readonly.",
+		surfaces: ["cli"],
+	});
+	const scored = makeDiagnostic({
+		rule: "performance/no-unused-providers",
+		message: "Provider is never injected.",
+	});
+
+	it("prints a report-only finding and marks it not scored", () => {
+		const { lines, restore } = capture();
+		printConsoleReport(makeResult({ diagnostics: [reportOnly, scored] }), true);
+		restore();
+		const output = lines.join("\n");
+
+		expect(output).toContain("should be readonly");
+		expect(output).toContain("not scored");
+		expect(output).toContain("Provider is never injected");
+	});
+
+	it("leaves out a finding that never reaches the cli surface", () => {
+		const hidden = makeDiagnostic({
+			rule: "correctness/hidden",
+			message: "Never shown in the console.",
+			surfaces: ["score"],
+		});
+		const { lines, restore } = capture();
+		printConsoleReport(makeResult({ diagnostics: [hidden, scored] }), true);
+		restore();
+		const output = lines.join("\n");
+
+		expect(output).not.toContain("Never shown in the console");
+		expect(output).toContain("Provider is never injected");
+	});
+});
+
+describe("printMonorepoReport surfaces", () => {
+	it("counts each sub-project on the same surface as the combined report", () => {
+		const reportOnly = makeDiagnostic({
+			rule: "correctness/prefer-readonly-injection",
+			severity: "warning",
+			surfaces: ["cli"],
+		});
+		const offCli = makeDiagnostic({
+			rule: "correctness/hidden",
+			severity: "error",
+			surfaces: ["score"],
+		});
+		const api = makeResult({
+			diagnostics: [reportOnly, offCli],
+			project: {
+				name: "api",
+				nestVersion: "11.0.0",
+				orm: "prisma",
+				framework: "express",
+				moduleCount: 2,
+				fileCount: 8,
+			},
+			summary: {
+				total: 2,
+				errors: 1,
+				warnings: 1,
+				info: 0,
+				byCategory: {
+					security: 0,
+					architecture: 0,
+					correctness: 2,
+					performance: 0,
+				},
+			},
+		});
+
+		const lines: string[] = [];
+		const spy = vi
+			.spyOn(console, "log")
+			.mockImplementation((...args: unknown[]) => {
+				lines.push(args.join(" "));
+			});
+		printMonorepoReport(
+			{
+				combined: makeResult({ diagnostics: [reportOnly, offCli] }),
+				elapsedMs: 10,
+				isMonorepo: true,
+				subProjects: [{ name: "api", result: api }],
+			} as never,
+			false
+		);
+		spy.mockRestore();
+
+		const line = lines.find((l) => l.includes("api:")) ?? "";
+		expect(line).toContain("1 warnings");
+		expect(line).not.toContain("1 errors");
 	});
 });
