@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
+import { installedVersion } from "../../src/engine/advisories/installed.js";
 import {
 	detectMonorepo,
 	detectProject,
@@ -323,5 +324,53 @@ describe("Nx project detection", () => {
 			"apps/one",
 			"apps/two",
 		]);
+	});
+});
+
+describe("nest version", () => {
+	const roots: string[] = [];
+
+	afterAll(() => {
+		for (const dir of roots) {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	const project = (declared: string, installed?: string): string => {
+		const root = mkdtempSync(join(tmpdir(), "nd-nest-version-"));
+		roots.push(root);
+		mkdirSync(join(root, ".git"), { recursive: true });
+		writeFileSync(
+			join(root, "package.json"),
+			JSON.stringify({
+				name: "app",
+				dependencies: { "@nestjs/core": declared },
+			})
+		);
+		if (installed) {
+			const dir = join(root, "node_modules", "@nestjs", "core");
+			mkdirSync(dir, { recursive: true });
+			writeFileSync(
+				join(dir, "package.json"),
+				JSON.stringify({ name: "@nestjs/core", version: installed })
+			);
+		}
+		return root;
+	};
+
+	it("reports the installed version, not the range floor", async () => {
+		const info = await detectProject(project("^11.1.9", "11.1.16"));
+		expect(info.nestVersion).toBe("11.1.16");
+	});
+
+	it("falls back to the declared version with nothing installed", async () => {
+		const info = await detectProject(project("^11.1.9"));
+		expect(info.nestVersion).toBe("11.1.9");
+	});
+
+	it("agrees with what the advisory rules read", async () => {
+		const root = project("^11.1.9", "11.1.16");
+		const info = await detectProject(root);
+		expect(info.nestVersion).toBe(installedVersion(root, "@nestjs/core"));
 	});
 });

@@ -50,8 +50,9 @@ Build `nestjs-doctor-report.html`:
 npx nestjs-doctor@latest . --report
 ```
 
-One self-contained file: score summary, findings with a code viewer, and an
-interactive module graph. Traced HTTP endpoints, the schema ER diagram, and a
+Writes to the project root, or wherever `--output` names. One self-contained
+file: score summary, findings with a code viewer, and an interactive module
+graph. Traced HTTP endpoints, the schema ER diagram, and a
 rule playground get their own tabs.
 
 ![Module Graph](https://nestjs.doctor/module-graph.png)

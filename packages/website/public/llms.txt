@@ -29,7 +29,7 @@ Options:
   --score               Output only the numeric score (for CI)
   --json                JSON output (for tooling)
   --format <f>          console (default), json, sarif, gitlab, markdown, github
-  --output <path>       Write the formatted output to a file instead of stdout
+  --output <path>       Write the output to a file instead of stdout; with --report, where the HTML goes
   --json-compact        Emit JSON-based formats without indentation
   --scope <s>           full (default), files, lines, changed
   --base <ref>          Git ref to compare against (auto-detected)

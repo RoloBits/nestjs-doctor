@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { glob } from "tinyglobby";
 import type { ProjectInfo } from "../common/result.js";
+import { installedVersion } from "./advisories/installed.js";
 
 interface PackageJson {
 	dependencies?: Record<string, string>;
@@ -470,7 +471,10 @@ export async function detectProject(targetPath: string): Promise<ProjectInfo> {
 
 	const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
 
-	const nestVersion = extractVersion(allDeps["@nestjs/core"]);
+	// The install is what actually runs, so it wins over the declared range.
+	const nestVersion =
+		installedVersion(targetPath, "@nestjs/core") ??
+		extractVersion(allDeps["@nestjs/core"]);
 	const orm = detectOrm(allDeps);
 	const framework = detectFramework(allDeps);
 

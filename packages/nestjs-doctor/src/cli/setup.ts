@@ -175,7 +175,12 @@ export class CliSetup {
 		this.steps.push(async () => {
 			if (this.args.report) {
 				const { runReport } = await import("../report/setup.js");
-				await runReport(this.targetPath, this.args.config, this.args.timings);
+				await runReport(
+					this.targetPath,
+					this.args.config,
+					this.args.timings,
+					this.args.output
+				);
 				return false;
 			}
 			return true;

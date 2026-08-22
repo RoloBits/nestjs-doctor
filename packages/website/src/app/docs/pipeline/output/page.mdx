@@ -116,6 +116,14 @@ with no controllers and no ORM entities sees four.
 
 The file is written to `nestjs-doctor-report.html` in the project root and auto-opened in the default browser.
 
+Pass `--output` to write it somewhere else, so a scan leaves the scanned repository untouched:
+
+```bash
+npx nestjs-doctor . --report --output /tmp/health.html
+```
+
+A relative path resolves against the working directory, and missing parent directories are created.
+
 ![The Modules Graph tab](/module-graph.png)
 
 `--timings` overlays real construction times from a captured boot onto that

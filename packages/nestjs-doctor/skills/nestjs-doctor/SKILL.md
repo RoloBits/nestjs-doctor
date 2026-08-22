@@ -114,6 +114,7 @@ Construction times need a real boot, which a scan never performs. Use the
 | `--json` | The full result, for tooling |
 | `--score` | The number alone |
 | `--report` | Write an interactive HTML report |
+| `--output <path>` | Where to write it, instead of the project root |
 | `--timings <path>` | Overlay real boot times on the report |
 | `--min-score <n>` | Fail below a score |
 | `--blocking <level>` | Fail on `error`, `warning`, or never with `none` |
