@@ -2,26 +2,37 @@ import { DOCS_NAV } from "@/lib/docs-navigation";
 
 const SITE_URL = "https://www.nestjs.doctor";
 
-export const SoftwareApplicationJsonLd = () => {
-	const data = {
-		"@context": "https://schema.org",
-		"@type": "SoftwareApplication",
-		name: "nestjs-doctor",
-		description: "Diagnose and fix your NestJS code in one command.",
-		url: SITE_URL,
-		applicationCategory: "DeveloperApplication",
-		operatingSystem: "Cross-platform",
-		offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
-	};
-
-	return (
-		<script
-			// biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD requires dangerouslySetInnerHTML
-			dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
-			type="application/ld+json"
-		/>
-	);
+const HTML_UNSAFE = /[<>&\u2028\u2029]/g;
+const ESCAPES: Record<string, string> = {
+	"<": "\\u003c",
+	">": "\\u003e",
+	"&": "\\u0026",
+	"\u2028": "\\u2028",
+	"\u2029": "\\u2029",
 };
+
+/** JSON for a <script> body, with the characters that could end the tag escaped. */
+const jsonForScript = (data: unknown): string =>
+	JSON.stringify(data).replace(HTML_UNSAFE, (c) => ESCAPES[c]);
+
+const SOFTWARE_APPLICATION = {
+	"@context": "https://schema.org",
+	"@type": "SoftwareApplication",
+	name: "nestjs-doctor",
+	description: "Diagnose and fix your NestJS code in one command.",
+	url: SITE_URL,
+	applicationCategory: "DeveloperApplication",
+	operatingSystem: "Cross-platform",
+	offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+};
+
+export const SoftwareApplicationJsonLd = () => (
+	<script
+		// biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD requires dangerouslySetInnerHTML
+		dangerouslySetInnerHTML={{ __html: jsonForScript(SOFTWARE_APPLICATION) }}
+		type="application/ld+json"
+	/>
+);
 
 export const BreadcrumbJsonLd = ({ path }: { path: string }) => {
 	const items: { name: string; href: string }[] = [
@@ -58,7 +69,7 @@ export const BreadcrumbJsonLd = ({ path }: { path: string }) => {
 	return (
 		<script
 			// biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD requires dangerouslySetInnerHTML
-			dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+			dangerouslySetInnerHTML={{ __html: jsonForScript(data) }}
 			type="application/ld+json"
 		/>
 	);

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Figure, SectionPair } from "./primitives";
 
 const BODY = "relative h-[280px]";
@@ -265,12 +266,12 @@ export const GraphAndSchema = () => (
 					<p>
 						Draws the module graph your imports actually form. Add a few lines
 						to <code>main.ts</code>, boot once, and{" "}
-						<a
+						<Link
 							className="text-nest-red underline underline-offset-4"
 							href="/docs/report/boot-trace"
 						>
 							<code>--timings</code>
-						</a>{" "}
+						</Link>{" "}
 						overlays the real construction times. The 800ms hiding in an{" "}
 						<code>onModuleInit</code> becomes a bar.
 					</p>

@@ -50,6 +50,7 @@ const AnimatedScore = ({ targetScore }: { targetScore: number }) => {
 	useEffect(() => {
 		let cancelled = false;
 		let frame = 0;
+		let timer: ReturnType<typeof setTimeout>;
 
 		const animate = () => {
 			if (cancelled || frame > SCORE_FRAME_COUNT) {
@@ -59,12 +60,13 @@ const AnimatedScore = ({ targetScore }: { targetScore: number }) => {
 				Math.round(easeOutCubic(frame / SCORE_FRAME_COUNT) * targetScore)
 			);
 			frame++;
-			setTimeout(animate, SCORE_FRAME_DELAY_MS);
+			timer = setTimeout(animate, SCORE_FRAME_DELAY_MS);
 		};
 
 		animate();
 		return () => {
 			cancelled = true;
+			clearTimeout(timer);
 		};
 	}, [targetScore]);
 

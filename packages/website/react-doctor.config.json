@@ -1,0 +1,15 @@
+{
+  "ignore": {
+    "files": ["out/**", "demo/**"],
+    "overrides": [
+      {
+        "files": [
+          "src/components/docs/split-diff.tsx",
+          "src/components/docs/split-panes.tsx",
+          "src/components/docs/copy-button.tsx"
+        ],
+        "rules": ["deslop/unused-file"]
+      }
+    ]
+  }
+}

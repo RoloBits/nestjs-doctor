@@ -24,13 +24,15 @@ export const Toc = () => {
 	// Re-reads the headings on every docs route.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: pathname is the trigger
 	useEffect(() => {
-		const found = [...document.querySelectorAll<HTMLElement>(HEADING_SELECTOR)]
-			.map((node) => ({
-				depth: node.tagName === "H2" ? 2 : 3,
-				id: node.id,
-				text: node.textContent ?? "",
-			}))
-			.filter((heading) => heading.text);
+		const found: Heading[] = [];
+		for (const node of document.querySelectorAll<HTMLElement>(
+			HEADING_SELECTOR
+		)) {
+			const text = node.textContent ?? "";
+			if (text) {
+				found.push({ depth: node.tagName === "H2" ? 2 : 3, id: node.id, text });
+			}
+		}
 		setHeadings(found);
 
 		if (found.length === 0) {

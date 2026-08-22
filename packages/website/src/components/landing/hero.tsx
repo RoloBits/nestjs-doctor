@@ -29,7 +29,10 @@ const Recording = () => {
 		start();
 		video.addEventListener("canplay", start, { once: true });
 		document.addEventListener("visibilitychange", start);
-		return () => document.removeEventListener("visibilitychange", start);
+		return () => {
+			video.removeEventListener("canplay", start);
+			document.removeEventListener("visibilitychange", start);
+		};
 	}, []);
 
 	return (

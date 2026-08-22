@@ -3,7 +3,7 @@
 import { ChevronRight, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { NavSection } from "@/lib/docs-navigation";
 import { DOCS_NAV } from "@/lib/docs-navigation";
 
@@ -16,17 +16,20 @@ const SidebarSection = ({
 }) => {
 	const isActive = section.items.some((item) => item.href === pathname);
 	const [override, setOverride] = useState<boolean | null>(null);
-	const isOpen = override ?? isActive;
+	const [seenPathname, setSeenPathname] = useState(pathname);
 
-	// Reopens the section holding the new route, in case it was collapsed by
-	// hand. Every other section keeps what the reader set, so following a link
-	// does not close the groups they opened to read alongside it.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: pathname is the trigger
-	useEffect(() => {
-		if (isActive) {
+	// Adjusted while rendering rather than in an effect, so the section holding
+	// the new route is already open on the first paint. It drops only its own
+	// override: every other section keeps what the reader set, so following a
+	// link does not close the groups they opened to read alongside it.
+	if (pathname !== seenPathname) {
+		setSeenPathname(pathname);
+		if (isActive && override !== null) {
 			setOverride(null);
 		}
-	}, [pathname, isActive]);
+	}
+
+	const isOpen = override ?? isActive;
 
 	return (
 		<div className="mb-2">
