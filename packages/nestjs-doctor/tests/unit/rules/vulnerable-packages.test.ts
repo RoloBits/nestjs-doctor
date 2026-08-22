@@ -420,3 +420,37 @@ describe("the watched list", () => {
 		expect(new Set(WATCHED_PACKAGES).size).toBe(WATCHED_PACKAGES.length);
 	});
 });
+
+describe("nothing to check", () => {
+	const bare = (contents?: string): string => {
+		const root = mkdtempSync(join(tmpdir(), "nd-bare-"));
+		roots.push(root);
+		mkdirSync(join(root, ".git"), { recursive: true });
+		if (contents !== undefined) {
+			writeFileSync(join(root, "package.json"), contents);
+		}
+		return root;
+	};
+
+	it("says so when there is no package.json at all", () => {
+		const [found] = runRule(noAdvisoryNestjsPackages, bare());
+		expect(found.message).toContain("Found no package.json");
+	});
+
+	it("says so when package.json will not parse", () => {
+		const [found] = runRule(
+			noAdvisoryNestjsPackages,
+			bare('{ "dependencies": {}, }')
+		);
+		expect(found.message).toContain("Could not parse package.json");
+	});
+
+	it("keeps both cases off the score and out of CI", () => {
+		// Both report through the warning rule, which is cli + prComment only.
+		expect(noAdvisoryNestjsPackages.meta.surfaces).toEqual([
+			"cli",
+			"prComment",
+		]);
+		expect(runRule(noVulnerableNestjsPackages, bare())).toEqual([]);
+	});
+});

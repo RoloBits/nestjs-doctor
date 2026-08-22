@@ -374,3 +374,47 @@ describe("nest version", () => {
 		expect(info.nestVersion).toBe(installedVersion(root, "@nestjs/core"));
 	});
 });
+
+describe("version specs that name no single version", () => {
+	const versionFor = async (spec: string): Promise<string | null> => {
+		const root = mkdtempSync(join(tmpdir(), "nd-spec-"));
+		roots2.push(root);
+		mkdirSync(join(root, ".git"), { recursive: true });
+		writeFileSync(
+			join(root, "package.json"),
+			JSON.stringify({ dependencies: { "@nestjs/core": spec } })
+		);
+		return (await detectProject(root)).nestVersion;
+	};
+	const roots2: string[] = [];
+
+	afterAll(() => {
+		for (const dir of roots2) {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("takes the floor of a two-sided range instead of joining both bounds", async () => {
+		expect(await versionFor(">=11.1.18 <12")).toBe("11.1.18");
+	});
+
+	it("keeps the major of a wildcard minor", async () => {
+		expect(await versionFor("11.x")).toBe("11");
+	});
+
+	it("reports nothing for a spec naming no version", async () => {
+		expect(await versionFor("*")).toBeNull();
+		expect(await versionFor("workspace:*")).toBeNull();
+	});
+
+	it("survives a manifest that is not valid JSON", async () => {
+		const root = mkdtempSync(join(tmpdir(), "nd-badjson-"));
+		roots2.push(root);
+		mkdirSync(join(root, ".git"), { recursive: true });
+		writeFileSync(join(root, "package.json"), '{ "dependencies": { }, }');
+
+		await expect(detectProject(root)).resolves.toMatchObject({
+			nestVersion: null,
+		});
+	});
+});

@@ -36,9 +36,37 @@ const reportAll = (
 	reportUnchecked = false
 ) => {
 	const manifest = findManifest(context.targetPath);
+
+	// No manifest and an unparseable one both mean nothing was checked, which
+	// otherwise reads exactly like a project with no advisories.
 	if (!manifest) {
+		if (reportUnchecked) {
+			context.report({
+				filePath: `${context.targetPath}/package.json`,
+				line: 1,
+				column: 1,
+				message:
+					"Found no package.json at or above the scanned path, so no dependency was checked against the advisory list.",
+				help: "Scan a directory that has a package.json, or point --config at the project root.",
+			});
+		}
 		return;
 	}
+
+	if (manifest.unreadable) {
+		if (reportUnchecked) {
+			context.report({
+				filePath: manifest.path,
+				line: 1,
+				column: 1,
+				message:
+					"Could not parse package.json, so no dependency was checked against the advisory list.",
+				help: "Fix the JSON. A trailing comma or a comment makes the whole file unreadable.",
+			});
+		}
+		return;
+	}
+
 	const { matches, unchecked } = matchAdvisories(manifest, severities);
 	if (reportUnchecked && unchecked.length > 0) {
 		context.report({

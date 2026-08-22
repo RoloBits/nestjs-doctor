@@ -13,6 +13,8 @@ export interface Declaration {
 export interface Manifest {
 	/** Posix path of the package.json the versions came from. */
 	path: string;
+	/** Set when the file was found but could not be parsed. */
+	unreadable?: true;
 	/** Keyed by package name, from the two blocks npm installs. */
 	versions: Record<string, Declaration>;
 }
@@ -37,7 +39,11 @@ export function findManifest(targetPath: string): Manifest | null {
 				}
 				return { path: candidate.replace(BACKSLASH_RE, "/"), versions };
 			} catch {
-				return null;
+				return {
+					path: candidate.replace(BACKSLASH_RE, "/"),
+					versions: {},
+					unreadable: true,
+				};
 			}
 		}
 
