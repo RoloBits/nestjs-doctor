@@ -1,8 +1,6 @@
 /**
  * Walks WATCHED_PACKAGES against the GitHub Advisory Database and reports what
- * src/engine/advisories/data.ts is missing or no longer needs.
- *
- * Needs `gh` authenticated. Never runs during a scan: the table ships as data.
+ * src/engine/advisories/data.ts is missing or no longer needs. Needs `gh`.
  */
 import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -47,6 +45,7 @@ for (const entry of source.split(/\n\t\{/).slice(1)) {
 
 const missing = [];
 const seen = new Set();
+const unreachable = [];
 
 for (const pkg of packages) {
 	let records;
@@ -58,6 +57,7 @@ for (const pkg of packages) {
 		records = JSON.parse(stdout);
 	} catch (error) {
 		console.error(`  ! ${pkg}: ${String(error.message).split("\n")[0]}`);
+		unreachable.push(pkg);
 		continue;
 	}
 
@@ -69,7 +69,7 @@ for (const pkg of packages) {
 			if (vuln.package?.name !== pkg) {
 				continue;
 			}
-			// The two bounds disagree on some records, so the wider one wins.
+			// Falls back to the range ceiling when no patched version is named.
 			const ceiling =
 				vuln.vulnerable_version_range?.match(/<\s*=?\s*([^\s,]+)$/)?.[1];
 			const patched = vuln.first_patched_version ?? ceiling;
@@ -90,7 +90,10 @@ for (const pkg of packages) {
 	}
 }
 
-const stale = [...shipped].filter((key) => !seen.has(key));
+// A package that could not be queried was not checked, so nothing below can
+// claim the table is current.
+const stale =
+	unreachable.length > 0 ? [] : [...shipped].filter((k) => !seen.has(k));
 
 console.log(
 	`Checked ${packages.length} packages against ${shipped.size} shipped rows.`
@@ -114,8 +117,13 @@ if (stale.length > 0) {
 	}
 }
 
-if (missing.length === 0 && stale.length === 0) {
+if (unreachable.length > 0) {
+	console.log(
+		`${unreachable.length} package(s) could not be queried, so the table was not checked: ${unreachable.join(", ")}`
+	);
+} else if (missing.length === 0 && stale.length === 0) {
 	console.log("The table is up to date.");
 }
 
-process.exitCode = missing.length > 0 ? 1 : 0;
+process.exitCode =
+	missing.length > 0 || stale.length > 0 || unreachable.length > 0 ? 1 : 0;

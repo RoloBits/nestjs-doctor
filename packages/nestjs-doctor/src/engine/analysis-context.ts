@@ -47,6 +47,7 @@ export interface AnalysisContext {
 	fileRules: Rule[];
 	files: string[];
 	guardDecorators: GuardDecoratorIndex;
+	installRoot?: string;
 	moduleGraph: ModuleGraph;
 	pathAliases: PathAliasMap;
 	project: ProjectInfo;
@@ -88,6 +89,7 @@ export async function buildAnalysisContext(
 		schemaGraph,
 		schemaRules,
 		targetPath,
+		...(scanConfig.installRoot ? { installRoot: scanConfig.installRoot } : {}),
 	};
 }
 

@@ -174,6 +174,14 @@ export class CliSetup {
 	handleReport(): this {
 		this.steps.push(async () => {
 			if (this.args.report) {
+				const conflicting = ["format", "json", "score"].filter(
+					(flag) => this.args[flag as "format" | "json" | "score"]
+				);
+				if (conflicting.length > 0) {
+					failWith(
+						`--report writes HTML, so it cannot be combined with --${conflicting.join(", --")}. Run them as separate commands.`
+					);
+				}
 				const { runReport } = await import("../report/setup.js");
 				await runReport(
 					this.targetPath,

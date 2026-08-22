@@ -185,8 +185,13 @@ connection.onDidSaveTextDocument((params) => {
 });
 
 connection.onDidChangeWatchedFiles(() => {
-	if (settings.enable) {
+	if (!settings.enable) {
+		return;
+	}
+	if (activeWorker) {
 		sendToWorker({ kind: "fullScan" });
+	} else {
+		spawnWorker();
 	}
 });
 

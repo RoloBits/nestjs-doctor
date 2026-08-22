@@ -1,8 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { MAX_WALK } from "./manifest.js";
 
-const MAX_WALK = 8;
-const TOP_LEVEL_KEY = /^\s{0,2}"/;
 const JSON_KEY = /^\s*"([^"]+)"\s*:/;
 
 /**
@@ -57,26 +56,30 @@ export function dependencyLine(
 ): number {
 	try {
 		const lines = readFileSync(manifestPath, "utf-8").split("\n");
-		let inBlock = false;
+		let blockIndent: number | null = null;
 		for (let i = 0; i < lines.length; i++) {
 			const key = lines[i].match(JSON_KEY)?.[1];
 			if (!key) {
 				continue;
 			}
-			if (key === block) {
-				inBlock = true;
+			const indent = lines[i].length - lines[i].trimStart().length;
+			if (key === block && blockIndent === null) {
+				blockIndent = indent;
 				continue;
 			}
-			if (inBlock && key === packageName) {
-				return i + 1;
+			if (blockIndent === null) {
+				continue;
 			}
-			// Any other top-level key ends the block we were walking.
-			if (inBlock && TOP_LEVEL_KEY.test(lines[i])) {
-				inBlock = false;
+			// A key no deeper than the block's own key has left the block.
+			if (indent <= blockIndent) {
+				break;
+			}
+			if (key === packageName) {
+				return i + 1;
 			}
 		}
 	} catch {
-		// An unreadable manifest just means the finding sits on line 1.
+		// An unreadable manifest falls back to line 1.
 	}
 	return 1;
 }

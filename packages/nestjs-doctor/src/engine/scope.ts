@@ -180,8 +180,13 @@ export function applyScope(
 	}
 
 	const files = scope.files;
+	const root = scope.repo ? `${toPosix(scope.repo.targetPath)}/` : null;
+	// A changed-file set covers the scanned tree only, so anything above it
+	// stays in the report.
+	const outsideScan = (diagnostic: Diagnostic): boolean =>
+		root !== null && !toPosix(diagnostic.filePath).startsWith(root);
 	const inChangedFile = (diagnostic: Diagnostic): boolean =>
-		files.has(toPosix(diagnostic.filePath));
+		outsideScan(diagnostic) || files.has(toPosix(diagnostic.filePath));
 
 	if (scope.mode === "lines") {
 		const ranges = scope.lineRanges;
@@ -189,6 +194,9 @@ export function applyScope(
 			return diagnostics.filter(inChangedFile);
 		}
 		return diagnostics.filter((diagnostic) => {
+			if (outsideScan(diagnostic)) {
+				return true;
+			}
 			if (!isCodeDiagnostic(diagnostic)) {
 				// Schema findings carry no line, so nothing can place them inside a hunk.
 				return false;

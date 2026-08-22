@@ -1,10 +1,7 @@
 name: Advisory table
 
-# The advisory table ships as data, so it only stays current if something
-# checks. This walks the watched packages weekly and opens an issue when the
-# database knows about something the table does not. It deliberately never runs
-# on a pull request: a third party publishing an advisory should not fail
-# someone's unrelated build.
+# Walks the watched packages weekly and opens an issue when the database knows
+# about something the shipped table does not. Never runs on a pull request.
 on:
   schedule:
     - cron: "0 6 * * 1"

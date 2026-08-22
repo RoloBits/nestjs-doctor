@@ -12,22 +12,26 @@ const REST = new Set<Advisory["severity"]>(["moderate", "low"]);
 
 const EXACT_SPEC = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 
-const describe = ({
+/** Names the declared spec, never the resolved version. */
+const describe = ({ advisory, declaration }: AdvisoryMatch): string => {
+	const spec = declaration.spec.trim();
+	const found = EXACT_SPEC.test(spec)
+		? `${advisory.packageName}@${spec}`
+		: `${advisory.packageName} at ${spec}`;
+	const id = advisory.cve ?? advisory.ghsa;
+	return `${found} is affected by ${id} (${advisory.severity}): ${advisory.summary}. Patched in ${advisory.patched}.`;
+};
+
+/** The resolved version and the upgrade target. */
+const explain = ({
 	advisory,
 	declaration,
 	installed,
 }: AdvisoryMatch): string => {
-	const spec = declaration.spec;
-	let found: string;
-	if (installed) {
-		found = `${advisory.packageName}@${installed}`;
-	} else if (EXACT_SPEC.test(spec.trim())) {
-		found = `${advisory.packageName}@${spec.trim()}`;
-	} else {
-		found = `${advisory.packageName} at ${spec}, a range with no patched version in it,`;
-	}
-	const id = advisory.cve ?? advisory.ghsa;
-	return `${found} is affected by ${id} (${advisory.severity}): ${advisory.summary}. Patched in ${advisory.patched}.`;
+	const source = installed
+		? `Installed: ${installed}.`
+		: `Nothing installed, and every version ${declaration.spec.trim()} allows is affected.`;
+	return `${source} Upgrade to ${advisory.packageName}@${advisory.patched} or newer. See ${advisory.url}`;
 };
 
 const reportAll = (
@@ -37,12 +41,11 @@ const reportAll = (
 ) => {
 	const manifest = findManifest(context.targetPath);
 
-	// No manifest and an unparseable one both mean nothing was checked, which
-	// otherwise reads exactly like a project with no advisories.
+	// Reports the two cases where no dependency could be read at all.
 	if (!manifest) {
 		if (reportUnchecked) {
 			context.report({
-				filePath: `${context.targetPath}/package.json`,
+				filePath: `${context.targetPath.replace(/\\/g, "/")}/package.json`,
 				line: 1,
 				column: 1,
 				message:
@@ -67,7 +70,11 @@ const reportAll = (
 		return;
 	}
 
-	const { matches, unchecked } = matchAdvisories(manifest, severities);
+	const { matches, unchecked } = matchAdvisories(
+		manifest,
+		severities,
+		context.installRoot
+	);
 	if (reportUnchecked && unchecked.length > 0) {
 		context.report({
 			filePath: manifest.path,
@@ -87,7 +94,7 @@ const reportAll = (
 			),
 			column: 1,
 			message: describe(match),
-			help: `Upgrade to ${match.advisory.packageName}@${match.advisory.patched} or newer. See ${match.advisory.url}`,
+			help: explain(match),
 		});
 	}
 };

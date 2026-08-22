@@ -4,6 +4,7 @@ import { installedVersion } from "./installed.js";
 import type { Declaration, Manifest } from "./manifest.js";
 import {
 	compareVersions,
+	parse,
 	parseRange,
 	rangeIsWhollyBelow,
 	rangeReaches,
@@ -38,13 +39,17 @@ interface MatchResult {
 
 export function matchAdvisories(
 	manifest: Manifest,
-	severities: ReadonlySet<Advisory["severity"]>
+	severities: ReadonlySet<Advisory["severity"]>,
+	installRoot?: string
 ): MatchResult {
 	const { path, versions } = manifest;
-	const directory = manifestDirOf(path);
+	// Resolves the install from the working tree when one is named.
+	const directory = installRoot
+		? installRoot.replace(/\\/g, "/")
+		: manifestDirOf(path);
 	const matches: AdvisoryMatch[] = [];
 	const unchecked = new Set<string>();
-	// One walk per package, not per row: several advisories share a package.
+	// Walks once per package, not once per advisory row.
 	const resolved = new Map<string, string | null>();
 	const versionOf = (name: string): string | null => {
 		let version = resolved.get(name);
@@ -56,20 +61,23 @@ export function matchAdvisories(
 	};
 
 	for (const advisory of NESTJS_ADVISORIES) {
-		if (!severities.has(advisory.severity)) {
-			continue;
-		}
 		const declaration = versions[advisory.packageName];
 		if (!declaration) {
 			continue;
 		}
 		const { spec } = declaration;
-
 		const installed = versionOf(advisory.packageName);
-		if (!(installed || parseRange(spec))) {
+
+		// Runs before the severity filter, so every declared package is covered.
+		if (installed ? !parse(installed) : !parseRange(spec)) {
 			unchecked.add(advisory.packageName);
 			continue;
 		}
+
+		if (!severities.has(advisory.severity)) {
+			continue;
+		}
+
 		const hit = installed
 			? applies(advisory, installed)
 			: rangeIsWhollyBelow(spec, advisory.patched) &&

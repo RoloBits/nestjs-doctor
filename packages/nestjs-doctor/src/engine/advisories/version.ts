@@ -11,7 +11,7 @@ const TILDE = /^~\s*(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?$/;
 const GTE_LT =
 	/^>=\s*(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)\s+<\s*(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/;
 
-function parse(version: string): Parsed | null {
+export function parse(version: string): Parsed | null {
 	const cleaned = version.trim().replace(LEADING_V, "");
 	const [core, ...rest] = cleaned.split("+")[0].split("-");
 	const parts = core.split(".").map(Number);
@@ -38,7 +38,7 @@ export function compareVersions(a: string, b: string): number | null {
 	if (left.pre.length === 0 && right.pre.length === 0) {
 		return 0;
 	}
-	// 1.0.0-next.1 precedes 1.0.0, so an absent prerelease wins.
+	// An absent prerelease sorts after a present one.
 	if (left.pre.length === 0) {
 		return 1;
 	}

@@ -3,6 +3,9 @@ import { dirname, join, resolve } from "node:path";
 
 const BACKSLASH_RE = /\\/g;
 
+/** How far either walk climbs before giving up. */
+export const MAX_WALK = 8;
+
 export type DependencyBlock = "dependencies" | "devDependencies";
 
 export interface Declaration {
@@ -23,7 +26,7 @@ export interface Manifest {
 export function findManifest(targetPath: string): Manifest | null {
 	let current = resolve(targetPath);
 
-	for (;;) {
+	for (let depth = 0; depth < MAX_WALK; depth++) {
 		const candidate = join(current, "package.json");
 		if (existsSync(candidate)) {
 			try {
@@ -31,7 +34,7 @@ export function findManifest(targetPath: string): Manifest | null {
 					Record<DependencyBlock, Record<string, string>>
 				>;
 				const versions: Record<string, Declaration> = {};
-				// dependencies last: npm installs that entry when both declare one.
+				// dependencies is written last, so it overwrites devDependencies.
 				for (const block of ["devDependencies", "dependencies"] as const) {
 					for (const [name, spec] of Object.entries(pkg[block] ?? {})) {
 						versions[name] = { block, spec };
@@ -56,4 +59,5 @@ export function findManifest(targetPath: string): Manifest | null {
 		}
 		current = parent;
 	}
+	return null;
 }

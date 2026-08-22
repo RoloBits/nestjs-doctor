@@ -305,10 +305,12 @@ describe("scanner integration", () => {
 		const advisories = (list: { rule: string }[]) =>
 			list.filter((d) => d.rule.endsWith("-nestjs-packages"));
 
-		// Both sub-projects inherit the one root manifest and each reports it.
-		for (const sub of result.subProjects) {
-			expect(advisories(sub.result.diagnostics)).toHaveLength(1);
-		}
+		// Both sub-projects inherit the one root manifest; exactly one keeps it,
+		// so the breakdown still sums to the combined total.
+		const perProject = result.subProjects.map(
+			(s) => advisories(s.result.diagnostics).length
+		);
+		expect(perProject.reduce((a, b) => a + b, 0)).toBe(1);
 		const combined = advisories(result.combined.diagnostics);
 		expect(combined).toHaveLength(1);
 		// Diagnostics carry posix paths on every platform.
@@ -316,6 +318,76 @@ describe("scanner integration", () => {
 			join(root, "package.json").replaceAll("\\", "/")
 		);
 		expect(existsSync(combined[0].filePath)).toBe(true);
+	});
+
+	it("keeps a rule that fires twice inside one sub-project", async () => {
+		const root = mkdtempSync(join(tmpdir(), "nd-nx-twice-"));
+		tempRoots.push(root);
+		mkdirSync(join(root, ".git"), { recursive: true });
+		writeFileSync(join(root, "nx.json"), "{}");
+		writeFileSync(
+			join(root, "package.json"),
+			JSON.stringify({
+				name: "w",
+				dependencies: { "@nestjs/common": "^11.0.0" },
+			})
+		);
+		const src = join(root, "apps", "api", "src");
+		mkdirSync(src, { recursive: true });
+		writeFileSync(
+			join(root, "apps", "api", "project.json"),
+			JSON.stringify({ name: "api" })
+		);
+		writeFileSync(
+			join(src, "api.module.ts"),
+			"import { Module } from '@nestjs/common';\n\n@Module({})\nexport class ApiModule {}\n"
+		);
+		// Two calls on one line: same rule, file, line and message.
+		writeFileSync(
+			join(src, "bad.ts"),
+			"export function r(a: string, b: string) { eval(a); eval(b); }\n"
+		);
+
+		const scanConfig = await resolveScanConfig(root);
+		const monorepo = await detectMonorepo(root);
+		const { result } = await scanMonorepo(root, scanConfig, monorepo!);
+
+		expect(
+			result.combined.diagnostics.filter((d) => d.rule.includes("no-eval"))
+		).toHaveLength(2);
+	});
+
+	it("makes the sub-project breakdown add up to the combined total", async () => {
+		const root = mkdtempSync(join(tmpdir(), "nd-nx-recon-"));
+		tempRoots.push(root);
+		mkdirSync(join(root, ".git"), { recursive: true });
+		writeFileSync(join(root, "nx.json"), "{}");
+		writeFileSync(
+			join(root, "package.json"),
+			JSON.stringify({ name: "w", dependencies: { "@nestjs/core": "^10.0.0" } })
+		);
+		for (const app of ["api", "worker"]) {
+			const src = join(root, "apps", app, "src");
+			mkdirSync(src, { recursive: true });
+			writeFileSync(
+				join(root, "apps", app, "project.json"),
+				JSON.stringify({ name: app })
+			);
+			writeFileSync(
+				join(src, `${app}.module.ts`),
+				"import { Module } from '@nestjs/common';\n\n@Module({})\nexport class M {}\n"
+			);
+		}
+
+		const scanConfig = await resolveScanConfig(root);
+		const monorepo = await detectMonorepo(root);
+		const { result } = await scanMonorepo(root, scanConfig, monorepo!);
+
+		const perProject = result.subProjects.reduce(
+			(n, s) => n + s.result.diagnostics.length,
+			0
+		);
+		expect(perProject).toBe(result.combined.diagnostics.length);
 	});
 
 	it("scans monorepo with multiple sub-projects", async () => {

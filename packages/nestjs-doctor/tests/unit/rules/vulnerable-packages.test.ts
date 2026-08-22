@@ -163,8 +163,10 @@ describe("the advisory rules", () => {
 			{ "@nestjs/core": "^11.0.1" },
 			{ "@nestjs/core": "11.1.17" }
 		);
-		expect(found.message).toContain("@nestjs/core@11.1.17");
+		// The spec identifies the finding; the install is reported in the help.
+		expect(found.message).toContain("@nestjs/core at ^11.0.1");
 		expect(found.message).toContain("CVE-2026-35515");
+		expect(found.help).toContain("Installed: 11.1.17");
 	});
 
 	it("stays quiet when the installed version is patched", () => {
@@ -175,7 +177,8 @@ describe("the advisory rules", () => {
 
 	it("reports a range that admits no patched version", () => {
 		const [found] = run({ "@nestjs/core": "^10.0.0" });
-		expect(found.message).toContain("a range with no patched version in it");
+		expect(found.message).toContain("@nestjs/core at ^10.0.0");
+		expect(found.help).toContain("Nothing installed");
 		expect(found.help).toContain("11.1.18");
 	});
 
@@ -290,8 +293,8 @@ describe("how the finding names the version", () => {
 			{ "@nestjs/core": "^10.0.0" },
 			{ "@nestjs/core": "10.4.1" }
 		);
-		expect(found.message).toContain("@nestjs/core@10.4.1");
-		expect(found.message).not.toContain("range");
+		expect(found.message).toContain("@nestjs/core at ^10.0.0");
+		expect(found.help).toContain("Installed: 10.4.1");
 	});
 });
 
@@ -452,5 +455,78 @@ describe("nothing to check", () => {
 			"prComment",
 		]);
 		expect(runRule(noVulnerableNestjsPackages, bare())).toEqual([]);
+	});
+});
+
+describe("review round three", () => {
+	it("reports a critical-only package as unchecked", () => {
+		// The severity filter used to run first, so these never reached it.
+		const [found] = run({ "@nestjs/devtools-integration": "workspace:*" });
+		expect(found.message).toContain("Could not establish");
+		expect(found.message).toContain("@nestjs/devtools-integration");
+	});
+
+	it("treats an unparseable installed version as unchecked, not as safe", () => {
+		const root = mkdtempSync(join(tmpdir(), "nd-badver-"));
+		roots.push(root);
+		mkdirSync(join(root, ".git"), { recursive: true });
+		writeFileSync(
+			join(root, "package.json"),
+			JSON.stringify({ dependencies: { "@nestjs/microservices": "^11.0.0" } })
+		);
+		const dir = join(root, "node_modules", "@nestjs", "microservices");
+		mkdirSync(dir, { recursive: true });
+		writeFileSync(
+			join(dir, "package.json"),
+			JSON.stringify({ name: "@nestjs/microservices", version: "11.1" })
+		);
+
+		const [found] = runRule(noAdvisoryNestjsPackages, root);
+		expect(found.message).toContain("Could not establish");
+	});
+
+	it("names the declared spec, so the message survives an install", () => {
+		const [found] = run({ "@nestjs/core": "^10.0.0" });
+		expect(found.message).toContain("@nestjs/core at ^10.0.0");
+		expect(found.message).not.toContain("Installed:");
+		expect(found.help).toContain("Upgrade to @nestjs/core@11.1.18");
+	});
+
+	it("finds a dependency line in a tab-indented manifest", () => {
+		const root = mkdtempSync(join(tmpdir(), "nd-tabs-"));
+		roots.push(root);
+		mkdirSync(join(root, ".git"), { recursive: true });
+		writeFileSync(
+			join(root, "package.json"),
+			JSON.stringify(
+				{
+					name: "t",
+					dependencies: {
+						express: "^4.0.0",
+						"@nestjs/core": "^10.0.0",
+					},
+				},
+				null,
+				"\t"
+			)
+		);
+		const [found] = runRule(noAdvisoryNestjsPackages, root);
+
+		// Line 5, not the line-1 fallback.
+		expect(found.line).toBe(5);
+	});
+
+	it("stops climbing for a manifest after the walk limit", () => {
+		const outer = mkdtempSync(join(tmpdir(), "nd-deep-"));
+		roots.push(outer);
+		writeFileSync(
+			join(outer, "package.json"),
+			JSON.stringify({ dependencies: { "@nestjs/core": "^10.0.0" } })
+		);
+		const deep = join(outer, ...Array.from({ length: 10 }, (_, i) => `d${i}`));
+		mkdirSync(deep, { recursive: true });
+
+		const [found] = runRule(noAdvisoryNestjsPackages, deep);
+		expect(found.message).toContain("Found no package.json");
 	});
 });

@@ -507,3 +507,52 @@ describe("printMonorepoReport surfaces", () => {
 		expect(line).not.toContain("1 errors");
 	});
 });
+
+describe("grouping key", () => {
+	const linesFor = (diagnostics: Diagnostic[]): string[] => {
+		const { lines, restore } = capture();
+		printConsoleReport(
+			{
+				score: { value: 90, label: "Good", stars: 4 },
+				diagnostics,
+				project: { name: "t", fileCount: 1, moduleCount: 1 },
+				summary: { errors: 0, warnings: diagnostics.length, info: 0 },
+				ruleErrors: [],
+				elapsedMs: 1,
+			} as never,
+			false
+		);
+		restore();
+		return lines;
+	};
+
+	it("keeps one group per rule when the help text is shared", () => {
+		const lines = linesFor([
+			makeDiagnostic({ rule: "rule-a", filePath: "a.ts", message: "foo" }),
+			makeDiagnostic({ rule: "rule-a", filePath: "b.ts", message: "bar" }),
+		]);
+
+		// One line for the rule, not one per distinct message.
+		expect(
+			lines.filter((l) => l.includes("foo") || l.includes("bar"))
+		).toHaveLength(1);
+	});
+
+	it("splits a rule that carries a different fix per finding", () => {
+		const lines = linesFor([
+			makeDiagnostic({
+				rule: "security/no-advisory-nestjs-packages",
+				message: "core is affected by CVE-1",
+				help: "Upgrade to @nestjs/core@11.1.18",
+			}),
+			makeDiagnostic({
+				rule: "security/no-advisory-nestjs-packages",
+				message: "fastify is affected by CVE-2",
+				help: "Upgrade to @nestjs/platform-fastify@11.1.24",
+			}),
+		]);
+
+		expect(lines.some((l) => l.includes("CVE-1"))).toBe(true);
+		expect(lines.some((l) => l.includes("CVE-2"))).toBe(true);
+	});
+});

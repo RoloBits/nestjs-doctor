@@ -156,7 +156,7 @@ export const printFramedBox = (framedLines: FramedLine[]): void => {
 const groupByRule = (diagnostics: Diagnostic[]): Map<string, Diagnostic[]> => {
 	const groups = new Map<string, Diagnostic[]>();
 	for (const d of diagnostics) {
-		const key = `${d.rule}\u0000${d.message}`;
+		const key = `${d.rule}\u0000${d.help ?? ""}`;
 		const group = groups.get(key) ?? [];
 		group.push(d);
 		groups.set(key, group);

@@ -31,6 +31,7 @@ interface RunRulesResult {
 
 export interface RunRulesOptions {
 	config: NestjsDoctorConfig;
+	installRoot?: string;
 	moduleGraph: ModuleGraph;
 	providers: Map<string, ProviderInfo>;
 	targetPath: string;
@@ -139,6 +140,7 @@ export function runProjectRules(
 			providers: options.providers,
 			config: options.config,
 			targetPath: options.targetPath,
+			...(options.installRoot ? { installRoot: options.installRoot } : {}),
 			report(partial) {
 				diagnostics.push({
 					...partial,

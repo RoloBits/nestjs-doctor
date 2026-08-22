@@ -471,7 +471,7 @@ export async function detectProject(targetPath: string): Promise<ProjectInfo> {
 
 	const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
 
-	// The install is what actually runs, so it wins over the declared range.
+	// The installed version wins over the declared range.
 	const nestVersion =
 		installedVersion(targetPath, "@nestjs/core") ??
 		extractVersion(allDeps["@nestjs/core"]);
@@ -490,10 +490,7 @@ export async function detectProject(targetPath: string): Promise<ProjectInfo> {
 
 const VERSION_IN_SPEC = /\d+(?:\.\d+)*(?:-[\w.]+)?/;
 
-/**
- * The lowest version a spec names, or null when it names none. Stripping the
- * operators leaves `>=11.1.18 <12` as the string `11.1.18 12`.
- */
+/** The lowest version a spec names, or null when it names none. */
 function extractVersion(version: string | undefined): string | null {
 	return version?.match(VERSION_IN_SPEC)?.[0] ?? null;
 }

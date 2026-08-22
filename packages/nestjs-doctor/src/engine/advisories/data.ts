@@ -1,11 +1,6 @@
 /**
  * Published advisories against the packages in `WATCHED_PACKAGES`.
- *
- * Refresh with `pnpm advisories:check`, which walks that list and reports what
- * this table is missing. Skip any record carrying `withdrawn_at`, and map
- * GitHub's `medium` to `moderate`; `matchAdvisories` filters on exact severity
- * membership. Where a record's `vulnerable_version_range` and its
- * `first_patched_version` disagree, take the wider bound.
+ * Refresh with `pnpm advisories:check`.
  */
 
 export interface Advisory {

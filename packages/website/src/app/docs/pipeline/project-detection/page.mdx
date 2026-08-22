@@ -125,7 +125,7 @@ The result is the project metadata:
 ```typescript
 interface ProjectInfo {
   name: string                       // from package.json name, or "unknown"
-  nestVersion: string | null         // e.g. "10.0.0" (semver operators stripped)
+  nestVersion: string | null         // installed version, else the declared floor
   orm: string | null                 // detected ORM
   framework: "express" | "fastify" | null
   moduleCount: number                // 0 initially, updated by scanner

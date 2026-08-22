@@ -63,6 +63,8 @@ export interface CodeRuleContext {
 export interface ProjectRuleContext {
 	config: NestjsDoctorConfig;
 	files: string[];
+	/** Where `node_modules` lives, when that is not `targetPath`. */
+	installRoot?: string;
 	moduleGraph: ModuleGraph;
 	project: Project;
 	providers: Map<string, ProviderInfo>;
