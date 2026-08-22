@@ -147,7 +147,7 @@ function spawnWorker() {
 		}
 	});
 
-	worker.on("error", (err) => {
+	worker.on("error", (err: Error) => {
 		connection.window.showErrorMessage(
 			`NestJS Doctor worker error: ${err.message}`
 		);

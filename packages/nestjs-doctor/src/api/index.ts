@@ -17,6 +17,7 @@ export type {
 	Category,
 	CodeDiagnostic,
 	Diagnostic,
+	DiagnosticSurface,
 	SchemaDiagnostic,
 	Severity,
 } from "../common/diagnostic.js";
@@ -24,6 +25,7 @@ export type {
 export {
 	isCodeDiagnostic,
 	isSchemaDiagnostic,
+	onSurface,
 } from "../common/diagnostic.js";
 export type {
 	DependencyType,

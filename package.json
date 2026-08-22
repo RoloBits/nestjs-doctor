@@ -8,7 +8,7 @@
     "test": "pnpm --filter nestjs-doctor run test",
     "check": "ultracite check",
     "fix": "ultracite fix",
-    "typecheck": "pnpm --filter nestjs-doctor run typecheck",
+    "typecheck": "pnpm --filter nestjs-doctor --filter nestjs-doctor-lsp run typecheck",
     "build:website": "pnpm --filter website run build",
     "changeset": "changeset",
     "version": "changeset version && pnpm install --no-frozen-lockfile && node scripts/sync-skill-version.mjs",

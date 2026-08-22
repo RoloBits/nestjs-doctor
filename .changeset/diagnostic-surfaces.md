@@ -30,3 +30,8 @@ style never lands as a review note on someone's branch.
 Surfaces are also configurable. `"rules": { "<id>": { "surfaces": [...] } }`
 replaces what a rule declares, so a team that does want a style enforced can
 put it back on the score and the build.
+
+In the editor, a report-only finding is reported as a hint rather than a
+warning, so it stays visible while you write without sitting in the Problems
+panel beside real defects. `DiagnosticSurface` and `onSurface` are exported, so
+a custom rule can declare surfaces and a consumer can read them.

@@ -1,5 +1,5 @@
 import { pathToFileURL } from "node:url";
-import type { Diagnostic, Severity } from "nestjs-doctor";
+import { type Diagnostic, onSurface, type Severity } from "nestjs-doctor";
 import {
 	DiagnosticSeverity,
 	type Diagnostic as LspDiagnostic,
@@ -19,13 +19,16 @@ function toRange(line: number, column: number) {
 
 function toLspDiagnostic(d: Diagnostic): LspDiagnostic {
 	const range = "line" in d ? toRange(d.line, d.column) : toRange(1, 1);
+	// A report-only rule shows as a hint, so it stays visible while you edit
+	// without adding to the warning count beside real defects.
+	const notScored = !onSurface(d, "score");
 	return {
 		range,
-		severity: severityMap[d.severity],
+		severity: notScored ? DiagnosticSeverity.Hint : severityMap[d.severity],
 		code: d.rule,
 		source: "nestjs-doctor",
 		message: d.message,
-		data: { help: d.help, category: d.category },
+		data: { category: d.category, help: d.help, notScored },
 	};
 }
 
