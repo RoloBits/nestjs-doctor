@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 const MAX_WALK = 8;
+const TOP_LEVEL_KEY = /^\s{0,2}"/;
 const JSON_KEY = /^\s*"([^"]+)"\s*:/;
 
 /**
@@ -33,6 +34,9 @@ export function installedVersion(
 				return null;
 			}
 		}
+		if (existsSync(join(current, ".git"))) {
+			return null;
+		}
 		const parent = dirname(current);
 		if (parent === current) {
 			return null;
@@ -42,17 +46,33 @@ export function installedVersion(
 	return null;
 }
 
-/** 1-based line of a dependency key in a manifest, or 1 when not found. */
+/**
+ * 1-based line of a dependency key inside its own block, so the line agrees
+ * with the version reported. Falls back to line 1.
+ */
 export function dependencyLine(
 	manifestPath: string,
+	block: string,
 	packageName: string
 ): number {
 	try {
 		const lines = readFileSync(manifestPath, "utf-8").split("\n");
+		let inBlock = false;
 		for (let i = 0; i < lines.length; i++) {
-			const match = lines[i].match(JSON_KEY);
-			if (match?.[1] === packageName) {
+			const key = lines[i].match(JSON_KEY)?.[1];
+			if (!key) {
+				continue;
+			}
+			if (key === block) {
+				inBlock = true;
+				continue;
+			}
+			if (inBlock && key === packageName) {
 				return i + 1;
+			}
+			// Any other top-level key ends the block we were walking.
+			if (inBlock && TOP_LEVEL_KEY.test(lines[i])) {
+				inBlock = false;
 			}
 		}
 	} catch {

@@ -1,5 +1,12 @@
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { diagnoseMonorepo } from "../../src/api/index.js";
 import { detectMonorepo } from "../../src/engine/project-detector.js";
@@ -13,6 +20,13 @@ import {
 } from "../../src/engine/scanner.js";
 
 const FIXTURES = resolve(import.meta.dirname, "../fixtures");
+const tempRoots: string[] = [];
+
+afterAll(() => {
+	for (const dir of tempRoots) {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
 
 describe("scanner integration", () => {
 	it("produces a clean result for basic-app", async () => {
@@ -250,6 +264,55 @@ describe("scanner integration", () => {
 		expect(result.combined.schema?.entities.map((e) => e.name)).toEqual([
 			"Order",
 		]);
+	});
+
+	it("reports a shared workspace-root dependency once", async () => {
+		const root = mkdtempSync(join(tmpdir(), "nd-nx-manifest-"));
+		tempRoots.push(root);
+		// Stops the node_modules walk, so the range tier runs whatever is
+		// installed around the checkout.
+		mkdirSync(join(root, ".git"), { recursive: true });
+		writeFileSync(join(root, "nx.json"), "{}");
+		writeFileSync(
+			join(root, "package.json"),
+			JSON.stringify(
+				{
+					name: "nx-shared-manifest",
+					dependencies: { "@nestjs/core": "^10.0.0" },
+				},
+				null,
+				2
+			)
+		);
+		for (const app of ["api", "worker"]) {
+			const src = join(root, "apps", app, "src");
+			mkdirSync(src, { recursive: true });
+			writeFileSync(
+				join(root, "apps", app, "project.json"),
+				JSON.stringify({ name: app })
+			);
+			writeFileSync(
+				join(src, `${app}.module.ts`),
+				"import { Module } from '@nestjs/common';\n\n@Module({})\nexport class AppModule {}\n"
+			);
+		}
+
+		const scanConfig = await resolveScanConfig(root);
+		const monorepo = await detectMonorepo(root);
+		expect(monorepo!.projects.size).toBe(2);
+		const { result } = await scanMonorepo(root, scanConfig, monorepo!);
+
+		const advisories = (list: { rule: string }[]) =>
+			list.filter((d) => d.rule.endsWith("-nestjs-packages"));
+
+		// Both sub-projects inherit the one root manifest and each reports it.
+		for (const sub of result.subProjects) {
+			expect(advisories(sub.result.diagnostics)).toHaveLength(1);
+		}
+		const combined = advisories(result.combined.diagnostics);
+		expect(combined).toHaveLength(1);
+		expect(combined[0].filePath).toBe(join(root, "package.json"));
+		expect(existsSync(combined[0].filePath)).toBe(true);
 	});
 
 	it("scans monorepo with multiple sub-projects", async () => {

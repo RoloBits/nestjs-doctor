@@ -60,6 +60,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
 			documentSelector: [{ scheme: "file", language: "typescript" }],
 			synchronize: {
 				configurationSection: "nestjsDoctor",
+				fileEvents: workspace.createFileSystemWatcher("**/package.json"),
 			},
 			outputChannel: output,
 		};

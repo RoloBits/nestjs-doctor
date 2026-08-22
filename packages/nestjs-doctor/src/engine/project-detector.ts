@@ -440,35 +440,33 @@ export async function looksLikeMonorepo(targetPath: string): Promise<boolean> {
  * Reads the nearest `package.json` at or above `targetPath`, stopping at the
  * repository root so a scan never adopts an unrelated parent's manifest.
  */
-/** The nearest package.json and where it was found, walking upward. */
-async function readNearestPackageJsonAt(
+async function readNearestPackageJson(
 	targetPath: string
-): Promise<{ pkg: PackageJson; path: string | null }> {
+): Promise<PackageJson> {
 	let current = resolve(targetPath);
 
 	for (;;) {
-		const candidate = join(current, "package.json");
 		try {
-			const raw = await readFile(candidate, "utf-8");
-			return { pkg: JSON.parse(raw) as PackageJson, path: candidate };
+			const raw = await readFile(join(current, "package.json"), "utf-8");
+			return JSON.parse(raw) as PackageJson;
 		} catch {
 			// Keep walking.
 		}
 
 		if (existsSync(join(current, ".git"))) {
-			return { pkg: {}, path: null };
+			return {};
 		}
 
 		const parent = dirname(current);
 		if (parent === current) {
-			return { pkg: {}, path: null };
+			return {};
 		}
 		current = parent;
 	}
 }
 
 export async function detectProject(targetPath: string): Promise<ProjectInfo> {
-	const { pkg } = await readNearestPackageJsonAt(targetPath);
+	const pkg = await readNearestPackageJson(targetPath);
 
 	const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
 

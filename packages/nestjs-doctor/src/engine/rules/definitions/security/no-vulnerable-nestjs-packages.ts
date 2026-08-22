@@ -12,7 +12,12 @@ const REST = new Set<Advisory["severity"]>(["moderate", "low"]);
 
 const EXACT_SPEC = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 
-const describe = ({ advisory, installed, spec }: AdvisoryMatch): string => {
+const describe = ({
+	advisory,
+	declaration,
+	installed,
+}: AdvisoryMatch): string => {
+	const spec = declaration.spec;
 	let found: string;
 	if (installed) {
 		found = `${advisory.packageName}@${installed}`;
@@ -26,16 +31,31 @@ const describe = ({ advisory, installed, spec }: AdvisoryMatch): string => {
 
 const reportAll = (
 	context: ProjectRuleContext,
-	severities: ReadonlySet<Advisory["severity"]>
+	severities: ReadonlySet<Advisory["severity"]>,
+	reportUnchecked = false
 ) => {
 	const manifest = findManifest(context.targetPath);
 	if (!manifest) {
 		return;
 	}
-	for (const match of matchAdvisories(manifest, severities)) {
+	const { matches, unchecked } = matchAdvisories(manifest, severities);
+	if (reportUnchecked && unchecked.length > 0) {
 		context.report({
 			filePath: manifest.path,
-			line: dependencyLine(manifest.path, match.advisory.packageName),
+			line: 1,
+			column: 1,
+			message: `Could not establish the installed version of ${unchecked.join(", ")}, so no advisory was checked against ${unchecked.length === 1 ? "it" : "them"}.`,
+			help: "Install dependencies before scanning, or pin the version so the range names one.",
+		});
+	}
+	for (const match of matches) {
+		context.report({
+			filePath: manifest.path,
+			line: dependencyLine(
+				manifest.path,
+				match.declaration.block,
+				match.advisory.packageName
+			),
 			column: 1,
 			message: describe(match),
 			help: `Upgrade to ${match.advisory.packageName}@${match.advisory.patched} or newer. See ${match.advisory.url}`,
@@ -61,13 +81,11 @@ export const noAdvisoryNestjsPackages: ProjectRule = {
 		id: "security/no-advisory-nestjs-packages",
 		category: "security",
 		severity: "warning",
-		// Reported, never scored: the table ships with the CLI, so a release
-		// that adds a row must not move anyone's score or fail their build.
 		surfaces: ["cli", "prComment"],
 		scope: "project",
 		description:
 			"Official @nestjs/* packages should not be on a version with a published advisory",
 		help: "Upgrade to the patched version named in the finding. Where the only fix is in a later major, treat it as a planned upgrade.",
 	},
-	check: (context) => reportAll(context, REST),
+	check: (context) => reportAll(context, REST, true),
 };

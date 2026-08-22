@@ -290,3 +290,94 @@ describe("how the finding names the version", () => {
 		expect(found.message).not.toContain("range");
 	});
 });
+
+describe("defects the second review found", () => {
+	it("matches an exact prerelease pin against a prerelease bound", () => {
+		// @nestjs/common's 11.x row starts at 11.0.0-next.1 and is fixed in 11.0.16.
+		expect(rangeReaches("11.0.0-next.5", "11.0.0-next.1")).toBe(true);
+		expect(rangeReaches("^10.0.0", "11.0.0-next.1")).toBe(false);
+		expect(run({ "@nestjs/common": "11.0.0-next.5" })).toHaveLength(1);
+	});
+
+	it("rejects a range that stops at or below where it starts", () => {
+		expect(parseRange(">=11.1.18 <10.0.0")).toBeNull();
+		// Unparseable, so it is reported as unchecked rather than as affected.
+		const found = run({ "@nestjs/core": ">=11.1.18 <10.0.0" });
+		expect(found).toHaveLength(1);
+		expect(found[0].message).toContain("Could not establish");
+	});
+
+	it("reads no node_modules above the repository root", () => {
+		const outer = mkdtempSync(join(tmpdir(), "nd-outer-"));
+		roots.push(outer);
+		const stray = join(outer, "node_modules", "@nestjs", "core");
+		mkdirSync(stray, { recursive: true });
+		writeFileSync(
+			join(stray, "package.json"),
+			JSON.stringify({ name: "@nestjs/core", version: "11.1.5" })
+		);
+		const repo = join(outer, "repo");
+		mkdirSync(join(repo, ".git"), { recursive: true });
+		writeFileSync(
+			join(repo, "package.json"),
+			JSON.stringify({ dependencies: { "@nestjs/core": "^11.1.18" } }, null, 2)
+		);
+
+		expect(runRule(noAdvisoryNestjsPackages, repo)).toEqual([]);
+	});
+
+	it("reports the line inside the block the version came from", () => {
+		const root = mkdtempSync(join(tmpdir(), "nd-blocks-"));
+		roots.push(root);
+		writeFileSync(
+			join(root, "package.json"),
+			JSON.stringify(
+				{
+					dependencies: { "@nestjs/core": "^10.0.0" },
+					devDependencies: { "@nestjs/core": "^11.1.18" },
+				},
+				null,
+				2
+			)
+		);
+		const [found] = runRule(noAdvisoryNestjsPackages, root);
+
+		// dependencies is what npm installs, so that is the line and the version.
+		expect(found.message).toContain("^10.0.0");
+		expect(found.line).toBe(3);
+	});
+
+	it("ignores a matching key under overrides", () => {
+		const root = mkdtempSync(join(tmpdir(), "nd-ovr-"));
+		roots.push(root);
+		writeFileSync(
+			join(root, "package.json"),
+			JSON.stringify(
+				{
+					overrides: { "@nestjs/core": "9.0.0" },
+					dependencies: { "@nestjs/core": "^10.0.0" },
+				},
+				null,
+				2
+			)
+		);
+		const [found] = runRule(noAdvisoryNestjsPackages, root);
+		expect(found.line).toBe(6);
+	});
+
+	it("says so when it cannot establish a version rather than staying silent", () => {
+		const [found] = run({ "@nestjs/core": "11.x" });
+		expect(found.message).toContain(
+			"Could not establish the installed version"
+		);
+		expect(found.message).toContain("@nestjs/core");
+	});
+
+	it("says nothing about a package it could check", () => {
+		expect(
+			run({ "@nestjs/core": "^11.1.18" }).filter((d) =>
+				d.message?.includes("Could not establish")
+			)
+		).toEqual([]);
+	});
+});

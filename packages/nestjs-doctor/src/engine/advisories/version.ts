@@ -111,7 +111,9 @@ export function parseRange(spec: string): Range | null {
 
 	const bounded = text.match(GTE_LT);
 	if (bounded) {
-		return { from: bounded[1], below: bounded[2] };
+		return lt(bounded[1], bounded[2])
+			? { from: bounded[1], below: bounded[2] }
+			: null;
 	}
 
 	return null;
@@ -138,9 +140,8 @@ export function rangeReaches(spec: string, floor: string): boolean {
 	if (!range) {
 		return false;
 	}
-	const release = floor.split("-")[0];
 	if (range.below === undefined) {
-		return !lt(range.from, release);
+		return !lt(range.from, floor);
 	}
-	return lt(release, range.below);
+	return lt(floor.split("-")[0], range.below);
 }

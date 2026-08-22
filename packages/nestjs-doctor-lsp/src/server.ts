@@ -184,6 +184,12 @@ connection.onDidSaveTextDocument((params) => {
 	}, settings.debounceMs);
 });
 
+connection.onDidChangeWatchedFiles(() => {
+	if (settings.enable) {
+		sendToWorker({ kind: "fullScan" });
+	}
+});
+
 connection.onRequest("nestjs-doctor/scan", () => {
 	if (activeWorker) {
 		sendToWorker({ kind: "fullScan" });

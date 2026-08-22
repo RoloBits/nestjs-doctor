@@ -2514,11 +2514,14 @@ function renderDiagnosis() {
     for (let j = 0; j < sorted.length; j++) {
       const entry = sorted[j];
       const rule = entry.d.rule;
-      if (!ruleGroupMap[rule]) {
-        ruleGroupMap[rule] = { rule: rule, entries: [] };
-        ruleGroups.push(ruleGroupMap[rule]);
+      // Keyed with the help text: one rule can carry a different fix per
+      // finding, and keying on the id alone shows only the first.
+      const key = rule + "\u0000" + (entry.d.help || "");
+      if (!ruleGroupMap[key]) {
+        ruleGroupMap[key] = { rule: rule, entries: [] };
+        ruleGroups.push(ruleGroupMap[key]);
       }
-      ruleGroupMap[rule].entries.push(entry);
+      ruleGroupMap[key].entries.push(entry);
     }
 
     for (let g = 0; g < ruleGroups.length; g++) {

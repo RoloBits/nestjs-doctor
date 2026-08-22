@@ -212,9 +212,9 @@ The client has to send a workspace root (`rootUri`, or `rootPath`), and `nestjs-
 
 Docs: https://nestjs.doctor/docs/language-server
 
-## Rules (50)
+## Rules (52)
 
-### Security (10)
+### Security (12)
 
 - `no-hardcoded-secrets` (error) — API keys, tokens, passwords in source code
 - `no-eval` (error) — eval() or new Function() usage
@@ -226,6 +226,8 @@ Docs: https://nestjs.doctor/docs/language-server
 - `no-exposed-stack-trace` (warning) — error.stack exposed in responses
 - `no-raw-entity-in-response` (warning) — Returning ORM entities directly from controllers
 - `require-guards-on-endpoints` (warning) — Endpoints without @UseGuards() at class or method level
+- `security/no-vulnerable-nestjs-packages` (error): an `@nestjs/*` version with a critical or high published advisory
+- `security/no-advisory-nestjs-packages` (warning): an `@nestjs/*` version with a moderate or low published advisory
 
 ### Correctness (20)
 

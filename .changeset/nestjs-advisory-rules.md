@@ -20,9 +20,13 @@ Which version gets checked, in order: the one installed under `node_modules`;
 otherwise the declared range, and only when every version it admits is below the
 fix; otherwise nothing. npm installs the highest version a range allows, so
 `^11.0.1` is quiet because it admits the patched 11.1.18, while `^10.0.0` against
-a fix that exists only in 11.1.18 is reported. A spec naming no version, such as
-`workspace:*` or `11.x`, is skipped rather than guessed at. Peer ranges are not
-read: they constrain a consumer, not this project.
+a fix that exists only in 11.1.18 is reported. Peer ranges are not read: they
+constrain a consumer, not this project.
+
+A spec naming no version, such as `workspace:*` or `11.x`, is never guessed at.
+It reports as unchecked and names the package, because the same project reads as
+clean before an install and finds advisories after one, and silence there is
+indistinguishable from having nothing to report.
 
 Nine advisories ship, taken from the GitHub Advisory Database: one critical in
 `@nestjs/devtools-integration`, four high across `@nestjs/platform-fastify` and
