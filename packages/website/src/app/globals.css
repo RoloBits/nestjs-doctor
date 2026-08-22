@@ -21,11 +21,6 @@ html {
 	height: 100%;
 	scrollbar-color: #333 transparent;
 	scrollbar-width: thin;
-	background: #0a0a0a;
-}
-
-/* The landing page runs on pure black; the docs keep the softer #0a0a0a. */
-html:has(body > .landing) {
 	background: #000;
 }
 
@@ -62,7 +57,7 @@ body {
 	font-size: 10px;
 	color: rgba(255, 255, 255, 0.5);
 	content: "Promise.all";
-	background: #0a0a0a;
+	background: #000;
 	transform: translateX(-50%);
 }
 

@@ -181,7 +181,7 @@ export const SplitDiff = async ({
 	);
 
 	return (
-		<div className="mt-4 mb-4 overflow-hidden rounded-lg border border-white/10 bg-[#0d0d0d] text-[13px] leading-[1.7]">
+		<div className="mt-4 mb-4 overflow-hidden border border-white/30 bg-[#0d0d0d] text-[13px] leading-[1.7]">
 			<SplitPanes
 				left={
 					<div className="flex min-w-0 flex-col">

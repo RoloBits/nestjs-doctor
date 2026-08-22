@@ -1,8 +1,9 @@
 import { SoftwareApplicationJsonLd } from "@/components/json-ld";
 import { GraphAndSchema } from "@/components/landing/graph-and-schema";
-import { Hero, Nav } from "@/components/landing/hero";
+import { Hero } from "@/components/landing/hero";
 import { PrReview } from "@/components/landing/pr-review";
 import { Doc } from "@/components/landing/primitives";
+import { Nav } from "@/components/site-nav";
 
 const LINKS = [
 	{
