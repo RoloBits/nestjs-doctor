@@ -3,6 +3,7 @@
   "displayName": "NestJS Doctor",
   "description": "Static analysis for NestJS \u2014 inline diagnostics and health score",
   "version": "0.1.3",
+  "private": true,
   "publisher": "rolobits",
   "engines": {
     "vscode": "^1.85.0"
