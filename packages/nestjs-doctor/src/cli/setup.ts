@@ -63,6 +63,21 @@ type SetupStep = () => boolean | Promise<boolean>;
 
 const INVALID_ARG_EXIT_CODE = 2;
 
+/** The error for `--report` beside a flag that names a different output. */
+export function reportConflict(args: {
+	format?: string;
+	json?: boolean;
+	score?: boolean;
+}): string | null {
+	const named = (["format", "json", "score"] as const).filter(
+		(flag) => args[flag]
+	);
+	if (named.length === 0) {
+		return null;
+	}
+	return `--report writes HTML, so it cannot be combined with --${named.join(", --")}. Run them as separate commands.`;
+}
+
 function failWith(message: string): never {
 	logger.error(message);
 	process.exit(INVALID_ARG_EXIT_CODE);
@@ -174,8 +189,17 @@ export class CliSetup {
 	handleReport(): this {
 		this.steps.push(async () => {
 			if (this.args.report) {
+				const conflict = reportConflict(this.args);
+				if (conflict) {
+					failWith(conflict);
+				}
 				const { runReport } = await import("../report/setup.js");
-				await runReport(this.targetPath, this.args.config, this.args.timings);
+				await runReport(
+					this.targetPath,
+					this.args.config,
+					this.args.timings,
+					this.args.output
+				);
 				return false;
 			}
 			return true;

@@ -101,7 +101,9 @@ export function prepareReportData(
 	const elapsedMsJson = safeJsonForScript(JSON.stringify(result.elapsedMs));
 	const sourceLinesJson = safeJsonForScript(JSON.stringify(sourceLinesArray));
 	const examplesJson = safeJsonForScript(JSON.stringify(getRuleExamples()));
-	const fileSources = buildFileSources(options?.files ?? []);
+	const fileSources = buildFileSources([
+		...new Set([...(options?.files ?? []), ...shown.map((d) => d.filePath)]),
+	]);
 	const fileSourcesJson = safeJsonForScript(JSON.stringify(fileSources));
 	const serializedProviders = options?.providers ?? [];
 	const providersJson = safeJsonForScript(JSON.stringify(serializedProviders));

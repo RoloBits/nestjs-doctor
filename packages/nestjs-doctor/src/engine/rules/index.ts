@@ -46,6 +46,10 @@ import { noExposedStackTrace } from "./definitions/security/no-exposed-stack-tra
 import { noHardcodedSecrets } from "./definitions/security/no-hardcoded-secrets.js";
 import { noRawEntityInResponse } from "./definitions/security/no-raw-entity-in-response.js";
 import { noSynchronizeInProduction } from "./definitions/security/no-synchronize-in-production.js";
+import {
+	noAdvisoryNestjsPackages,
+	noVulnerableNestjsPackages,
+} from "./definitions/security/no-vulnerable-nestjs-packages.js";
 import { noWeakCrypto } from "./definitions/security/no-weak-crypto.js";
 import { requireGuardsOnEndpoints } from "./definitions/security/require-guards-on-endpoints.js";
 import type { AnyRule } from "./types.js";
@@ -98,6 +102,8 @@ export const allRules: AnyRule[] = [
 	noExposedStackTrace,
 	noDangerousRedirects,
 	noSynchronizeInProduction,
+	noVulnerableNestjsPackages,
+	noAdvisoryNestjsPackages,
 	noRawEntityInResponse,
 	requireGuardsOnEndpoints,
 

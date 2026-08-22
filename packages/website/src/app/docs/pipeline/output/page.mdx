@@ -45,8 +45,12 @@ The visual report includes:
 - Score bar visualization
 - Summary: error, warning and info counts, file count, elapsed time
 - Project info: name, NestJS version, ORM, module count
-- Diagnostics grouped by rule, sorted by severity
+- Diagnostics grouped by rule and help text, sorted by severity
 - With `--verbose`: file paths and line numbers per diagnostic
+
+The help text is part of the grouping key, so one rule can print several groups
+when it offers a different fix each time. `security/no-vulnerable-nestjs-packages`
+names a different upgrade target per advisory, and each gets its own group.
 
 Color coding:
 
@@ -94,6 +98,11 @@ In monorepo mode, the console report shows the combined score and diagnostics fi
   shared      95/100   18      0       1         0
 ```
 
+A finding two sub-projects both report is counted once, against the first of
+them. The error, warning and info columns count only what the combined result
+took, so they add up to the totals above. Each score is recalculated from that
+same kept set.
+
 ### HTML report (`--report`)
 
 Generates a self-contained HTML file with an interactive report:
@@ -115,6 +124,14 @@ Endpoints and Relational Schema stay hidden until there is data, so a project
 with no controllers and no ORM entities sees four.
 
 The file is written to `nestjs-doctor-report.html` in the project root and auto-opened in the default browser.
+
+Pass `--output` to write it somewhere else, so a scan leaves the scanned repository untouched:
+
+```bash
+npx nestjs-doctor . --report --output /tmp/health.html
+```
+
+A relative path resolves against the working directory, and missing parent directories are created.
 
 ![The Modules Graph tab](/module-graph.png)
 

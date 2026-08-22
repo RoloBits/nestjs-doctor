@@ -7,7 +7,7 @@ export const metadata = docsMetadata["/docs/rules/security"];
 
 # Security rules
 
-10 rules that detect security vulnerabilities and unsafe patterns.
+12 rules that detect security vulnerabilities and unsafe patterns.
 
 | Rule | Severity | What it catches |
 |------|----------|-----------------|
@@ -15,12 +15,14 @@ export const metadata = docsMetadata["/docs/rules/security"];
 | `no-eval` | error | `eval()` or `new Function()` usage |
 | `no-csrf-disabled` | error | `csrf: false` or `csrfProtection: false` in an options object |
 | `no-dangerous-redirects` | error | Redirects with user-controlled input |
+| `no-vulnerable-nestjs-packages` | error | A watched package on a version with a critical or high advisory |
 | `no-synchronize-in-production` | error | `synchronize: true` in TypeORM config |
 | `no-weak-crypto` | warning | `createHash('md5')` or `createHash('sha1')` |
 | `no-exposed-env-vars` | warning | Direct `process.env` in Injectable/Controller |
 | `no-exposed-stack-trace` | warning | `error.stack` exposed in responses |
 | `no-raw-entity-in-response` | warning | Handler return type named `*Entity` or `*Model` |
 | `require-guards-on-endpoints` | warning | Endpoints without `@UseGuards()` at class or method level |
+| `no-advisory-nestjs-packages` | warning | A watched package on a version with a moderate or low advisory |
 
 ---
 
@@ -309,3 +311,101 @@ export class OrderController {
 }
 ```
 </CodeGroup>
+
+---
+
+## no-vulnerable-nestjs-packages
+
+Reports a watched package on a version with a critical or high advisory.
+
+The watched set is every package published under the `@nestjs` scope, plus the
+third-party packages a Nest project installs deliberately, such as
+`@sentry/nestjs` and `nestjs-pino`. A package outside that set is never checked,
+so the rule says nothing about it either way.
+
+**Why:** an advisory is a defect with a public identifier and a known fix, so it belongs in the same pass as everything else rather than an audit nobody runs.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```json
+{
+  "devDependencies": {
+    "@nestjs/devtools-integration": "0.2.0"
+  }
+}
+```
+```json
+{
+  "devDependencies": {
+    "@nestjs/devtools-integration": "0.2.1"
+  }
+}
+```
+</CodeGroup>
+
+---
+
+## no-advisory-nestjs-packages
+
+The same check for moderate and low advisories, reported as a warning.
+
+**Why:** these are worth knowing about, and some have no fix in your current major, so they should not fail a build you were passing.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```json
+{
+  "dependencies": {
+    "@nestjs/core": "11.1.17"
+  }
+}
+```
+```json
+{
+  "dependencies": {
+    "@nestjs/core": "11.1.18"
+  }
+}
+```
+</CodeGroup>
+
+This rule declares `surfaces: ["cli", "prComment"]`, so it reports in the console and on the pull request without moving the score or failing a build. The advisory list ships with the CLI, and a release that adds to it should not change how a project scores.
+
+### Which version is checked
+
+Three tiers, in order:
+
+- the version installed under `node_modules`, which is what your code actually runs
+- otherwise the range, and only when every version it admits is below the fix
+- otherwise the package is unchecked, for a spec like `workspace:*` or `11.x` that names no version
+
+npm installs the highest version a range allows, so `^11.0.1` is quiet: it admits 11.1.18, which is patched. `^10.0.0` against a fix that exists only in 11.1.18 is reported, because no version it admits is patched.
+
+The message names the spec as `package.json` declares it, so it matches the line the finding points at. A project declaring `^10.0.0` with 11.1.16 installed reports this:
+
+```
+⚠ @nestjs/core at ^10.0.0 is affected by CVE-2026-35515 (moderate): an unescaped newline in an SSE field lets an attacker spoof event types. Patched in 11.1.18. · not scored
+  Installed: 11.1.16. Upgrade to @nestjs/core@11.1.18 or newer. See https://github.com/advisories/GHSA-36xv-jgw5-4q75
+```
+
+The resolved version sits in the help text below it. An exact spec is written with an `@` instead, as `@nestjs/core@11.1.17`.
+
+### Nothing checked is still reported
+
+A version that could not be established is a finding, not a silence. The same project reads as clean before an install and finds advisories after one, so the gap has to be visible.
+
+| What happened | Message begins |
+|---|---|
+| A spec names no version | `Could not establish the installed version of`, then the packages |
+| No `package.json` at or above the scanned path | `Found no package.json at or above the scanned path` |
+| `package.json` is not valid JSON | `Could not parse package.json` |
+
+All three come from `no-advisory-nestjs-packages`, so they reach the console and the pull request without moving the score. The search walks up from the scanned directory, so a sub-project with no manifest of its own still finds the workspace root's.
+
+### What it cannot do
+
+The list ships with the CLI, so a scan makes no network call and the same project scores the same offline. The cost is freshness: an older install knows about fewer advisories, and `npx nestjs-doctor@latest` knows the most.
+
+`package.json` takes no comments, so no inline directive reaches these findings. Silence one with `ignore.rules` in your config file.
+
+Under `--scope files`, `lines` or `changed`, the finding appears only when `package.json` itself changed. `changed` is the scope the GitHub Action uses by default.
+
+Scanning a subdirectory is the exception under `files` and `lines`. The rule walks up to the nearest `package.json`, and the changed-file set only describes the tree below it, so a finding above the scanned directory is kept. `changed` compares against the base revision, so it drops an advisory neither revision introduced.

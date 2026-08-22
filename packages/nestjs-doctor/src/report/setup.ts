@@ -16,7 +16,8 @@ import { type BootstrapTimings, loadBootstrapTimings } from "./timings.js";
 export const runReport = async (
 	targetPath: string,
 	configPath: string | undefined,
-	timingsPath?: string
+	timingsPath?: string,
+	outputPath?: string
 ): Promise<void> => {
 	const monorepo = await detectMonorepo(targetPath);
 
@@ -44,7 +45,11 @@ export const runReport = async (
 			.generateHtml()
 			.run();
 		logMonorepoSummary(pipeline.monoResult, pipeline.mergedGraph);
-		const outPath = await writeReportFile(targetPath, pipeline.generatedHtml);
+		const outPath = await writeReportFile(
+			targetPath,
+			pipeline.generatedHtml,
+			outputPath
+		);
 		openReportInBrowser(outPath);
 		return;
 	}
@@ -62,6 +67,10 @@ export const runReport = async (
 		.generateHtml()
 		.run();
 	logSingleProjectSummary(pipeline.scanResult);
-	const outPath = await writeReportFile(targetPath, pipeline.generatedHtml);
+	const outPath = await writeReportFile(
+		targetPath,
+		pipeline.generatedHtml,
+		outputPath
+	);
 	openReportInBrowser(outPath);
 };

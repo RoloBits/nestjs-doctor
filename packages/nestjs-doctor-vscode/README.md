@@ -26,7 +26,7 @@
 - **Scan on save** — automatically re-scans when you save a file (configurable debounce)
 - **Scan on open** — scans the workspace when VS Code opens
 - **Manual scan** — trigger a full project scan from the command palette
-- **50 built-in rules** — same rules as the CLI, covering security, performance, correctness, architecture, and schema
+- **52 built-in rules** — same rules as the CLI, covering security, performance, correctness, architecture, and schema
 
 ---
 

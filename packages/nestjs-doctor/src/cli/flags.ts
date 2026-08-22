@@ -23,7 +23,8 @@ export const flags = {
 	},
 	output: {
 		type: "string",
-		description: "Write the formatted output to a file instead of stdout",
+		description:
+			"Write the output to a file instead of stdout; with --report, where the HTML goes",
 	},
 	"json-compact": {
 		type: "boolean",
@@ -67,7 +68,7 @@ export const flags = {
 		type: "boolean",
 		alias: "graph",
 		description:
-			"Generate an interactive HTML report (summary, diagnostics, module graph, rule lab)",
+			"Generate an interactive HTML report (summary, diagnostics, module graph, rule lab); writes beside the project unless --output names a path",
 		default: false,
 	},
 	timings: {

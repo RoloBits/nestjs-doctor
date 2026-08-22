@@ -47,9 +47,13 @@ describe("toRelativePath", () => {
 		expect(toRelativePath("/repo", "/repo/src/a.ts")).toBe("src/a.ts");
 	});
 
-	it("keeps the absolute path when the file sits outside the target", () => {
+	it("stays relative when the file sits outside the target", () => {
+		// The identity this feeds must not vary by machine.
 		expect(toRelativePath("/repo/src", "/elsewhere/b.ts")).toBe(
-			"/elsewhere/b.ts"
+			"../../elsewhere/b.ts"
+		);
+		expect(toRelativePath("/repo/apps/api", "/repo/package.json")).toBe(
+			"../../package.json"
 		);
 	});
 });

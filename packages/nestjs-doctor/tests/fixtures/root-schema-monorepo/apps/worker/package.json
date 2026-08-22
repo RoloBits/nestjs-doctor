@@ -1,1 +1,1 @@
-{ "name": "worker", "dependencies": { "@nestjs/core": "^10.0.0", "@nestjs/common": "^10.0.0", "@prisma/client": "^5.0.0" } }
+{ "name": "worker", "dependencies": { "@nestjs/core": "^11.1.18", "@nestjs/common": "^10.0.0", "@prisma/client": "^5.0.0" } }

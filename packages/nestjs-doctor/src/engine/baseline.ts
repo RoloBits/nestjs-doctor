@@ -72,7 +72,7 @@ export async function computeBaselineDelta(
 	try {
 		const baseDiagnostics = await scanBaseline(
 			checkout.targetPath,
-			scanConfig,
+			{ ...scanConfig, installRoot: targetPath },
 			monorepo
 		);
 		const { introduced, fixed } = diffDiagnostics(

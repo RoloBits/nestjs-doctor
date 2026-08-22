@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
+import { installedVersion } from "../../src/engine/advisories/installed.js";
 import {
 	detectMonorepo,
 	detectProject,
@@ -16,7 +17,7 @@ describe("project-detector", () => {
 	it("detects NestJS version and framework from basic-app", async () => {
 		const info = await detectProject(resolve(FIXTURES, "basic-app"));
 		expect(info.name).toBe("basic-app");
-		expect(info.nestVersion).toBe("10.0.0");
+		expect(info.nestVersion).toBe("11.1.18");
 		expect(info.framework).toBe("express");
 		expect(info.orm).toBeNull();
 	});
@@ -323,5 +324,97 @@ describe("Nx project detection", () => {
 			"apps/one",
 			"apps/two",
 		]);
+	});
+});
+
+describe("nest version", () => {
+	const roots: string[] = [];
+
+	afterAll(() => {
+		for (const dir of roots) {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	const project = (declared: string, installed?: string): string => {
+		const root = mkdtempSync(join(tmpdir(), "nd-nest-version-"));
+		roots.push(root);
+		mkdirSync(join(root, ".git"), { recursive: true });
+		writeFileSync(
+			join(root, "package.json"),
+			JSON.stringify({
+				name: "app",
+				dependencies: { "@nestjs/core": declared },
+			})
+		);
+		if (installed) {
+			const dir = join(root, "node_modules", "@nestjs", "core");
+			mkdirSync(dir, { recursive: true });
+			writeFileSync(
+				join(dir, "package.json"),
+				JSON.stringify({ name: "@nestjs/core", version: installed })
+			);
+		}
+		return root;
+	};
+
+	it("reports the installed version, not the range floor", async () => {
+		const info = await detectProject(project("^11.1.9", "11.1.16"));
+		expect(info.nestVersion).toBe("11.1.16");
+	});
+
+	it("falls back to the declared version with nothing installed", async () => {
+		const info = await detectProject(project("^11.1.9"));
+		expect(info.nestVersion).toBe("11.1.9");
+	});
+
+	it("agrees with what the advisory rules read", async () => {
+		const root = project("^11.1.9", "11.1.16");
+		const info = await detectProject(root);
+		expect(info.nestVersion).toBe(installedVersion(root, "@nestjs/core"));
+	});
+});
+
+describe("version specs that name no single version", () => {
+	const versionFor = async (spec: string): Promise<string | null> => {
+		const root = mkdtempSync(join(tmpdir(), "nd-spec-"));
+		roots2.push(root);
+		mkdirSync(join(root, ".git"), { recursive: true });
+		writeFileSync(
+			join(root, "package.json"),
+			JSON.stringify({ dependencies: { "@nestjs/core": spec } })
+		);
+		return (await detectProject(root)).nestVersion;
+	};
+	const roots2: string[] = [];
+
+	afterAll(() => {
+		for (const dir of roots2) {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("takes the floor of a two-sided range instead of joining both bounds", async () => {
+		expect(await versionFor(">=11.1.18 <12")).toBe("11.1.18");
+	});
+
+	it("keeps the major of a wildcard minor", async () => {
+		expect(await versionFor("11.x")).toBe("11");
+	});
+
+	it("reports nothing for a spec naming no version", async () => {
+		expect(await versionFor("*")).toBeNull();
+		expect(await versionFor("workspace:*")).toBeNull();
+	});
+
+	it("survives a manifest that is not valid JSON", async () => {
+		const root = mkdtempSync(join(tmpdir(), "nd-badjson-"));
+		roots2.push(root);
+		mkdirSync(join(root, ".git"), { recursive: true });
+		writeFileSync(join(root, "package.json"), '{ "dependencies": { }, }');
+
+		await expect(detectProject(root)).resolves.toMatchObject({
+			nestVersion: null,
+		});
 	});
 });

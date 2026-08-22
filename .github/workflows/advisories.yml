@@ -1,0 +1,70 @@
+name: Advisory table
+
+# Walks the watched packages weekly and opens an issue when the database knows
+# about something the shipped table does not. Never runs on a pull request.
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: advisories
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check the shipped table against the database
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6.0.9
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Walk the watched packages
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          pnpm --filter nestjs-doctor advisories:check > report.txt 2>&1
+          echo "stale=$?" >> "$GITHUB_OUTPUT"
+          cat report.txt
+
+      - name: Open or update the issue
+        if: steps.check.outputs.stale != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: "Advisory table is out of date"
+        run: |
+          set -euo pipefail
+          {
+            echo "\`pnpm advisories:check\` did not agree with the shipped table."
+            echo
+            echo "Rows to add go in \`packages/nestjs-doctor/src/engine/advisories/data.ts\`."
+            echo "Skip any record carrying \`withdrawn_at\`, and write GitHub's \`medium\` as \`moderate\`, which is the value the rules filter on."
+            echo "A package the run could not query was not checked at all, so the table says nothing about it either way."
+            echo
+            echo '```'
+            cat report.txt
+            echo '```'
+            echo
+            echo "From ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } > body.md
+
+          existing=$(gh issue list --state open --search "$TITLE in:title" \
+            --json number,title \
+            --jq "[.[] | select(.title == \"$TITLE\")] | first | .number // empty")
+
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file body.md
+          else
+            gh issue create --title "$TITLE" --body-file body.md --label dependencies
+          fi

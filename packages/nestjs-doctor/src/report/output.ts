@@ -1,6 +1,6 @@
 import { exec } from "node:child_process";
-import { writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import { highlighter } from "../cli/ui/highlighter.js";
 import { logger } from "../cli/ui/logger.js";
 import {
@@ -9,11 +9,19 @@ import {
 } from "../engine/graph/module-graph.js";
 import type { EngineResult, MonorepoEngineResult } from "../engine/scanner.js";
 
+/**
+ * Writes the report to `outputPath` when given, resolved against the working
+ * directory, otherwise beside the scanned project.
+ */
 export const writeReportFile = async (
 	targetPath: string,
-	html: string
+	html: string,
+	outputPath?: string
 ): Promise<string> => {
-	const outPath = join(targetPath, "nestjs-doctor-report.html");
+	const outPath = outputPath
+		? resolve(outputPath)
+		: join(targetPath, "nestjs-doctor-report.html");
+	await mkdir(dirname(outPath), { recursive: true });
 	await writeFile(outPath, html, "utf-8");
 	logger.info(`Report written to ${highlighter.info(outPath)}`);
 	return outPath;

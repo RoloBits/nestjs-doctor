@@ -24,8 +24,14 @@ options: {
   config: NestjsDoctorConfig
   moduleGraph: ModuleGraph
   providers: Map<string, ProviderInfo>
+  targetPath: string          // the scanned directory
+  installRoot?: string        // where node_modules lives, when not targetPath
 }
 ```
+
+`installRoot` is set only when the two differ. That happens under
+`--scope changed`, which scans a base revision in a throwaway checkout. The
+checkout carries no install, so `node_modules` resolves from the working tree.
 
 The result is the diagnostics, plus any rule that threw:
 
@@ -88,7 +94,8 @@ For each file:
 
 ```
 For each project-scoped rule:
-  context = { project, files, moduleGraph, providers, config, report() }
+  context = { project, files, moduleGraph, providers, config,
+              targetPath, installRoot?, report() }
   rule.check(context)
 ```
 

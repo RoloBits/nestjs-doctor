@@ -125,7 +125,7 @@ The result is the project metadata:
 ```typescript
 interface ProjectInfo {
   name: string                       // from package.json name, or "unknown"
-  nestVersion: string | null         // e.g. "10.0.0" (semver operators stripped)
+  nestVersion: string | null         // installed version, else the declared one
   orm: string | null                 // detected ORM
   framework: "express" | "fastify" | null
   moduleCount: number                // 0 initially, updated by scanner
@@ -152,5 +152,11 @@ Framework detection:
 - `@nestjs/platform-fastify` → `"fastify"`
 - `@nestjs/platform-express` or `@nestjs/core` → `"express"`
 
-The NestJS version comes from `@nestjs/core`, with semver operators (`^`, `~`, `>=`) stripped.
+The NestJS version is read from `node_modules/@nestjs/core`, walking up from the
+scanned path so a hoisted workspace install is found. The walk stops at the
+first directory holding a `.git`.
+
+With nothing installed it falls back to the first version the declared spec
+names, so `^10.0.0` reads as `10.0.0`. A spec naming no version, such as
+`workspace:*`, leaves `nestVersion` as `null`.
 

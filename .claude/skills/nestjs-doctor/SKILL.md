@@ -1,6 +1,6 @@
 ---
 name: nestjs-doctor
-description: Use after writing or changing NestJS code, before committing, when a nestjs-doctor check fails in CI, or when the user asks to scan, audit, review, or clean up a Nest project, or mentions circular modules, unused providers, a missing guard, an ORM leaking into a controller, or a slow boot. Runs a deterministic 50-rule scan over security, correctness, architecture, performance, and database schema, then fixes what it finds.
+description: Use after writing or changing NestJS code, before committing, when a nestjs-doctor check fails in CI, or when the user asks to scan, audit, review, or clean up a Nest project, or mentions circular modules, unused providers, a missing guard, an ORM leaking into a controller, or a slow boot. Runs a deterministic 52-rule scan over security, correctness, architecture, performance, and database schema, then fixes what it finds.
 allowed-tools: Bash, Read, Edit, Glob, Grep, Write
 ---
 
@@ -8,7 +8,7 @@ allowed-tools: Bash, Read, Edit, Glob, Grep, Write
 
 > v0.8.0
 
-50 rules over security, correctness, architecture, performance, and database
+52 rules over security, correctness, architecture, performance, and database
 schema, scored 0-100. No network calls and no model at scan time, so the same
 commit scores the same on a laptop and in CI.
 
@@ -114,6 +114,7 @@ Construction times need a real boot, which a scan never performs. Use the
 | `--json` | The full result, for tooling |
 | `--score` | The number alone |
 | `--report` | Write an interactive HTML report |
+| `--output <path>` | Where to write it, instead of the project root |
 | `--timings <path>` | Overlay real boot times on the report |
 | `--min-score <n>` | Fail below a score |
 | `--blocking <level>` | Fail on `error`, `warning`, or never with `none` |

@@ -2,7 +2,7 @@
   "name": "bad-correctness-app",
   "version": "1.0.0",
   "dependencies": {
-    "@nestjs/core": "^10.0.0",
+    "@nestjs/core": "^11.1.18",
     "@nestjs/common": "^10.0.0",
     "@nestjs/platform-express": "^10.0.0"
   }

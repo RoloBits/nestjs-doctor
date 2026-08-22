@@ -507,3 +507,62 @@ describe("printMonorepoReport surfaces", () => {
 		expect(line).not.toContain("1 errors");
 	});
 });
+
+describe("grouping key", () => {
+	const linesFor = (diagnostics: Diagnostic[]): string[] => {
+		const { lines, restore } = capture();
+		printConsoleReport(
+			{
+				score: { value: 90, label: "Good", stars: 4 },
+				diagnostics,
+				project: { name: "t", fileCount: 1, moduleCount: 1 },
+				summary: { errors: 0, warnings: diagnostics.length, info: 0 },
+				ruleErrors: [],
+				elapsedMs: 1,
+			} as never,
+			false
+		);
+		restore();
+		return lines;
+	};
+
+	it("counts repeats of one finding as a single line", () => {
+		const lines = linesFor([
+			makeDiagnostic({ rule: "rule-a", filePath: "a.ts", message: "foo" }),
+			makeDiagnostic({ rule: "rule-a", filePath: "b.ts", message: "foo" }),
+		]);
+		const shown = lines.filter((l) => l.includes("foo"));
+
+		expect(shown).toHaveLength(1);
+		expect(shown[0]).toContain("(2)");
+	});
+
+	it("collapses distinct messages that share one fix, printing the first", () => {
+		const lines = linesFor([
+			makeDiagnostic({ rule: "rule-a", message: "foo", help: "same fix" }),
+			makeDiagnostic({ rule: "rule-a", message: "bar", help: "same fix" }),
+		]);
+
+		// Long-standing behaviour: the group prints first.message and a count.
+		expect(lines.filter((l) => l.includes("foo"))).toHaveLength(1);
+		expect(lines.some((l) => l.includes("bar"))).toBe(false);
+	});
+
+	it("gives a rule with several fixes a line for each", () => {
+		const lines = linesFor([
+			makeDiagnostic({
+				rule: "security/no-advisory-nestjs-packages",
+				message: "core is affected by CVE-1",
+				help: "Upgrade to @nestjs/core@11.1.18",
+			}),
+			makeDiagnostic({
+				rule: "security/no-advisory-nestjs-packages",
+				message: "fastify is affected by CVE-2",
+				help: "Upgrade to @nestjs/platform-fastify@11.1.24",
+			}),
+		]);
+
+		expect(lines.some((l) => l.includes("CVE-1"))).toBe(true);
+		expect(lines.some((l) => l.includes("CVE-2"))).toBe(true);
+	});
+});

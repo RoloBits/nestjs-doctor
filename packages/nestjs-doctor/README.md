@@ -50,8 +50,9 @@ Build `nestjs-doctor-report.html`:
 npx nestjs-doctor@latest . --report
 ```
 
-One self-contained file: score summary, findings with a code viewer, and an
-interactive module graph. Traced HTTP endpoints, the schema ER diagram, and a
+Writes to the project root, or wherever `--output` names. One self-contained
+file: score summary, findings with a code viewer, and an interactive module
+graph. Traced HTTP endpoints, the schema ER diagram, and a
 rule playground get their own tabs.
 
 ![Module Graph](https://nestjs.doctor/module-graph.png)
@@ -116,12 +117,12 @@ The same shape works as `.nestjs-doctor.json`, or as a `"nestjs-doctor"` key in
 
 ## Rules
 
-50 built-in rules. Every finding carries a file and a rule id you can suppress
+52 built-in rules. Every finding carries a file and a rule id you can suppress
 or configure, plus a line unless it reports against a schema entity.
 
 | Category | Rules | Catches |
 |---|---|---|
-| [Security](https://nestjs.doctor/docs/rules/security) | 10 | Hardcoded secrets, `eval`, weak crypto, TypeORM `synchronize: true`, endpoints with no guard |
+| [Security](https://nestjs.doctor/docs/rules/security) | 12 | Hardcoded secrets, `eval`, weak crypto, TypeORM `synchronize: true`, endpoints with no guard, dependencies with a published advisory |
 | [Correctness](https://nestjs.doctor/docs/rules/correctness) | 20 | Fire-and-forget promises, missing `@Injectable()`, lifecycle hooks without their interface, param decorators that do not match the route |
 | [Architecture](https://nestjs.doctor/docs/rules/architecture) | 10 | ORM in controllers, business logic in controllers, circular module dependencies, manual instantiation instead of DI |
 | [Performance](https://nestjs.doctor/docs/rules/performance) | 7 | Sync I/O, blocking constructors, request-scope abuse, orphan modules, unused providers |

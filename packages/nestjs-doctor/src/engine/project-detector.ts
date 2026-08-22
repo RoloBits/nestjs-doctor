@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { glob } from "tinyglobby";
 import type { ProjectInfo } from "../common/result.js";
+import { installedVersion } from "./advisories/installed.js";
 
 interface PackageJson {
 	dependencies?: Record<string, string>;
@@ -204,14 +205,16 @@ async function detectNpmYarnWorkspaceMonorepo(
 ): Promise<MonorepoInfo | null> {
 	const pkgPath = join(targetPath, "package.json");
 
-	let raw: string;
+	let pkg: Record<string, unknown>;
 	try {
-		raw = await readFile(pkgPath, "utf-8");
+		pkg = JSON.parse(await readFile(pkgPath, "utf-8")) as Record<
+			string,
+			unknown
+		>;
 	} catch {
 		return null;
 	}
 
-	const pkg = JSON.parse(raw) as Record<string, unknown>;
 	const patterns = parsePackageJsonWorkspaces(pkg);
 	if (patterns.length === 0) {
 		return null;
@@ -230,14 +233,12 @@ async function detectLernaMonorepo(
 ): Promise<MonorepoInfo | null> {
 	const lernaPath = join(targetPath, "lerna.json");
 
-	let raw: string;
+	let config: LernaJson;
 	try {
-		raw = await readFile(lernaPath, "utf-8");
+		config = JSON.parse(await readFile(lernaPath, "utf-8")) as LernaJson;
 	} catch {
 		return null;
 	}
-
-	const config = JSON.parse(raw) as LernaJson;
 
 	// If useWorkspaces is true, npm/yarn workspace detection already handles it
 	if (config.useWorkspaces) {
@@ -470,7 +471,10 @@ export async function detectProject(targetPath: string): Promise<ProjectInfo> {
 
 	const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
 
-	const nestVersion = extractVersion(allDeps["@nestjs/core"]);
+	// The installed version wins over the declared range.
+	const nestVersion =
+		installedVersion(targetPath, "@nestjs/core") ??
+		extractVersion(allDeps["@nestjs/core"]);
 	const orm = detectOrm(allDeps);
 	const framework = detectFramework(allDeps);
 
@@ -484,11 +488,11 @@ export async function detectProject(targetPath: string): Promise<ProjectInfo> {
 	};
 }
 
+const VERSION_IN_SPEC = /\d+(?:\.\d+)*(?:-[\w.]+)?/;
+
+/** The lowest version a spec names, or null when it names none. */
 function extractVersion(version: string | undefined): string | null {
-	if (!version) {
-		return null;
-	}
-	return version.replace(/[\^~>=<]/g, "");
+	return version?.match(VERSION_IN_SPEC)?.[0] ?? null;
 }
 
 function detectOrm(deps: Record<string, string>): string | null {

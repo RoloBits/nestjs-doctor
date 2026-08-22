@@ -48,6 +48,11 @@ need the whole project, so the score always covers all of it.
 so: to every diagnostic in the changed files when `--changed-files-from` is set,
 and to the whole project when it is not. In CI, check out with `fetch-depth: 0`.
 
+`files` and `lines` keep a finding whose file sits above the scanned directory.
+The changed-file set describes the scanned tree only, so a `package.json` one
+level up is never known to be unchanged. `changed` still drops it, because it
+compares against the base revision rather than the file list.
+
 ## Output
 
 | Flag | Does |
@@ -55,10 +60,14 @@ and to the whole project when it is not. In CI, check out with `fetch-depth: 0`.
 | `--format <f>` | `console` (default), `json`, `sarif`, `gitlab`, `markdown`, `github` |
 | `--json` | Shorthand for `--format json` |
 | `--json-compact` | Emit JSON formats without indentation |
-| `--output <path>` | Write to a file instead of stdout |
+| `--output <path>` | Write to a file instead of stdout. With `--report`, where the HTML goes |
 | `--score` | Print only the number |
 | `--report` | Build the interactive HTML report. `--graph` is an alias |
 | `--timings <path>` | Overlay boot timings on the report's module graph. See [Boot trace](/docs/report/boot-trace) |
+
+`--report` writes HTML rather than a payload, so it refuses to share a run with
+`--format`, `--json` or `--score`. Any of those combinations exits `2` and names
+the flag. Run them as separate commands.
 
 Only the payload goes to stdout, so a machine-readable one stays parseable.
 Warnings print on stderr.
@@ -102,7 +111,7 @@ Every run ends in one of three codes:
 |------|---------|
 | `0` | Passed |
 | `1` | A gate failed |
-| `2` | Bad input: the path does not exist, or a flag is invalid |
+| `2` | Bad input: the path does not exist, a flag is invalid, or two flags conflict |
 
 The score gate is checked before the severity gate, so a run below `--min-score`
 exits `1` whether or not any diagnostic was blocking.

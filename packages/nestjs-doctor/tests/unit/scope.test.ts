@@ -174,3 +174,71 @@ describe("resolveScope", () => {
 		expect(result.warnings.join(" ")).toContain("git repository");
 	});
 });
+
+describe("findings above the scanned directory", () => {
+	const rootManifest = {
+		filePath: "/repo/package.json",
+		rule: "security/no-advisory-nestjs-packages",
+		severity: "warning" as const,
+		message: "affected",
+		help: "upgrade",
+		line: 3,
+		column: 1,
+		category: "security" as const,
+	};
+	const inTree = {
+		...rootManifest,
+		filePath: "/repo/apps/api/src/a.ts",
+		line: 9,
+	};
+	const repo = {
+		prefix: "apps/api",
+		root: "/repo",
+		targetPath: "/repo/apps/api",
+	};
+
+	it("keeps a finding the changed-file set cannot speak to", () => {
+		const kept = applyScope([rootManifest, inTree], {
+			baseRef: "main",
+			files: new Set(["/repo/apps/api/src/a.ts"]),
+			lineRanges: null,
+			mode: "files",
+			repo,
+			requestedMode: "files",
+			warnings: [],
+		});
+
+		expect(kept).toHaveLength(2);
+	});
+
+	it("keeps it under lines scope too, where no hunk can contain it", () => {
+		const kept = applyScope([rootManifest, inTree], {
+			baseRef: "main",
+			files: new Set(["/repo/apps/api/src/a.ts"]),
+			lineRanges: new Map([
+				["/repo/apps/api/src/a.ts", [{ start: 1, end: 20 }]],
+			]),
+			mode: "lines",
+			repo,
+			requestedMode: "lines",
+			warnings: [],
+		});
+
+		expect(kept.map((d) => d.filePath)).toContain("/repo/package.json");
+	});
+
+	it("still drops an unchanged file inside the scanned tree", () => {
+		const other = { ...inTree, filePath: "/repo/apps/api/src/b.ts" };
+		const kept = applyScope([other], {
+			baseRef: "main",
+			files: new Set(["/repo/apps/api/src/a.ts"]),
+			lineRanges: null,
+			mode: "files",
+			repo,
+			requestedMode: "files",
+			warnings: [],
+		});
+
+		expect(kept).toEqual([]);
+	});
+});

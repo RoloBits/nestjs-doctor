@@ -15,6 +15,9 @@ npx nestjs-doctor@latest . --report
 Writes `nestjs-doctor-report.html` to the project root and opens it. One file,
 no server, no build step. Commit it or attach it to a pull request.
 
+`--output` names a different path, which keeps the file out of the repository
+being scanned.
+
 Three things load from the network when opened. The graph layout library and
 the logo are one request each. The code viewer is a CodeMirror import map, so
 it pulls 18 modules from esm.sh.

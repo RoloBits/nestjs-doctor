@@ -12,10 +12,7 @@ const IDENTITY_SEPARATOR = "\u0000";
 /** Path of `filePath` relative to `targetPath`, always with forward slashes. */
 export function toRelativePath(targetPath: string, filePath: string): string {
 	const rel = relative(targetPath, filePath);
-	const normalized = (rel || filePath).replace(BACKSLASH_RE, "/");
-	return normalized.startsWith("../")
-		? filePath.replace(BACKSLASH_RE, "/")
-		: normalized;
+	return (rel || filePath).replace(BACKSLASH_RE, "/");
 }
 
 /** The source text of the line a diagnostic points at, if it was captured. */
