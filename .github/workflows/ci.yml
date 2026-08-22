@@ -30,8 +30,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - run: pnpm knip
-      - run: pnpm typecheck
+      # The LSP typechecks against nestjs-doctor's built .d.mts, so build first.
       - run: pnpm build
+      - run: pnpm typecheck
       - run: pnpm --filter nestjs-doctor smoke:packed
 
   test:
