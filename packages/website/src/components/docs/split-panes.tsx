@@ -45,7 +45,9 @@ export const SplitPanes = ({
 
 	const onPointerUp = useCallback((event: React.PointerEvent) => {
 		dragging.current = false;
-		event.currentTarget.releasePointerCapture(event.pointerId);
+		if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+			event.currentTarget.releasePointerCapture(event.pointerId);
+		}
 	}, []);
 
 	const onKeyDown = useCallback((event: React.KeyboardEvent) => {
@@ -81,6 +83,7 @@ export const SplitPanes = ({
 				aria-valuenow={Math.round(pct)}
 				className="group relative cursor-col-resize touch-none border-0 bg-white/10 p-0 transition-colors hover:bg-nest-red focus-visible:bg-nest-red focus-visible:outline-none"
 				onKeyDown={onKeyDown}
+				onPointerCancel={onPointerUp}
 				onPointerDown={onPointerDown}
 				onPointerMove={onPointerMove}
 				onPointerUp={onPointerUp}

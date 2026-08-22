@@ -124,7 +124,7 @@ const ShareContent = () => {
 
 			<div className="mt-8 flex flex-wrap items-center gap-3">
 				<a
-					className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap border border-white/20 bg-white px-3 py-1.5 text-black transition-all hover:bg-white/90 active:scale-[0.98]"
+					className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap border border-white/20 bg-white px-3 py-1.5 text-black transition-[background-color,transform] hover:bg-white/90 active:scale-[0.98]"
 					href={twitterShareUrl}
 					rel="noreferrer"
 					target="_blank"
@@ -141,7 +141,7 @@ const ShareContent = () => {
 					Share on X
 				</a>
 				<a
-					className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap border border-white/20 bg-white px-3 py-1.5 text-black transition-all hover:bg-white/90 active:scale-[0.98]"
+					className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap border border-white/20 bg-white px-3 py-1.5 text-black transition-[background-color,transform] hover:bg-white/90 active:scale-[0.98]"
 					href={linkedinShareUrl}
 					rel="noreferrer"
 					target="_blank"

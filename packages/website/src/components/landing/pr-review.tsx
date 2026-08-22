@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Figure, Section } from "./primitives";
 
 const G = {
@@ -244,13 +245,12 @@ const PullRequestMock = () => (
 					>
 						<BotName>
 							<span>commented on</span>
-							<a
+							<span
 								className="font-mono no-underline"
-								href="#diff"
 								style={{ color: G.blue }}
 							>
 								src/orders/orders.controller.ts
-							</a>
+							</span>
 						</BotName>
 					</div>
 					<div className="font-mono text-[11px] leading-[1.8]">
@@ -316,13 +316,9 @@ const PullRequestMock = () => (
 						</span>
 						<b className="font-semibold text-[#e6edf3]">test</b>
 						<span style={{ color: G.mut }}>— 214 passed in 38s</span>
-						<a
-							className="ml-auto no-underline"
-							href="#run"
-							style={{ color: G.blue }}
-						>
+						<span className="ml-auto no-underline" style={{ color: G.blue }}>
 							Details
-						</a>
+						</span>
 					</div>
 					<div
 						className="flex items-center gap-2 border-t px-3 py-2"
@@ -338,13 +334,9 @@ const PullRequestMock = () => (
 						<span style={{ color: G.mut }}>
 							— score 79 is below the 80 gate
 						</span>
-						<a
-							className="ml-auto no-underline"
-							href="#run"
-							style={{ color: G.blue }}
-						>
+						<span className="ml-auto no-underline" style={{ color: G.blue }}>
 							Details
-						</a>
+						</span>
 					</div>
 				</div>
 
@@ -376,12 +368,12 @@ export const PrReview = () => (
 					introduces, and blocks at the severity you choose.
 				</p>
 				<p>
-					<a
+					<Link
 						className="text-nest-red underline underline-offset-4"
 						href="/docs/ci"
 					>
 						CI docs →
-					</a>
+					</Link>
 				</p>
 			</>
 		}

@@ -7,7 +7,7 @@ export const Doc = ({ children }: { children: ReactNode }) => (
 	</div>
 );
 
-export const Label = ({
+const Label = ({
 	children,
 	className = "",
 }: {
