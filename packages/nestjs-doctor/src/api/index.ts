@@ -23,6 +23,7 @@ export type {
 } from "../common/diagnostic.js";
 // biome-ignore lint/performance/noBarrelFile: this is the public API surface
 export {
+	forSurface,
 	isCodeDiagnostic,
 	isSchemaDiagnostic,
 	onSurface,

@@ -2738,6 +2738,7 @@ function renderDiagnosis() {
       const el = document.getElementById(hideable[hi]);
       if (el) el.style.display = anyNotScored ? "" : "none";
     }
+    showNotScored = notScoredToggle.checked;
     notScoredToggle.addEventListener("change", function() {
       showNotScored = this.checked;
       updateTreeVisibility();

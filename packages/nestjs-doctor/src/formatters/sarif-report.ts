@@ -1,6 +1,6 @@
 import { pathToFileURL } from "node:url";
 import type { Diagnostic, Severity } from "../common/diagnostic.js";
-import { isCodeDiagnostic } from "../common/diagnostic.js";
+import { forSurface, isCodeDiagnostic } from "../common/diagnostic.js";
 import type { DiagnoseResult } from "../common/result.js";
 import { fingerprint, toRelativePath } from "../engine/fingerprint.js";
 import { getRules } from "../engine/rules/index.js";
@@ -143,9 +143,10 @@ export function buildSarifLog(
 	targetPath: string,
 	version: string
 ): SarifLog {
-	const { rules, indexById } = buildRuleCatalogue(result.diagnostics);
+	const diagnostics = forSurface(result.diagnostics, "prComment");
+	const { rules, indexById } = buildRuleCatalogue(diagnostics);
 
-	const results: SarifResult[] = result.diagnostics.map((diagnostic) => {
+	const results: SarifResult[] = diagnostics.map((diagnostic) => {
 		const isCode = isCodeDiagnostic(diagnostic);
 		return {
 			ruleId: diagnostic.rule,

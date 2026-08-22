@@ -21,7 +21,7 @@ pnpm dev          # Watch mode
 pnpm test         # Run tests (Vitest)
 pnpm check        # Lint with Biome (via Ultracite)
 pnpm fix          # Auto-fix lint + formatting
-pnpm typecheck    # TypeScript type checking
+pnpm typecheck    # TypeScript type checking (run it after pnpm build)
 pnpm knip         # Find unused files, exports, and dependencies
 ```
 
@@ -195,11 +195,14 @@ Always test both directions: code that should trigger the rule and code that sho
 ### 5. Verify
 
 ```bash
-pnpm test         # All tests pass
 pnpm check        # Linting passes
-pnpm typecheck    # No type errors
+pnpm test         # All tests pass
 pnpm build        # Build succeeds
+pnpm typecheck    # No type errors
 ```
+
+`typecheck` runs last because the LSP package resolves `nestjs-doctor` to its
+built `dist` types. On a clean checkout it fails until `build` has run.
 
 If all of those pass, the pre-commit hook will too.
 

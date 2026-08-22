@@ -1,8 +1,9 @@
 import type { Category, Diagnostic } from "../common/diagnostic.js";
-import { isCodeDiagnostic, onSurface } from "../common/diagnostic.js";
+import { isCodeDiagnostic } from "../common/diagnostic.js";
 import type { DiagnoseResult, MonorepoResult } from "../common/result.js";
 import type { ScopeInfo } from "../common/scope.js";
 import { toRelativePath } from "../engine/fingerprint.js";
+import { withSurface } from "../engine/result-builder.js";
 
 /** Square logo, sized to sit on the heading's baseline. */
 const LOGO =
@@ -135,9 +136,7 @@ function renderFindingsTable(
 		return [];
 	}
 
-	const sorted = sortDiagnostics(
-		result.diagnostics.filter((d) => onSurface(d, "prComment"))
-	);
+	const sorted = sortDiagnostics(result.diagnostics);
 	const shown = sorted.slice(0, MAX_TABLE_ROWS);
 	const rows = shown.map(
 		(diagnostic) =>
@@ -176,10 +175,10 @@ function renderMonorepoTable(monorepo: MonorepoResult | undefined): string[] {
 		"",
 		"| Project | Score | Findings |",
 		"| --- | ---: | ---: |",
-		...monorepo.subProjects.map(
-			({ name, result }) =>
-				`| \`${name}\` | ${result.score.value}/100 | ${result.summary.total} |`
-		),
+		...monorepo.subProjects.map(({ name, result }) => {
+			const shown = withSurface(result, "prComment");
+			return `| \`${name}\` | ${result.score.value}/100 | ${shown.summary.total} |`;
+		}),
 		"",
 		"</details>",
 	];
@@ -205,18 +204,21 @@ export function buildMarkdownReport(
 	options: MarkdownReportOptions
 ): string {
 	const warnings = (options.warnings ?? []).filter(Boolean);
+	// Every renderer below reads the same narrowed result, so the headline, the
+	// category table and the rows cannot disagree about how many findings exist.
+	const shown = withSurface(result, "prComment");
 
 	return [
 		MARKDOWN_COMMENT_MARKER,
 		`## ${LOGO} nestjs-doctor`,
 		"",
-		renderHeadline(result, options.scope),
+		renderHeadline(shown, options.scope),
 		...renderScopeNote(options.scope),
 		...(warnings.length
 			? ["", "> [!NOTE]", ...warnings.map((warning) => `> ${warning}`)]
 			: []),
-		...renderCategoryTable(result),
-		...renderFindingsTable(result, options.targetPath),
+		...renderCategoryTable(shown),
+		...renderFindingsTable(shown, options.targetPath),
 		...renderMonorepoTable(options.monorepo),
 		...renderFooter(options),
 		"",

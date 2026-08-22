@@ -1,6 +1,6 @@
 import { appendFileSync } from "node:fs";
 import type { Diagnostic, Severity } from "../../common/diagnostic.js";
-import { isCodeDiagnostic } from "../../common/diagnostic.js";
+import { forSurface, isCodeDiagnostic } from "../../common/diagnostic.js";
 import type { DiagnoseResult } from "../../common/result.js";
 import { toRelativePath } from "../../engine/fingerprint.js";
 import {
@@ -74,7 +74,7 @@ export function buildAnnotations(
 	};
 	const lines: string[] = [];
 
-	for (const diagnostic of result.diagnostics) {
+	for (const diagnostic of forSurface(result.diagnostics, "prComment")) {
 		const level = LEVEL_BY_SEVERITY[diagnostic.severity];
 		if (emitted[level] >= MAX_ANNOTATIONS_PER_LEVEL) {
 			continue;

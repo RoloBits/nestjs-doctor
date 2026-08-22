@@ -60,3 +60,9 @@ export const onSurface = (
 	diagnostic: BaseDiagnostic,
 	surface: DiagnosticSurface
 ): boolean => diagnostic.surfaces?.includes(surface) ?? true;
+
+/** The diagnostics a surface is allowed to show. */
+export const forSurface = <T extends BaseDiagnostic>(
+	diagnostics: T[],
+	surface: DiagnosticSurface
+): T[] => diagnostics.filter((diagnostic) => onSurface(diagnostic, surface));

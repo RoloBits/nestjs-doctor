@@ -1,5 +1,5 @@
 import type { Diagnostic, Severity } from "../common/diagnostic.js";
-import { isCodeDiagnostic } from "../common/diagnostic.js";
+import { forSurface, isCodeDiagnostic } from "../common/diagnostic.js";
 import type { DiagnoseResult } from "../common/result.js";
 import { fingerprint, toRelativePath } from "../engine/fingerprint.js";
 
@@ -26,16 +26,20 @@ export function buildCodeQualityReport(
 	result: DiagnoseResult,
 	targetPath: string
 ): CodeQualityIssue[] {
-	return result.diagnostics.map((diagnostic: Diagnostic) => ({
-		description: `${diagnostic.message} ${diagnostic.help}`.trim(),
-		check_name: diagnostic.rule,
-		fingerprint: fingerprint(diagnostic, targetPath),
-		severity: SEVERITY_MAP[diagnostic.severity],
-		location: {
-			path: toRelativePath(targetPath, diagnostic.filePath),
-			lines: {
-				begin: isCodeDiagnostic(diagnostic) ? Math.max(1, diagnostic.line) : 1,
+	return forSurface(result.diagnostics, "prComment").map(
+		(diagnostic: Diagnostic) => ({
+			description: `${diagnostic.message} ${diagnostic.help}`.trim(),
+			check_name: diagnostic.rule,
+			fingerprint: fingerprint(diagnostic, targetPath),
+			severity: SEVERITY_MAP[diagnostic.severity],
+			location: {
+				path: toRelativePath(targetPath, diagnostic.filePath),
+				lines: {
+					begin: isCodeDiagnostic(diagnostic)
+						? Math.max(1, diagnostic.line)
+						: 1,
+				},
 			},
-		},
-	}));
+		})
+	);
 }

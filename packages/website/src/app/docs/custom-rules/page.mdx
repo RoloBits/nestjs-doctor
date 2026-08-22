@@ -64,9 +64,12 @@ A rule appears on four surfaces by default:
 | Surface | Where |
 | ------- | ----- |
 | `cli` | The console report and the HTML report |
-| `prComment` | The pull request summary and its inline review comments |
+| `prComment` | The pull request summary, its inline review comments, the GitHub annotations, `--format sarif` and `--format gitlab` |
 | `score` | The 0-100 number |
 | `ciFailure` | `--blocking` |
+
+`--format json` is the exception: it carries every finding, with `surfaces` on
+each one, so a consumer filters however it wants.
 
 Naming a subset narrows it:
 

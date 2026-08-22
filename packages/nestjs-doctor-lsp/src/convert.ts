@@ -1,5 +1,5 @@
 import { pathToFileURL } from "node:url";
-import { type Diagnostic, onSurface, type Severity } from "nestjs-doctor";
+import type { Diagnostic, DiagnosticSurface, Severity } from "nestjs-doctor";
 import {
 	DiagnosticSeverity,
 	type Diagnostic as LspDiagnostic,
@@ -11,6 +11,11 @@ const severityMap: Record<Severity, DiagnosticSeverity> = {
 	info: DiagnosticSeverity.Information,
 };
 
+/** Inlined rather than imported: nestjs-doctor is resolved from the user's
+ *  workspace, so the server bundle must not require it. */
+const on = (d: Diagnostic, surface: DiagnosticSurface): boolean =>
+	d.surfaces?.includes(surface) ?? true;
+
 function toRange(line: number, column: number) {
 	const l = Math.max(line - 1, 0);
 	const c = Math.max(column - 1, 0);
@@ -19,16 +24,14 @@ function toRange(line: number, column: number) {
 
 function toLspDiagnostic(d: Diagnostic): LspDiagnostic {
 	const range = "line" in d ? toRange(d.line, d.column) : toRange(1, 1);
-	// A report-only rule shows as a hint, so it stays visible while you edit
-	// without adding to the warning count beside real defects.
-	const notScored = !onSurface(d, "score");
+	const advisory = !(on(d, "score") || on(d, "ciFailure"));
 	return {
 		range,
-		severity: notScored ? DiagnosticSeverity.Hint : severityMap[d.severity],
+		severity: advisory ? DiagnosticSeverity.Hint : severityMap[d.severity],
 		code: d.rule,
 		source: "nestjs-doctor",
 		message: d.message,
-		data: { category: d.category, help: d.help, notScored },
+		data: { advisory, category: d.category, help: d.help },
 	};
 }
 

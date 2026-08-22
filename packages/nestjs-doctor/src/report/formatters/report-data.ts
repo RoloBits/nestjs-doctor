@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { forSurface } from "../../common/diagnostic.js";
 import type { DiagnoseResult } from "../../common/result.js";
 import type { ModuleGraph } from "../../engine/graph/module-graph.js";
 import type { ProviderInfo } from "../../engine/graph/type-resolver.js";
@@ -69,14 +70,15 @@ export function prepareReportData(
 		options?.timings
 	);
 
-	const diagnosticsWithoutSource = result.diagnostics.map((d) => {
+	const shown = forSurface(result.diagnostics, "cli");
+	const diagnosticsWithoutSource = shown.map((d) => {
 		if ("sourceLines" in d) {
 			const { sourceLines: _sl, ...rest } = d;
 			return rest;
 		}
 		return d;
 	});
-	const sourceLinesArray = result.diagnostics.map((d) =>
+	const sourceLinesArray = shown.map((d) =>
 		"sourceLines" in d ? (d.sourceLines ?? null) : null
 	);
 

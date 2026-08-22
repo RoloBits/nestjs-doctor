@@ -35,6 +35,49 @@ describe("filterRules surfaces", () => {
 		expect(only.meta.surfaces).toEqual(["cli"]);
 	});
 
+	it("keeps a class-instance rule callable through the override", () => {
+		class CountingRule {
+			meta = {
+				id: "custom/counting",
+				category: "correctness",
+				severity: "warning",
+				description: "counts",
+				help: "help",
+			};
+			seen = 0;
+			check() {
+				this.seen += 1;
+			}
+		}
+		const rule = new CountingRule() as unknown as AnyRule;
+		const config: NestjsDoctorConfig = {
+			rules: { "custom/counting": { surfaces: ["score"] } },
+		};
+
+		const [only] = filterRules(config, [rule]);
+		(only.check as () => void)();
+
+		expect(only.meta.surfaces).toEqual(["score"]);
+		expect((rule as unknown as CountingRule).seen).toBe(1);
+	});
+
+	it.each([
+		["a bare string", "cli"],
+		["an empty array", []],
+		["an unknown name", ["Score"]],
+		["a non-string entry", [1]],
+	])("ignores %s so the override cannot narrow", (_label, surfaces) => {
+		const rule = stubRule("correctness/example");
+		rule.meta.surfaces = ["cli", "score"];
+		const config = {
+			rules: { "correctness/example": { surfaces } },
+		} as unknown as NestjsDoctorConfig;
+
+		const [only] = filterRules(config, [rule]);
+
+		expect(only.meta.surfaces).toEqual(["cli", "score"]);
+	});
+
 	it("replaces them when the rule override names surfaces", () => {
 		const rule = stubRule("correctness/example");
 		rule.meta.surfaces = ["cli"];

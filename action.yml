@@ -363,7 +363,10 @@ runs:
             // alone rather than acting on nothing.
             return;
           }
-          const diagnostics = Array.isArray(report.diagnostics) ? report.diagnostics : [];
+          const all = Array.isArray(report.diagnostics) ? report.diagnostics : [];
+          // A rule kept off the prComment surface never comments on a pull
+          // request, and never counts as a reason to keep an old thread open.
+          const diagnostics = all.filter((d) => !d || !Array.isArray(d.surfaces) || d.surfaces.includes("prComment"));
 
           const MARKER = "<!-- nestjs-doctor:review -->";
           const KEY_RE = /<!-- nestjs-doctor:key ([A-Za-z0-9+/=]+) -->/;
@@ -437,8 +440,6 @@ runs:
           const wanted = new Map();
           for (const diagnostic of diagnostics) {
             if (!diagnostic || typeof diagnostic.line !== "number" || diagnostic.line <= 0) continue;
-            // A rule kept off the prComment surface never comments on a pull request.
-            if (Array.isArray(diagnostic.surfaces) && !diagnostic.surfaces.includes("prComment")) continue;
             const repoPath = toRepoPath(diagnostic.filePath);
             if (!repoPath) continue;
             const commentable = commentableByFile.get(repoPath);

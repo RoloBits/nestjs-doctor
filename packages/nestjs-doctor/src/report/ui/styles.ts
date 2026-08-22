@@ -471,15 +471,6 @@ body.mg-resizing { cursor: col-resize; user-select: none; }
   letter-spacing: 0.5px;
   width: 100%;
 }
-.collapse-all-btn {
-  display: flex; align-items: center; justify-content: center;
-  width: 28px; height: 28px; border-radius: 8px;
-  border: 1px solid var(--border); background: transparent;
-  color: var(--text-muted); cursor: pointer;
-  transition: all 0.15s; flex-shrink: 0; align-self: flex-start;
-}
-.collapse-all-btn:hover { border-color: var(--border-hover); color: var(--text); }
-.collapse-all-btn.all-collapsed { background: rgba(255,255,255,0.08); color: var(--white); border-color: var(--border-hover); }
 .sev-pill, .scope-pill {
   font-size: 11px; padding: 4px 12px; border-radius: 12px;
   border: 1px solid var(--border); background: transparent;
@@ -1175,6 +1166,12 @@ body.mg-resizing { cursor: col-resize; user-select: none; }
 }
 /* An icon sits near the left edge, so its tip has to open rightwards. */
 .st-icon.has-tip:is(:hover, :focus-visible)::after { left: 0; right: auto; top: calc(100% + 2px); }
+/* This one sits mid-card, so its tip opens rightwards and wraps. Sizing it
+   against the 13px icon would leave one word per line. */
+.ov-info.has-tip:is(:hover, :focus-visible)::after {
+  white-space: normal; width: max-content; max-width: 220px;
+  left: 0; right: auto; line-height: 1.4;
+}
 .schema-diagram-btn {
   width: 28px; height: 28px; justify-content: center;
   background: rgba(50,50,50,0.9);

@@ -1,5 +1,6 @@
 import { type Diagnostic, onSurface } from "../../common/diagnostic.js";
 import type { DiagnoseResult, MonorepoResult } from "../../common/result.js";
+import { withSurface } from "../../engine/result-builder.js";
 import { highlighter } from "../ui/highlighter.js";
 import { logger } from "../ui/logger.js";
 
@@ -230,9 +231,10 @@ const printDiagnostics = (
 // --- Main reporter ---
 
 export function printConsoleReport(
-	result: DiagnoseResult,
+	fullResult: DiagnoseResult,
 	verbose: boolean
 ): void {
+	const result = withSurface(fullResult, "cli");
 	const { score, diagnostics, project, summary, elapsedMs } = result;
 
 	logger.break();
