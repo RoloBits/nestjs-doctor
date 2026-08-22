@@ -1,0 +1,13 @@
+{
+  "name": "vulnerable-deps",
+  "version": "1.0.0",
+  "dependencies": {
+    "@nestjs/core": "^10.0.0",
+    "@nestjs/common": "^10.0.0",
+    "@nestjs/platform-fastify": "11.1.13",
+    "@nestjs/microservices": "workspace:*"
+  },
+  "devDependencies": {
+    "@nestjs/devtools-integration": "0.2.0"
+  }
+}
