@@ -15,27 +15,26 @@ const SidebarSection = ({
 	pathname: string;
 }) => {
 	const isActive = section.items.some((item) => item.href === pathname);
-	const [override, setOverride] = useState<boolean | null>(null);
+	const [isOpen, setIsOpen] = useState(isActive);
 	const [seenPathname, setSeenPathname] = useState(pathname);
 
-	// Adjusted while rendering rather than in an effect, so the section holding
-	// the new route is already open on the first paint. It drops only its own
-	// override: every other section keeps what the reader set, so following a
-	// link does not close the groups they opened to read alongside it.
+	// Entering a section opens it. Leaving one does not close it, and neither
+	// does opening another, so nothing in the sidebar ever collapses on its own:
+	// only the reader closes a section, by clicking its heading. Adjusted while
+	// rendering rather than in an effect, so the section holding the new route
+	// is already open on the first paint.
 	if (pathname !== seenPathname) {
 		setSeenPathname(pathname);
-		if (isActive && override !== null) {
-			setOverride(null);
+		if (isActive && !isOpen) {
+			setIsOpen(true);
 		}
 	}
-
-	const isOpen = override ?? isActive;
 
 	return (
 		<div className="mb-2">
 			<button
 				className="flex w-full items-center gap-2 py-1.5 font-bold text-[11px] text-white/75 uppercase tracking-[0.08em] hover:text-white"
-				onClick={() => setOverride(!isOpen)}
+				onClick={() => setIsOpen(!isOpen)}
 				type="button"
 			>
 				<ChevronRight
