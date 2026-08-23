@@ -67,7 +67,10 @@ const analysisText = (
 	if (phase === "parsing") {
 		return `Parsing files ${renderProgressBar(parsed ?? 0, total ?? 0)}`;
 	}
-	return "Analyzing the project structure";
+	if (total) {
+		return `Analyzing the project ${renderProgressBar(parsed ?? 0, total)}`;
+	}
+	return "Analyzing the project";
 };
 
 /** Handed to the post-scan menu so its actions reuse the finished scan. */

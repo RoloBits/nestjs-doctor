@@ -29,6 +29,7 @@ import {
 	isController,
 	resolveDecoratorWrapper,
 } from "../nest-class-inspector.js";
+import { yieldToEventLoop } from "../yield.js";
 import { extractSimpleTypeName, type ProviderInfo } from "./type-resolver.js";
 
 const MAX_TRACE_DEPTH = 10;
@@ -2038,6 +2039,30 @@ export function buildEndpointGraph(
 		endpoints.push(
 			...extractEndpointsFromFile(sourceFile, filePath, providers, cache)
 		);
+	}
+
+	return { endpoints };
+}
+
+/** Same graph, yielding to the event loop after every file it traces. */
+export async function buildEndpointGraphWithProgress(
+	project: Project,
+	files: string[],
+	providers: Map<string, ProviderInfo>,
+	onFile?: (traced: number, total: number) => void
+): Promise<EndpointGraph> {
+	const endpoints: EndpointNode[] = [];
+	const cache = new ScanCache();
+
+	for (let index = 0; index < files.length; index++) {
+		const sourceFile = project.getSourceFile(files[index]);
+		if (sourceFile) {
+			endpoints.push(
+				...extractEndpointsFromFile(sourceFile, files[index], providers, cache)
+			);
+		}
+		onFile?.(index + 1, files.length);
+		await yieldToEventLoop();
 	}
 
 	return { endpoints };
