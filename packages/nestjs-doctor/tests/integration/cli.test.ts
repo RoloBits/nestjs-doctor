@@ -33,7 +33,7 @@ describe("scanner integration", () => {
 		const targetPath = resolve(FIXTURES, "basic-app/src");
 		const scanConfig = await resolveScanConfig(targetPath);
 		const context = await buildAnalysisContext(targetPath, scanConfig);
-		const rawOutput = diagnose(context);
+		const rawOutput = await diagnose(context);
 		const { result } = buildResult(
 			context,
 			rawOutput,
@@ -54,7 +54,7 @@ describe("scanner integration", () => {
 		const configFiles = context.files.filter((f) => f.endsWith(".config.ts"));
 		expect(configFiles).toHaveLength(0);
 
-		const rawOutput = diagnose(context);
+		const rawOutput = await diagnose(context);
 		const { result } = buildResult(
 			context,
 			rawOutput,
@@ -67,7 +67,7 @@ describe("scanner integration", () => {
 		const targetPath = resolve(FIXTURES, "bad-practices/src");
 		const scanConfig = await resolveScanConfig(targetPath);
 		const context = await buildAnalysisContext(targetPath, scanConfig);
-		const rawOutput = diagnose(context);
+		const rawOutput = await diagnose(context);
 		const { result } = buildResult(
 			context,
 			rawOutput,
@@ -100,7 +100,7 @@ describe("scanner integration", () => {
 		const targetPath = resolve(FIXTURES, "bad-practices/src");
 		const scanConfig = await resolveScanConfig(targetPath);
 		const context = await buildAnalysisContext(targetPath, scanConfig);
-		const rawOutput = diagnose(context);
+		const rawOutput = await diagnose(context);
 		const { result } = buildResult(
 			context,
 			rawOutput,
@@ -121,7 +121,7 @@ describe("scanner integration", () => {
 		const targetPath = resolve(FIXTURES, "bad-practices/src");
 		const scanConfig = await resolveScanConfig(targetPath);
 		const context = await buildAnalysisContext(targetPath, scanConfig);
-		const rawOutput = diagnose(context);
+		const rawOutput = await diagnose(context);
 		const { result } = buildResult(
 			context,
 			rawOutput,
@@ -144,7 +144,7 @@ describe("scanner integration", () => {
 		const targetPath = resolve(FIXTURES, "bad-practices/src");
 		const scanConfig = await resolveScanConfig(targetPath);
 		const context = await buildAnalysisContext(targetPath, scanConfig);
-		const rawOutput = diagnose(context);
+		const rawOutput = await diagnose(context);
 		const { result } = buildResult(
 			context,
 			rawOutput,
@@ -159,7 +159,7 @@ describe("scanner integration", () => {
 		const targetPath = resolve(FIXTURES, "bad-architecture/src");
 		const scanConfig = await resolveScanConfig(targetPath);
 		const context = await buildAnalysisContext(targetPath, scanConfig);
-		const rawOutput = diagnose(context);
+		const rawOutput = await diagnose(context);
 		const { result } = buildResult(
 			context,
 			rawOutput,
@@ -197,7 +197,7 @@ describe("scanner integration", () => {
 		const targetPath = resolve(FIXTURES, "bad-architecture/src");
 		const scanConfig = await resolveScanConfig(targetPath);
 		const context = await buildAnalysisContext(targetPath, scanConfig);
-		const rawOutput = diagnose(context);
+		const rawOutput = await diagnose(context);
 		const { result } = buildResult(
 			context,
 			rawOutput,
@@ -215,7 +215,7 @@ describe("scanner integration", () => {
 			const targetPath = resolve(fixtureRoot, "src");
 			const scanConfig = await resolveScanConfig(targetPath);
 			const context = await buildAnalysisContext(targetPath, scanConfig);
-			const rawOutput = diagnose(context);
+			const rawOutput = await diagnose(context);
 			const { result } = buildResult(
 				context,
 				rawOutput,
@@ -233,7 +233,7 @@ describe("scanner integration", () => {
 			const configPath = resolve(fixtureRoot, "nestjs-doctor.config.json");
 			const scanConfig = await resolveScanConfig(targetPath, configPath);
 			const context = await buildAnalysisContext(targetPath, scanConfig);
-			const rawOutput = diagnose(context);
+			const rawOutput = await diagnose(context);
 			const { result } = buildResult(
 				context,
 				rawOutput,
@@ -487,7 +487,7 @@ describe("scanner integration", () => {
 		const targetPath = resolve(FIXTURES, "config-disable-rules/src");
 		const scanConfig = await resolveScanConfig(targetPath);
 		const context = await buildAnalysisContext(targetPath, scanConfig);
-		const rawOutput = diagnose(context);
+		const rawOutput = await diagnose(context);
 		const { result } = buildResult(
 			context,
 			rawOutput,
@@ -513,7 +513,7 @@ describe("scanner integration", () => {
 		);
 		const scanConfig = await resolveScanConfig(targetPath, configPath);
 		const context = await buildAnalysisContext(targetPath, scanConfig);
-		const rawOutput = diagnose(context);
+		const rawOutput = await diagnose(context);
 		const { result } = buildResult(
 			context,
 			rawOutput,
@@ -535,7 +535,7 @@ describe("scanner integration", () => {
 		const targetPath = resolve(FIXTURES, "graphql-app/src");
 		const scanConfig = await resolveScanConfig(targetPath);
 		const context = await buildAnalysisContext(targetPath, scanConfig);
-		const rawOutput = diagnose(context);
+		const rawOutput = await diagnose(context);
 		const { result } = buildResult(
 			context,
 			rawOutput,
@@ -572,7 +572,7 @@ describe("scanner integration", () => {
 		const targetPath = resolve(FIXTURES, "graphql-app/src");
 		const scanConfig = await resolveScanConfig(targetPath);
 		const context = await buildAnalysisContext(targetPath, scanConfig);
-		const rawOutput = diagnose(context);
+		const rawOutput = await diagnose(context);
 		const { result } = buildResult(
 			context,
 			rawOutput,
@@ -587,7 +587,7 @@ describe("scanner integration", () => {
 		const targetPath = resolve(FIXTURES, "dynamic-modules/src");
 		const scanConfig = await resolveScanConfig(targetPath);
 		const context = await buildAnalysisContext(targetPath, scanConfig);
-		const rawOutput = diagnose(context);
+		const rawOutput = await diagnose(context);
 		const { result } = buildResult(
 			context,
 			rawOutput,
@@ -614,7 +614,7 @@ describe("scanner integration", () => {
 		const targetPath = resolve(FIXTURES, "dynamic-modules/src");
 		const scanConfig = await resolveScanConfig(targetPath);
 		const context = await buildAnalysisContext(targetPath, scanConfig);
-		const rawOutput = diagnose(context);
+		const rawOutput = await diagnose(context);
 		const { result } = buildResult(
 			context,
 			rawOutput,
@@ -632,7 +632,7 @@ describe("scanner integration", () => {
 		const targetPath = resolve(FIXTURES, "cross-file-imports/src");
 		const scanConfig = await resolveScanConfig(targetPath);
 		const context = await buildAnalysisContext(targetPath, scanConfig);
-		const rawOutput = diagnose(context);
+		const rawOutput = await diagnose(context);
 		const { result } = buildResult(
 			context,
 			rawOutput,
@@ -664,7 +664,7 @@ describe("scanner integration", () => {
 		const targetPath = resolve(FIXTURES, "cross-file-monorepo/src");
 		const scanConfig = await resolveScanConfig(targetPath);
 		const context = await buildAnalysisContext(targetPath, scanConfig);
-		const rawOutput = diagnose(context);
+		const rawOutput = await diagnose(context);
 		const { result } = buildResult(
 			context,
 			rawOutput,
@@ -705,7 +705,7 @@ describe("scanner integration", () => {
 		const targetPath = resolve(FIXTURES, "cross-file-path-aliases/src");
 		const scanConfig = await resolveScanConfig(targetPath);
 		const context = await buildAnalysisContext(targetPath, scanConfig);
-		const rawOutput = diagnose(context);
+		const rawOutput = await diagnose(context);
 		const { result } = buildResult(
 			context,
 			rawOutput,
@@ -1100,7 +1100,7 @@ describe("scanner integration", () => {
 		const targetPath = resolve(FIXTURES, "bad-correctness/src");
 		const scanConfig = await resolveScanConfig(targetPath);
 		const context = await buildAnalysisContext(targetPath, scanConfig);
-		const rawOutput = diagnose(context);
+		const rawOutput = await diagnose(context);
 		const { result } = buildResult(
 			context,
 			rawOutput,
@@ -1129,7 +1129,7 @@ describe("scanner integration", () => {
 		const targetPath = resolve(FIXTURES, "bad-security/src");
 		const scanConfig = await resolveScanConfig(targetPath);
 		const context = await buildAnalysisContext(targetPath, scanConfig);
-		const rawOutput = diagnose(context);
+		const rawOutput = await diagnose(context);
 		const { result } = buildResult(
 			context,
 			rawOutput,
@@ -1151,7 +1151,7 @@ describe("scanner integration", () => {
 		const targetPath = resolve(FIXTURES, "bad-performance/src");
 		const scanConfig = await resolveScanConfig(targetPath);
 		const context = await buildAnalysisContext(targetPath, scanConfig);
-		const rawOutput = diagnose(context);
+		const rawOutput = await diagnose(context);
 		const { result } = buildResult(
 			context,
 			rawOutput,
@@ -1182,7 +1182,7 @@ describe("scanner integration", () => {
 		const targetPath = resolve(FIXTURES, "false-positives/src");
 		const scanConfig = await resolveScanConfig(targetPath);
 		const context = await buildAnalysisContext(targetPath, scanConfig);
-		const rawOutput = diagnose(context);
+		const rawOutput = await diagnose(context);
 		const { result } = buildResult(
 			context,
 			rawOutput,
@@ -1204,7 +1204,7 @@ describe("scanner integration", () => {
 		beforeAll(async () => {
 			const scanConfig = await resolveScanConfig(targetPath);
 			context = await buildAnalysisContext(targetPath, scanConfig);
-			const rawOutput = diagnose(context);
+			const rawOutput = await diagnose(context);
 			({ result } = buildResult(
 				context,
 				rawOutput,
@@ -1271,7 +1271,7 @@ describe("scanner integration", () => {
 		beforeAll(async () => {
 			const scanConfig = await resolveScanConfig(targetPath);
 			context = await buildAnalysisContext(targetPath, scanConfig);
-			const rawOutput = diagnose(context);
+			const rawOutput = await diagnose(context);
 			({ result } = buildResult(
 				context,
 				rawOutput,
@@ -1339,7 +1339,7 @@ describe("scanner integration", () => {
 		beforeAll(async () => {
 			const scanConfig = await resolveScanConfig(targetPath);
 			context = await buildAnalysisContext(targetPath, scanConfig);
-			const rawOutput = diagnose(context);
+			const rawOutput = await diagnose(context);
 			({ result } = buildResult(
 				context,
 				rawOutput,

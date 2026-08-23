@@ -13,7 +13,7 @@ async function scan(fixture: string) {
 	const targetPath = resolve(FIXTURES, fixture);
 	const scanConfig = await resolveScanConfig(targetPath);
 	const context = await buildAnalysisContext(targetPath, scanConfig);
-	return { context, output: diagnose(context) };
+	return { context, output: await diagnose(context) };
 }
 
 describe("global guard detection", () => {

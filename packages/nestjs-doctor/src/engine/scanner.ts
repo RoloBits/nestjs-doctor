@@ -56,8 +56,8 @@ export async function scanMonorepo(
 		targetPath,
 		scanConfig,
 		monorepo,
-		(_name, context) => {
-			const scanResult = buildResult(context, diagnose(context));
+		async (_name, context) => {
+			const scanResult = buildResult(context, await diagnose(context));
 			return {
 				...scanResult,
 				moduleGraph: detachModuleGraph(scanResult.moduleGraph),
@@ -84,7 +84,7 @@ export async function autoScan(
 		return { isMonorepo: true, monorepo: result };
 	}
 	const context = await buildAnalysisContext(targetPath, scanConfig);
-	const rawOutput = diagnose(context);
+	const rawOutput = await diagnose(context);
 	const result = buildResult(context, rawOutput, scanConfig.customRuleWarnings);
 	return { isMonorepo: false, single: result };
 }
