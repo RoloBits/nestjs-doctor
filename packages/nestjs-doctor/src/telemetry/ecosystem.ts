@@ -34,22 +34,42 @@ const DATABASES: readonly string[] = [
 
 /** Unscoped vendors only; the scoped families below cover the rest. */
 const CLOUD: readonly string[] = [
+	"@neondatabase/serverless",
+	"@planetscale/database",
 	"@supabase/supabase-js",
 	"aws-sdk",
 	"firebase-admin",
+	"miniflare",
+	"wrangler",
 ];
 
-/** Scope prefixes, so a whole vendor family counts without listing every package. */
+/**
+ * npm scopes are owned, so nothing but the vendor can publish under these. That
+ * makes the part after the slash safe to report as a sub-service without
+ * listing every one — `@aws-sdk/client-s3` becomes `aws:client-s3`.
+ */
 const CLOUD_SCOPES: [string, string][] = [
 	["@aws-sdk/", "aws"],
 	["@azure/", "azure"],
+	["@cloudflare/", "cloudflare"],
 	["@google-cloud/", "gcp"],
+	["@netlify/", "netlify"],
+	["@upstash/", "upstash"],
+	["@vercel/", "vercel"],
 ];
+
+/** An npm name segment, so a workspace package aliased into a vendor scope
+ * cannot smuggle anything odd into the payload. */
+const SAFE_SEGMENT = /^[a-z0-9][a-z0-9._-]{0,39}$/;
+
+/** Enough for any real project, and a ceiling on payload size. */
+const MAX_SERVICES = 40;
 
 const MESSAGING: readonly string[] = ["amqplib", "bullmq", "kafkajs", "nats"];
 
 export interface EcosystemFacts {
 	cloud: string[];
+	cloudServices: string[];
 	databases: string[];
 	frontend: string[];
 	messaging: string[];
@@ -58,6 +78,7 @@ export interface EcosystemFacts {
 
 const EMPTY: EcosystemFacts = {
 	cloud: [],
+	cloudServices: [],
 	databases: [],
 	frontend: [],
 	messaging: [],
@@ -84,15 +105,24 @@ export function detectEcosystem(
 	deps: Record<string, string> = {}
 ): EcosystemFacts {
 	const cloud = new Set(matched(deps, CLOUD));
+	const services = new Set<string>();
+
 	for (const name of Object.keys(deps)) {
 		const scope = CLOUD_SCOPES.find(([prefix]) => name.startsWith(prefix));
-		if (scope) {
-			cloud.add(scope[1]);
+		if (!scope) {
+			continue;
+		}
+		const [prefix, vendor] = scope;
+		cloud.add(vendor);
+		const service = name.slice(prefix.length);
+		if (SAFE_SEGMENT.test(service) && services.size < MAX_SERVICES) {
+			services.add(`${vendor}:${service}`);
 		}
 	}
 
 	return {
 		cloud: [...cloud].sort(),
+		cloudServices: [...services].sort(),
 		databases: matched(deps, DATABASES),
 		frontend: matched(deps, FRONTEND),
 		messaging: matched(deps, MESSAGING),

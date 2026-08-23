@@ -25,6 +25,7 @@ const facts = (overrides: Partial<ScanFacts> = {}): ScanFacts => ({
 	disabledRuleIds: [],
 	ecosystem: {
 		cloud: [],
+		cloudServices: [],
 		databases: [],
 		frontend: [],
 		messaging: [],

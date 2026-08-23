@@ -31,6 +31,7 @@ export interface ScanFacts {
 
 export interface ScanPayload {
 	cloud: string[];
+	cloud_services: string[];
 	custom_rules_loaded: number;
 	databases: string[];
 	duration_ms: number;
@@ -82,6 +83,7 @@ export function buildScanPayload(
 
 	return {
 		cloud: facts.ecosystem.cloud,
+		cloud_services: facts.ecosystem.cloudServices,
 		custom_rules_loaded: facts.customRulesLoaded,
 		databases: facts.ecosystem.databases,
 		duration_ms: Math.round(facts.elapsedMs),
