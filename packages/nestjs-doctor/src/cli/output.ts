@@ -45,7 +45,7 @@ const resolveRunUrl = (): string | undefined => {
 	return `${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}`;
 };
 
-/** Applies both gates, exiting when either fails. */
+/** Applies both gates, marking the process failed when either trips. */
 function enforceGates(
 	result: DiagnoseResult,
 	resolvedMinimumScore: number | undefined,
@@ -59,11 +59,12 @@ function enforceGates(
 				`Score ${score} is below the minimum threshold of ${resolvedMinimumScore}.`
 			);
 		}
-		process.exit(FAILURE_EXIT_CODE);
+		process.exitCode = FAILURE_EXIT_CODE;
+		return;
 	}
 
 	if (shouldBlock(result.diagnostics, options.blocking)) {
-		process.exit(FAILURE_EXIT_CODE);
+		process.exitCode = FAILURE_EXIT_CODE;
 	}
 }
 

@@ -77,6 +77,17 @@ and every format except `console` and `github`. A custom rule that failed to
 load is silent, and a run below `--min-score` exits `1` with no message on
 either stream.
 
+## The menu
+
+A console scan in a terminal ends with a short menu: open the HTML report,
+scaffold the GitHub Actions workflow when it is missing, or copy the findings
+as markdown. The report comes from the scan that just ran, so nothing is
+scanned twice.
+
+The menu never appears where it could hang a machine. It is skipped in CI,
+inside coding agents, in pipes, in `dumb` terminals, and in every mode other
+than plain `console` output. Quitting keeps the run's exit code.
+
 ## Gates
 
 | Flag | Does |
