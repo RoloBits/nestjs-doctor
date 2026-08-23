@@ -51,9 +51,24 @@ import {
 } from "./output.js";
 import type { PipelineOptions } from "./setup.js";
 import { logger } from "./ui/logger.js";
+import { renderProgressBar } from "./ui/progress-bar.js";
 import { spinner } from "./ui/spinner.js";
 
 type PipelineStep = () => void | Promise<void>;
+
+const analysisText = (
+	phase: "collecting" | "parsing" | "analyzing",
+	parsed?: number,
+	total?: number
+): string => {
+	if (phase === "collecting") {
+		return "Collecting files";
+	}
+	if (phase === "parsing") {
+		return `Parsing files ${renderProgressBar(parsed ?? 0, total ?? 0)}`;
+	}
+	return "Analyzing the project structure";
+};
 
 /** Handed to the post-scan menu so its actions reuse the finished scan. */
 export interface InteractiveArtifacts {
@@ -300,6 +315,8 @@ export class MonorepoPipeline extends ScanPipeline {
 		this.monorepo = monorepo;
 	}
 
+	private projectLabel = "";
+
 	buildContext(): this {
 		this.steps.push(() => {
 			this.scanStartTime = performance.now();
@@ -317,6 +334,7 @@ export class MonorepoPipeline extends ScanPipeline {
 					if (context.config?.telemetry === false) {
 						this.subProjectOptOut = true;
 					}
+					const label = this.projectLabel || name;
 					this.allFiles.push(...context.files);
 					for (const root of collectEntryModules(
 						context.astProject,
@@ -338,7 +356,7 @@ export class MonorepoPipeline extends ScanPipeline {
 					}
 					const rawOutput = await diagnose(context, (checked, total) => {
 						this.progress?.update(
-							`${name} — running rules (${checked}/${total} files)`
+							`${label} — running rules ${renderProgressBar(checked, total)}`
 						);
 					});
 					const scanResult = buildResult(context, rawOutput);
@@ -349,8 +367,12 @@ export class MonorepoPipeline extends ScanPipeline {
 					};
 				},
 				(name, index, total) => {
+					this.projectLabel = `${name} (${index}/${total})`;
+					this.progress?.update(`${this.projectLabel} — collecting files`);
+				},
+				(_name, phase, parsed, total) => {
 					this.progress?.update(
-						`${name} (${index}/${total}) — collecting and parsing files`
+						`${this.projectLabel} — ${analysisText(phase, parsed, total).toLowerCase()}`
 					);
 				}
 			);
@@ -450,10 +472,12 @@ export class SingleProjectPipeline extends ScanPipeline {
 
 	buildContext(): this {
 		this.steps.push(async () => {
-			this.progress?.update("Collecting and parsing files");
 			this.context = await buildAnalysisContext(
 				this.targetPath,
-				this.scanConfig
+				this.scanConfig,
+				(phase, parsed, total) => {
+					this.progress?.update(analysisText(phase, parsed, total));
+				}
 			);
 		});
 		return this;
@@ -462,7 +486,9 @@ export class SingleProjectPipeline extends ScanPipeline {
 	runRules(): this {
 		this.steps.push(async () => {
 			this.rawOutput = await diagnose(this.context, (checked, total) => {
-				this.progress?.update(`Running rules — ${checked}/${total} files`);
+				this.progress?.update(
+					`Running rules ${renderProgressBar(checked, total)}`
+				);
 			});
 		});
 		return this;

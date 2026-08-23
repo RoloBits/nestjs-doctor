@@ -1,11 +1,13 @@
 import { Project } from "ts-morph";
+import { YIELD_INTERVAL, yieldToEventLoop } from "../yield.js";
 import type { PathAliasMap } from "./tsconfig-paths.js";
 
-export function createAstParser(
+export async function createAstParser(
 	files: string[],
 	pathAliases?: PathAliasMap,
-	baseUrl?: string
-): Project {
+	baseUrl?: string,
+	onFileParsed?: (parsed: number, total: number) => void
+): Promise<Project> {
 	const project = new Project({
 		compilerOptions: {
 			strict: true,
@@ -21,8 +23,12 @@ export function createAstParser(
 		skipAddingFilesFromTsConfig: true,
 	});
 
-	for (const file of files) {
-		project.addSourceFileAtPath(file);
+	for (let index = 0; index < files.length; index++) {
+		project.addSourceFileAtPath(files[index]);
+		onFileParsed?.(index + 1, files.length);
+		if ((index + 1) % YIELD_INTERVAL === 0) {
+			await yieldToEventLoop();
+		}
 	}
 
 	return project;

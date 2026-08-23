@@ -13,6 +13,7 @@ import {
 // biome-ignore lint/performance/noBarrelFile: re-exports preserve backward compatibility for all consumers
 export {
 	type AnalysisContext,
+	type AnalysisProgress,
 	buildAnalysisContext,
 	prepareAnalysis,
 	reduceSubProjects,
