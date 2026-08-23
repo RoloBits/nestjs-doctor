@@ -122,11 +122,13 @@ function emit(
 
 	// `console` and `github` still print the human-readable report; every other
 	// format replaces it.
+	// The menu owns the findings in an interactive run; --verbose still dumps.
+	const summaryOnly = options.interactive && !options.verbose;
 	if (options.format === "console" || options.format === "github") {
 		if (monorepo) {
-			printMonorepoReport(monorepo, options.verbose);
+			printMonorepoReport(monorepo, options.verbose, summaryOnly);
 		} else {
-			printConsoleReport(result, options.verbose);
+			printConsoleReport(result, options.verbose, summaryOnly);
 		}
 	}
 }

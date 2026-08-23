@@ -94,7 +94,10 @@ abstract class ScanPipeline {
 	protected resolvedMinimumScore: number | undefined;
 	protected scanConfig!: ScanConfig;
 	/** Live spinner handle while `run` is in flight; steps update its text. */
-	protected progress: { update(text: string): void } | null = null;
+	protected progress: {
+		succeed(text: string): void;
+		update(text: string): void;
+	} | null = null;
 	/** Set when any scanned sub-project declares its own opt-out. */
 	protected subProjectOptOut = false;
 	/** Warnings raised while narrowing the scope; surfaced alongside the report. */
@@ -185,6 +188,7 @@ abstract class ScanPipeline {
 
 	warnCustomRules(): this {
 		this.steps.push(() => {
+			this.stopProgress();
 			displayCustomRuleWarnings(
 				this.scanConfig.customRuleWarnings,
 				this.options.isMachineReadable
@@ -247,18 +251,22 @@ abstract class ScanPipeline {
 		);
 	}
 
+	/** Ends the spinner so nothing prints through an active frame. */
+	protected stopProgress(): void {
+		this.progress?.succeed("Scan complete");
+		this.progress = null;
+	}
+
 	async run(): Promise<void> {
-		const progress = this.options.isMachineReadable
+		this.progress = this.options.isMachineReadable
 			? null
 			: spinner("Scanning...").start();
-		this.progress = progress;
 
 		for (const step of this.steps) {
 			await step();
 		}
 
-		this.progress = null;
-		progress?.succeed("Scan complete");
+		this.stopProgress();
 	}
 }
 
