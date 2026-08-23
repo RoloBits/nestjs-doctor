@@ -60,7 +60,7 @@ const Home = () => (
 				<div className="flex flex-wrap justify-between gap-3 font-bold text-[11px] text-white/75 uppercase tracking-[0.1em]">
 					<span>nestjs-doctor · MIT</span>
 					<span className="normal-case tracking-[0.06em]">
-						no telemetry · no network calls at scan time ·{" "}
+						no network calls at scan time ·{" "}
 						<a
 							className="text-white/75 underline decoration-white/30 underline-offset-2 transition-colors hover:text-white hover:decoration-white"
 							href="https://x.com/FranLoPy"
