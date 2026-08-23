@@ -6,8 +6,10 @@ const POSTHOG_KEY = "phc_BGjn97jvL862fdhHAKzJ7mhuXBZm8CEe83ENuMvpCgdD";
 const POSTHOG_HOST = "https://us.i.posthog.com";
 
 /**
- * Inline beacon for the generated report. Posts two fixed events and reads
- * nothing from the page, so no path, project name, or source text can leave.
+ * Inline beacon for the generated report. Every string it posts is either a
+ * constant or a name from SECTIONS/ACTIONS, and the only measured values are
+ * click coordinates as viewport percentages, so no path, project name, or
+ * source text can leave.
  */
 export function getTelemetryScript(version: string): string {
 	return POSTHOG_KEY ? buildBeacon(POSTHOG_KEY, version, generatedIn()) : "";
@@ -25,7 +27,7 @@ export function buildBeacon(
   var VERSION = ${JSON.stringify(version)};
   var SOURCE = ${JSON.stringify(source)};
   var SECTIONS = ["summary", "diagnosis", "modules", "endpoints", "schema", "lab"];
-  var ACTIONS = ["rule_lab_run", "rule_lab_preset_loaded", "rule_lab_scope_changed", "rule_lab_result_opened", "rule_lab_code_edited", "rule_lab_metadata_changed", "module_opened_from_finding", "graph_recentered", "graph_zoomed", "graph_sidebar_toggled", "module_tree_expanded", "schema_tree_expanded", "endpoint_code_opened", "boot_trace_opened"];
+  var ACTIONS = ["rule_lab_run", "rule_lab_preset_loaded", "rule_lab_scope_changed", "rule_lab_result_opened", "rule_lab_code_edited", "rule_lab_metadata_changed", "module_opened_from_finding", "module_opened_from_tree", "graph_recentered", "graph_zoomed", "graph_sidebar_toggled", "module_tree_expanded", "schema_tree_expanded", "endpoint_code_opened", "boot_trace_opened"];
   var id;
   try {
     id = crypto.randomUUID();
