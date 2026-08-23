@@ -26,11 +26,6 @@ No AI at scan time, and nothing about your code leaves the machine. The same
 commit scores the same on your laptop and in CI. Reads schemas from Prisma,
 TypeORM, Drizzle and MikroORM, and handles monorepos.
 
-A scan reports anonymous counts of which built-in rules fired, so the rule set
-can be improved. No code, no file paths, no project or custom rule names.
-`--no-telemetry`, `telemetry: false` in the config, or `DO_NOT_TRACK=1` turns it
-off.
-
 [Website →](https://nestjs.doctor/docs)
 
 ## Install

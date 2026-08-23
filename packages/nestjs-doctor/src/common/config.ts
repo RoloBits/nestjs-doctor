@@ -27,7 +27,6 @@ export interface NestjsDoctorConfig {
 	minScore?: number;
 	report?: NestjsDoctorReportConfig;
 	rules?: Record<string, RuleOverride | boolean>;
-	/** Set false to stop a scan reporting anonymous rule counts. */
 	telemetry?: boolean;
 }
 
