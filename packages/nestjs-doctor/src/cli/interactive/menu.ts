@@ -6,6 +6,7 @@ import { openReportInBrowser, writeReportFile } from "../../report/output.js";
 import { ciWorkflowExists, installCiWorkflow } from "../ci-install.js";
 import { copyToClipboard } from "./clipboard.js";
 import { reviewFindings } from "./detail.js";
+import { handOffToAgent } from "./handoff.js";
 
 interface InteractiveContext {
 	buildReportHtml: () => string;
@@ -14,7 +15,7 @@ interface InteractiveContext {
 	version: string;
 }
 
-type MenuAction = "review" | "report" | "ci" | "markdown" | "quit";
+type MenuAction = "review" | "report" | "ci" | "handoff" | "markdown" | "quit";
 
 const openReport = async (context: InteractiveContext): Promise<void> => {
 	const working = spinner();
@@ -114,6 +115,15 @@ export const runInteractiveMenu = async (
 							},
 						]
 					: []),
+				...(findingCount > 0
+					? [
+							{
+								hint: "Start an agent with the findings, or copy the prompt",
+								label: "Hand off to an agent",
+								value: "handoff" as const,
+							},
+						]
+					: []),
 				{
 					hint: "The pull request summary, for pasting anywhere",
 					label: "Copy findings as markdown",
@@ -134,6 +144,8 @@ export const runInteractiveMenu = async (
 			await openReport(context);
 		} else if (choice === "ci") {
 			await addCiWorkflow(context);
+		} else if (choice === "handoff") {
+			await handOffToAgent(shown.diagnostics, context.targetPath);
 		} else if (choice === "markdown") {
 			await copyMarkdown(context);
 		}

@@ -1,9 +1,9 @@
-import { execSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { appendFile, cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isCommandAvailable } from "./ui/commands.js";
 import { logger } from "./ui/logger.js";
 
 // The build copies skills/ to dist/skills. Which directory the bundled entry
@@ -33,17 +33,6 @@ const CODEX_AGENT_CONFIG = `interface:
   display_name: "nestjs-doctor"
   short_description: "Diagnose and fix NestJS codebase health issues"
 `;
-
-const isCommandAvailable = (command: string): boolean => {
-	try {
-		const cmd =
-			process.platform === "win32" ? `where ${command}` : `which ${command}`;
-		execSync(cmd, { stdio: "ignore" });
-		return true;
-	} catch {
-		return false;
-	}
-};
 
 const writeAgentsOnly = async (
 	directory: string,
