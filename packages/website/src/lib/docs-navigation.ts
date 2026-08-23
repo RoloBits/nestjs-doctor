@@ -14,10 +14,6 @@ export const DOCS_NAV: NavSection[] = [
 		items: [
 			{ title: "What is nestjs-doctor?", href: "/docs" },
 			{ title: "Quickstart", href: "/docs/setup" },
-			{
-				title: "nestjs-doctor vs Nest Devtools",
-				href: "/docs/nest-devtools-alternative",
-			},
 			{ title: "The report", href: "/docs/report" },
 			{ title: "Module graph", href: "/docs/report/module-graph" },
 			{ title: "Boot trace", href: "/docs/report/boot-trace" },
@@ -29,6 +25,15 @@ export const DOCS_NAV: NavSection[] = [
 			{ title: "Coding agents", href: "/docs/coding-agents" },
 			{ title: "VS Code extension", href: "/docs/vscode-extension" },
 			{ title: "Language server", href: "/docs/language-server" },
+		],
+	},
+	{
+		title: "Comparisons",
+		items: [
+			{
+				title: "NestJS Doctor vs Nest Devtools",
+				href: "/docs/nest-devtools-alternative",
+			},
 		],
 	},
 	{
