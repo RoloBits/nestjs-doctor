@@ -5,6 +5,7 @@ import { buildMarkdownReport } from "../../formatters/markdown-report.js";
 import { openReportInBrowser, writeReportFile } from "../../report/output.js";
 import { ciWorkflowExists, installCiWorkflow } from "../ci-install.js";
 import { copyToClipboard } from "./clipboard.js";
+import { reviewFindings } from "./detail.js";
 
 interface InteractiveContext {
 	buildReportHtml: () => string;
@@ -13,7 +14,7 @@ interface InteractiveContext {
 	version: string;
 }
 
-type MenuAction = "report" | "ci" | "markdown" | "quit";
+type MenuAction = "review" | "report" | "ci" | "markdown" | "quit";
 
 const openReport = async (context: InteractiveContext): Promise<void> => {
 	const working = spinner();
@@ -90,6 +91,15 @@ export const runInteractiveMenu = async (
 		const choice = await select<MenuAction>({
 			message: "What next?",
 			options: [
+				...(findingCount > 0
+					? [
+							{
+								hint: "Finding by finding, with the code",
+								label: `Review ${findingCount} finding${findingCount === 1 ? "" : "s"}`,
+								value: "review" as const,
+							},
+						]
+					: []),
 				{
 					hint: `${findingCount} finding${findingCount === 1 ? "" : "s"} in an interactive page`,
 					label: "Open the HTML report",
@@ -118,7 +128,9 @@ export const runInteractiveMenu = async (
 			return;
 		}
 
-		if (choice === "report") {
+		if (choice === "review") {
+			await reviewFindings(shown.diagnostics, context.targetPath);
+		} else if (choice === "report") {
 			await openReport(context);
 		} else if (choice === "ci") {
 			await addCiWorkflow(context);
