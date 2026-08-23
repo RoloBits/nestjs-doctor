@@ -364,11 +364,11 @@ export const PrReview = () => (
 		copy={
 			<>
 				<p>
-					It comments on the findings a pull request introduces, using the{" "}
-					<b>built-in rules</b> and the{" "}
+					NestJS Doctor reviews a pull request and comments on the findings,
+					using the <b>built-in rules</b> and the{" "}
 					<Link
 						className="text-nest-red underline underline-offset-4"
-						href="/docs/custom-rules"
+						href="/docs/rules/custom"
 					>
 						custom rules
 					</Link>{" "}
@@ -378,7 +378,7 @@ export const PrReview = () => (
 				<p>Install it with one command:</p>
 				<CommandBlock command="npx nestjs-doctor@latest ci install" />
 				<p>
-					Comments, score only, or hard gate: you choose how much it does on
+					Comments, score only, or hard gate. You choose how much it does on
 					each PR.
 				</p>
 				<p>
