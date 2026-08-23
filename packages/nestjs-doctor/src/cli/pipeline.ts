@@ -13,6 +13,7 @@ import { withScopedDiagnostics } from "../engine/result-builder.js";
 import { allRules } from "../engine/rules/index.js";
 import {
 	type AnalysisContext,
+	type AnalysisPhase,
 	buildAnalysisContext,
 	buildMonorepoResult,
 	buildResult,
@@ -57,7 +58,7 @@ import { spinner } from "./ui/spinner.js";
 type PipelineStep = () => void | Promise<void>;
 
 const analysisText = (
-	phase: "collecting" | "parsing" | "analyzing",
+	phase: AnalysisPhase,
 	parsed?: number,
 	total?: number
 ): string => {
