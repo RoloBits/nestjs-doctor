@@ -2043,13 +2043,7 @@ export function buildEndpointGraph(
 	files: string[],
 	providers: Map<string, ProviderInfo>
 ): EndpointGraph {
-	const endpoints: EndpointNode[] = [];
-
-	for (const traced of traceFiles(project, files, providers)) {
-		endpoints.push(...traced);
-	}
-
-	return { endpoints };
+	return { endpoints: [...traceFiles(project, files, providers)].flat() };
 }
 
 /** Same graph, yielding to the event loop after every file it traces. */
@@ -2060,12 +2054,11 @@ export async function buildEndpointGraphWithProgress(
 	onFile?: (traced: number, total: number) => void
 ): Promise<EndpointGraph> {
 	const endpoints: EndpointNode[] = [];
-	let index = 0;
+	let traced = 0;
 
-	for (const traced of traceFiles(project, files, providers)) {
-		endpoints.push(...traced);
-		index++;
-		onFile?.(index, files.length);
+	for (const fromFile of traceFiles(project, files, providers)) {
+		endpoints.push(...fromFile);
+		onFile?.(++traced, files.length);
 		await yieldToEventLoop();
 	}
 
