@@ -28,7 +28,7 @@ const openReport = async (context: InteractiveContext): Promise<void> => {
 		return;
 	}
 	working.stop(`Report written to ${reportPath}`);
-	openReportInBrowser(reportPath);
+	openReportInBrowser(reportPath, log.warn);
 	log.info("Opened in your browser.");
 };
 
