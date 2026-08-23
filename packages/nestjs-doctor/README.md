@@ -55,9 +55,6 @@ summary, findings with a code viewer, and an interactive module
 graph. Traced HTTP endpoints, the schema ER diagram, and a
 rule playground get their own tabs.
 
-Opening it reports which tab was viewed, and nothing about the scanned code.
-`--no-telemetry` leaves that out of the file.
-
 ![Module Graph](https://nestjs.doctor/module-graph.png)
 
 Add a few lines to `main.ts`, boot once, and `--timings` overlays the real
