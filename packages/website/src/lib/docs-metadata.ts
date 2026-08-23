@@ -7,6 +7,11 @@ export const DOCS_PAGES: Record<string, PageCopy> = {
 		description:
 			"Diagnostic CLI tool that scans NestJS codebases and produces a health score across security, correctness, architecture, performance, and schema.",
 	},
+	"/docs/nest-devtools-comparison": {
+		title: "Nest Devtools comparison",
+		description:
+			"nestjs-doctor and Nest Devtools both draw a NestJS module graph. One reads your source, the other boots your app. A free, offline alternative that runs in CI.",
+	},
 	"/docs/setup": {
 		title: "Quickstart",
 		description:

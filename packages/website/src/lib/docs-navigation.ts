@@ -14,6 +14,10 @@ export const DOCS_NAV: NavSection[] = [
 		items: [
 			{ title: "What is nestjs-doctor?", href: "/docs" },
 			{ title: "Quickstart", href: "/docs/setup" },
+			{
+				title: "Nest Devtools comparison",
+				href: "/docs/nest-devtools-comparison",
+			},
 			{ title: "The report", href: "/docs/report" },
 			{ title: "Module graph", href: "/docs/report/module-graph" },
 			{ title: "Boot trace", href: "/docs/report/boot-trace" },
