@@ -38,6 +38,22 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: "true"
 
+      - name: Keep the action release marked as latest
+        if: steps.changesets.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="$(gh api "repos/${{ github.repository }}/releases" --paginate \
+            --jq '[.[] | select(.tag_name | test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))] | sort_by(.created_at) | last | .tag_name')"
+          if [ -z "$tag" ] || [ "$tag" = "null" ]; then
+            echo "No action release exists; leaving latest alone."
+            exit 0
+          fi
+          rid="$(gh api "repos/${{ github.repository }}/releases/tags/$tag" --jq .id)"
+          gh api -X PATCH "repos/${{ github.repository }}/releases/$rid" -f make_latest=true > /dev/null
+          echo "Marked $tag as the latest release."
+
   publish-vscode:
     name: Publish VS Code Extension
     needs: release
