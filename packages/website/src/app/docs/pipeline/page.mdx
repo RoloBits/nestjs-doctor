@@ -33,7 +33,7 @@ The pipeline has 10 stages. In a monorepo, stages 1-9 run once per sub-project.
 | 2 | [Project detection](/docs/pipeline/project-detection) | `src/engine/project-detector.ts` | Per project |
 | 3 | [File collection](/docs/pipeline/file-collection) | `src/engine/file-collector.ts` | Per project |
 | 4 | [AST parsing](/docs/pipeline/ast-parsing) | `src/engine/graph/ast-parser.ts` | Per project |
-| 5 | [Module graph](/docs/pipeline/module-graph) | `src/engine/graph/module-graph.ts` | Per project |
+| 5 | [Module graph building](/docs/pipeline/module-graph) | `src/engine/graph/module-graph.ts` | Per project |
 | 6 | [Provider resolution](/docs/pipeline/provider-resolution) | `src/engine/graph/type-resolver.ts` | Per project |
 | 7 | [Rule execution](/docs/pipeline/rule-execution) | `src/engine/rule-runner.ts` | Per project |
 | 8 | [Diagnostic filtering](/docs/pipeline/diagnostic-filtering) | `src/engine/filter-diagnostics.ts` | Per project |

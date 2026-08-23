@@ -15,6 +15,7 @@ export const DOCS_NAV: NavSection[] = [
 			{ title: "What is nestjs-doctor?", href: "/docs" },
 			{ title: "Quickstart", href: "/docs/setup" },
 			{ title: "The report", href: "/docs/report" },
+			{ title: "Module graph", href: "/docs/report/module-graph" },
 			{ title: "Boot trace", href: "/docs/report/boot-trace" },
 		],
 	},
@@ -69,7 +70,7 @@ export const DOCS_NAV: NavSection[] = [
 			{ title: "Project detection", href: "/docs/pipeline/project-detection" },
 			{ title: "File collection", href: "/docs/pipeline/file-collection" },
 			{ title: "AST parsing", href: "/docs/pipeline/ast-parsing" },
-			{ title: "Module graph", href: "/docs/pipeline/module-graph" },
+			{ title: "Module graph building", href: "/docs/pipeline/module-graph" },
 			{
 				title: "Provider resolution",
 				href: "/docs/pipeline/provider-resolution",

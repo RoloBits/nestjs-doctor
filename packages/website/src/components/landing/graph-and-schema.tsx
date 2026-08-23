@@ -278,7 +278,7 @@ export const GraphAndSchema = () => (
 				figure: <ModuleGraph />,
 				command: "npx nestjs-doctor@latest . --report",
 				docs: {
-					href: "/docs/pipeline/module-graph",
+					href: "/docs/report/module-graph",
 					label: "Module graph docs",
 				},
 			},

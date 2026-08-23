@@ -115,7 +115,7 @@ The report has up to six tabs:
 
 - **Summary:** health score overview with a category breakdown.
 - **Findings:** source-level diagnostics with a code viewer and fix examples.
-- **Modules Graph:** clustered module diagram with a searchable project sidebar and a per-module detail panel (used by, blast radius, providers, imports, exports, wiring). Selecting a module animates its edges, colored by direction, and the view offers cycle focus plus toggles for `@Global()` reach and external modules. A Module problems drawer lists module-wiring diagnostics from rules tagged `module-graph`, custom rules included.
+- **Modules Graph:** clustered module diagram with cycles in red and a per-module detail panel. See [Module graph](/docs/report/module-graph).
 - **Endpoints:** badged `Beta`, traced HTTP routes per controller with their dependency chains. Controllers and handlers behind a project wrapper decorator, meaning a custom decorator composing `@Controller()` or `@Get()`, are resolved and traced too.
 - **Relational Schema:** entity-relationship diagram of the database models.
 - **Lab:** custom rule playground for writing and testing your own rules.
