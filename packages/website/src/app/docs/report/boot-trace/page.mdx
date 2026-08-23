@@ -14,8 +14,8 @@ being a guess and becomes a bar with a number on it.
 
 ## Why it needs a change to your code
 
-A scan reads source files. It never runs your application, so construction time
-does not exist for it to measure.
+nestjs-doctor is a scanner that reads source files. It never runs your
+application, so construction time does not exist for it to measure.
 
 NestJS measures it already. Booting with `{ snapshot: true }` records an
 `initTime` for every class and assembles a `SerializedGraph`. Writing that

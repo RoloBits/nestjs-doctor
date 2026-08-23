@@ -113,7 +113,7 @@ The same shape works as `.nestjs-doctor.json`, or as a `"nestjs-doctor"` key in
 `package.json`.
 
 [Configuration →](https://nestjs.doctor/docs/configuration) ·
-[Custom rules →](https://nestjs.doctor/docs/custom-rules)
+[Custom rule configuration →](https://nestjs.doctor/docs/custom-rules)
 
 ## Rules
 
