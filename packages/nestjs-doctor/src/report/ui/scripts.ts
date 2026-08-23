@@ -1,3 +1,5 @@
+import { REPORT_FONT_STACK } from "./styles.js";
+
 export interface ReportScriptData {
 	diagnosticsJson: string;
 	elapsedMsJson: string;
@@ -49,8 +51,8 @@ function makeScoreRingSvg(size, strokeW, value) {
   const offset = c - (value / 100) * c;
   const color = getScoreColor(value);
   return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">' +
-    '<circle cx="' + size/2 + '" cy="' + size/2 + '" r="' + r + '" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="' + strokeW + '"/>' +
-    '<circle cx="' + size/2 + '" cy="' + size/2 + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="' + strokeW + '" stroke-linecap="round" stroke-dasharray="' + c + '" stroke-dashoffset="' + offset + '" transform="rotate(-90 ' + size/2 + ' ' + size/2 + ')"/>' +
+    '<circle cx="' + size/2 + '" cy="' + size/2 + '" r="' + r + '" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>' +
+    '<circle cx="' + size/2 + '" cy="' + size/2 + '" r="' + r + '" fill="none" stroke="' + color + '" stroke-width="' + strokeW + '" stroke-linecap="butt" stroke-dasharray="' + c + '" stroke-dashoffset="' + offset + '" transform="rotate(-90 ' + size/2 + ' ' + size/2 + ')"/>' +
     '<text x="' + size/2 + '" y="' + size/2 + '" text-anchor="middle" dominant-baseline="central" fill="' + color + '" font-size="' + Math.round(size * 0.32) + '" font-weight="700" font-family="var(--font)">' + value + '</text>' +
     '</svg>';
 }
@@ -256,7 +258,7 @@ var MG_CROSS_EDGE = "#22d3ee";
 var MG_CYCLE = "#ea2845";
 var MG_GLOBAL = "#fbbf24";
 var MG_NODE_H = 40;
-var MG_FONT = '-apple-system, BlinkMacSystemFont, sans-serif';
+var RPT_FONT = '${REPORT_FONT_STACK}';
 
 var mgCanvas = null, mgCtx = null, mgDpr = window.devicePixelRatio || 1;
 var mgW = 0, mgH = 0;
@@ -515,9 +517,9 @@ function mgMeasureNode(n) {
   if (n.initTimings && n.initTimings.length > 0) {
     sub += " \\u00b7 " + mgFormatMs(n.initTimings[0].initTime);
   }
-  mgCtx.font = "bold 12px " + MG_FONT;
+  mgCtx.font = "bold 12px " + RPT_FONT;
   var lw = mgCtx.measureText(label).width;
-  mgCtx.font = "10px " + MG_FONT;
+  mgCtx.font = "10px " + RPT_FONT;
   var sw = mgCtx.measureText(sub).width;
   n.label = label;
   n.sub = sub;
@@ -759,18 +761,9 @@ function mgClusterAlpha(c) {
 }
 
 // ── Modules graph: drawing ──
-function mgRoundRect(x, y, w, h, r) {
+function mgRect(x, y, w, h) {
   mgCtx.beginPath();
-  mgCtx.moveTo(x + r, y);
-  mgCtx.lineTo(x + w - r, y);
-  mgCtx.quadraticCurveTo(x + w, y, x + w, y + r);
-  mgCtx.lineTo(x + w, y + h - r);
-  mgCtx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  mgCtx.lineTo(x + r, y + h);
-  mgCtx.quadraticCurveTo(x, y + h, x, y + h - r);
-  mgCtx.lineTo(x, y + r);
-  mgCtx.quadraticCurveTo(x, y, x + r, y);
-  mgCtx.closePath();
+  mgCtx.rect(x, y, w, h);
 }
 
 /** Where the line from a node's centre towards a point leaves its box. */
@@ -809,7 +802,7 @@ function mgDrawClusters() {
     if (mgHideExternal && c.key === MG_EXTERNAL_PROJECT) continue;
     var color = c.key ? (projectColorMap[c.key] || "#555") : "#555";
     mgCtx.globalAlpha = mgClusterAlpha(c) * 0.5;
-    mgRoundRect(c.x, c.y, c.w, c.h, 10);
+    mgRect(c.x, c.y, c.w, c.h);
     mgCtx.fillStyle = "rgba(255,255,255,0.022)";
     mgCtx.fill();
     mgCtx.strokeStyle = color;
@@ -819,12 +812,12 @@ function mgDrawClusters() {
     if (c.key) {
       mgCtx.globalAlpha = mgClusterAlpha(c);
       mgCtx.fillStyle = color;
-      mgCtx.font = "bold 12px " + MG_FONT;
+      mgCtx.font = "bold 12px " + RPT_FONT;
       mgCtx.textAlign = "left";
       mgCtx.textBaseline = "middle";
       mgCtx.fillText(c.key, c.x + 12, c.y + 15);
       mgCtx.fillStyle = "#666";
-      mgCtx.font = "10px " + MG_FONT;
+      mgCtx.font = "10px " + RPT_FONT;
       mgCtx.fillText(c.nodes.length + (c.nodes.length === 1 ? " module" : " modules"),
         c.x + 16 + mgCtx.measureText(c.key).width * 1.15, c.y + 15);
     }
@@ -917,14 +910,14 @@ function mgDrawEdges() {
   }
   mgCtx.globalAlpha = 1;
 
-  mgCtx.font = "9px " + MG_FONT;
+  mgCtx.font = "9px " + RPT_FONT;
   mgCtx.textAlign = "center";
   mgCtx.textBaseline = "middle";
   for (var j = 0; j < labels.length; j++) {
     var l = labels[j];
     var w = mgCtx.measureText(l.text).width + 8;
     mgCtx.globalAlpha = l.alpha;
-    mgRoundRect(l.x - w / 2, l.y - 7, w, 14, 3);
+    mgRect(l.x - w / 2, l.y - 7, w, 14);
     mgCtx.fillStyle = "#0f0f0f";
     mgCtx.fill();
     mgCtx.strokeStyle = "rgba(255,255,255,0.14)";
@@ -990,7 +983,7 @@ function mgDrawNodes() {
     mgCtx.globalAlpha = alpha;
 
     if (n.isGlobal) {
-      mgRoundRect(x - 4, y - 4, n.w + 8, n.h + 8, 10);
+      mgRect(x - 4, y - 4, n.w + 8, n.h + 8);
       mgCtx.strokeStyle = "rgba(251,191,36,0.35)";
       mgCtx.lineWidth = 2;
       mgCtx.setLineDash([]);
@@ -1004,7 +997,7 @@ function mgDrawNodes() {
     if (isCirc) { fill = "#2e1a1a"; stroke = MG_CYCLE; }
     if (isSel) { stroke = "#fff"; }
 
-    mgRoundRect(x, y, n.w, n.h, 6);
+    mgRect(x, y, n.w, n.h);
     mgCtx.fillStyle = fill;
     mgCtx.fill();
     mgCtx.strokeStyle = stroke;
@@ -1016,10 +1009,10 @@ function mgDrawNodes() {
     mgCtx.textAlign = "center";
     mgCtx.textBaseline = "middle";
     mgCtx.fillStyle = n.external ? "#9ca3af" : "#fff";
-    mgCtx.font = "bold 12px " + MG_FONT;
+    mgCtx.font = "bold 12px " + RPT_FONT;
     mgCtx.fillText(n.label, n.x, n.y - 6);
     mgCtx.fillStyle = "#888";
-    mgCtx.font = "10px " + MG_FONT;
+    mgCtx.font = "10px " + RPT_FONT;
     mgCtx.fillText(n.sub, n.x, n.y + 9);
   }
   mgCtx.globalAlpha = 1;
@@ -2300,7 +2293,7 @@ function renderDiagnosis() {
   let activeFileEl = null;
 
   // Show all diagnostics for a file in the main panel
-  function showFile(filePath) {
+  function showFile(filePath, skipHighlightScroll) {
     const diags = fileMap[filePath];
     if (!diags) return;
 
@@ -2402,7 +2395,7 @@ function renderDiagnosis() {
             const mEl = document.getElementById("diagnosis-main");
             const scrollBefore = mEl.scrollTop;
             expandState["__file_" + fp].above += EXPAND_STEP;
-            showFile(fp);
+            showFile(fp, true);
             mEl.scrollTop = scrollBefore;
           });
         })(filePath);
@@ -2448,7 +2441,7 @@ function renderDiagnosis() {
             highlightLines: hlLines,
             lineMetadata: lineMetadata,
             firstLineNumber: firstLineNum,
-            skipScrollIntoView: sg > 0,
+            skipScrollIntoView: sg > 0 || !!skipHighlightScroll,
           });
         }
       }
@@ -2457,15 +2450,13 @@ function renderDiagnosis() {
       if (segments.length > 0 && segments[segments.length - 1].end < totalLines) {
         const belowCount = totalLines - segments[segments.length - 1].end;
         const belowRow = document.createElement("div");
-        belowRow.className = "code-expand-row";
+        belowRow.className = "code-expand-row code-expand-below";
         belowRow.innerHTML = SVG_DOWN + " Expand " + Math.min(EXPAND_STEP, belowCount) + " lines";
         (function(fp) {
           belowRow.addEventListener("click", function() {
-            const mEl = document.getElementById("diagnosis-main");
-            const scrollBefore = mEl.scrollTop;
             expandState["__file_" + fp].below += EXPAND_STEP;
-            showFile(fp);
-            mEl.scrollTop = scrollBefore;
+            showFile(fp, true);
+            pinExpandBelow(document.getElementById("diagnosis-file-code"));
           });
         })(filePath);
         codeEl.appendChild(belowRow);
@@ -2610,6 +2601,9 @@ function renderDiagnosis() {
   if (expandAllBtn) expandAllBtn.addEventListener("click", function() { diagSetAllFolders(false); });
   if (collapseAllBtn) collapseAllBtn.addEventListener("click", function() { diagSetAllFolders(true); });
 
+  // Search filter
+  let diagSearchQuery = "";
+
   // Severity filter
   let activeSev = "all";
   const pills = sidebarEl.querySelectorAll(".sev-pill");
@@ -2617,6 +2611,10 @@ function renderDiagnosis() {
   // Scope filter
   let activeScope = "all";
   const scopePills = sidebarEl.querySelectorAll(".scope-pill");
+
+  // Category filter
+  let activeCat = "all";
+  const catPills = sidebarEl.querySelectorAll(".cat-pill");
 
   let showNotScored = false;
   const notScoredToggle = document.getElementById("diag-show-notscored");
@@ -2627,7 +2625,19 @@ function renderDiagnosis() {
     if (!showNotScored && isNotScored(entry.d)) return false;
     if (activeSev !== "all" && entry.d.severity !== activeSev) return false;
     if (activeScope !== "all" && entry.d.scope !== activeScope) return false;
+    if (activeCat !== "all" && entry.d.category !== activeCat) return false;
     return true;
+  }
+
+  function updateFiltersBadge() {
+    const badge = document.getElementById("diag-filters-count");
+    if (!badge) return;
+    let n = 0;
+    if (activeSev !== "all") n++;
+    if (activeScope !== "all") n++;
+    if (activeCat !== "all") n++;
+    badge.textContent = n;
+    badge.style.display = n > 0 ? "" : "none";
   }
 
   function countFileVisibleDiags(filePath) {
@@ -2640,12 +2650,16 @@ function renderDiagnosis() {
     return count;
   }
 
+  function diagMatchesSearch(filePath) {
+    return diagSearchQuery === "" || filePath.toLowerCase().indexOf(diagSearchQuery) >= 0;
+  }
+
   function updateTreeVisibility() {
     const countEl = document.getElementById("diag-file-count");
     if (countEl) {
       let shownFiles = 0;
       for (const fp in fileMap) {
-        if (countFileVisibleDiags(fp) > 0) shownFiles++;
+        if (countFileVisibleDiags(fp) > 0 && diagMatchesSearch(fp)) shownFiles++;
       }
       countEl.textContent = shownFiles;
     }
@@ -2654,7 +2668,7 @@ function renderDiagnosis() {
     for (let f = 0; f < fileNodes.length; f++) {
       const fPath = fileNodes[f].dataset.path;
       const visCount = countFileVisibleDiags(fPath);
-      fileNodes[f].classList.toggle("hidden", visCount === 0);
+      fileNodes[f].classList.toggle("hidden", visCount === 0 || !diagMatchesSearch(fPath));
       const fc = fileNodes[f].querySelector(".tree-count");
       if (fc) fc.textContent = visCount;
       // Update severity indicator
@@ -2681,6 +2695,7 @@ function renderDiagnosis() {
       const body = folder.querySelector(".tree-folder-body");
       const visChildren = body.querySelectorAll(":scope > .tree-file:not(.hidden), :scope > .tree-folder:not(.hidden)");
       folder.classList.toggle("hidden", visChildren.length === 0);
+      if (diagSearchQuery !== "" && visChildren.length > 0) folder.classList.remove("collapsed");
       // Count visible diags in all descendant files
       const descendantFiles = folder.querySelectorAll(".tree-file:not(.hidden)");
       let totalCount = 0;
@@ -2722,20 +2737,38 @@ function renderDiagnosis() {
       showFile(activeFilePath);
     }
   }
-  for (let pi = 0; pi < pills.length; pi++) {
-    pills[pi].addEventListener("click", function() {
-      activeSev = this.dataset.sev;
-      for (let pp = 0; pp < pills.length; pp++) pills[pp].classList.toggle("active", pills[pp] === this);
+  const pillGroups = [
+    { pills: pills, key: "sev", set: function(v) { activeSev = v; } },
+    { pills: scopePills, key: "scope", set: function(v) { activeScope = v; } },
+    { pills: catPills, key: "cat", set: function(v) { activeCat = v; } },
+  ];
+  for (const group of pillGroups) {
+    for (let pi = 0; pi < group.pills.length; pi++) {
+      group.pills[pi].addEventListener("click", function() {
+        group.set(this.dataset[group.key]);
+        for (let pp = 0; pp < group.pills.length; pp++) {
+          group.pills[pp].classList.toggle("active", group.pills[pp] === this);
+        }
+        updateFiltersBadge();
+        updateTreeVisibility();
+      });
+    }
+  }
+  const filtersToggle = document.getElementById("diag-filters-toggle");
+  if (filtersToggle) {
+    filtersToggle.addEventListener("click", function() {
+      const open = sidebarEl.querySelector(".diagnosis-toolbar").classList.toggle("filters-open");
+      this.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+  }
+  const diagSearchEl = document.getElementById("diag-search");
+  if (diagSearchEl) {
+    diagSearchEl.addEventListener("input", function() {
+      diagSearchQuery = this.value.trim().toLowerCase();
       updateTreeVisibility();
     });
   }
-  for (let si = 0; si < scopePills.length; si++) {
-    scopePills[si].addEventListener("click", function() {
-      activeScope = this.dataset.scope;
-      for (let sp = 0; sp < scopePills.length; sp++) scopePills[sp].classList.toggle("active", scopePills[sp] === this);
-      updateTreeVisibility();
-    });
-  }
+
   if (notScoredToggle) {
     // The row is pointless when nothing is filtered by it.
     const anyNotScored = diagnostics.some(isNotScored);
@@ -2843,7 +2876,7 @@ function renderTreeHtml(root, config) {
       const folderSev = worstSevNode(child, config.itemsKey, config.getSeverity);
       const folderCount = countItems(child, config.itemsKey);
       html += '<div class="tree-folder">' +
-        '<div class="tree-folder-header" style="padding-left:calc(14px + ' + pad + ')">' +
+        '<div class="tree-folder-header" style="padding-left:calc(14px + ' + pad + ');--guides:' + (depth * 12) + 'px">' +
         '<span class="tree-chevron">&#9660;</span>' +
         '<span class="tree-folder-icon sev-indicator-' + folderSev + '">' + SVG_FOLDER + '</span>' +
         '<span class="tree-folder-name">' + escHtml(child.name) + '</span>' +
@@ -2860,7 +2893,7 @@ function renderTreeHtml(root, config) {
       let extraAttrs = "";
       if (config.collectSevs) extraAttrs = ' data-sevs="' + config.collectSevs(fileNode[config.itemsKey]) + '"';
       html += '<div class="tree-file" data-path="' + escHtml(fileNode.fullPath) + '"' + extraAttrs + '>' +
-        '<div class="tree-file-header" style="padding-left:calc(14px + ' + pad + ')">' +
+        '<div class="tree-file-header" style="padding-left:calc(14px + ' + pad + ');--guides:' + (depth * 12) + 'px">' +
         '<span class="tree-file-icon sev-indicator-' + fileSev + '">' + SVG_FILE + '</span>' +
         '<span class="tree-file-name">' + escHtml(fileNode.name) + '</span>' +
         '<span class="tree-count">' + fileCount + '</span>' +
@@ -2886,6 +2919,17 @@ function renderFileHeader(filePath, items, getSeverity) {
     '<div class="file-view-counts">' + countsHtml + '</div>';
 }
 
+/** Keeps the below expander at the viewport bottom while the editors grow. */
+function pinExpandBelow(containerEl) {
+  const anchor = containerEl.querySelector(".code-expand-below") || containerEl;
+  anchor.scrollIntoView({ block: "end" });
+  const ro = new ResizeObserver(function() {
+    anchor.scrollIntoView({ block: "end" });
+  });
+  ro.observe(anchor.parentElement);
+  setTimeout(function() { ro.disconnect(); }, 1000);
+}
+
 // ── Summary Tab rendering ──
 function renderSummary() {
   const container = document.getElementById("tab-summary");
@@ -2899,9 +2943,9 @@ function renderSummary() {
   var notScoredCount = (diagnostics || []).filter(function (d) {
     return d.surfaces && d.surfaces.indexOf('score') === -1;
   }).length;
-  html += '<div class="ov-card full-width"><h3>Health Score</h3>' +
+  html += '<div class="ov-card full-width"><h3>Health Score</h3><div class="ov-card-body">' +
     '<div class="ov-score-row">' +
-    '<div class="ov-score-ring">' + makeScoreRingSvg(120, 8, sv) + '</div>' +
+    '<div class="ov-score-ring">' + makeScoreRingSvg(120, 6, sv) + '</div>' +
     '<div class="ov-score-details">' +
     '<div class="ov-score-label">' + sv + ' / 100</div>' +
     '<div class="ov-score-sublabel">' + escHtml(project.score.label) + '</div>' +
@@ -2920,20 +2964,20 @@ function renderSummary() {
         '</span>' +
         '</div>'
       : '') +
-    '</div></div></div>';
+    '</div></div></div></div>';
 
   // Project info card
-  html += '<div class="ov-card"><h3>Project Info</h3><div class="ov-info-grid">' +
+  html += '<div class="ov-card"><h3>Project Info</h3><div class="ov-card-body"><div class="ov-info-grid">' +
     '<div class="ov-info-item"><label>Name</label><span>' + escHtml(project.name) + '</span></div>' +
     '<div class="ov-info-item"><label>NestJS</label><span>' + (project.nestVersion || "—") + '</span></div>' +
     '<div class="ov-info-item"><label>Framework</label><span>' + (project.framework || "—") + '</span></div>' +
     '<div class="ov-info-item"><label>ORM</label><span>' + (project.orm || "—") + '</span></div>' +
     '<div class="ov-info-item"><label>Files</label><span>' + project.fileCount + '</span></div>' +
     '<div class="ov-info-item"><label>Modules</label><span>' + project.moduleCount + '</span></div>' +
-    '</div></div>';
+    '</div></div></div>';
 
   // Category breakdown card
-  html += '<div class="ov-card"><h3>Issues by Category</h3>';
+  html += '<div class="ov-card"><h3>Issues by Category</h3><div class="ov-card-body">';
   for (const cat of CAT_ORDER) {
     const m = CAT_META[cat];
     const count = (summary.byCategory && summary.byCategory[cat]) || 0;
@@ -2942,22 +2986,22 @@ function renderSummary() {
       '<span class="ov-cat-name">' + m.label + '</span>' +
       '<span class="ov-cat-count">' + count + '</span></div>';
   }
-  html += '</div>';
+  html += '</div></div>';
 
   // Module graph stats card
-  html += '<div class="ov-card"><h3>Module Graph</h3>' +
+  html += '<div class="ov-card"><h3>Module Graph</h3><div class="ov-card-body">' +
     '<div class="ov-stat-row"><span class="ov-stat-label">Total modules</span><span class="ov-stat-value">' + graph.modules.length + '</span></div>' +
     '<div class="ov-stat-row"><span class="ov-stat-label">Root modules</span><span class="ov-stat-value">' + rootModules.size + '</span></div>' +
     '<div class="ov-stat-row"><span class="ov-stat-label">Edges</span><span class="ov-stat-value">' + graph.edges.length + '</span></div>' +
     '<div class="ov-stat-row"><span class="ov-stat-label">Circular deps</span><span class="ov-stat-value">' + graph.circularDeps.length + '</span></div>' +
-    '</div>';
+    '</div></div>';
 
   // Analysis card
-  html += '<div class="ov-card"><h3>Analysis</h3>' +
+  html += '<div class="ov-card"><h3>Analysis</h3><div class="ov-card-body">' +
     '<div class="ov-stat-row"><span class="ov-stat-label">Duration</span><span class="ov-stat-value">' + (elapsedMs / 1000).toFixed(2) + 's</span></div>' +
     '<div class="ov-stat-row"><span class="ov-stat-label">Files scanned</span><span class="ov-stat-value">' + project.fileCount + '</span></div>' +
     '<div class="ov-stat-row"><span class="ov-stat-label">Total issues</span><span class="ov-stat-value">' + summary.total + '</span></div>' +
-    '</div>';
+    '</div></div>';
 
   html += '</div>';
   container.innerHTML = html;
@@ -3117,7 +3161,7 @@ function renderLab() {
   });
 
 
-  function showPgFile(filePath) {
+  function showPgFile(filePath, skipHighlightScroll) {
     const findings = currentPgFileMap[filePath];
     if (!findings) return;
 
@@ -3183,8 +3227,11 @@ function renderLab() {
         aboveRow.innerHTML = SVG_UP + " Expand " + Math.min(PG_EXPAND_STEP, aboveCount) + " lines";
         (function(fp) {
           aboveRow.addEventListener("click", function() {
+            const paneEl = document.querySelector(".playground-results");
+            const scrollBefore = paneEl.scrollTop;
             pgExpandState[fp].above += PG_EXPAND_STEP;
-            showPgFile(fp);
+            showPgFile(fp, true);
+            paneEl.scrollTop = scrollBefore;
           });
         })(filePath);
         pgFileCode.appendChild(aboveRow);
@@ -3225,7 +3272,7 @@ function renderLab() {
             highlightLines: hlLines,
             lineMetadata: lineMetadata,
             firstLineNumber: firstLineNum,
-            skipScrollIntoView: sg > 0,
+            skipScrollIntoView: sg > 0 || !!skipHighlightScroll,
           });
         }
       }
@@ -3234,12 +3281,13 @@ function renderLab() {
       if (segments.length > 0 && segments[segments.length - 1].end < totalLines) {
         const belowCount = totalLines - segments[segments.length - 1].end;
         const belowRow = document.createElement("div");
-        belowRow.className = "code-expand-row";
+        belowRow.className = "code-expand-row code-expand-below";
         belowRow.innerHTML = SVG_DOWN + " Expand " + Math.min(PG_EXPAND_STEP, belowCount) + " lines";
         (function(fp) {
           belowRow.addEventListener("click", function() {
             pgExpandState[fp].below += PG_EXPAND_STEP;
-            showPgFile(fp);
+            showPgFile(fp, true);
+            pinExpandBelow(pgFileCode);
           });
         })(filePath);
         pgFileCode.appendChild(belowRow);
@@ -3476,6 +3524,7 @@ var sCanvas, sCtx, sDpr, sW, sH;
 var sCamX = 0, sCamY = 0, sZoom = 1;
 var sDragging = null, sPanning = false, sPanStart = {x: 0, y: 0};
 var sDragMoved = false;
+var sDragOffset = {x: 0, y: 0};
 var sHoveredEntity = null, sHoveredRelation = null;
 var sSelectedEntity = null;
 var sNodes = [];
@@ -3676,21 +3725,19 @@ function sRouteManhattan(fromNode, toNode) {
     return sSimplifyPath([portA, stepA, {x: midX2, y: midY2}, stepB, portB]);
   }
 
-  // U-shaped detour: find best detour direction
+  // U-shaped detour along a shared horizontal or vertical line
   var bestPath = null;
   var bestLen = Infinity;
-  var offsets = [
-    { dx: 0, dy: -80 },
-    { dx: 0, dy: 80 },
-    { dx: -80, dy: 0 },
-    { dx: 80, dy: 0 }
+  var rails = [
+    { axis: "y", v: Math.min(stepA.y, stepB.y) - 80 },
+    { axis: "y", v: Math.max(stepA.y, stepB.y) + 80 },
+    { axis: "x", v: Math.min(stepA.x, stepB.x) - 80 },
+    { axis: "x", v: Math.max(stepA.x, stepB.x) + 80 }
   ];
-  for (var o = 0; o < offsets.length; o++) {
-    var midAx = stepA.x + offsets[o].dx;
-    var midAy = stepA.y + offsets[o].dy;
-    var midBx = stepB.x + offsets[o].dx;
-    var midBy = stepB.y + offsets[o].dy;
-    var path = [portA, stepA, {x: midAx, y: midAy}, {x: midBx, y: midBy}, stepB, portB];
+  for (var o = 0; o < rails.length; o++) {
+    var path = rails[o].axis === "y"
+      ? [portA, stepA, {x: stepA.x, y: rails[o].v}, {x: stepB.x, y: rails[o].v}, stepB, portB]
+      : [portA, stepA, {x: rails[o].v, y: stepA.y}, {x: rails[o].v, y: stepB.y}, stepB, portB];
     var blocked = false;
     for (var s = 0; s < path.length - 1; s++) {
       if (sSegmentHitsAnyBox(path[s].x, path[s].y, path[s + 1].x, path[s + 1].y, fromName, toName)) {
@@ -3729,9 +3776,276 @@ function sSimplifyPath(points) {
   return result;
 }
 
+// ── Schema: channel routing over the layered grid ──
+var S_LANE = 8;
+var sCompGrids = null;
+
+function sBuildGrids() {
+  sCompGrids = {};
+  var groups = {};
+  var i, m;
+  for (i = 0; i < sNodes.length; i++) {
+    var cid = sNodes[i]._comp;
+    if (cid === undefined || cid < 0) continue;
+    if (!groups[cid]) groups[cid] = [];
+    groups[cid].push(sNodes[i]);
+  }
+  for (var gKey in groups) {
+    if (!Object.prototype.hasOwnProperty.call(groups, gKey)) continue;
+    var nodes = groups[gKey];
+    var byX = {};
+    for (i = 0; i < nodes.length; i++) {
+      var cx = Math.round(nodes[i].x);
+      if (!byX[cx]) byX[cx] = [];
+      byX[cx].push(nodes[i]);
+    }
+    var xs = [];
+    for (var xk in byX) {
+      if (Object.prototype.hasOwnProperty.call(byX, xk)) xs.push(Number(xk));
+    }
+    xs.sort(function(a, b) { return a - b; });
+    var cols = [];
+    var colOf = {};
+    for (i = 0; i < xs.length; i++) {
+      var members = byX[xs[i]];
+      var boxes = [];
+      for (m = 0; m < members.length; m++) {
+        boxes.push({
+          top: members[m].y - members[m].h / 2 - 8,
+          bot: members[m].y + members[m].h / 2 + 8
+        });
+        colOf[members[m].name] = i;
+      }
+      boxes.sort(function(a, b) { return a.top - b.top; });
+      cols.push({ left: xs[i] - S_BOX_W / 2, right: xs[i] + S_BOX_W / 2, boxes: boxes });
+    }
+    var gutters = [];
+    for (i = 0; i <= cols.length; i++) {
+      var gl = i === 0 ? cols[0].left - 60 : cols[i - 1].right;
+      var gr = i === cols.length ? cols[cols.length - 1].right + 60 : cols[i].left;
+      gutters.push({ left: gl, right: gr, center: (gl + gr) / 2, runs: [] });
+    }
+    sCompGrids[gKey] = { cols: cols, gutters: gutters, colOf: colOf };
+  }
+}
+
+/** One y clear across every given column: merged intervals, nearest gap. */
+function sCorridorY(colList, target) {
+  var iv = [];
+  var i;
+  for (i = 0; i < colList.length; i++) {
+    var bx = colList[i].boxes;
+    for (var j = 0; j < bx.length; j++) iv.push({ top: bx[j].top, bot: bx[j].bot });
+  }
+  if (iv.length === 0) return target;
+  iv.sort(function(a, b) { return a.top - b.top; });
+  var merged = [iv[0]];
+  for (i = 1; i < iv.length; i++) {
+    var last = merged[merged.length - 1];
+    if (iv[i].top <= last.bot + 12) {
+      if (iv[i].bot > last.bot) last.bot = iv[i].bot;
+    } else {
+      merged.push({ top: iv[i].top, bot: iv[i].bot });
+    }
+  }
+  var cands = [merged[0].top - 10];
+  for (i = 0; i + 1 < merged.length; i++) cands.push((merged[i].bot + merged[i + 1].top) / 2);
+  cands.push(merged[merged.length - 1].bot + 10);
+  var best = cands[0];
+  for (i = 1; i < cands.length; i++) {
+    if (Math.abs(cands[i] - target) < Math.abs(best - target)) best = cands[i];
+  }
+  return best;
+}
+
+/** Row centre of a named column when visible; header centre otherwise. */
+function sPortRowY(node, colName) {
+  var top = node.y - node.h / 2;
+  var showCols = sColumnsShown(sNodes.length);
+  var visible = sVisibleColCount(node, showCols);
+  if (colName) {
+    var key = sKeyName(colName);
+    for (var i = 0; i < node.entity.columns.length && i < visible; i++) {
+      if (sKeyName(node.entity.columns[i].name) === key) return top + 24 + i * 16 + 8;
+    }
+  }
+  return top + 12;
+}
+
+/** Guesses the FK column on the child and the PK column on the parent. */
+function sRelPortNames(rel) {
+  var child = sNodeMap[rel.fromEntity];
+  var fkName = null;
+  if (child && rel.propertyName) {
+    var keys = sFkKeys(rel.propertyName);
+    for (var i = 0; i < child.entity.columns.length; i++) {
+      var kn = sKeyName(child.entity.columns[i].name);
+      if (kn === keys[0] || kn === keys[1]) { fkName = child.entity.columns[i].name; break; }
+    }
+  }
+  var parent = sNodeMap[rel.toEntity];
+  var pkName = null;
+  if (parent) {
+    for (i = 0; i < parent.entity.columns.length; i++) {
+      if (parent.entity.columns[i].isPrimary) { pkName = parent.entity.columns[i].name; break; }
+    }
+  }
+  return { fk: fkName, pk: pkName };
+}
+
+function sChannelRouteAll() {
+  var i, j, r;
+  var jobs = [];
+  var seen = {};
+  for (i = 0; i < schema.relations.length; i++) {
+    var rel = schema.relations[i];
+    if (rel.fromEntity === rel.toEntity) continue;
+    var a = sNodeMap[rel.fromEntity];
+    var b = sNodeMap[rel.toEntity];
+    if (!a || !b) continue;
+    var key = sEdgeKey(rel.fromEntity, rel.toEntity);
+    if (seen[key]) continue;
+    seen[key] = true;
+    var grid = a._comp !== undefined && a._comp === b._comp ? sCompGrids[a._comp] : null;
+    if (!grid || grid.colOf[a.name] === undefined || grid.colOf[b.name] === undefined) {
+      sEdgeRoutes[key] = sRouteManhattan(a, b);
+      sEdgeKeys.push(key);
+      continue;
+    }
+    var names = sRelPortNames(rel);
+    var ca = grid.colOf[a.name];
+    var cb = grid.colOf[b.name];
+    var sideA, sideB;
+    if (ca === cb) {
+      sideA = "right";
+      sideB = "right";
+    } else {
+      sideA = ca < cb ? "right" : "left";
+      sideB = ca < cb ? "left" : "right";
+    }
+    jobs.push({
+      key: key, a: a, b: b, grid: grid, ca: ca, cb: cb,
+      sideA: sideA, sideB: sideB,
+      ya: sPortRowY(a, names.fk), yb: sPortRowY(b, names.pk)
+    });
+  }
+
+  // Spread ports so a hub's edges fan out instead of stacking on one point
+  var byPort = {};
+  for (i = 0; i < jobs.length; i++) {
+    var jb = jobs[i];
+    var ka = jb.a.name + "|" + jb.sideA;
+    var kb = jb.b.name + "|" + jb.sideB;
+    if (!byPort[ka]) byPort[ka] = [];
+    if (!byPort[kb]) byPort[kb] = [];
+    byPort[ka].push({ job: jb, end: "a" });
+    byPort[kb].push({ job: jb, end: "b" });
+  }
+  for (var pk in byPort) {
+    if (!Object.prototype.hasOwnProperty.call(byPort, pk)) continue;
+    var ends = byPort[pk];
+    if (ends.length < 2) continue;
+    ends.sort(function(u, v) {
+      var uy = u.end === "a" ? u.job.b.y : u.job.a.y;
+      var vy = v.end === "a" ? v.job.b.y : v.job.a.y;
+      return uy - vy;
+    });
+    var node = ends[0].end === "a" ? ends[0].job.a : ends[0].job.b;
+    var spread = Math.min(S_LANE, (node.h - 16) / ends.length);
+    for (j = 0; j < ends.length; j++) {
+      var off = (j - (ends.length - 1) / 2) * spread;
+      var lo = node.y - node.h / 2 + 8;
+      var hi = node.y + node.h / 2 - 8;
+      if (ends[j].end === "a") {
+        ends[j].job.ya = Math.max(lo, Math.min(hi, ends[j].job.ya + off));
+      } else {
+        ends[j].job.yb = Math.max(lo, Math.min(hi, ends[j].job.yb + off));
+      }
+    }
+  }
+
+  // Build gutter runs for every edge
+  var corridorUse = {};
+  for (i = 0; i < jobs.length; i++) {
+    jb = jobs[i];
+    var runs = [];
+    if (jb.ca === jb.cb) {
+      runs.push({ g: jb.grid.gutters[jb.ca + 1], fromY: jb.ya, toY: jb.yb });
+    } else {
+      var step = jb.ca < jb.cb ? 1 : -1;
+      var between = jb.grid.cols.slice(Math.min(jb.ca, jb.cb) + 1, Math.max(jb.ca, jb.cb));
+      var gFirst = jb.grid.gutters[step === 1 ? jb.ca + 1 : jb.ca];
+      var gLast = jb.grid.gutters[step === 1 ? jb.cb : jb.cb + 1];
+      if (between.length === 0) {
+        runs.push({ g: gLast, fromY: jb.ya, toY: jb.yb });
+      } else {
+        var yCorr = sCorridorY(between, (jb.ya + jb.yb) / 2);
+        var bucket = String(Math.round(yCorr / 4));
+        var used = corridorUse[bucket] || 0;
+        corridorUse[bucket] = used + 1;
+        yCorr += (used % 2 === 0 ? 1 : -1) * Math.ceil(used / 2) * 5;
+        runs.push({ g: gFirst, fromY: jb.ya, toY: yCorr });
+        runs.push({ g: gLast, fromY: yCorr, toY: jb.yb });
+      }
+    }
+    jb.runs = runs;
+    for (r = 0; r < runs.length; r++) runs[r].g.runs.push(runs[r]);
+  }
+
+  // Lane assignment: spread the vertical runs sharing a gutter
+  for (var gk in sCompGrids) {
+    if (!Object.prototype.hasOwnProperty.call(sCompGrids, gk)) continue;
+    var gutters = sCompGrids[gk].gutters;
+    for (i = 0; i < gutters.length; i++) {
+      var gut = gutters[i];
+      var live = [];
+      for (j = 0; j < gut.runs.length; j++) {
+        if (Math.abs(gut.runs[j].fromY - gut.runs[j].toY) >= 0.5) live.push(gut.runs[j]);
+      }
+      gut.runs = [];
+      live.sort(function(u, v) {
+        return (u.fromY + u.toY) / 2 - (v.fromY + v.toY) / 2;
+      });
+      var lane = live.length > 1
+        ? Math.min(S_LANE, (gut.right - gut.left - 12) / (live.length - 1))
+        : 0;
+      for (j = 0; j < live.length; j++) {
+        live[j].x = gut.center + (j - (live.length - 1) / 2) * lane;
+      }
+    }
+  }
+
+  // Materialize the polylines
+  for (i = 0; i < jobs.length; i++) {
+    jb = jobs[i];
+    var pts = [{
+      x: jb.sideA === "right" ? jb.a.x + jb.a.w / 2 : jb.a.x - jb.a.w / 2,
+      y: jb.ya
+    }];
+    var curY = jb.ya;
+    for (r = 0; r < jb.runs.length; r++) {
+      var rn = jb.runs[r];
+      if (Math.abs(rn.fromY - rn.toY) < 0.5) continue;
+      pts.push({ x: rn.x, y: curY });
+      pts.push({ x: rn.x, y: rn.toY });
+      curY = rn.toY;
+    }
+    pts.push({
+      x: jb.sideB === "right" ? jb.b.x + jb.b.w / 2 : jb.b.x - jb.b.w / 2,
+      y: jb.yb
+    });
+    sEdgeRoutes[jb.key] = sSimplifyPath(pts);
+    sEdgeKeys.push(jb.key);
+  }
+}
+
 function sRouteAllEdges() {
   sEdgeRoutes = {};
   sEdgeKeys = [];
+  if (sCompGrids) {
+    sChannelRouteAll();
+    return;
+  }
   var seen = {};
   for (var i = 0; i < schema.relations.length; i++) {
     var rel = schema.relations[i];
@@ -3828,66 +4142,149 @@ function sComputeComponents(nodes) {
   return out;
 }
 
-/** Positions one component from its own origin, with dagre or a grid. */
+/** Positions one component from its own origin: layered left-to-right. */
+var S_BOX_W = 180;
+var S_COL_GAP = 110;
+var S_ROW_GAP = 44;
+var S_COL_CAP = 2400;
+
 function sLayoutComponent(nodes) {
-  var i;
-  if (nodes.length === 1 || typeof dagre === "undefined") {
-    var cols = Math.max(1, Math.ceil(Math.sqrt(nodes.length)));
-    var cellW = 0, cellH = 0;
-    for (i = 0; i < nodes.length; i++) {
-      if (nodes[i].w > cellW) cellW = nodes[i].w;
-      if (nodes[i].h > cellH) cellH = nodes[i].h;
-    }
-    var rows = Math.ceil(nodes.length / cols);
-    for (i = 0; i < nodes.length; i++) {
-      nodes[i].x = (i % cols) * (cellW + 60) + cellW / 2;
-      nodes[i].y = Math.floor(i / cols) * (cellH + 60) + cellH / 2;
-    }
-    return {
-      w: cols * cellW + (cols - 1) * 60,
-      h: rows * cellH + (rows - 1) * 60
-    };
+  var i, j, t, p, q;
+  if (nodes.length === 1) {
+    nodes[0].x = nodes[0].w / 2;
+    nodes[0].y = nodes[0].h / 2;
+    return { w: nodes[0].w, h: nodes[0].h };
   }
-
-  var g = new dagre.graphlib.Graph();
-  g.setGraph({ rankdir: "LR", nodesep: 60, ranksep: 120, marginx: 0, marginy: 0 });
-  g.setDefaultEdgeLabel(function() { return {}; });
-
-  var present = {};
-  for (i = 0; i < nodes.length; i++) {
-    present[nodes[i].name] = true;
-    g.setNode(nodes[i].name, { width: nodes[i].w, height: nodes[i].h });
-  }
-
-  var seenEdge = {};
+  var idx = {};
+  for (i = 0; i < nodes.length; i++) idx[nodes[i].name] = i;
+  var n = nodes.length;
+  var out = [], und = [];
+  for (i = 0; i < n; i++) { out.push([]); und.push([]); }
+  var seenE = {};
   for (i = 0; i < schema.relations.length; i++) {
-    var edge = schema.relations[i];
-    if (edge.fromEntity === edge.toEntity) continue;
-    if (!present[edge.fromEntity] || !present[edge.toEntity]) continue;
-    var ek = sEdgeKey(edge.fromEntity, edge.toEntity);
-    if (seenEdge[ek]) continue;
-    seenEdge[ek] = true;
-    g.setEdge(edge.fromEntity, edge.toEntity);
+    var rel = schema.relations[i];
+    if (rel.fromEntity === rel.toEntity) continue;
+    var ea = idx[rel.fromEntity], eb = idx[rel.toEntity];
+    if (ea === undefined || eb === undefined) continue;
+    var ek = ea < eb ? ea + "|" + eb : eb + "|" + ea;
+    if (seenE[ek]) continue;
+    seenE[ek] = true;
+    out[ea].push(eb);
+    und[ea].push(eb); und[eb].push(ea);
   }
 
-  dagre.layout(g);
+  // Break cycles: depth-first, back edges are dropped from the working copy
+  var color = [], acyc = [];
+  for (i = 0; i < n; i++) { color.push(0); acyc.push([]); }
+  function dfsBreak(u) {
+    color[u] = 1;
+    for (var e = 0; e < out[u].length; e++) {
+      var v = out[u][e];
+      if (color[v] === 1) continue;
+      acyc[u].push(v);
+      if (color[v] === 0) dfsBreak(v);
+    }
+    color[u] = 2;
+  }
+  for (i = 0; i < n; i++) if (color[i] === 0) dfsBreak(i);
 
+  // Layer by longest path from sinks: referenced hubs land in column 0
+  var layer = [];
+  for (i = 0; i < n; i++) layer.push(-1);
+  function assignLayer(u) {
+    if (layer[u] >= 0) return layer[u];
+    layer[u] = 0;
+    var best = 0;
+    for (var e = 0; e < acyc[u].length; e++) {
+      var d = assignLayer(acyc[u][e]) + 1;
+      if (d > best) best = d;
+    }
+    layer[u] = best;
+    return best;
+  }
+  for (i = 0; i < n; i++) assignLayer(i);
+
+  // Order each column by neighbor barycenter, four alternating sweeps
+  var maxLayer = 0;
+  for (i = 0; i < n; i++) if (layer[i] > maxLayer) maxLayer = layer[i];
+  var cols = [];
+  for (i = 0; i <= maxLayer; i++) cols.push([]);
+  for (i = 0; i < n; i++) cols[layer[i]].push(i);
+  function sweepPair(fixed, moving) {
+    var pos = {};
+    for (p = 0; p < fixed.length; p++) pos[fixed[p]] = p;
+    var keyed = [];
+    for (p = 0; p < moving.length; p++) {
+      var u = moving[p], sum = 0, cnt = 0;
+      for (q = 0; q < und[u].length; q++) {
+        if (pos[und[u][q]] !== undefined) { sum += pos[und[u][q]]; cnt++; }
+      }
+      keyed.push({ u: u, k: cnt ? sum / cnt : p, o: p });
+    }
+    keyed.sort(function(x, y) { return x.k - y.k || x.o - y.o; });
+    for (p = 0; p < keyed.length; p++) moving[p] = keyed[p].u;
+  }
+  for (t = 0; t < 4; t++) {
+    for (i = 1; i < cols.length; i++) sweepPair(cols[i - 1], cols[i]);
+    for (i = cols.length - 2; i >= 0; i--) sweepPair(cols[i + 1], cols[i]);
+  }
+
+  // Split an over-tall column into side-by-side runs, keeping the order
+  var phys = [];
+  for (i = 0; i < cols.length; i++) {
+    var run = [], runH = 0;
+    for (j = 0; j < cols[i].length; j++) {
+      var u2 = cols[i][j];
+      var hh = nodes[u2].h + S_ROW_GAP;
+      if (runH > 0 && runH + hh > S_COL_CAP) { phys.push(run); run = []; runH = 0; }
+      run.push(u2);
+      runH += hh;
+    }
+    if (run.length > 0) phys.push(run);
+  }
+
+  // Coordinates: fixed-width columns, stacked rows, then three relax passes
+  var xCur = 0;
+  for (i = 0; i < phys.length; i++) {
+    var yCur = 0;
+    for (j = 0; j < phys[i].length; j++) {
+      var nd = nodes[phys[i][j]];
+      nd.x = xCur + nd.w / 2;
+      nd.y = yCur + nd.h / 2;
+      yCur += nd.h + S_ROW_GAP;
+    }
+    xCur += S_BOX_W + S_COL_GAP;
+  }
+  for (t = 0; t < 3; t++) {
+    for (i = 0; i < phys.length; i++) {
+      var want = [];
+      for (j = 0; j < phys[i].length; j++) {
+        var u3 = phys[i][j];
+        var s2 = 0, c2 = 0;
+        for (q = 0; q < und[u3].length; q++) { s2 += nodes[und[u3][q]].y; c2++; }
+        want.push(c2 > 0 ? s2 / c2 : nodes[u3].y);
+      }
+      for (j = 0; j < phys[i].length; j++) nodes[phys[i][j]].y = want[j];
+      // The top-down sweep resolves overlaps without reordering the column
+      var floorY = -Infinity;
+      for (j = 0; j < phys[i].length; j++) {
+        var nd2 = nodes[phys[i][j]];
+        var top = Math.max(nd2.y - nd2.h / 2, floorY);
+        nd2.y = top + nd2.h / 2;
+        floorY = top + nd2.h + S_ROW_GAP;
+      }
+    }
+  }
+
+  // Normalize to origin and report the extent
   var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  for (i = 0; i < nodes.length; i++) {
-    var laid = g.node(nodes[i].name);
-    if (!laid) continue;
-    nodes[i].x = laid.x;
-    nodes[i].y = laid.y;
-    minX = Math.min(minX, laid.x - nodes[i].w / 2);
-    maxX = Math.max(maxX, laid.x + nodes[i].w / 2);
-    minY = Math.min(minY, laid.y - nodes[i].h / 2);
-    maxY = Math.max(maxY, laid.y + nodes[i].h / 2);
+  for (i = 0; i < n; i++) {
+    minX = Math.min(minX, nodes[i].x - nodes[i].w / 2);
+    maxX = Math.max(maxX, nodes[i].x + nodes[i].w / 2);
+    minY = Math.min(minY, nodes[i].y - nodes[i].h / 2);
+    maxY = Math.max(maxY, nodes[i].y + nodes[i].h / 2);
   }
-  if (minX === Infinity) return { w: 0, h: 0 };
-  for (i = 0; i < nodes.length; i++) {
-    nodes[i].x -= minX;
-    nodes[i].y -= minY;
-  }
+  for (i = 0; i < n; i++) { nodes[i].x -= minX; nodes[i].y -= minY; }
   return { w: maxX - minX, h: maxY - minY };
 }
 
@@ -3936,9 +4333,11 @@ function sComputeOverviewLayout() {
 
   for (i = 0; i < components.length; i++) {
     if (components[i].length === 1) {
+      components[i][0]._comp = -1;
       isolated.push(components[i][0]);
       continue;
     }
+    for (var ci = 0; ci < components[i].length; ci++) components[i][ci]._comp = i;
     var size = sLayoutComponent(components[i]);
     boxes.push({ nodes: components[i], w: size.w, h: size.h });
   }
@@ -3963,6 +4362,7 @@ function sComputeOverviewLayout() {
     }
   }
 
+  sBuildGrids();
   sRouteAllEdges();
 }
 
@@ -4044,13 +4444,19 @@ function sKeyName(text) {
   return String(text).toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+function sFkKeys(propertyName) {
+  var base = sKeyName(propertyName);
+  return [base, base + "id"];
+}
+
 function sForeignKeyColumns(entity) {
   var names = Object.create(null);
   for (var i = 0; i < entity.relations.length; i++) {
     var prop = entity.relations[i].propertyName;
     if (!prop) continue;
-    names[sKeyName(prop)] = true;
-    names[sKeyName(prop) + "id"] = true;
+    var keys = sFkKeys(prop);
+    names[keys[0]] = true;
+    names[keys[1]] = true;
   }
   return names;
 }
@@ -4151,17 +4557,17 @@ function sCacheNodeLabels(nodes) {
   }
   for (var i = 0; i < nodes.length; i++) {
     var n = nodes[i];
-    sCtx.font = "bold 12px -apple-system, BlinkMacSystemFont, sans-serif";
+    sCtx.font = "bold 12px " + RPT_FONT;
     n.nameStr = clip(n.name, maxNameW);
-    sCtx.font = "11px -apple-system, BlinkMacSystemFont, sans-serif";
+    sCtx.font = "11px " + RPT_FONT;
     n.metaStr = clip(n.entity.columns.length + " cols  \\u00b7  " + n.sizeLabel, maxMetaW);
-    sCtx.font = "10px monospace";
+    sCtx.font = "10px " + RPT_FONT;
     n.colTypes = [];
     for (var c = 0; c < n.entity.columns.length; c++) {
       n.colTypes.push(clip(n.entity.columns[c].type, 60));
     }
     var foreignKeys = sForeignKeyColumns(n.entity);
-    sCtx.font = "11px -apple-system, BlinkMacSystemFont, sans-serif";
+    sCtx.font = "11px " + RPT_FONT;
     n.colNames = [];
     n.colKinds = [];
     for (var k = 0; k < n.entity.columns.length; k++) {
@@ -4173,6 +4579,7 @@ function sCacheNodeLabels(nodes) {
 
 function sSetVisibleSubset(entityName) {
   if (!sFocusedMode) return;
+  sCompGrids = null;
 
   var emptyState = document.getElementById("schema-empty-state");
 
@@ -4242,21 +4649,6 @@ function sCenterCamera() {
   sCamY = sH / 2 - cy;
 }
 
-// Round rect helper
-function sRoundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
-
 // Drawing
 function schemaDraw() {
   sSyncZoomUi();
@@ -4321,7 +4713,7 @@ function schemaDraw() {
     if (sZoom >= 0.35) {
       var mid = sPolylineMidpoint(points);
       var labelStr = sRelLabel(rel.type);
-      sCtx.font = (10 / sZoom) + "px monospace";
+      sCtx.font = (10 / sZoom) + "px " + RPT_FONT;
       sCtx.textAlign = "center";
       sCtx.textBaseline = "bottom";
       sCtx.fillStyle = isHovered ? "#ffffff" : "#666";
@@ -4332,7 +4724,6 @@ function schemaDraw() {
 
   // Draw entity boxes
   var BOX_W = 180;
-  var R = 6;
   var HDR_H = 24;
   var COL_ROW_H = 16;
   var showCols = sApplyNodeSizes(sNodes);
@@ -4361,7 +4752,8 @@ function schemaDraw() {
     }
 
     // Body background (full box)
-    sRoundRect(sCtx, x, y, BOX_W, BOX_H, R);
+    sCtx.beginPath();
+    sCtx.rect(x, y, BOX_W, BOX_H);
     sCtx.fillStyle = "#151515";
     sCtx.fill();
 
@@ -4372,21 +4764,9 @@ function schemaDraw() {
 
     if (isSelected) sCtx.restore();
 
-    // Header background (top portion, clipped to rounded top)
-    sCtx.save();
-    sCtx.beginPath();
-    sCtx.moveTo(x + R, y);
-    sCtx.lineTo(x + BOX_W - R, y);
-    sCtx.quadraticCurveTo(x + BOX_W, y, x + BOX_W, y + R);
-    sCtx.lineTo(x + BOX_W, y + HDR_H);
-    sCtx.lineTo(x, y + HDR_H);
-    sCtx.lineTo(x, y + R);
-    sCtx.quadraticCurveTo(x, y, x + R, y);
-    sCtx.closePath();
-    sCtx.clip();
+    // Header background (top portion)
     sCtx.fillStyle = "#0d0d0d";
     sCtx.fillRect(x, y, BOX_W, HDR_H);
-    sCtx.restore();
 
     // Separator line between header and body
     sCtx.beginPath();
@@ -4406,7 +4786,7 @@ function schemaDraw() {
     // Entity name (after icon). Below this zoom the glyphs are sub-pixel mush.
     if (sZoom >= 0.15) {
       sCtx.fillStyle = "#e0e0e0";
-      sCtx.font = "bold 12px -apple-system, BlinkMacSystemFont, sans-serif";
+      sCtx.font = "bold 12px " + RPT_FONT;
       sCtx.textAlign = "left";
       sCtx.textBaseline = "middle";
       sCtx.fillText(n.nameStr || n.name, iconX + iconSize + 6, y + HDR_H / 2);
@@ -4425,13 +4805,13 @@ function schemaDraw() {
           sDrawColumnIcon(sCtx, kind, x + 13, colY + COL_ROW_H / 2);
         }
         sCtx.fillStyle = kind === "pk" ? "#e0e0e0" : "#ccc";
-        sCtx.font = "11px -apple-system, BlinkMacSystemFont, sans-serif";
+        sCtx.font = "11px " + RPT_FONT;
         sCtx.textAlign = "left";
         sCtx.textBaseline = "middle";
         sCtx.fillText(n.colNames ? n.colNames[c] : col.name, x + 21, colY + COL_ROW_H / 2);
         // Column type (right-aligned, dimmer)
         sCtx.fillStyle = "#3b82f6";
-        sCtx.font = "10px monospace";
+        sCtx.font = "10px " + RPT_FONT;
         sCtx.textAlign = "right";
         sCtx.fillText(n.colTypes ? n.colTypes[c] : col.type, x + BOX_W - 10, colY + COL_ROW_H / 2);
         colY += COL_ROW_H;
@@ -4439,14 +4819,14 @@ function schemaDraw() {
       // "+N more" indicator
       if (hasMore) {
         sCtx.fillStyle = "#666";
-        sCtx.font = "10px -apple-system, BlinkMacSystemFont, sans-serif";
+        sCtx.font = "10px " + RPT_FONT;
         sCtx.textAlign = "left";
         sCtx.fillText("+" + (cols.length - visibleColCount) + " more", x + 10, colY + COL_ROW_H / 2);
       }
     } else if (!showCols && showBodyText) {
       // Meta line: "N cols · ~X KB"
       sCtx.fillStyle = "#666";
-      sCtx.font = "11px -apple-system, BlinkMacSystemFont, sans-serif";
+      sCtx.font = "11px " + RPT_FONT;
       sCtx.fillText(n.metaStr || "", x + 8, y + HDR_H + (BOX_H - HDR_H) / 2);
     }
   }
@@ -4907,6 +5287,24 @@ function renderSchema() {
     });
   }
 
+  var schemaSearchEl = document.getElementById("schema-search");
+  if (schemaSearchEl) {
+    schemaSearchEl.addEventListener("input", function() {
+      var q = this.value.trim().toLowerCase();
+      var entityRows = entityListEl.querySelectorAll(".st-row[data-entity]");
+      for (var er = 0; er < entityRows.length; er++) {
+        var row = entityRows[er];
+        var label = row.querySelector(".st-label").textContent.toLowerCase();
+        var show = q === "" || label.indexOf(q) >= 0 || row.dataset.entity.toLowerCase().indexOf(q) >= 0;
+        row.style.display = show ? "" : "none";
+        var kids = row.nextElementSibling;
+        if (kids && kids.classList.contains("st-children")) {
+          kids.style.display = show ? "" : "none";
+        }
+      }
+    });
+  }
+
   var sidebarCollapseBtn = document.getElementById("schema-sidebar-collapse");
   var sidebarShowBtn = document.getElementById("schema-sidebar-show");
   var schemaTab = document.getElementById("tab-schema");
@@ -5127,13 +5525,14 @@ function renderSchema() {
     var pos = sScreenToWorld(sx, sy);
     var hit = sHitTestEntity(pos.x, pos.y);
     sDragMoved = false;
+    sPanStart = { x: e.clientX, y: e.clientY };
     if (hit) {
       sDragging = hit;
+      sDragOffset = { x: hit.x - pos.x, y: hit.y - pos.y };
       sHideTooltip();
       sHideRelBadge();
     } else {
       sPanning = true;
-      sPanStart = { x: e.clientX, y: e.clientY };
     }
   });
 
@@ -5143,10 +5542,14 @@ function renderSchema() {
     var sy = e.clientY - rect.top;
     var pos = sScreenToWorld(sx, sy);
 
+    if ((sDragging || sPanning) && !sDragMoved &&
+        Math.abs(e.clientX - sPanStart.x) < 4 &&
+        Math.abs(e.clientY - sPanStart.y) < 4) return;
+
     if (sDragging) {
       sDragMoved = true;
-      sDragging.x = pos.x;
-      sDragging.y = pos.y;
+      sDragging.x = pos.x + sDragOffset.x;
+      sDragging.y = pos.y + sDragOffset.y;
       sRerouteEdgesForNode(sDragging.name);
       sScheduleRedraw();
       sHideTooltip();
@@ -5621,7 +6024,7 @@ function epDraw() {
 
     // Class name
     epCtx.fillStyle = "#e0e0e0";
-    epCtx.font = "bold 11px -apple-system, BlinkMacSystemFont, sans-serif";
+    epCtx.font = "bold 11px " + RPT_FONT;
     epCtx.textAlign = "left";
     epCtx.textBaseline = "middle";
     var nameStr = n.className;
@@ -5637,7 +6040,7 @@ function epDraw() {
     var infoY = y + HDR_H + 8;
 
     // Type badge
-    epCtx.font = "bold 9px -apple-system, BlinkMacSystemFont, sans-serif";
+    epCtx.font = "bold 9px " + RPT_FONT;
     var typeLabel = n.type.toUpperCase();
     var badgeW = epCtx.measureText(typeLabel).width + 10;
     epRoundRect(epCtx, x + 8, infoY - 1, badgeW, 14, 3);
@@ -5655,7 +6058,7 @@ function epDraw() {
     var orderW = 0;
     if (n.order >= 0) {
       var orderLabel = "#" + (n.order + 1);
-      epCtx.font = "bold 8px -apple-system, BlinkMacSystemFont, sans-serif";
+      epCtx.font = "bold 8px " + RPT_FONT;
       orderW = epCtx.measureText(orderLabel).width + 8;
       epRoundRect(epCtx, badgeRight + 4, infoY, orderW, 12, 3);
       epCtx.fillStyle = "rgba(255,255,255,0.08)";
@@ -5667,7 +6070,7 @@ function epDraw() {
 
     // Repeat marker, right-aligned so it fits whatever the type badge is wide
     if (n.expandedElsewhere) {
-      epCtx.font = "bold 10px -apple-system, BlinkMacSystemFont, sans-serif";
+      epCtx.font = "bold 10px " + RPT_FONT;
       epCtx.fillStyle = "#888";
       epCtx.textAlign = "right";
       epCtx.textBaseline = "middle";
@@ -5678,7 +6081,7 @@ function epDraw() {
     // Method name
     if (n.methodName) {
       var methodY = infoY + 18;
-      epCtx.font = "9px monospace";
+      epCtx.font = "9px " + RPT_FONT;
       epCtx.textAlign = "left";
       epCtx.fillStyle = isCond ? "#f59e0b" : "#888";
       var mText = n.methodName + (isCond ? "?()" : "()");

@@ -272,8 +272,7 @@ export const GraphAndSchema = () => (
 						>
 							<code>--timings</code>
 						</Link>{" "}
-						overlays the real construction times. The 800ms hiding in an{" "}
-						<code>onModuleInit</code> becomes a bar.
+						overlays the real construction times.
 					</p>
 				),
 				figure: <ModuleGraph />,
@@ -284,7 +283,7 @@ export const GraphAndSchema = () => (
 				},
 			},
 			{
-				title: "The ER diagram you never drew.",
+				title: "An ER diagram from your source code.",
 				copy: (
 					<p>
 						Entities and relations from{" "}

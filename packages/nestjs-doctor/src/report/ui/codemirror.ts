@@ -1,3 +1,5 @@
+import { REPORT_FONT_STACK } from "./styles.js";
+
 export function getCodeMirrorImportMap(): string {
 	return `<script type="importmap">
 {
@@ -117,7 +119,7 @@ window.createCodeViewer = function(container, code, options) {
     EditorView.theme({
       "&": { fontSize: "12px" },
       ".cm-scroller": {
-        fontFamily: '"SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, monospace',
+        fontFamily: '${REPORT_FONT_STACK}',
         fontSize: "12px",
         lineHeight: "1.6",
         overflow: "auto",

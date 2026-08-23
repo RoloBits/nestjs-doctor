@@ -35,52 +35,12 @@ function edgeKey(from: string, to: string): string {
 	return from < to ? `${from}|${to}` : `${to}|${from}`;
 }
 
-/** Fake dagre that ranks nodes along a diagonal, enough to exercise packing. */
-const fakeDagre = {
-	graphlib: {
-		Graph: class {
-			private readonly nodes = new Map<
-				string,
-				{ width: number; height: number; x: number; y: number }
-			>();
-			private order = 0;
-			setGraph() {
-				return this;
-			}
-			setDefaultEdgeLabel() {
-				return this;
-			}
-			setNode(id: string, value: { width: number; height: number }) {
-				this.order += 1;
-				this.nodes.set(id, {
-					...value,
-					x: this.order * 400,
-					y: this.order * 200,
-				});
-			}
-			setEdge() {
-				return this;
-			}
-			node(id: string) {
-				return this.nodes.get(id);
-			}
-		},
-	},
-	layout() {
-		// Positions are assigned in setNode.
-	},
-};
-
 /**
  * Pulls the layout functions out of the emitted script and runs them against a
  * synthetic schema. The report has no DOM harness, so this executes the real
  * emitted source rather than a copy.
  */
-function runOverviewLayout(
-	relations: Relation[],
-	nodes: Node[],
-	dagreImpl: unknown
-): void {
+function runOverviewLayout(relations: Relation[], nodes: Node[]): void {
 	const scripts = getReportScripts(EMPTY);
 	const start = scripts.indexOf("function sComputeComponents");
 	const end = scripts.indexOf("function sComputeStarLayout");
@@ -93,7 +53,7 @@ function runOverviewLayout(
 		"sNodes",
 		"sEdgeKey",
 		"sRouteAllEdges",
-		"dagre",
+		"sBuildGrids",
 		`${scripts.slice(start, end)}\nreturn sComputeOverviewLayout;`
 	);
 	factory(
@@ -103,7 +63,9 @@ function runOverviewLayout(
 		() => {
 			// Edge routing is not under test.
 		},
-		dagreImpl
+		() => {
+			// Grid building is not under test.
+		}
 	)();
 }
 
@@ -152,24 +114,17 @@ function buildSchema(): { nodes: Node[]; relations: Relation[] } {
 }
 
 describe("schema overview layout", () => {
-	it("separates every table when dagre is available", () => {
+	it("separates every table", () => {
 		const { nodes, relations } = buildSchema();
-		runOverviewLayout(relations, nodes, fakeDagre);
+		runOverviewLayout(relations, nodes);
 
 		expect(nodes).toHaveLength(34);
 		expect(findOverlap(nodes)).toBeNull();
 	});
 
-	it("still separates every table with no dagre on the page", () => {
-		const { nodes, relations } = buildSchema();
-		runOverviewLayout(relations, nodes, undefined);
-
-		expect(findOverlap(nodes)).toBeNull();
-	});
-
 	it("groups unrelated tables instead of stringing them out", () => {
 		const { nodes, relations } = buildSchema();
-		runOverviewLayout(relations, nodes, fakeDagre);
+		runOverviewLayout(relations, nodes);
 
 		const isolated = nodes.filter((n) => n.name.startsWith("isolated"));
 		const rows = new Set(isolated.map((n) => n.y));
@@ -215,7 +170,7 @@ describe("schema overview layout", () => {
 			{ fromEntity: "a", toEntity: "b" },
 			{ fromEntity: "b", toEntity: "c" },
 		];
-		runOverviewLayout(relations, nodes, fakeDagre);
+		runOverviewLayout(relations, nodes);
 
 		expect(findOverlap(nodes)).toBeNull();
 	});

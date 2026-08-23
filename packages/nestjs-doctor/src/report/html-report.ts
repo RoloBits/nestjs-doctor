@@ -38,6 +38,9 @@ export function buildHtmlReport(
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>nestjs-doctor — Health Report</title>
 <link rel="icon" type="image/png" href="${FAVICON_DATA_URI}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@200;400;500;600;700&display=swap">
 <style>${getReportStyles()}</style>
 ${getCodeMirrorImportMap()}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js" integrity="sha512-psLUZfcgPmi012lcpVHkWoOqyztollwCGu4w/mXijFMK/YcdUdP06voJNVOJ7f/dUIlO2tGlDLuypRyXX2lcvQ==" crossorigin="anonymous"></script>

@@ -8,9 +8,10 @@ export function getReportHtml(): string {
   </div>
   <div class="meta" id="header-meta"></div>
   <div class="spacer"></div>
-  <a class="github-link" href="https://github.com/RoloBits/nestjs-doctor" target="_blank" rel="noopener">
-    <svg width="18" height="18" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-  </a>
+  <div class="nav-actions">
+    <a class="nav-btn" href="https://nestjs.doctor/docs" target="_blank" rel="noopener">docs</a>
+    <a class="nav-btn" href="https://github.com/RoloBits/nestjs-doctor" target="_blank" rel="noopener">github</a>
+  </div>
 </div>
 
 <!-- ── Header Row 2 (Tab bar) ── -->
@@ -48,12 +49,21 @@ export function getReportHtml(): string {
           </svg>
         </button>
       </div>
+      <div class="mg-side-search">
+        <input type="search" id="diag-search" placeholder="Search files" spellcheck="false" autocomplete="off">
+      </div>
       <label class="schema-sync" id="diag-notscored-row">
         <input type="checkbox" id="diag-show-notscored">
         <span>Show not scored</span>
       </label>
       <hr class="diag-divider" id="diag-notscored-divider">
-      <div class="filter-rows">
+      <button class="diag-filters-toggle" id="diag-filters-toggle" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        Filters
+        <span class="diag-filters-count" id="diag-filters-count" style="display:none"></span>
+        <span class="diag-filters-caret">\u25B8</span>
+      </button>
+      <div class="filter-rows" id="diag-filters-body">
         <div class="sev-filters">
           <span class="filter-label">Severity</span>
           <button class="sev-pill active" data-sev="all">All</button>
@@ -66,6 +76,15 @@ export function getReportHtml(): string {
           <button class="scope-pill active" data-scope="all">All</button>
           <button class="scope-pill" data-scope="file">File</button>
           <button class="scope-pill" data-scope="project">Project</button>
+        </div>
+        <div class="cat-filters">
+          <span class="filter-label">Category</span>
+          <button class="cat-pill active" data-cat="all">All</button>
+          <button class="cat-pill" data-cat="security">Security</button>
+          <button class="cat-pill" data-cat="correctness">Correctness</button>
+          <button class="cat-pill" data-cat="schema">Schema</button>
+          <button class="cat-pill" data-cat="architecture">Architecture</button>
+          <button class="cat-pill" data-cat="performance">Performance</button>
         </div>
       </div>
     </div>
@@ -212,6 +231,9 @@ for (let i = 0; i < lines.length; i++) {
             <polyline points="9 3 4 8 9 13"/><line x1="13" y1="3" x2="13" y2="13"/>
           </svg>
         </button>
+      </div>
+      <div class="mg-side-search">
+        <input type="search" id="schema-search" placeholder="Search tables" spellcheck="false" autocomplete="off">
       </div>
       <label class="schema-sync has-tip" data-tip="Sync \u00b7 the list follows the table you pick in the diagram">
         <input type="checkbox" id="schema-sync-sidebar" checked>
@@ -430,7 +452,9 @@ for (let i = 0; i < lines.length; i++) {
     <div id="mg-dock-header">
       <span class="mg-dock-tab" id="mg-dock-tab-problems" data-dock-tab="problems">Module problems <span class="schema-entity-count" id="mg-problems-count"></span></span>
       <span class="mg-dock-tab" id="mg-dock-tab-trace" data-dock-tab="trace" style="display:none">Boot trace <span class="schema-entity-count" id="mg-trace-ms"></span></span>
-      <span class="mg-trace-legend" id="mg-trace-legend">bars scale to the slowest row · <span class="mg-trace-legend-self"></span> ≈ own work · dimmed hollow = reused, built earlier · rows = create phase, +ms chips = lifecycle hooks</span>
+      <span class="mg-trace-info" tabindex="0" role="img" aria-label="How to read the trace" data-tip="How to read the trace&#10;\u2022 bars scale to the slowest row&#10;\u2022 yellow segment \u2248 the class's own work&#10;\u2022 dimmed hollow bar = reused, built earlier&#10;\u2022 rows are the create phase&#10;\u2022 +ms chips = lifecycle hooks">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+        </span>
       <span style="flex:1"></span>
       <span class="mg-problems-chevron" id="mg-dock-chevron">▴</span>
     </div>
