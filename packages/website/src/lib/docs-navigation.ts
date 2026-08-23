@@ -38,7 +38,7 @@ export const DOCS_NAV: NavSection[] = [
 		title: "Configuration",
 		items: [
 			{ title: "Config files", href: "/docs/configuration" },
-			{ title: "Custom rules", href: "/docs/custom-rules" },
+			{ title: "Custom rule configuration", href: "/docs/custom-rules" },
 		],
 	},
 	{
@@ -50,6 +50,7 @@ export const DOCS_NAV: NavSection[] = [
 			{ title: "Architecture", href: "/docs/rules/architecture" },
 			{ title: "Performance", href: "/docs/rules/performance" },
 			{ title: "Schema", href: "/docs/rules/schema" },
+			{ title: "Custom rules", href: "/docs/rules/custom" },
 		],
 	},
 	{
