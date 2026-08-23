@@ -78,6 +78,8 @@ abstract class ScanPipeline {
 	protected readonly options: PipelineOptions;
 	protected resolvedMinimumScore: number | undefined;
 	protected scanConfig!: ScanConfig;
+	/** Live spinner handle while `run` is in flight; steps update its text. */
+	protected progress: { update(text: string): void } | null = null;
 	/** Set when any scanned sub-project declares its own opt-out. */
 	protected subProjectOptOut = false;
 	/** Warnings raised while narrowing the scope; surfaced alongside the report. */
@@ -185,6 +187,7 @@ abstract class ScanPipeline {
 			return result;
 		}
 
+		this.progress?.update("Comparing against the base revision");
 		const scope: ResolvedScope = resolveScope({
 			base: this.options.base,
 			changedFilesFrom: this.options.changedFilesFrom,
@@ -233,11 +236,13 @@ abstract class ScanPipeline {
 		const progress = this.options.isMachineReadable
 			? null
 			: spinner("Scanning...").start();
+		this.progress = progress;
 
 		for (const step of this.steps) {
 			await step();
 		}
 
+		this.progress = null;
 		progress?.succeed("Scan complete");
 	}
 }
@@ -308,7 +313,7 @@ export class MonorepoPipeline extends ScanPipeline {
 				this.targetPath,
 				this.scanConfig,
 				this.monorepo,
-				(name, context: AnalysisContext) => {
+				async (name, context: AnalysisContext) => {
 					if (context.config?.telemetry === false) {
 						this.subProjectOptOut = true;
 					}
@@ -331,12 +336,22 @@ export class MonorepoPipeline extends ScanPipeline {
 							})
 						);
 					}
-					const scanResult = buildResult(context, diagnose(context));
+					const rawOutput = await diagnose(context, (checked, total) => {
+						this.progress?.update(
+							`${name} — running rules (${checked}/${total} files)`
+						);
+					});
+					const scanResult = buildResult(context, rawOutput);
 					return {
 						...scanResult,
 						moduleGraph: detachModuleGraph(scanResult.moduleGraph),
 						providers: new Map(),
 					};
+				},
+				(name, index, total) => {
+					this.progress?.update(
+						`${name} (${index}/${total}) — collecting and parsing files`
+					);
 				}
 			);
 		});
@@ -435,6 +450,7 @@ export class SingleProjectPipeline extends ScanPipeline {
 
 	buildContext(): this {
 		this.steps.push(async () => {
+			this.progress?.update("Collecting and parsing files");
 			this.context = await buildAnalysisContext(
 				this.targetPath,
 				this.scanConfig
@@ -444,8 +460,10 @@ export class SingleProjectPipeline extends ScanPipeline {
 	}
 
 	runRules(): this {
-		this.steps.push(() => {
-			this.rawOutput = diagnose(this.context);
+		this.steps.push(async () => {
+			this.rawOutput = await diagnose(this.context, (checked, total) => {
+				this.progress?.update(`Running rules — ${checked}/${total} files`);
+			});
 		});
 		return this;
 	}

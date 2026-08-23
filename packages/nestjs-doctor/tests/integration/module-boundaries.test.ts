@@ -13,7 +13,7 @@ async function boundaryFindings(fixture: string) {
 	const targetPath = resolve(FIXTURES, fixture);
 	const scanConfig = await resolveScanConfig(targetPath);
 	const context = await buildAnalysisContext(targetPath, scanConfig);
-	return diagnose(context).diagnostics.filter(
+	return (await diagnose(context)).diagnostics.filter(
 		(diagnostic) => diagnostic.rule === BOUNDARY_RULE
 	);
 }

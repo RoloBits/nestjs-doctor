@@ -43,6 +43,11 @@ export const spinner = (text: string) => ({
 		return {
 			succeed: (displayText: string) => finalize("succeed", text, displayText),
 			fail: (displayText: string) => finalize("fail", text, displayText),
+			update: (displayText: string) => {
+				if (sharedInstance) {
+					sharedInstance.text = displayText;
+				}
+			},
 		};
 	},
 });

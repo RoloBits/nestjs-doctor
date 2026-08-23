@@ -15,7 +15,7 @@ async function analyze(fixture: string): Promise<Result> {
 	const targetPath = resolve(FIXTURES, fixture);
 	const scanConfig = await resolveScanConfig(targetPath);
 	const context = await buildAnalysisContext(targetPath, scanConfig);
-	const raw = diagnose(context);
+	const raw = await diagnose(context);
 	return buildResult(context, raw, scanConfig.customRuleWarnings).result;
 }
 

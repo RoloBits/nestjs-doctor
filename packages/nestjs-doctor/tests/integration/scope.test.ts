@@ -51,7 +51,7 @@ ${body}
 const scanHead = async (targetPath: string) => {
 	const scanConfig = await resolveScanConfig(targetPath);
 	const context = await buildAnalysisContext(targetPath, scanConfig);
-	return { diagnostics: diagnose(context).diagnostics, scanConfig };
+	return { diagnostics: (await diagnose(context)).diagnostics, scanConfig };
 };
 
 const rulesIn = (diagnostics: Diagnostic[]): string[] =>
@@ -272,11 +272,12 @@ describe("advisory findings under changed scope", () => {
 							root,
 							scanConfig,
 							info,
-							(_n, context) => diagnose(context).diagnostics
+							async (_n, context) => (await diagnose(context)).diagnostics
 						)
 					).values(),
 				].flat()
-			: diagnose(await buildAnalysisContext(root, scanConfig)).diagnostics;
+			: (await diagnose(await buildAnalysisContext(root, scanConfig)))
+					.diagnostics;
 		const scope = resolveScope({
 			mode: "changed",
 			targetPath: root,

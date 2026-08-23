@@ -11,7 +11,7 @@ const FIXTURE = resolve(import.meta.dirname, "../fixtures/typeorm-alias-app");
 async function scan() {
 	const scanConfig = await resolveScanConfig(FIXTURE);
 	const context = await buildAnalysisContext(FIXTURE, scanConfig);
-	return { context, output: diagnose(context) };
+	return { context, output: await diagnose(context) };
 }
 
 describe("alias-imported base entities", () => {

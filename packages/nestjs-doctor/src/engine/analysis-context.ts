@@ -209,7 +209,8 @@ export async function reduceSubProjects<T>(
 	targetPath: string,
 	scanConfig: ScanConfig,
 	monorepo: MonorepoInfo,
-	consume: (name: string, context: AnalysisContext) => T
+	consume: (name: string, context: AnalysisContext) => T | Promise<T>,
+	onProject?: (name: string, index: number, total: number) => void
 ): Promise<Map<string, T>> {
 	const filesByProject = await collectMonorepoFiles(
 		targetPath,
@@ -231,10 +232,16 @@ export async function reduceSubProjects<T>(
 	};
 
 	const results = new Map<string, T>();
+	const total = [...filesByProject.values()].filter(
+		(files) => files.length > 0
+	).length;
+	let index = 0;
 	for (const [name, files] of filesByProject) {
 		if (files.length === 0) {
 			continue;
 		}
+		index++;
+		onProject?.(name, index, total);
 		const context = await buildSubProjectContext(
 			targetPath,
 			scanConfig,
@@ -243,7 +250,7 @@ export async function reduceSubProjects<T>(
 			files,
 			rootSchemaFor
 		);
-		results.set(name, consume(name, context));
+		results.set(name, await consume(name, context));
 	}
 	return results;
 }
