@@ -81,12 +81,18 @@ either stream.
 
 A console scan in a terminal ends with a short menu: review the findings one
 by one, open the HTML report, scaffold the GitHub Actions workflow when it is
-missing, or copy the findings as markdown. The report comes from the scan that
+missing, hand off to a coding agent, or copy the findings as markdown. The report comes from the scan that
 just ran, so nothing is scanned twice.
 
 Reviewing walks rule by rule, worst first. Each finding shows its code frame,
 the fix guidance, and the docs link, and one keystroke copies an agent-ready
 fix prompt for the whole rule.
+
+Handing off detects Claude Code, Codex, and Cursor on your PATH and starts the
+one you pick with the top findings as its first prompt, plainly: no
+permission-skipping flags are passed. Copy the prompt instead to use any other
+agent. Nothing about the handoff, or anything else the CLI does, leaves your
+machine.
 
 The menu never appears where it could hang a machine. It is skipped in CI,
 inside coding agents, in pipes, in `dumb` terminals, and in every mode other
