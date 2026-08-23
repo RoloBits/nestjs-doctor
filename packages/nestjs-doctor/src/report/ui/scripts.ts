@@ -1380,7 +1380,7 @@ function mgBuildTree() {
       return;
     }
     var node = mgNodeMap[row.dataset.module];
-    if (node) { window.__ndTrack?.("module_opened_from_finding"); mgShowDetail(node); mgFlyToNode(node); mgScheduleRedraw(); }
+    if (node) { window.__ndTrack?.("module_opened_from_tree"); mgShowDetail(node); mgFlyToNode(node); mgScheduleRedraw(); }
   });
 }
 
@@ -1496,7 +1496,7 @@ function mgBuildProblems() {
     var row = ev.target.closest(".mg-problem-linked");
     if (!row) return;
     var node = mgNodeMap[row.dataset.module];
-    if (node) { mgShowDetail(node); mgFlyToNode(node); mgScheduleRedraw(); }
+    if (node) { window.__ndTrack?.("module_opened_from_finding"); mgShowDetail(node); mgFlyToNode(node); mgScheduleRedraw(); }
   });
 }
 
@@ -3076,15 +3076,6 @@ function renderLab() {
     }
   }
   presetSelect.addEventListener("change", function() { window.__ndTrack?.("rule_lab_preset_loaded"); loadPreset(this.value); });
-
-  // Keydown, not the editor's own change event, which also fires on preset loads.
-  const pgEditorEl = document.getElementById("pg-cm-editor");
-  let pgEdited = false;
-  pgEditorEl?.addEventListener("keydown", function() {
-    if (pgEdited) return;
-    pgEdited = true;
-    window.__ndTrack?.("rule_lab_code_edited");
-  });
 
   let pgMetaTracked = false;
   for (const id of ["pg-severity", "pg-category"]) {
