@@ -113,7 +113,7 @@ export function getReportHtml(): string {
 <div class="tab-content" id="tab-lab">
   <div class="playground-editor">
     <div class="playground-section-label playground-title">RULE LAB</div>
-    <p class="playground-subtitle">Write and test <a href="https://www.nestjs.doctor/docs/custom-rules" target="_blank" rel="noopener">custom rules</a> against your project. Use <code>/nestjs-doctor-create-rule</code> with an AI agent to <a href="https://www.nestjs.doctor/docs/coding-agents" target="_blank" rel="noopener">scaffold rules automatically</a>.</p>
+    <p class="playground-subtitle">Write and test <a href="https://www.nestjs.doctor/docs/rules/custom" target="_blank" rel="noopener">custom rules</a> against your project. Use <code>/nestjs-doctor-create-rule</code> with an AI agent to <a href="https://www.nestjs.doctor/docs/coding-agents" target="_blank" rel="noopener">scaffold rules automatically</a>.</p>
     <div class="playground-form">
       <div class="playground-form-row">
         <div class="playground-field">

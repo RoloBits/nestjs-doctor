@@ -52,9 +52,9 @@ export const docsMetadata: Record<string, Metadata> = {
 			"Configure nestjs-doctor with nestjs-doctor.config.json. Customize file patterns, enable or disable rules, ignore specific diagnostics, and suppress rules inline with comments.",
 	},
 	"/docs/custom-rules": {
-		title: "Custom rules",
+		title: "Custom rule configuration",
 		description:
-			"Extend nestjs-doctor with project-specific checks. Encode domain conventions, enforce team standards, or flag patterns unique to your codebase.",
+			"Wire custom rules into a nestjs-doctor scan: customRulesDir, how rule files load, custom/ id prefixing, and the surfaces a rule's findings appear on.",
 	},
 	"/docs/ci": {
 		title: "GitHub Actions setup",
@@ -155,5 +155,10 @@ export const docsMetadata: Record<string, Metadata> = {
 		title: "Schema rules",
 		description:
 			"3 rules that validate database schema design: primary keys, timestamps, and relation configuration.",
+	},
+	"/docs/rules/custom": {
+		title: "Custom rules",
+		description:
+			"Write project-specific nestjs-doctor rules: the rule shape, file and project scopes, the check function's context, and the report's Rule Lab.",
 	},
 };
