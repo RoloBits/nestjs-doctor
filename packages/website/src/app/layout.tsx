@@ -1,7 +1,6 @@
-import { Analytics } from "@vercel/analytics/next";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 import type { Metadata } from "next";
 import { IBM_Plex_Mono } from "next/font/google";
+import { SiteAnalytics } from "@/components/site-analytics";
 import "./globals.css";
 
 const ibmPlexMono = IBM_Plex_Mono({
@@ -58,8 +57,7 @@ export default function RootLayout({
 				suppressHydrationWarning
 			>
 				{children}
-				<Analytics />
-				<SpeedInsights />
+				<SiteAnalytics />
 			</body>
 		</html>
 	);
