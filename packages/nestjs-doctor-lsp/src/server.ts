@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
@@ -24,8 +25,20 @@ import type {
 	WorkerMessage,
 } from "./worker-protocol.js";
 
-/** Kept in step with package.json by the release, like the CLI's own stamp. */
-const VERSION = "4.0.0";
+/** The bundle sits in dist/, so the manifest is one level up. */
+function readVersion(): string {
+	try {
+		const raw = readFileSync(
+			join(import.meta.dirname, "..", "package.json"),
+			"utf-8"
+		);
+		return (JSON.parse(raw) as { version?: string }).version ?? "0.0.0";
+	} catch {
+		return "0.0.0";
+	}
+}
+
+const VERSION = readVersion();
 
 interface Settings {
 	debounceMs: number;
@@ -145,8 +158,7 @@ function terminateWorker() {
 }
 
 /**
- * One event per session, naming the editor. A language server runs for hours,
- * so a request-level event would drown every other surface.
+ * One event per session, naming the editor.
  */
 function reportSession(params: InitializeParams): void {
 	const options = params.initializationOptions as

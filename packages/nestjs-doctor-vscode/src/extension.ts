@@ -64,8 +64,7 @@ export async function activate(context: ExtensionContext): Promise<void> {
 				fileEvents: workspace.createFileSystemWatcher("**/package.json"),
 			},
 			outputChannel: output,
-			// VS Code requires an extension to honour this, and the server it
-			// spawns reports on its behalf.
+			// The server reads this before it reports anything.
 			initializationOptions: { telemetry: env.isTelemetryEnabled },
 		};
 

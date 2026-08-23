@@ -1,4 +1,5 @@
 ---
+"nestjs-doctor": patch
 "nestjs-doctor-lsp": minor
 "nestjs-doctor-vscode": patch
 ---

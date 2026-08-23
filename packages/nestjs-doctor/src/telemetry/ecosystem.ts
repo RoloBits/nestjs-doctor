@@ -51,9 +51,7 @@ const CLOUD_SCOPES: [string, string][] = [
 ];
 
 /**
- * Sub-service names the payload may carry, per vendor. A workspace package can
- * be given any local name, including one inside a vendor scope, so the suffix
- * is matched against this list rather than a shape.
+ * The only sub-service names the payload may carry, per vendor.
  */
 const CLOUD_SERVICES: Record<string, readonly string[]> = {
 	aws: [

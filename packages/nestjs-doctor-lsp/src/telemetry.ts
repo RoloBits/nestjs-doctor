@@ -13,9 +13,7 @@ const BACKSLASH = /\\/g;
 const CI_SALT = "nestjs-doctor-ci";
 
 /**
- * Shared with the CLI, which owns the same file. The LSP resolves
- * `nestjs-doctor` from the user's workspace and must still report when it is
- * missing, so the two read the format rather than one importing the other.
+ * The file the CLI also reads. Both tools share this format.
  */
 interface StoredConfig {
 	anonymousId: string;
