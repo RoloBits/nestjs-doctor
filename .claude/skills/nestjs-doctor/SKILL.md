@@ -6,7 +6,7 @@ allowed-tools: Bash, Read, Edit, Glob, Grep, Write
 
 # nestjs-doctor
 
-> v0.8.0
+> v0.9.0
 
 52 rules over security, correctness, architecture, performance, and database
 schema, scored 0-100. No model at scan time and nothing about your code leaves
