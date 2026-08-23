@@ -3077,6 +3077,24 @@ function renderLab() {
   }
   presetSelect.addEventListener("change", function() { window.__ndTrack?.("rule_lab_preset_loaded"); loadPreset(this.value); });
 
+  // Keydown, not the editor's own change event, which also fires on preset loads.
+  const pgEditorEl = document.getElementById("pg-cm-editor");
+  let pgEdited = false;
+  pgEditorEl?.addEventListener("keydown", function() {
+    if (pgEdited) return;
+    pgEdited = true;
+    window.__ndTrack?.("rule_lab_code_edited");
+  });
+
+  let pgMetaTracked = false;
+  for (const id of ["pg-severity", "pg-category"]) {
+    document.getElementById(id)?.addEventListener("change", function() {
+      if (pgMetaTracked) return;
+      pgMetaTracked = true;
+      window.__ndTrack?.("rule_lab_metadata_changed");
+    });
+  }
+
   function updateContextHint() {
     const hint = document.getElementById("pg-context-hint");
     const scope = document.getElementById("pg-scope").value;
