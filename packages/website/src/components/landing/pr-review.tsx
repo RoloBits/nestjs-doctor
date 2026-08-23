@@ -364,7 +364,7 @@ export const PrReview = () => (
 		copy={
 			<>
 				<p>
-					It comments on the issues a pull request introduces, using the{" "}
+					It comments on the findings a pull request introduces, using the{" "}
 					<b>built-in rules</b> and the{" "}
 					<Link
 						className="text-nest-red underline underline-offset-4"

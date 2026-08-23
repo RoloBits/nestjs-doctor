@@ -2458,7 +2458,7 @@ function renderDiagnosis() {
       if (segments.length > 0 && segments[segments.length - 1].end < totalLines) {
         const belowCount = totalLines - segments[segments.length - 1].end;
         const belowRow = document.createElement("div");
-        belowRow.className = "code-expand-row";
+        belowRow.className = "code-expand-row code-expand-below";
         belowRow.innerHTML = SVG_DOWN + " Expand " + Math.min(EXPAND_STEP, belowCount) + " lines";
         (function(fp) {
           belowRow.addEventListener("click", function() {
@@ -2466,8 +2466,7 @@ function renderDiagnosis() {
             expandState["__file_" + fp].below += EXPAND_STEP;
             showFile(fp, true);
             const newCodeEl = document.getElementById("diagnosis-file-code");
-            const rows = newCodeEl.querySelectorAll(".code-expand-row");
-            const anchor = rows.length > 0 ? rows[rows.length - 1] : newCodeEl;
+            const anchor = newCodeEl.querySelector(".code-expand-below") || newCodeEl;
             anchor.scrollIntoView({ block: "end" });
             // The editors grow as CodeMirror measures; keep the anchor pinned until they settle.
             const ro = new ResizeObserver(function() {
@@ -3293,14 +3292,13 @@ function renderLab() {
       if (segments.length > 0 && segments[segments.length - 1].end < totalLines) {
         const belowCount = totalLines - segments[segments.length - 1].end;
         const belowRow = document.createElement("div");
-        belowRow.className = "code-expand-row";
+        belowRow.className = "code-expand-row code-expand-below";
         belowRow.innerHTML = SVG_DOWN + " Expand " + Math.min(PG_EXPAND_STEP, belowCount) + " lines";
         (function(fp) {
           belowRow.addEventListener("click", function() {
             pgExpandState[fp].below += PG_EXPAND_STEP;
             showPgFile(fp, true);
-            const rows = pgFileCode.querySelectorAll(".code-expand-row");
-            const anchor = rows.length > 0 ? rows[rows.length - 1] : pgFileCode;
+            const anchor = pgFileCode.querySelector(".code-expand-below") || pgFileCode;
             anchor.scrollIntoView({ block: "end" });
             // The editors grow as CodeMirror measures; keep the anchor pinned until they settle.
             const ro = new ResizeObserver(function() {
@@ -3875,26 +3873,6 @@ function sCorridorY(colList, target) {
   var best = cands[0];
   for (i = 1; i < cands.length; i++) {
     if (Math.abs(cands[i] - target) < Math.abs(best - target)) best = cands[i];
-  }
-  return best;
-}
-
-/** A horizontal crossing of a column band picks the nearest box-free y. */
-function sClearY(col, y) {
-  var boxes = col.boxes;
-  var blocked = false;
-  for (var i = 0; i < boxes.length; i++) {
-    if (y > boxes[i].top && y < boxes[i].bot) { blocked = true; break; }
-  }
-  if (!blocked) return y;
-  var cands = [boxes[0].top - 10];
-  for (i = 0; i + 1 < boxes.length; i++) {
-    if (boxes[i + 1].top - boxes[i].bot > 12) cands.push((boxes[i].bot + boxes[i + 1].top) / 2);
-  }
-  cands.push(boxes[boxes.length - 1].bot + 10);
-  var best = cands[0];
-  for (i = 1; i < cands.length; i++) {
-    if (Math.abs(cands[i] - y) < Math.abs(best - y)) best = cands[i];
   }
   return best;
 }
