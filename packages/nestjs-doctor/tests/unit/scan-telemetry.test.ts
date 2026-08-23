@@ -113,8 +113,11 @@ describe("scan telemetry payload", () => {
 
 describe("scan telemetry gating", () => {
 	it("stays off without a compiled key, whatever the flag says", () => {
-		// The published key is empty until a project exists.
-		expect(scanTelemetryEnabled(true, undefined, {})).toBe(false);
+		expect(scanTelemetryEnabled(true, undefined, {}, "")).toBe(false);
+	});
+
+	it("is on by default with a key compiled in", () => {
+		expect(scanTelemetryEnabled(true, undefined, {})).toBe(true);
 	});
 
 	it("honours the flag, the config, and DO_NOT_TRACK", () => {

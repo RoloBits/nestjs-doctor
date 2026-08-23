@@ -56,10 +56,11 @@ describe("report telemetry", () => {
 		expect(html).not.toContain("window.__ndTrack =");
 	});
 
-	it("sends no event before a key is configured", () => {
-		// The published key is empty until a project exists, so the default
-		// build stays silent rather than posting to a missing project.
-		expect(getTelemetryScript("1.2.3")).toBe("");
+	it("embeds the beacon with the configured key", () => {
+		const script = getTelemetryScript("1.2.3");
+
+		expect(script).toContain("window.__ndTrack =");
+		expect(script).toContain('var VERSION = "1.2.3"');
 	});
 
 	it("reads nothing off the page that could carry project data", () => {
