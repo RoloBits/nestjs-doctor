@@ -90,31 +90,17 @@ nestjs-doctor is built to fail a build. `--blocking` gates on severity,
 `--min-score` gates on the score, and the GitHub Action comments only on what a
 pull request introduced. [Failing the build](/docs/ci/gates) covers the flags.
 
-## Why nestjs-doctor is free
+## Everything is free
 
-A static CLI has nothing to host. There is no dashboard to run, no account
-system, and no per-seat state, so there is no cost to recover. It is MIT
-licensed and the rules ship in the package.
+There is no paid tier and no seat count. Everything ships under MIT:
 
-Nest Devtools funds a hosted product with a UI, build history and an API. Paid
-plans start at a developer tier with a short trial. That model buys you things
-a CLI does not have, which is the next section.
+- The CLI and all 52 rules, plus the rules you write yourself.
+- The HTML report: module graph, endpoint traces, ER diagram and boot trace.
+- The GitHub Action that reviews pull requests.
+- The VS Code extension and the language server.
+- The skills for coding agents.
 
-## What Nest Devtools does better
-
-A static scan cannot watch a running process. These have no equivalent here:
-
-- **The interactive sandbox:** runs code against your live application from the
-  browser.
-- **Dependency resolution replay:** takes a "Cannot resolve dependency" error
-  back to the real injector that raised it.
-- **Routes beyond HTTP:** WebSockets, gRPC and GraphQL resolvers, with the
-  guards and interceptors each entrypoint passes through.
-- **Graph diffs between builds:** shows which nodes a commit added, changed or
-  removed.
-
-If your question is why one instance behaves the way it does at runtime, that
-is the tool that answers it.
+Nest Devtools is a paid product with a short trial.
 
 ## Running both
 
