@@ -30,7 +30,6 @@ import {
 import { getEcosystem } from "../telemetry/ecosystem.js";
 import { generatedIn } from "../telemetry/environment.js";
 import { resolveIdentity } from "../telemetry/install-id.js";
-import { firstRunNotice } from "../telemetry/notice.js";
 import { buildScanPayload } from "../telemetry/scan-telemetry.js";
 import { scanTelemetryEnabled, sendScanTelemetry } from "../telemetry/send.js";
 import { resolveMinScore } from "./min-score.js";
@@ -89,9 +88,6 @@ abstract class ScanPipeline {
 		}
 		try {
 			const identity = resolveIdentity(this.targetPath);
-			if (identity.firstRun) {
-				logger.warn(firstRunNotice());
-			}
 			const enabled = new Set(
 				[
 					...this.scanConfig.fileRules,

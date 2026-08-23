@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { configDir, resolveIdentity } from "../../src/telemetry/install-id.js";
-import { firstRunNotice } from "../../src/telemetry/notice.js";
 import { scanTelemetryEnabled } from "../../src/telemetry/send.js";
 
 const SHA256_HEX = /^[a-f0-9]{64}$/;
@@ -28,14 +27,12 @@ afterAll(() => {
 });
 
 describe("install identity", () => {
-	it("keeps the same id across runs and flags only the first", () => {
+	it("keeps the same id across runs", () => {
 		const env = isolated();
 
 		const first = resolveIdentity("/repo/a", env);
 		const second = resolveIdentity("/repo/a", env);
 
-		expect(first.firstRun).toBe(true);
-		expect(second.firstRun).toBe(false);
 		expect(second.anonymousId).toBe(first.anonymousId);
 		expect(second.projectId).toBe(first.projectId);
 	});
@@ -88,12 +85,6 @@ describe("install identity", () => {
 		);
 	});
 
-	it("does not announce itself on a disposable CI machine", () => {
-		expect(resolveIdentity("/repo/a", isolated({ CI: "true" })).firstRun).toBe(
-			false
-		);
-	});
-
 	it("falls back to a per-run id when the home is unwritable", () => {
 		// A directory inside a regular file cannot be created on any platform.
 		// `/dev/null/...` only fails on POSIX, and Windows happily created it.
@@ -106,17 +97,6 @@ describe("install identity", () => {
 		const second = resolveIdentity("/repo/a", env);
 
 		expect(first.anonymousId).not.toBe(second.anonymousId);
-	});
-});
-
-describe("first-run notice", () => {
-	it("names what is sent and every way to stop it", () => {
-		const notice = firstRunNotice();
-
-		expect(notice).toContain("--no-telemetry");
-		expect(notice).toContain("DO_NOT_TRACK");
-		expect(notice).toContain("Never your code");
-		expect(notice).toContain("never named");
 	});
 });
 

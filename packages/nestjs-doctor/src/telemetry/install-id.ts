@@ -7,15 +7,12 @@ import { isSet } from "./environment.js";
 interface TelemetryIdentity {
 	/** Stable per-install id, or a shared one per provider in CI. */
 	anonymousId: string;
-	/** True the first time a machine is seen, so the notice prints once. */
-	firstRun: boolean;
 	/** Per-project, salted with a value that never leaves the machine. */
 	projectId: string;
 }
 
 interface StoredConfig {
 	anonymousId: string;
-	notifiedAt: string;
 	salt: string;
 }
 
@@ -90,14 +87,12 @@ export function resolveIdentity(
 	if (existing) {
 		return {
 			anonymousId: ci ?? existing.anonymousId,
-			firstRun: false,
 			projectId: salted(existing.salt),
 		};
 	}
 
 	const created: StoredConfig = {
 		anonymousId: randomUUID(),
-		notifiedAt: new Date().toISOString(),
 		salt: randomUUID(),
 	};
 
@@ -110,8 +105,6 @@ export function resolveIdentity(
 
 	return {
 		anonymousId: ci ?? created.anonymousId,
-		// CI machines are disposable, so "first run" there is every run.
-		firstRun: !ci,
 		projectId: salted(created.salt),
 	};
 }
