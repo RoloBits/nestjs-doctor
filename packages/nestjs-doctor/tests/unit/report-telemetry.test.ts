@@ -4,6 +4,7 @@ import type { ModuleGraph } from "../../src/engine/graph/module-graph.js";
 import { buildHtmlReport } from "../../src/report/html-report.js";
 import {
 	buildBeacon,
+	generatedIn,
 	getTelemetryScript,
 } from "../../src/report/ui/telemetry.js";
 
@@ -62,7 +63,7 @@ describe("report telemetry", () => {
 	});
 
 	it("reads nothing off the page that could carry project data", () => {
-		const script = buildBeacon("phc_key", "1.2.3");
+		const script = buildBeacon("phc_key", "1.2.3", "cli");
 
 		expect(script).toContain("report://local");
 		// The report's file:// URL holds the user's directory tree and project
@@ -75,7 +76,7 @@ describe("report telemetry", () => {
 	});
 
 	it("posts only the two fixed events and a known section", () => {
-		const script = buildBeacon("phc_key", "1.2.3");
+		const script = buildBeacon("phc_key", "1.2.3", "cli");
 
 		expect(script).toContain("report_opened");
 		expect(script).toContain("report_section_viewed");
@@ -83,5 +84,25 @@ describe("report telemetry", () => {
 			'["summary", "diagnosis", "modules", "endpoints", "schema", "lab"]'
 		);
 		expect(script).toContain('"1.2.3"');
+	});
+
+	it("stamps where the report was generated", () => {
+		expect(buildBeacon("phc_key", "1.2.3", "ci")).toContain(
+			'var SOURCE = "ci"'
+		);
+		expect(buildBeacon("phc_key", "1.2.3", "cli")).toContain(
+			'var SOURCE = "cli"'
+		);
+	});
+
+	it("reads CI from the environment, ignoring its off spellings", () => {
+		expect(generatedIn({ CI: "true" })).toBe("ci");
+		expect(generatedIn({ CI: "1" })).toBe("ci");
+		expect(generatedIn({ GITHUB_ACTIONS: "true" })).toBe("ci");
+		// Set-but-off is how some shells and runners spell "not CI".
+		expect(generatedIn({ CI: "false" })).toBe("cli");
+		expect(generatedIn({ CI: "0" })).toBe("cli");
+		expect(generatedIn({ CI: "" })).toBe("cli");
+		expect(generatedIn({})).toBe("cli");
 	});
 });
