@@ -19,13 +19,14 @@ npx nestjs-doctor@latest ci install
 
 It writes `.github/workflows/nestjs-doctor.yml` at the git repository root, so
 running it from `apps/api` in a monorepo still lands the file in the right
-place. The push trigger uses the branch `origin/HEAD` points at, then
-`origin/main`, `origin/master`, and finally the branch you have checked out.
-The command prints its pick.
+place. The push trigger uses the branch `origin/HEAD` points at, verified to
+still exist, then `origin/main`, `origin/master`, and finally the branch you
+have checked out. A `--single-branch` clone or a remote added by hand has no
+`origin/HEAD`. The command prints its pick.
 
-Three cases make it refuse instead of write: outside a git repository, an
-existing workflow (replace it with `--force`), and a symlink anywhere on the
-path, so the write cannot escape the repository.
+It refuses in three cases: outside a git repository, an existing workflow
+(replace it with `--force`), and a symlink anywhere on the path. The refusals
+keep the write from escaping the repository.
 
 A minimal `.github/workflows/nestjs-doctor.yml`:
 
