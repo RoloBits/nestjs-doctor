@@ -2,7 +2,7 @@ import { generatedIn } from "../../telemetry/environment.js";
 
 // PostHog project key. Empty disables the beacon: no key, no snippet, no
 // requests. Set it to turn report telemetry on for published builds.
-const POSTHOG_KEY = "";
+const POSTHOG_KEY = "phc_BGjn97jvL862fdhHAKzJ7mhuXBZm8CEe83ENuMvpCgdD";
 const POSTHOG_HOST = "https://us.i.posthog.com";
 
 /**
