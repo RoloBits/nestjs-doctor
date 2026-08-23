@@ -91,7 +91,7 @@ function makeScoreRingSvg(size, strokeW, value) {
   meta.innerHTML = badges.join("");
   const bootBadge = document.getElementById("boot-badge");
   if (bootBadge) {
-    bootBadge.addEventListener("click", () => mgJumpToSlowestBoot());
+    bootBadge.addEventListener("click", () => { window.__ndTrack?.("boot_trace_opened"); mgJumpToSlowestBoot(); });
   }
 })();
 
@@ -1158,10 +1158,12 @@ function mgBindEvents() {
   }, { passive: false });
 
   document.getElementById("mg-zoom-in").addEventListener("click", function() {
+    window.__ndTrack?.("graph_zoomed");
     mgZoom = Math.min(5, mgZoom * 1.2);
     mgScheduleRedraw();
   });
   document.getElementById("mg-zoom-out").addEventListener("click", function() {
+    window.__ndTrack?.("graph_zoomed");
     mgZoom = Math.max(Math.min(mgMinZoom, 0.05), mgZoom / 1.2);
     mgScheduleRedraw();
   });
@@ -1174,6 +1176,7 @@ function mgBindEvents() {
     mgScheduleRedraw();
   });
   document.getElementById("mg-recenter").addEventListener("click", function() {
+    window.__ndTrack?.("graph_recentered");
     mgCenterCamera();
     mgScheduleRedraw();
   });
@@ -1197,6 +1200,7 @@ function mgBindEvents() {
   });
 
   document.getElementById("mg-sidebar-collapse").addEventListener("click", function() {
+    window.__ndTrack?.("graph_sidebar_toggled");
     document.getElementById("tab-modules").classList.add("mg-sidebar-collapsed");
     mgResize();
   });
@@ -1204,7 +1208,7 @@ function mgBindEvents() {
     document.getElementById("tab-modules").classList.remove("mg-sidebar-collapsed");
     mgResize();
   });
-  document.getElementById("mg-expand-all").addEventListener("click", function() { mgSetAllTree(true); });
+  document.getElementById("mg-expand-all").addEventListener("click", function() { window.__ndTrack?.("module_tree_expanded"); mgSetAllTree(true); });
   document.getElementById("mg-collapse-all").addEventListener("click", function() { mgSetAllTree(false); });
 
   document.getElementById("mg-info").addEventListener("click", function(ev) {
@@ -1376,7 +1380,7 @@ function mgBuildTree() {
       return;
     }
     var node = mgNodeMap[row.dataset.module];
-    if (node) { mgShowDetail(node); mgFlyToNode(node); mgScheduleRedraw(); }
+    if (node) { window.__ndTrack?.("module_opened_from_tree"); mgShowDetail(node); mgFlyToNode(node); mgScheduleRedraw(); }
   });
 }
 
@@ -1492,7 +1496,7 @@ function mgBuildProblems() {
     var row = ev.target.closest(".mg-problem-linked");
     if (!row) return;
     var node = mgNodeMap[row.dataset.module];
-    if (node) { mgShowDetail(node); mgFlyToNode(node); mgScheduleRedraw(); }
+    if (node) { window.__ndTrack?.("module_opened_from_finding"); mgShowDetail(node); mgFlyToNode(node); mgScheduleRedraw(); }
   });
 }
 
@@ -3071,7 +3075,16 @@ function renderLab() {
       });
     }
   }
-  presetSelect.addEventListener("change", function() { loadPreset(this.value); });
+  presetSelect.addEventListener("change", function() { window.__ndTrack?.("rule_lab_preset_loaded"); loadPreset(this.value); });
+
+  let pgMetaTracked = false;
+  for (const id of ["pg-severity", "pg-category"]) {
+    document.getElementById(id)?.addEventListener("change", function() {
+      if (pgMetaTracked) return;
+      pgMetaTracked = true;
+      window.__ndTrack?.("rule_lab_metadata_changed");
+    });
+  }
 
   function updateContextHint() {
     const hint = document.getElementById("pg-context-hint");
@@ -3084,6 +3097,7 @@ function renderLab() {
   }
 
   document.getElementById("pg-scope").addEventListener("change", function() {
+    window.__ndTrack?.("rule_lab_scope_changed");
     updateContextHint();
     filterPresetsByScope();
   });
@@ -3124,6 +3138,7 @@ function renderLab() {
   loadPreset(presetSelect.value);
 
   const runBtn = document.getElementById("pg-run-btn");
+  runBtn?.addEventListener("click", function() { window.__ndTrack?.("rule_lab_run"); });
   const errorEl = document.getElementById("pg-error");
   const resultList = document.getElementById("pg-result-list");
   const resultCount = document.getElementById("pg-result-count");
@@ -3146,7 +3161,7 @@ function renderLab() {
     if (fileH) {
       const fileEl = fileH.parentElement;
       const path = fileEl.dataset.path;
-      if (path) showPgFile(path);
+      if (path) { window.__ndTrack?.("rule_lab_result_opened"); showPgFile(path); }
       return;
     }
     const standalone = e.target.closest(".pg-standalone-item");
@@ -5325,6 +5340,7 @@ function renderSchema() {
 
   if (expandAllBtn && entityListEl) {
     expandAllBtn.addEventListener("click", function() {
+      window.__ndTrack?.("schema_tree_expanded");
       var children = entityListEl.querySelectorAll(".st-children");
       for (var i = 0; i < children.length; i++) {
         children[i].classList.add("st-open");
@@ -6161,6 +6177,7 @@ function epHideTooltip() {
 function epShowCodePanel(node) {
   var panel = document.getElementById("ep-code-panel");
   if (!panel) return;
+  window.__ndTrack?.("endpoint_code_opened");
   document.getElementById("ep-code-panel-class").textContent = node.className;
   var methodText = node.methodName ? "." + node.methodName + "()" : "";
   document.getElementById("ep-code-panel-method").textContent = methodText;

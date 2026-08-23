@@ -173,6 +173,7 @@ window.dispatchEvent(new Event("cm-ready"));
 
 // ── Lab editor ──
 const parent = document.getElementById("pg-cm-editor");
+let labEdited = false;
 if (parent) {
   const editor = new EditorView({
     doc: document.getElementById("pg-code-init").textContent,
@@ -181,6 +182,13 @@ if (parent) {
       javascript({ typescript: true }),
       oneDark,
       keymap.of([indentWithTab]),
+      EditorView.updateListener.of((u) => {
+        // isUserEvent is false for the programmatic dispatch a preset load makes.
+        if (labEdited || !u.docChanged) return;
+        if (!u.transactions.some((t) => t.isUserEvent("input"))) return;
+        labEdited = true;
+        window.__ndTrack?.("rule_lab_code_edited");
+      }),
       EditorView.theme({
         "&": { flex: "1", minHeight: "200px" },
         ".cm-editor": { height: "100%" },

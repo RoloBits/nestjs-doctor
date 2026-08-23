@@ -30,6 +30,7 @@ export function SiteAnalytics() {
 			autocapture: true,
 			capture_pageview: "history_change",
 			capture_pageleave: true,
+			capture_heatmaps: true,
 			disable_session_recording: true,
 			disable_surveys: true,
 			person_profiles: "identified_only",

@@ -21,6 +21,7 @@ import {
 	resolveScanConfig,
 	type ScanConfig,
 } from "../engine/scanner.js";
+import { scanTelemetryEnabled } from "../telemetry/send.js";
 import {
 	type ReportProvider,
 	toReportProvider,
@@ -53,10 +54,15 @@ abstract class ReportPipeline {
 		this.telemetry = telemetry;
 	}
 
-	/** Either the `--no-telemetry` flag or `report.telemetry: false` disables it. */
+	/**
+	 * The flag, `DO_NOT_TRACK`, `telemetry: false`, and `report.telemetry: false`
+	 * each disable the beacon on their own.
+	 */
 	protected get telemetryEnabled(): boolean {
+		const config = this.scanConfig?.config;
 		return (
-			this.telemetry && this.scanConfig?.config?.report?.telemetry !== false
+			scanTelemetryEnabled(this.telemetry, config, process.env, "always") &&
+			config?.report?.telemetry !== false
 		);
 	}
 

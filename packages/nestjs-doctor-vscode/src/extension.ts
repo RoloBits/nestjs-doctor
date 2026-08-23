@@ -2,6 +2,7 @@ import { join } from "node:path";
 import {
 	commands,
 	type ExtensionContext,
+	env,
 	StatusBarAlignment,
 	window,
 	workspace,
@@ -63,6 +64,8 @@ export async function activate(context: ExtensionContext): Promise<void> {
 				fileEvents: workspace.createFileSystemWatcher("**/package.json"),
 			},
 			outputChannel: output,
+			// The server reads this before it reports anything.
+			initializationOptions: { telemetry: env.isTelemetryEnabled },
 		};
 
 		client = new LanguageClient(

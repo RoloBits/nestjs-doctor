@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
@@ -13,11 +14,31 @@ import {
 } from "vscode-languageserver/node";
 import { groupByFile } from "./convert.js";
 import { publishDiagnostics } from "./publish.js";
+import {
+	lspTelemetryEnabled,
+	resolveIdentity,
+	sendLspEvent,
+} from "./telemetry.js";
 import type {
 	ServerMessage,
 	WorkerData,
 	WorkerMessage,
 } from "./worker-protocol.js";
+
+/** The bundle sits in dist/, so the manifest is one level up. */
+function readVersion(): string {
+	try {
+		const raw = readFileSync(
+			join(import.meta.dirname, "..", "package.json"),
+			"utf-8"
+		);
+		return (JSON.parse(raw) as { version?: string }).version ?? "0.0.0";
+	} catch {
+		return "0.0.0";
+	}
+}
+
+const VERSION = readVersion();
 
 interface Settings {
 	debounceMs: number;
@@ -136,12 +157,46 @@ function terminateWorker() {
 	}
 }
 
+/**
+ * One event per session, naming the editor.
+ */
+function reportSession(params: InitializeParams): void {
+	const options = params.initializationOptions as
+		| { telemetry?: boolean }
+		| undefined;
+	if (!lspTelemetryEnabled(options?.telemetry, workspaceRoot)) {
+		return;
+	}
+	try {
+		const identity = resolveIdentity(workspaceRoot || process.cwd());
+		sendLspEvent("lsp_session_started", identity.anonymousId, {
+			editor: params.clientInfo?.name ?? "unknown",
+			editor_version: params.clientInfo?.version ?? null,
+			node_major: Number.parseInt(process.versions.node, 10),
+			platform: process.platform,
+			...(identity.projectId ? { project_id: identity.projectId } : {}),
+			surface: "lsp",
+			version: VERSION,
+		});
+	} catch {
+		// Reporting never breaks a session.
+	}
+}
+
 connection.onInitialize((params: InitializeParams): InitializeResult => {
 	if (params.rootUri) {
 		workspaceRoot = fileURLToPath(params.rootUri);
 	} else if (params.rootPath) {
 		workspaceRoot = params.rootPath;
+	} else {
+		// rootUri and rootPath are deprecated; some clients send only folders.
+		const folder = params.workspaceFolders?.[0]?.uri;
+		if (folder?.startsWith("file:")) {
+			workspaceRoot = fileURLToPath(folder);
+		}
 	}
+
+	reportSession(params);
 
 	return {
 		capabilities: {

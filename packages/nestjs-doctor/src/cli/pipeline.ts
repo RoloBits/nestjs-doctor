@@ -27,8 +27,13 @@ import {
 	type ResolvedScope,
 	resolveScope,
 } from "../engine/scope.js";
+import { getEcosystem, resetEcosystem } from "../telemetry/ecosystem.js";
 import { generatedIn } from "../telemetry/environment.js";
-import { buildScanPayload } from "../telemetry/scan-telemetry.js";
+import { resolveIdentity } from "../telemetry/install-id.js";
+import {
+	buildScanPayload,
+	readConfigFacts,
+} from "../telemetry/scan-telemetry.js";
 import { scanTelemetryEnabled, sendScanTelemetry } from "../telemetry/send.js";
 import { resolveMinScore } from "./min-score.js";
 import {
@@ -59,6 +64,8 @@ abstract class ScanPipeline {
 	protected readonly options: PipelineOptions;
 	protected resolvedMinimumScore: number | undefined;
 	protected scanConfig!: ScanConfig;
+	/** Set when any scanned sub-project declares its own opt-out. */
+	protected subProjectOptOut = false;
 	/** Warnings raised while narrowing the scope; surfaced alongside the report. */
 	protected scopeWarnings: string[] = [];
 	protected readonly steps: PipelineStep[] = [];
@@ -70,8 +77,8 @@ abstract class ScanPipeline {
 	}
 
 	/**
-	 * Reports anonymous rule counts. Reads only rule ids and severities, and
-	 * never blocks: a failure here leaves the scan untouched.
+	 * Reports the scan anonymously. A failure here leaves the scan untouched,
+	 * and the network call runs in a detached child.
 	 */
 	protected reportScan(
 		diagnostics: Diagnostic[],
@@ -80,11 +87,13 @@ abstract class ScanPipeline {
 		monorepo: boolean
 	): void {
 		if (
+			this.subProjectOptOut ||
 			!scanTelemetryEnabled(this.options.telemetry, this.scanConfig?.config)
 		) {
 			return;
 		}
 		try {
+			const identity = resolveIdentity(this.targetPath);
 			const enabled = new Set(
 				[
 					...this.scanConfig.fileRules,
@@ -94,6 +103,7 @@ abstract class ScanPipeline {
 			);
 			sendScanTelemetry(
 				buildScanPayload({
+					config: readConfigFacts(this.scanConfig.config),
 					customRulesLoaded: this.scanConfig.combinedRules.filter((rule) =>
 						rule.meta.id.startsWith("custom/")
 					).length,
@@ -101,14 +111,20 @@ abstract class ScanPipeline {
 					disabledRuleIds: allRules
 						.map((rule) => rule.meta.id)
 						.filter((id) => !enabled.has(id)),
+					ecosystem: getEcosystem(),
 					elapsedMs: result.elapsedMs,
 					fileCount,
+					framework: result.project.framework,
 					monorepo,
+					nestVersion: result.project.nestVersion,
+					orm: result.project.orm,
+					projectId: identity.projectId,
 					ruleErrors: result.ruleErrors,
 					score: result.score,
 					source: generatedIn(),
 					version: getCliVersion(),
-				})
+				}),
+				identity.anonymousId
 			);
 		} catch {
 			// Reporting never breaks a scan.
@@ -123,6 +139,7 @@ abstract class ScanPipeline {
 
 	resolveConfig(): this {
 		this.steps.push(async () => {
+			resetEcosystem();
 			this.scanConfig = await resolveScanConfig(
 				this.targetPath,
 				this.options.configPath
@@ -256,6 +273,9 @@ export class MonorepoPipeline extends ScanPipeline {
 				this.scanConfig,
 				this.monorepo,
 				(name, context: AnalysisContext) => {
+					if (context.config?.telemetry === false) {
+						this.subProjectOptOut = true;
+					}
 					for (const root of collectEntryModules(
 						context.astProject,
 						context.files,
