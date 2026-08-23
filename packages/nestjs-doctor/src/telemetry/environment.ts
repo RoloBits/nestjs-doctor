@@ -2,10 +2,7 @@
 export const isSet = (value: string | undefined): boolean =>
 	value !== undefined && value !== "" && value !== "0" && value !== "false";
 
-/**
- * Where the scan ran. For a report this is stamped at generation time: a CI
- * machine opens no browser, so a `ci` event is one a person opened later.
- */
+/** Where the scan ran. A report stamps this at generation time. */
 export function generatedIn(
 	env: NodeJS.ProcessEnv = process.env
 ): "ci" | "cli" {

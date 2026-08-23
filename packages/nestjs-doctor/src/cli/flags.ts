@@ -74,7 +74,7 @@ export const flags = {
 	telemetry: {
 		type: "boolean",
 		description:
-			"Report anonymous rule counts after a scan, and embed the tab-interaction beacon in the HTML report. Neither carries anything about the scanned code",
+			"Report anonymously after a scan: which built-in rules fired, the score, well-known dependencies, and the config's shape. Never your code, paths, project name, or custom rule names",
 		negativeDescription:
 			"Scan and generate the report without reporting anything",
 		default: true,

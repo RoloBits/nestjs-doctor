@@ -7,6 +7,10 @@ import {
 
 const CONFIG_FILENAMES = ["nestjs-doctor.config.json", ".nestjs-doctor.json"];
 
+function isMissingFile(error: unknown): boolean {
+	return (error as NodeJS.ErrnoException)?.code === "ENOENT";
+}
+
 /** The config a directory declares, or `null` when it declares none. */
 export async function findConfig(
 	targetPath: string
@@ -14,8 +18,11 @@ export async function findConfig(
 	for (const filename of CONFIG_FILENAMES) {
 		try {
 			return await readConfigFile(join(targetPath, filename));
-		} catch {
-			// File doesn't exist, try next
+		} catch (error) {
+			// A file that exists but will not parse is an error, not an absence.
+			if (!isMissingFile(error)) {
+				throw error;
+			}
 		}
 	}
 
@@ -44,7 +51,14 @@ export async function loadConfig(
 
 async function readConfigFile(path: string): Promise<NestjsDoctorConfig> {
 	const raw = await readFile(path, "utf-8");
-	const parsed = JSON.parse(raw) as NestjsDoctorConfig;
+	let parsed: NestjsDoctorConfig;
+	try {
+		parsed = JSON.parse(raw) as NestjsDoctorConfig;
+	} catch {
+		throw new Error(
+			`${path} is not valid JSON. A trailing comma or a comment makes the whole file unreadable.`
+		);
+	}
 	return mergeConfig(parsed);
 }
 
@@ -74,9 +88,5 @@ export async function loadConfigWithFallback(
 	projectPath: string,
 	fallback: NestjsDoctorConfig
 ): Promise<NestjsDoctorConfig> {
-	try {
-		return (await findConfig(projectPath)) ?? fallback;
-	} catch {
-		return fallback;
-	}
+	return (await findConfig(projectPath)) ?? fallback;
 }
