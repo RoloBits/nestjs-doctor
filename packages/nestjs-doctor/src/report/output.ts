@@ -37,11 +37,14 @@ export const openCommand = (filePath: string): [string, string[]] => {
 	return ["xdg-open", [filePath]];
 };
 
-export const openReportInBrowser = (filePath: string): void => {
+export const openReportInBrowser = (
+	filePath: string,
+	onError: (message: string) => void = logger.warn
+): void => {
 	const [command, args] = openCommand(filePath);
 	const child = spawn(command, args, { detached: true, stdio: "ignore" });
 	child.on("error", () => {
-		logger.warn(`Could not open ${filePath} in a browser.`);
+		onError(`Could not open ${filePath} in a browser.`);
 	});
 	child.unref();
 };
