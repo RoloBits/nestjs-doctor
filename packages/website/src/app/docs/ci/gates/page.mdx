@@ -37,23 +37,16 @@ Because it follows the scope, a repository with a thousand pre-existing findings
 can adopt `blocking: error` on day one. The gate only ever sees what each pull
 request adds, so nobody inherits somebody else's backlog.
 
-The CLI's `--blocking` default varies by output mode. The action always passes
-the flag explicitly, so its own default is `none` either way.
-
 ## `min-score`: gate on the score
 
-Gates on the 0-100 project health score. Unset by default. Set it to a number
-and the run fails whenever the score falls below it.
+Gates on the 0-100 health score, which always reflects the whole project,
+whatever `scope` says. Set a number and the run fails whenever the score falls
+below it.
 
-The score always reflects the whole project, whatever `scope` says. Narrowing a
-report must never make a codebase look healthier than it is.
-
-So the two gates measure different things. `blocking` sees the reported scope,
+The two gates measure different things: `blocking` sees the reported scope,
 `min-score` the whole project, so a pull request touching one file can fail on
-debt somewhere else.
-
-Use `blocking` alone for new code. Add `min-score` for a floor on the repository
-as a whole.
+debt somewhere else. Use `blocking` alone for new code, and add `min-score` for
+a floor on the repository as a whole.
 
 ## Setting the threshold in config instead
 
@@ -67,26 +60,22 @@ agree on it:
 }
 ```
 
-The action's `min-score` input overrides that when set, which holds CI to a
-higher bar than a local run. Leave the input empty and the config value
-applies.
+The action's `min-score` input overrides the config value when set. Leave it
+empty and the config value applies.
 
 ## Which findings count
 
-Both gates count what the run reports, with one exception: a rule can be
-report-only. Those appear in the report and count toward neither gate. A project
-that wants one enforced can say so per rule.
+Both gates count what the run reports. Three levers take a finding out of the
+count:
 
-Whether such a rule also comments on the pull request is a separate surface.
-A house-style rule declares neither, while `security/no-advisory-nestjs-packages`
-comments and still cannot fail a build. See
-[Surfaces](/docs/custom-rules#surfaces).
-
-The config file is the third lever. Disable a rule or a whole category and it
-stops counting toward either gate. See [Configuration](/docs/configuration).
-
-Inline `nestjs-doctor-ignore` comments work the same way. A suppressed finding
-is not reported, so it cannot fail a gate.
+- A report-only rule appears in the report and counts toward neither gate.
+  `security/no-advisory-nestjs-packages` works this way, commenting on the pull
+  request while never failing a build. See
+  [Surfaces](/docs/custom-rules#surfaces).
+- A rule or category disabled in the config file stops counting toward either
+  gate. See [Configuration](/docs/configuration).
+- An inline `nestjs-doctor-ignore` comment suppresses the finding entirely, so
+  it is never reported.
 
 Point the action at a CI-specific file with the `config` input to hold CI
 stricter than local runs. Both gates are CLI flags too. See
