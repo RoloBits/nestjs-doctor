@@ -17,6 +17,7 @@ export interface ScanFacts {
 	elapsedMs: number;
 	fileCount: number;
 	monorepo: boolean;
+	projectId: string;
 	ruleErrors: RuleErrorInfo[];
 	score: Score;
 	source: "ci" | "cli";
@@ -32,6 +33,7 @@ export interface ScanPayload {
 	monorepo: boolean;
 	node_major: number;
 	platform: string;
+	project_id: string;
 	rule_errors: string[];
 	rules_disabled: string[];
 	rules_with_findings: number;
@@ -77,6 +79,7 @@ export function buildScanPayload(
 			10
 		),
 		platform,
+		project_id: facts.projectId,
 		// Rule ids only. `RuleErrorInfo.error` is a raw thrown message and
 		// routinely quotes the source file that broke the rule.
 		rule_errors: builtInOnly(facts.ruleErrors.map((e) => e.ruleId)),

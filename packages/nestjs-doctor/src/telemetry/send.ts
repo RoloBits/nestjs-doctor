@@ -1,5 +1,4 @@
 import { spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
 import type { NestjsDoctorConfig } from "../common/config.js";
 import { isSet } from "./environment.js";
 import type { ScanPayload } from "./scan-telemetry.js";
@@ -26,6 +25,12 @@ export function scanTelemetryEnabled(
 	if (isSet(env.DO_NOT_TRACK)) {
 		return false;
 	}
+	// A test run is not usage, wherever it runs. Without this a suite that ever
+	// drives the pipeline would report, and write an install id to the home
+	// directory of whoever ran it.
+	if (isSet(env.VITEST) || env.NODE_ENV === "test") {
+		return false;
+	}
 	return config?.telemetry !== false;
 }
 
@@ -47,7 +52,10 @@ req.end(body);
 `;
 
 /** Hands the payload to a detached child, so the scan never waits on the network. */
-export function sendScanTelemetry(payload: ScanPayload): void {
+export function sendScanTelemetry(
+	payload: ScanPayload,
+	distinctId: string
+): void {
 	if (!POSTHOG_KEY) {
 		return;
 	}
@@ -61,7 +69,7 @@ export function sendScanTelemetry(payload: ScanPayload): void {
 				JSON.stringify({
 					api_key: POSTHOG_KEY,
 					event: "scan_completed",
-					distinct_id: randomUUID(),
+					distinct_id: distinctId,
 					properties: payload,
 				}),
 			],

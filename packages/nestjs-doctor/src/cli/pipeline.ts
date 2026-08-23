@@ -28,6 +28,8 @@ import {
 	resolveScope,
 } from "../engine/scope.js";
 import { generatedIn } from "../telemetry/environment.js";
+import { resolveIdentity } from "../telemetry/install-id.js";
+import { firstRunNotice } from "../telemetry/notice.js";
 import { buildScanPayload } from "../telemetry/scan-telemetry.js";
 import { scanTelemetryEnabled, sendScanTelemetry } from "../telemetry/send.js";
 import { resolveMinScore } from "./min-score.js";
@@ -85,6 +87,10 @@ abstract class ScanPipeline {
 			return;
 		}
 		try {
+			const identity = resolveIdentity(this.targetPath);
+			if (identity.firstRun) {
+				logger.warn(firstRunNotice());
+			}
 			const enabled = new Set(
 				[
 					...this.scanConfig.fileRules,
@@ -104,11 +110,13 @@ abstract class ScanPipeline {
 					elapsedMs: result.elapsedMs,
 					fileCount,
 					monorepo,
+					projectId: identity.projectId,
 					ruleErrors: result.ruleErrors,
 					score: result.score,
 					source: generatedIn(),
 					version: getCliVersion(),
-				})
+				}),
+				identity.anonymousId
 			);
 		} catch {
 			// Reporting never breaks a scan.
