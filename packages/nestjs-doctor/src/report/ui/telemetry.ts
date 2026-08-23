@@ -25,6 +25,7 @@ export function buildBeacon(
   var VERSION = ${JSON.stringify(version)};
   var SOURCE = ${JSON.stringify(source)};
   var SECTIONS = ["summary", "diagnosis", "modules", "endpoints", "schema", "lab"];
+  var ACTIONS = ["rule_lab_run", "module_opened_from_finding", "graph_recentered", "boot_trace_opened", "module_tree_expanded"];
   var id;
   try {
     id = crypto.randomUUID();
@@ -56,9 +57,11 @@ export function buildBeacon(
     } catch (e) {}
   }
 
-  window.__ndTrack = function (section) {
-    if (SECTIONS.indexOf(section) !== -1) {
-      send("report_section_viewed", section);
+  window.__ndTrack = function (name) {
+    if (SECTIONS.indexOf(name) !== -1) {
+      send("report_section_viewed", name);
+    } else if (ACTIONS.indexOf(name) !== -1) {
+      send("report_action", name);
     }
   };
   send("report_opened");

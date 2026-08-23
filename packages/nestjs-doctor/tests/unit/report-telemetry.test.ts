@@ -84,6 +84,8 @@ describe("report telemetry", () => {
 		expect(script).toContain(
 			'["summary", "diagnosis", "modules", "endpoints", "schema", "lab"]'
 		);
+		expect(script).toContain("report_action");
+		expect(script).toContain("rule_lab_run");
 		expect(script).toContain('"1.2.3"');
 	});
 

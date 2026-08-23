@@ -91,7 +91,7 @@ function makeScoreRingSvg(size, strokeW, value) {
   meta.innerHTML = badges.join("");
   const bootBadge = document.getElementById("boot-badge");
   if (bootBadge) {
-    bootBadge.addEventListener("click", () => mgJumpToSlowestBoot());
+    bootBadge.addEventListener("click", () => { window.__ndTrack?.("boot_trace_opened"); mgJumpToSlowestBoot(); });
   }
 })();
 
@@ -1174,6 +1174,7 @@ function mgBindEvents() {
     mgScheduleRedraw();
   });
   document.getElementById("mg-recenter").addEventListener("click", function() {
+    window.__ndTrack?.("graph_recentered");
     mgCenterCamera();
     mgScheduleRedraw();
   });
@@ -1204,7 +1205,7 @@ function mgBindEvents() {
     document.getElementById("tab-modules").classList.remove("mg-sidebar-collapsed");
     mgResize();
   });
-  document.getElementById("mg-expand-all").addEventListener("click", function() { mgSetAllTree(true); });
+  document.getElementById("mg-expand-all").addEventListener("click", function() { window.__ndTrack?.("module_tree_expanded"); mgSetAllTree(true); });
   document.getElementById("mg-collapse-all").addEventListener("click", function() { mgSetAllTree(false); });
 
   document.getElementById("mg-info").addEventListener("click", function(ev) {
@@ -1376,7 +1377,7 @@ function mgBuildTree() {
       return;
     }
     var node = mgNodeMap[row.dataset.module];
-    if (node) { mgShowDetail(node); mgFlyToNode(node); mgScheduleRedraw(); }
+    if (node) { window.__ndTrack?.("module_opened_from_finding"); mgShowDetail(node); mgFlyToNode(node); mgScheduleRedraw(); }
   });
 }
 
@@ -3124,6 +3125,7 @@ function renderLab() {
   loadPreset(presetSelect.value);
 
   const runBtn = document.getElementById("pg-run-btn");
+  runBtn?.addEventListener("click", function() { window.__ndTrack?.("rule_lab_run"); });
   const errorEl = document.getElementById("pg-error");
   const resultList = document.getElementById("pg-result-list");
   const resultCount = document.getElementById("pg-result-count");
