@@ -1158,10 +1158,12 @@ function mgBindEvents() {
   }, { passive: false });
 
   document.getElementById("mg-zoom-in").addEventListener("click", function() {
+    window.__ndTrack?.("graph_zoomed");
     mgZoom = Math.min(5, mgZoom * 1.2);
     mgScheduleRedraw();
   });
   document.getElementById("mg-zoom-out").addEventListener("click", function() {
+    window.__ndTrack?.("graph_zoomed");
     mgZoom = Math.max(Math.min(mgMinZoom, 0.05), mgZoom / 1.2);
     mgScheduleRedraw();
   });
@@ -1198,6 +1200,7 @@ function mgBindEvents() {
   });
 
   document.getElementById("mg-sidebar-collapse").addEventListener("click", function() {
+    window.__ndTrack?.("graph_sidebar_toggled");
     document.getElementById("tab-modules").classList.add("mg-sidebar-collapsed");
     mgResize();
   });
@@ -5327,6 +5330,7 @@ function renderSchema() {
 
   if (expandAllBtn && entityListEl) {
     expandAllBtn.addEventListener("click", function() {
+      window.__ndTrack?.("schema_tree_expanded");
       var children = entityListEl.querySelectorAll(".st-children");
       for (var i = 0; i < children.length; i++) {
         children[i].classList.add("st-open");
@@ -6163,6 +6167,7 @@ function epHideTooltip() {
 function epShowCodePanel(node) {
   var panel = document.getElementById("ep-code-panel");
   if (!panel) return;
+  window.__ndTrack?.("endpoint_code_opened");
   document.getElementById("ep-code-panel-class").textContent = node.className;
   var methodText = node.methodName ? "." + node.methodName + "()" : "";
   document.getElementById("ep-code-panel-method").textContent = methodText;

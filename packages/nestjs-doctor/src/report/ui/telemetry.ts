@@ -25,7 +25,7 @@ export function buildBeacon(
   var VERSION = ${JSON.stringify(version)};
   var SOURCE = ${JSON.stringify(source)};
   var SECTIONS = ["summary", "diagnosis", "modules", "endpoints", "schema", "lab"];
-  var ACTIONS = ["rule_lab_run", "module_opened_from_finding", "graph_recentered", "boot_trace_opened", "module_tree_expanded"];
+  var ACTIONS = ["rule_lab_run", "module_opened_from_finding", "graph_recentered", "graph_zoomed", "graph_sidebar_toggled", "module_tree_expanded", "schema_tree_expanded", "endpoint_code_opened", "boot_trace_opened"];
   var id;
   try {
     id = crypto.randomUUID();
@@ -33,7 +33,7 @@ export function buildBeacon(
     id = String(Math.random()).slice(2);
   }
 
-  function send(event, section) {
+  function send(event, section, extra) {
     var props = {
       $current_url: "report://local",
       version: VERSION,
@@ -41,6 +41,9 @@ export function buildBeacon(
     };
     if (section) {
       props.section = section;
+    }
+    if (extra) {
+      for (var k in extra) props[k] = extra[k];
     }
     try {
       fetch(URL, {
@@ -64,6 +67,35 @@ export function buildBeacon(
       send("report_action", name);
     }
   };
+
+  // Click position only, as a percentage of the viewport. No element is read.
+  var clicks = [];
+  document.addEventListener("click", function (ev) {
+    if (clicks.length >= 200) return;
+    clicks.push({
+      x: Math.round((ev.clientX / window.innerWidth) * 1000) / 10,
+      y: Math.round((ev.clientY / window.innerHeight) * 1000) / 10,
+      tab: activeTabName(),
+    });
+  });
+
+  function activeTabName() {
+    for (var i = 0; i < SECTIONS.length; i++) {
+      var el = document.getElementById("tab-" + SECTIONS[i]);
+      if (el && el.classList.contains("active")) return SECTIONS[i];
+    }
+    return "unknown";
+  }
+
+  function flush() {
+    if (!clicks.length) return;
+    send("report_clicks", null, { clicks: clicks.splice(0, clicks.length) });
+  }
+  window.addEventListener("pagehide", flush);
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") flush();
+  });
+
   send("report_opened");
 })();
 </script>`;

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { DiagnoseResult } from "../../src/common/result.js";
 import type { ModuleGraph } from "../../src/engine/graph/module-graph.js";
@@ -87,6 +89,33 @@ describe("report telemetry", () => {
 		expect(script).toContain("report_action");
 		expect(script).toContain("rule_lab_run");
 		expect(script).toContain('"1.2.3"');
+	});
+
+	it("allows every name the report actually tracks", () => {
+		const scripts = readFileSync(
+			fileURLToPath(new URL("../../src/report/ui/scripts.ts", import.meta.url)),
+			"utf8"
+		);
+		const script = buildBeacon("phc_key", "1.2.3", "cli");
+		const tracked = [...scripts.matchAll(/__ndTrack\?\.\("([a-z_]+)"\)/g)].map(
+			(m) => m[1]
+		);
+
+		expect(tracked.length).toBeGreaterThan(5);
+		for (const name of new Set(tracked)) {
+			// A name missing from the beacon's lists is dropped without a trace.
+			expect(script).toContain(`"${name}"`);
+		}
+	});
+
+	it("captures click position without reading the element", () => {
+		const script = buildBeacon("phc_key", "1.2.3", "cli");
+
+		expect(script).toContain("report_clicks");
+		expect(script).toContain("ev.clientX");
+		expect(script).not.toContain("ev.target");
+		expect(script).not.toContain("closest(");
+		expect(script).not.toContain("outerHTML");
 	});
 
 	it("stamps where the report was generated", () => {
