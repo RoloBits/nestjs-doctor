@@ -3075,7 +3075,7 @@ function renderLab() {
       });
     }
   }
-  presetSelect.addEventListener("change", function() { loadPreset(this.value); });
+  presetSelect.addEventListener("change", function() { window.__ndTrack?.("rule_lab_preset_loaded"); loadPreset(this.value); });
 
   function updateContextHint() {
     const hint = document.getElementById("pg-context-hint");
@@ -3088,6 +3088,7 @@ function renderLab() {
   }
 
   document.getElementById("pg-scope").addEventListener("change", function() {
+    window.__ndTrack?.("rule_lab_scope_changed");
     updateContextHint();
     filterPresetsByScope();
   });
@@ -3151,7 +3152,7 @@ function renderLab() {
     if (fileH) {
       const fileEl = fileH.parentElement;
       const path = fileEl.dataset.path;
-      if (path) showPgFile(path);
+      if (path) { window.__ndTrack?.("rule_lab_result_opened"); showPgFile(path); }
       return;
     }
     const standalone = e.target.closest(".pg-standalone-item");
