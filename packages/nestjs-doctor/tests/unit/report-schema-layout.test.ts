@@ -93,6 +93,7 @@ function runOverviewLayout(
 		"sNodes",
 		"sEdgeKey",
 		"sRouteAllEdges",
+		"sBuildGrids",
 		"dagre",
 		`${scripts.slice(start, end)}\nreturn sComputeOverviewLayout;`
 	);
@@ -102,6 +103,9 @@ function runOverviewLayout(
 		edgeKey,
 		() => {
 			// Edge routing is not under test.
+		},
+		() => {
+			// Grid building is not under test.
 		},
 		dagreImpl
 	)();

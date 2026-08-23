@@ -117,7 +117,7 @@ window.createCodeViewer = function(container, code, options) {
     EditorView.theme({
       "&": { fontSize: "12px" },
       ".cm-scroller": {
-        fontFamily: '"SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, monospace',
+        fontFamily: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
         fontSize: "12px",
         lineHeight: "1.6",
         overflow: "auto",
