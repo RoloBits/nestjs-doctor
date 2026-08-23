@@ -36,6 +36,7 @@ abstract class ReportPipeline {
 	protected scanConfig!: ScanConfig;
 	protected readonly steps: PipelineStep[] = [];
 	protected readonly targetPath: string;
+	protected readonly telemetry: boolean;
 	protected readonly timings: BootstrapTimings | undefined;
 
 	private readonly configPath: string | undefined;
@@ -43,11 +44,20 @@ abstract class ReportPipeline {
 	constructor(
 		targetPath: string,
 		configPath: string | undefined,
-		timings?: BootstrapTimings
+		timings?: BootstrapTimings,
+		telemetry = true
 	) {
 		this.targetPath = targetPath;
 		this.configPath = configPath;
 		this.timings = timings;
+		this.telemetry = telemetry;
+	}
+
+	/** Either the `--no-telemetry` flag or `report.telemetry: false` disables it. */
+	protected get telemetryEnabled(): boolean {
+		return (
+			this.telemetry && this.scanConfig?.config?.report?.telemetry !== false
+		);
 	}
 
 	abstract buildContext(): this;
@@ -131,6 +141,7 @@ export class SingleProjectReportPipeline extends ReportPipeline {
 						module: moduleGraph.providerToModule.get(provider.name)?.name,
 					})
 				),
+				telemetry: this.telemetryEnabled,
 				timings: this.timings,
 			});
 		});
@@ -153,9 +164,10 @@ export class MonorepoReportPipeline extends ReportPipeline {
 		targetPath: string,
 		configPath: string | undefined,
 		monorepo: MonorepoInfo,
-		timings?: BootstrapTimings
+		timings?: BootstrapTimings,
+		telemetry = true
 	) {
-		super(targetPath, configPath, timings);
+		super(targetPath, configPath, timings, telemetry);
 		this.monorepo = monorepo;
 	}
 
@@ -239,6 +251,7 @@ export class MonorepoReportPipeline extends ReportPipeline {
 				files: this.allFiles,
 				providers: this.allProviders,
 				bootstrapRoots: this.bootstrapRoots,
+				telemetry: this.telemetryEnabled,
 				timings: this.timings,
 			});
 		});

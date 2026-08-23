@@ -55,6 +55,7 @@ export interface CliArgs {
 	scope: string | undefined;
 	score: boolean;
 	staged: boolean;
+	telemetry: boolean;
 	timings: string | undefined;
 	verbose: boolean;
 }
@@ -198,7 +199,8 @@ export class CliSetup {
 					this.targetPath,
 					this.args.config,
 					this.args.timings,
-					this.args.output
+					this.args.output,
+					this.args.telemetry
 				);
 				return false;
 			}
