@@ -52,6 +52,26 @@ describe("lsp telemetry gating", () => {
 		).toBe(false);
 	});
 
+	it("honours an opt-out declared in package.json", () => {
+		const dir = mkdtempSync(join(tmpdir(), "nd-lsp-"));
+		dirs.push(dir);
+		writeFileSync(
+			join(dir, "package.json"),
+			JSON.stringify({ "nestjs-doctor": { telemetry: false } }),
+			"utf-8"
+		);
+
+		expect(lspTelemetryEnabled(true, dir, {}, "phc_key")).toBe(false);
+	});
+
+	it("reports for a package.json that says nothing about telemetry", () => {
+		const dir = mkdtempSync(join(tmpdir(), "nd-lsp-"));
+		dirs.push(dir);
+		writeFileSync(join(dir, "package.json"), '{"name":"app"}', "utf-8");
+
+		expect(lspTelemetryEnabled(true, dir, {}, "phc_key")).toBe(true);
+	});
+
 	it("never reports from a test run", () => {
 		expect(
 			lspTelemetryEnabled(true, workspace(), { VITEST: "true" }, "phc_key")
@@ -77,6 +97,14 @@ describe("lsp identity", () => {
 
 		expect(a.projectId).not.toBe(b.projectId);
 		expect(a.projectId).not.toContain("acme");
+	});
+
+	it("treats a folderless session as the working directory", () => {
+		const env = home();
+
+		expect(resolveIdentity("", env).projectId).toBe(
+			resolveIdentity(process.cwd(), env).projectId
+		);
 	});
 
 	it("collapses a CI fleet", () => {

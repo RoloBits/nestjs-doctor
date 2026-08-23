@@ -168,7 +168,7 @@ function reportSession(params: InitializeParams): void {
 		return;
 	}
 	try {
-		const identity = resolveIdentity(workspaceRoot ?? process.cwd());
+		const identity = resolveIdentity(workspaceRoot || process.cwd());
 		sendLspEvent("lsp_session_started", identity.anonymousId, {
 			editor: params.clientInfo?.name ?? "unknown",
 			editor_version: params.clientInfo?.version ?? null,

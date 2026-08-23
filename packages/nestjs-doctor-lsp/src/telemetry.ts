@@ -120,7 +120,10 @@ export function resolveIdentity(
 	};
 }
 
-/** Reads `telemetry` from the project's config, when it declares one. */
+/**
+ * Reads `telemetry` from the project's config. Same three surfaces the CLI
+ * reads, in the same order.
+ */
 function configAllows(workspaceRoot: string): boolean {
 	for (const name of ["nestjs-doctor.config.json", ".nestjs-doctor.json"]) {
 		try {
@@ -132,7 +135,15 @@ function configAllows(workspaceRoot: string): boolean {
 			// Try the next name.
 		}
 	}
-	return true;
+
+	try {
+		const pkg = JSON.parse(
+			readFileSync(join(workspaceRoot, "package.json"), "utf-8")
+		) as { "nestjs-doctor"?: { telemetry?: boolean } };
+		return pkg["nestjs-doctor"]?.telemetry !== false;
+	} catch {
+		return true;
+	}
 }
 
 /**
