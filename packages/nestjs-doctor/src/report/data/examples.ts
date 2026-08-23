@@ -40,15 +40,19 @@ const csrfOptions = { csrf: false };`,
 			good: "app.use(csurf({ cookie: true }));",
 		},
 		"security/no-dangerous-redirects": {
-			bad: `@Get('redirect')
-redirect(@Query('url') url: string, @Res() res: Response) {
-  res.redirect(url);
-}`,
-			good: `@Get('redirect')
-redirect(@Query('url') url: string, @Res() res: Response) {
-  const allowed = ['https://example.com', 'https://app.example.com'];
-  if (allowed.includes(url)) {
+			bad: `@Controller('go')
+export class GoController {
+  @Get('redirect')
+  redirect(@Query('url') url: string, @Res() res: Response) {
     res.redirect(url);
+  }
+}`,
+			good: `@Controller('go')
+export class GoController {
+  @Get('redirect')
+  redirect(@Query('to') to: string, @Res() res: Response) {
+    const targets: Record<string, string> = { home: '/', docs: '/docs' };
+    res.redirect(targets[to] ?? '/');
   }
 }`,
 		},
@@ -102,14 +106,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
 			bad: `@Controller('users')
 export class UserController {
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.userRepo.findOne(id); // Returns raw entity
+  findOne(@Param('id') id: string): Promise<UserEntity> {
+    return this.userRepo.findOne(id); // Every column ships
   }
 }`,
 			good: `@Controller('users')
 export class UserController {
   @Get(':id')
-  async findOne(@Param('id') id: string) {
+  async findOne(@Param('id') id: string): Promise<UserResponseDto> {
     const user = await this.userService.findOne(id);
     return new UserResponseDto(user); // Controlled shape
   }
@@ -486,17 +490,17 @@ export class OrderModule {}`,
 		"architecture/no-manual-instantiation": {
 			bad: `@Injectable()
 export class OrderService {
-  processOrder() {
-    const validator = new OrderValidator();  // Manual instantiation!
-    validator.validate(order);
+  processOrder(order: Order) {
+    const pricing = new PricingService();  // Bypasses the injector
+    return pricing.total(order);
   }
 }`,
 			good: `@Injectable()
 export class OrderService {
-  constructor(private readonly validator: OrderValidator) {}
+  constructor(private readonly pricing: PricingService) {}
 
-  processOrder() {
-    this.validator.validate(order);
+  processOrder(order: Order) {
+    return this.pricing.total(order);
   }
 }`,
 		},
@@ -542,7 +546,7 @@ export class UserService {
 		},
 		"architecture/require-module-boundaries": {
 			bad: `// In user module:
-import { OrderValidator } from '../order/validators/order.validator';`,
+import { OrderRepository } from '../order/repositories/order.repository';`,
 			good: `// In user module:
 import { OrderValidator } from '../order';
 // Or better: inject via DI through the module system`,
@@ -711,17 +715,16 @@ export class Product {
 		},
 		"schema/require-cascade-rule": {
 			bad: `@Entity()
-export class User {
-  @OneToMany(() => Order, (order) => order.user, {
-    cascade: true,  // Risky: may unintentionally persist/remove orders
-  })
-  orders: Order[];
+export class Order {
+  @ManyToOne(() => User, (user) => user.orders)
+  user: User;  // No onDelete — the database default decides
 }`,
 			good: `@Entity()
-export class User {
-  @OneToMany(() => Order, (order) => order.user)
-  orders: Order[];
-  // Persist/remove orders explicitly via OrderRepository
+export class Order {
+  @ManyToOne(() => User, (user) => user.orders, {
+    onDelete: 'CASCADE',
+  })
+  user: User;
 }`,
 		},
 	};
