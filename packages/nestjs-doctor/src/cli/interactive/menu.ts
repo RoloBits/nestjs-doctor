@@ -129,7 +129,7 @@ export const runInteractiveMenu = async (
 		}
 
 		if (choice === "review") {
-			await reviewFindings(context.result.diagnostics, context.targetPath);
+			await reviewFindings(shown.diagnostics, context.targetPath);
 		} else if (choice === "report") {
 			await openReport(context);
 		} else if (choice === "ci") {

@@ -3,7 +3,7 @@ import { highlighter } from "../ui/highlighter.js";
 
 /**
  * Renders the diagnostic's source window with the offending line marked and a
- * caret under the column. Pure ASCII, so it needs no unicode fallback.
+ * caret under the column. Pure ASCII.
  */
 export const renderCodeFrame = (
 	sourceLines: SourceLine[],

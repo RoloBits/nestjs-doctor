@@ -35,13 +35,13 @@ describe("renderCodeFrame", () => {
 	it("marks the offending line and no other", () => {
 		const marked = frame
 			.split("\n")
-			.filter((row) => row.replace(/\[\d+m/g, "").startsWith(">"));
+			.filter((row) => row.replace(/\x1b\[\d+m/g, "").startsWith(">"));
 		expect(marked).toHaveLength(1);
 		expect(marked[0]).toContain("findAll() {");
 	});
 
 	it("puts the caret under the column", () => {
-		const rows = frame.split("\n").map((row) => row.replace(/\[\d+m/g, ""));
+		const rows = frame.split("\n").map((row) => row.replace(/\x1b\[\d+m/g, ""));
 		const target = rows.findIndex((row) => row.startsWith(">"));
 		const caretRow = rows[target + 1];
 		const caretColumn = caretRow.indexOf("^");
@@ -50,7 +50,7 @@ describe("renderCodeFrame", () => {
 	});
 
 	it("keeps every gutter number right-aligned", () => {
-		const rows = frame.split("\n").map((row) => row.replace(/\[\d+m/g, ""));
+		const rows = frame.split("\n").map((row) => row.replace(/\x1b\[\d+m/g, ""));
 		const pipes = new Set(
 			rows.filter((row) => row.includes("|")).map((row) => row.indexOf("|"))
 		);
