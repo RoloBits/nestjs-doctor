@@ -368,7 +368,7 @@ export const PrReview = () => (
 					using the <b>built-in rules</b> and the{" "}
 					<Link
 						className="text-nest-red underline underline-offset-4"
-						href="/docs/custom-rules"
+						href="/docs/rules/custom"
 					>
 						custom rules
 					</Link>{" "}
