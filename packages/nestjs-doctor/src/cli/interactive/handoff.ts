@@ -16,10 +16,7 @@ const KNOWN_AGENTS: LaunchableAgent[] = [
 	{ binary: "cursor-agent", name: "Cursor" },
 ];
 
-/**
- * Agents the menu can start. Windows only gets the prompt copied: spawning a
- * `.cmd` shim needs a shell, and cmd quoting mangles a multi-line prompt.
- */
+/** Agents the menu can start. Windows only gets the prompt copied. */
 const detectLaunchableAgents = (): LaunchableAgent[] => {
 	if (process.platform === "win32") {
 		return [];

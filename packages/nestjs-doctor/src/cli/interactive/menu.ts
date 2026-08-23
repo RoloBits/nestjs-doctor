@@ -145,7 +145,7 @@ export const runInteractiveMenu = async (
 		} else if (choice === "ci") {
 			await addCiWorkflow(context);
 		} else if (choice === "handoff") {
-			await handOffToAgent(context.result.diagnostics, context.targetPath);
+			await handOffToAgent(shown.diagnostics, context.targetPath);
 		} else if (choice === "markdown") {
 			await copyMarkdown(context);
 		}
