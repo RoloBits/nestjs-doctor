@@ -1,6 +1,6 @@
 # NestJS Doctor
 
-> Diagnose and fix your NestJS code in one command. 52 built-in rules across security, performance, correctness, architecture, and schema. Outputs a 0-100 score with actionable diagnostics, plus an interactive HTML report that visualizes the module dependency graph with circular imports highlighted, traced HTTP endpoints, and an ER diagram of the database schema. Zero config. Monorepo support. Ships an official GitHub Action that reports only what a pull request introduced.
+> Diagnose and fix your NestJS code in one command. 52 built-in rules across security, performance, correctness, architecture, and schema. Outputs a 0-100 score with actionable diagnostics. An interactive HTML report visualizes the module dependency graph with circular imports highlighted, traced HTTP endpoints, and an ER diagram of the database schema. Zero config. Monorepo support. Ships an official GitHub Action that reports only what a pull request introduced.
 
 ## Quick Start
 
@@ -96,7 +96,7 @@ directives cannot silence either rule; use `ignore.rules`.
 
 ## Module graph
 
-`--report` writes an interactive HTML report whose Modules Graph tab draws the module graph built from the project's `@Module()` decorators. Circular imports render red and are listed as chains with the fix guidance from `architecture/no-circular-module-deps`. Selecting a module gives its blast radius, meaning every module that transitively imports it, split into direct and indirect with the chain between them. Two toggles start off: `@Global()` reach draws the wiring Nest does implicitly, and external modules adds package modules as separate nodes. A monorepo produces one merged graph with a labelled cluster per sub-project and cross-package imports drawn in cyan.
+`--report` writes an interactive HTML report whose Modules Graph tab draws the module graph built from the project's `@Module()` decorators. Circular imports render red and are listed as chains with the fix guidance from `architecture/no-circular-module-deps`. Selecting a module gives its blast radius, meaning every module that transitively imports it, split into direct and indirect with the chain between them. Two toggles start off: `@Global()` reach draws the wiring Nest does implicitly, and external modules adds package modules as separate nodes. A monorepo produces one merged graph with a labeled cluster per sub-project and cross-project imports drawn in cyan.
 
 The graph is decorator text, not a running app. Two `@Module()` classes with the same name in different directories collapse into one node outside a monorepo. A module produced only by a factory returning a `DynamicModule` never becomes an edge. `--report` ignores `--scope`, `--base`, `--staged`, `--min-score`, and `--blocking`, and always exits 0.
 

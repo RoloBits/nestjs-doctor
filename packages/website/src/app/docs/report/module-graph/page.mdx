@@ -6,9 +6,8 @@ export const metadata = docsMetadata["/docs/report/module-graph"];
 
 # Module graph
 
-Every NestJS project has a module graph. Most teams have never seen theirs. The
-report draws it from the `@Module()` decorators in your source, so it shows the
-wiring that exists rather than the one on the whiteboard.
+The report draws your module graph from the `@Module()` decorators in your
+source.
 
 Scan a project and open the report:
 
@@ -16,14 +15,14 @@ Scan a project and open the report:
 npx nestjs-doctor@latest . --report
 ```
 
-The graph is a tab inside the report, not a separate file. See
-[The report](/docs/report) for where the file lands and what else is in it.
+The graph is one tab inside that report, and there is no separate graph file.
+See [The report](/docs/report) for where the file lands and what else is in it.
 
 ![Module graph](/module-graph.png)
 
 ## Reading the canvas
 
-Color carries the state of a module, and nothing else:
+Node color carries the state of a module, and nothing else:
 
 | Color | Meaning |
 |---|---|
@@ -39,13 +38,14 @@ and projects at once, filtering the tree and the canvas together.
 
 ## Cycles
 
-Circular imports are the reason most people open this tab. Modules in a cycle
-turn red, and the edges between them animate as red dashes.
+Modules in a cycle turn red, and the edges between them animate as red dashes.
 
-A **Circular dependencies** section lists each chain as `UsersModule →
+A Circular dependencies section lists each chain as `UsersModule →
 OrdersModule → UsersModule`. Clicking a chain zooms to it and drops everything
 else to 15% opacity. A cycle buried in 200 modules becomes the only thing on
-screen. Each entry carries the fix guidance from
+screen.
+
+Each entry carries the fix guidance from
 [`no-circular-module-deps`](/docs/rules/architecture).
 
 `forwardRef()` does not hide a cycle. The import resolves, the edge is drawn,
@@ -53,9 +53,8 @@ and the chain still reports.
 
 ## Picking a module
 
-Selecting a node dims everything except its neighbors. Imports draw blue,
-importers draw green, both with moving dashes so direction is readable at a
-glance.
+Selecting a node dims everything except its neighbors. Imports draw blue and
+importers draw green. Both use moving dashes, so direction reads at a glance.
 
 The detail panel then covers seven things, in order: used by, blast radius,
 providers, imports, exports, wiring, and circular dependencies.
@@ -84,15 +83,15 @@ scanner, and the note names that case.
 A dock at the bottom of the canvas lists findings from rules tagged
 `module-graph`, custom rules included. Clicking one flies to the module that
 owns it. Code-level findings stay on the Findings tab, so this dock holds
-wiring problems only.
+wiring findings only.
 
-## Two toggles worth knowing
+## Toggles
 
-Both sit above the canvas and both start off:
+Two toggles sit above the canvas, and both start off:
 
 - **Show `@Global()` reach:** draws a dotted yellow line from every `@Global()`
-  module to each module that uses it without importing it. This is the wiring
-  Nest does for you, which is otherwise invisible.
+  module to every module that does not already import it. A global is available in every
+  module without an import, whether or not that module injects anything from it.
 - **Show external modules:** adds package modules like `ConfigModule` as gray
   dashed nodes in their own cluster. They are never edges in the underlying
   graph, so they only appear here.
@@ -102,21 +101,21 @@ module, and the cost grows with both.
 
 ## Monorepos
 
-A monorepo produces one merged graph, not one per package. Each sub-project
+A monorepo produces one merged graph covering every sub-project. Each sub-project
 becomes a labeled cluster with its own color and module count.
 
-Cross-package imports draw in cyan dashes at reduced opacity, so they read as
-secondary to the edges inside a package. Blast radius counts projects alongside
-modules, and anything crossing a package boundary carries a project badge.
+Cross-project imports draw in cyan dashes at reduced opacity, so they read as
+secondary to the edges inside a sub-project. Blast radius counts projects alongside
+modules, and anything crossing a sub-project boundary carries a project badge.
 
 One case produces no edge. A module imported by a bare name that is ambiguous
-across the workspace stays unresolved, because the scanner will not guess which
-package meant it.
+across the workspace stays unresolved. The scanner will not guess which sub-project
+meant it.
 
 ## Boot times on the graph
 
 `--timings` overlays how long each class took to construct during one real boot.
-Node subtitles gain the slowest class in milliseconds, and a **Boot trace** tab
+Node subtitles gain the slowest class in milliseconds, and a Boot trace tab
 appears in the bottom dock.
 
 That needs one change to `main.ts`, because a scan never runs your application.
@@ -125,9 +124,8 @@ result.
 
 ## Limits
 
-The graph is built from decorator text, not from a running application. Types
-are never resolved. Four consequences are worth knowing before you trust a
-drawing:
+The graph is built from decorator text alone, and types are never resolved.
+Four consequences follow:
 
 - **Same-named modules collide.** Two `@Module()` classes named `SharedModule`
   in different directories become one node, and the second one collected wins.
@@ -136,13 +134,12 @@ drawing:
   factory returning a `DynamicModule` yields no edge.
 - **`forwardRef()` imports look like plain imports.** The edge is correct, but
   the drawing does not mark which side used it.
-- **Offline the layout degrades.** The graph falls back to a plain grid with no
-  hierarchy, as [The report](/docs/report) covers.
+- **Offline the layout degrades.** See [The report](/docs/report).
 
 `--report` also ignores the flags that narrow or gate a scan. `--scope`,
 `--base`, `--staged`, `--min-score`, and `--blocking` have no effect on it, and
 a report always exits `0`. Run a gating scan as a separate command, which
 [Failing the build](/docs/ci/gates) covers.
 
-The graph is a view, not an export. There is no PNG, SVG, or DOT output, no
-alternative layout, and no comparison against a previous run.
+There is no PNG, SVG, or DOT output, no alternative layout, and no comparison
+against a previous run.
