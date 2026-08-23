@@ -1,3 +1,4 @@
+import { highlighter } from "../cli/ui/highlighter.js";
 import { logger } from "../cli/ui/logger.js";
 import { detectMonorepo } from "../engine/project-detector.js";
 import {
@@ -21,6 +22,12 @@ export const runReport = async (
 	telemetry = true
 ): Promise<void> => {
 	const monorepo = await detectMonorepo(targetPath);
+
+	const writeAndOpen = async (html: string): Promise<void> => {
+		const outPath = await writeReportFile(targetPath, html, outputPath);
+		logger.info(`Report written to ${highlighter.info(outPath)}`);
+		openReportInBrowser(outPath);
+	};
 
 	let bootTimings: BootstrapTimings | undefined;
 	if (timingsPath) {
@@ -47,12 +54,7 @@ export const runReport = async (
 			.generateHtml()
 			.run();
 		logMonorepoSummary(pipeline.monoResult, pipeline.mergedGraph);
-		const outPath = await writeReportFile(
-			targetPath,
-			pipeline.generatedHtml,
-			outputPath
-		);
-		openReportInBrowser(outPath);
+		await writeAndOpen(pipeline.generatedHtml);
 		return;
 	}
 
@@ -70,10 +72,5 @@ export const runReport = async (
 		.generateHtml()
 		.run();
 	logSingleProjectSummary(pipeline.scanResult);
-	const outPath = await writeReportFile(
-		targetPath,
-		pipeline.generatedHtml,
-		outputPath
-	);
-	openReportInBrowser(outPath);
+	await writeAndOpen(pipeline.generatedHtml);
 };

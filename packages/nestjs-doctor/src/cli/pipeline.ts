@@ -3,7 +3,10 @@ import type { Diagnostic } from "../common/diagnostic.js";
 import type { DiagnoseResult } from "../common/result.js";
 import { computeBaselineDelta } from "../engine/baseline.js";
 import { collectEntryModules } from "../engine/graph/entry-points.js";
-import { detachModuleGraph } from "../engine/graph/module-graph.js";
+import {
+	detachModuleGraph,
+	mergeModuleGraphs,
+} from "../engine/graph/module-graph.js";
 import { pruneCrossProjectOrphans } from "../engine/orphan-prune.js";
 import type { MonorepoInfo } from "../engine/project-detector.js";
 import { withScopedDiagnostics } from "../engine/result-builder.js";
@@ -27,6 +30,11 @@ import {
 	type ResolvedScope,
 	resolveScope,
 } from "../engine/scope.js";
+import {
+	type ReportProvider,
+	toReportProvider,
+} from "../report/formatters/report-data.js";
+import { buildHtmlReport } from "../report/html-report.js";
 import { getEcosystem, resetEcosystem } from "../telemetry/ecosystem.js";
 import { generatedIn } from "../telemetry/environment.js";
 import { resolveIdentity } from "../telemetry/install-id.js";
@@ -46,6 +54,12 @@ import { logger } from "./ui/logger.js";
 import { spinner } from "./ui/spinner.js";
 
 type PipelineStep = () => void | Promise<void>;
+
+/** Handed to the post-scan menu so its actions reuse the finished scan. */
+export interface InteractiveArtifacts {
+	buildReportHtml: () => string;
+	result: DiagnoseResult;
+}
 
 const displayCustomRuleWarnings = (
 	warnings: string[],
@@ -247,8 +261,30 @@ export class MonorepoPipeline extends ScanPipeline {
 	private readonly monorepo: MonorepoInfo;
 	private scanResults!: Map<string, EngineResult>;
 	private readonly bootstrapRoots: string[] = [];
+	private readonly allFiles: string[] = [];
+	private readonly allProviders: ReportProvider[] = [];
 	private result!: MonorepoEngineResult;
 	private scanStartTime!: number;
+
+	/** What the post-scan menu needs, without re-scanning. */
+	get interactiveArtifacts(): InteractiveArtifacts {
+		return {
+			buildReportHtml: () => {
+				const { moduleGraphs, result } = this.result;
+				return buildHtmlReport(
+					mergeModuleGraphs(moduleGraphs),
+					result.combined,
+					{
+						bootstrapRoots: this.bootstrapRoots,
+						files: this.allFiles,
+						projects: [...moduleGraphs.keys()],
+						providers: this.allProviders,
+					}
+				);
+			},
+			result: this.result.result.combined,
+		};
+	}
 
 	constructor(
 		targetPath: string,
@@ -276,12 +312,24 @@ export class MonorepoPipeline extends ScanPipeline {
 					if (context.config?.telemetry === false) {
 						this.subProjectOptOut = true;
 					}
+					this.allFiles.push(...context.files);
 					for (const root of collectEntryModules(
 						context.astProject,
 						context.files,
 						context.moduleGraph
 					)) {
 						this.bootstrapRoots.push(`${name}/${root}`);
+					}
+					for (const provider of context.providers.values()) {
+						const owner = context.moduleGraph.providerToModule.get(
+							provider.name
+						);
+						this.allProviders.push(
+							toReportProvider(provider, {
+								project: name,
+								module: owner ? `${name}/${owner.name}` : undefined,
+							})
+						);
 					}
 					const scanResult = buildResult(context, diagnose(context));
 					return {
@@ -363,6 +411,27 @@ export class SingleProjectPipeline extends ScanPipeline {
 	private context!: AnalysisContext;
 	private rawOutput!: RawDiagnosticOutput;
 	private result!: EngineResult;
+
+	/** What the post-scan menu needs, without re-scanning. */
+	get interactiveArtifacts(): InteractiveArtifacts {
+		return {
+			buildReportHtml: () => {
+				const { moduleGraph, files, providers } = this.result;
+				return buildHtmlReport(moduleGraph, this.result.result, {
+					bootstrapRoots: [
+						...collectEntryModules(this.context.astProject, files, moduleGraph),
+					],
+					files,
+					providers: [...providers.values()].map((provider) =>
+						toReportProvider(provider, {
+							module: moduleGraph.providerToModule.get(provider.name)?.name,
+						})
+					),
+				});
+			},
+			result: this.result.result,
+		};
+	}
 
 	buildContext(): this {
 		this.steps.push(async () => {

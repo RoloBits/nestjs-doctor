@@ -1,4 +1,4 @@
-import { lstatSync } from "node:fs";
+import { existsSync, lstatSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { findGitRepo, runGit } from "../engine/git.js";
@@ -109,6 +109,12 @@ jobs:
         #   sarif: "true"             # Also write SARIF for GitHub code scanning
         #   version: "1.2.3"          # Pin the nestjs-doctor version (default: latest)
 `;
+
+/** True when the repository already carries the scaffolded workflow file. */
+export const ciWorkflowExists = (targetPath: string): boolean => {
+	const repo = findGitRepo(targetPath);
+	return repo !== null && existsSync(join(repo.root, WORKFLOW_FILE));
+};
 
 /** Writes the pull request workflow into the repository that contains `targetPath`. */
 export const installCiWorkflow = async (

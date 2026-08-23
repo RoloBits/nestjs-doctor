@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { writeReportFile } from "../../src/report/output.js";
+import { openCommand, writeReportFile } from "../../src/report/output.js";
 
 const roots: string[] = [];
 const scratch = (): string => {
@@ -54,5 +54,23 @@ describe("writeReportFile", () => {
 		} finally {
 			process.chdir(cwd);
 		}
+	});
+});
+
+describe("openCommand", () => {
+	const platform = process.platform;
+	const setPlatform = (value: string): void => {
+		Object.defineProperty(process, "platform", { value });
+	};
+	afterAll(() => setPlatform(platform));
+
+	it("passes the path as one argument on every platform", () => {
+		const path = "/tmp/a b/report.html";
+		setPlatform("darwin");
+		expect(openCommand(path)).toEqual(["open", [path]]);
+		setPlatform("linux");
+		expect(openCommand(path)).toEqual(["xdg-open", [path]]);
+		setPlatform("win32");
+		expect(openCommand(path)).toEqual(["cmd", ["/c", "start", "", path]]);
 	});
 });
