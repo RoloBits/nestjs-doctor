@@ -9,7 +9,7 @@ import { resolveScanConfig, type ScanConfig } from "./config/scan-config.js";
 import { collectFiles, collectMonorepoFiles } from "./file-collector.js";
 import { createAstParser } from "./graph/ast-parser.js";
 import {
-	buildEndpointGraph,
+	buildEndpointGraphWithProgress,
 	updateEndpointGraphForFile,
 } from "./graph/endpoint-graph.js";
 import {
@@ -90,7 +90,12 @@ export async function buildAnalysisContext(
 	await yieldToEventLoop();
 	const providers = resolveProviders(astProject, files);
 	await yieldToEventLoop();
-	const endpointGraph = buildEndpointGraph(astProject, files, providers);
+	const endpointGraph = await buildEndpointGraphWithProgress(
+		astProject,
+		files,
+		providers,
+		(traced, total) => onProgress?.("analyzing", traced, total)
+	);
 	await yieldToEventLoop();
 	const schemaGraph = extractSchema(astProject, files, project.orm, targetPath);
 	await yieldToEventLoop();
@@ -200,7 +205,12 @@ async function buildSubProjectContext(
 	await yieldToEventLoop();
 	const providers = resolveProviders(astProject, files);
 	await yieldToEventLoop();
-	const endpointGraph = buildEndpointGraph(astProject, files, providers);
+	const endpointGraph = await buildEndpointGraphWithProgress(
+		astProject,
+		files,
+		providers,
+		(traced, total) => onProgress?.("analyzing", traced, total)
+	);
 	await yieldToEventLoop();
 	let schemaGraph = extractSchema(astProject, files, project.orm, projectPath);
 	// Falls back to the workspace root, where a monorepo usually keeps its schema.
