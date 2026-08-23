@@ -87,13 +87,11 @@ export const Section = ({
 	copy,
 	figure,
 	figureLeft = false,
-	command,
 }: {
 	title: string;
 	copy: ReactNode;
 	figure: ReactNode;
 	figureLeft?: boolean;
-	command?: string;
 }) => (
 	<section className="border-white/15 border-b py-10">
 		<div
@@ -103,7 +101,6 @@ export const Section = ({
 				<h2 className="mt-0 mb-5 max-w-[40ch] text-balance font-bold text-2xl text-[#f2f1ef] leading-tight tracking-[-0.01em]">
 					{title}
 				</h2>
-				{command ? <CommandBlock command={command} /> : null}
 				<div className="mt-4 space-y-4 text-[13px] text-white/[0.92] leading-relaxed [&_b]:text-white [&_p_code]:bg-white/10 [&_p_code]:px-1.5 [&_p_code]:py-px [&_p_code]:text-white">
 					{copy}
 				</div>

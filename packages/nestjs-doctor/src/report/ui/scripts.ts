@@ -1,3 +1,5 @@
+import { REPORT_FONT_STACK } from "./styles.js";
+
 export interface ReportScriptData {
 	diagnosticsJson: string;
 	elapsedMsJson: string;
@@ -256,7 +258,7 @@ var MG_CROSS_EDGE = "#22d3ee";
 var MG_CYCLE = "#ea2845";
 var MG_GLOBAL = "#fbbf24";
 var MG_NODE_H = 40;
-var RPT_FONT = '"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+var RPT_FONT = '${REPORT_FONT_STACK}';
 
 var mgCanvas = null, mgCtx = null, mgDpr = window.devicePixelRatio || 1;
 var mgW = 0, mgH = 0;
@@ -759,19 +761,9 @@ function mgClusterAlpha(c) {
 }
 
 // ── Modules graph: drawing ──
-function mgRoundRect(x, y, w, h, r) {
-  r = 0;
+function mgRect(x, y, w, h) {
   mgCtx.beginPath();
-  mgCtx.moveTo(x + r, y);
-  mgCtx.lineTo(x + w - r, y);
-  mgCtx.quadraticCurveTo(x + w, y, x + w, y + r);
-  mgCtx.lineTo(x + w, y + h - r);
-  mgCtx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  mgCtx.lineTo(x + r, y + h);
-  mgCtx.quadraticCurveTo(x, y + h, x, y + h - r);
-  mgCtx.lineTo(x, y + r);
-  mgCtx.quadraticCurveTo(x, y, x + r, y);
-  mgCtx.closePath();
+  mgCtx.rect(x, y, w, h);
 }
 
 /** Where the line from a node's centre towards a point leaves its box. */
@@ -810,7 +802,7 @@ function mgDrawClusters() {
     if (mgHideExternal && c.key === MG_EXTERNAL_PROJECT) continue;
     var color = c.key ? (projectColorMap[c.key] || "#555") : "#555";
     mgCtx.globalAlpha = mgClusterAlpha(c) * 0.5;
-    mgRoundRect(c.x, c.y, c.w, c.h, 10);
+    mgRect(c.x, c.y, c.w, c.h);
     mgCtx.fillStyle = "rgba(255,255,255,0.022)";
     mgCtx.fill();
     mgCtx.strokeStyle = color;
@@ -925,7 +917,7 @@ function mgDrawEdges() {
     var l = labels[j];
     var w = mgCtx.measureText(l.text).width + 8;
     mgCtx.globalAlpha = l.alpha;
-    mgRoundRect(l.x - w / 2, l.y - 7, w, 14, 3);
+    mgRect(l.x - w / 2, l.y - 7, w, 14);
     mgCtx.fillStyle = "#0f0f0f";
     mgCtx.fill();
     mgCtx.strokeStyle = "rgba(255,255,255,0.14)";
@@ -991,7 +983,7 @@ function mgDrawNodes() {
     mgCtx.globalAlpha = alpha;
 
     if (n.isGlobal) {
-      mgRoundRect(x - 4, y - 4, n.w + 8, n.h + 8, 10);
+      mgRect(x - 4, y - 4, n.w + 8, n.h + 8);
       mgCtx.strokeStyle = "rgba(251,191,36,0.35)";
       mgCtx.lineWidth = 2;
       mgCtx.setLineDash([]);
@@ -1005,7 +997,7 @@ function mgDrawNodes() {
     if (isCirc) { fill = "#2e1a1a"; stroke = MG_CYCLE; }
     if (isSel) { stroke = "#fff"; }
 
-    mgRoundRect(x, y, n.w, n.h, 6);
+    mgRect(x, y, n.w, n.h);
     mgCtx.fillStyle = fill;
     mgCtx.fill();
     mgCtx.strokeStyle = stroke;
@@ -2462,18 +2454,9 @@ function renderDiagnosis() {
         belowRow.innerHTML = SVG_DOWN + " Expand " + Math.min(EXPAND_STEP, belowCount) + " lines";
         (function(fp) {
           belowRow.addEventListener("click", function() {
-            const mEl = document.getElementById("diagnosis-main");
             expandState["__file_" + fp].below += EXPAND_STEP;
             showFile(fp, true);
-            const newCodeEl = document.getElementById("diagnosis-file-code");
-            const anchor = newCodeEl.querySelector(".code-expand-below") || newCodeEl;
-            anchor.scrollIntoView({ block: "end" });
-            // The editors grow as CodeMirror measures; keep the anchor pinned until they settle.
-            const ro = new ResizeObserver(function() {
-              anchor.scrollIntoView({ block: "end" });
-            });
-            ro.observe(anchor.parentElement);
-            setTimeout(function() { ro.disconnect(); }, 1000);
+            pinExpandBelow(document.getElementById("diagnosis-file-code"));
           });
         })(filePath);
         codeEl.appendChild(belowRow);
@@ -2752,29 +2735,22 @@ function renderDiagnosis() {
       showFile(activeFilePath);
     }
   }
-  for (let pi = 0; pi < pills.length; pi++) {
-    pills[pi].addEventListener("click", function() {
-      activeSev = this.dataset.sev;
-      for (let pp = 0; pp < pills.length; pp++) pills[pp].classList.toggle("active", pills[pp] === this);
-      updateFiltersBadge();
-      updateTreeVisibility();
-    });
-  }
-  for (let si = 0; si < scopePills.length; si++) {
-    scopePills[si].addEventListener("click", function() {
-      activeScope = this.dataset.scope;
-      for (let sp = 0; sp < scopePills.length; sp++) scopePills[sp].classList.toggle("active", scopePills[sp] === this);
-      updateFiltersBadge();
-      updateTreeVisibility();
-    });
-  }
-  for (let ci = 0; ci < catPills.length; ci++) {
-    catPills[ci].addEventListener("click", function() {
-      activeCat = this.dataset.cat;
-      for (let cp = 0; cp < catPills.length; cp++) catPills[cp].classList.toggle("active", catPills[cp] === this);
-      updateFiltersBadge();
-      updateTreeVisibility();
-    });
+  const pillGroups = [
+    { pills: pills, key: "sev", set: function(v) { activeSev = v; } },
+    { pills: scopePills, key: "scope", set: function(v) { activeScope = v; } },
+    { pills: catPills, key: "cat", set: function(v) { activeCat = v; } },
+  ];
+  for (const group of pillGroups) {
+    for (let pi = 0; pi < group.pills.length; pi++) {
+      group.pills[pi].addEventListener("click", function() {
+        group.set(this.dataset[group.key]);
+        for (let pp = 0; pp < group.pills.length; pp++) {
+          group.pills[pp].classList.toggle("active", group.pills[pp] === this);
+        }
+        updateFiltersBadge();
+        updateTreeVisibility();
+      });
+    }
   }
   const filtersToggle = document.getElementById("diag-filters-toggle");
   if (filtersToggle) {
@@ -2939,6 +2915,17 @@ function renderFileHeader(filePath, items, getSeverity) {
   return '<div class="file-view-title">' + escHtml(fileName) + '</div>' +
     (parentDir ? '<div class="file-view-dir">' + escHtml(parentDir) + '/</div>' : '') +
     '<div class="file-view-counts">' + countsHtml + '</div>';
+}
+
+/** Keeps the below expander at the viewport bottom while the editors grow. */
+function pinExpandBelow(containerEl) {
+  const anchor = containerEl.querySelector(".code-expand-below") || containerEl;
+  anchor.scrollIntoView({ block: "end" });
+  const ro = new ResizeObserver(function() {
+    anchor.scrollIntoView({ block: "end" });
+  });
+  ro.observe(anchor.parentElement);
+  setTimeout(function() { ro.disconnect(); }, 1000);
 }
 
 // ── Summary Tab rendering ──
@@ -3298,14 +3285,7 @@ function renderLab() {
           belowRow.addEventListener("click", function() {
             pgExpandState[fp].below += PG_EXPAND_STEP;
             showPgFile(fp, true);
-            const anchor = pgFileCode.querySelector(".code-expand-below") || pgFileCode;
-            anchor.scrollIntoView({ block: "end" });
-            // The editors grow as CodeMirror measures; keep the anchor pinned until they settle.
-            const ro = new ResizeObserver(function() {
-              anchor.scrollIntoView({ block: "end" });
-            });
-            ro.observe(anchor.parentElement);
-            setTimeout(function() { ro.disconnect(); }, 1000);
+            pinExpandBelow(pgFileCode);
           });
         })(filePath);
         pgFileCode.appendChild(belowRow);
@@ -3542,7 +3522,6 @@ var sCanvas, sCtx, sDpr, sW, sH;
 var sCamX = 0, sCamY = 0, sZoom = 1;
 var sDragging = null, sPanning = false, sPanStart = {x: 0, y: 0};
 var sDragMoved = false;
-var sPressStart = {x: 0, y: 0};
 var sDragOffset = {x: 0, y: 0};
 var sHoveredEntity = null, sHoveredRelation = null;
 var sSelectedEntity = null;
@@ -3836,7 +3815,7 @@ function sBuildGrids() {
         colOf[members[m].name] = i;
       }
       boxes.sort(function(a, b) { return a.top - b.top; });
-      cols.push({ x: xs[i], left: xs[i] - 90, right: xs[i] + 90, boxes: boxes });
+      cols.push({ left: xs[i] - S_BOX_W / 2, right: xs[i] + S_BOX_W / 2, boxes: boxes });
     }
     var gutters = [];
     for (i = 0; i <= cols.length; i++) {
@@ -3896,10 +3875,10 @@ function sRelPortNames(rel) {
   var child = sNodeMap[rel.fromEntity];
   var fkName = null;
   if (child && rel.propertyName) {
-    var base = sKeyName(rel.propertyName);
+    var keys = sFkKeys(rel.propertyName);
     for (var i = 0; i < child.entity.columns.length; i++) {
       var kn = sKeyName(child.entity.columns[i].name);
-      if (kn === base || kn === base + "id") { fkName = child.entity.columns[i].name; break; }
+      if (kn === keys[0] || kn === keys[1]) { fkName = child.entity.columns[i].name; break; }
     }
   }
   var parent = sNodeMap[rel.toEntity];
@@ -3992,8 +3971,7 @@ function sChannelRouteAll() {
       runs.push({ g: jb.grid.gutters[jb.ca + 1], fromY: jb.ya, toY: jb.yb });
     } else {
       var step = jb.ca < jb.cb ? 1 : -1;
-      var between = [];
-      for (var c = jb.ca + step; c !== jb.cb; c += step) between.push(jb.grid.cols[c]);
+      var between = jb.grid.cols.slice(Math.min(jb.ca, jb.cb) + 1, Math.max(jb.ca, jb.cb));
       var gFirst = jb.grid.gutters[step === 1 ? jb.ca + 1 : jb.ca];
       var gLast = jb.grid.gutters[step === 1 ? jb.cb : jb.cb + 1];
       if (between.length === 0) {
@@ -4013,18 +3991,16 @@ function sChannelRouteAll() {
   }
 
   // Lane assignment: spread the vertical runs sharing a gutter
-  for (i = 0; i < jobs.length; i++) {
-    for (r = 0; r < jobs[i].runs.length; r++) jobs[i].runs[r].g._done = false;
-  }
-  for (i = 0; i < jobs.length; i++) {
-    for (r = 0; r < jobs[i].runs.length; r++) {
-      var gut = jobs[i].runs[r].g;
-      if (gut._done) continue;
-      gut._done = true;
+  for (var gk in sCompGrids) {
+    if (!Object.prototype.hasOwnProperty.call(sCompGrids, gk)) continue;
+    var gutters = sCompGrids[gk].gutters;
+    for (i = 0; i < gutters.length; i++) {
+      var gut = gutters[i];
       var live = [];
       for (j = 0; j < gut.runs.length; j++) {
         if (Math.abs(gut.runs[j].fromY - gut.runs[j].toY) >= 0.5) live.push(gut.runs[j]);
       }
+      gut.runs = [];
       live.sort(function(u, v) {
         return (u.fromY + u.toY) / 2 - (v.fromY + v.toY) / 2;
       });
@@ -4059,17 +4035,12 @@ function sChannelRouteAll() {
     sEdgeRoutes[jb.key] = sSimplifyPath(pts);
     sEdgeKeys.push(jb.key);
   }
-  // Runs accumulate per routing pass; reset for the next relayout
-  for (var gk in sCompGrids) {
-    if (!Object.prototype.hasOwnProperty.call(sCompGrids, gk)) continue;
-    for (i = 0; i < sCompGrids[gk].gutters.length; i++) sCompGrids[gk].gutters[i].runs = [];
-  }
 }
 
 function sRouteAllEdges() {
   sEdgeRoutes = {};
   sEdgeKeys = [];
-  if (!sFocusedMode && sCompGrids) {
+  if (sCompGrids) {
     sChannelRouteAll();
     return;
   }
@@ -4170,6 +4141,7 @@ function sComputeComponents(nodes) {
 }
 
 /** Positions one component from its own origin: layered left-to-right. */
+var S_BOX_W = 180;
 var S_COL_GAP = 110;
 var S_ROW_GAP = 44;
 var S_COL_CAP = 2400;
@@ -4279,7 +4251,7 @@ function sLayoutComponent(nodes) {
       nd.y = yCur + nd.h / 2;
       yCur += nd.h + S_ROW_GAP;
     }
-    xCur += 180 + S_COL_GAP;
+    xCur += S_BOX_W + S_COL_GAP;
   }
   for (t = 0; t < 3; t++) {
     for (i = 0; i < phys.length; i++) {
@@ -4470,13 +4442,19 @@ function sKeyName(text) {
   return String(text).toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+function sFkKeys(propertyName) {
+  var base = sKeyName(propertyName);
+  return [base, base + "id"];
+}
+
 function sForeignKeyColumns(entity) {
   var names = Object.create(null);
   for (var i = 0; i < entity.relations.length; i++) {
     var prop = entity.relations[i].propertyName;
     if (!prop) continue;
-    names[sKeyName(prop)] = true;
-    names[sKeyName(prop) + "id"] = true;
+    var keys = sFkKeys(prop);
+    names[keys[0]] = true;
+    names[keys[1]] = true;
   }
   return names;
 }
@@ -4599,6 +4577,7 @@ function sCacheNodeLabels(nodes) {
 
 function sSetVisibleSubset(entityName) {
   if (!sFocusedMode) return;
+  sCompGrids = null;
 
   var emptyState = document.getElementById("schema-empty-state");
 
@@ -4666,21 +4645,6 @@ function sCenterCamera() {
   }
   sCamX = sW / 2 - cx;
   sCamY = sH / 2 - cy;
-}
-
-// Round rect helper
-function sRoundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
 }
 
 // Drawing
@@ -4758,7 +4722,6 @@ function schemaDraw() {
 
   // Draw entity boxes
   var BOX_W = 180;
-  var R = 0;
   var HDR_H = 24;
   var COL_ROW_H = 16;
   var showCols = sApplyNodeSizes(sNodes);
@@ -4787,7 +4750,8 @@ function schemaDraw() {
     }
 
     // Body background (full box)
-    sRoundRect(sCtx, x, y, BOX_W, BOX_H, R);
+    sCtx.beginPath();
+    sCtx.rect(x, y, BOX_W, BOX_H);
     sCtx.fillStyle = "#151515";
     sCtx.fill();
 
@@ -4798,21 +4762,9 @@ function schemaDraw() {
 
     if (isSelected) sCtx.restore();
 
-    // Header background (top portion, clipped to rounded top)
-    sCtx.save();
-    sCtx.beginPath();
-    sCtx.moveTo(x + R, y);
-    sCtx.lineTo(x + BOX_W - R, y);
-    sCtx.quadraticCurveTo(x + BOX_W, y, x + BOX_W, y + R);
-    sCtx.lineTo(x + BOX_W, y + HDR_H);
-    sCtx.lineTo(x, y + HDR_H);
-    sCtx.lineTo(x, y + R);
-    sCtx.quadraticCurveTo(x, y, x + R, y);
-    sCtx.closePath();
-    sCtx.clip();
+    // Header background (top portion)
     sCtx.fillStyle = "#0d0d0d";
     sCtx.fillRect(x, y, BOX_W, HDR_H);
-    sCtx.restore();
 
     // Separator line between header and body
     sCtx.beginPath();
@@ -5571,7 +5523,7 @@ function renderSchema() {
     var pos = sScreenToWorld(sx, sy);
     var hit = sHitTestEntity(pos.x, pos.y);
     sDragMoved = false;
-    sPressStart = { x: e.clientX, y: e.clientY };
+    sPanStart = { x: e.clientX, y: e.clientY };
     if (hit) {
       sDragging = hit;
       sDragOffset = { x: hit.x - pos.x, y: hit.y - pos.y };
@@ -5579,7 +5531,6 @@ function renderSchema() {
       sHideRelBadge();
     } else {
       sPanning = true;
-      sPanStart = { x: e.clientX, y: e.clientY };
     }
   });
 
@@ -5589,10 +5540,11 @@ function renderSchema() {
     var sy = e.clientY - rect.top;
     var pos = sScreenToWorld(sx, sy);
 
+    if ((sDragging || sPanning) && !sDragMoved &&
+        Math.abs(e.clientX - sPanStart.x) < 4 &&
+        Math.abs(e.clientY - sPanStart.y) < 4) return;
+
     if (sDragging) {
-      if (!sDragMoved &&
-          Math.abs(e.clientX - sPressStart.x) < 4 &&
-          Math.abs(e.clientY - sPressStart.y) < 4) return;
       sDragMoved = true;
       sDragging.x = pos.x + sDragOffset.x;
       sDragging.y = pos.y + sDragOffset.y;
@@ -5601,9 +5553,6 @@ function renderSchema() {
       sHideTooltip();
       sHideRelBadge();
     } else if (sPanning) {
-      if (!sDragMoved &&
-          Math.abs(e.clientX - sPressStart.x) < 4 &&
-          Math.abs(e.clientY - sPressStart.y) < 4) return;
       sDragMoved = true;
       sCamX += (e.clientX - sPanStart.x) / sZoom;
       sCamY += (e.clientY - sPanStart.y) / sZoom;

@@ -452,11 +452,9 @@ for (let i = 0; i < lines.length; i++) {
     <div id="mg-dock-header">
       <span class="mg-dock-tab" id="mg-dock-tab-problems" data-dock-tab="problems">Module problems <span class="schema-entity-count" id="mg-problems-count"></span></span>
       <span class="mg-dock-tab" id="mg-dock-tab-trace" data-dock-tab="trace" style="display:none">Boot trace <span class="schema-entity-count" id="mg-trace-ms"></span></span>
-      <span class="mg-trace-legend" id="mg-trace-legend">
-        <span class="mg-trace-info" tabindex="0" role="img" aria-label="How to read the trace" data-tip="How to read the trace&#10;\u2022 bars scale to the slowest row&#10;\u2022 yellow segment \u2248 the class's own work&#10;\u2022 dimmed hollow bar = reused, built earlier&#10;\u2022 rows are the create phase&#10;\u2022 +ms chips = lifecycle hooks">
+      <span class="mg-trace-info" tabindex="0" role="img" aria-label="How to read the trace" data-tip="How to read the trace&#10;\u2022 bars scale to the slowest row&#10;\u2022 yellow segment \u2248 the class's own work&#10;\u2022 dimmed hollow bar = reused, built earlier&#10;\u2022 rows are the create phase&#10;\u2022 +ms chips = lifecycle hooks">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
         </span>
-      </span>
       <span style="flex:1"></span>
       <span class="mg-problems-chevron" id="mg-dock-chevron">▴</span>
     </div>
