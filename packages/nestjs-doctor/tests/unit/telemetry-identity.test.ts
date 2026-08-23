@@ -1,6 +1,6 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { configDir, resolveIdentity } from "../../src/telemetry/install-id.js";
 import { firstRunNotice } from "../../src/telemetry/notice.js";
@@ -95,7 +95,12 @@ describe("install identity", () => {
 	});
 
 	it("falls back to a per-run id when the home is unwritable", () => {
-		const env = { NESTJS_DOCTOR_CONFIG_DIR: "/dev/null/nope" };
+		// A directory inside a regular file cannot be created on any platform.
+		// `/dev/null/...` only fails on POSIX, and Windows happily created it.
+		const blocker = join(mkdtempSync(join(tmpdir(), "nd-blocked-")), "file");
+		homes.push(dirname(blocker));
+		writeFileSync(blocker, "", "utf-8");
+		const env = { NESTJS_DOCTOR_CONFIG_DIR: join(blocker, "nope") };
 
 		const first = resolveIdentity("/repo/a", env);
 		const second = resolveIdentity("/repo/a", env);
