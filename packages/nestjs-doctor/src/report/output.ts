@@ -26,7 +26,8 @@ export const writeReportFile = async (
 	return outPath;
 };
 
-const openCommand = (filePath: string): [string, string[]] => {
+/** The platform's file opener, as a command and its arguments. */
+export const openCommand = (filePath: string): [string, string[]] => {
 	if (process.platform === "darwin") {
 		return ["open", [filePath]];
 	}
@@ -38,8 +39,6 @@ const openCommand = (filePath: string): [string, string[]] => {
 
 export const openReportInBrowser = (filePath: string): void => {
 	const [command, args] = openCommand(filePath);
-	// Detached with no pipes: an inherited stdio pipe keeps the event loop
-	// alive until the browser exits.
 	const child = spawn(command, args, { detached: true, stdio: "ignore" });
 	child.on("error", () => {
 		logger.warn(`Could not open ${filePath} in a browser.`);

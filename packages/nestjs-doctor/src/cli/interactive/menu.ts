@@ -82,10 +82,10 @@ export const runInteractiveMenu = async (
 
 	// What the console report showed. The markdown copy narrows itself.
 	const shown = withSurface(context.result, "cli");
+	const findingCount = shown.summary.total;
 
 	for (;;) {
 		const offerCi = !ciWorkflowExists(context.targetPath);
-		const findingCount = shown.summary.total;
 
 		const choice = await select<MenuAction>({
 			message: "What next?",

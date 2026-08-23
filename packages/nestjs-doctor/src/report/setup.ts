@@ -23,6 +23,12 @@ export const runReport = async (
 ): Promise<void> => {
 	const monorepo = await detectMonorepo(targetPath);
 
+	const writeAndOpen = async (html: string): Promise<void> => {
+		const outPath = await writeReportFile(targetPath, html, outputPath);
+		logger.info(`Report written to ${highlighter.info(outPath)}`);
+		openReportInBrowser(outPath);
+	};
+
 	let bootTimings: BootstrapTimings | undefined;
 	if (timingsPath) {
 		const { timings, warnings } = loadBootstrapTimings(targetPath, timingsPath);
@@ -48,13 +54,7 @@ export const runReport = async (
 			.generateHtml()
 			.run();
 		logMonorepoSummary(pipeline.monoResult, pipeline.mergedGraph);
-		const outPath = await writeReportFile(
-			targetPath,
-			pipeline.generatedHtml,
-			outputPath
-		);
-		logger.info(`Report written to ${highlighter.info(outPath)}`);
-		openReportInBrowser(outPath);
+		await writeAndOpen(pipeline.generatedHtml);
 		return;
 	}
 
@@ -72,11 +72,5 @@ export const runReport = async (
 		.generateHtml()
 		.run();
 	logSingleProjectSummary(pipeline.scanResult);
-	const outPath = await writeReportFile(
-		targetPath,
-		pipeline.generatedHtml,
-		outputPath
-	);
-	logger.info(`Report written to ${highlighter.info(outPath)}`);
-	openReportInBrowser(outPath);
+	await writeAndOpen(pipeline.generatedHtml);
 };
