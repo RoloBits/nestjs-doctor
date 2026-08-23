@@ -4,33 +4,13 @@ export const metadata = docsMetadata["/docs/custom-rules"];
 
 <BreadcrumbJsonLd path="/docs/custom-rules" />
 
-# Custom rules
+# Custom rule configuration
 
-Extend the built-in rule set with project-specific checks. Custom rules encode domain conventions, team standards, or patterns the built-in rules don't cover.
-
-## Let an agent do it
-
-Writing a rule is mostly matching an AST, and an agent can do it:
-
-```bash
-npx nestjs-doctor@latest --init
-```
-
-That installs a `nestjs-doctor-create-rule` skill. Describe the convention you
-want enforced and the agent checks static analysis can see it, picks file or
-project scope, writes the `.ts` file, points `customRulesDir` at it, and runs a
-scan to confirm the rule loads. It works in Claude Code, Cursor, Codex, and the
-other agents on [Coding agents](/docs/coding-agents).
-
-A rule it cannot detect statically is worth knowing about early. The skill says
-so instead of writing something that never fires.
-
-The rest of this page is the same work by hand.
+How a project wires custom rules into the scan: where the files live, how they load, and the surfaces their findings appear on. Writing the rules themselves is covered on [Custom rules](/docs/rules/custom).
 
 ## Setup
 
-1. Create a directory for your rules (e.g. `rules/` at your project root).
-2. Set `customRulesDir` in your config file:
+Point `customRulesDir` at a directory of rule files in `nestjs-doctor.config.json`:
 
 ```json
 {
@@ -38,45 +18,22 @@ The rest of this page is the same work by hand.
 }
 ```
 
-3. Add `.ts` files to that directory. Each file exports a rule object.
+The path resolves against the scanned directory. Rule files export rule objects, one or several per file; other extensions and subdirectories are ignored. Rules load through `jiti` at scan time, so CI needs no build step, no `ts-node`, and no `tsconfig` for them.
 
-Only `.ts` files are loaded. Subdirectories are ignored.
+## Loading and ids
 
-## Rule shape
+Rule ids are prefixed with `custom/`, so `id: "no-todo-comments"` reports as `custom/no-todo-comments` and can never collide with a built-in rule. A custom rule is toggled by that prefixed id through the same `rules` and `ignore.rules` keys built-in rules use, described on [Configuration](/docs/configuration).
 
-Every custom rule exports an object with two properties, `meta` (a descriptor) and `check` (the inspection function):
+An invalid rule produces a warning and never crashes the scan. The warnings appear in CLI output, and the usual causes are:
 
-```typescript
-import type { RuleContext } from "nestjs-doctor";
+- Missing or non-function `check` export
+- Invalid `category` or `severity` values
+- Missing required `meta` fields
+- Syntax errors in the rule file
 
-export const myRule = {
-  meta: {
-    id: "my-rule-id",
-    category: "correctness",
-    severity: "warning",
-    description: "Short explanation of what this rule checks",
-    help: "Actionable advice on how to fix it.",
-  },
-  check(context: RuleContext) {
-    // inspect context.sourceFile, call context.report() per diagnostic
-  },
-};
-```
+Fix the warning and re-run. The rest of the scan continues unaffected.
 
-### `meta` fields
-
-| Field         | Type       | Required | Description                                                             |
-| ------------- | ---------- | -------- | ----------------------------------------------------------------------- |
-| `id`          | `string`   | Yes      | Unique identifier for the rule                                          |
-| `category`    | `string`   | Yes      | One of `"security"`, `"performance"`, `"correctness"`, `"architecture"` |
-| `severity`    | `string`   | Yes      | One of `"error"`, `"warning"`, `"info"`                                 |
-| `description` | `string`   | Yes      | Short summary shown in the report                                       |
-| `help`        | `string`   | Yes      | Fix guidance shown alongside diagnostics                                |
-| `scope`       | `string`   | No       | `"file"` (default) or `"project"`                                       |
-| `tags`        | `string[]` | No       | Labels stamped onto every diagnostic the rule emits                     |
-| `surfaces`    | `string[]` | No       | Where the rule may appear. Omitted means everywhere                     |
-
-### Surfaces
+## Surfaces
 
 A rule appears on four surfaces by default:
 
@@ -90,9 +47,9 @@ A rule appears on four surfaces by default:
 `--format json` is the exception: it carries every finding, with `surfaces` on
 each one, so a consumer filters however it wants.
 
-Naming a subset narrows it:
+Naming a subset in the rule's `meta` narrows it:
 
-```ts
+```typescript
 surfaces: ["cli"],
 ```
 
@@ -116,128 +73,3 @@ rule declares:
 
 That is how a team that does want a house style enforced puts it back on the
 score and the build.
-
-### Tags
-
-The one tag with behavior today is `"module-graph"`. Diagnostics carrying it appear in the Modules Graph tab's problems drawer, beside the built-in module-wiring ones:
-
-```typescript
-meta: {
-  id: "no-untagged-feature-module",
-  category: "architecture",
-  severity: "warning",
-  description: "Feature modules must follow the naming convention",
-  help: "Rename the module to end with FeatureModule.",
-  tags: ["module-graph"],
-},
-```
-
-A `tags` value that is not an array of strings is dropped with a warning, and the rule still runs.
-
-### The `check` function
-
-The `check` function receives a `RuleContext`. The first three members are what most rules need, and the rest carry facts a single file cannot see:
-
-| Member | What it is |
-|---|---|
-| `sourceFile` | The ts-morph `SourceFile` for the file being analyzed |
-| `filePath` | The absolute path to that file |
-| `report(diagnostic)` | Emits a diagnostic with `filePath`, `message`, `help`, `line`, and `column` |
-| `config` | The resolved config for the project |
-| `diProviders` | Class names NestJS instantiates itself |
-| `guards` | Composed guard decorators, globally registered guards, and guarded base classes |
-| `moduleDirectories` | Directories that hold a module file, for boundary checks |
-
-Every member after `report` is optional. Absent means the fact was not determined, which is not the same as empty.
-
-For project-scoped rules (`scope: "project"`), the context carries the whole project instead of a single file:
-
-| Member | What it holds |
-| ------ | ------------- |
-| `project` | The ts-morph `Project`, every parsed file |
-| `files` | Paths of the scanned files |
-| `moduleGraph` | Modules, their imports and exports |
-| `providers` | Every provider and the module that declares it |
-| `config` | The resolved config for the project |
-| `targetPath` | The directory being scanned, for reading a file the scan did not parse |
-| `installRoot` | Where to resolve `node_modules` from, when that is not `targetPath` |
-
-`targetPath` is what a rule uses to reach something outside the TypeScript it
-was given, such as the project's `package.json`. Read it when the rule runs
-rather than caching it: the language server keeps one context alive for the
-whole editing session.
-
-`installRoot` is absent unless the two differ, which happens under
-`--scope changed`. That mode scans a base revision in a throwaway checkout with
-no install, so a rule reading `node_modules` should prefer it:
-
-```typescript
-const root = context.installRoot ?? context.targetPath;
-```
-
-Reading `targetPath` there finds nothing installed. The rule then reports
-against the base revision what it would never report against the working tree.
-
-## Example
-
-A rule that flags unresolved TODO comments:
-
-```typescript
-import type { RuleContext } from "nestjs-doctor";
-
-export const noTodoComments = {
-  meta: {
-    id: "no-todo-comments",
-    category: "correctness",
-    severity: "warning",
-    description: "TODO comments should be resolved before merging",
-    help: "Replace the TODO with an implementation or open an issue.",
-  },
-  check(context: RuleContext) {
-    const text = context.sourceFile.getFullText();
-    const regex = /\/\/\s*TODO/gi;
-    let match: RegExpExecArray | null;
-    while ((match = regex.exec(text)) !== null) {
-      const pos = context.sourceFile.getLineAndColumnAtPos(match.index);
-      context.report({
-        message: "Unresolved TODO comment",
-        help: "Replace the TODO with an implementation or open an issue.",
-        filePath: context.filePath,
-        line: pos.line,
-        column: pos.column,
-      });
-    }
-  },
-};
-```
-
-The line and column come from ts-morph: `getLineAndColumnAtPos` turns a character offset into the 1-indexed position a diagnostic expects.
-
-## ID prefixing
-
-Rule IDs are automatically prefixed with `custom/`, so `id: "no-todo-comments"` reports as `custom/no-todo-comments`. The prefix avoids collisions with built-in rules.
-
-## When a rule fails to load
-
-Invalid rules produce warnings but never crash the scan. Common causes are surfaced in CLI output:
-
-- Missing or non-function `check` export
-- Invalid `category` or `severity` values
-- Missing required `meta` fields
-- Syntax errors in the rule file
-
-Fix the warning and re-run. The rest of the scan continues unaffected.
-
-## Disabling custom rules
-
-Toggle a custom rule by its prefixed id, through the same `rules` and `ignore.rules` keys built-in rules use. See [Configuration](/docs/configuration).
-
-## The Rule Lab tab
-
-The HTML report has a Rule Lab tab for writing and testing custom rules in the browser:
-
-```bash
-npx nestjs-doctor . --report
-```
-
-Scaffold a rule with `/nestjs-doctor-create-rule`, test it in the Rule Lab, then save the `.ts` file to your `customRulesDir`.

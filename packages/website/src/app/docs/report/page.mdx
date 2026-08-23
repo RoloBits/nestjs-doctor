@@ -18,12 +18,14 @@ no server, no build step. Commit it or attach it to a pull request.
 `--output` names a different path, which keeps the file out of the repository
 being scanned.
 
-Three things load from the network when opened. The graph layout library and
-the logo are one request each. The code viewer is a CodeMirror import map, so
-it pulls 18 modules from esm.sh.
+Four things load from the network when opened. The graph layout library and
+the logo are one request each. The IBM Plex Mono font is a stylesheet plus the
+font files it names. The code viewer is a CodeMirror import map, so it pulls
+18 modules from esm.sh.
 
 Offline, the module graph falls back to a plain grid and the code viewers do
-not load. Everything else works.
+not load. The text falls back to the system monospace font. Everything else
+works, including the schema diagram's layout.
 
 ![Module graph](/module-graph.png)
 
@@ -53,7 +55,7 @@ findings behind a **Show not scored** checkbox above the severity filters, and
 badges each one `not scored` beside its rule id when you turn it on.
 
 Which rules those are is up to the rule and your config. See
-[Custom rules](/docs/custom-rules#surfaces).
+[Surfaces](/docs/custom-rules#surfaces).
 
 ## Boot trace
 
