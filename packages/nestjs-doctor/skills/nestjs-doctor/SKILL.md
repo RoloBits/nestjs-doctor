@@ -9,7 +9,8 @@ allowed-tools: Bash, Read, Edit, Glob, Grep, Write
 > v0.0.0
 
 52 rules over security, correctness, architecture, performance, and database
-schema, scored 0-100. No network calls and no model at scan time, so the same
+schema, scored 0-100. No model at scan time and nothing about your code leaves
+the machine, so the same
 commit scores the same on a laptop and in CI.
 
 ## After changing NestJS code

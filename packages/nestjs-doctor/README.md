@@ -22,9 +22,14 @@ An opinionated rule set for an opinionated framework. nestjs-doctor scans your
 codebase and reports findings across security, correctness, architecture,
 performance, and schema, then scores it 0-100.
 
-No AI at scan time and no network calls. The same commit scores the same on your
-laptop and in CI. Reads schemas from Prisma, TypeORM, Drizzle and MikroORM, and
-handles monorepos.
+No AI at scan time, and nothing about your code leaves the machine. The same
+commit scores the same on your laptop and in CI. Reads schemas from Prisma,
+TypeORM, Drizzle and MikroORM, and handles monorepos.
+
+A scan reports anonymous counts of which built-in rules fired, so the rule set
+can be improved. No code, no file paths, no project or custom rule names.
+`--no-telemetry`, `telemetry: false` in the config, or `DO_NOT_TRACK=1` turns it
+off.
 
 [Website →](https://nestjs.doctor/docs)
 

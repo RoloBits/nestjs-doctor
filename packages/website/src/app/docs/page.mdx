@@ -33,9 +33,15 @@ npx nestjs-doctor@latest ci install
 
 ## No AI at scan time
 
-The rules are static analysis over the TypeScript AST. No model calls, no
-network, no telemetry during a scan. The same commit scores the same on your
-laptop and in CI, which is what makes it usable as a gate.
+The rules are static analysis over the TypeScript AST. No model calls, and
+nothing about your code leaves the machine. The same commit scores the same on
+your laptop and in CI, which is what makes it usable as a gate.
+
+A scan does report anonymous counts of which built-in rules fired, so the rule
+set can be improved: rule ids and severities, never code, file paths, or your
+project's or custom rules' names. `--no-telemetry`, `telemetry: false` in the
+config, or `DO_NOT_TRACK=1` turns it off, and it can never change a score or an
+exit code.
 
 ## How it fits with ESLint
 

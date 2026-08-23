@@ -74,9 +74,9 @@ export const flags = {
 	telemetry: {
 		type: "boolean",
 		description:
-			"Embed the anonymous interaction beacon in the HTML report (which tab was opened, and nothing about the scanned code)",
+			"Report anonymous rule counts after a scan, and embed the tab-interaction beacon in the HTML report. Neither carries anything about the scanned code",
 		negativeDescription:
-			"Generate the HTML report without the interaction beacon",
+			"Scan and generate the report without reporting anything",
 		default: true,
 	},
 	timings: {

@@ -4,9 +4,9 @@ import type { ModuleGraph } from "../../src/engine/graph/module-graph.js";
 import { buildHtmlReport } from "../../src/report/html-report.js";
 import {
 	buildBeacon,
-	generatedIn,
 	getTelemetryScript,
 } from "../../src/report/ui/telemetry.js";
+import { generatedIn } from "../../src/telemetry/environment.js";
 
 const emptyGraph = (): ModuleGraph => ({
 	edges: new Map(),

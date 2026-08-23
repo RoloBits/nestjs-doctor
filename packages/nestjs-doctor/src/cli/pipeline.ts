@@ -7,6 +7,7 @@ import { detachModuleGraph } from "../engine/graph/module-graph.js";
 import { pruneCrossProjectOrphans } from "../engine/orphan-prune.js";
 import type { MonorepoInfo } from "../engine/project-detector.js";
 import { withScopedDiagnostics } from "../engine/result-builder.js";
+import { allRules } from "../engine/rules/index.js";
 import {
 	type AnalysisContext,
 	buildAnalysisContext,
@@ -26,8 +27,15 @@ import {
 	type ResolvedScope,
 	resolveScope,
 } from "../engine/scope.js";
+import { generatedIn } from "../telemetry/environment.js";
+import { buildScanPayload } from "../telemetry/scan-telemetry.js";
+import { scanTelemetryEnabled, sendScanTelemetry } from "../telemetry/send.js";
 import { resolveMinScore } from "./min-score.js";
-import { outputMonorepoResults, outputSingleProjectResults } from "./output.js";
+import {
+	getCliVersion,
+	outputMonorepoResults,
+	outputSingleProjectResults,
+} from "./output.js";
 import type { PipelineOptions } from "./setup.js";
 import { logger } from "./ui/logger.js";
 import { spinner } from "./ui/spinner.js";
@@ -59,6 +67,52 @@ abstract class ScanPipeline {
 	constructor(targetPath: string, options: PipelineOptions) {
 		this.targetPath = targetPath;
 		this.options = options;
+	}
+
+	/**
+	 * Reports anonymous rule counts. Reads only rule ids and severities, and
+	 * never blocks: a failure here leaves the scan untouched.
+	 */
+	protected reportScan(
+		diagnostics: Diagnostic[],
+		result: DiagnoseResult,
+		fileCount: number,
+		monorepo: boolean
+	): void {
+		if (
+			!scanTelemetryEnabled(this.options.telemetry, this.scanConfig?.config)
+		) {
+			return;
+		}
+		try {
+			const enabled = new Set(
+				[
+					...this.scanConfig.fileRules,
+					...this.scanConfig.projectRules,
+					...this.scanConfig.schemaRules,
+				].map((rule) => rule.meta.id)
+			);
+			sendScanTelemetry(
+				buildScanPayload({
+					customRulesLoaded: this.scanConfig.combinedRules.filter((rule) =>
+						rule.meta.id.startsWith("custom/")
+					).length,
+					diagnostics,
+					disabledRuleIds: allRules
+						.map((rule) => rule.meta.id)
+						.filter((id) => !enabled.has(id)),
+					elapsedMs: result.elapsedMs,
+					fileCount,
+					monorepo,
+					ruleErrors: result.ruleErrors,
+					score: result.score,
+					source: generatedIn(),
+					version: getCliVersion(),
+				})
+			);
+		} catch {
+			// Reporting never breaks a scan.
+		}
 	}
 
 	abstract applyScope(): this;
@@ -230,6 +284,14 @@ export class MonorepoPipeline extends ScanPipeline {
 				this.scanConfig.customRuleWarnings,
 				totalElapsedMs
 			);
+			// Before applyScope, which narrows `diagnostics` in place.
+			const combined = this.result.result.combined;
+			this.reportScan(
+				combined.diagnostics,
+				combined,
+				combined.project.fileCount,
+				true
+			);
 		});
 		return this;
 	}
@@ -305,6 +367,13 @@ export class SingleProjectPipeline extends ScanPipeline {
 				this.context,
 				this.rawOutput,
 				this.scanConfig.customRuleWarnings
+			);
+			// Before applyScope, which narrows `diagnostics` in place.
+			this.reportScan(
+				this.rawOutput.diagnostics,
+				this.result.result,
+				this.context.files.length,
+				false
 			);
 		});
 		return this;
