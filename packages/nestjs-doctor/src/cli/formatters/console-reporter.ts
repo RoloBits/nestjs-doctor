@@ -232,7 +232,8 @@ const printDiagnostics = (
 
 export function printConsoleReport(
 	fullResult: DiagnoseResult,
-	verbose: boolean
+	verbose: boolean,
+	summaryOnly = false
 ): void {
 	const result = withSurface(fullResult, "cli");
 	const { score, diagnostics, project, summary, elapsedMs } = result;
@@ -334,7 +335,7 @@ export function printConsoleReport(
 	logger.dim(`  ${projectInfoParts.join(" | ")}`);
 	logger.break();
 
-	if (diagnostics.length === 0) {
+	if (diagnostics.length === 0 || summaryOnly) {
 		return;
 	}
 
@@ -359,10 +360,11 @@ export function printConsoleReport(
 
 export function printMonorepoReport(
 	monorepoResult: MonorepoResult,
-	verbose: boolean
+	verbose: boolean,
+	summaryOnly = false
 ): void {
 	// Print combined report first
-	printConsoleReport(monorepoResult.combined, verbose);
+	printConsoleReport(monorepoResult.combined, verbose, summaryOnly);
 
 	// Then print per-project summaries
 	logger.log("  Sub-project breakdown:");

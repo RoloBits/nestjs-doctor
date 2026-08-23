@@ -28,13 +28,13 @@ async function scanBaseline(
 			baseTargetPath,
 			scanConfig,
 			monorepo,
-			(_name, context) => diagnose(context).diagnostics
+			async (_name, context) => (await diagnose(context)).diagnostics
 		);
 		return [...perProject.values()].flat();
 	}
 
 	const context = await buildAnalysisContext(baseTargetPath, scanConfig);
-	return diagnose(context).diagnostics;
+	return (await diagnose(context)).diagnostics;
 }
 
 /**

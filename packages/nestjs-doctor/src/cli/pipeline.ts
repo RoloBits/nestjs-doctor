@@ -13,6 +13,7 @@ import { withScopedDiagnostics } from "../engine/result-builder.js";
 import { allRules } from "../engine/rules/index.js";
 import {
 	type AnalysisContext,
+	type AnalysisPhase,
 	buildAnalysisContext,
 	buildMonorepoResult,
 	buildResult,
@@ -51,9 +52,27 @@ import {
 } from "./output.js";
 import type { PipelineOptions } from "./setup.js";
 import { logger } from "./ui/logger.js";
+import { renderProgressBar } from "./ui/progress-bar.js";
 import { spinner } from "./ui/spinner.js";
 
 type PipelineStep = () => void | Promise<void>;
+
+const analysisText = (
+	phase: AnalysisPhase,
+	parsed?: number,
+	total?: number
+): string => {
+	if (phase === "collecting") {
+		return "Collecting files";
+	}
+	if (phase === "parsing") {
+		return `Parsing files ${renderProgressBar(parsed ?? 0, total ?? 0)}`;
+	}
+	if (total) {
+		return `Analyzing the project ${renderProgressBar(parsed ?? 0, total)}`;
+	}
+	return "Analyzing the project";
+};
 
 /** Handed to the post-scan menu so its actions reuse the finished scan. */
 export interface InteractiveArtifacts {
@@ -78,6 +97,11 @@ abstract class ScanPipeline {
 	protected readonly options: PipelineOptions;
 	protected resolvedMinimumScore: number | undefined;
 	protected scanConfig!: ScanConfig;
+	/** Live spinner handle while `run` is in flight; steps update its text. */
+	protected progress: {
+		succeed(text: string): void;
+		update(text: string): void;
+	} | null = null;
 	/** Set when any scanned sub-project declares its own opt-out. */
 	protected subProjectOptOut = false;
 	/** Warnings raised while narrowing the scope; surfaced alongside the report. */
@@ -168,6 +192,7 @@ abstract class ScanPipeline {
 
 	warnCustomRules(): this {
 		this.steps.push(() => {
+			this.stopProgress();
 			displayCustomRuleWarnings(
 				this.scanConfig.customRuleWarnings,
 				this.options.isMachineReadable
@@ -185,6 +210,7 @@ abstract class ScanPipeline {
 			return result;
 		}
 
+		this.progress?.update("Comparing against the base revision");
 		const scope: ResolvedScope = resolveScope({
 			base: this.options.base,
 			changedFilesFrom: this.options.changedFilesFrom,
@@ -229,8 +255,14 @@ abstract class ScanPipeline {
 		);
 	}
 
+	/** Ends the spinner so nothing prints through an active frame. */
+	protected stopProgress(): void {
+		this.progress?.succeed("Scan complete");
+		this.progress = null;
+	}
+
 	async run(): Promise<void> {
-		const progress = this.options.isMachineReadable
+		this.progress = this.options.isMachineReadable
 			? null
 			: spinner("Scanning...").start();
 
@@ -238,7 +270,7 @@ abstract class ScanPipeline {
 			await step();
 		}
 
-		progress?.succeed("Scan complete");
+		this.stopProgress();
 	}
 }
 
@@ -295,6 +327,8 @@ export class MonorepoPipeline extends ScanPipeline {
 		this.monorepo = monorepo;
 	}
 
+	private projectLabel = "";
+
 	buildContext(): this {
 		this.steps.push(() => {
 			this.scanStartTime = performance.now();
@@ -308,10 +342,11 @@ export class MonorepoPipeline extends ScanPipeline {
 				this.targetPath,
 				this.scanConfig,
 				this.monorepo,
-				(name, context: AnalysisContext) => {
+				async (name, context: AnalysisContext) => {
 					if (context.config?.telemetry === false) {
 						this.subProjectOptOut = true;
 					}
+					const label = this.projectLabel || name;
 					this.allFiles.push(...context.files);
 					for (const root of collectEntryModules(
 						context.astProject,
@@ -331,12 +366,26 @@ export class MonorepoPipeline extends ScanPipeline {
 							})
 						);
 					}
-					const scanResult = buildResult(context, diagnose(context));
+					const rawOutput = await diagnose(context, (checked, total) => {
+						this.progress?.update(
+							`${label} — running rules ${renderProgressBar(checked, total)}`
+						);
+					});
+					const scanResult = buildResult(context, rawOutput);
 					return {
 						...scanResult,
 						moduleGraph: detachModuleGraph(scanResult.moduleGraph),
 						providers: new Map(),
 					};
+				},
+				(name, index, total) => {
+					this.projectLabel = `${name} (${index}/${total})`;
+					this.progress?.update(`${this.projectLabel} — collecting files`);
+				},
+				(_name, phase, parsed, total) => {
+					this.progress?.update(
+						`${this.projectLabel} — ${analysisText(phase, parsed, total).toLowerCase()}`
+					);
 				}
 			);
 		});
@@ -437,15 +486,22 @@ export class SingleProjectPipeline extends ScanPipeline {
 		this.steps.push(async () => {
 			this.context = await buildAnalysisContext(
 				this.targetPath,
-				this.scanConfig
+				this.scanConfig,
+				(phase, parsed, total) => {
+					this.progress?.update(analysisText(phase, parsed, total));
+				}
 			);
 		});
 		return this;
 	}
 
 	runRules(): this {
-		this.steps.push(() => {
-			this.rawOutput = diagnose(this.context);
+		this.steps.push(async () => {
+			this.rawOutput = await diagnose(this.context, (checked, total) => {
+				this.progress?.update(
+					`Running rules ${renderProgressBar(checked, total)}`
+				);
+			});
 		});
 		return this;
 	}

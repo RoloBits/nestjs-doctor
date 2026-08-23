@@ -16,6 +16,7 @@ import {
 	runProjectRules,
 	runSchemaRules,
 } from "./rule-runner.js";
+import { YIELD_INTERVAL, yieldToEventLoop } from "./yield.js";
 
 function formatRuleError(error: unknown): string {
 	if (error instanceof Error) {
@@ -256,9 +257,31 @@ export function checkSchema(context: AnalysisContext): {
 	return processResults(result.diagnostics, result.errors, context);
 }
 
-export function diagnose(context: AnalysisContext): RawDiagnosticOutput {
+export async function diagnose(
+	context: AnalysisContext,
+	onFileChecked?: (checked: number, total: number) => void
+): Promise<RawDiagnosticOutput> {
 	const startTime = performance.now();
-	const fileResult = checkAllFiles(context);
+	const facts = fileRuleFacts(context);
+	const rawDiagnostics: Diagnostic[] = [];
+	const errors: { ruleId: string; error: unknown }[] = [];
+	const total = context.files.length;
+	for (let index = 0; index < total; index++) {
+		const result = runFileRules(
+			context.astProject,
+			[context.files[index]],
+			context.fileRules,
+			context.config,
+			facts
+		);
+		rawDiagnostics.push(...result.diagnostics);
+		errors.push(...result.errors);
+		onFileChecked?.(index + 1, total);
+		if ((index + 1) % YIELD_INTERVAL === 0) {
+			await yieldToEventLoop();
+		}
+	}
+	const fileResult = processResults(rawDiagnostics, errors, context);
 	const projectResult = checkProject(context);
 	const elapsedMs = performance.now() - startTime;
 	return {

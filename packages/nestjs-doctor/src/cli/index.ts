@@ -65,9 +65,10 @@ async function scan(args: CliArgs): Promise<void> {
 	}
 
 	const { targetPath, options } = ctx;
+	options.interactive = canPrompt(options);
 
 	const runMenu = async (artifacts: InteractiveArtifacts) => {
-		if (!canPrompt(options)) {
+		if (!options.interactive) {
 			return;
 		}
 		const { runInteractiveMenu } = await import("./interactive/menu.js");

@@ -29,6 +29,7 @@ import {
 	isController,
 	resolveDecoratorWrapper,
 } from "../nest-class-inspector.js";
+import { yieldToEventLoop } from "../yield.js";
 import { extractSimpleTypeName, type ProviderInfo } from "./type-resolver.js";
 
 const MAX_TRACE_DEPTH = 10;
@@ -2021,23 +2022,44 @@ function extractEndpointsFromFile(
 	return endpoints;
 }
 
+/** One file's endpoints at a time, over a cache shared across the walk. */
+function* traceFiles(
+	project: Project,
+	files: string[],
+	providers: Map<string, ProviderInfo>
+): Generator<EndpointNode[]> {
+	const cache = new ScanCache();
+
+	for (const filePath of files) {
+		const sourceFile = project.getSourceFile(filePath);
+		yield sourceFile
+			? extractEndpointsFromFile(sourceFile, filePath, providers, cache)
+			: [];
+	}
+}
+
 export function buildEndpointGraph(
 	project: Project,
 	files: string[],
 	providers: Map<string, ProviderInfo>
 ): EndpointGraph {
+	return { endpoints: [...traceFiles(project, files, providers)].flat() };
+}
+
+/** Same graph, yielding to the event loop after every file it traces. */
+export async function buildEndpointGraphWithProgress(
+	project: Project,
+	files: string[],
+	providers: Map<string, ProviderInfo>,
+	onFile?: (traced: number, total: number) => void
+): Promise<EndpointGraph> {
 	const endpoints: EndpointNode[] = [];
-	const cache = new ScanCache();
+	let traced = 0;
 
-	for (const filePath of files) {
-		const sourceFile = project.getSourceFile(filePath);
-		if (!sourceFile) {
-			continue;
-		}
-
-		endpoints.push(
-			...extractEndpointsFromFile(sourceFile, filePath, providers, cache)
-		);
+	for (const fromFile of traceFiles(project, files, providers)) {
+		endpoints.push(...fromFile);
+		onFile?.(++traced, files.length);
+		await yieldToEventLoop();
 	}
 
 	return { endpoints };

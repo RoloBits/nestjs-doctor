@@ -117,8 +117,8 @@ export class SingleProjectReportPipeline extends ReportPipeline {
 	}
 
 	runRules(): this {
-		this.steps.push(() => {
-			this.rawOutput = diagnose(this.context);
+		this.steps.push(async () => {
+			this.rawOutput = await diagnose(this.context);
 		});
 		return this;
 	}
@@ -198,7 +198,7 @@ export class MonorepoReportPipeline extends ReportPipeline {
 				this.targetPath,
 				this.scanConfig,
 				this.monorepo,
-				(name, context: AnalysisContext) => {
+				async (name, context: AnalysisContext) => {
 					this.allFiles.push(...context.files);
 					for (const root of collectEntryModules(
 						context.astProject,
@@ -218,7 +218,7 @@ export class MonorepoReportPipeline extends ReportPipeline {
 							})
 						);
 					}
-					const scanResult = buildResult(context, diagnose(context));
+					const scanResult = buildResult(context, await diagnose(context));
 					return {
 						...scanResult,
 						moduleGraph: detachModuleGraph(scanResult.moduleGraph),

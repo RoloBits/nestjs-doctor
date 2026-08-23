@@ -30,7 +30,7 @@ describe("the vulnerable-deps fixture", () => {
 		const context = await buildAnalysisContext(FIXTURE, scanConfig);
 		result = buildResult(
 			context,
-			diagnose(context),
+			await diagnose(context),
 			scanConfig.customRuleWarnings
 		).result;
 		advisories = result.diagnostics.filter((d) =>
@@ -115,7 +115,7 @@ describe("what each surface sees of the fixture", () => {
 		const context = await buildAnalysisContext(FIXTURE, scanConfig);
 		result = buildResult(
 			context,
-			diagnose(context),
+			await diagnose(context),
 			scanConfig.customRuleWarnings
 		).result;
 	});

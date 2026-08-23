@@ -99,6 +99,7 @@ export type {
 } from "../engine/rules/types.js";
 export type {
 	AnalysisContext,
+	AnalysisProgress,
 	AutoScanResult,
 	RawDiagnosticOutput,
 	ScanConfig,
@@ -167,7 +168,7 @@ export async function diagnose(
 	const targetPath = validatePath(path);
 	const scanConfig = await resolveScanConfig(targetPath, options.config);
 	const context = await buildAnalysisContext(targetPath, scanConfig);
-	const rawOutput = runDiagnosis(context);
+	const rawOutput = await runDiagnosis(context);
 	const { result } = buildResult(
 		context,
 		rawOutput,
@@ -197,7 +198,7 @@ export async function diagnoseMonorepo(
 
 	if (!monorepo) {
 		const context = await buildAnalysisContext(targetPath, scanConfig);
-		const rawOutput = runDiagnosis(context);
+		const rawOutput = await runDiagnosis(context);
 		const { result } = buildResult(
 			context,
 			rawOutput,

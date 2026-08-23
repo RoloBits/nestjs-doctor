@@ -20,6 +20,8 @@ export interface PipelineOptions {
 	changedFilesFrom: string | undefined;
 	configPath: string | undefined;
 	format: OutputFormat;
+	/** True when the run ends in the menu; set after setup from `canPrompt`. */
+	interactive: boolean;
 	isMachineReadable: boolean;
 	json: boolean;
 	jsonCompact: boolean;
@@ -260,6 +262,7 @@ export class CliSetup {
 				changedFilesFrom: this.args["changed-files-from"],
 				configPath: this.args.config,
 				format,
+				interactive: false,
 				isMachineReadable,
 				json: format === "json",
 				jsonCompact: this.args["json-compact"] ?? false,

@@ -9,7 +9,7 @@ import { resolveScanConfig, type ScanConfig } from "./config/scan-config.js";
 import { collectFiles, collectMonorepoFiles } from "./file-collector.js";
 import { createAstParser } from "./graph/ast-parser.js";
 import {
-	buildEndpointGraph,
+	buildEndpointGraphWithProgress,
 	updateEndpointGraphForFile,
 } from "./graph/endpoint-graph.js";
 import {
@@ -39,6 +39,7 @@ import {
 	ormReadsFromTargetPath,
 	updateSchemaForFile,
 } from "./schema/extract.js";
+import { yieldToEventLoop } from "./yield.js";
 
 export interface AnalysisContext {
 	astProject: Project;
@@ -58,21 +59,48 @@ export interface AnalysisContext {
 	targetPath: string;
 }
 
+export type AnalysisPhase = "collecting" | "parsing" | "analyzing";
+
+/** Reports where the context build is. Counts come with "parsing" and "analyzing". */
+export type AnalysisProgress = (
+	phase: AnalysisPhase,
+	parsed?: number,
+	total?: number
+) => void;
+
 export async function buildAnalysisContext(
 	targetPath: string,
-	scanConfig: ScanConfig
+	scanConfig: ScanConfig,
+	onProgress?: AnalysisProgress
 ): Promise<AnalysisContext> {
 	const { config, fileRules, projectRules, schemaRules } = scanConfig;
+	onProgress?.("collecting");
 	const [files, project] = await Promise.all([
 		collectFiles(targetPath, config),
 		detectProject(targetPath),
 	]);
 	const { aliases: pathAliases, baseUrl } = loadTsconfigResolution(targetPath);
-	const astProject = createAstParser(files, pathAliases, baseUrl);
+	const astProject = await createAstParser(
+		files,
+		pathAliases,
+		baseUrl,
+		(parsed, total) => onProgress?.("parsing", parsed, total)
+	);
+	onProgress?.("analyzing");
+	await yieldToEventLoop();
 	const moduleGraph = buildModuleGraph(astProject, files, pathAliases);
+	await yieldToEventLoop();
 	const providers = resolveProviders(astProject, files);
-	const endpointGraph = buildEndpointGraph(astProject, files, providers);
+	await yieldToEventLoop();
+	const endpointGraph = await buildEndpointGraphWithProgress(
+		astProject,
+		files,
+		providers,
+		(traced, total) => onProgress?.("analyzing", traced, total)
+	);
+	await yieldToEventLoop();
 	const schemaGraph = extractSchema(astProject, files, project.orm, targetPath);
+	await yieldToEventLoop();
 
 	return {
 		astProject,
@@ -156,7 +184,8 @@ async function buildSubProjectContext(
 	monorepo: MonorepoInfo,
 	name: string,
 	files: string[],
-	rootSchemaFor: RootSchemaLookup
+	rootSchemaFor: RootSchemaLookup,
+	onProgress?: AnalysisProgress
 ): Promise<AnalysisContext> {
 	const { config: rootConfig, combinedRules } = scanConfig;
 	const projectPath = join(targetPath, monorepo.projects.get(name)!);
@@ -166,10 +195,25 @@ async function buildSubProjectContext(
 	]);
 
 	const { aliases: pathAliases, baseUrl } = loadTsconfigResolution(projectPath);
-	const astProject = createAstParser(files, pathAliases, baseUrl);
+	const astProject = await createAstParser(
+		files,
+		pathAliases,
+		baseUrl,
+		(parsed, total) => onProgress?.("parsing", parsed, total)
+	);
+	onProgress?.("analyzing");
+	await yieldToEventLoop();
 	const moduleGraph = buildModuleGraph(astProject, files, pathAliases);
+	await yieldToEventLoop();
 	const providers = resolveProviders(astProject, files);
-	const endpointGraph = buildEndpointGraph(astProject, files, providers);
+	await yieldToEventLoop();
+	const endpointGraph = await buildEndpointGraphWithProgress(
+		astProject,
+		files,
+		providers,
+		(traced, total) => onProgress?.("analyzing", traced, total)
+	);
+	await yieldToEventLoop();
 	let schemaGraph = extractSchema(astProject, files, project.orm, projectPath);
 	// Falls back to the workspace root, where a monorepo usually keeps its schema.
 	if (
@@ -209,7 +253,14 @@ export async function reduceSubProjects<T>(
 	targetPath: string,
 	scanConfig: ScanConfig,
 	monorepo: MonorepoInfo,
-	consume: (name: string, context: AnalysisContext) => T
+	consume: (name: string, context: AnalysisContext) => T | Promise<T>,
+	onProject?: (name: string, index: number, total: number) => void,
+	onAnalysis?: (
+		name: string,
+		phase: AnalysisPhase,
+		parsed?: number,
+		total?: number
+	) => void
 ): Promise<Map<string, T>> {
 	const filesByProject = await collectMonorepoFiles(
 		targetPath,
@@ -231,19 +282,26 @@ export async function reduceSubProjects<T>(
 	};
 
 	const results = new Map<string, T>();
+	const total = [...filesByProject.values()].filter(
+		(files) => files.length > 0
+	).length;
+	let index = 0;
 	for (const [name, files] of filesByProject) {
 		if (files.length === 0) {
 			continue;
 		}
+		index++;
+		onProject?.(name, index, total);
 		const context = await buildSubProjectContext(
 			targetPath,
 			scanConfig,
 			monorepo,
 			name,
 			files,
-			rootSchemaFor
+			rootSchemaFor,
+			(phase, parsed, total) => onAnalysis?.(name, phase, parsed, total)
 		);
-		results.set(name, consume(name, context));
+		results.set(name, await consume(name, context));
 	}
 	return results;
 }

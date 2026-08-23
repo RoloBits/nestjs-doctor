@@ -84,6 +84,9 @@ by one, open the HTML report, scaffold the GitHub Actions workflow when it is
 missing, hand off to a coding agent, or copy the findings as markdown. The report comes from the scan that
 just ran, so nothing is scanned twice.
 
+An interactive run prints the score box and stops there. The findings list
+lives behind the review entry; pass `--verbose` to print it anyway.
+
 Reviewing walks rule by rule, worst first. Each finding shows its code frame,
 the fix guidance, and the docs link, and one keystroke copies an agent-ready
 fix prompt for the whole rule.
