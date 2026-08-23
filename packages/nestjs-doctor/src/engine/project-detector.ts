@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { glob } from "tinyglobby";
 import type { ProjectInfo } from "../common/result.js";
-import { detectEcosystem, setEcosystem } from "../telemetry/ecosystem.js";
+import { addEcosystem, detectEcosystem } from "../telemetry/ecosystem.js";
 import { installedVersion } from "./advisories/installed.js";
 
 interface PackageJson {
@@ -478,7 +478,7 @@ export async function detectProject(targetPath: string): Promise<ProjectInfo> {
 		extractVersion(allDeps["@nestjs/core"]);
 	const orm = detectOrm(allDeps);
 	const framework = detectFramework(allDeps);
-	setEcosystem(detectEcosystem(allDeps));
+	addEcosystem(detectEcosystem(allDeps));
 
 	return {
 		name: pkg.name ?? "unknown",

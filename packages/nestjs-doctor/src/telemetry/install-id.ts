@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { dirname, join } from "node:path";
 import { isSet } from "./environment.js";
@@ -16,10 +16,14 @@ interface StoredConfig {
 	salt: string;
 }
 
+const BACKSLASH = /\\/g;
+
+/** Shared by every runner, so one project keeps one id across a fleet. */
+const CI_SALT = "nestjs-doctor-ci";
+
 /** Where the platform expects a CLI to keep its own config. */
 export function configDir(env: NodeJS.ProcessEnv = process.env): string {
-	// Honoured on every platform, so a sandbox, an image build, or a test can
-	// point the store somewhere disposable.
+	// Overrides the platform location, on every platform.
 	if (env.NESTJS_DOCTOR_CONFIG_DIR) {
 		return env.NESTJS_DOCTOR_CONFIG_DIR;
 	}
@@ -48,9 +52,7 @@ const CI_PROVIDERS: [string, string][] = [
 ];
 
 /**
- * A CI fleet is not a machine. Runners are ephemeral and often share an image,
- * so a per-install id would either be minted fresh every run or collapse a whole
- * fleet into one. Every run of a provider reports as the same id instead.
+ * One id per CI provider, shared by every runner.
  */
 function ciIdentity(env: NodeJS.ProcessEnv): string | undefined {
 	const provider = CI_PROVIDERS.find(([name]) => isSet(env[name]));
@@ -77,16 +79,31 @@ export function resolveIdentity(
 	projectRoot: string,
 	env: NodeJS.ProcessEnv = process.env
 ): TelemetryIdentity {
+	// Resolves symlinks and normalises separators and case, so one project
+	// hashes to one id.
+	let root = projectRoot;
+	try {
+		root = realpathSync(projectRoot);
+	} catch {
+		// A path that no longer resolves hashes as given.
+	}
+	root = root.replace(BACKSLASH, "/").toLowerCase();
+
 	const salted = (salt: string) =>
-		createHash("sha256").update(`${salt}:${projectRoot}`).digest("hex");
+		createHash("sha256").update(`${salt}:${root}`).digest("hex");
 
 	const ci = ciIdentity(env);
+	// CI hashes with the shared salt instead of the per-install one.
+	if (ci) {
+		return { anonymousId: ci, projectId: salted(CI_SALT) };
+	}
+
 	const file = join(configDir(env), "telemetry.json");
 	const existing = readConfig(file);
 
 	if (existing) {
 		return {
-			anonymousId: ci ?? existing.anonymousId,
+			anonymousId: existing.anonymousId,
 			projectId: salted(existing.salt),
 		};
 	}
@@ -100,11 +117,11 @@ export function resolveIdentity(
 		mkdirSync(dirname(file), { recursive: true });
 		writeFileSync(file, `${JSON.stringify(created, null, 2)}\n`, "utf-8");
 	} catch {
-		// A read-only home still scans; it just never becomes a stable install.
+		// A read-only home reports a per-run id.
 	}
 
 	return {
-		anonymousId: ci ?? created.anonymousId,
+		anonymousId: created.anonymousId,
 		projectId: salted(created.salt),
 	};
 }

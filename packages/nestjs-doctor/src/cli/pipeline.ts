@@ -27,7 +27,7 @@ import {
 	type ResolvedScope,
 	resolveScope,
 } from "../engine/scope.js";
-import { getEcosystem } from "../telemetry/ecosystem.js";
+import { getEcosystem, resetEcosystem } from "../telemetry/ecosystem.js";
 import { generatedIn } from "../telemetry/environment.js";
 import { resolveIdentity } from "../telemetry/install-id.js";
 import {
@@ -75,8 +75,8 @@ abstract class ScanPipeline {
 	}
 
 	/**
-	 * Reports anonymous rule counts. Reads only rule ids and severities, and
-	 * never blocks: a failure here leaves the scan untouched.
+	 * Reports the scan anonymously. A failure here leaves the scan untouched,
+	 * and the network call runs in a detached child.
 	 */
 	protected reportScan(
 		diagnostics: Diagnostic[],
@@ -136,6 +136,7 @@ abstract class ScanPipeline {
 
 	resolveConfig(): this {
 		this.steps.push(async () => {
+			resetEcosystem();
 			this.scanConfig = await resolveScanConfig(
 				this.targetPath,
 				this.options.configPath

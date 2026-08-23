@@ -25,9 +25,7 @@ export function scanTelemetryEnabled(
 	if (isSet(env.DO_NOT_TRACK)) {
 		return false;
 	}
-	// A test run is not usage, wherever it runs. Without this a suite that ever
-	// drives the pipeline would report, and write an install id to the home
-	// directory of whoever ran it.
+	// A test run never reports, wherever it runs.
 	if (isSet(env.VITEST) || env.NODE_ENV === "test") {
 		return false;
 	}

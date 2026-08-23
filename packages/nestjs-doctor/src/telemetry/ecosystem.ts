@@ -1,10 +1,6 @@
 import { WATCHED_PACKAGES } from "../engine/advisories/watched.js";
 
-/**
- * Fixed vocabularies. Only a name listed here can ever be reported, so a
- * private package like `@acme/billing-core` is invisible no matter what a
- * manifest holds.
- */
+/** The only package names the payload may carry. */
 const FRONTEND: readonly string[] = [
 	"@angular/core",
 	"astro",
@@ -43,11 +39,7 @@ const CLOUD: readonly string[] = [
 	"wrangler",
 ];
 
-/**
- * npm scopes are owned, so nothing but the vendor can publish under these. That
- * makes the part after the slash safe to report as a sub-service without
- * listing every one — `@aws-sdk/client-s3` becomes `aws:client-s3`.
- */
+/** Vendor scope prefixes, mapped to the vendor name the payload reports. */
 const CLOUD_SCOPES: [string, string][] = [
 	["@aws-sdk/", "aws"],
 	["@azure/", "azure"],
@@ -58,12 +50,51 @@ const CLOUD_SCOPES: [string, string][] = [
 	["@vercel/", "vercel"],
 ];
 
-/** An npm name segment, so a workspace package aliased into a vendor scope
- * cannot smuggle anything odd into the payload. */
-const SAFE_SEGMENT = /^[a-z0-9][a-z0-9._-]{0,39}$/;
-
-/** Enough for any real project, and a ceiling on payload size. */
-const MAX_SERVICES = 40;
+/**
+ * Sub-service names the payload may carry, per vendor. A workspace package can
+ * be given any local name, including one inside a vendor scope, so the suffix
+ * is matched against this list rather than a shape.
+ */
+const CLOUD_SERVICES: Record<string, readonly string[]> = {
+	aws: [
+		"client-cloudwatch",
+		"client-dynamodb",
+		"client-ec2",
+		"client-eventbridge",
+		"client-lambda",
+		"client-rds",
+		"client-s3",
+		"client-secrets-manager",
+		"client-ses",
+		"client-sns",
+		"client-sqs",
+		"client-ssm",
+		"client-step-functions",
+		"lib-dynamodb",
+		"s3-request-presigner",
+	],
+	azure: [
+		"cosmos",
+		"identity",
+		"keyvault-secrets",
+		"service-bus",
+		"storage-blob",
+		"storage-queue",
+	],
+	cloudflare: ["ai", "workers-types"],
+	gcp: [
+		"bigquery",
+		"firestore",
+		"logging",
+		"pubsub",
+		"secret-manager",
+		"storage",
+		"tasks",
+	],
+	netlify: ["blobs", "functions"],
+	upstash: ["qstash", "ratelimit", "redis", "vector"],
+	vercel: ["blob", "edge-config", "functions", "kv", "postgres"],
+};
 
 const MESSAGING: readonly string[] = ["amqplib", "bullmq", "kafkajs", "nats"];
 
@@ -76,20 +107,38 @@ export interface EcosystemFacts {
 	nestjsPackages: string[];
 }
 
-const EMPTY: EcosystemFacts = {
+const empty = (): EcosystemFacts => ({
 	cloud: [],
 	cloudServices: [],
 	databases: [],
 	frontend: [],
 	messaging: [],
 	nestjsPackages: [],
+});
+
+let detected: EcosystemFacts = empty();
+
+const union = (a: string[], b: string[]): string[] =>
+	[...new Set([...a, ...b])].sort();
+
+/**
+ * Adds one project's packages to what the scan has seen. A monorepo detects
+ * each sub-project separately, so the scan's ecosystem is their union.
+ */
+export const addEcosystem = (facts: EcosystemFacts): void => {
+	detected = {
+		cloud: union(detected.cloud, facts.cloud),
+		cloudServices: union(detected.cloudServices, facts.cloudServices),
+		databases: union(detected.databases, facts.databases),
+		frontend: union(detected.frontend, facts.frontend),
+		messaging: union(detected.messaging, facts.messaging),
+		nestjsPackages: union(detected.nestjsPackages, facts.nestjsPackages),
+	};
 };
 
-let detected: EcosystemFacts = EMPTY;
-
-/** Recorded during project detection, which already holds the manifest. */
-export const setEcosystem = (facts: EcosystemFacts): void => {
-	detected = facts;
+/** Clears what a previous scan saw, for a process that scans more than once. */
+export const resetEcosystem = (): void => {
+	detected = empty();
 };
 
 export const getEcosystem = (): EcosystemFacts => detected;
@@ -115,7 +164,7 @@ export function detectEcosystem(
 		const [prefix, vendor] = scope;
 		cloud.add(vendor);
 		const service = name.slice(prefix.length);
-		if (SAFE_SEGMENT.test(service) && services.size < MAX_SERVICES) {
+		if (CLOUD_SERVICES[vendor]?.includes(service)) {
 			services.add(`${vendor}:${service}`);
 		}
 	}

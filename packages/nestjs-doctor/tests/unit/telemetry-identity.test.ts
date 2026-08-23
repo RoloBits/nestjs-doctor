@@ -9,11 +9,7 @@ const SHA256_HEX = /^[a-f0-9]{64}$/;
 
 const homes: string[] = [];
 
-/**
- * An isolated config home, so a test never touches the real one. Uses the
- * explicit override: XDG_CONFIG_HOME alone is ignored on macOS and Windows,
- * which sent an earlier version of this suite into the developer's own home.
- */
+/** A throwaway config home, set through the override honoured on every platform. */
 const isolated = (extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv => {
 	const home = mkdtempSync(join(tmpdir(), "nd-telemetry-"));
 	homes.push(home);
@@ -49,8 +45,6 @@ describe("install identity", () => {
 	});
 
 	it("gives two machines different ids for the same project", () => {
-		// The salt never leaves the machine, so the same path cannot be
-		// correlated across installs.
 		const one = resolveIdentity("/repo/same", isolated());
 		const two = resolveIdentity("/repo/same", isolated());
 
@@ -76,8 +70,6 @@ describe("install identity", () => {
 				isolated({ CI: "true", GITHUB_ACTIONS: "true" })
 			);
 
-		// Fresh runners every time, so a per-install id would mint a new user
-		// on every job.
 		expect(runner().anonymousId).toBe("ci.github");
 		expect(runner().anonymousId).toBe("ci.github");
 		expect(resolveIdentity("/repo/a", isolated({ CI: "1" })).anonymousId).toBe(
@@ -85,9 +77,21 @@ describe("install identity", () => {
 		);
 	});
 
+	it("keeps one project id across a CI fleet", () => {
+		// Each runner is a fresh config home, as an ephemeral machine would be.
+		const first = resolveIdentity("/repo/a", isolated({ GITHUB_ACTIONS: "1" }));
+		const second = resolveIdentity(
+			"/repo/a",
+			isolated({ GITHUB_ACTIONS: "1" })
+		);
+		const other = resolveIdentity("/repo/b", isolated({ GITHUB_ACTIONS: "1" }));
+
+		expect(second.projectId).toBe(first.projectId);
+		expect(other.projectId).not.toBe(first.projectId);
+	});
+
 	it("falls back to a per-run id when the home is unwritable", () => {
 		// A directory inside a regular file cannot be created on any platform.
-		// `/dev/null/...` only fails on POSIX, and Windows happily created it.
 		const blocker = join(mkdtempSync(join(tmpdir(), "nd-blocked-")), "file");
 		homes.push(dirname(blocker));
 		writeFileSync(blocker, "", "utf-8");

@@ -1,4 +1,4 @@
-import type { NestjsDoctorConfig } from "../common/config.js";
+import { DEFAULT_CONFIG, type NestjsDoctorConfig } from "../common/config.js";
 import type { Diagnostic } from "../common/diagnostic.js";
 import type { RuleErrorInfo, Score } from "../common/result.js";
 import { allRules } from "../engine/rules/index.js";
@@ -12,11 +12,7 @@ const BUILT_IN_RULE_IDS: ReadonlySet<string> = new Set(
 	allRules.map((rule) => rule.meta.id)
 );
 
-/**
- * How a project is configured, as shape rather than content. Glob patterns and
- * the custom rules directory are counted, never sent: they are paths into the
- * user's own tree.
- */
+/** How a project is configured. Globs and the rules directory are counted. */
 export interface ConfigFacts {
 	categoriesDisabled: string[];
 	customRulesDir: boolean;
@@ -85,27 +81,48 @@ export interface ScanPayload {
 
 const NODE_VERSION_PREFIX_RE = /^v/;
 
-/** Reads the config's shape. Nothing here returns a path or a glob. */
+/** The only category names the payload may carry. */
+const CATEGORIES: readonly string[] = [
+	"architecture",
+	"correctness",
+	"performance",
+	"schema",
+	"security",
+];
+
+const DEFAULT_EXCLUDES = DEFAULT_CONFIG.exclude?.length ?? 0;
+const DEFAULT_INCLUDES = DEFAULT_CONFIG.include ?? [];
+
+/** Reads the config's shape. Returns no path and no glob. */
 export function readConfigFacts(config: NestjsDoctorConfig = {}): ConfigFacts {
 	const rules = config.rules ?? {};
-	// Only an explicit `false` disables; an override carrying options leaves the
-	// rule on, which is how the rule pipeline reads it.
 	const turnedOff = Object.keys(rules).filter((id) => {
 		const value = rules[id];
 		return (
-			value === false || (typeof value === "object" && value.enabled === false)
+			value === false ||
+			(typeof value === "object" && value !== null && value.enabled === false)
 		);
 	});
 
+	const categories = config.categories ?? {};
+	const include = config.include ?? [];
+	// `exclude` appends to the defaults and `include` replaces them, so subtract
+	// what the merge added to report what the project declared.
+	const declaredIncludes =
+		include.length === DEFAULT_INCLUDES.length &&
+		include.every((glob, index) => glob === DEFAULT_INCLUDES[index])
+			? 0
+			: include.length;
+
 	return {
-		categoriesDisabled: Object.keys(config.categories ?? {})
-			.filter((name) => config.categories?.[name as never] === false)
-			.sort(),
+		categoriesDisabled: CATEGORIES.filter(
+			(name) => categories[name as never] === false
+		),
 		customRulesDir: Boolean(config.customRulesDir),
-		excludeCount: config.exclude?.length ?? 0,
+		excludeCount: Math.max((config.exclude?.length ?? 0) - DEFAULT_EXCLUDES, 0),
 		ignoredFileCount: config.ignore?.files?.length ?? 0,
 		ignoredRules: builtInOnly(config.ignore?.rules ?? []),
-		includeCount: config.include?.length ?? 0,
+		includeCount: declaredIncludes,
 		minScore: config.minScore ?? null,
 		ruleOverrides: builtInOnly(Object.keys(rules)),
 		rulesTurnedOff: builtInOnly(turnedOff),
