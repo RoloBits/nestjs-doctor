@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { type PageCopy, pageMetadata } from "@/lib/site";
 
-export const docsMetadata: Record<string, Metadata> = {
+export const DOCS_PAGES: Record<string, PageCopy> = {
 	"/docs": {
 		title: "What is nestjs-doctor?",
 		description:
@@ -15,6 +16,11 @@ export const docsMetadata: Record<string, Metadata> = {
 		title: "The report",
 		description:
 			"Generate the interactive HTML report: score summary, diagnostics with a code viewer, module graph, endpoint traces, schema ER diagram, and the boot trace.",
+	},
+	"/docs/report/module-graph": {
+		title: "Module graph",
+		description:
+			"Visualize your NestJS module dependency graph: cycles in red, blast radius per module, @Global() reach, and cross-package imports in a monorepo.",
 	},
 	"/docs/report/boot-trace": {
 		title: "Boot trace",
@@ -97,7 +103,7 @@ export const docsMetadata: Record<string, Metadata> = {
 			"How nestjs-doctor creates a ts-morph Project instance and loads collected files for TypeScript AST analysis.",
 	},
 	"/docs/pipeline/module-graph": {
-		title: "Module graph",
+		title: "Module graph building",
 		description:
 			"How nestjs-doctor builds a directed dependency graph of NestJS @Module() classes and their relationships.",
 	},
@@ -162,3 +168,10 @@ export const docsMetadata: Record<string, Metadata> = {
 			"Write project-specific nestjs-doctor rules: the rule shape, file and project scopes, the check function's context, and the report's Rule Lab.",
 	},
 };
+
+export const docsMetadata: Record<string, Metadata> = Object.fromEntries(
+	Object.entries(DOCS_PAGES).map(([path, page]) => [
+		path,
+		pageMetadata(path, page),
+	])
+);

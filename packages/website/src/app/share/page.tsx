@@ -2,13 +2,14 @@
 
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import { SITE_URL } from "@/lib/site";
 import AnimatedScore from "./animated-score";
 
 const PERFECT_SCORE = 100;
 const SCORE_GOOD_THRESHOLD = 75;
 const SCORE_OK_THRESHOLD = 50;
 const COMMAND = "npx -y nestjs-doctor@latest .";
-const SHARE_BASE_URL = "https://www.nestjs.doctor/share";
+const SHARE_BASE_URL = `${SITE_URL}/share`;
 const X_ICON_PATH =
 	"M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z";
 const LINKEDIN_ICON_PATH =

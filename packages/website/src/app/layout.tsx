@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono } from "next/font/google";
 import { SiteAnalytics } from "@/components/site-analytics";
+import { OG_IMAGE_ALT, OG_IMAGE_PATH, SITE_NAME, SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 const ibmPlexMono = IBM_Plex_Mono({
@@ -9,35 +10,37 @@ const ibmPlexMono = IBM_Plex_Mono({
 	weight: ["200", "400", "500", "700"],
 });
 
-const SITE_URL = "https://www.nestjs.doctor";
-const TWITTER_IMAGE_PATH = "/nestjs-doctor-og-banner.png";
+const HOME_TITLE = "NestJS Doctor - Diagnose and Fix Your NestJS Code";
+const HOME_DESCRIPTION = "Diagnose and fix your NestJS code in one command.";
 
 export const metadata: Metadata = {
 	metadataBase: new URL(SITE_URL),
 	title: {
-		default: "NestJS Doctor - Diagnose and Fix Your NestJS Code",
-		template: "%s | NestJS Doctor",
+		default: HOME_TITLE,
+		template: `%s | ${SITE_NAME}`,
 	},
-	description: "Diagnose and fix your NestJS code in one command.",
+	description: HOME_DESCRIPTION,
 	alternates: { canonical: "./" },
 	openGraph: {
-		title: "NestJS Doctor - Diagnose and Fix Your NestJS Code",
-		description: "Diagnose and fix your NestJS code in one command.",
+		title: HOME_TITLE,
+		description: HOME_DESCRIPTION,
 		url: SITE_URL,
-		siteName: "NestJS Doctor",
+		siteName: SITE_NAME,
 		type: "website",
 		images: [
 			{
-				url: TWITTER_IMAGE_PATH,
+				url: OG_IMAGE_PATH,
 				width: 1200,
 				height: 630,
-				alt: "NestJS Doctor - Diagnose and fix your NestJS code",
+				alt: OG_IMAGE_ALT,
 			},
 		],
 	},
 	twitter: {
 		card: "summary_large_image",
-		images: [TWITTER_IMAGE_PATH],
+		title: HOME_TITLE,
+		description: HOME_DESCRIPTION,
+		images: [OG_IMAGE_PATH],
 	},
 	icons: {
 		icon: [{ url: "/favicon.png", type: "image/png" }],

@@ -1,9 +1,8 @@
 import type { MetadataRoute } from "next";
 import { DOCS_NAV } from "@/lib/docs-navigation";
+import { SITE_URL } from "@/lib/site";
 
 export const dynamic = "force-static";
-
-const SITE_URL = "https://www.nestjs.doctor";
 
 export default function sitemap(): MetadataRoute.Sitemap {
 	const docRoutes = DOCS_NAV.flatMap((section) =>

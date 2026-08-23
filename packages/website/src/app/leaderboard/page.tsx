@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { pageMetadata } from "@/lib/site";
 import {
 	LEADERBOARD_ENTRIES,
 	type ResolvedLeaderboardEntry,
@@ -84,11 +85,11 @@ const LeaderboardRow = ({
 	);
 };
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata("/leaderboard", {
 	title: "Leaderboard",
 	description:
 		"Scores for popular open-source NestJS projects, diagnosed by NestJS Doctor.",
-};
+});
 
 const LeaderboardPage = () => {
 	const topScore = LEADERBOARD_ENTRIES[0]?.score ?? 0;

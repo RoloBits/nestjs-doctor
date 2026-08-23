@@ -204,7 +204,7 @@ Set the option in the rule config:
 
 Aliased imports (`import { forwardRef as fr }`) and namespace access (`Nest.forwardRef(...)`) are not recognized. Use the bare imported name to get the opt-out.
 
-Dynamic module patterns are resolved during graph construction: `ConfigModule.forRoot()`, `forwardRef()`, spread syntax, and helper function calls. Cycle detection is accurate without restructuring the code into plain identifiers. See [Module graph: import resolution](/docs/pipeline/module-graph) for the full list of supported patterns.
+Dynamic module patterns are resolved during graph construction: `ConfigModule.forRoot()`, `forwardRef()`, spread syntax, and helper function calls. Cycle detection is accurate without restructuring the code into plain identifiers. See [Module graph building: import resolution](/docs/pipeline/module-graph) for the full list of supported patterns.
 
 ---
 

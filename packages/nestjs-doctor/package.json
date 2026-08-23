@@ -34,11 +34,19 @@
   },
   "keywords": [
     "nestjs",
-    "diagnostic",
-    "lint",
-    "health-check",
+    "nest",
+    "static-analysis",
+    "code-quality",
+    "code-review",
+    "module-graph",
+    "dependency-graph",
+    "circular-dependency",
     "architecture",
     "security",
+    "diagnostic",
+    "lint",
+    "typescript",
+    "devtools",
     "best-practices"
   ],
   "author": "RoloBits",
@@ -48,7 +56,7 @@
     "url": "https://github.com/RoloBits/nestjs-doctor.git",
     "directory": "packages/nestjs-doctor"
   },
-  "homepage": "https://github.com/RoloBits/nestjs-doctor#readme",
+  "homepage": "https://www.nestjs.doctor",
   "bugs": {
     "url": "https://github.com/RoloBits/nestjs-doctor/issues"
   },
