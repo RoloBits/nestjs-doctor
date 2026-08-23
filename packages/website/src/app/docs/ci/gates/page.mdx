@@ -44,9 +44,9 @@ whatever `scope` says. Set a number and the run fails whenever the score falls
 below it.
 
 The two gates measure different things: `blocking` sees the reported scope,
-`min-score` the whole project, so a pull request touching one file can fail on
-debt somewhere else. Use `blocking` alone for new code, and add `min-score` for
-a floor on the repository as a whole.
+`min-score` the whole project. A pull request touching one file can fail on
+debt somewhere else. Use `blocking` alone for new code, and add `min-score`
+for a floor on the repository as a whole.
 
 ## Setting the threshold in config instead
 
