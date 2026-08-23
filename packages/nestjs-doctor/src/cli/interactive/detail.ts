@@ -7,6 +7,8 @@ import {
 import { highlighter } from "../ui/highlighter.js";
 import { copyToClipboard } from "./clipboard.js";
 import { renderCodeFrame } from "./code-frame.js";
+import { ruleInfo } from "./rule-info.js";
+import { renderRulePanel } from "./rule-panel.js";
 
 interface RuleGroup {
 	diagnostics: Diagnostic[];
@@ -120,10 +122,9 @@ const printDetail = (
 	}
 
 	lines.push("", `Fix: ${diagnostic.help}`);
-	const url = docsUrl(diagnostic.rule);
-	if (url) {
-		lines.push(highlighter.dim(`Docs: ${url}`));
-	}
+	lines.push(
+		...renderRulePanel(ruleInfo(diagnostic.rule), docsUrl(diagnostic.rule))
+	);
 
 	process.stdout.write(`\n${lines.join("\n")}\n\n`);
 };

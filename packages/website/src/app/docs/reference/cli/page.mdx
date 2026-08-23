@@ -91,6 +91,11 @@ Reviewing walks rule by rule, worst first. Each finding shows its code frame,
 the fix guidance, and the docs link, and one keystroke copies an agent-ready
 fix prompt for the whole rule.
 
+Under the finding sits the rule's own guidance: what it looks for, then a bad
+and a good sample of the pattern. Every sample is tested against the rule it
+illustrates, so the bad one is what the rule reports and the good one is what
+it accepts.
+
 Handing off detects Claude Code, Codex, and Cursor on your PATH and starts the
 one you pick with the top findings as its first prompt, plainly: no
 permission-skipping flags are passed. Copy the prompt instead to use any other
