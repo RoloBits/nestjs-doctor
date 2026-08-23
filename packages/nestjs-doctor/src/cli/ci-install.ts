@@ -1,4 +1,4 @@
-import { lstatSync } from "node:fs";
+import { existsSync, lstatSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { findGitRepo, runGit } from "../engine/git.js";
@@ -111,6 +111,12 @@ jobs:
 `;
 
 /** Writes the pull request workflow into the repository that contains `targetPath`. */
+/** True when the repository already carries the scaffolded workflow file. */
+export const ciWorkflowExists = (targetPath: string): boolean => {
+	const repo = findGitRepo(targetPath);
+	return repo !== null && existsSync(join(repo.root, WORKFLOW_FILE));
+};
+
 export const installCiWorkflow = async (
 	targetPath: string,
 	force: boolean

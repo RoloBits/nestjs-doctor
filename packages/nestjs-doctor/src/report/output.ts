@@ -29,14 +29,14 @@ export const writeReportFile = async (
 
 export const openReportInBrowser = (filePath: string): void => {
 	if (process.platform === "darwin") {
-		exec(`open "${filePath}"`);
+		exec(`open "${filePath}"`).unref();
 		return;
 	}
 	if (process.platform === "win32") {
-		exec(`start "${filePath}"`);
+		exec(`start "" "${filePath}"`).unref();
 		return;
 	}
-	exec(`xdg-open "${filePath}"`);
+	exec(`xdg-open "${filePath}"`).unref();
 };
 
 export const logSingleProjectSummary = (scanResult: EngineResult): void => {
