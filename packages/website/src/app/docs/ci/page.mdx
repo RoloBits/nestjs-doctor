@@ -17,23 +17,15 @@ Run this from anywhere inside the repository:
 npx nestjs-doctor@latest ci install
 ```
 
-It writes `.github/workflows/nestjs-doctor.yml`.
+It writes `.github/workflows/nestjs-doctor.yml` at the git repository root, so
+running it from `apps/api` in a monorepo still lands the file in the right
+place. The push trigger uses the branch `origin/HEAD` points at, then
+`origin/main`, `origin/master`, and finally the branch you have checked out.
+The command prints its pick.
 
-**Where it writes:** always the git repository root, so running it from
-`apps/api` in a monorepo still lands the file in the right place. Outside a git
-repository it refuses rather than dropping a `.github/` tree into the current
-directory.
-
-**What it will not touch:** an existing workflow, unless you pass `--force`. A
-symlink anywhere on the path (`.github`, `.github/workflows`, or the file
-itself) is refused outright, so the write cannot escape the repository.
-
-**Which branch the push trigger uses:** the branch `origin/HEAD` points at,
-verified to still exist. Then `origin/main`, then `origin/master`, then the
-branch you have checked out.
-
-A clone made with `--single-branch` has no `origin/HEAD`, and neither does a
-remote added by hand. The command prints the branch it picked.
+Three cases make it refuse instead of write: outside a git repository, an
+existing workflow (replace it with `--force`), and a symlink anywhere on the
+path, so the write cannot escape the repository.
 
 A minimal `.github/workflows/nestjs-doctor.yml`:
 
@@ -60,16 +52,17 @@ jobs:
       - uses: RoloBits/nestjs-doctor@v1
 ```
 
-`ci install` writes a fuller version of that file. It adds `ready_for_review` to
-the pull request types, a concurrency guard that cancels superseded runs, and
-the common inputs commented out.
+`ci install` writes a fuller version of that file: `ready_for_review` among the
+pull request types, a concurrency guard that cancels superseded runs, and the
+common inputs commented out.
 
 The check never fails until you uncomment `blocking` or `min-score`.
 
-On a pull request the action reports in three places. A sticky summary comment
-is rewritten in place on every push, and inline review comments land on the
-changed lines. A commit status carries the score, and the job summary mirrors
-the full report.
+## What a pull request gets
+
+The action reports in three places. A sticky summary comment is rewritten in
+place on every push, and inline review comments land on the changed lines. A
+commit status carries the score, and the job summary mirrors the full report.
 
 `fetch-depth: 0` matters for the default scope. The action compares against the
 merge base of your branch and its target, which a shallow checkout cannot
