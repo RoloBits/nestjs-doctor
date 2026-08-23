@@ -1,6 +1,7 @@
 ---
 "nestjs-doctor": patch
 "nestjs-doctor-lsp": patch
+"nestjs-doctor-vscode": patch
 ---
 
 Point the npm `homepage` field at the docs site and widen the registry keywords.
