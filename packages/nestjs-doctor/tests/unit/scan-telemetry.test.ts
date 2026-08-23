@@ -20,6 +20,17 @@ const code = (overrides: Partial<CodeDiagnostic>): CodeDiagnostic => ({
 });
 
 const facts = (overrides: Partial<ScanFacts> = {}): ScanFacts => ({
+	config: {
+		categoriesDisabled: [],
+		customRulesDir: false,
+		excludeCount: 0,
+		ignoredFileCount: 0,
+		ignoredRules: [],
+		includeCount: 0,
+		minScore: null,
+		ruleOverrides: [],
+		rulesTurnedOff: [],
+	},
 	customRulesLoaded: 0,
 	diagnostics: [],
 	disabledRuleIds: [],

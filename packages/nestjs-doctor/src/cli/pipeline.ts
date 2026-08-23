@@ -30,7 +30,10 @@ import {
 import { getEcosystem } from "../telemetry/ecosystem.js";
 import { generatedIn } from "../telemetry/environment.js";
 import { resolveIdentity } from "../telemetry/install-id.js";
-import { buildScanPayload } from "../telemetry/scan-telemetry.js";
+import {
+	buildScanPayload,
+	readConfigFacts,
+} from "../telemetry/scan-telemetry.js";
 import { scanTelemetryEnabled, sendScanTelemetry } from "../telemetry/send.js";
 import { resolveMinScore } from "./min-score.js";
 import {
@@ -97,6 +100,7 @@ abstract class ScanPipeline {
 			);
 			sendScanTelemetry(
 				buildScanPayload({
+					config: readConfigFacts(this.scanConfig.config),
 					customRulesLoaded: this.scanConfig.combinedRules.filter((rule) =>
 						rule.meta.id.startsWith("custom/")
 					).length,
