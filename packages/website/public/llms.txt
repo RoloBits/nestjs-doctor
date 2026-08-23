@@ -38,7 +38,6 @@ Options:
   --blocking <level>    Severity that fails the run: none, warning, error
   --min-score <n>       Minimum passing score (0-100). Exits with code 1 if below threshold
   --report              Generate an interactive HTML report (--graph also works)
-  --no-telemetry        Build the report without the tab-interaction beacon
   --timings <path>      SerializedGraph dump to overlay bootstrap init times on the report
   --config <p>          Path to config file
   --force               Overwrite an existing file (with ci install)
@@ -83,7 +82,7 @@ against the base revision instead, so an unchanged manifest is still dropped.
 `security/no-vulnerable-nestjs-packages` (error) and
 `security/no-advisory-nestjs-packages` (warning) read the nearest `package.json`
 at or above the scanned path and match it against an advisory list that ships
-with the CLI. A scan still makes no network call, so the list is only as fresh
+with the CLI. The check never queries an advisory service, so the list is only as fresh
 as the installed version.
 
 Which version is checked, in order: the one installed under `node_modules`;

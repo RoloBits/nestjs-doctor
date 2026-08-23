@@ -402,7 +402,7 @@ All three come from `no-advisory-nestjs-packages`, so they reach the console and
 
 ### What it cannot do
 
-The list ships with the CLI, so a scan makes no network call and the same project scores the same offline. The cost is freshness: an older install knows about fewer advisories, and `npx nestjs-doctor@latest` knows the most.
+The list ships with the CLI, so the check never queries an advisory service and the same project scores the same offline. The cost is freshness: an older install knows about fewer advisories, and `npx nestjs-doctor@latest` knows the most.
 
 `package.json` takes no comments, so no inline directive reaches these findings. Silence one with `ignore.rules` in your config file.
 

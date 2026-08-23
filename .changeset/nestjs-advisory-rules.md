@@ -40,7 +40,7 @@ critical in `@nestjs/devtools-integration`, four high across
 what the shipped table is missing. It is a maintenance command, never part of a
 scan.
 
-A scan still makes no network call. The cost is that the list is only as fresh
+The check never queries an advisory service. The cost is that the list is only as fresh
 as the release, so `npx nestjs-doctor@latest` knows the most.
 
 `package.json` takes no comments, so no inline directive can silence these.
