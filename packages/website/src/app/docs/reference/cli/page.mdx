@@ -91,8 +91,8 @@ fix prompt for the whole rule.
 Handing off detects Claude Code, Codex, and Cursor on your PATH and starts the
 one you pick with the top findings as its first prompt, plainly: no
 permission-skipping flags are passed. Copy the prompt instead to use any other
-agent. Nothing about the handoff, or anything else the CLI does, leaves your
-machine.
+agent. The prompt never leaves your machine; the scan itself reports only
+anonymous rule counts.
 
 The menu never appears where it could hang a machine. It is skipped in CI,
 inside coding agents, in pipes, in `dumb` terminals, and in every mode other
