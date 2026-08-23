@@ -1,6 +1,5 @@
-import { DOCS_NAV } from "@/lib/docs-navigation";
-
-const SITE_URL = "https://www.nestjs.doctor";
+import { DOCS_PAGES } from "@/lib/docs-metadata";
+import { SITE_URL } from "@/lib/site";
 
 const HTML_UNSAFE = /[<>&\u2028\u2029]/g;
 const ESCAPES: Record<string, string> = {
@@ -39,20 +38,15 @@ export const BreadcrumbJsonLd = ({ path }: { path: string }) => {
 		{ name: "Docs", href: "/docs" },
 	];
 
-	if (path !== "/docs") {
-		for (const section of DOCS_NAV) {
-			for (const item of section.items) {
-				if (item.href === path) {
-					if (path.startsWith("/docs/pipeline") && path !== "/docs/pipeline") {
-						items.push({ name: "Pipeline", href: "/docs/pipeline" });
-					} else if (path.startsWith("/docs/rules") && path !== "/docs/rules") {
-						items.push({ name: "Rules", href: "/docs/rules" });
-					}
-					items.push({ name: item.title, href: item.href });
-					break;
-				}
-			}
-		}
+	const parent = path.slice(0, path.lastIndexOf("/"));
+	const parentPage = parent === "/docs" ? undefined : DOCS_PAGES[parent];
+
+	if (parentPage) {
+		items.push({ name: parentPage.title, href: parent });
+	}
+
+	if (path !== "/docs" && DOCS_PAGES[path]) {
+		items.push({ name: DOCS_PAGES[path].title, href: path });
 	}
 
 	const data = {
