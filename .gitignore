@@ -7,4 +7,5 @@ coverage/
 .env.*
 .next/
 out/
-.claude
+/.claude/worktrees/
+/.claude/settings.local.json
