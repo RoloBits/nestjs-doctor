@@ -16,6 +16,7 @@ import {
 	runProjectRules,
 	runSchemaRules,
 } from "./rule-runner.js";
+import { YIELD_INTERVAL, yieldToEventLoop } from "./yield.js";
 
 function formatRuleError(error: unknown): string {
 	if (error instanceof Error) {
@@ -255,12 +256,6 @@ export function checkSchema(context: AnalysisContext): {
 	const result = runSchemaRules(context.schemaGraph, context.schemaRules);
 	return processResults(result.diagnostics, result.errors, context);
 }
-
-// Yields to the event loop between batches so a spinner can repaint.
-const YIELD_INTERVAL = 25;
-
-const yieldToEventLoop = (): Promise<void> =>
-	new Promise((resolve) => setImmediate(resolve));
 
 export async function diagnose(
 	context: AnalysisContext,
