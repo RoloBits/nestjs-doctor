@@ -1,3 +1,4 @@
+import { highlighter } from "../cli/ui/highlighter.js";
 import { logger } from "../cli/ui/logger.js";
 import { detectMonorepo } from "../engine/project-detector.js";
 import {
@@ -52,6 +53,7 @@ export const runReport = async (
 			pipeline.generatedHtml,
 			outputPath
 		);
+		logger.info(`Report written to ${highlighter.info(outPath)}`);
 		openReportInBrowser(outPath);
 		return;
 	}
@@ -75,5 +77,6 @@ export const runReport = async (
 		pipeline.generatedHtml,
 		outputPath
 	);
+	logger.info(`Report written to ${highlighter.info(outPath)}`);
 	openReportInBrowser(outPath);
 };

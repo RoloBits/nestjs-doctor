@@ -1,5 +1,6 @@
 import { intro, isCancel, log, outro, select, spinner } from "@clack/prompts";
 import type { DiagnoseResult } from "../../common/result.js";
+import { withSurface } from "../../engine/result-builder.js";
 import { buildMarkdownReport } from "../../formatters/markdown-report.js";
 import { openReportInBrowser, writeReportFile } from "../../report/output.js";
 import { ciWorkflowExists, installCiWorkflow } from "../ci-install.js";
@@ -79,9 +80,12 @@ export const runInteractiveMenu = async (
 ): Promise<void> => {
 	intro("nestjs-doctor");
 
+	// What the console report showed. The markdown copy narrows itself.
+	const shown = withSurface(context.result, "cli");
+
 	for (;;) {
 		const offerCi = !ciWorkflowExists(context.targetPath);
-		const findingCount = context.result.summary.total;
+		const findingCount = shown.summary.total;
 
 		const choice = await select<MenuAction>({
 			message: "What next?",
