@@ -2022,23 +2022,31 @@ function extractEndpointsFromFile(
 	return endpoints;
 }
 
+/** One file's endpoints at a time, over a cache shared across the walk. */
+function* traceFiles(
+	project: Project,
+	files: string[],
+	providers: Map<string, ProviderInfo>
+): Generator<EndpointNode[]> {
+	const cache = new ScanCache();
+
+	for (const filePath of files) {
+		const sourceFile = project.getSourceFile(filePath);
+		yield sourceFile
+			? extractEndpointsFromFile(sourceFile, filePath, providers, cache)
+			: [];
+	}
+}
+
 export function buildEndpointGraph(
 	project: Project,
 	files: string[],
 	providers: Map<string, ProviderInfo>
 ): EndpointGraph {
 	const endpoints: EndpointNode[] = [];
-	const cache = new ScanCache();
 
-	for (const filePath of files) {
-		const sourceFile = project.getSourceFile(filePath);
-		if (!sourceFile) {
-			continue;
-		}
-
-		endpoints.push(
-			...extractEndpointsFromFile(sourceFile, filePath, providers, cache)
-		);
+	for (const traced of traceFiles(project, files, providers)) {
+		endpoints.push(...traced);
 	}
 
 	return { endpoints };
@@ -2052,16 +2060,12 @@ export async function buildEndpointGraphWithProgress(
 	onFile?: (traced: number, total: number) => void
 ): Promise<EndpointGraph> {
 	const endpoints: EndpointNode[] = [];
-	const cache = new ScanCache();
+	let index = 0;
 
-	for (let index = 0; index < files.length; index++) {
-		const sourceFile = project.getSourceFile(files[index]);
-		if (sourceFile) {
-			endpoints.push(
-				...extractEndpointsFromFile(sourceFile, files[index], providers, cache)
-			);
-		}
-		onFile?.(index + 1, files.length);
+	for (const traced of traceFiles(project, files, providers)) {
+		endpoints.push(...traced);
+		index++;
+		onFile?.(index, files.length);
 		await yieldToEventLoop();
 	}
 

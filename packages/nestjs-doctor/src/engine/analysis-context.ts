@@ -59,9 +59,11 @@ export interface AnalysisContext {
 	targetPath: string;
 }
 
-/** Reports where the context build is: `parsed`/`total` only during "parsing". */
+export type AnalysisPhase = "collecting" | "parsing" | "analyzing";
+
+/** Reports where the context build is. Counts come with "parsing" and "analyzing". */
 export type AnalysisProgress = (
-	phase: "collecting" | "parsing" | "analyzing",
+	phase: AnalysisPhase,
 	parsed?: number,
 	total?: number
 ) => void;
@@ -255,7 +257,7 @@ export async function reduceSubProjects<T>(
 	onProject?: (name: string, index: number, total: number) => void,
 	onAnalysis?: (
 		name: string,
-		phase: "collecting" | "parsing" | "analyzing",
+		phase: AnalysisPhase,
 		parsed?: number,
 		total?: number
 	) => void
