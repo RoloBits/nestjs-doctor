@@ -99,7 +99,6 @@ export type {
 } from "../engine/rules/types.js";
 export type {
 	AnalysisContext,
-	AnalysisPhase,
 	AnalysisProgress,
 	AutoScanResult,
 	RawDiagnosticOutput,
