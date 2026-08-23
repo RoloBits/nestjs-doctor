@@ -27,6 +27,7 @@ import {
 	type ResolvedScope,
 	resolveScope,
 } from "../engine/scope.js";
+import { getEcosystem } from "../telemetry/ecosystem.js";
 import { generatedIn } from "../telemetry/environment.js";
 import { resolveIdentity } from "../telemetry/install-id.js";
 import { firstRunNotice } from "../telemetry/notice.js";
@@ -107,9 +108,13 @@ abstract class ScanPipeline {
 					disabledRuleIds: allRules
 						.map((rule) => rule.meta.id)
 						.filter((id) => !enabled.has(id)),
+					ecosystem: getEcosystem(),
 					elapsedMs: result.elapsedMs,
 					fileCount,
+					framework: result.project.framework,
 					monorepo,
+					nestVersion: result.project.nestVersion,
+					orm: result.project.orm,
 					projectId: identity.projectId,
 					ruleErrors: result.ruleErrors,
 					score: result.score,

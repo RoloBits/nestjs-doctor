@@ -1,6 +1,7 @@
 import type { Diagnostic } from "../common/diagnostic.js";
 import type { RuleErrorInfo, Score } from "../common/result.js";
 import { allRules } from "../engine/rules/index.js";
+import type { EcosystemFacts } from "./ecosystem.js";
 
 /**
  * Every rule id the payload may name. A custom rule's id is a string its author
@@ -14,9 +15,13 @@ export interface ScanFacts {
 	customRulesLoaded: number;
 	diagnostics: Diagnostic[];
 	disabledRuleIds: string[];
+	ecosystem: EcosystemFacts;
 	elapsedMs: number;
 	fileCount: number;
+	framework: string | null;
 	monorepo: boolean;
+	nestVersion: string | null;
+	orm: string | null;
 	projectId: string;
 	ruleErrors: RuleErrorInfo[];
 	score: Score;
@@ -25,13 +30,21 @@ export interface ScanFacts {
 }
 
 export interface ScanPayload {
+	cloud: string[];
 	custom_rules_loaded: number;
+	databases: string[];
 	duration_ms: number;
 	file_count: number;
 	findings: Record<string, Record<string, number>>;
+	framework: string | null;
+	frontend: string[];
 	generated_in: "ci" | "cli";
+	messaging: string[];
 	monorepo: boolean;
+	nest_version: string | null;
+	nestjs_packages: string[];
 	node_major: number;
+	orm: string | null;
 	platform: string;
 	project_id: string;
 	rule_errors: string[];
@@ -68,12 +81,20 @@ export function buildScanPayload(
 	}
 
 	return {
+		cloud: facts.ecosystem.cloud,
 		custom_rules_loaded: facts.customRulesLoaded,
+		databases: facts.ecosystem.databases,
 		duration_ms: Math.round(facts.elapsedMs),
 		file_count: facts.fileCount,
 		findings,
+		framework: facts.framework,
+		frontend: facts.ecosystem.frontend,
 		generated_in: facts.source,
+		messaging: facts.ecosystem.messaging,
 		monorepo: facts.monorepo,
+		nest_version: facts.nestVersion,
+		nestjs_packages: facts.ecosystem.nestjsPackages,
+		orm: facts.orm,
 		node_major: Number.parseInt(
 			nodeVersion.replace(NODE_VERSION_PREFIX_RE, ""),
 			10

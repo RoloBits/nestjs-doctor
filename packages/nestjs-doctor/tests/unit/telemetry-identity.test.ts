@@ -115,7 +115,8 @@ describe("first-run notice", () => {
 
 		expect(notice).toContain("--no-telemetry");
 		expect(notice).toContain("DO_NOT_TRACK");
-		expect(notice).toContain("never your code");
+		expect(notice).toContain("Never your code");
+		expect(notice).toContain("never named");
 	});
 });
 
