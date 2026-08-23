@@ -34,7 +34,7 @@ export interface ScanFacts {
 	monorepo: boolean;
 	nestVersion: string | null;
 	orm: string | null;
-	projectId: string;
+	projectId?: string;
 	ruleErrors: RuleErrorInfo[];
 	score: Score;
 	source: "ci" | "cli";
@@ -66,7 +66,7 @@ export interface ScanPayload {
 	node_major: number;
 	orm: string | null;
 	platform: string;
-	project_id: string;
+	project_id?: string;
 	rule_errors: string[];
 	rule_overrides: string[];
 	rules_disabled: string[];
@@ -173,7 +173,7 @@ export function buildScanPayload(
 			10
 		),
 		platform,
-		project_id: facts.projectId,
+		...(facts.projectId ? { project_id: facts.projectId } : {}),
 		// Rule ids only; the error message quotes the file that broke the rule.
 		rule_errors: builtInOnly(facts.ruleErrors.map((e) => e.ruleId)),
 		rule_overrides: facts.config.ruleOverrides,

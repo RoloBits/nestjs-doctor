@@ -7,8 +7,8 @@ import { isSet } from "./environment.js";
 interface TelemetryIdentity {
 	/** Stable per-install id, or a shared one per provider in CI. */
 	anonymousId: string;
-	/** Per-project, salted with a value that never leaves the machine. */
-	projectId: string;
+	/** Per-project, salted with a value that never leaves the machine. Absent in CI. */
+	projectId?: string;
 }
 
 interface StoredConfig {
@@ -17,9 +17,6 @@ interface StoredConfig {
 }
 
 const BACKSLASH = /\\/g;
-
-/** Shared by every runner, so one project keeps one id across a fleet. */
-const CI_SALT = "nestjs-doctor-ci";
 
 /** Where the platform expects a CLI to keep its own config. */
 export function configDir(env: NodeJS.ProcessEnv = process.env): string {
@@ -89,7 +86,9 @@ export function resolveIdentity(
 
 	const ci = ciIdentity(env);
 	if (ci) {
-		return { anonymousId: ci, projectId: salted(CI_SALT) };
+		// No project id in CI: any salt shipped in the package makes a
+		// runner's checkout path guessable.
+		return { anonymousId: ci };
 	}
 
 	const file = join(configDir(env), "telemetry.json");

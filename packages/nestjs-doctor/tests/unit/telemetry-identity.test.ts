@@ -77,17 +77,22 @@ describe("install identity", () => {
 		);
 	});
 
-	it("keeps one project id across a CI fleet", () => {
-		// Each runner is a fresh config home, as an ephemeral machine would be.
-		const first = resolveIdentity("/repo/a", isolated({ GITHUB_ACTIONS: "1" }));
-		const second = resolveIdentity(
-			"/repo/a",
+	it("sends no project id from CI", () => {
+		// A runner's checkout path is a fixed template, so any salt shipped in
+		// the package would make the hash reversible to the repository name.
+		const runner = resolveIdentity(
+			"/home/runner/work/acme-api/acme-api",
 			isolated({ GITHUB_ACTIONS: "1" })
 		);
-		const other = resolveIdentity("/repo/b", isolated({ GITHUB_ACTIONS: "1" }));
 
-		expect(second.projectId).toBe(first.projectId);
-		expect(other.projectId).not.toBe(first.projectId);
+		expect(runner.anonymousId).toBe("ci.github");
+		expect(runner.projectId).toBeUndefined();
+	});
+
+	it("still sends a project id outside CI", () => {
+		const local = resolveIdentity("/repo/a", isolated({}));
+
+		expect(local.projectId).toEqual(expect.any(String));
 	});
 
 	it("falls back to a per-run id when the home is unwritable", () => {

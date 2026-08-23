@@ -174,7 +174,7 @@ function reportSession(params: InitializeParams): void {
 			editor_version: params.clientInfo?.version ?? null,
 			node_major: Number.parseInt(process.versions.node, 10),
 			platform: process.platform,
-			project_id: identity.projectId,
+			...(identity.projectId ? { project_id: identity.projectId } : {}),
 			surface: "lsp",
 			version: VERSION,
 		});
@@ -188,6 +188,12 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
 		workspaceRoot = fileURLToPath(params.rootUri);
 	} else if (params.rootPath) {
 		workspaceRoot = params.rootPath;
+	} else {
+		// rootUri and rootPath are deprecated; some clients send only folders.
+		const folder = params.workspaceFolders?.[0]?.uri;
+		if (folder?.startsWith("file:")) {
+			workspaceRoot = fileURLToPath(folder);
+		}
 	}
 
 	reportSession(params);

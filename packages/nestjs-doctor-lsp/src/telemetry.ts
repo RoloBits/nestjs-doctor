@@ -9,7 +9,6 @@ const POSTHOG_KEY = "phc_BGjn97jvL862fdhHAKzJ7mhuXBZm8CEe83ENuMvpCgdD";
 const POSTHOG_HOST = "https://us.i.posthog.com";
 const TIMEOUT_MS = 3000;
 const BACKSLASH = /\\/g;
-const CI_SALT = "nestjs-doctor-ci";
 
 /**
  * The file the CLI also reads. Both tools share this format.
@@ -69,7 +68,8 @@ function readStored(file: string): StoredConfig | undefined {
 
 export interface LspIdentity {
 	anonymousId: string;
-	projectId: string;
+	/** Absent in CI. */
+	projectId?: string;
 }
 
 /** Reads the id the CLI wrote, creating it when this is the first tool to run. */
@@ -90,7 +90,9 @@ export function resolveIdentity(
 
 	const ci = ciIdentity(env);
 	if (ci) {
-		return { anonymousId: ci, projectId: salted(CI_SALT) };
+		// No project id in CI: any salt shipped in the package makes a
+		// runner's checkout path guessable.
+		return { anonymousId: ci };
 	}
 
 	const file = join(configDir(env), "telemetry.json");
