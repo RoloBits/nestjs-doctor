@@ -38,9 +38,6 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: "true"
 
-      # The Marketplace listing mirrors the repository's "latest" release, and a
-      # changesets release (nestjs-doctor@X.Y.Z, nestjs-doctor-lsp@X.Y.Z) takes
-      # that flag on publish. Hand it back to the newest action release.
       - name: Keep the action release marked as latest
         if: steps.changesets.outputs.published == 'true'
         env:
