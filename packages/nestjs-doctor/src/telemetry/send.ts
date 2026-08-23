@@ -5,7 +5,7 @@ import type { ScanPayload } from "./scan-telemetry.js";
 
 // Same project as the report beacon. Empty disables scan telemetry entirely:
 // no key, no request.
-const POSTHOG_KEY = "";
+const POSTHOG_KEY = "phc_BGjn97jvL862fdhHAKzJ7mhuXBZm8CEe83ENuMvpCgdD";
 const POSTHOG_HOST = "https://us.i.posthog.com";
 const TIMEOUT_MS = 1500;
 
