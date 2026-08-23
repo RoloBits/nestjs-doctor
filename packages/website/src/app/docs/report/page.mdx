@@ -21,17 +21,9 @@ being scanned.
 Five things load from the network when opened. The graph layout library and
 the logo are one request each. The IBM Plex Mono font is a stylesheet plus the
 font files it names. The code viewer is a CodeMirror import map, so it pulls
-18 modules from esm.sh.
-
-The fifth is anonymous usage reporting, and unlike the others it sends more
-than once: the tab you opened, a fixed name for each interaction it counts
-(running the rule lab, expanding a tree, opening a module from a finding), and
-your click positions as percentages of the window, so the layout can be
-improved. Each carries the nestjs-doctor version and whether the file came from
-CI or the CLI. Every name it sends is one of a fixed list compiled into the
-report, so no file path, module name, or source text from your project travels
-with it. `telemetry: false` in your config turns it off before the report is
-written.
+18 modules from esm.sh. The fifth reports which tab was opened, carrying the
+nestjs-doctor version, the tab name, whether the file was generated in CI or
+from the CLI, and nothing read from the page.
 
 Offline, the module graph falls back to a plain grid and the code viewers do
 not load. The text falls back to the system monospace font. Everything else
