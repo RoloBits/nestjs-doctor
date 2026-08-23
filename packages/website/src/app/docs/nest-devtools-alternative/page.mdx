@@ -1,0 +1,118 @@
+import { BreadcrumbJsonLd } from "@/components/json-ld";
+import { docsMetadata } from "@/lib/docs-metadata";
+export const metadata = docsMetadata["/docs/nest-devtools-alternative"];
+
+<BreadcrumbJsonLd path="/docs/nest-devtools-alternative" />
+
+# nestjs-doctor vs Nest Devtools
+
+Both tools draw a NestJS module graph. They get there from opposite ends.
+
+Nest Devtools boots your application and introspects the graph Nest built.
+nestjs-doctor reads the `@Module()` decorators in your source and never runs
+anything. Neither approach contains the other, so this page covers what each
+one can see.
+
+## How each one gets the graph
+
+Nest Devtools takes a `DevtoolsModule` import plus a `snapshot` flag on
+`NestFactory.create`. The running app then exposes an extra HTTP server, on
+port 8000 by default, and the dashboard at devtools.nestjs.com reads the graph
+from it. Nest's own documentation says not to enable the module in production.
+
+nestjs-doctor takes one command:
+
+```bash
+npx nestjs-doctor@latest . --report
+```
+
+That writes a single HTML file and opens it. Nothing boots, so a module that
+cannot start, because a provider is missing, still shows up in the graph with
+the problem named.
+
+| | Nest Devtools | nestjs-doctor |
+|---|---|---|
+| Setup | A module import and a factory flag | One command |
+| The app has to run | Yes | No |
+| Reads the graph from | A local HTTP server | Your source files |
+| Shows the graph Nest built at runtime | Yes | No, it infers it from decorators |
+
+## Boot times
+
+Both show you where startup went. Devtools has a bootstrap performance
+analyzer. `--timings` overlays per-class construction times on the module graph
+in the report.
+
+They read the same artifact. `--timings` takes the `SerializedGraph` that Nest
+itself produces, which is the same dump Devtools introspects, so a Devtools
+user already has what it needs. [Boot trace](/docs/report/boot-trace) covers
+capturing one.
+
+## Rules and custom rules
+
+This is the widest gap, and it runs both ways at first glance. Devtools does
+analyze your graph, and its findings carry `error`, `warning` and `info`
+severities. There are 11 checks, all architecture heuristics, with thresholds
+fixed in the product.
+
+nestjs-doctor runs 52 rules across security, correctness, architecture,
+performance and schema. Every one can be disabled, ignored per line, or
+replaced, and you can add your own against your own conventions.
+
+| | Nest Devtools | nestjs-doctor |
+|---|---|---|
+| Checks | 11 | 52 |
+| Categories | Architecture | Security, correctness, architecture, performance, schema |
+| Thresholds | Fixed in the product | Configurable per rule |
+| Adding a check | The shipped set | Write one in a TypeScript file |
+| A finding points at | A node in the graph | A file and a line |
+| Summary | Counts by severity | Counts plus a 0 to 100 score |
+
+See [Rules](/docs/rules) for the full list and [Custom rules](/docs/rules/custom)
+for writing one.
+
+## The database schema
+
+The Devtools graph is Nest's injector graph: modules, classes, entrypoints. It
+has no concept of a database.
+
+nestjs-doctor extracts an entity-relationship diagram from Prisma, TypeORM,
+Drizzle and MikroORM, and reports three schema rules against the entity itself.
+[Schema rules](/docs/rules/schema) covers what it checks.
+
+## In CI
+
+Devtools publishes serialized graphs to a central registry and shows a diff
+between builds. That integration sits on the Enterprise plan, and it reports
+rather than gates.
+
+nestjs-doctor is built to fail a build. `--blocking` gates on severity,
+`--min-score` gates on the score, and the GitHub Action comments only on what a
+pull request introduced. [Failing the build](/docs/ci/gates) covers the flags.
+
+## Everything is free
+
+There is no paid tier and no seat count. Everything ships under MIT:
+
+- The CLI and all 52 rules, plus the rules you write yourself.
+- The HTML report: module graph, endpoint traces, ER diagram and boot trace.
+- The GitHub Action that reviews pull requests.
+- The VS Code extension and the language server.
+- The skills for coding agents.
+
+Nest Devtools is a paid product with a short trial.
+
+## Running both
+
+Nothing here requires a choice. `DevtoolsModule` stays in your app for the
+runtime questions, and nestjs-doctor runs in CI on every pull request, where
+Devtools does not gate anything.
+
+Start with a scan and read the score:
+
+```bash
+npx nestjs-doctor@latest .
+```
+
+[Quickstart](/docs/setup) covers reading the output, and
+[GitHub Actions setup](/docs/ci) covers putting it on pull requests.
