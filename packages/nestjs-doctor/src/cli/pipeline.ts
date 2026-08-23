@@ -64,6 +64,8 @@ abstract class ScanPipeline {
 	protected readonly options: PipelineOptions;
 	protected resolvedMinimumScore: number | undefined;
 	protected scanConfig!: ScanConfig;
+	/** Set when any scanned sub-project declares its own opt-out. */
+	protected subProjectOptOut = false;
 	/** Warnings raised while narrowing the scope; surfaced alongside the report. */
 	protected scopeWarnings: string[] = [];
 	protected readonly steps: PipelineStep[] = [];
@@ -85,6 +87,7 @@ abstract class ScanPipeline {
 		monorepo: boolean
 	): void {
 		if (
+			this.subProjectOptOut ||
 			!scanTelemetryEnabled(this.options.telemetry, this.scanConfig?.config)
 		) {
 			return;
@@ -270,6 +273,9 @@ export class MonorepoPipeline extends ScanPipeline {
 				this.scanConfig,
 				this.monorepo,
 				(name, context: AnalysisContext) => {
+					if (context.config?.telemetry === false) {
+						this.subProjectOptOut = true;
+					}
 					for (const root of collectEntryModules(
 						context.astProject,
 						context.files,
