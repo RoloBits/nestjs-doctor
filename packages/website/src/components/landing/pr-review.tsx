@@ -378,7 +378,7 @@ export const PrReview = () => (
 				<p>Install it with one command:</p>
 				<CommandBlock command="npx nestjs-doctor@latest ci install" />
 				<p>
-					Comments, score only, or hard gate: you choose how much it does on
+					Comments, score only, or hard gate. You choose how much it does on
 					each PR.
 				</p>
 				<p>
