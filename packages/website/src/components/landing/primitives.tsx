@@ -68,7 +68,7 @@ export const SectionPair = ({
 					{item.title}
 				</h2>
 				<CommandBlock command={item.command} />
-				<div className="mt-3 max-w-[52ch] text-[13px] text-white/[0.92] leading-relaxed [&_b]:text-white [&_code]:bg-white/10 [&_code]:px-1.5 [&_code]:py-px [&_code]:text-white">
+				<div className="mt-3 max-w-[52ch] text-[13px] text-white/[0.92] leading-relaxed [&_b]:text-white [&_p_code]:bg-white/10 [&_p_code]:px-1.5 [&_p_code]:py-px [&_p_code]:text-white">
 					{item.copy}
 				</div>
 				<a
@@ -104,7 +104,7 @@ export const Section = ({
 					{title}
 				</h2>
 				{command ? <CommandBlock command={command} /> : null}
-				<div className="mt-4 space-y-4 text-[13px] text-white/[0.92] leading-relaxed [&_b]:text-white [&_code]:bg-white/10 [&_code]:px-1.5 [&_code]:py-px [&_code]:text-white">
+				<div className="mt-4 space-y-4 text-[13px] text-white/[0.92] leading-relaxed [&_b]:text-white [&_p_code]:bg-white/10 [&_p_code]:px-1.5 [&_p_code]:py-px [&_p_code]:text-white">
 					{copy}
 				</div>
 			</div>

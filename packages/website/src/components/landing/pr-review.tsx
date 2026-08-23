@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CommandBlock } from "./command-block";
 import { Figure, Section } from "./primitives";
 
 const G = {
@@ -360,12 +361,25 @@ const PullRequestMock = () => (
 
 export const PrReview = () => (
 	<Section
-		command="npx nestjs-doctor@latest ci install"
 		copy={
 			<>
 				<p>
-					Runs as a required check. It comments on the issues the pull request
-					introduces, and blocks at the severity you choose.
+					It comments on the issues a pull request introduces, using the{" "}
+					<b>built-in rules</b> and the{" "}
+					<Link
+						className="text-nest-red underline underline-offset-4"
+						href="/docs/custom-rules"
+					>
+						custom rules
+					</Link>{" "}
+					you write. Enforce hexagonal architecture, DDD layers, or any
+					convention your team cares about.
+				</p>
+				<p>Install it with one command:</p>
+				<CommandBlock command="npx nestjs-doctor@latest ci install" />
+				<p>
+					Comments, score only, or hard gate: you choose how much it does on
+					each PR.
 				</p>
 				<p>
 					<Link
@@ -379,6 +393,6 @@ export const PrReview = () => (
 		}
 		figure={<PullRequestMock />}
 		figureLeft
-		title="Reviews only what the PR introduced."
+		title="A deterministic code reviewer."
 	/>
 );
