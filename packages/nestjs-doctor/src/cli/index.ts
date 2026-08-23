@@ -6,8 +6,13 @@ import {
 } from "../engine/project-detector.js";
 import { flags } from "./flags.js";
 import { setCliVersion } from "./output.js";
-import { MonorepoPipeline, SingleProjectPipeline } from "./pipeline.js";
+import {
+	type InteractiveArtifacts,
+	MonorepoPipeline,
+	SingleProjectPipeline,
+} from "./pipeline.js";
 import { type CliArgs, CliSetup } from "./setup.js";
+import { canPrompt } from "./ui/environment.js";
 import { logger } from "./ui/logger.js";
 
 const CONFIG_ERROR_EXIT_CODE = 2;
@@ -61,9 +66,18 @@ async function scan(args: CliArgs): Promise<void> {
 
 	const { targetPath, options } = ctx;
 
+	const runMenu = async (artifacts: InteractiveArtifacts) => {
+		if (!canPrompt(options)) {
+			return;
+		}
+		const { runInteractiveMenu } = await import("./interactive/menu.js");
+		await runInteractiveMenu({ ...artifacts, targetPath, version });
+	};
+
 	const monorepo = await detectMonorepo(targetPath);
 	if (monorepo) {
-		await new MonorepoPipeline(targetPath, monorepo, options)
+		const pipeline = new MonorepoPipeline(targetPath, monorepo, options);
+		await pipeline
 			.resolveConfig()
 			.buildContext()
 			.runRules()
@@ -72,6 +86,7 @@ async function scan(args: CliArgs): Promise<void> {
 			.warnCustomRules()
 			.output()
 			.run();
+		await runMenu(pipeline.interactiveArtifacts);
 		return;
 	}
 
@@ -81,7 +96,8 @@ async function scan(args: CliArgs): Promise<void> {
 		);
 	}
 
-	await new SingleProjectPipeline(targetPath, options)
+	const pipeline = new SingleProjectPipeline(targetPath, options);
+	await pipeline
 		.resolveConfig()
 		.buildContext()
 		.runRules()
@@ -90,6 +106,7 @@ async function scan(args: CliArgs): Promise<void> {
 		.warnCustomRules()
 		.output()
 		.run();
+	await runMenu(pipeline.interactiveArtifacts);
 }
 
 runMain(main);

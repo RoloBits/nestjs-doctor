@@ -57,6 +57,7 @@
     "vitest": "^3.0.0"
   },
   "dependencies": {
+    "@clack/prompts": "^1.7.0",
     "citty": "^0.2.2",
     "jiti": "^2.7.0",
     "ora": "^9.4.1",

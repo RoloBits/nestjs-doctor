@@ -1,4 +1,4 @@
-import { exec } from "node:child_process";
+import { spawn } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { highlighter } from "../cli/ui/highlighter.js";
@@ -23,20 +23,30 @@ export const writeReportFile = async (
 		: join(targetPath, "nestjs-doctor-report.html");
 	await mkdir(dirname(outPath), { recursive: true });
 	await writeFile(outPath, html, "utf-8");
-	logger.info(`Report written to ${highlighter.info(outPath)}`);
 	return outPath;
 };
 
-export const openReportInBrowser = (filePath: string): void => {
+/** The platform's file opener, as a command and its arguments. */
+export const openCommand = (filePath: string): [string, string[]] => {
 	if (process.platform === "darwin") {
-		exec(`open "${filePath}"`);
-		return;
+		return ["open", [filePath]];
 	}
 	if (process.platform === "win32") {
-		exec(`start "${filePath}"`);
-		return;
+		return ["cmd", ["/c", "start", "", filePath]];
 	}
-	exec(`xdg-open "${filePath}"`);
+	return ["xdg-open", [filePath]];
+};
+
+export const openReportInBrowser = (
+	filePath: string,
+	onError: (message: string) => void = logger.warn
+): void => {
+	const [command, args] = openCommand(filePath);
+	const child = spawn(command, args, { detached: true, stdio: "ignore" });
+	child.on("error", () => {
+		onError(`Could not open ${filePath} in a browser.`);
+	});
+	child.unref();
 };
 
 export const logSingleProjectSummary = (scanResult: EngineResult): void => {
