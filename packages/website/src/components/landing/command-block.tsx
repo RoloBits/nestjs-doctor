@@ -2,6 +2,7 @@
 
 import { Check, Copy } from "lucide-react";
 import { useCallback, useState } from "react";
+import { track } from "@/lib/analytics";
 
 const COPIED_RESET_MS = 1600;
 
@@ -11,6 +12,7 @@ export const CommandBlock = ({ command }: { command: string }) => {
 	const handleCopy = useCallback(async () => {
 		try {
 			await navigator.clipboard.writeText(command);
+			track("command_copied", { command, surface: "landing" });
 			setCopied(true);
 			setTimeout(() => setCopied(false), COPIED_RESET_MS);
 		} catch {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { track } from "@/lib/analytics";
 
 const RESET_MS = 1600;
 
@@ -16,6 +17,7 @@ export const CopyButton = ({
 	const copy = useCallback(async () => {
 		try {
 			await navigator.clipboard.writeText(text);
+			track("command_copied", { command: text, surface: "docs" });
 			setCopied(true);
 			setTimeout(() => setCopied(false), RESET_MS);
 		} catch {
