@@ -14,6 +14,10 @@ export interface NestjsDoctorIgnoreConfig {
 	rules?: string[];
 }
 
+export interface NestjsDoctorReportConfig {
+	telemetry?: boolean;
+}
+
 export interface NestjsDoctorConfig {
 	categories?: Partial<Record<Category, boolean>>;
 	customRulesDir?: string;
@@ -21,6 +25,7 @@ export interface NestjsDoctorConfig {
 	ignore?: NestjsDoctorIgnoreConfig;
 	include?: string[];
 	minScore?: number;
+	report?: NestjsDoctorReportConfig;
 	rules?: Record<string, RuleOverride | boolean>;
 }
 
