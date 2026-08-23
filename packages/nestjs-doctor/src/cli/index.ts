@@ -8,6 +8,9 @@ import { flags } from "./flags.js";
 import { setCliVersion } from "./output.js";
 import { MonorepoPipeline, SingleProjectPipeline } from "./pipeline.js";
 import { type CliArgs, CliSetup } from "./setup.js";
+import { logger } from "./ui/logger.js";
+
+const CONFIG_ERROR_EXIT_CODE = 2;
 
 const require = createRequire(import.meta.url);
 const { version } = require("../../package.json") as { version: string };
@@ -30,45 +33,37 @@ const main = defineCommand({
 	},
 	async run({ args }) {
 		setCliVersion(version);
-
-		const ctx = await new CliSetup(args as CliArgs, version)
-			.resolveTargetPath()
-			.handleListRules()
-			.handleCiInstall()
-			.validateTargetPath()
-			.handleInit()
-			.handleReport()
-			.validateMinScore()
-			.validateBlocking()
-			.run();
-
-		if (!ctx) {
-			return;
+		try {
+			await scan(args as CliArgs);
+		} catch (error) {
+			// citty prints a raw stack, so a bad config is caught here first.
+			logger.error(error instanceof Error ? error.message : String(error));
+			process.exit(CONFIG_ERROR_EXIT_CODE);
 		}
+	},
+});
 
-		const { targetPath, options } = ctx;
+async function scan(args: CliArgs): Promise<void> {
+	const ctx = await new CliSetup(args, version)
+		.resolveTargetPath()
+		.handleListRules()
+		.handleCiInstall()
+		.validateTargetPath()
+		.handleInit()
+		.handleReport()
+		.validateMinScore()
+		.validateBlocking()
+		.run();
 
-		const monorepo = await detectMonorepo(targetPath);
-		if (monorepo) {
-			await new MonorepoPipeline(targetPath, monorepo, options)
-				.resolveConfig()
-				.buildContext()
-				.runRules()
-				.buildResult()
-				.applyScope()
-				.warnCustomRules()
-				.output()
-				.run();
-			return;
-		}
+	if (!ctx) {
+		return;
+	}
 
-		if (await looksLikeMonorepo(targetPath)) {
-			console.warn(
-				"Warning: This directory appears to be a monorepo, but no NestJS packages were found.\nConsider running on a specific sub-project instead."
-			);
-		}
+	const { targetPath, options } = ctx;
 
-		await new SingleProjectPipeline(targetPath, options)
+	const monorepo = await detectMonorepo(targetPath);
+	if (monorepo) {
+		await new MonorepoPipeline(targetPath, monorepo, options)
 			.resolveConfig()
 			.buildContext()
 			.runRules()
@@ -77,7 +72,24 @@ const main = defineCommand({
 			.warnCustomRules()
 			.output()
 			.run();
-	},
-});
+		return;
+	}
+
+	if (await looksLikeMonorepo(targetPath)) {
+		console.warn(
+			"Warning: This directory appears to be a monorepo, but no NestJS packages were found.\nConsider running on a specific sub-project instead."
+		);
+	}
+
+	await new SingleProjectPipeline(targetPath, options)
+		.resolveConfig()
+		.buildContext()
+		.runRules()
+		.buildResult()
+		.applyScope()
+		.warnCustomRules()
+		.output()
+		.run();
+}
 
 runMain(main);
