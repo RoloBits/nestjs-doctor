@@ -22,6 +22,8 @@ export const setCliVersion = (version: string): void => {
 	cliVersion = version;
 };
 
+export const getCliVersion = (): string => cliVersion;
+
 const writeRendered = (
 	payload: string,
 	outputPath: string | undefined

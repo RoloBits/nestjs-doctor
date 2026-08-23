@@ -38,6 +38,7 @@ Options:
   --blocking <level>    Severity that fails the run: none, warning, error
   --min-score <n>       Minimum passing score (0-100). Exits with code 1 if below threshold
   --report              Generate an interactive HTML report (--graph also works)
+  --no-telemetry        Build the report without the tab-interaction beacon
   --timings <path>      SerializedGraph dump to overlay bootstrap init times on the report
   --config <p>          Path to config file
   --force               Overwrite an existing file (with ci install)
