@@ -30,6 +30,9 @@ concurrency:
   group: action-self-test-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+env:
+  DO_NOT_TRACK: "1"
+
 jobs:
   self-test:
     name: Run the action against a fixture

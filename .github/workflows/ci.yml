@@ -16,6 +16,9 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+env:
+  DO_NOT_TRACK: "1"
+
 jobs:
   ci:
     name: Check / Typecheck / Build
