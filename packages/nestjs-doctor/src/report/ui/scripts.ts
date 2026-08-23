@@ -201,7 +201,10 @@ function switchTab(name) {
 }
 
 for (const btn of tabBtns) {
-  btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+  btn.addEventListener("click", () => {
+    switchTab(btn.dataset.tab);
+    window.__ndTrack?.(btn.dataset.tab);
+  });
 }
 
 // ── Project colors and filter setup ──

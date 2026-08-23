@@ -71,6 +71,14 @@ export const flags = {
 			"Generate an interactive HTML report (summary, diagnostics, module graph, rule lab); writes beside the project unless --output names a path",
 		default: false,
 	},
+	telemetry: {
+		type: "boolean",
+		description:
+			"Embed the anonymous interaction beacon in the HTML report (which tab was opened, and nothing about the scanned code)",
+		negativeDescription:
+			"Generate the HTML report without the interaction beacon",
+		default: true,
+	},
 	timings: {
 		type: "string",
 		description:
