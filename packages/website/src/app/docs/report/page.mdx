@@ -22,8 +22,8 @@ Five things load from the network when opened. The graph layout library and
 the logo are one request each. The IBM Plex Mono font is a stylesheet plus the
 font files it names. The code viewer is a CodeMirror import map, so it pulls
 18 modules from esm.sh. The fifth reports which tab was opened, carrying the
-nestjs-doctor version and the tab name and nothing read from the page;
-`--no-telemetry` leaves it out.
+nestjs-doctor version, the tab name, whether the file was generated in CI or
+from the CLI, and nothing read from the page; `--no-telemetry` leaves it out.
 
 Offline, the module graph falls back to a plain grid and the code viewers do
 not load. The text falls back to the system monospace font. Everything else
