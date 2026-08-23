@@ -218,7 +218,11 @@ describe("advisory findings under changed scope", () => {
 		const root = mkdtempSync(join(tmpdir(), "nd-adv-scope-"));
 		roots.push(root);
 		const run = (...args: string[]) =>
-			execFileSync("git", args, { cwd: root, stdio: "ignore" });
+			execFileSync("git", args, {
+				cwd: root,
+				env: CLEAN_GIT_ENV,
+				stdio: "ignore",
+			});
 		run("init");
 		run("config", "user.email", "t@t.t");
 		run("config", "user.name", "t");
