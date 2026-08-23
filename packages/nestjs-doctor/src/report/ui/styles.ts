@@ -131,8 +131,10 @@ canvas:active { cursor: grabbing; }
 .tab-spacer { flex: 1; }
 .tab-controls { display: flex; align-items: center; gap: 8px; height: 100%; }
 .tab-controls select {
-  font-size: 11px; padding: 4px 10px; border-radius: 4px;
-  background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+  font-size: 11px; padding: 4px 24px 4px 10px;
+  appearance: none; -webkit-appearance: none;
+  background: rgba(255,255,255,0.06) url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='rgba(255,255,255,0.6)' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 8px center;
+  border: 1px solid var(--border);
   color: var(--text-muted); cursor: pointer; font-family: var(--font);
   outline: none; display: none;
 }
@@ -997,6 +999,13 @@ body.mg-resizing { cursor: col-resize; user-select: none; }
   background: rgba(255,255,255,0.05); border: 1px solid var(--border);
   color: var(--text); font-family: var(--font);
   outline: none; min-width: 120px;
+}
+.playground-field select {
+  appearance: none; -webkit-appearance: none;
+  padding-right: 28px;
+  background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='rgba(255,255,255,0.6)' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
 }
 .playground-field input:focus,
 .playground-field select:focus {
