@@ -110,13 +110,13 @@ jobs:
         #   version: "1.2.3"          # Pin the nestjs-doctor version (default: latest)
 `;
 
-/** Writes the pull request workflow into the repository that contains `targetPath`. */
 /** True when the repository already carries the scaffolded workflow file. */
 export const ciWorkflowExists = (targetPath: string): boolean => {
 	const repo = findGitRepo(targetPath);
 	return repo !== null && existsSync(join(repo.root, WORKFLOW_FILE));
 };
 
+/** Writes the pull request workflow into the repository that contains `targetPath`. */
 export const installCiWorkflow = async (
 	targetPath: string,
 	force: boolean
