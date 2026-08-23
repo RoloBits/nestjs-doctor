@@ -29,8 +29,7 @@
     "nestjs",
     "nest",
     "linter",
-    "diagnostics",
-    "static-analysis",
+    "circular-dependency",
     "code-quality"
   ],
   "categories": [
