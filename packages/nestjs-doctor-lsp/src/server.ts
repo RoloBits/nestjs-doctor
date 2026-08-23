@@ -13,11 +13,19 @@ import {
 } from "vscode-languageserver/node";
 import { groupByFile } from "./convert.js";
 import { publishDiagnostics } from "./publish.js";
+import {
+	lspTelemetryEnabled,
+	resolveIdentity,
+	sendLspEvent,
+} from "./telemetry.js";
 import type {
 	ServerMessage,
 	WorkerData,
 	WorkerMessage,
 } from "./worker-protocol.js";
+
+/** Kept in step with package.json by the release, like the CLI's own stamp. */
+const VERSION = "4.0.0";
 
 interface Settings {
 	debounceMs: number;
@@ -136,12 +144,41 @@ function terminateWorker() {
 	}
 }
 
+/**
+ * One event per session, naming the editor. A language server runs for hours,
+ * so a request-level event would drown every other surface.
+ */
+function reportSession(params: InitializeParams): void {
+	const options = params.initializationOptions as
+		| { telemetry?: boolean }
+		| undefined;
+	if (!lspTelemetryEnabled(options?.telemetry, workspaceRoot)) {
+		return;
+	}
+	try {
+		const identity = resolveIdentity(workspaceRoot ?? process.cwd());
+		sendLspEvent("lsp_session_started", identity.anonymousId, {
+			editor: params.clientInfo?.name ?? "unknown",
+			editor_version: params.clientInfo?.version ?? null,
+			node_major: Number.parseInt(process.versions.node, 10),
+			platform: process.platform,
+			project_id: identity.projectId,
+			surface: "lsp",
+			version: VERSION,
+		});
+	} catch {
+		// Reporting never breaks a session.
+	}
+}
+
 connection.onInitialize((params: InitializeParams): InitializeResult => {
 	if (params.rootUri) {
 		workspaceRoot = fileURLToPath(params.rootUri);
 	} else if (params.rootPath) {
 		workspaceRoot = params.rootPath;
 	}
+
+	reportSession(params);
 
 	return {
 		capabilities: {
