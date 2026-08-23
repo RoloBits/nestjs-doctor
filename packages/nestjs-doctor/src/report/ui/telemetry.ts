@@ -1,21 +1,9 @@
+import { generatedIn } from "../../telemetry/environment.js";
+
 // PostHog project key. Empty disables the beacon: no key, no snippet, no
 // requests. Set it to turn report telemetry on for published builds.
 const POSTHOG_KEY = "";
 const POSTHOG_HOST = "https://us.i.posthog.com";
-
-/** Any value other than the shell's own "off" spellings counts as set. */
-const isSet = (value: string | undefined): boolean =>
-	value !== undefined && value !== "" && value !== "0" && value !== "false";
-
-/**
- * Where the report was generated, stamped at generation time. A CI machine
- * opens no browser, so a `ci` event is one a person opened after downloading.
- */
-export function generatedIn(
-	env: NodeJS.ProcessEnv = process.env
-): "ci" | "cli" {
-	return isSet(env.CI) || isSet(env.GITHUB_ACTIONS) ? "ci" : "cli";
-}
 
 /**
  * Inline beacon for the generated report. Posts two fixed events and reads

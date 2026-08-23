@@ -67,7 +67,7 @@ export const Hero = () => (
 			<CommandBlock command={COMMAND} />
 
 			<p className="mt-5 inline-block border-white/15 border-t border-b py-2 font-bold text-[11px] text-white/[0.92] uppercase tracking-[0.08em]">
-				0 network calls · 0 AI calls · same output every run
+				your code never leaves · 0 AI calls · same output every run
 			</p>
 		</div>
 

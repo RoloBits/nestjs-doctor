@@ -28,6 +28,7 @@ export interface PipelineOptions {
 	scope: ScopeMode;
 	score: boolean;
 	staged: boolean;
+	telemetry: boolean;
 	verbose: boolean;
 }
 
@@ -267,6 +268,7 @@ export class CliSetup {
 				scope: resolveScopeMode(this.args),
 				score,
 				staged: this.args.staged ?? false,
+				telemetry: this.args.telemetry ?? true,
 				verbose: this.args.verbose ?? false,
 			},
 		};
