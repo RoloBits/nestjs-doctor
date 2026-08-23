@@ -1,3 +1,5 @@
+import { generatedIn } from "../../telemetry/environment.js";
+
 // PostHog project key. Empty disables the beacon: no key, no snippet, no
 // requests. Set it to turn report telemetry on for published builds.
 const POSTHOG_KEY = "";
@@ -8,15 +10,20 @@ const POSTHOG_HOST = "https://us.i.posthog.com";
  * nothing from the page, so no path, project name, or source text can leave.
  */
 export function getTelemetryScript(version: string): string {
-	return POSTHOG_KEY ? buildBeacon(POSTHOG_KEY, version) : "";
+	return POSTHOG_KEY ? buildBeacon(POSTHOG_KEY, version, generatedIn()) : "";
 }
 
-export function buildBeacon(key: string, version: string): string {
+export function buildBeacon(
+	key: string,
+	version: string,
+	source: "ci" | "cli"
+): string {
 	return `<script>
 (function () {
   var KEY = ${JSON.stringify(key)};
   var URL = ${JSON.stringify(`${POSTHOG_HOST}/e/`)};
   var VERSION = ${JSON.stringify(version)};
+  var SOURCE = ${JSON.stringify(source)};
   var SECTIONS = ["summary", "diagnosis", "modules", "endpoints", "schema", "lab"];
   var id;
   try {
@@ -26,7 +33,11 @@ export function buildBeacon(key: string, version: string): string {
   }
 
   function send(event, section) {
-    var props = { $current_url: "report://local", version: VERSION };
+    var props = {
+      $current_url: "report://local",
+      version: VERSION,
+      generated_in: SOURCE,
+    };
     if (section) {
       props.section = section;
     }

@@ -22,9 +22,9 @@ An opinionated rule set for an opinionated framework. nestjs-doctor scans your
 codebase and reports findings across security, correctness, architecture,
 performance, and schema, then scores it 0-100.
 
-No AI at scan time and no network calls. The same commit scores the same on your
-laptop and in CI. Reads schemas from Prisma, TypeORM, Drizzle and MikroORM, and
-handles monorepos.
+No AI at scan time, and nothing about your code leaves the machine. The same
+commit scores the same on your laptop and in CI. Reads schemas from Prisma,
+TypeORM, Drizzle and MikroORM, and handles monorepos.
 
 [Website →](https://nestjs.doctor/docs)
 
@@ -54,9 +54,6 @@ Writes to the project root, or wherever `--output` names. One file: score
 summary, findings with a code viewer, and an interactive module
 graph. Traced HTTP endpoints, the schema ER diagram, and a
 rule playground get their own tabs.
-
-Opening it reports which tab was viewed, and nothing about the scanned code.
-`--no-telemetry` leaves that out of the file.
 
 ![Module Graph](https://nestjs.doctor/module-graph.png)
 

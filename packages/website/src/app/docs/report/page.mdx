@@ -18,34 +18,16 @@ no build step. Commit it or attach it to a pull request.
 `--output` names a different path, which keeps the file out of the repository
 being scanned.
 
-Four things load from the network when opened. The graph layout library and
+Five things load from the network when opened. The graph layout library and
 the logo are one request each. The IBM Plex Mono font is a stylesheet plus the
 font files it names. The code viewer is a CodeMirror import map, so it pulls
-18 modules from esm.sh.
-
-A fifth request reports which tab you opened. It sends two events, `report_opened`
-and `report_section_viewed`, and the only values that travel with them are the
-nestjs-doctor version and one tab name out of `summary`, `diagnosis`, `modules`,
-`endpoints`, `schema`, `lab`. It reads nothing from the page, so no file path,
-project name, or line of your source is in the payload — the report's own URL is
-replaced with the constant `report://local` before sending. There is no cookie,
-no stored identifier, and no session recording; each open counts as a new
-anonymous visitor.
-
-Pass `--no-telemetry` to leave it out of the generated file, or set it once for
-the repository:
-
-```json
-{
-  "report": {
-    "telemetry": false
-  }
-}
-```
+18 modules from esm.sh. The fifth reports which tab was opened, carrying the
+nestjs-doctor version, the tab name, whether the file was generated in CI or
+from the CLI, and nothing read from the page.
 
 Offline, the module graph falls back to a plain grid and the code viewers do
-not load. The text falls back to the system monospace font. The tab report
-fails silently. Everything else works, including the schema diagram's layout.
+not load. The text falls back to the system monospace font. Everything else
+works, including the schema diagram's layout.
 
 ![Module graph](/module-graph.png)
 

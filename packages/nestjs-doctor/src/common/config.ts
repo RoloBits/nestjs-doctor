@@ -27,6 +27,7 @@ export interface NestjsDoctorConfig {
 	minScore?: number;
 	report?: NestjsDoctorReportConfig;
 	rules?: Record<string, RuleOverride | boolean>;
+	telemetry?: boolean;
 }
 
 export const DEFAULT_CONFIG: NestjsDoctorConfig = {
