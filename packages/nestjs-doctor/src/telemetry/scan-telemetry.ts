@@ -4,10 +4,7 @@ import type { RuleErrorInfo, Score } from "../common/result.js";
 import { allRules } from "../engine/rules/index.js";
 import type { EcosystemFacts } from "./ecosystem.js";
 
-/**
- * Every rule id the payload may name. A custom rule's id is a string its author
- * wrote, so anything outside this set is counted but never named.
- */
+/** Every rule id the payload may name. */
 const BUILT_IN_RULE_IDS: ReadonlySet<string> = new Set(
 	allRules.map((rule) => rule.meta.id)
 );
@@ -106,8 +103,7 @@ export function readConfigFacts(config: NestjsDoctorConfig = {}): ConfigFacts {
 
 	const categories = config.categories ?? {};
 	const include = config.include ?? [];
-	// `exclude` appends to the defaults and `include` replaces them, so subtract
-	// what the merge added to report what the project declared.
+	// The config arrives default-merged; report what the project declared.
 	const declaredIncludes =
 		include.length === DEFAULT_INCLUDES.length &&
 		include.every((glob, index) => glob === DEFAULT_INCLUDES[index])
@@ -132,11 +128,7 @@ export function readConfigFacts(config: NestjsDoctorConfig = {}): ConfigFacts {
 const builtInOnly = (ids: Iterable<string>): string[] =>
 	[...new Set([...ids].filter((id) => BUILT_IN_RULE_IDS.has(id)))].sort();
 
-/**
- * Builds the scan payload. Reads only rule ids and severities, both of which
- * come from rule metadata rather than the scanned code, so no path, source
- * line, project name, or custom rule name can reach it.
- */
+/** Builds the scan payload from rule metadata, never from the scanned code. */
 export function buildScanPayload(
 	facts: ScanFacts,
 	nodeVersion: string = process.version,
@@ -182,8 +174,7 @@ export function buildScanPayload(
 		),
 		platform,
 		project_id: facts.projectId,
-		// Rule ids only. `RuleErrorInfo.error` is a raw thrown message and
-		// routinely quotes the source file that broke the rule.
+		// Rule ids only; the error message quotes the file that broke the rule.
 		rule_errors: builtInOnly(facts.ruleErrors.map((e) => e.ruleId)),
 		rule_overrides: facts.config.ruleOverrides,
 		rules_turned_off: facts.config.rulesTurnedOff,

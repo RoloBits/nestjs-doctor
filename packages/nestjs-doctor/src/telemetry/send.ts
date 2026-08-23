@@ -3,16 +3,12 @@ import type { NestjsDoctorConfig } from "../common/config.js";
 import { isSet } from "./environment.js";
 import type { ScanPayload } from "./scan-telemetry.js";
 
-// Same project as the report beacon. Empty disables scan telemetry entirely:
-// no key, no request.
+// Empty disables scan telemetry: no key, no request.
 const POSTHOG_KEY = "phc_BGjn97jvL862fdhHAKzJ7mhuXBZm8CEe83ENuMvpCgdD";
 const POSTHOG_HOST = "https://us.i.posthog.com";
 const TIMEOUT_MS = 3000;
 
-/**
- * Whether a scan may report. The flag and the config key each disable it on
- * their own, as does the cross-tool DO_NOT_TRACK convention.
- */
+/** Whether a scan may report. The flag, the config key and DO_NOT_TRACK each stop it. */
 export function scanTelemetryEnabled(
 	flag: boolean,
 	config: NestjsDoctorConfig | undefined,
@@ -25,18 +21,13 @@ export function scanTelemetryEnabled(
 	if (isSet(env.DO_NOT_TRACK)) {
 		return false;
 	}
-	// A test run never reports, wherever it runs.
 	if (isSet(env.VITEST) || env.NODE_ENV === "test") {
 		return false;
 	}
 	return config?.telemetry !== false;
 }
 
-/**
- * Runs in a detached child. An in-process request keeps the event loop alive
- * until it settles, which on a network that drops the connection delayed the
- * scan by ten seconds.
- */
+/** Runs in a detached child, so a stalled network cannot hold the scan open. */
 const CHILD_SCRIPT = `
 const body = process.argv[1];
 const req = require("node:https").request(${JSON.stringify(`${POSTHOG_HOST}/e/`)}, {
@@ -74,10 +65,10 @@ export function sendScanTelemetry(
 			{ detached: true, stdio: "ignore", windowsHide: true }
 		);
 		child.on("error", () => {
-			// Reporting is best-effort; a scan never fails because of it.
+			// Best-effort; a scan never fails because of it.
 		});
 		child.unref();
 	} catch {
-		// Same: an environment that cannot spawn reports nothing and scans fine.
+		// Same for an environment that cannot spawn.
 	}
 }

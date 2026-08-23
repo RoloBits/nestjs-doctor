@@ -23,7 +23,6 @@ const CI_SALT = "nestjs-doctor-ci";
 
 /** Where the platform expects a CLI to keep its own config. */
 export function configDir(env: NodeJS.ProcessEnv = process.env): string {
-	// Overrides the platform location, on every platform.
 	if (env.NESTJS_DOCTOR_CONFIG_DIR) {
 		return env.NESTJS_DOCTOR_CONFIG_DIR;
 	}
@@ -71,21 +70,17 @@ const readConfig = (file: string): StoredConfig | undefined => {
 	}
 };
 
-/**
- * Reads the install id and project salt, creating them on first run. Any
- * filesystem failure falls back to a per-run id rather than stopping a scan.
- */
+/** Reads the install id and salt, creating them on first run. */
 export function resolveIdentity(
 	projectRoot: string,
 	env: NodeJS.ProcessEnv = process.env
 ): TelemetryIdentity {
-	// Resolves symlinks and normalises separators and case, so one project
-	// hashes to one id.
+	// One id per project, whatever spelling of the path arrived.
 	let root = projectRoot;
 	try {
 		root = realpathSync(projectRoot);
 	} catch {
-		// A path that no longer resolves hashes as given.
+		// Hash the path as given.
 	}
 	root = root.replace(BACKSLASH, "/").toLowerCase();
 
@@ -93,7 +88,6 @@ export function resolveIdentity(
 		createHash("sha256").update(`${salt}:${root}`).digest("hex");
 
 	const ci = ciIdentity(env);
-	// CI hashes with the shared salt instead of the per-install one.
 	if (ci) {
 		return { anonymousId: ci, projectId: salted(CI_SALT) };
 	}

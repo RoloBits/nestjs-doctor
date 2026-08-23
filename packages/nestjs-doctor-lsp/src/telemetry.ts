@@ -4,8 +4,7 @@ import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { dirname, join } from "node:path";
 
-// The same PostHog project the CLI reports to. Empty disables the LSP
-// entirely: no key, no request.
+// Empty disables LSP telemetry: no key, no request.
 const POSTHOG_KEY = "phc_BGjn97jvL862fdhHAKzJ7mhuXBZm8CEe83ENuMvpCgdD";
 const POSTHOG_HOST = "https://us.i.posthog.com";
 const TIMEOUT_MS = 3000;
@@ -82,7 +81,7 @@ export function resolveIdentity(
 	try {
 		root = realpathSync(projectRoot);
 	} catch {
-		// A path that no longer resolves hashes as given.
+		// Hash the path as given.
 	}
 	root = root.replace(BACKSLASH, "/").toLowerCase();
 
@@ -120,10 +119,7 @@ export function resolveIdentity(
 	};
 }
 
-/**
- * Reads `telemetry` from the project's config. Same three surfaces the CLI
- * reads, in the same order.
- */
+/** Reads `telemetry` from the three config surfaces, in the CLI's order. */
 function configAllows(workspaceRoot: string): boolean {
 	for (const name of ["nestjs-doctor.config.json", ".nestjs-doctor.json"]) {
 		try {
@@ -146,10 +142,7 @@ function configAllows(workspaceRoot: string): boolean {
 	}
 }
 
-/**
- * Whether this session may report. The editor's own setting arrives through
- * `initializationOptions`, which is how a VS Code user's choice reaches here.
- */
+/** Whether this session may report. The editor's setting arrives through initializationOptions. */
 export function lspTelemetryEnabled(
 	editorAllows: boolean | undefined,
 	workspaceRoot: string | undefined,
@@ -205,10 +198,10 @@ export function sendLspEvent(
 			{ detached: true, stdio: "ignore", windowsHide: true }
 		);
 		child.on("error", () => {
-			// Reporting is best-effort; the server never fails because of it.
+			// Best-effort; the server never fails because of it.
 		});
 		child.unref();
 	} catch {
-		// An environment that cannot spawn reports nothing and serves fine.
+		// Same for an environment that cannot spawn.
 	}
 }

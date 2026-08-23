@@ -50,9 +50,7 @@ const CLOUD_SCOPES: [string, string][] = [
 	["@vercel/", "vercel"],
 ];
 
-/**
- * The only sub-service names the payload may carry, per vendor.
- */
+/** The only sub-service names the payload may carry, per vendor. */
 const CLOUD_SERVICES: Record<string, readonly string[]> = {
 	aws: [
 		"client-cloudwatch",
@@ -119,10 +117,7 @@ let detected: EcosystemFacts = empty();
 const union = (a: string[], b: string[]): string[] =>
 	[...new Set([...a, ...b])].sort();
 
-/**
- * Adds one project's packages to what the scan has seen. A monorepo detects
- * each sub-project separately, so the scan's ecosystem is their union.
- */
+/** Unions each project's packages, since a monorepo detects them separately. */
 export const addEcosystem = (facts: EcosystemFacts): void => {
 	detected = {
 		cloud: union(detected.cloud, facts.cloud),
@@ -144,10 +139,7 @@ export const getEcosystem = (): EcosystemFacts => detected;
 const matched = (deps: Record<string, string>, list: readonly string[]) =>
 	list.filter((name) => deps[name]).sort();
 
-/**
- * Which known ecosystem packages a project depends on. Returns names from the
- * lists above and nothing else — never the project's own dependency list.
- */
+/** Which known packages a project depends on. Returns nothing outside the lists above. */
 export function detectEcosystem(
 	deps: Record<string, string> = {}
 ): EcosystemFacts {
