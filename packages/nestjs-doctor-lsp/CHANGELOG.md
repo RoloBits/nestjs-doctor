@@ -1,5 +1,20 @@
 # nestjs-doctor-lsp
 
+## 4.1.0
+
+### Changed
+
+- Findings that cannot affect the score or fail a build now surface as hints instead of warnings, matching diagnostic surfaces in `nestjs-doctor@0.9.0`.
+
+### Added
+
+- Rescans when a `package.json` changes, so security-advisory findings appear and clear as dependencies change — no editor restart needed.
+
+### Fixed
+
+- Windows: findings did not attach to any file because paths with a drive prefix (`D:/proj/...`) were treated as relative.
+- Windows: findings duplicated after the first edit because two caches keyed the same path differently.
+
 ## 4.0.0
 
 ### Patch Changes

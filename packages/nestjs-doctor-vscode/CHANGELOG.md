@@ -1,7 +1,11 @@
 # Changelog
 
-Entries from 0.1.4 on are written by changesets. The three below it were
-reconstructed from commit history, from when the version was bumped by hand.
+## 0.1.4
+
+### Fixed
+
+- Packaging could ship a stale language server: clean builds failed outright and warm builds copied whatever was left behind. The LSP package is a declared dependency now, so build order is fixed.
+- Editing `package.json` now refreshes security-advisory findings without reloading the window (watches `**/package.json`).
 
 ## 0.1.3
 

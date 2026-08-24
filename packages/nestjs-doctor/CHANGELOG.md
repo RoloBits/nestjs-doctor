@@ -1,5 +1,34 @@
 # nestjs-doctor
 
+## 0.9.0
+
+### Highlights
+
+- **Security advisory rules** — two new rules check your installed NestJS packages against a built-in advisory list: critical and high advisories report as errors, moderate and low as warnings. Fully offline; the list ships with the CLI.
+- **Diagnostic surfaces** — rules can declare where a finding belongs: console, pull request comment, score, or CI failure. The two style rules (`no-async-without-await`, `prefer-readonly-injection`) now report in the console and HTML report only. Configure any rule with `"rules": { "<id>": { "surfaces": [...] } }`.
+- **Interactive terminal UI** — scans end on a score panel with a keyboard-driven findings browser: code frame, guidance, good/bad samples, docs link per finding. One keypress copies an agent-ready fix prompt or opens the findings in Claude Code, Codex, or Cursor.
+- **Boot trace** — new `--timings <path>` overlays real bootstrap times onto the module graph and adds a Boot trace tab breaking down construction chains and lifecycle-hook durations.
+- **`ci install`** — scaffolds `.github/workflows/nestjs-doctor.yml`, so setting up CI is one command instead of copying from the docs.
+- **Agent skills** — `--init` installs skills coding agents pick up on their own, including a new boot-trace skill; re-running `--init` updates every supported editor.
+- **HTML report** — schema diagrams relayouted into readable columns, tabs renamed (**Findings**, **Rule Lab**), restyled to match the docs site.
+
+### Behavior changes
+
+- **Scores rise by 0–12 points.** Two preference-style rules no longer count toward the score, comment on PRs, or fail builds; they still appear in the console and HTML report marked `not scored`. Add them back via the `surfaces` config if your team wants them enforced.
+- A config file that fails to parse now stops the scan (exit 2) and names the file, instead of being silently ignored — a trailing comma used to drop your `minScore` gate and ignore lists.
+- `--output` is now honored together with `--report`: `npx nestjs-doctor . --report --output /tmp/health.html`.
+
+### Fixed
+
+- Monorepo sub-project breakdowns double-counted findings on files shared between projects.
+- Reports the installed NestJS version instead of the lowest version the declared range admits.
+- A malformed `package.json` crashed monorepo detection; advisory checks now say when nothing could be checked (e.g. nx workspaces without per-project manifests).
+- Editor/LSP on Windows: findings failed to attach to files and duplicated after the first edit.
+
+### Docs
+
+- README corrections and docs restructure: agent setup moved to `/docs/coding-agents`, standalone language server documented at `/docs/language-server`.
+
 ## 0.8.0
 
 ### Minor Changes
