@@ -435,6 +435,9 @@ abstract class ScanPipeline {
 					logger.warn(
 						`The scan worker failed (${error instanceof Error ? error.message : String(error)}); scanning in process instead.`
 					);
+					if (!this.options.isMachineReadable) {
+						this.progress = createAnimatedProgress("Scanning...");
+					}
 					for (const step of this.steps) {
 						await step();
 					}
