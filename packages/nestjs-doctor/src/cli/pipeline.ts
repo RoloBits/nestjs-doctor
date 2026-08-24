@@ -147,6 +147,7 @@ abstract class ScanPipeline {
 	protected scanConfig!: ScanConfig;
 	/** Live progress line while `run` is in flight; steps update its label. */
 	protected progress: {
+		fail(text: string): void;
 		succeed(text: string): void;
 		update(label: string, done?: number, total?: number): void;
 	} | null = null;
@@ -426,6 +427,28 @@ abstract class ScanPipeline {
 		this.progress = this.options.isMachineReadable
 			? null
 			: createAnimatedProgress("Scanning...");
+		// The spinner puts stdin in raw mode, where Ctrl+C arrives as a 0x03
+		// byte rather than a signal, and the signal path is unreliable once
+		// ora's cleanup hooks are loaded. Watch the byte and the signal.
+		const cancel = (): void => {
+			this.progress?.fail("Scan cancelled");
+			this.progress = null;
+			logger.warn("Scan cancelled.");
+			process.exit(130);
+		};
+		const onInterrupt = (): void => {
+			cancel();
+		};
+		const onByte = (data: Buffer | string): void => {
+			const code = typeof data === "string" ? data.codePointAt(0) : data.at(0);
+			if (code === 0x03) {
+				cancel();
+			}
+		};
+		process.on("SIGINT", onInterrupt);
+		if (process.stdin.isTTY) {
+			process.stdin.on("data", onByte);
+		}
 		try {
 			if (await this.canDelegate()) {
 				try {
@@ -455,6 +478,8 @@ abstract class ScanPipeline {
 				await step();
 			}
 		} finally {
+			process.off("SIGINT", onInterrupt);
+			process.stdin?.off("data", onByte);
 			this.stopProgress();
 		}
 	}
