@@ -44,6 +44,10 @@ import {
 	readConfigFacts,
 } from "../telemetry/scan-telemetry.js";
 import { scanTelemetryEnabled, sendScanTelemetry } from "../telemetry/send.js";
+import {
+	printConsoleReport,
+	printMonorepoReport,
+} from "./formatters/console-reporter.js";
 import { resolveMinScore } from "./min-score.js";
 import {
 	getCliVersion,
@@ -77,7 +81,11 @@ const analysisText = (
 /** Handed to the post-scan menu so its actions reuse the finished scan. */
 export interface InteractiveArtifacts {
 	buildReportHtml: () => string;
+	/** Prints the persistent score box after the TUI leaves the alt screen. */
+	printSummary: () => void;
 	result: DiagnoseResult;
+	/** Per-project results in a monorepo, for the score screen's breakdown. */
+	subProjects?: { name: string; result: DiagnoseResult }[];
 }
 
 const displayCustomRuleWarnings = (
@@ -317,7 +325,14 @@ export class MonorepoPipeline extends ScanPipeline {
 					}
 				);
 			},
+			printSummary: () => {
+				printMonorepoReport(this.result.result, this.options.verbose, true);
+			},
 			result: this.result.result.combined,
+			subProjects: this.result.result.subProjects.map(({ name, result }) => ({
+				name,
+				result,
+			})),
 		};
 	}
 
@@ -480,6 +495,9 @@ export class SingleProjectPipeline extends ScanPipeline {
 						})
 					),
 				});
+			},
+			printSummary: () => {
+				printConsoleReport(this.result.result, this.options.verbose, true);
 			},
 			result: this.result.result,
 		};

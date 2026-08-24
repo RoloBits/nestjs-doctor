@@ -13,7 +13,7 @@ const config: KnipConfig = {
 			ignore: ["packages/website/**", "scripts/action/**"],
 		},
 		"packages/nestjs-doctor": {
-			project: ["src/**/*.ts"],
+			project: ["src/**/*.ts", "src/**/*.tsx"],
 		},
 	},
 };

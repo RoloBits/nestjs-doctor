@@ -61,16 +61,18 @@
     "url": "https://github.com/RoloBits/nestjs-doctor/issues"
   },
   "devDependencies": {
+    "@types/react": "^19",
     "tsdown": "^0.20.3",
     "vitest": "^3.0.0"
   },
   "dependencies": {
-    "@clack/prompts": "^1.7.0",
     "citty": "^0.2.2",
+    "ink": "^6.8.0",
     "jiti": "^2.7.0",
     "ora": "^9.4.1",
     "picocolors": "^1.1.1",
     "picomatch": "^4.0.5",
+    "react": "19.2.3",
     "tinyglobby": "^0.2.17",
     "ts-morph": "^28.0.0"
   }

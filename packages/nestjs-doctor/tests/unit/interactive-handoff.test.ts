@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildHandoffPrompt } from "../../src/cli/interactive/handoff.js";
+import { buildHandoffPrompt } from "../../src/cli/interactive/agents.js";
 import type { CodeDiagnostic } from "../../src/common/diagnostic.js";
 
 const finding = (overrides: Partial<CodeDiagnostic>): CodeDiagnostic => ({

@@ -71,8 +71,24 @@ async function scan(args: CliArgs): Promise<void> {
 		if (!options.interactive) {
 			return;
 		}
-		const { runInteractiveMenu } = await import("./interactive/menu.js");
-		await runInteractiveMenu({ ...artifacts, targetPath, version });
+		const { runInteractiveApp } = await import("./interactive/tui/run.js");
+		await runInteractiveApp({
+			buildReportHtml: artifacts.buildReportHtml,
+			result: artifacts.result,
+			subProjects: artifacts.subProjects?.map(({ name, result }) => ({
+				errors: result.summary.errors,
+				fileCount: result.project.fileCount,
+				info: result.summary.info,
+				name,
+				score: result.score.value,
+				warnings: result.summary.warnings,
+			})),
+			targetPath,
+			version,
+		});
+		// The TUI drew in the alternate screen; leave the score box behind.
+		artifacts.printSummary();
+		logger.log("Done.");
 	};
 
 	const monorepo = await detectMonorepo(targetPath);

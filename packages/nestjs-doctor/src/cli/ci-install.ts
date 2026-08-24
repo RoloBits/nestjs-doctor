@@ -116,6 +116,13 @@ export const ciWorkflowExists = (targetPath: string): boolean => {
 	return repo !== null && existsSync(join(repo.root, WORKFLOW_FILE));
 };
 
+/** What to do once the workflow lands. Shared by the CLI output and the TUI toast. */
+export const ciNextSteps = (): string[] => [
+	"Commit and push it; the first scan runs on your next pull request.",
+	"It stays advisory: it comments on what every PR introduces and never fails the check until you uncomment blocking or min-score.",
+	"To gate merges, make nestjs-doctor a required check under Settings → Branches → Branch protection rules.",
+];
+
 /** Writes the pull request workflow into the repository that contains `targetPath`. */
 export const installCiWorkflow = async (
 	targetPath: string,
@@ -192,11 +199,8 @@ export const runCiInstall = async (
 	logger.success(`Created ${shown}`);
 	logger.dim(`Push trigger keyed to the ${result.branch} branch.`);
 	logger.break();
-	logger.dim(
-		"Commit it and open a pull request. nestjs-doctor comments on what the change introduced,"
-	);
-	logger.dim(
-		"and never fails the check until you set blocking or min-score in the workflow."
-	);
+	for (const step of ciNextSteps()) {
+		logger.dim(step);
+	}
 	return 0;
 };

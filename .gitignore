@@ -8,4 +8,9 @@ coverage/
 .next/
 out/
 /.claude/worktrees/
+/.worktrees/
 /.claude/settings.local.json
+
+# Local agent guidance and planning scratch — never shipped.
+/.claude/
+/docs/
