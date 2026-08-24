@@ -107,16 +107,16 @@ const ScoreBar = ({ score }: { score: number }): React.JSX.Element => {
 	);
 };
 
-const subStatus = (
+const subMark = (
 	sub: NonNullable<InteractiveContext["subProjects"]>[number]
 ): string => {
 	if (sub.errors > 0) {
-		return `  ✗ ${sub.errors} errors`;
+		return "✗";
 	}
 	if (sub.warnings > 0) {
-		return `  ⚠ ${sub.warnings} warnings`;
+		return "⚠";
 	}
-	return "  ✓ clean";
+	return "✓";
 };
 
 const byWorstScore = (
@@ -329,24 +329,17 @@ export const ScoreScreen = ({
 							.slice(safeSubOffset, safeSubOffset + visibleSubRows)
 							.map((sub, index) => {
 								const isSelected = safeSubOffset + index === selectedSubRow;
+								const rowActive = isSelected && focus === "list";
 								return (
 									<Box flexDirection="row" key={sub.name}>
 										<Box
-											backgroundColor={
-												isSelected && focus === "list"
-													? palette.nestRed
-													: undefined
-											}
+											backgroundColor={rowActive ? palette.nestRed : undefined}
 											width={1}
 										>
 											<Text> </Text>
 										</Box>
 										<Box
-											backgroundColor={
-												isSelected && focus === "list"
-													? palette.washRed
-													: undefined
-											}
+											backgroundColor={rowActive ? palette.washRed : undefined}
 											flexDirection="row"
 											width={leftContent - 1}
 										>
@@ -362,21 +355,13 @@ export const ScoreScreen = ({
 												</Text>
 												<Text
 													color={
-														isSelected && focus === "list"
-															? palette.bright
-															: scoreColor(sub.score)
+														rowActive ? palette.bright : scoreColor(sub.score)
 													}
 												>
 													{`${String(sub.score).padStart(3)}/100`}
 												</Text>
-												<Text
-													color={
-														isSelected && focus === "list"
-															? palette.muted
-															: palette.dim
-													}
-												>
-													{` ${subStatus(sub).slice(2, 3)}`}
+												<Text color={rowActive ? palette.muted : palette.dim}>
+													{` ${subMark(sub)}`}
 												</Text>
 											</Text>
 										</Box>
