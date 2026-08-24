@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import type { DiagnoseResult } from "../../../common/result.js";
 import { formatElapsedTime } from "../../formatters/console-reporter.js";
 import { groupFindings } from "../findings.js";
-import { listCapacity, scrollWindow } from "./navigate.js";
+import { clampOffset, listCapacity, scrollWindow } from "./navigate.js";
 import { padEnd, truncate } from "./text.js";
 import {
 	getNestBirds,
@@ -210,7 +210,7 @@ export const ScoreScreen = ({
 	const [subOffset, setSubOffset] = useState(0);
 	const selectedSubRow = Math.min(selectedSub, subProjects.length - 1);
 	const safeSubOffset = scrollWindow(
-		Math.min(subOffset, Math.max(0, subProjects.length - visibleSubRows)),
+		clampOffset(subOffset, subProjects.length, visibleSubRows),
 		selectedSubRow,
 		visibleSubRows
 	);

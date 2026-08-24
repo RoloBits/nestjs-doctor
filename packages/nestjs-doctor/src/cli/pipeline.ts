@@ -431,6 +431,7 @@ abstract class ScanPipeline {
 				try {
 					await this.delegate();
 				} catch (error) {
+					this.stopProgress();
 					logger.warn(
 						`The scan worker failed (${error instanceof Error ? error.message : String(error)}); scanning in process instead.`
 					);
