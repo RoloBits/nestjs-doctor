@@ -3,6 +3,7 @@ import type { Diagnostic } from "../common/diagnostic.js";
 import type { RuleErrorInfo, Score } from "../common/result.js";
 import { allRules } from "../engine/rules/index.js";
 import type { EcosystemFacts } from "./ecosystem.js";
+import type { ActionFacts, VersionPin } from "./environment.js";
 
 /** Every rule id the payload may name. */
 const BUILT_IN_RULE_IDS: ReadonlySet<string> = new Set(
@@ -23,6 +24,8 @@ export interface ConfigFacts {
 }
 
 export interface ScanFacts {
+	action: ActionFacts;
+	blocking: string;
 	config: ConfigFacts;
 	customRulesLoaded: number;
 	diagnostics: Diagnostic[];
@@ -36,13 +39,24 @@ export interface ScanFacts {
 	orm: string | null;
 	projectId?: string;
 	ruleErrors: RuleErrorInfo[];
+	scope: string;
 	score: Score;
 	source: "ci" | "cli";
 	version: string;
 }
 
 export interface ScanPayload {
+	action_comment: boolean | null;
+	action_commit_status: boolean | null;
+	action_ref: string | null;
+	action_review_comments: boolean | null;
+	action_sarif: boolean | null;
+	action_version_pin: VersionPin | null;
+	actor_association: string | null;
+	blocking: string;
 	categories_disabled: string[];
+	ci_event: string | null;
+	ci_provider: string | null;
 	cloud: string[];
 	cloud_services: string[];
 	config_exclude_count: number;
@@ -72,8 +86,11 @@ export interface ScanPayload {
 	rules_disabled: string[];
 	rules_turned_off: string[];
 	rules_with_findings: number;
+	runner_os: string | null;
+	scope: string;
 	score: number;
 	version: string;
+	via_action: boolean;
 }
 
 const NODE_VERSION_PREFIX_RE = /^v/;
@@ -146,7 +163,17 @@ export function buildScanPayload(
 	}
 
 	return {
+		action_commit_status: facts.action.actionCommitStatus,
+		action_comment: facts.action.actionComment,
+		action_ref: facts.action.actionRef,
+		action_review_comments: facts.action.actionReviewComments,
+		action_sarif: facts.action.actionSarif,
+		action_version_pin: facts.action.actionVersionPin,
+		actor_association: facts.action.actorAssociation,
+		blocking: facts.blocking,
 		categories_disabled: facts.config.categoriesDisabled,
+		ci_event: facts.action.ciEvent,
+		ci_provider: facts.action.ciProvider,
 		cloud: facts.ecosystem.cloud,
 		cloud_services: facts.ecosystem.cloudServices,
 		config_exclude_count: facts.config.excludeCount,
@@ -180,7 +207,10 @@ export function buildScanPayload(
 		rules_turned_off: facts.config.rulesTurnedOff,
 		rules_disabled: builtInOnly(facts.disabledRuleIds),
 		rules_with_findings: Object.keys(findings).length,
+		runner_os: facts.action.runnerOs,
+		scope: facts.scope,
 		score: facts.score.value,
 		version: facts.version,
+		via_action: facts.action.viaAction,
 	};
 }

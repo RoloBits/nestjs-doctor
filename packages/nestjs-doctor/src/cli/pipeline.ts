@@ -37,7 +37,7 @@ import {
 } from "../report/formatters/report-data.js";
 import { buildHtmlReport } from "../report/html-report.js";
 import { getEcosystem, resetEcosystem } from "../telemetry/ecosystem.js";
-import { generatedIn } from "../telemetry/environment.js";
+import { actionContext, generatedIn } from "../telemetry/environment.js";
 import { resolveIdentity } from "../telemetry/install-id.js";
 import {
 	buildScanPayload,
@@ -141,6 +141,8 @@ abstract class ScanPipeline {
 			);
 			sendScanTelemetry(
 				buildScanPayload({
+					action: actionContext(),
+					blocking: this.options.blocking,
 					config: readConfigFacts(this.scanConfig.config),
 					customRulesLoaded: this.scanConfig.combinedRules.filter((rule) =>
 						rule.meta.id.startsWith("custom/")
@@ -158,6 +160,7 @@ abstract class ScanPipeline {
 					orm: result.project.orm,
 					projectId: identity.projectId,
 					ruleErrors: result.ruleErrors,
+					scope: this.options.scope,
 					score: result.score,
 					source: generatedIn(),
 					version: getCliVersion(),

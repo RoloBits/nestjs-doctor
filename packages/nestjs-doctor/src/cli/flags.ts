@@ -74,7 +74,7 @@ export const flags = {
 	telemetry: {
 		type: "boolean",
 		description:
-			"Report anonymously after a scan: which built-in rules fired, the score, well-known dependencies, and the config's shape. Never your code, paths, project name, or custom rule names",
+			"Report anonymously after a scan: which built-in rules fired, the score, well-known dependencies, the config's shape, the scope and blocking level you ran with, and in CI how the run was triggered. Never your code, paths, project name, or custom rule names",
 		negativeDescription:
 			"Scan and generate the report without reporting anything",
 		default: true,

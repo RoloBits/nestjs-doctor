@@ -41,6 +41,9 @@ inputs:
   github-token:
     description: "Token used to comment and set the commit status. The default posts as github-actions[bot], with GitHub's own avatar; a GitHub App installation token or a bot account's PAT posts under that identity's name and picture instead."
     default: ${{ github.token }}
+  telemetry:
+    description: "Report anonymously after the scan: which built-in rules fired, the score, well-known dependencies, the config's shape, the scope and blocking level used, and how this run was triggered (the event, the runner OS, and which of this action's own inputs are on). Never your code, paths, repository, or organization. Set to false, or set `DO_NOT_TRACK: \"1\"` on the job, to turn it off."
+    default: "true"
   node-version:
     description: "Node.js version to use"
     default: "22"
@@ -215,6 +218,16 @@ runs:
         BASE_SHA: ${{ github.event.pull_request.base.sha }}
         EVENT_NAME: ${{ github.event_name }}
         RUNNER_TEMP: ${{ runner.temp }}
+        INPUT_TELEMETRY: ${{ inputs.telemetry }}
+        # Marks the run as coming from this action rather than a hand-rolled npx
+        # step. `GITHUB_EVENT_NAME` and `RUNNER_OS` the runner already provides.
+        NESTJS_DOCTOR_GITHUB_ACTION: ${{ github.action_ref || '1' }}
+        NESTJS_DOCTOR_ACTION_VERSION: ${{ inputs.version }}
+        NESTJS_DOCTOR_ACTION_COMMENT: ${{ inputs.comment }}
+        NESTJS_DOCTOR_ACTION_REVIEW_COMMENTS: ${{ inputs.review-comments }}
+        NESTJS_DOCTOR_ACTION_COMMIT_STATUS: ${{ inputs.commit-status }}
+        NESTJS_DOCTOR_ACTION_SARIF: ${{ inputs.sarif }}
+        NESTJS_DOCTOR_ACTION_ACTOR_ASSOCIATION: ${{ github.event.pull_request.author_association }}
       run: |
         set -o pipefail
         TOOLCHAIN_DIR="${RUNNER_TEMP:-/tmp}/nestjs-doctor-toolchain"
@@ -236,6 +249,7 @@ runs:
         FLAGS=("--format" "json" "--output" "$REPORT_FILE" "--blocking" "$INPUT_BLOCKING")
         if [ -n "$INPUT_MIN_SCORE" ]; then FLAGS+=("--min-score" "$INPUT_MIN_SCORE"); fi
         if [ -n "$INPUT_CONFIG" ]; then FLAGS+=("--config" "$INPUT_CONFIG"); fi
+        if [ "$INPUT_TELEMETRY" = "false" ]; then FLAGS+=("--no-telemetry"); fi
 
         # Lowercase so this bash test agrees with the case-insensitive `!= 'full'`
         # comparisons the changed-file steps use; otherwise `scope: Full` would

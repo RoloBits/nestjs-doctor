@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { CodeDiagnostic } from "../../src/common/diagnostic.js";
 import type { Score } from "../../src/common/result.js";
+import { actionContext } from "../../src/telemetry/environment.js";
 import {
 	buildScanPayload,
 	type ScanFacts,
@@ -20,6 +21,9 @@ const code = (overrides: Partial<CodeDiagnostic>): CodeDiagnostic => ({
 });
 
 const facts = (overrides: Partial<ScanFacts> = {}): ScanFacts => ({
+	action: actionContext({}),
+	blocking: "error",
+	scope: "full",
 	config: {
 		categoriesDisabled: [],
 		customRulesDir: false,
@@ -100,6 +104,13 @@ describe("scan telemetry payload", () => {
 		const serialized = JSON.stringify(
 			buildScanPayload(
 				facts({
+					// A local `version` input is a path on the runner; only its
+					// classification may travel.
+					action: actionContext({
+						NESTJS_DOCTOR_GITHUB_ACTION: "v1",
+						NESTJS_DOCTOR_ACTION_VERSION:
+							"/Users/someone/acme-billing/nestjs-doctor",
+					}),
 					diagnostics: [code({})],
 					ruleErrors: [
 						{
@@ -116,6 +127,7 @@ describe("scan telemetry payload", () => {
 		expect(serialized).not.toContain("secret.ts");
 		expect(serialized).not.toContain("Provider is never injected");
 		expect(serialized).not.toContain("Cannot read file");
+		expect(serialized).not.toContain("acme-billing");
 	});
 
 	it("reports the environment without identifying the machine", () => {
@@ -130,6 +142,110 @@ describe("scan telemetry payload", () => {
 		expect(payload.generated_in).toBe("ci");
 		expect(payload.monorepo).toBe(true);
 		expect(payload.duration_ms).toBe(13);
+	});
+
+	it("reports how the official action was triggered", () => {
+		const payload = buildScanPayload(
+			facts({
+				action: actionContext({
+					GITHUB_ACTIONS: "true",
+					GITHUB_EVENT_NAME: "pull_request",
+					NESTJS_DOCTOR_ACTION_ACTOR_ASSOCIATION: "FIRST_TIME_CONTRIBUTOR",
+					NESTJS_DOCTOR_ACTION_COMMENT: "true",
+					NESTJS_DOCTOR_ACTION_COMMIT_STATUS: "true",
+					NESTJS_DOCTOR_ACTION_REVIEW_COMMENTS: "false",
+					NESTJS_DOCTOR_ACTION_SARIF: "false",
+					NESTJS_DOCTOR_ACTION_VERSION: "latest",
+					NESTJS_DOCTOR_GITHUB_ACTION: "v1",
+					RUNNER_OS: "Linux",
+				}),
+				blocking: "warning",
+				scope: "changed",
+			})
+		);
+
+		expect(payload.via_action).toBe(true);
+		expect(payload.action_ref).toBe("v1");
+		expect(payload.action_version_pin).toBe("latest");
+		expect(payload.ci_event).toBe("pull_request");
+		expect(payload.ci_provider).toBe("github");
+		expect(payload.runner_os).toBe("Linux");
+		expect(payload.action_comment).toBe(true);
+		expect(payload.action_review_comments).toBe(false);
+		expect(payload.actor_association).toBe("FIRST_TIME_CONTRIBUTOR");
+		// Taken from what the CLI resolved, not from the raw action input.
+		expect(payload.scope).toBe("changed");
+		expect(payload.blocking).toBe("warning");
+	});
+
+	it("separates a hand-rolled CI step from the official action", () => {
+		const payload = buildScanPayload(
+			facts({
+				action: actionContext({
+					GITHUB_ACTIONS: "true",
+					GITHUB_EVENT_NAME: "push",
+					RUNNER_OS: "Linux",
+				}),
+			})
+		);
+
+		expect(payload.via_action).toBe(false);
+		expect(payload.action_ref).toBeNull();
+		expect(payload.action_comment).toBeNull();
+		expect(payload.action_review_comments).toBeNull();
+		expect(payload.actor_association).toBeNull();
+		expect(payload.action_version_pin).toBeNull();
+		// The runner still describes itself.
+		expect(payload.ci_event).toBe("push");
+		expect(payload.ci_provider).toBe("github");
+	});
+
+	it("drops a value that is not in the vocabulary", () => {
+		const payload = buildScanPayload(
+			facts({
+				action: actionContext({
+					GITHUB_EVENT_NAME: "repository_dispatch",
+					NESTJS_DOCTOR_ACTION_ACTOR_ASSOCIATION: "PRESIDENT",
+					NESTJS_DOCTOR_ACTION_COMMENT: "yes",
+					NESTJS_DOCTOR_GITHUB_ACTION: "../../etc/passwd",
+					RUNNER_OS: "Plan9",
+				}),
+			})
+		);
+
+		expect(payload.actor_association).toBeNull();
+		expect(payload.action_comment).toBeNull();
+		expect(payload.runner_os).toBeNull();
+		// Set, so the run came from the action; the ref itself is unusable.
+		expect(payload.via_action).toBe(true);
+		expect(payload.action_ref).toBeNull();
+		// An unlisted trigger still counts, without naming itself.
+		expect(payload.ci_event).toBe("other");
+	});
+
+	it("reads the ambient environment when given none", () => {
+		// The pipeline calls actionContext() with no argument; every other test
+		// injects one, so the default parameter is otherwise never exercised.
+		vi.stubEnv("NESTJS_DOCTOR_GITHUB_ACTION", "v1");
+		try {
+			expect(actionContext().viaAction).toBe(true);
+			expect(actionContext().actionRef).toBe("v1");
+		} finally {
+			vi.unstubAllEnvs();
+		}
+	});
+
+	it("classifies the version pin without forwarding the spec", () => {
+		const pin = (version: string) =>
+			actionContext({ NESTJS_DOCTOR_ACTION_VERSION: version }).actionVersionPin;
+
+		expect(pin("latest")).toBe("latest");
+		expect(pin("1.4.2")).toBe("pinned");
+		expect(pin("nestjs-doctor@1.4.2")).toBe("pinned");
+		expect(pin("./local/checkout")).toBe("local");
+		expect(pin("/abs/path")).toBe("local");
+		expect(pin("file:../sibling")).toBe("local");
+		expect(pin("")).toBeNull();
 	});
 });
 
