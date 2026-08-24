@@ -1,4 +1,6 @@
+import { stat } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
+import { Worker } from "node:worker_threads";
 import type { Diagnostic } from "../common/diagnostic.js";
 import type { DiagnoseResult } from "../common/result.js";
 import { computeBaselineDelta } from "../engine/baseline.js";
@@ -55,25 +57,17 @@ import {
 	outputSingleProjectResults,
 } from "./output.js";
 import type { PipelineOptions } from "./setup.js";
+import { createAnimatedProgress } from "./ui/animated-progress.js";
 import { logger } from "./ui/logger.js";
-import { renderProgressBar } from "./ui/progress-bar.js";
-import { spinner } from "./ui/spinner.js";
 
 type PipelineStep = () => void | Promise<void>;
 
-const analysisText = (
-	phase: AnalysisPhase,
-	parsed?: number,
-	total?: number
-): string => {
+const analysisLabel = (phase: AnalysisPhase): string => {
 	if (phase === "collecting") {
 		return "Collecting files";
 	}
 	if (phase === "parsing") {
-		return `Parsing files ${renderProgressBar(parsed ?? 0, total ?? 0)}`;
-	}
-	if (total) {
-		return `Analyzing the project ${renderProgressBar(parsed ?? 0, total)}`;
+		return "Parsing files";
 	}
 	return "Analyzing the project";
 };
@@ -88,6 +82,50 @@ export interface InteractiveArtifacts {
 	subProjects?: { name: string; result: DiagnoseResult }[];
 }
 
+/** Main → scan worker. Everything the engine middle needs. */
+export interface ScanWorkerRequest {
+	kind: "monorepo" | "single";
+	monorepo?: MonorepoInfo;
+	options: PipelineOptions;
+	targetPath: string;
+}
+
+/** Worker → main. Progress ticks, then one outcome or one failure. */
+export type ScanWorkerMessage =
+	| { kind: "progress"; label: string; done?: number; total?: number }
+	| { kind: "outcome"; outcome: ScanOutcome }
+	| { kind: "error"; message: string };
+
+/**
+ * Everything the engine steps produced, in transferable data. Live ts-morph
+ * objects stay in the worker; the report providers arrive pre-converted.
+ */
+export type ScanOutcome =
+	| {
+			kind: "monorepo";
+			customRuleWarnings: string[];
+			moduleGraphs: MonorepoEngineResult["moduleGraphs"];
+			result: MonorepoEngineResult["result"];
+			reportProviders: ReportProvider[];
+			bootstrapRoots: string[];
+			allFiles: string[];
+			subProjectOptOut: boolean;
+			scopeWarnings: string[];
+			resolvedMinimumScore?: number;
+	  }
+	| {
+			kind: "single";
+			customRuleWarnings: string[];
+			files: string[];
+			moduleGraph: EngineResult["moduleGraph"];
+			reportProviders: ReportProvider[];
+			bootstrapRoots: string[];
+			result: DiagnoseResult;
+			schemaGraph: EngineResult["schemaGraph"];
+			scopeWarnings: string[];
+			resolvedMinimumScore?: number;
+	  };
+
 const displayCustomRuleWarnings = (
 	warnings: string[],
 	isMachineReadable: boolean
@@ -100,16 +138,27 @@ const displayCustomRuleWarnings = (
 	}
 };
 
+/**
+ * Points the pipelines at the worker entry. Called by the CLI entry, whose own
+ * directory is where the built worker file lands; code splitting puts this
+ * module in a chunk one level up, so it cannot resolve the path itself.
+ */
+export const setScanWorkerUrl = (url: URL | null): void => {
+	ScanPipeline.setWorkerUrl(url);
+};
+
 /** Abstract base for scan pipelines — shared step queue, config, scoping, warnings */
 abstract class ScanPipeline {
 	protected readonly options: PipelineOptions;
 	protected resolvedMinimumScore: number | undefined;
 	protected scanConfig!: ScanConfig;
-	/** Live spinner handle while `run` is in flight; steps update its text. */
+	/** Live progress line while `run` is in flight; steps update its label. */
 	protected progress: {
 		succeed(text: string): void;
-		update(text: string): void;
+		update(label: string, done?: number, total?: number): void;
 	} | null = null;
+	/** The final step; in worker mode main runs it after the outcome lands. */
+	protected outputStep: PipelineStep | null = null;
 	/** Set when any scanned sub-project declares its own opt-out. */
 	protected subProjectOptOut = false;
 	/** Warnings raised while narrowing the scope; surfaced alongside the report. */
@@ -203,6 +252,9 @@ abstract class ScanPipeline {
 
 	warnCustomRules(): this {
 		this.steps.push(() => {
+			if (this.options.skipOutput) {
+				return;
+			}
 			this.stopProgress();
 			displayCustomRuleWarnings(
 				this.scanConfig.customRuleWarnings,
@@ -221,7 +273,7 @@ abstract class ScanPipeline {
 			return result;
 		}
 
-		this.progress?.update("Comparing against the base revision");
+		this.emitProgress("Comparing against the base revision");
 		const scope: ResolvedScope = resolveScope({
 			base: this.options.base,
 			changedFilesFrom: this.options.changedFilesFrom,
@@ -272,16 +324,130 @@ abstract class ScanPipeline {
 		this.progress = null;
 	}
 
+	/** Phases with a count animate the bar; the rest show the label alone. */
+	protected updateAnalysisProgress(
+		phase: AnalysisPhase,
+		parsed?: number,
+		total?: number,
+		prefix?: string
+	): void {
+		const base = analysisLabel(phase);
+		const label = prefix ? `${prefix} — ${base.toLowerCase()}` : base;
+		if (phase === "parsing") {
+			this.emitProgress(label, parsed ?? 0, total ?? 0);
+		} else if (phase === "analyzing" && total) {
+			this.emitProgress(label, parsed ?? 0, total);
+		} else {
+			this.emitProgress(label);
+		}
+	}
+
+	/** Subclass hook: runs the engine middle, then the main-side tail. */
+	protected delegate(): Promise<void> {
+		return Promise.resolve();
+	}
+
+	/** One funnel for every progress update, wherever the scan runs. */
+	protected emitProgress(label: string, done?: number, total?: number): void {
+		this.progress?.update(label, done, total);
+		this.options.onProgress?.(label, done, total);
+	}
+
+	/**
+	 * Interactive runs execute the engine middle in a worker thread, so the
+	 * spinner never competes with the scan for the event loop. Everything else —
+	 * CI, machine-readable output, tests — scans in-process exactly as before.
+	 * The URL is injected by the CLI entry: code splitting places this class in
+	 * a chunk whose own directory is not where the worker file lands.
+	 */
+	private static workerUrl: URL | null = null;
+
+	static setWorkerUrl(url: URL | null): void {
+		ScanPipeline.workerUrl = url;
+	}
+
+	/** Injected by the CLI entry; null until then. */
+	protected async canDelegate(): Promise<boolean> {
+		if (!this.options.interactive || this.options.isMachineReadable) {
+			return false;
+		}
+		if (this.outputStep === null || ScanPipeline.workerUrl === null) {
+			return false;
+		}
+		try {
+			await stat(ScanPipeline.workerUrl);
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	protected runViaWorker(
+		request: ScanWorkerRequest,
+		apply: (outcome: ScanOutcome) => void
+	): Promise<void> {
+		return new Promise((resolve, reject) => {
+			const url = ScanPipeline.workerUrl;
+			if (!url) {
+				reject(new Error("scan worker is not available"));
+				return;
+			}
+			let settled = false;
+			const worker = new Worker(url, { workerData: request });
+			const finish = (error?: Error): void => {
+				if (settled) {
+					return;
+				}
+				settled = true;
+				// biome-ignore lint/suspicious/noEmptyBlockStatements: termination is best-effort once the promise is settled
+				worker.terminate().catch(() => {});
+				if (error) {
+					reject(error);
+				} else {
+					resolve();
+				}
+			};
+			worker.on("message", (message: ScanWorkerMessage) => {
+				if (message.kind === "progress") {
+					this.emitProgress(message.label, message.done, message.total);
+				} else if (message.kind === "outcome") {
+					apply(message.outcome);
+					finish();
+				} else {
+					finish(new Error(message.message));
+				}
+			});
+			worker.on("error", (error) => {
+				finish(error instanceof Error ? error : new Error(String(error)));
+			});
+			worker.on("exit", (code) => {
+				if (code !== 0) {
+					finish(new Error(`scan worker exited with code ${code}`));
+				}
+			});
+		});
+	}
+
 	async run(): Promise<void> {
 		this.progress = this.options.isMachineReadable
 			? null
-			: spinner("Scanning...").start();
-
-		for (const step of this.steps) {
-			await step();
+			: createAnimatedProgress("Scanning...");
+		try {
+			if (await this.canDelegate()) {
+				try {
+					await this.delegate();
+					return;
+				} catch {
+					// The worker path is an optimization; the in-process scan is the
+					// source of truth when it is unavailable or fails.
+				}
+			}
+			for (const step of this.steps) {
+				await step();
+			}
+		} finally {
+			this.stopProgress();
 		}
-
-		this.stopProgress();
 	}
 }
 
@@ -346,6 +512,7 @@ export class MonorepoPipeline extends ScanPipeline {
 	}
 
 	private projectLabel = "";
+	private workerWarnings: string[] = [];
 
 	buildContext(): this {
 		this.steps.push(() => {
@@ -385,9 +552,7 @@ export class MonorepoPipeline extends ScanPipeline {
 						);
 					}
 					const rawOutput = await diagnose(context, (checked, total) => {
-						this.progress?.update(
-							`${label} — running rules ${renderProgressBar(checked, total)}`
-						);
+						this.emitProgress(`${label} — running rules`, checked, total);
 					});
 					const scanResult = buildResult(context, rawOutput);
 					return {
@@ -398,12 +563,10 @@ export class MonorepoPipeline extends ScanPipeline {
 				},
 				(name, index, total) => {
 					this.projectLabel = `${name} (${index}/${total})`;
-					this.progress?.update(`${this.projectLabel} — collecting files`);
+					this.emitProgress(`${this.projectLabel} — collecting files`);
 				},
 				(_name, phase, parsed, total) => {
-					this.progress?.update(
-						`${this.projectLabel} — ${analysisText(phase, parsed, total).toLowerCase()}`
-					);
+					this.updateAnalysisProgress(phase, parsed, total, this.projectLabel);
 				}
 			);
 		});
@@ -429,6 +592,64 @@ export class MonorepoPipeline extends ScanPipeline {
 			);
 		});
 		return this;
+	}
+
+	/** Runs the engine middle in a worker; main keeps only the report. */
+	protected delegate(): Promise<void> {
+		return this.runViaWorker(
+			{
+				kind: "monorepo",
+				targetPath: this.targetPath,
+				options: {
+					...this.options,
+					interactive: false,
+					isMachineReadable: true,
+					skipOutput: true,
+					onProgress: undefined,
+				},
+				monorepo: this.monorepo,
+			},
+			(outcome) => {
+				if (outcome.kind !== "monorepo") {
+					throw new Error("unexpected scan outcome");
+				}
+				this.workerWarnings = outcome.customRuleWarnings;
+				this.result = {
+					customRuleWarnings: outcome.customRuleWarnings,
+					moduleGraphs: outcome.moduleGraphs,
+					result: outcome.result,
+				};
+				this.allFiles.push(...outcome.allFiles);
+				this.allProviders.push(...outcome.reportProviders);
+				this.bootstrapRoots.push(...outcome.bootstrapRoots);
+				this.subProjectOptOut = outcome.subProjectOptOut;
+				this.scopeWarnings.push(...outcome.scopeWarnings);
+				this.resolvedMinimumScore = outcome.resolvedMinimumScore;
+			}
+		).then(async () => {
+			this.stopProgress();
+			displayCustomRuleWarnings(
+				this.workerWarnings,
+				this.options.isMachineReadable
+			);
+			await this.outputStep?.();
+		});
+	}
+
+	/** What the worker posts back after the engine steps finish. */
+	get workerOutcome(): ScanOutcome {
+		return {
+			kind: "monorepo",
+			customRuleWarnings: this.result.customRuleWarnings,
+			moduleGraphs: this.result.moduleGraphs,
+			result: this.result.result,
+			reportProviders: this.allProviders,
+			bootstrapRoots: this.bootstrapRoots,
+			allFiles: this.allFiles,
+			subProjectOptOut: this.subProjectOptOut,
+			scopeWarnings: this.scopeWarnings,
+			resolvedMinimumScore: this.resolvedMinimumScore,
+		};
 	}
 
 	applyScope(): this {
@@ -460,7 +681,7 @@ export class MonorepoPipeline extends ScanPipeline {
 	}
 
 	output(): this {
-		this.steps.push(() => {
+		const step: PipelineStep = () => {
 			outputMonorepoResults(
 				this.result,
 				this.resolvedMinimumScore,
@@ -468,7 +689,11 @@ export class MonorepoPipeline extends ScanPipeline {
 				this.options,
 				this.scopeWarnings
 			);
-		});
+		};
+		if (!this.options.skipOutput) {
+			this.steps.push(step);
+		}
+		this.outputStep = step;
 		return this;
 	}
 }
@@ -478,22 +703,19 @@ export class SingleProjectPipeline extends ScanPipeline {
 	private context!: AnalysisContext;
 	private rawOutput!: RawDiagnosticOutput;
 	private result!: EngineResult;
+	private reportProviders: ReportProvider[] = [];
+	private bootstrapRoots: string[] = [];
+	private workerWarnings: string[] = [];
 
 	/** What the post-scan menu needs, without re-scanning. */
 	get interactiveArtifacts(): InteractiveArtifacts {
 		return {
 			buildReportHtml: () => {
-				const { moduleGraph, files, providers } = this.result;
+				const { moduleGraph, files } = this.result;
 				return buildHtmlReport(moduleGraph, this.result.result, {
-					bootstrapRoots: [
-						...collectEntryModules(this.context.astProject, files, moduleGraph),
-					],
+					bootstrapRoots: this.bootstrapRoots,
 					files,
-					providers: [...providers.values()].map((provider) =>
-						toReportProvider(provider, {
-							module: moduleGraph.providerToModule.get(provider.name)?.name,
-						})
-					),
+					providers: this.reportProviders,
 				});
 			},
 			printSummary: () => {
@@ -503,13 +725,71 @@ export class SingleProjectPipeline extends ScanPipeline {
 		};
 	}
 
+	/** Runs the engine middle in a worker; main keeps only the report. */
+	protected delegate(): Promise<void> {
+		return this.runViaWorker(
+			{
+				kind: "single",
+				targetPath: this.targetPath,
+				options: {
+					...this.options,
+					interactive: false,
+					isMachineReadable: true,
+					skipOutput: true,
+					onProgress: undefined,
+				},
+			},
+			(outcome) => {
+				if (outcome.kind !== "single") {
+					throw new Error("unexpected scan outcome");
+				}
+				this.workerWarnings = outcome.customRuleWarnings;
+				this.result = {
+					customRuleWarnings: outcome.customRuleWarnings,
+					files: outcome.files,
+					moduleGraph: outcome.moduleGraph,
+					providers: new Map(),
+					result: outcome.result,
+					schemaGraph: outcome.schemaGraph,
+				};
+				this.reportProviders = outcome.reportProviders;
+				this.bootstrapRoots = outcome.bootstrapRoots;
+				this.scopeWarnings.push(...outcome.scopeWarnings);
+				this.resolvedMinimumScore = outcome.resolvedMinimumScore;
+			}
+		).then(async () => {
+			this.stopProgress();
+			displayCustomRuleWarnings(
+				this.workerWarnings,
+				this.options.isMachineReadable
+			);
+			await this.outputStep?.();
+		});
+	}
+
+	/** What the worker posts back after the engine steps finish. */
+	get workerOutcome(): ScanOutcome {
+		return {
+			kind: "single",
+			customRuleWarnings: this.result.customRuleWarnings,
+			files: this.result.files,
+			moduleGraph: this.result.moduleGraph,
+			reportProviders: this.reportProviders,
+			bootstrapRoots: this.bootstrapRoots,
+			result: this.result.result,
+			schemaGraph: this.result.schemaGraph,
+			scopeWarnings: this.scopeWarnings,
+			resolvedMinimumScore: this.resolvedMinimumScore,
+		};
+	}
+
 	buildContext(): this {
 		this.steps.push(async () => {
 			this.context = await buildAnalysisContext(
 				this.targetPath,
 				this.scanConfig,
 				(phase, parsed, total) => {
-					this.progress?.update(analysisText(phase, parsed, total));
+					this.updateAnalysisProgress(phase, parsed, total);
 				}
 			);
 		});
@@ -519,9 +799,7 @@ export class SingleProjectPipeline extends ScanPipeline {
 	runRules(): this {
 		this.steps.push(async () => {
 			this.rawOutput = await diagnose(this.context, (checked, total) => {
-				this.progress?.update(
-					`Running rules ${renderProgressBar(checked, total)}`
-				);
+				this.emitProgress("Running rules", checked, total);
 			});
 		});
 		return this;
@@ -534,6 +812,26 @@ export class SingleProjectPipeline extends ScanPipeline {
 				this.rawOutput,
 				this.scanConfig.customRuleWarnings
 			);
+			// Entry roots and report providers come from the live graph, before
+			// the detach below strips the ts-morph class declarations.
+			this.bootstrapRoots = [
+				...collectEntryModules(
+					this.context.astProject,
+					this.result.files,
+					this.result.moduleGraph
+				),
+			];
+			this.reportProviders = [...this.result.providers.values()].map(
+				(provider) =>
+					toReportProvider(provider, {
+						module: this.result.moduleGraph.providerToModule.get(provider.name)
+							?.name,
+					})
+			);
+			this.result = {
+				...this.result,
+				moduleGraph: detachModuleGraph(this.result.moduleGraph),
+			};
 			// Before applyScope, which narrows `diagnostics` in place.
 			this.reportScan(
 				this.rawOutput.diagnostics,
@@ -556,7 +854,7 @@ export class SingleProjectPipeline extends ScanPipeline {
 	}
 
 	output(): this {
-		this.steps.push(() => {
+		const step: PipelineStep = () => {
 			outputSingleProjectResults(
 				this.result,
 				this.resolvedMinimumScore,
@@ -564,7 +862,11 @@ export class SingleProjectPipeline extends ScanPipeline {
 				this.options,
 				this.scopeWarnings
 			);
-		});
+		};
+		if (!this.options.skipOutput) {
+			this.steps.push(step);
+		}
+		this.outputStep = step;
 		return this;
 	}
 }

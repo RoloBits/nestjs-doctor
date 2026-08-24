@@ -2,11 +2,23 @@ import { Box, Text, useStdout } from "ink";
 import { useEffect, useState } from "react";
 import type { DiagnoseResult } from "../../../common/result.js";
 import { formatElapsedTime } from "../../formatters/console-reporter.js";
+import { groupFindings } from "../findings.js";
+import { listCapacity, scrollWindow } from "./navigate.js";
 import { padEnd, truncate } from "./text.js";
-import { getNestBirds, getStarRating, palette, scoreColor } from "./theme.js";
+import {
+	getNestBirds,
+	getStarRating,
+	palette,
+	SEVERITY_MARK,
+	scoreColor,
+	severityColor,
+} from "./theme.js";
 import type { InteractiveContext, MenuAction, Toast } from "./types.js";
 
 const SCORE_BAR_WIDTH = 30;
+/** Nest box, score block, menu borders, footer, and the gaps between them. */
+const CHROME_ROWS = 14;
+const MIN_SUB_ROWS = 3;
 
 const TOAST_STYLE: Record<
 	"error" | "info" | "success",
@@ -107,12 +119,39 @@ const subStatus = (
 	return "  ✓ clean";
 };
 
+const byWorstScore = (
+	a: { name: string; score: number },
+	b: { name: string; score: number }
+): number => a.score - b.score || a.name.localeCompare(b.name);
+
+const shortRule = (rule: string): string =>
+	rule.split("/").slice(1).join("/") || rule;
+
+const keyHints = (
+	busy: boolean,
+	hasSubProjects: boolean,
+	focus: "list" | "menu"
+): string => {
+	if (busy) {
+		return "working…";
+	}
+	if (!hasSubProjects) {
+		return "↑↓ select · enter confirm · q quit";
+	}
+	return focus === "list"
+		? "↑↓ project · ←→ actions · enter confirm · q quit"
+		: "↑↓ select · ←→ projects · enter confirm · q quit";
+};
+
 interface ScoreScreenProps {
 	busy: boolean;
 	context: InteractiveContext;
+	/** Which pane answers to ↑↓: the sub-project list or the action menu. */
+	focus: "list" | "menu";
 	items: MenuItem[];
 	result: DiagnoseResult;
 	selected: number;
+	selectedSub: number;
 	toast: Toast;
 }
 
@@ -143,9 +182,11 @@ const useCountUp = (target: number, durationMs = ANIMATION_MS): number => {
 export const ScoreScreen = ({
 	busy,
 	context,
+	focus,
 	items,
 	result,
 	selected,
+	selectedSub,
 	toast,
 }: ScoreScreenProps): React.JSX.Element => {
 	const { project, score, summary, elapsedMs, diagnostics } = result;
@@ -154,6 +195,42 @@ export const ScoreScreen = ({
 	const shownScore = useCountUp(score.value);
 	const affectedFiles = new Set(diagnostics.map((d) => d.filePath)).size;
 	const labelWidth = Math.max(...items.map((item) => item.label.length));
+
+	const subProjects = [...(context.subProjects ?? [])].sort(byWorstScore);
+	const paneRows = listCapacity(
+		stdout.rows ?? 24,
+		CHROME_ROWS + items.length,
+		MIN_SUB_ROWS
+	);
+	const subProjectsOverflow = subProjects.length > paneRows - 1;
+	const visibleSubRows = Math.max(
+		1,
+		paneRows - 1 - (subProjectsOverflow ? 1 : 0)
+	);
+	const [subOffset, setSubOffset] = useState(0);
+	const selectedSubRow = Math.min(selectedSub, subProjects.length - 1);
+	const safeSubOffset = scrollWindow(
+		Math.min(subOffset, Math.max(0, subProjects.length - visibleSubRows)),
+		selectedSubRow,
+		visibleSubRows
+	);
+
+	useEffect(() => {
+		setSubOffset(safeSubOffset);
+	}, [safeSubOffset]);
+
+	const selectedSubProject = subProjects[selectedSubRow];
+	const selectedRules = selectedSubProject
+		? groupFindings(selectedSubProject.diagnostics)
+		: [];
+	const rulesRoom = Math.max(0, paneRows - 4);
+	const rulesTruncated = selectedRules.length > rulesRoom;
+	const shownRules = selectedRules.slice(
+		0,
+		rulesTruncated ? rulesRoom - 1 : rulesRoom
+	);
+	const leftContent = Math.max(14, Math.min(42, Math.round(columns * 0.34)));
+	const panelWidth = Math.max(12, columns - leftContent - 4);
 
 	const countLabel = (count: number, singular: string): string =>
 		`${count} ${singular}${count === 1 ? "" : "s"}`;
@@ -239,23 +316,157 @@ export const ScoreScreen = ({
 				</Text>
 			</Box>
 
-			{context.subProjects && context.subProjects.length > 0 ? (
-				<Box flexDirection="column">
-					<Text color={palette.muted}>SUB-PROJECTS</Text>
-					{context.subProjects.map((sub) => (
-						<Text key={sub.name}>
-							<Text color={palette.text}>{`  ${padEnd(sub.name, 28)}`}</Text>
-							<Text
-								color={scoreColor(sub.score)}
-							>{`${String(sub.score).padStart(3)}/100`}</Text>
-							<Text color={palette.dim}>{subStatus(sub)}</Text>
+			{subProjects.length > 0 ? (
+				<Box flexDirection="row">
+					<Box flexDirection="column" flexShrink={0} width={leftContent}>
+						<Text
+							bold={focus === "list"}
+							color={focus === "list" ? palette.bright : palette.muted}
+						>
+							{" SUB-PROJECTS"}
 						</Text>
-					))}
+						{subProjects
+							.slice(safeSubOffset, safeSubOffset + visibleSubRows)
+							.map((sub, index) => {
+								const isSelected = safeSubOffset + index === selectedSubRow;
+								return (
+									<Box flexDirection="row" key={sub.name}>
+										<Box
+											backgroundColor={
+												isSelected && focus === "list"
+													? palette.nestRed
+													: undefined
+											}
+											width={1}
+										>
+											<Text> </Text>
+										</Box>
+										<Box
+											backgroundColor={
+												isSelected && focus === "list"
+													? palette.washRed
+													: undefined
+											}
+											flexDirection="row"
+											width={leftContent - 1}
+										>
+											<Text>
+												<Text
+													bold={isSelected}
+													color={isSelected ? palette.bright : palette.text}
+												>
+													{` ${padEnd(
+														truncate(sub.name, leftContent - 12),
+														Math.max(0, leftContent - 12)
+													)}`}
+												</Text>
+												<Text
+													color={
+														isSelected && focus === "list"
+															? palette.bright
+															: scoreColor(sub.score)
+													}
+												>
+													{`${String(sub.score).padStart(3)}/100`}
+												</Text>
+												<Text
+													color={
+														isSelected && focus === "list"
+															? palette.muted
+															: palette.dim
+													}
+												>
+													{` ${subStatus(sub).slice(2, 3)}`}
+												</Text>
+											</Text>
+										</Box>
+									</Box>
+								);
+							})}
+						{subProjectsOverflow ? (
+							<Text color={palette.dim}>
+								{` … ${safeSubOffset + 1}–${Math.min(safeSubOffset + visibleSubRows, subProjects.length)} of ${subProjects.length}`}
+							</Text>
+						) : null}
+					</Box>
+					<Box
+						borderBottom={false}
+						borderColor={palette.border}
+						borderRight={false}
+						borderStyle="single"
+						borderTop={false}
+						flexShrink={0}
+					/>
+					<Box flexDirection="column" paddingLeft={1} width={panelWidth}>
+						{selectedSubProject ? (
+							<>
+								<Text>
+									<Text bold color={palette.bright}>
+										{truncate(selectedSubProject.name, panelWidth - 10)}
+									</Text>
+									<Text color={scoreColor(selectedSubProject.score)}>
+										{`  ${selectedSubProject.score}/100`}
+									</Text>
+								</Text>
+								<ScoreBar score={selectedSubProject.score} />
+								<Text>
+									{selectedSubProject.errors > 0 ? (
+										<Text color={palette.error}>
+											{`✗ ${selectedSubProject.errors}`}
+										</Text>
+									) : null}
+									{selectedSubProject.errors > 0 &&
+									selectedSubProject.warnings > 0 ? (
+										<Text color={palette.dim}>{"  ·  "}</Text>
+									) : null}
+									{selectedSubProject.warnings > 0 ? (
+										<Text color={palette.warning}>
+											{`⚠ ${selectedSubProject.warnings}`}
+										</Text>
+									) : null}
+									{selectedSubProject.info > 0 ? (
+										<Text color={palette.dim}>
+											{`  ·  ${selectedSubProject.info} info`}
+										</Text>
+									) : null}
+									{selectedSubProject.diagnostics.length === 0 ? (
+										<Text color={palette.success}>✓ clean</Text>
+									) : null}
+									<Text color={palette.dim}>
+										{`  ·  ${selectedSubProject.fileCount} files`}
+									</Text>
+								</Text>
+								{selectedRules.length > 0 ? (
+									<Box flexDirection="column" paddingTop={0}>
+										<Text color={palette.muted}>{" TOP RULES"}</Text>
+										{shownRules.map((group) => (
+											<Text key={group.rule}>
+												<Text color={severityColor(group.severity)}>
+													{` ${SEVERITY_MARK[group.severity]} `}
+												</Text>
+												<Text color={palette.text}>
+													{truncate(shortRule(group.rule), panelWidth - 8)}
+												</Text>
+												<Text color={palette.dim}>
+													{` ${group.diagnostics.length}`}
+												</Text>
+											</Text>
+										))}
+										{rulesTruncated ? (
+											<Text color={palette.dim}>
+												{` … +${selectedRules.length - shownRules.length} more rules`}
+											</Text>
+										) : null}
+									</Box>
+								) : null}
+							</>
+						) : null}
+					</Box>
 				</Box>
 			) : null}
 
 			<Box
-				borderColor={palette.border}
+				borderColor={focus === "menu" ? palette.nestRed : palette.border}
 				borderStyle="single"
 				flexDirection="column"
 			>
@@ -310,7 +521,7 @@ export const ScoreScreen = ({
 					</Text>
 				) : null}
 				<Text color={palette.dim}>
-					{busy ? "working…" : "↑↓ select · enter confirm · q quit"}
+					{keyHints(busy, subProjects.length > 0, focus)}
 				</Text>
 			</Box>
 		</Box>

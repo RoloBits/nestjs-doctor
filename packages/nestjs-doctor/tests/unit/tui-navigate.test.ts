@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { groupFindings } from "../../src/cli/interactive/findings.js";
 import {
 	buildListRows,
+	clampOffset,
 	flattenFindings,
+	listCapacity,
 	moveSelection,
 	scrollWindow,
 } from "../../src/cli/interactive/tui/navigate.js";
@@ -62,6 +64,28 @@ describe("scrollWindow", () => {
 
 	it("keeps the offset while the selection stays visible", () => {
 		expect(scrollWindow(2, 3, 4)).toBe(2);
+	});
+});
+
+describe("listCapacity", () => {
+	it("gives the list what the terminal has left after the fixed chrome", () => {
+		expect(listCapacity(40, 21, 3)).toBe(19);
+	});
+
+	it("keeps a floor so a tiny terminal still shows some rows", () => {
+		expect(listCapacity(12, 21, 3)).toBe(3);
+	});
+});
+
+describe("clampOffset", () => {
+	it("keeps the window inside the list", () => {
+		expect(clampOffset(-4, 20, 8)).toBe(0);
+		expect(clampOffset(99, 20, 8)).toBe(12);
+		expect(clampOffset(3, 20, 8)).toBe(3);
+	});
+
+	it("collapses to the top when everything fits", () => {
+		expect(clampOffset(5, 8, 8)).toBe(0);
 	});
 });
 

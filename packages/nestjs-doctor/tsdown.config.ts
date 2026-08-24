@@ -10,7 +10,10 @@ export default defineConfig([
 		minify: true,
 	},
 	{
-		entry: { "cli/index": "src/cli/index.ts" },
+		entry: {
+			"cli/index": "src/cli/index.ts",
+			"cli/scan-worker": "src/cli/scan-worker.ts",
+		},
 		format: ["esm"],
 		banner: { js: "#!/usr/bin/env node" },
 		clean: false,

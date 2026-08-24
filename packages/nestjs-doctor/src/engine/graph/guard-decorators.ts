@@ -1,5 +1,6 @@
 import type { Node, Project, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
+import { YIELD_INTERVAL, yieldToEventLoop } from "../yield.js";
 
 /** Decorator names that compose `UseGuards`, keyed by the file declaring them. */
 export type GuardDecoratorIndex = Map<string, Set<string>>;
@@ -112,6 +113,24 @@ export function buildGuardDecoratorIndex(
 		const sourceFile = project.getSourceFile(filePath);
 		if (sourceFile) {
 			index.set(filePath, namesInFile(sourceFile));
+		}
+	}
+	return index;
+}
+
+/** Batched so a spinner on the same event loop keeps repainting mid-pass. */
+export async function buildGuardDecoratorIndexAsync(
+	project: Project,
+	files: string[]
+): Promise<GuardDecoratorIndex> {
+	const index: GuardDecoratorIndex = new Map();
+	for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
+		const sourceFile = project.getSourceFile(files[fileIndex]);
+		if (sourceFile) {
+			index.set(files[fileIndex], namesInFile(sourceFile));
+		}
+		if ((fileIndex + 1) % YIELD_INTERVAL === 0) {
+			await yieldToEventLoop();
 		}
 	}
 	return index;

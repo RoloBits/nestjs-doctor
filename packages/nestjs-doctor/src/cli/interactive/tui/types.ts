@@ -1,6 +1,8 @@
+import type { Diagnostic } from "../../../common/diagnostic.js";
 import type { DiagnoseResult } from "../../../common/result.js";
 
 export interface SubProjectView {
+	diagnostics: Diagnostic[];
 	errors: number;
 	fileCount: number;
 	info: number;

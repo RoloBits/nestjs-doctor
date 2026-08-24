@@ -13,12 +13,12 @@ import {
 	updateEndpointGraphForFile,
 } from "./graph/endpoint-graph.js";
 import {
-	buildGuardDecoratorIndex,
+	buildGuardDecoratorIndexAsync,
 	type GuardDecoratorIndex,
 	updateGuardDecoratorIndexForFile,
 } from "./graph/guard-decorators.js";
 import {
-	buildModuleGraph,
+	buildModuleGraphAsync,
 	type ModuleGraph,
 	updateModuleGraphForFile,
 } from "./graph/module-graph.js";
@@ -28,7 +28,7 @@ import {
 } from "./graph/tsconfig-paths.js";
 import type { ProviderInfo } from "./graph/type-resolver.js";
 import {
-	resolveProviders,
+	resolveProvidersAsync,
 	updateProvidersForFile,
 } from "./graph/type-resolver.js";
 import { detectProject, type MonorepoInfo } from "./project-detector.js";
@@ -88,9 +88,13 @@ export async function buildAnalysisContext(
 	);
 	onProgress?.("analyzing");
 	await yieldToEventLoop();
-	const moduleGraph = buildModuleGraph(astProject, files, pathAliases);
+	const moduleGraph = await buildModuleGraphAsync(
+		astProject,
+		files,
+		pathAliases
+	);
 	await yieldToEventLoop();
-	const providers = resolveProviders(astProject, files);
+	const providers = await resolveProvidersAsync(astProject, files);
 	await yieldToEventLoop();
 	const endpointGraph = await buildEndpointGraphWithProgress(
 		astProject,
@@ -108,7 +112,7 @@ export async function buildAnalysisContext(
 		endpointGraph,
 		fileRules,
 		files,
-		guardDecorators: buildGuardDecoratorIndex(astProject, files),
+		guardDecorators: await buildGuardDecoratorIndexAsync(astProject, files),
 		moduleGraph,
 		pathAliases,
 		project,
@@ -203,9 +207,13 @@ async function buildSubProjectContext(
 	);
 	onProgress?.("analyzing");
 	await yieldToEventLoop();
-	const moduleGraph = buildModuleGraph(astProject, files, pathAliases);
+	const moduleGraph = await buildModuleGraphAsync(
+		astProject,
+		files,
+		pathAliases
+	);
 	await yieldToEventLoop();
-	const providers = resolveProviders(astProject, files);
+	const providers = await resolveProvidersAsync(astProject, files);
 	await yieldToEventLoop();
 	const endpointGraph = await buildEndpointGraphWithProgress(
 		astProject,
@@ -232,7 +240,7 @@ async function buildSubProjectContext(
 		endpointGraph,
 		fileRules,
 		files,
-		guardDecorators: buildGuardDecoratorIndex(astProject, files),
+		guardDecorators: await buildGuardDecoratorIndexAsync(astProject, files),
 		moduleGraph,
 		pathAliases,
 		project,

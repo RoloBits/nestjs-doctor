@@ -7,6 +7,7 @@ import type {
 	SourceFile,
 } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
+import { YIELD_INTERVAL, yieldToEventLoop } from "../yield.js";
 import { invalidateEntryModules } from "./entry-points.js";
 import type { PathAliasMap } from "./tsconfig-paths.js";
 import { resolvePathAlias } from "./tsconfig-paths.js";
@@ -248,15 +249,12 @@ function addModuleNode(
 	modules.set(node.name, node);
 }
 
-export function buildModuleGraph(
+function collectModuleNodes(
 	project: Project,
 	files: string[],
 	pathAliases: PathAliasMap = new Map()
-): ModuleGraph {
+): Map<string, ModuleNode> {
 	const modules = new Map<string, ModuleNode>();
-	const edges = new Map<string, Set<string>>();
-
-	// First pass: collect all @Module() classes
 	for (const filePath of files) {
 		const sourceFile = project.getSourceFile(filePath);
 		if (!sourceFile) {
@@ -271,8 +269,12 @@ export function buildModuleGraph(
 			addModuleNode(modules, node);
 		}
 	}
+	return modules;
+}
 
-	// Second pass: build edges from import relationships
+function finishModuleGraph(modules: Map<string, ModuleNode>): ModuleGraph {
+	// Build edges from import relationships
+	const edges = new Map<string, Set<string>>();
 	for (const [name, node] of modules) {
 		const importSet = new Set<string>();
 		for (const imp of node.imports) {
@@ -292,6 +294,39 @@ export function buildModuleGraph(
 	}
 
 	return { modules, edges, providerToModule };
+}
+
+export function buildModuleGraph(
+	project: Project,
+	files: string[],
+	pathAliases: PathAliasMap = new Map()
+): ModuleGraph {
+	return finishModuleGraph(collectModuleNodes(project, files, pathAliases));
+}
+
+/** Batched so a spinner on the same event loop keeps repainting mid-pass. */
+export async function buildModuleGraphAsync(
+	project: Project,
+	files: string[],
+	pathAliases: PathAliasMap = new Map()
+): Promise<ModuleGraph> {
+	const modules = new Map<string, ModuleNode>();
+	for (let index = 0; index < files.length; index++) {
+		const sourceFile = project.getSourceFile(files[index]);
+		if (sourceFile) {
+			for (const node of extractModulesFromFile(
+				sourceFile,
+				files[index],
+				pathAliases
+			)) {
+				addModuleNode(modules, node);
+			}
+		}
+		if ((index + 1) % YIELD_INTERVAL === 0) {
+			await yieldToEventLoop();
+		}
+	}
+	return finishModuleGraph(modules);
 }
 
 const MAX_RESOLVE_DEPTH = 5;

@@ -10,6 +10,7 @@ import {
 	type InteractiveArtifacts,
 	MonorepoPipeline,
 	SingleProjectPipeline,
+	setScanWorkerUrl,
 } from "./pipeline.js";
 import { type CliArgs, CliSetup } from "./setup.js";
 import { canPrompt } from "./ui/environment.js";
@@ -19,6 +20,10 @@ const CONFIG_ERROR_EXIT_CODE = 2;
 
 const require = createRequire(import.meta.url);
 const { version } = require("../../package.json") as { version: string };
+
+// Sibling of this entry in the built bundle; missing in a source checkout,
+// where the pipeline then always scans in-process.
+setScanWorkerUrl(new URL("./scan-worker.mjs", import.meta.url));
 
 const main = defineCommand({
 	meta: {
@@ -76,6 +81,7 @@ async function scan(args: CliArgs): Promise<void> {
 			buildReportHtml: artifacts.buildReportHtml,
 			result: artifacts.result,
 			subProjects: artifacts.subProjects?.map(({ name, result }) => ({
+				diagnostics: result.diagnostics,
 				errors: result.summary.errors,
 				fileCount: result.project.fileCount,
 				info: result.summary.info,

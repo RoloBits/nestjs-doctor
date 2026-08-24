@@ -2,6 +2,7 @@ import { Project } from "ts-morph";
 import { describe, expect, it } from "vitest";
 import {
 	buildModuleGraph,
+	buildModuleGraphAsync,
 	findCircularDeps,
 	findProviderModule,
 	mergeModuleGraphs,
@@ -19,6 +20,28 @@ function createProject(files: Record<string, string>) {
 }
 
 describe("module-graph", () => {
+	it("builds the same graph batched as it does in one pass", async () => {
+		const { project, paths } = createProject({
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { UsersModule } from './users.module';
+        @Module({ imports: [UsersModule] })
+        export class AppModule {}
+      `,
+			"users.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class UsersModule {}
+      `,
+		});
+		const sync = buildModuleGraph(project, paths);
+		const batched = await buildModuleGraphAsync(project, paths);
+		expect(batched.modules.size).toBe(sync.modules.size);
+		expect([...batched.modules.keys()]).toEqual([...sync.modules.keys()]);
+		expect(batched.edges.get("AppModule")).toEqual(sync.edges.get("AppModule"));
+		expect(batched.providerToModule).toEqual(sync.providerToModule);
+	});
+
 	it("records the tokens of object-literal providers", () => {
 		const { project, paths } = createProject({
 			"app.module.ts": `

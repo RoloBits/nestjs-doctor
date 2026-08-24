@@ -26,9 +26,13 @@ export interface PipelineOptions {
 	json: boolean;
 	jsonCompact: boolean;
 	minScore: string | undefined;
+	/** Worker-internal: receives the progress line instead of the local spinner. */
+	onProgress?: (label: string, done?: number, total?: number) => void;
 	outputPath: string | undefined;
 	scope: ScopeMode;
 	score: boolean;
+	/** Worker-internal: the worker never prints the report. */
+	skipOutput?: boolean;
 	staged: boolean;
 	telemetry: boolean;
 	verbose: boolean;
