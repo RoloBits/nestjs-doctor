@@ -78,6 +78,8 @@ const analysisText = (
 export interface InteractiveArtifacts {
 	buildReportHtml: () => string;
 	result: DiagnoseResult;
+	/** Per-project results in a monorepo, for the score screen's breakdown. */
+	subProjects?: { name: string; result: DiagnoseResult }[];
 }
 
 const displayCustomRuleWarnings = (
@@ -318,6 +320,10 @@ export class MonorepoPipeline extends ScanPipeline {
 				);
 			},
 			result: this.result.result.combined,
+			subProjects: this.result.result.subProjects.map(({ name, result }) => ({
+				name,
+				result,
+			})),
 		};
 	}
 

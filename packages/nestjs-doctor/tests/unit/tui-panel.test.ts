@@ -1,24 +1,55 @@
 import { describe, expect, it } from "vitest";
 import { ruleInfo } from "../../src/cli/interactive/rule-info.js";
-import { renderRulePanel } from "../../src/cli/interactive/rule-panel.js";
+import { buildPanelLines } from "../../src/cli/interactive/tui/panel.js";
 
-const ANSI_RE = /\[[0-9;]*m/g;
+const plain = (lines: ReturnType<typeof buildPanelLines>): string[] =>
+	lines.map((line) => line.spans.map((span) => span.text).join(""));
 
-const plain = (lines: string[]): string[] =>
-	lines.map((line) => line.replace(ANSI_RE, ""));
+const codeDiagnostic = {
+	category: "security" as const,
+	column: 5,
+	filePath: "src/app.service.ts",
+	help: "Move the secret to config",
+	line: 12,
+	message: "Hardcoded secret found",
+	rule: "security/no-hardcoded-secrets",
+	severity: "error" as const,
+	sourceLines: [
+		{ line: 11, text: "export class AppService {" },
+		{ line: 12, text: '  apiKey = "sk-live-123";' },
+	],
+};
 
-describe("renderRulePanel", () => {
+describe("buildPanelLines", () => {
 	const panel = plain(
-		renderRulePanel(
+		buildPanelLines(
+			codeDiagnostic,
 			{
 				bad: "const a = 1;\nconst b = 2;",
 				description: "Do not do the thing.",
 				good: "const c = 3;",
 			},
-			"https://nestjs.doctor/docs/rules/security",
 			100
 		)
 	);
+
+	it("leads with the rule id and a severity badge", () => {
+		expect(panel[0]).toContain("security/no-hardcoded-secrets");
+		expect(panel[0]).toContain("ERROR");
+	});
+
+	it("shows the message and the location", () => {
+		expect(panel).toContain("Hardcoded secret found");
+		expect(panel.some((line) => line.includes("src/app.service.ts:12:5"))).toBe(
+			true
+		);
+	});
+
+	it("renders the code window with the target marked", () => {
+		expect(
+			panel.some((line) => line.includes("›") && line.includes("apiKey"))
+		).toBe(true);
+	});
 
 	it("puts the bad sample before the good one", () => {
 		const bad = panel.findIndex((line) => line.includes("BAD"));
@@ -39,9 +70,9 @@ describe("renderRulePanel", () => {
 
 	it("keeps every line inside the width it was given", () => {
 		const wide = plain(
-			renderRulePanel(
+			buildPanelLines(
+				codeDiagnostic,
 				{ bad: "x".repeat(300), description: "y ".repeat(200), good: "z" },
-				undefined,
 				80
 			)
 		);
@@ -50,12 +81,10 @@ describe("renderRulePanel", () => {
 		}
 	});
 
-	it("renders nothing for a rule that carries neither", () => {
-		expect(renderRulePanel({})).toEqual([]);
-	});
-
 	it("omits the samples when only a description exists", () => {
-		const only = plain(renderRulePanel({ description: "Just this." }));
+		const only = plain(
+			buildPanelLines(codeDiagnostic, { description: "Just this." }, 60)
+		);
 		expect(only.some((line) => line.includes("BAD"))).toBe(false);
 		expect(only.some((line) => line.includes("Just this."))).toBe(true);
 	});

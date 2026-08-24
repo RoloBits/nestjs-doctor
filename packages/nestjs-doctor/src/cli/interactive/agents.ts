@@ -1,11 +1,10 @@
 import { spawn } from "node:child_process";
-import { isCancel, log, select } from "@clack/prompts";
 import type { Diagnostic } from "../../common/diagnostic.js";
 import { isCommandAvailable } from "../ui/commands.js";
-import { copyToClipboard } from "./clipboard.js";
-import { buildFixPrompt, groupFindings } from "./detail.js";
+import { logger } from "../ui/logger.js";
+import { buildFixPrompt, groupFindings } from "./findings.js";
 
-interface LaunchableAgent {
+export interface LaunchableAgent {
 	binary: string;
 	name: string;
 }
@@ -17,7 +16,7 @@ const KNOWN_AGENTS: LaunchableAgent[] = [
 ];
 
 /** Agents the menu can start. Windows only gets the prompt copied. */
-const detectLaunchableAgents = (): LaunchableAgent[] => {
+export const detectLaunchableAgents = (): LaunchableAgent[] => {
 	if (process.platform === "win32") {
 		return [];
 	}
@@ -47,7 +46,7 @@ export const buildHandoffPrompt = (
 	].join("\n");
 };
 
-const launchAgent = (
+export const launchAgent = (
 	agent: LaunchableAgent,
 	prompt: string,
 	cwd: string
@@ -58,52 +57,9 @@ const launchAgent = (
 			stdio: "inherit",
 		});
 		child.on("error", (error) => {
-			log.error(`Could not start ${agent.name}: ${error.message}`);
+			logger.error(`Could not start ${agent.name}: ${error.message}`);
 			resolvePromise();
 		});
 		child.on("close", () => resolvePromise());
 	});
-};
-
-/** The handoff picker: launch a detected agent, or copy the prompt. */
-export const handOffToAgent = async (
-	diagnostics: Diagnostic[],
-	targetPath: string
-): Promise<void> => {
-	const agents = detectLaunchableAgents();
-	const prompt = buildHandoffPrompt(diagnostics, targetPath);
-
-	const choice = await select<LaunchableAgent | "copy" | "back">({
-		message: "Hand off to",
-		options: [
-			...agents.map((agent) => ({
-				hint: `Start ${agent.binary} here with the findings as the prompt`,
-				label: agent.name,
-				value: agent,
-			})),
-			{
-				hint: "Paste into any agent or edit it first",
-				label: "Copy the prompt",
-				value: "copy" as const,
-			},
-			{ label: "Back", value: "back" as const },
-		],
-	});
-
-	if (isCancel(choice) || choice === "back") {
-		return;
-	}
-
-	if (choice === "copy") {
-		if (await copyToClipboard(prompt)) {
-			log.success("Prompt copied. Paste it into any agent.");
-		} else {
-			log.warn("No clipboard tool found; printing instead.");
-			process.stdout.write(`\n${prompt}\n\n`);
-		}
-		return;
-	}
-
-	log.info(`Starting ${choice.name}. Quit it to come back to the menu.`);
-	await launchAgent(choice, prompt, targetPath);
 };

@@ -79,22 +79,28 @@ either stream.
 
 ## The menu
 
-A console scan in a terminal ends with a short menu: review the findings one
-by one, open the HTML report, scaffold the GitHub Actions workflow when it is
-missing, hand off to a coding agent, or copy the findings as markdown. The report comes from the scan that
-just ran, so nothing is scanned twice.
+A console scan in a terminal ends on a score screen: the nest, the score with
+its bar, the severity counts, the per-project breakdown in a monorepo, and a
+short action menu — review the findings, open the HTML report, hand off to a
+coding agent, scaffold the GitHub Actions workflow when it is missing, or copy
+the findings as markdown. Everything comes from the scan that just ran, so
+nothing is scanned twice.
 
-An interactive run prints the score box and stops there. The findings list
-lives behind the review entry; pass `--verbose` to print it anyway.
+An interactive run hands its presentation to that screen and prints nothing
+else. Pass `--verbose` to print the full findings list above it instead.
 
-Reviewing walks rule by rule, worst first. Each finding shows its code frame,
-the fix guidance, and the docs link, and one keystroke copies an agent-ready
-fix prompt for the whole rule.
+**Review issues** opens a live browser. The left pane lists the findings
+grouped by rule under category captions, worst first; the right pane follows
+the selection with the rule's identity and severity badge, the location, the
+message, the offending code window, the rule's recommendation with its docs
+link, and then a bad and a good sample of the pattern. Every sample is tested
+against the rule it illustrates, so the bad one is what the rule reports and
+the good one is what it accepts.
 
-Under the finding sits the rule's own guidance: what it looks for, then a bad
-and a good sample of the pattern. Every sample is tested against the rule it
-illustrates, so the bad one is what the rule reports and the good one is what
-it accepts.
+Navigation is by key: `↑↓` or `j`/`k` moves finding by finding, `←→` jumps a
+whole rule group, `g`/`G` go to the ends, `c` copies an agent-ready fix prompt
+for the selected rule, `o` opens the docs page, `b` returns to the score
+screen.
 
 Handing off detects Claude Code, Codex, and Cursor on your PATH and starts the
 one you pick with the top findings as its first prompt, plainly: no

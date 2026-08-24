@@ -1,0 +1,235 @@
+import { Box, Text, useInput, useStdout } from "ink";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { Diagnostic } from "../../../common/diagnostic.js";
+import { openReportInBrowser } from "../../../report/output.js";
+import { copyToClipboard } from "../clipboard.js";
+import { buildFixPrompt, docsUrl, groupFindings } from "../findings.js";
+import { ruleInfo } from "../rule-info.js";
+import {
+	buildListRows,
+	flattenFindings,
+	moveSelection,
+	scrollWindow,
+} from "./navigate.js";
+import { buildPanelLines } from "./panel.js";
+import { truncate } from "./text.js";
+import { palette, SEVERITY_MARK, severityColor } from "./theme.js";
+import type { Toast } from "./types.js";
+
+const MIN_VISIBLE_ROWS = 8;
+const CHROME_ROWS = 7;
+
+interface ReviewScreenProps {
+	diagnostics: Diagnostic[];
+	onBack: () => void;
+	onToast: (toast: Toast) => void;
+	targetPath: string;
+}
+
+const shortRule = (rule: string): string =>
+	rule.split("/").slice(1).join("/") || rule;
+
+export const ReviewScreen = ({
+	diagnostics,
+	onBack,
+	onToast,
+	targetPath,
+}: ReviewScreenProps): React.JSX.Element => {
+	const { stdout } = useStdout();
+	const columns = stdout.columns ?? 80;
+	const visibleRows = Math.max(
+		MIN_VISIBLE_ROWS,
+		(stdout.rows ?? 24) - CHROME_ROWS
+	);
+
+	const groups = useMemo(() => groupFindings(diagnostics), [diagnostics]);
+	const flat = useMemo(() => flattenFindings(groups), [groups]);
+	const listRows = useMemo(() => buildListRows(groups), [groups]);
+
+	const [selected, setSelected] = useState(0);
+	const [offset, setOffset] = useState(0);
+
+	const safeSelected = Math.min(selected, Math.max(0, flat.length - 1));
+	const current = flat[safeSelected];
+	const group = current ? groups[current.groupIndex] : undefined;
+	const diagnostic = group?.diagnostics[current.position];
+
+	const leftContent = Math.max(26, Math.min(42, Math.round(columns * 0.34)));
+	const leftWidth = leftContent + 1;
+	const panelInner = Math.max(20, columns - leftWidth - 5);
+
+	const panelLines = useMemo(() => {
+		if (!diagnostic) {
+			return [];
+		}
+		return buildPanelLines(diagnostic, ruleInfo(diagnostic.rule), panelInner);
+	}, [diagnostic, panelInner]);
+
+	const selectedRowIndex = current
+		? listRows.findIndex(
+				(row) => row.kind === "group" && row.groupIndex === current.groupIndex
+			)
+		: -1;
+
+	useEffect(() => {
+		setOffset((previous) =>
+			scrollWindow(previous, selectedRowIndex, visibleRows)
+		);
+	}, [selectedRowIndex, visibleRows]);
+
+	const move = useCallback(
+		(delta: Parameters<typeof moveSelection>[2]) => {
+			setSelected((previous) =>
+				moveSelection(flat, Math.min(previous, flat.length - 1), delta)
+			);
+		},
+		[flat]
+	);
+
+	const copyPrompt = useCallback(async () => {
+		if (!group) {
+			return;
+		}
+		if (await copyToClipboard(buildFixPrompt(group, targetPath))) {
+			onToast({
+				kind: "success",
+				text: "Fix prompt copied. Paste it into any agent.",
+			});
+			return;
+		}
+		onToast({
+			kind: "error",
+			text: "No clipboard tool found on this machine.",
+		});
+	}, [group, onToast, targetPath]);
+
+	const openDocs = useCallback(() => {
+		if (!diagnostic) {
+			return;
+		}
+		const url = docsUrl(diagnostic.rule);
+		if (!url) {
+			onToast({ kind: "error", text: "Custom rules have no docs page." });
+			return;
+		}
+		openReportInBrowser(url);
+		onToast({ kind: "info", text: `Opening ${url}` });
+	}, [diagnostic, onToast]);
+
+	useInput((input, key) => {
+		if (key.upArrow || input === "k") {
+			move(-1);
+		} else if (key.downArrow || input === "j") {
+			move(1);
+		} else if (key.leftArrow || input === "h") {
+			move("group-prev");
+		} else if (key.rightArrow || input === "l" || key.tab) {
+			move("group-next");
+		} else if (input === "g") {
+			setSelected(0);
+		} else if (input === "G") {
+			setSelected(Math.max(0, flat.length - 1));
+		} else if (input === "c") {
+			// biome-ignore lint/suspicious/noEmptyBlockStatements: a clipboard failure toasts its own error
+			copyPrompt().catch(() => {});
+		} else if (input === "o") {
+			openDocs();
+		} else if (input === "b" || key.escape) {
+			onBack();
+		}
+	});
+
+	const visibleSlice = listRows.slice(offset, offset + visibleRows);
+	const shownPanel = panelLines.slice(0, visibleRows);
+
+	return (
+		<Box flexDirection="column" gap={1}>
+			<Box borderColor={palette.border} borderStyle="single">
+				<Box flexDirection="column" flexShrink={0} width={leftWidth}>
+					{visibleSlice.map((row) => {
+						if (row.kind === "category") {
+							return (
+								<Text color={palette.muted} key={row.label}>
+									{` ${truncate(row.label.toUpperCase(), leftContent - 1)}`}
+								</Text>
+							);
+						}
+						const entry = groups[row.groupIndex];
+						const isSelected =
+							current !== undefined && row.groupIndex === current.groupIndex;
+						const count = entry.diagnostics.length;
+						const suffix = count > 1 ? ` (${count})` : "";
+						const name = truncate(
+							`${shortRule(entry.rule)}${suffix}`,
+							leftContent - 3
+						);
+						return (
+							<Box flexDirection="row" key={entry.rule}>
+								<Box
+									backgroundColor={isSelected ? palette.nestRed : undefined}
+									width={1}
+								>
+									<Text> </Text>
+								</Box>
+								<Box
+									backgroundColor={isSelected ? palette.washRed : undefined}
+									width={leftContent}
+								>
+									<Text>
+										<Text color={severityColor(entry.severity)}>
+											{` ${SEVERITY_MARK[entry.severity]} `}
+										</Text>
+										<Text
+											bold={isSelected}
+											color={isSelected ? palette.bright : palette.text}
+										>
+											{name}
+										</Text>
+									</Text>
+								</Box>
+							</Box>
+						);
+					})}
+					{listRows.length === 0 ? (
+						<Text color={palette.dim}> No findings </Text>
+					) : null}
+				</Box>
+				<Box
+					borderBottom={false}
+					borderColor={palette.border}
+					borderRight={false}
+					borderStyle="single"
+					borderTop={false}
+					flexShrink={0}
+				/>
+				<Box
+					flexDirection="column"
+					paddingLeft={1}
+					paddingRight={1}
+					width={panelInner + 2}
+				>
+					{shownPanel.map((line, index) => (
+						// biome-ignore lint/suspicious/noArrayIndexKey: panel lines are positional, they have no other identity
+						<Text key={index}>
+							{line.spans.map((part, partIndex) => (
+								<Text
+									backgroundColor={part.bg}
+									bold={part.bold}
+									color={part.color}
+									dimColor={part.dim}
+									// biome-ignore lint/suspicious/noArrayIndexKey: spans render once, in order
+									key={partIndex}
+								>
+									{part.text}
+								</Text>
+							))}
+						</Text>
+					))}
+				</Box>
+			</Box>
+			<Text color={palette.dim}>
+				{` ${safeSelected + 1}/${flat.length} · ↑↓ finding · ←→ rule · g/G ends · c copy fix prompt · o docs · b back · q quit`}
+			</Text>
+		</Box>
+	);
+};
