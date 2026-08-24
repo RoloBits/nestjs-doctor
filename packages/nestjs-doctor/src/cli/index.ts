@@ -86,6 +86,9 @@ async function scan(args: CliArgs): Promise<void> {
 			targetPath,
 			version,
 		});
+		// The TUI drew in the alternate screen; leave the score box behind.
+		artifacts.printSummary();
+		logger.log("Done.");
 	};
 
 	const monorepo = await detectMonorepo(targetPath);

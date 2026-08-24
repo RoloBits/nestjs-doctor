@@ -68,6 +68,24 @@ describe("buildPanelLines", () => {
 		expect(row).toContain("https://nestjs.doctor/docs/rules/security");
 	});
 
+	it("wraps a message wider than the panel onto several lines", () => {
+		const wrapped = plain(
+			buildPanelLines(
+				{
+					...codeDiagnostic,
+					message: "word ".repeat(60).trim(),
+				},
+				{},
+				40
+			)
+		);
+		const messageRows = wrapped.filter((line) => line.startsWith("word "));
+		expect(messageRows.length).toBeGreaterThan(1);
+		for (const row of messageRows) {
+			expect(row.length).toBeLessThanOrEqual(40);
+		}
+	});
+
 	it("keeps every line inside the width it was given", () => {
 		const wide = plain(
 			buildPanelLines(

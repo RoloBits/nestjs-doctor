@@ -10,14 +10,14 @@ type ListRow =
 	| { kind: "category"; label: string }
 	| { groupIndex: number; kind: "group" };
 
-/** Category captions between rule groups whenever the category changes. */
+/** One caption per category, wherever the category first appears. */
 export const buildListRows = (groups: RuleGroup[]): ListRow[] => {
 	const rows: ListRow[] = [];
-	let currentCategory = "";
+	const seen = new Set<string>();
 	for (const [groupIndex, group] of groups.entries()) {
 		const category = group.rule.split("/")[0];
-		if (!group.rule.startsWith("custom/") && category !== currentCategory) {
-			currentCategory = category;
+		if (!(group.rule.startsWith("custom/") || seen.has(category))) {
+			seen.add(category);
 			rows.push({ kind: "category", label: category });
 		}
 		rows.push({ groupIndex, kind: "group" });

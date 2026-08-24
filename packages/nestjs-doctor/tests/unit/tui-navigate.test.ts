@@ -78,6 +78,22 @@ describe("buildListRows", () => {
 		]);
 	});
 
+	it("caps each category at one caption even when it reappears", () => {
+		const mixed = groupFindings([
+			diagnostic("security/secret", "error"),
+			diagnostic("architecture/orphan", "warning"),
+			diagnostic("security/guards", "warning"),
+		]);
+		const rows = buildListRows(mixed);
+		expect(rows).toEqual([
+			{ kind: "category", label: "security" },
+			{ groupIndex: 0, kind: "group" },
+			{ kind: "category", label: "architecture" },
+			{ groupIndex: 1, kind: "group" },
+			{ groupIndex: 2, kind: "group" },
+		]);
+	});
+
 	it("does not caption custom rules", () => {
 		const custom = groupFindings([diagnostic("custom/team-rule", "info")]);
 		expect(buildListRows(custom)).toEqual([{ groupIndex: 0, kind: "group" }]);

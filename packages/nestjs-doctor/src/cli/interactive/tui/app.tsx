@@ -50,11 +50,13 @@ const buildHandoffItems = (): HandoffItem[] => [
 
 interface AppProps {
 	context: InteractiveContext;
+	deferPrint: (text: string) => void;
 	onRequestAgent: (agent: LaunchableAgent, prompt: string) => void;
 }
 
 export const App = ({
 	context,
+	deferPrint,
 	onRequestAgent,
 }: AppProps): React.JSX.Element => {
 	const { exit } = useApp();
@@ -91,14 +93,14 @@ export const App = ({
 				text: "Prompt copied. Paste it into any agent.",
 			});
 		} else {
-			process.stderr.write(`\n${prompt}\n\n`);
+			deferPrint(prompt);
 			setToast({
 				kind: "info",
-				text: "No clipboard tool found; prompt printed to stderr.",
+				text: "No clipboard tool found; the prompt prints when you quit.",
 			});
 		}
 		setScreen("score");
-	}, [context.targetPath, shown.diagnostics]);
+	}, [context.targetPath, deferPrint, shown.diagnostics]);
 
 	const runAction = useCallback(
 		async (action: MenuAction): Promise<void> => {
@@ -123,8 +125,13 @@ export const App = ({
 				if (action === "report") {
 					const html = context.buildReportHtml();
 					const reportPath = await writeReportFile(context.targetPath, html);
-					openReportInBrowser(reportPath);
-					setToast({ kind: "success", text: `Report opened: ${reportPath}` });
+					openReportInBrowser(reportPath, (message) => {
+						setToast({ kind: "error", text: message });
+					});
+					setToast({
+						kind: "success",
+						text: `Report written to ${reportPath}`,
+					});
 				} else if (action === "ci") {
 					const outcome = await installCiWorkflow(context.targetPath, false);
 					switch (outcome.status) {
@@ -171,10 +178,10 @@ export const App = ({
 							text: "Markdown summary copied to the clipboard.",
 						});
 					} else {
-						process.stderr.write(`\n${markdown}\n\n`);
+						deferPrint(markdown);
 						setToast({
 							kind: "info",
-							text: "No clipboard tool found; summary printed to stderr.",
+							text: "No clipboard tool found; the summary prints when you quit.",
 						});
 					}
 				}
@@ -187,7 +194,7 @@ export const App = ({
 				setBusy(false);
 			}
 		},
-		[context, exit]
+		[context, deferPrint, exit]
 	);
 
 	useInput(
@@ -245,8 +252,10 @@ export const App = ({
 	if (screen === "review") {
 		return (
 			<ReviewScreen
+				deferPrint={deferPrint}
 				diagnostics={shown.diagnostics}
 				onBack={() => setScreen("score")}
+				onQuit={exit}
 				onToast={setToast}
 				targetPath={context.targetPath}
 			/>

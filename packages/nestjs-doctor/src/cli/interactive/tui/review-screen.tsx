@@ -20,8 +20,10 @@ const MIN_VISIBLE_ROWS = 8;
 const CHROME_ROWS = 7;
 
 interface ReviewScreenProps {
+	deferPrint: (text: string) => void;
 	diagnostics: Diagnostic[];
 	onBack: () => void;
+	onQuit: () => void;
 	onToast: (toast: Toast) => void;
 	targetPath: string;
 }
@@ -31,7 +33,9 @@ const shortRule = (rule: string): string =>
 
 export const ReviewScreen = ({
 	diagnostics,
+	deferPrint,
 	onBack,
+	onQuit,
 	onToast,
 	targetPath,
 }: ReviewScreenProps): React.JSX.Element => {
@@ -48,6 +52,7 @@ export const ReviewScreen = ({
 
 	const [selected, setSelected] = useState(0);
 	const [offset, setOffset] = useState(0);
+	const [panelOffset, setPanelOffset] = useState(0);
 
 	const safeSelected = Math.min(selected, Math.max(0, flat.length - 1));
 	const current = flat[safeSelected];
@@ -82,6 +87,7 @@ export const ReviewScreen = ({
 			setSelected((previous) =>
 				moveSelection(flat, Math.min(previous, flat.length - 1), delta)
 			);
+			setPanelOffset(0);
 		},
 		[flat]
 	);
@@ -90,18 +96,20 @@ export const ReviewScreen = ({
 		if (!group) {
 			return;
 		}
-		if (await copyToClipboard(buildFixPrompt(group, targetPath))) {
+		const prompt = buildFixPrompt(group, targetPath);
+		if (await copyToClipboard(prompt)) {
 			onToast({
 				kind: "success",
 				text: "Fix prompt copied. Paste it into any agent.",
 			});
 			return;
 		}
+		deferPrint(prompt);
 		onToast({
-			kind: "error",
-			text: "No clipboard tool found on this machine.",
+			kind: "info",
+			text: "No clipboard tool found; the prompt prints when you quit.",
 		});
-	}, [group, onToast, targetPath]);
+	}, [deferPrint, group, onToast, targetPath]);
 
 	const openDocs = useCallback(() => {
 		if (!diagnostic) {
@@ -112,9 +120,16 @@ export const ReviewScreen = ({
 			onToast({ kind: "error", text: "Custom rules have no docs page." });
 			return;
 		}
-		openReportInBrowser(url);
+		openReportInBrowser(url, (message) => {
+			onToast({ kind: "error", text: message });
+		});
 		onToast({ kind: "info", text: `Opening ${url}` });
 	}, [diagnostic, onToast]);
+
+	const panelMaxOffset = Math.max(0, panelLines.length - visibleRows);
+	const panelOverflows = panelLines.length > visibleRows;
+	const panelRoom = panelOverflows ? visibleRows - 1 : visibleRows;
+	const safePanelOffset = Math.min(panelOffset, panelMaxOffset);
 
 	useInput((input, key) => {
 		if (key.upArrow || input === "k") {
@@ -127,20 +142,31 @@ export const ReviewScreen = ({
 			move("group-next");
 		} else if (input === "g") {
 			setSelected(0);
+			setPanelOffset(0);
 		} else if (input === "G") {
 			setSelected(Math.max(0, flat.length - 1));
+			setPanelOffset(0);
+		} else if (input === ",") {
+			setPanelOffset((previous) => Math.max(0, previous - 1));
+		} else if (input === ".") {
+			setPanelOffset((previous) => Math.min(panelMaxOffset, previous + 1));
 		} else if (input === "c") {
-			// biome-ignore lint/suspicious/noEmptyBlockStatements: a clipboard failure toasts its own error
+			// biome-ignore lint/suspicious/noEmptyBlockStatements: a clipboard failure defers its own print
 			copyPrompt().catch(() => {});
 		} else if (input === "o") {
 			openDocs();
 		} else if (input === "b" || key.escape) {
 			onBack();
+		} else if (input === "q") {
+			onQuit();
 		}
 	});
 
 	const visibleSlice = listRows.slice(offset, offset + visibleRows);
-	const shownPanel = panelLines.slice(0, visibleRows);
+	const shownPanel = panelLines.slice(
+		safePanelOffset,
+		safePanelOffset + panelRoom
+	);
 
 	return (
 		<Box flexDirection="column" gap={1}>
@@ -225,11 +251,16 @@ export const ReviewScreen = ({
 							))}
 						</Text>
 					))}
+					{panelOverflows ? (
+						<Text color={palette.dim}>
+							{`… ${safePanelOffset + 1}-${Math.min(panelLines.length, safePanelOffset + panelRoom)} of ${panelLines.length} · ,. scroll`}
+						</Text>
+					) : null}
 				</Box>
 			</Box>
 			<Text color={palette.dim}>
 				{truncate(
-					` ${safeSelected + 1}/${flat.length} · ↑↓ finding · ←→ rule · g/G ends · c copy fix prompt · o docs · b back · q quit`,
+					` ${safeSelected + 1}/${flat.length} · ↑↓ finding · ←→ rule · g/G ends · ,. panel · c copy prompt · o docs · b back · q quit`,
 					Math.max(20, columns - 1)
 				)}
 			</Text>

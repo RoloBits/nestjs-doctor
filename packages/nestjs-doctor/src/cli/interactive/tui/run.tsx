@@ -4,48 +4,57 @@ import { type LaunchableAgent, launchAgent } from "../agents.js";
 import { App } from "./app.js";
 import type { InteractiveContext } from "./types.js";
 
-/**
- * The post-scan TUI. Re-renders after an agent handoff so the spawned CLI can
- * own the terminal, then quits when the user picks Quit or presses Ctrl+C.
- */
 const ENTER_ALT_SCREEN = "\x1b[?1049h";
 const EXIT_ALT_SCREEN = "\x1b[?1049l";
 
-/**
- * The post-scan TUI. Runs in the alternate screen buffer, so nothing it draws
- * piles into the terminal's scrollback — on quit the user's own output is
- * exactly where they left it. An agent handoff leaves the buffer first so the
- * spawned CLI owns the normal screen, then the panel comes back after it.
- */
+/** Runs the post-scan TUI in the alternate screen until Quit or Ctrl+C. */
 export const runInteractiveApp = async (
 	context: InteractiveContext
 ): Promise<void> => {
+	const deferred: string[] = [];
+
 	for (;;) {
 		process.stdout.write(ENTER_ALT_SCREEN);
-		const request = await new Promise<{
-			agent: LaunchableAgent;
-			prompt: string;
-		} | null>((resolvePromise) => {
-			try {
+		let request: { agent: LaunchableAgent; prompt: string } | null = null;
+		let failure: { error: unknown } | null = null;
+		try {
+			request = await new Promise<{
+				agent: LaunchableAgent;
+				prompt: string;
+			} | null>((resolvePromise) => {
 				const instance = render(
 					<App
 						context={context}
+						deferPrint={(text) => {
+							deferred.push(text);
+						}}
 						onRequestAgent={(agent, prompt) => {
 							resolvePromise({ agent, prompt });
 							instance.unmount();
 						}}
 					/>
 				);
-				instance.waitUntilExit().then(() => {
-					resolvePromise(null);
-				});
-			} catch (error) {
-				resolvePromise(null);
-				throw error;
-			}
-		});
-		process.stdout.write(EXIT_ALT_SCREEN);
+				instance.waitUntilExit().then(
+					() => {
+						resolvePromise(null);
+					},
+					(error) => {
+						failure = { error };
+						resolvePromise(null);
+					}
+				);
+			});
+		} finally {
+			process.stdout.write(EXIT_ALT_SCREEN);
+		}
 
+		for (const text of deferred.splice(0)) {
+			process.stderr.write(`\n${text}\n\n`);
+		}
+
+		if (failure) {
+			throw (failure as { error: unknown }).error;
+		}
 		if (!request) {
 			break;
 		}
@@ -54,6 +63,4 @@ export const runInteractiveApp = async (
 		);
 		await launchAgent(request.agent, request.prompt, context.targetPath);
 	}
-
-	logger.log("Done.");
 };

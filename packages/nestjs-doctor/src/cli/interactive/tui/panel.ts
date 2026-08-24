@@ -116,7 +116,11 @@ export const buildPanelLines = (
 		})
 	);
 	lines.push(span(""));
-	lines.push(span(diagnostic.message, { color: palette.text }));
+	lines.push(
+		...wrap(diagnostic.message, width).map((row) =>
+			span(row, { color: palette.text })
+		)
+	);
 
 	if (isCodeDiagnostic(diagnostic) && diagnostic.sourceLines?.length) {
 		lines.push(span(""), ...codeFrameLines(diagnostic, width));
