@@ -96,10 +96,7 @@ export type ScanWorkerMessage =
 	| { kind: "outcome"; outcome: ScanOutcome }
 	| { kind: "error"; message: string };
 
-/**
- * Everything the engine steps produced, in transferable data. Live ts-morph
- * objects stay in the worker; the report providers arrive pre-converted.
- */
+/** Everything the engine steps produced, in transferable data. */
 export type ScanOutcome =
 	| {
 			kind: "monorepo";
@@ -138,11 +135,7 @@ const displayCustomRuleWarnings = (
 	}
 };
 
-/**
- * Points the pipelines at the worker entry. Called by the CLI entry, whose own
- * directory is where the built worker file lands; code splitting puts this
- * module in a chunk one level up, so it cannot resolve the path itself.
- */
+/** Points the pipelines at the worker entry. */
 export const setScanWorkerUrl = (url: URL | null): void => {
 	ScanPipeline.setWorkerUrl(url);
 };
@@ -159,6 +152,8 @@ abstract class ScanPipeline {
 	} | null = null;
 	/** The final step; in worker mode main runs it after the outcome lands. */
 	protected outputStep: PipelineStep | null = null;
+	/** Custom-rule warnings from the worker outcome, shown before the report. */
+	protected workerWarnings: string[] = [];
 	/** Set when any scanned sub-project declares its own opt-out. */
 	protected subProjectOptOut = false;
 	/** Warnings raised while narrowing the scope; surfaced alongside the report. */
@@ -353,13 +348,7 @@ abstract class ScanPipeline {
 		this.options.onProgress?.(label, done, total);
 	}
 
-	/**
-	 * Interactive runs execute the engine middle in a worker thread, so the
-	 * spinner never competes with the scan for the event loop. Everything else —
-	 * CI, machine-readable output, tests — scans in-process exactly as before.
-	 * The URL is injected by the CLI entry: code splitting places this class in
-	 * a chunk whose own directory is not where the worker file lands.
-	 */
+	/** Location of the scan worker entry, injected by the CLI. */
 	private static workerUrl: URL | null = null;
 
 	static setWorkerUrl(url: URL | null): void {
@@ -411,7 +400,12 @@ abstract class ScanPipeline {
 				if (message.kind === "progress") {
 					this.emitProgress(message.label, message.done, message.total);
 				} else if (message.kind === "outcome") {
-					apply(message.outcome);
+					try {
+						apply(message.outcome);
+					} catch (error) {
+						finish(error instanceof Error ? error : new Error(String(error)));
+						return;
+					}
 					finish();
 				} else {
 					finish(new Error(message.message));
@@ -436,11 +430,22 @@ abstract class ScanPipeline {
 			if (await this.canDelegate()) {
 				try {
 					await this.delegate();
+				} catch (error) {
+					logger.warn(
+						`The scan worker failed (${error instanceof Error ? error.message : String(error)}); scanning in process instead.`
+					);
+					for (const step of this.steps) {
+						await step();
+					}
 					return;
-				} catch {
-					// The worker path is an optimization; the in-process scan is the
-					// source of truth when it is unavailable or fails.
 				}
+				this.stopProgress();
+				displayCustomRuleWarnings(
+					this.workerWarnings,
+					this.options.isMachineReadable
+				);
+				await this.outputStep?.();
+				return;
 			}
 			for (const step of this.steps) {
 				await step();
@@ -512,7 +517,6 @@ export class MonorepoPipeline extends ScanPipeline {
 	}
 
 	private projectLabel = "";
-	private workerWarnings: string[] = [];
 
 	buildContext(): this {
 		this.steps.push(() => {
@@ -626,14 +630,7 @@ export class MonorepoPipeline extends ScanPipeline {
 				this.scopeWarnings.push(...outcome.scopeWarnings);
 				this.resolvedMinimumScore = outcome.resolvedMinimumScore;
 			}
-		).then(async () => {
-			this.stopProgress();
-			displayCustomRuleWarnings(
-				this.workerWarnings,
-				this.options.isMachineReadable
-			);
-			await this.outputStep?.();
-		});
+		);
 	}
 
 	/** What the worker posts back after the engine steps finish. */
@@ -681,6 +678,9 @@ export class MonorepoPipeline extends ScanPipeline {
 	}
 
 	output(): this {
+		if (this.options.skipOutput) {
+			return this;
+		}
 		const step: PipelineStep = () => {
 			outputMonorepoResults(
 				this.result,
@@ -690,9 +690,7 @@ export class MonorepoPipeline extends ScanPipeline {
 				this.scopeWarnings
 			);
 		};
-		if (!this.options.skipOutput) {
-			this.steps.push(step);
-		}
+		this.steps.push(step);
 		this.outputStep = step;
 		return this;
 	}
@@ -705,7 +703,6 @@ export class SingleProjectPipeline extends ScanPipeline {
 	private result!: EngineResult;
 	private reportProviders: ReportProvider[] = [];
 	private bootstrapRoots: string[] = [];
-	private workerWarnings: string[] = [];
 
 	/** What the post-scan menu needs, without re-scanning. */
 	get interactiveArtifacts(): InteractiveArtifacts {
@@ -757,14 +754,7 @@ export class SingleProjectPipeline extends ScanPipeline {
 				this.scopeWarnings.push(...outcome.scopeWarnings);
 				this.resolvedMinimumScore = outcome.resolvedMinimumScore;
 			}
-		).then(async () => {
-			this.stopProgress();
-			displayCustomRuleWarnings(
-				this.workerWarnings,
-				this.options.isMachineReadable
-			);
-			await this.outputStep?.();
-		});
+		);
 	}
 
 	/** What the worker posts back after the engine steps finish. */
@@ -812,8 +802,7 @@ export class SingleProjectPipeline extends ScanPipeline {
 				this.rawOutput,
 				this.scanConfig.customRuleWarnings
 			);
-			// Entry roots and report providers come from the live graph, before
-			// the detach below strips the ts-morph class declarations.
+			// Read from the live graph; the detach below strips the rest.
 			this.bootstrapRoots = [
 				...collectEntryModules(
 					this.context.astProject,
@@ -854,6 +843,9 @@ export class SingleProjectPipeline extends ScanPipeline {
 	}
 
 	output(): this {
+		if (this.options.skipOutput) {
+			return this;
+		}
 		const step: PipelineStep = () => {
 			outputSingleProjectResults(
 				this.result,
@@ -863,9 +855,7 @@ export class SingleProjectPipeline extends ScanPipeline {
 				this.scopeWarnings
 			);
 		};
-		if (!this.options.skipOutput) {
-			this.steps.push(step);
-		}
+		this.steps.push(step);
 		this.outputStep = step;
 		return this;
 	}

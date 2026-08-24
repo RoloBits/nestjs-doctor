@@ -118,7 +118,7 @@ export function buildGuardDecoratorIndex(
 	return index;
 }
 
-/** Batched so a spinner on the same event loop keeps repainting mid-pass. */
+/** Batched variant of buildGuardDecoratorIndex; yields between files. */
 export async function buildGuardDecoratorIndexAsync(
 	project: Project,
 	files: string[]

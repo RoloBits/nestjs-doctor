@@ -304,7 +304,7 @@ export function buildModuleGraph(
 	return finishModuleGraph(collectModuleNodes(project, files, pathAliases));
 }
 
-/** Batched so a spinner on the same event loop keeps repainting mid-pass. */
+/** Batched variant of buildModuleGraph; yields between files. */
 export async function buildModuleGraphAsync(
 	project: Project,
 	files: string[],

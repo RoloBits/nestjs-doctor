@@ -205,6 +205,15 @@ export const App = ({
 			if (screen !== "score") {
 				return;
 			}
+			if (input === "q" && !busy) {
+				exit();
+				return;
+			}
+			if (key.return && !busy) {
+				// biome-ignore lint/suspicious/noEmptyBlockStatements: the action reports its own errors as a toast
+				runAction(items[selectedAction].action).catch(() => {});
+				return;
+			}
 			if (subCount > 0 && (key.leftArrow || key.rightArrow || key.tab)) {
 				setScoreFocus((previous) => (previous === "menu" ? "list" : "menu"));
 				return;
@@ -223,11 +232,6 @@ export const App = ({
 				);
 			} else if (key.downArrow || input === "j") {
 				setSelectedAction((previous) => (previous + 1) % items.length);
-			} else if (key.return && !busy) {
-				// biome-ignore lint/suspicious/noEmptyBlockStatements: the action reports its own errors as a toast
-				runAction(items[selectedAction].action).catch(() => {});
-			} else if (input === "q" && !busy) {
-				exit();
 			}
 		},
 		{ isActive: screen === "score" }

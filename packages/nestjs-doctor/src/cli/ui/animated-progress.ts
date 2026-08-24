@@ -14,8 +14,7 @@ interface ProgressFrame {
 
 /**
  * Moves the displayed fill a step toward the target, so a new count counts up
- * instead of jumping. A shrinking target snaps, which is what a phase change
- * wants.
+ * instead of jumping. A shrinking target snaps.
  */
 export const easedFill = (displayed: number, target: number): number => {
 	if (target <= displayed) {

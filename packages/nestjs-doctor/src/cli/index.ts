@@ -21,8 +21,7 @@ const CONFIG_ERROR_EXIT_CODE = 2;
 const require = createRequire(import.meta.url);
 const { version } = require("../../package.json") as { version: string };
 
-// Sibling of this entry in the built bundle; missing in a source checkout,
-// where the pipeline then always scans in-process.
+// Ships beside this entry in the built bundle.
 setScanWorkerUrl(new URL("./scan-worker.mjs", import.meta.url));
 
 const main = defineCommand({

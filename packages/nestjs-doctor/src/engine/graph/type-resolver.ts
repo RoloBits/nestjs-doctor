@@ -105,7 +105,7 @@ export function resolveProviders(
 	return providers;
 }
 
-/** Batched so a spinner on the same event loop keeps repainting mid-pass. */
+/** Batched variant of resolveProviders; yields between files. */
 export async function resolveProvidersAsync(
 	project: Project,
 	files: string[]
