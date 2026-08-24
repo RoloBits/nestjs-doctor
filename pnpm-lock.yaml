@@ -34,7 +34,7 @@ importers:
         version: 0.2.2
       ink:
         specifier: ^6.8.0
-        version: 6.8.0(@types/react@19.2.14)(react@19.2.3)
+        version: 6.8.0(@types/react@19.2.18)(react@19.2.8)
       jiti:
         specifier: ^2.7.0
         version: 2.7.0
@@ -48,8 +48,8 @@ importers:
         specifier: ^4.0.5
         version: 4.0.5
       react:
-        specifier: 19.2.3
-        version: 19.2.3
+        specifier: 19.2.8
+        version: 19.2.8
       tinyglobby:
         specifier: ^0.2.17
         version: 0.2.17
@@ -59,7 +59,7 @@ importers:
     devDependencies:
       '@types/react':
         specifier: ^19
-        version: 19.2.14
+        version: 19.2.18
       tsdown:
         specifier: ^0.20.3
         version: 0.20.3(oxc-resolver@11.24.2)(typescript@5.9.3)
@@ -109,34 +109,34 @@ importers:
         version: 3.1.1
       '@mdx-js/react':
         specifier: 3.1.1
-        version: 3.1.1(@types/react@19.2.14)(react@19.2.3)
+        version: 3.1.1(@types/react@19.2.18)(react@19.2.8)
       '@next/mdx':
-        specifier: 16.1.6
-        version: 16.1.6(@mdx-js/loader@3.1.1)(@mdx-js/react@3.1.1(@types/react@19.2.14)(react@19.2.3))
+        specifier: 16.3.2
+        version: 16.3.2(@mdx-js/loader@3.1.1)(@mdx-js/react@3.1.1(@types/react@19.2.18)(react@19.2.8))
       '@vercel/analytics':
         specifier: ^2.0.1
-        version: 2.0.1(next@16.3.2(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@types/node@20.19.33)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)
+        version: 2.0.1(next@16.3.2(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@types/node@20.19.33)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)
       '@vercel/speed-insights':
         specifier: ^2.0.0
-        version: 2.0.0(next@16.3.2(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@types/node@20.19.33)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)
+        version: 2.0.0(next@16.3.2(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@types/node@20.19.33)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)
       '@xyflow/react':
-        specifier: 12.10.1
-        version: 12.10.1(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        specifier: 12.11.3
+        version: 12.11.3(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       lucide-react:
-        specifier: ^1.27.0
-        version: 1.27.0(react@19.2.3)
+        specifier: ^1.33.0
+        version: 1.33.0(react@19.2.8)
       next:
         specifier: 16.3.2
-        version: 16.3.2(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@types/node@20.19.33)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        version: 16.3.2(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@types/node@20.19.33)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       posthog-js:
         specifier: ^1.418.10
         version: 1.418.10
       react:
-        specifier: 19.2.3
-        version: 19.2.3
+        specifier: 19.2.8
+        version: 19.2.8
       react-dom:
-        specifier: 19.2.3
-        version: 19.2.3(react@19.2.3)
+        specifier: 19.2.8
+        version: 19.2.8(react@19.2.8)
       rehype-slug:
         specifier: 6.0.0
         version: 6.0.0
@@ -155,10 +155,10 @@ importers:
         version: 20.19.33
       '@types/react':
         specifier: ^19
-        version: 19.2.14
+        version: 19.2.18
       '@types/react-dom':
         specifier: ^19
-        version: 19.2.3(@types/react@19.2.14)
+        version: 19.2.4(@types/react@19.2.18)
       react-doctor:
         specifier: ^0.9.12
         version: 0.9.12(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(eslint@10.9.0(jiti@2.7.0))
@@ -839,8 +839,8 @@ packages:
   '@next/env@16.3.2':
     resolution: {integrity: sha512-8k4YoG8cM7LWlkfzGNYCRBbFNlernLiMw4s0btVl+CmmWqn3VpYypA72/5Feb1UWdxe6tHqr5KHP4p4Y4m9luA==}
 
-  '@next/mdx@16.1.6':
-    resolution: {integrity: sha512-PT5JR4WPPYOls7WD6xEqUVVI9HDY8kY7XLQsNYB2lSZk5eJSXWu3ECtIYmfR0hZpx8Sg7BKZYKi2+u5OTSEx0w==}
+  '@next/mdx@16.3.2':
+    resolution: {integrity: sha512-3Ch2ayTuBW9rBaOO9KLlRBUdsZpAm2rpuUxWrDjS9+2lcRzyWKlQoss3A66Nql3BnCBnsLE7j7+M3fR7Gssqdw==}
     peerDependencies:
       '@mdx-js/loader': '>=0.15.0'
       '@mdx-js/react': '>=0.15.0'
@@ -1814,6 +1814,9 @@ packages:
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
 
+  '@types/estree@1.0.9':
+    resolution: {integrity: sha512-GhdPgy1el4/ImP05X05Uw4cw2/M93BCUmnEvWZNStlCzEKME4Fkk+YpoA5OiHNQmoS7Cafb8Xa3Pya8m1Qrzeg==}
+
   '@types/hast@3.0.4':
     resolution: {integrity: sha512-WPs+bbQw5aCj+x6laNGWLH3wviHtoCv/P3+otBhbOhJgG8qtpdAMlTCxLtsTWA7LH1Oh/bFCHsBn0TPS5m30EQ==}
 
@@ -1841,13 +1844,13 @@ packages:
   '@types/node@20.19.33':
     resolution: {integrity: sha512-Rs1bVAIdBs5gbTIKza/tgpMuG1k3U/UMJLWecIMxNdJFDMzcM5LOiLVRYh3PilWEYDIeUDv7bpiHPLPsbydGcw==}
 
-  '@types/react-dom@19.2.3':
-    resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
+  '@types/react-dom@19.2.4':
+    resolution: {integrity: sha512-Bsc+QHgp+P/F02XDzNCY9jnZNCUuLki36KT7VKrTXXLdHf+vHMNZnW1rVu5DNW/rCK+fya3DATySbLM4yhtKUw==}
     peerDependencies:
       '@types/react': ^19.2.0
 
-  '@types/react@19.2.14':
-    resolution: {integrity: sha512-ilcTH/UniCkMdtexkoCN0bI7pMcJDvmQFPvuPvmEaYA/NSfFTAgdUSLAoVjaRJm7+6PvcM+q1zYOwS4wTYMF9w==}
+  '@types/react@19.2.18':
+    resolution: {integrity: sha512-AnzbBERsrLKtk2XSfTbYRLjQPdy116Sty4q+T+Bp3IC4l6jNBvreVPAHmpq9qhXQM7CXZPjLVmGMw9sy+hxQ3w==}
 
   '@types/trusted-types@2.0.7':
     resolution: {integrity: sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==}
@@ -1953,14 +1956,21 @@ packages:
   '@vitest/utils@3.2.4':
     resolution: {integrity: sha512-fB2V0JFrQSMsCo9HiSq3Ezpdv4iYaXRG1Sx8edX3MwxfyNn83mKiGzOcH+Fkxt4MHxr3y42fQi1oeAInqgX2QA==}
 
-  '@xyflow/react@12.10.1':
-    resolution: {integrity: sha512-5eSWtIK/+rkldOuFbOOz44CRgQRjtS9v5nufk77DV+XBnfCGL9HAQ8PG00o2ZYKqkEU/Ak6wrKC95Tu+2zuK3Q==}
+  '@xyflow/react@12.11.3':
+    resolution: {integrity: sha512-G3jogHz2GWUtIOkhavUGno2YzY9u6fILIJBttfsBendb0/HWB90JG+sOTAvlIMEwyvq9zgy9V9ZQSwyQjR5QzQ==}
     peerDependencies:
+      '@types/react': '>=17'
+      '@types/react-dom': '>=17'
       react: '>=17'
       react-dom: '>=17'
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
 
-  '@xyflow/system@0.0.75':
-    resolution: {integrity: sha512-iXs+AGFLi8w/VlAoc/iSxk+CxfT6o64Uw/k0CKASOPqjqz6E0rb5jFZgJtXGZCpfQI6OQpu5EnumP5fGxQheaQ==}
+  '@xyflow/system@0.0.80':
+    resolution: {integrity: sha512-ywc3ZqG91brzWrH1WlwMdIX4goOfrpBy6AbLdVSaof/Xx9l138ijIKRExM6EkMro2F+OImGmSiA/WKcXvKVcfA==}
 
   acorn-jsx@5.3.2:
     resolution: {integrity: sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==}
@@ -1969,6 +1979,11 @@ packages:
 
   acorn@8.16.0:
     resolution: {integrity: sha512-UVJyE9MttOsBQIDKw1skb9nAwQuR5wuGD3+82K6JgJlm/Y+KI92oNsMNGZCYdDsVtRHSak0pcV5Dno5+4jh9sw==}
+    engines: {node: '>=0.4.0'}
+    hasBin: true
+
+  acorn@8.18.0:
+    resolution: {integrity: sha512-lGq+9yr1/GuAWaVYIHRjvvySG5/4VfKIvC8EWxStPdcDh/Ka7FG3twP6v4d5BkravUilhIAsG4Qj83t02LWUPQ==}
     engines: {node: '>=0.4.0'}
     hasBin: true
 
@@ -2946,8 +2961,8 @@ packages:
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
 
-  lucide-react@1.27.0:
-    resolution: {integrity: sha512-rJicGl/3Fly/E0rOH1YmPZ6e49JCnKknh1ox1vpHnkfjujAkKA6sqUZvH3MTAaXXjgexyUwgNwTJzTtYuAFYJw==}
+  lucide-react@1.33.0:
+    resolution: {integrity: sha512-MTRwMy0ZlL8Ur/vOAiJ9XGHE+kFPC7brq6MxAm0GiGXEBj0qy0jA/pG4N675oSzciO/UCdX8T+5yUQdmDeTLxg==}
     peerDependencies:
       react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
@@ -3405,10 +3420,10 @@ packages:
     engines: {node: ^20.19.0 || >=22.13.0}
     hasBin: true
 
-  react-dom@19.2.3:
-    resolution: {integrity: sha512-yELu4WmLPw5Mr/lmeEpox5rw3RETacE++JgHqQzd2dg+YbJuat3jH4ingc+WPZhxaoFzdv9y33G+F7Nl5O0GBg==}
+  react-dom@19.2.8:
+    resolution: {integrity: sha512-rVprimfGBG3DR+Tq0IQG2DT5PxKth1WIGDmj5yPmlzr4YBe7uyE+Du4oVqTDXZSHGGGXRtTJEGSSePyQCMBglQ==}
     peerDependencies:
-      react: ^19.2.3
+      react: ^19.2.8
 
   react-reconciler@0.33.0:
     resolution: {integrity: sha512-KetWRytFv1epdpJc3J4G75I4WrplZE5jOL7Yq0p34+OVOKF4Se7WrdIdVC45XsSSmUTlht2FM/fM1FZb1mfQeA==}
@@ -3416,8 +3431,8 @@ packages:
     peerDependencies:
       react: ^19.2.0
 
-  react@19.2.3:
-    resolution: {integrity: sha512-Ku/hhYbVjOQnXDZFv2+RibmLFGwFdeeKHFcOTlrt7xplBnya5OGn/hIRDsqDiSUcfORsDC7MPxwork8jBwsIWA==}
+  react@19.2.8:
+    resolution: {integrity: sha512-PWaYA1L/q9u2u7xYQi+Y3L3Yfnie7XyLeaJICV1MGD6LprsBxcAqGjYyr0eY3p+QdsA+x/Irkt4Qif8D63+Sbw==}
     engines: {node: '>=0.10.0'}
 
   read-yaml-file@1.1.0:
@@ -4768,11 +4783,11 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@mdx-js/react@3.1.1(@types/react@19.2.14)(react@19.2.3)':
+  '@mdx-js/react@3.1.1(@types/react@19.2.18)(react@19.2.8)':
     dependencies:
       '@types/mdx': 2.0.13
-      '@types/react': 19.2.14
-      react: 19.2.3
+      '@types/react': 19.2.18
+      react: 19.2.8
 
   '@napi-rs/wasm-runtime@1.1.1':
     dependencies:
@@ -4790,12 +4805,12 @@ snapshots:
 
   '@next/env@16.3.2': {}
 
-  '@next/mdx@16.1.6(@mdx-js/loader@3.1.1)(@mdx-js/react@3.1.1(@types/react@19.2.14)(react@19.2.3))':
+  '@next/mdx@16.3.2(@mdx-js/loader@3.1.1)(@mdx-js/react@3.1.1(@types/react@19.2.18)(react@19.2.8))':
     dependencies:
       source-map: 0.7.6
     optionalDependencies:
       '@mdx-js/loader': 3.1.1
-      '@mdx-js/react': 3.1.1(@types/react@19.2.14)(react@19.2.3)
+      '@mdx-js/react': 3.1.1(@types/react@19.2.18)(react@19.2.8)
 
   '@next/swc-darwin-arm64@16.3.2':
     optional: true
@@ -5473,6 +5488,8 @@ snapshots:
 
   '@types/estree@1.0.8': {}
 
+  '@types/estree@1.0.9': {}
+
   '@types/hast@3.0.4':
     dependencies:
       '@types/unist': 3.0.3
@@ -5499,11 +5516,11 @@ snapshots:
     dependencies:
       undici-types: 6.21.0
 
-  '@types/react-dom@19.2.3(@types/react@19.2.14)':
+  '@types/react-dom@19.2.4(@types/react@19.2.18)':
     dependencies:
-      '@types/react': 19.2.14
+      '@types/react': 19.2.18
 
-  '@types/react@19.2.14':
+  '@types/react@19.2.18':
     dependencies:
       csstype: 3.2.3
 
@@ -5520,15 +5537,15 @@ snapshots:
 
   '@ungap/structured-clone@1.3.0': {}
 
-  '@vercel/analytics@2.0.1(next@16.3.2(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@types/node@20.19.33)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)':
+  '@vercel/analytics@2.0.1(next@16.3.2(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@types/node@20.19.33)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)':
     optionalDependencies:
-      next: 16.3.2(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@types/node@20.19.33)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      react: 19.2.3
+      next: 16.3.2(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@types/node@20.19.33)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      react: 19.2.8
 
-  '@vercel/speed-insights@2.0.0(next@16.3.2(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@types/node@20.19.33)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react@19.2.3)':
+  '@vercel/speed-insights@2.0.0(next@16.3.2(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@types/node@20.19.33)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)':
     optionalDependencies:
-      next: 16.3.2(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@types/node@20.19.33)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      react: 19.2.3
+      next: 16.3.2(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@types/node@20.19.33)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      react: 19.2.8
 
   '@vitest/expect@3.2.4':
     dependencies:
@@ -5572,18 +5589,20 @@ snapshots:
       loupe: 3.2.1
       tinyrainbow: 2.0.0
 
-  '@xyflow/react@12.10.1(@types/react@19.2.14)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
+  '@xyflow/react@12.11.3(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:
-      '@xyflow/system': 0.0.75
+      '@xyflow/system': 0.0.80
       classcat: 5.0.5
-      react: 19.2.3
-      react-dom: 19.2.3(react@19.2.3)
-      zustand: 4.5.7(@types/react@19.2.14)(react@19.2.3)
+      react: 19.2.8
+      react-dom: 19.2.8(react@19.2.8)
+      zustand: 4.5.7(@types/react@19.2.18)(react@19.2.8)
+    optionalDependencies:
+      '@types/react': 19.2.18
+      '@types/react-dom': 19.2.4(@types/react@19.2.18)
     transitivePeerDependencies:
-      - '@types/react'
       - immer
 
-  '@xyflow/system@0.0.75':
+  '@xyflow/system@0.0.80':
     dependencies:
       '@types/d3-drag': 3.0.7
       '@types/d3-interpolate': 3.0.4
@@ -5599,7 +5618,13 @@ snapshots:
     dependencies:
       acorn: 8.16.0
 
+  acorn-jsx@5.3.2(acorn@8.18.0):
+    dependencies:
+      acorn: 8.18.0
+
   acorn@8.16.0: {}
+
+  acorn@8.18.0: {}
 
   agent-install@0.0.5:
     dependencies:
@@ -6003,7 +6028,7 @@ snapshots:
       '@humanfs/node': 0.16.8
       '@humanwhocodes/module-importer': 1.0.1
       '@humanwhocodes/retry': 0.4.3
-      '@types/estree': 1.0.8
+      '@types/estree': 1.0.9
       ajv: 6.15.0
       cross-spawn: 7.0.6
       debug: 4.4.3
@@ -6031,8 +6056,8 @@ snapshots:
 
   espree@11.2.0:
     dependencies:
-      acorn: 8.16.0
-      acorn-jsx: 5.3.2(acorn@8.16.0)
+      acorn: 8.18.0
+      acorn-jsx: 5.3.2(acorn@8.18.0)
       eslint-visitor-keys: 5.0.1
 
   esprima@4.0.1: {}
@@ -6328,7 +6353,7 @@ snapshots:
 
   indent-string@5.0.0: {}
 
-  ink@6.8.0(@types/react@19.2.14)(react@19.2.3):
+  ink@6.8.0(@types/react@19.2.18)(react@19.2.8):
     dependencies:
       '@alcalzone/ansi-tokenize': 0.2.5
       ansi-escapes: 7.3.0
@@ -6343,8 +6368,8 @@ snapshots:
       indent-string: 5.0.0
       is-in-ci: 2.0.0
       patch-console: 2.0.0
-      react: 19.2.3
-      react-reconciler: 0.33.0(react@19.2.3)
+      react: 19.2.8
+      react-reconciler: 0.33.0(react@19.2.8)
       scheduler: 0.27.0
       signal-exit: 3.0.7
       slice-ansi: 8.0.0
@@ -6357,7 +6382,7 @@ snapshots:
       ws: 8.21.3
       yoga-layout: 3.2.1
     optionalDependencies:
-      '@types/react': 19.2.14
+      '@types/react': 19.2.18
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
@@ -6590,9 +6615,9 @@ snapshots:
     dependencies:
       yallist: 3.1.1
 
-  lucide-react@1.27.0(react@19.2.3):
+  lucide-react@1.33.0(react@19.2.8):
     dependencies:
-      react: 19.2.3
+      react: 19.2.8
 
   magic-string@0.30.21:
     dependencies:
@@ -7076,16 +7101,16 @@ snapshots:
 
   natural-compare@1.4.0: {}
 
-  next@16.3.2(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@types/node@20.19.33)(react-dom@19.2.3(react@19.2.3))(react@19.2.3):
+  next@16.3.2(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@types/node@20.19.33)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
     dependencies:
       '@next/env': 16.3.2
       '@swc/helpers': 0.5.23
       baseline-browser-mapping: 2.11.17
       caniuse-lite: 1.0.30001809
       postcss: 8.5.23
-      react: 19.2.3
-      react-dom: 19.2.3(react@19.2.3)
-      styled-jsx: 5.1.6(@babel/core@7.29.7)(react@19.2.3)
+      react: 19.2.8
+      react-dom: 19.2.8(react@19.2.8)
+      styled-jsx: 5.1.6(@babel/core@7.29.7)(react@19.2.8)
     optionalDependencies:
       '@next/swc-darwin-arm64': 16.3.2
       '@next/swc-darwin-x64': 16.3.2
@@ -7400,17 +7425,17 @@ snapshots:
       - supports-color
       - vite-plus
 
-  react-dom@19.2.3(react@19.2.3):
+  react-dom@19.2.8(react@19.2.8):
     dependencies:
-      react: 19.2.3
+      react: 19.2.8
       scheduler: 0.27.0
 
-  react-reconciler@0.33.0(react@19.2.3):
+  react-reconciler@0.33.0(react@19.2.8):
     dependencies:
-      react: 19.2.3
+      react: 19.2.8
       scheduler: 0.27.0
 
-  react@19.2.3: {}
+  react@19.2.8: {}
 
   read-yaml-file@1.1.0:
     dependencies:
@@ -7779,10 +7804,10 @@ snapshots:
     dependencies:
       inline-style-parser: 0.2.7
 
-  styled-jsx@5.1.6(@babel/core@7.29.7)(react@19.2.3):
+  styled-jsx@5.1.6(@babel/core@7.29.7)(react@19.2.8):
     dependencies:
       client-only: 0.0.1
-      react: 19.2.3
+      react: 19.2.8
     optionalDependencies:
       '@babel/core': 7.29.7
 
@@ -7942,9 +7967,9 @@ snapshots:
     dependencies:
       punycode: 2.3.1
 
-  use-sync-external-store@1.6.0(react@19.2.3):
+  use-sync-external-store@1.6.0(react@19.2.8):
     dependencies:
-      react: 19.2.3
+      react: 19.2.8
 
   vfile-location@5.0.3:
     dependencies:
@@ -8113,11 +8138,11 @@ snapshots:
 
   zod@4.3.6: {}
 
-  zustand@4.5.7(@types/react@19.2.14)(react@19.2.3):
+  zustand@4.5.7(@types/react@19.2.18)(react@19.2.8):
     dependencies:
-      use-sync-external-store: 1.6.0(react@19.2.3)
+      use-sync-external-store: 1.6.0(react@19.2.8)
     optionalDependencies:
-      '@types/react': 19.2.14
-      react: 19.2.3
+      '@types/react': 19.2.18
+      react: 19.2.8
 
   zwitch@2.0.4: {}
