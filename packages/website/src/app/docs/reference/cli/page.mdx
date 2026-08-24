@@ -139,7 +139,8 @@ Your code never leaves the machine. After a scan the CLI reports anonymously:
 | Well-known dependencies | `prisma`, `@nestjs/graphql` |
 | The config's shape — counts and built-in rule ids | `4 rules turned off` |
 | How you ran it — the scope and the blocking level | `changed`, `error` |
-| In CI, how the run was triggered | `pull_request`, `Linux`, `via_action: true` |
+| Your OS, Node major, and the version you ran | `darwin`, `22`, `1.4.2` |
+| In CI, how the run was triggered | `pull_request`, `github`, `via_action: true` |
 
 Never your source, file paths, project name, repository, organization, or the
 names of your custom rules. In CI every run shares one identifier per provider

@@ -1,6 +1,8 @@
+import type { BlockingLevel } from "../cli/blocking.js";
 import { DEFAULT_CONFIG, type NestjsDoctorConfig } from "../common/config.js";
 import type { Diagnostic } from "../common/diagnostic.js";
 import type { RuleErrorInfo, Score } from "../common/result.js";
+import type { ScopeMode } from "../common/scope.js";
 import { allRules } from "../engine/rules/index.js";
 import type { EcosystemFacts } from "./ecosystem.js";
 import type { ActionFacts, VersionPin } from "./environment.js";
@@ -25,7 +27,7 @@ export interface ConfigFacts {
 
 export interface ScanFacts {
 	action: ActionFacts;
-	blocking: string;
+	blocking: BlockingLevel;
 	config: ConfigFacts;
 	customRulesLoaded: number;
 	diagnostics: Diagnostic[];
@@ -39,7 +41,7 @@ export interface ScanFacts {
 	orm: string | null;
 	projectId?: string;
 	ruleErrors: RuleErrorInfo[];
-	scope: string;
+	scope: ScopeMode;
 	score: Score;
 	source: "ci" | "cli";
 	version: string;
@@ -53,7 +55,7 @@ export interface ScanPayload {
 	action_sarif: boolean | null;
 	action_version_pin: VersionPin | null;
 	actor_association: string | null;
-	blocking: string;
+	blocking: BlockingLevel;
 	categories_disabled: string[];
 	ci_event: string | null;
 	ci_provider: string | null;
@@ -86,8 +88,7 @@ export interface ScanPayload {
 	rules_disabled: string[];
 	rules_turned_off: string[];
 	rules_with_findings: number;
-	runner_os: string | null;
-	scope: string;
+	scope: ScopeMode;
 	score: number;
 	version: string;
 	via_action: boolean;
@@ -207,7 +208,6 @@ export function buildScanPayload(
 		rules_turned_off: facts.config.rulesTurnedOff,
 		rules_disabled: builtInOnly(facts.disabledRuleIds),
 		rules_with_findings: Object.keys(findings).length,
-		runner_os: facts.action.runnerOs,
 		scope: facts.scope,
 		score: facts.score.value,
 		version: facts.version,

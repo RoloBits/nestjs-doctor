@@ -30,16 +30,24 @@ export function detectCiProvider(
 	return isSet(env.CI) ? "unknown" : null;
 }
 
-/** The env vars the official GitHub Action sets. Nothing else writes them. */
-const ACTION_ENV = {
+/**
+ * The env vars the official GitHub Action sets. Nothing else writes them.
+ * A test asserts `action.yml` still writes every one, because a renamed input
+ * would otherwise resolve to an empty string and report as "off" forever.
+ */
+export const ACTION_ENV = {
 	actorAssociation: "NESTJS_DOCTOR_ACTION_ACTOR_ASSOCIATION",
 	commitStatus: "NESTJS_DOCTOR_ACTION_COMMIT_STATUS",
 	comment: "NESTJS_DOCTOR_ACTION_COMMENT",
 	marker: "NESTJS_DOCTOR_GITHUB_ACTION",
+	resolved: "NESTJS_DOCTOR_ACTION_RESOLVED",
 	reviewComments: "NESTJS_DOCTOR_ACTION_REVIEW_COMMENTS",
 	sarif: "NESTJS_DOCTOR_ACTION_SARIF",
 	version: "NESTJS_DOCTOR_ACTION_VERSION",
 } as const;
+
+/** What the action writes when `github.action_ref` is empty. */
+const NO_REF = "1";
 
 /** The workflow triggers a scan plausibly runs on. Anything else is `other`. */
 const CI_EVENTS: readonly string[] = [
@@ -65,20 +73,9 @@ const ACTOR_ASSOCIATIONS: readonly string[] = [
 	"OWNER",
 ];
 
-const RUNNER_OPERATING_SYSTEMS: readonly string[] = [
-	"Linux",
-	"Windows",
-	"macOS",
-];
-
-/**
- * A ref names a tag, a branch, or a commit. Git forbids `..` and a leading
- * slash in one, so a path that reaches those is not a ref and is dropped.
- */
-const ACTION_REF_RE = /^(?!\/)(?!.*\.\.)[\w.\-/]{1,64}$/;
-
-/** A relative path, an absolute one, or a `file:` spec — all local checkouts. */
-const LOCAL_SPEC_RE = /^(?:file:|\.{0,2}\/)/;
+/** A release tag, reduced to its major. A branch name is never reported. */
+const VERSION_TAG_RE = /^v(\d{1,3})(?:[.\w-]*)$/;
+const COMMIT_SHA_RE = /^[0-9a-f]{40}$/i;
 
 /** How the action's `version` input pins the CLI. The spec itself never travels. */
 export type VersionPin = "latest" | "local" | "pinned";
@@ -93,20 +90,12 @@ export interface ActionFacts {
 	actorAssociation: string | null;
 	ciEvent: string | null;
 	ciProvider: string | null;
-	runnerOs: string | null;
 	viaAction: boolean;
 }
 
 /** Tri-state: the action writes "true"/"false", and absent stays absent. */
-const readBoolean = (value: string | undefined): boolean | null => {
-	if (value === "true") {
-		return true;
-	}
-	if (value === "false") {
-		return false;
-	}
-	return null;
-};
+const readBoolean = (value: string | undefined): boolean | null =>
+	value === "true" || value === "false" ? value === "true" : null;
 
 const oneOf = (
 	allowed: readonly string[],
@@ -114,22 +103,40 @@ const oneOf = (
 ): string | null => (value && allowed.includes(value) ? value : null);
 
 /**
- * Classifies the action's `version` input. A local path or a tarball URL is a
- * filesystem path or a host, so only the classification travels.
+ * Which major of the action this is, `sha` for a pinned commit, `branch` for
+ * anything else. A ref is the only free-form value the action can hand us, and
+ * a fork's branch name has no bound, so it is classified rather than reported.
  */
-function classifyVersionPin(value: string | undefined): VersionPin | null {
-	const spec = value?.trim();
-	if (!spec) {
+const classifyActionRef = (marker: string | undefined): string | null => {
+	if (!marker || marker === NO_REF) {
 		return null;
 	}
-	if (spec === "latest") {
-		return "latest";
+	const tag = VERSION_TAG_RE.exec(marker);
+	if (tag) {
+		return `v${tag[1]}`;
 	}
-	if (LOCAL_SPEC_RE.test(spec)) {
+	return COMMIT_SHA_RE.test(marker) ? "sha" : "branch";
+};
+
+/**
+ * Classifies the action's `version` input. `resolved` is the action's own
+ * verdict — it publishes the literal "local" for a path or `file:` spec, which
+ * is the same check the install made, so the two cannot disagree.
+ */
+const classifyVersionPin = (
+	version: string | undefined,
+	resolved: string | undefined
+): VersionPin | null => {
+	if (resolved?.trim() === "local") {
 		return "local";
 	}
-	return "pinned";
-}
+	const requested = version?.trim();
+	if (requested === undefined) {
+		return null;
+	}
+	// The action defaults the input to "latest", and an empty one means the same.
+	return requested === "" || requested === "latest" ? "latest" : "pinned";
+};
 
 /**
  * What the run's environment says about how it was triggered. Every field is a
@@ -143,20 +150,21 @@ export function actionContext(
 	const eventName = env.GITHUB_EVENT_NAME?.trim();
 
 	return {
-		actionCommitStatus: readBoolean(env[ACTION_ENV.commitStatus]),
 		actionComment: readBoolean(env[ACTION_ENV.comment]),
-		actionRef:
-			marker && ACTION_REF_RE.test(marker) && marker !== "1" ? marker : null,
+		actionCommitStatus: readBoolean(env[ACTION_ENV.commitStatus]),
+		actionRef: classifyActionRef(marker?.trim()),
 		actionReviewComments: readBoolean(env[ACTION_ENV.reviewComments]),
 		actionSarif: readBoolean(env[ACTION_ENV.sarif]),
-		actionVersionPin: classifyVersionPin(env[ACTION_ENV.version]),
+		actionVersionPin: classifyVersionPin(
+			env[ACTION_ENV.version],
+			env[ACTION_ENV.resolved]
+		),
 		actorAssociation: oneOf(
 			ACTOR_ASSOCIATIONS,
 			env[ACTION_ENV.actorAssociation]?.trim()
 		),
 		ciEvent: eventName ? (oneOf(CI_EVENTS, eventName) ?? "other") : null,
 		ciProvider: detectCiProvider(env),
-		runnerOs: oneOf(RUNNER_OPERATING_SYSTEMS, env.RUNNER_OS?.trim()),
 		viaAction: isSet(marker),
 	};
 }

@@ -8,7 +8,7 @@ measurable.
 The scan payload carried one bit about CI — `generated_in: "ci" | "cli"` — which
 cannot tell the official action apart from a hand-rolled `npx nestjs-doctor`
 step. Every scan now also reports the scope and blocking level the CLI resolved.
-A scan in CI adds the triggering event, the CI provider and the runner OS, and
+A scan in CI adds the triggering event and the CI provider, and
 one from the action adds which of its comment, review-comment, commit-status and
 SARIF inputs were on, how the version was pinned, and the pull request author's
 association.
