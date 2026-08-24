@@ -160,7 +160,7 @@ abstract class ScanPipeline {
 					orm: result.project.orm,
 					projectId: identity.projectId,
 					ruleErrors: result.ruleErrors,
-					scope: this.options.scope,
+					scopeRequested: this.options.scope,
 					score: result.score,
 					source: generatedIn(),
 					version: getCliVersion(),

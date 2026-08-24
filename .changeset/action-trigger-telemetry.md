@@ -20,6 +20,5 @@ organization, or run identifier is added, and CI runs still share one identifier
 per provider with no project id.
 
 The action takes a `telemetry` input to turn it off, alongside `--no-telemetry`,
-`telemetry: false` in the config, and `DO_NOT_TRACK`. The docs now describe what
-a scan reports instead of summarising it as "anonymous rule counts", and
-`--no-telemetry` appears in the CLI reference for the first time.
+`telemetry: false` in the config, and `DO_NOT_TRACK`. Anything other than
+`true` turns it off, so a spelling the comparison missed cannot leave it on.

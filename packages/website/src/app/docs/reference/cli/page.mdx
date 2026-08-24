@@ -27,7 +27,6 @@ The directory defaults to the current one.
 | `--verbose` | Show the file and line behind every diagnostic |
 | `--config <path>` | Use a specific config file instead of auto-detecting |
 | `--list-rules` | Print every built-in rule and exit |
-| `--no-telemetry` | Scan without reporting anything. See [What a scan reports](#what-a-scan-reports) |
 | `-h`, `--help` | Print usage and exit |
 
 ## Scope
@@ -95,8 +94,8 @@ fix prompt for the whole rule.
 Handing off detects Claude Code, Codex, and Cursor on your PATH and starts the
 one you pick with the top findings as its first prompt, plainly: no
 permission-skipping flags are passed. Copy the prompt instead to use any other
-agent. The prompt never leaves your machine, and neither does your code. See
-[What a scan reports](#what-a-scan-reports) for what does.
+agent. The prompt never leaves your machine; the scan itself reports only
+anonymous rule counts.
 
 The menu never appears where it could hang a machine. It is skipped in CI,
 inside coding agents, in pipes, in `dumb` terminals, and in every mode other
@@ -127,34 +126,6 @@ agrees.
 | Flag | Does |
 |---|---|
 | `--init` | Install the skill for your coding agent. See [Coding agents](/docs/coding-agents) |
-
-## What a scan reports
-
-Your code never leaves the machine. After a scan the CLI reports anonymously:
-
-| Reported | Example |
-|---|---|
-| Which built-in rules fired, and at what severity | `security/no-missing-guard: 3 errors` |
-| The score, the file count, and how long the scan took | `78`, `412 files`, `1.9s` |
-| Well-known dependencies | `prisma`, `@nestjs/graphql` |
-| The config's shape — counts and built-in rule ids | `4 rules turned off` |
-| How you ran it — the scope and the blocking level | `changed`, `error` |
-| Your OS, Node major, and the version you ran | `darwin`, `22`, `1.4.2` |
-| In CI, how the run was triggered | `pull_request`, `github`, `via_action: true` |
-
-Never your source, file paths, project name, repository, organization, or the
-names of your custom rules. In CI every run shares one identifier per provider
-and carries no project id, so runs cannot be traced back to a repository.
-
-Three switches turn it off, and any one is enough:
-
-```bash
-nestjs-doctor . --no-telemetry     # this run
-DO_NOT_TRACK=1 nestjs-doctor .     # this shell
-```
-
-Or `telemetry: false` in the config file, for the whole project. The GitHub
-Action takes `telemetry: false` as an input. See [CI](/docs/ci).
 
 ## Exit codes
 

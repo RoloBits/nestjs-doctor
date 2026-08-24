@@ -220,7 +220,7 @@ runs:
         RUNNER_TEMP: ${{ runner.temp }}
         INPUT_TELEMETRY: ${{ inputs.telemetry }}
         # Marks the run as coming from this action rather than a hand-rolled npx
-        # step. `GITHUB_EVENT_NAME` and `RUNNER_OS` the runner already provides.
+        # step. `GITHUB_EVENT_NAME` the runner already provides.
         NESTJS_DOCTOR_GITHUB_ACTION: ${{ github.action_ref || '1' }}
         NESTJS_DOCTOR_ACTION_VERSION: ${{ inputs.version }}
         # `resolved` is the literal "local" for a path or `file:` spec, so the
@@ -252,7 +252,11 @@ runs:
         FLAGS=("--format" "json" "--output" "$REPORT_FILE" "--blocking" "$INPUT_BLOCKING")
         if [ -n "$INPUT_MIN_SCORE" ]; then FLAGS+=("--min-score" "$INPUT_MIN_SCORE"); fi
         if [ -n "$INPUT_CONFIG" ]; then FLAGS+=("--config" "$INPUT_CONFIG"); fi
-        if [ "$INPUT_TELEMETRY" = "false" ]; then FLAGS+=("--no-telemetry"); fi
+        # Anything that is not plainly "true" turns reporting off. A consent
+        # switch must not be defeated by a spelling the comparison missed.
+        if [ "$(printf '%s' "$INPUT_TELEMETRY" | tr '[:upper:]' '[:lower:]')" != "true" ]; then
+          FLAGS+=("--no-telemetry")
+        fi
 
         # Lowercase so this bash test agrees with the case-insensitive `!= 'full'`
         # comparisons the changed-file steps use; otherwise `scope: Full` would

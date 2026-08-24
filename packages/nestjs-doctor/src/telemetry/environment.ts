@@ -73,8 +73,11 @@ const ACTOR_ASSOCIATIONS: readonly string[] = [
 	"OWNER",
 ];
 
-/** A release tag, reduced to its major. A branch name is never reported. */
-const VERSION_TAG_RE = /^v(\d{1,3})(?:[.\w-]*)$/;
+/**
+ * A release tag, reduced to its major. Anchored to digits and dots so a branch
+ * called `v1-patched` lands in `branch` rather than posing as the v1 tag.
+ */
+const VERSION_TAG_RE = /^v(\d{1,3})(?:\.\d+){0,2}$/;
 const COMMIT_SHA_RE = /^[0-9a-f]{40}$/i;
 
 /** How the action's `version` input pins the CLI. The spec itself never travels. */

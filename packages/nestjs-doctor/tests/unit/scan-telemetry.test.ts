@@ -24,7 +24,7 @@ const code = (overrides: Partial<CodeDiagnostic>): CodeDiagnostic => ({
 const facts = (overrides: Partial<ScanFacts> = {}): ScanFacts => ({
 	action: actionContext({}),
 	blocking: "error",
-	scope: "full",
+	scopeRequested: "full",
 	config: {
 		categoriesDisabled: [],
 		customRulesDir: false,
@@ -160,7 +160,7 @@ describe("scan telemetry payload", () => {
 					NESTJS_DOCTOR_GITHUB_ACTION: "v1",
 				}),
 				blocking: "warning",
-				scope: "changed",
+				scopeRequested: "changed",
 			})
 		);
 
@@ -172,8 +172,9 @@ describe("scan telemetry payload", () => {
 		expect(payload.action_comment).toBe(true);
 		expect(payload.action_review_comments).toBe(false);
 		expect(payload.actor_association).toBe("FIRST_TIME_CONTRIBUTOR");
-		// Taken from what the CLI resolved, not from the raw action input.
-		expect(payload.scope).toBe("changed");
+		// What was asked for: degradation to `files` is decided later, so the
+		// payload cannot claim to know whether the baseline was reachable.
+		expect(payload.scope_requested).toBe("changed");
 		expect(payload.blocking).toBe("warning");
 	});
 
@@ -260,6 +261,8 @@ describe("scan telemetry payload", () => {
 
 		expect(ref("v1")).toBe("v1");
 		expect(ref("v2.3.1")).toBe("v2");
+		// A branch that merely looks like a tag must not pose as the release.
+		expect(ref("v1-patched")).toBe("branch");
 		expect(ref("a".repeat(40))).toBe("sha");
 		// A fork's branch name has no bound, so only the shape is reported.
 		expect(ref("feature/whatever-someone-called-it")).toBe("branch");
