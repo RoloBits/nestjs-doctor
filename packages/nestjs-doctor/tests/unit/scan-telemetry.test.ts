@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { describe, expect, it, vi } from "vitest";
 import type { CodeDiagnostic } from "../../src/common/diagnostic.js";
 import type { Score } from "../../src/common/result.js";
+import { ACTION_ENV, actionContext } from "../../src/telemetry/environment.js";
 import {
 	buildScanPayload,
 	type ScanFacts,
@@ -20,6 +22,9 @@ const code = (overrides: Partial<CodeDiagnostic>): CodeDiagnostic => ({
 });
 
 const facts = (overrides: Partial<ScanFacts> = {}): ScanFacts => ({
+	action: actionContext({}),
+	blocking: "error",
+	scopeRequested: "full",
 	config: {
 		categoriesDisabled: [],
 		customRulesDir: false,
@@ -100,6 +105,13 @@ describe("scan telemetry payload", () => {
 		const serialized = JSON.stringify(
 			buildScanPayload(
 				facts({
+					// A local `version` input is a path on the runner; only its
+					// classification may travel.
+					action: actionContext({
+						NESTJS_DOCTOR_GITHUB_ACTION: "v1",
+						NESTJS_DOCTOR_ACTION_VERSION:
+							"/Users/someone/acme-billing/nestjs-doctor",
+					}),
 					diagnostics: [code({})],
 					ruleErrors: [
 						{
@@ -116,6 +128,7 @@ describe("scan telemetry payload", () => {
 		expect(serialized).not.toContain("secret.ts");
 		expect(serialized).not.toContain("Provider is never injected");
 		expect(serialized).not.toContain("Cannot read file");
+		expect(serialized).not.toContain("acme-billing");
 	});
 
 	it("reports the environment without identifying the machine", () => {
@@ -130,6 +143,157 @@ describe("scan telemetry payload", () => {
 		expect(payload.generated_in).toBe("ci");
 		expect(payload.monorepo).toBe(true);
 		expect(payload.duration_ms).toBe(13);
+	});
+
+	it("reports how the official action was triggered", () => {
+		const payload = buildScanPayload(
+			facts({
+				action: actionContext({
+					GITHUB_ACTIONS: "true",
+					GITHUB_EVENT_NAME: "pull_request",
+					NESTJS_DOCTOR_ACTION_ACTOR_ASSOCIATION: "FIRST_TIME_CONTRIBUTOR",
+					NESTJS_DOCTOR_ACTION_COMMENT: "true",
+					NESTJS_DOCTOR_ACTION_COMMIT_STATUS: "true",
+					NESTJS_DOCTOR_ACTION_REVIEW_COMMENTS: "false",
+					NESTJS_DOCTOR_ACTION_SARIF: "false",
+					NESTJS_DOCTOR_ACTION_VERSION: "latest",
+					NESTJS_DOCTOR_GITHUB_ACTION: "v1",
+				}),
+				blocking: "warning",
+				scopeRequested: "changed",
+			})
+		);
+
+		expect(payload.via_action).toBe(true);
+		expect(payload.action_ref).toBe("v1");
+		expect(payload.action_version_pin).toBe("latest");
+		expect(payload.ci_event).toBe("pull_request");
+		expect(payload.ci_provider).toBe("github");
+		expect(payload.action_comment).toBe(true);
+		expect(payload.action_review_comments).toBe(false);
+		expect(payload.actor_association).toBe("FIRST_TIME_CONTRIBUTOR");
+		// What was asked for: degradation to `files` is decided later, so the
+		// payload cannot claim to know whether the baseline was reachable.
+		expect(payload.scope_requested).toBe("changed");
+		expect(payload.blocking).toBe("warning");
+	});
+
+	it("separates a hand-rolled CI step from the official action", () => {
+		const payload = buildScanPayload(
+			facts({
+				action: actionContext({
+					GITHUB_ACTIONS: "true",
+					GITHUB_EVENT_NAME: "push",
+				}),
+			})
+		);
+
+		expect(payload.via_action).toBe(false);
+		expect(payload.action_ref).toBeNull();
+		expect(payload.action_comment).toBeNull();
+		expect(payload.action_review_comments).toBeNull();
+		expect(payload.actor_association).toBeNull();
+		expect(payload.action_version_pin).toBeNull();
+		// The runner still describes itself.
+		expect(payload.ci_event).toBe("push");
+		expect(payload.ci_provider).toBe("github");
+	});
+
+	it("drops a value that is not in the vocabulary", () => {
+		const payload = buildScanPayload(
+			facts({
+				action: actionContext({
+					GITHUB_EVENT_NAME: "repository_dispatch",
+					NESTJS_DOCTOR_ACTION_ACTOR_ASSOCIATION: "PRESIDENT",
+					NESTJS_DOCTOR_ACTION_COMMENT: "yes",
+					NESTJS_DOCTOR_GITHUB_ACTION: "../../etc/passwd",
+				}),
+			})
+		);
+
+		expect(payload.actor_association).toBeNull();
+		expect(payload.action_comment).toBeNull();
+		// Set, so the run came from the action; the ref is only ever a shape.
+		expect(payload.via_action).toBe(true);
+		expect(payload.action_ref).toBe("branch");
+		// An unlisted trigger still counts, without naming itself.
+		expect(payload.ci_event).toBe("other");
+	});
+
+	it("reads the ambient environment when given none", () => {
+		// The pipeline calls actionContext() with no argument; every other test
+		// injects one, so the default parameter is otherwise never exercised.
+		vi.stubEnv("NESTJS_DOCTOR_GITHUB_ACTION", "v1");
+		try {
+			expect(actionContext().viaAction).toBe(true);
+			expect(actionContext().actionRef).toBe("v1");
+		} finally {
+			vi.unstubAllEnvs();
+		}
+	});
+
+	it("classifies the version pin without forwarding the spec", () => {
+		const pin = (version?: string, resolved?: string) =>
+			actionContext({
+				...(version === undefined
+					? {}
+					: { NESTJS_DOCTOR_ACTION_VERSION: version }),
+				...(resolved === undefined
+					? {}
+					: { NESTJS_DOCTOR_ACTION_RESOLVED: resolved }),
+			}).actionVersionPin;
+
+		expect(pin("latest", "1.4.2")).toBe("latest");
+		expect(pin("1.4.2", "1.4.2")).toBe("pinned");
+		expect(pin("nestjs-doctor@1.4.2", "1.4.2")).toBe("pinned");
+		expect(pin("", "1.4.2")).toBe("latest");
+		expect(pin()).toBeNull();
+		// "local" is the action's own verdict, so the two cannot disagree about
+		// a bare relative path the CLI's own regex would have called pinned.
+		expect(pin("./local/checkout", "local")).toBe("local");
+		expect(pin("packages/nestjs-doctor", "local")).toBe("local");
+		expect(pin("file:../sibling", "local")).toBe("local");
+	});
+
+	it("classifies the action ref instead of reporting it", () => {
+		const ref = (marker: string) =>
+			actionContext({ NESTJS_DOCTOR_GITHUB_ACTION: marker }).actionRef;
+
+		expect(ref("v1")).toBe("v1");
+		expect(ref("v2.3.1")).toBe("v2");
+		// A branch that merely looks like a tag must not pose as the release.
+		expect(ref("v1-patched")).toBe("branch");
+		expect(ref("a".repeat(40))).toBe("sha");
+		// A fork's branch name has no bound, so only the shape is reported.
+		expect(ref("feature/whatever-someone-called-it")).toBe("branch");
+		expect(ref("../../etc/passwd")).toBe("branch");
+		// The sentinel the action writes when github.action_ref is empty.
+		expect(ref("1")).toBeNull();
+	});
+
+	it("keeps action.yml and the env contract from drifting apart", () => {
+		// Nothing observable breaks when these disagree: a renamed input resolves
+		// to an empty string, readBoolean returns null, and the field silently
+		// reads as "nobody turned it on" forever. The self-test cannot catch it
+		// because it sets DO_NOT_TRACK job-wide.
+		const actionYml = readFileSync(
+			new URL("../../../../action.yml", import.meta.url),
+			"utf8"
+		);
+
+		for (const variable of Object.values(ACTION_ENV)) {
+			expect(actionYml).toContain(`${variable}: \${{`);
+		}
+		for (const input of [
+			"comment",
+			"review-comments",
+			"commit-status",
+			"sarif",
+			"version",
+			"telemetry",
+		]) {
+			expect(actionYml).toMatch(new RegExp(`^ {2}${input}:$`, "m"));
+		}
 	});
 });
 

@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { dirname, join } from "node:path";
-import { isSet } from "./environment.js";
+import { detectCiProvider } from "./environment.js";
 
 interface TelemetryIdentity {
 	/** Stable per-install id, or a shared one per provider in CI. */
@@ -38,24 +38,12 @@ export function configDir(env: NodeJS.ProcessEnv = process.env): string {
 	);
 }
 
-const CI_PROVIDERS: [string, string][] = [
-	["GITHUB_ACTIONS", "github"],
-	["GITLAB_CI", "gitlab"],
-	["CIRCLECI", "circle"],
-	["TRAVIS", "travis"],
-	["BUILDKITE", "buildkite"],
-	["JENKINS_URL", "jenkins"],
-];
-
 /**
  * One id per CI provider, shared by every runner.
  */
 function ciIdentity(env: NodeJS.ProcessEnv): string | undefined {
-	const provider = CI_PROVIDERS.find(([name]) => isSet(env[name]));
-	if (provider) {
-		return `ci.${provider[1]}`;
-	}
-	return isSet(env.CI) ? "ci.unknown" : undefined;
+	const provider = detectCiProvider(env);
+	return provider ? `ci.${provider}` : undefined;
 }
 
 const readConfig = (file: string): StoredConfig | undefined => {
