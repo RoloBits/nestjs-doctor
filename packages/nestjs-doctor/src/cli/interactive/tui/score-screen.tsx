@@ -19,6 +19,8 @@ const TOAST_STYLE: Record<
 
 interface MenuItem {
 	action: MenuAction;
+	/** Uppercase tag shown in nest red between the label and the hint. */
+	badge?: string;
 	hint?: string;
 	label: string;
 }
@@ -55,6 +57,7 @@ export const buildMenuItems = (
 		? [
 				{
 					action: "ci" as const,
+					badge: "Recommended",
 					hint: "Scaffold .github/workflows/nestjs-doctor.yml",
 					label: "Add to GitHub Actions",
 				},
@@ -277,9 +280,20 @@ export const ScoreScreen = ({
 								>
 									{padEnd(item.label, labelWidth)}
 								</Text>
+								{item.badge ? (
+									<Text bold color={palette.nestRed}>
+										{` ${item.badge.toUpperCase()} `}
+									</Text>
+								) : null}
 								{item.hint ? (
 									<Text color={isSelected ? palette.muted : palette.dim}>
-										{truncate(item.hint, Math.max(0, columns - labelWidth - 8))}
+										{truncate(
+											item.hint,
+											Math.max(
+												0,
+												columns - labelWidth - 8 - (item.badge?.length ?? 0) - 3
+											)
+										)}
 									</Text>
 								) : null}
 							</Box>
