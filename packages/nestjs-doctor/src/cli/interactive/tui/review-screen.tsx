@@ -54,9 +54,9 @@ export const ReviewScreen = ({
 	const group = current ? groups[current.groupIndex] : undefined;
 	const diagnostic = group?.diagnostics[current.position];
 
-	const leftContent = Math.max(26, Math.min(42, Math.round(columns * 0.34)));
+	const leftContent = Math.max(14, Math.min(42, Math.round(columns * 0.34)));
 	const leftWidth = leftContent + 1;
-	const panelInner = Math.max(20, columns - leftWidth - 5);
+	const panelInner = Math.max(12, columns - leftWidth - 5);
 
 	const panelLines = useMemo(() => {
 		if (!diagnostic) {
@@ -228,7 +228,10 @@ export const ReviewScreen = ({
 				</Box>
 			</Box>
 			<Text color={palette.dim}>
-				{` ${safeSelected + 1}/${flat.length} · ↑↓ finding · ←→ rule · g/G ends · c copy fix prompt · o docs · b back · q quit`}
+				{truncate(
+					` ${safeSelected + 1}/${flat.length} · ↑↓ finding · ←→ rule · g/G ends · c copy fix prompt · o docs · b back · q quit`,
+					Math.max(20, columns - 1)
+				)}
 			</Text>
 		</Box>
 	);

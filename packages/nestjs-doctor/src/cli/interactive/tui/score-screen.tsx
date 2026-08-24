@@ -1,7 +1,8 @@
-import { Box, Text } from "ink";
+import { Box, Text, useStdout } from "ink";
+import { useEffect, useState } from "react";
 import type { DiagnoseResult } from "../../../common/result.js";
 import { formatElapsedTime } from "../../formatters/console-reporter.js";
-import { padEnd } from "./text.js";
+import { padEnd, truncate } from "./text.js";
 import { getNestBirds, getStarRating, palette, scoreColor } from "./theme.js";
 import type { InteractiveContext, MenuAction, Toast } from "./types.js";
 
@@ -112,6 +113,30 @@ interface ScoreScreenProps {
 	toast: Toast;
 }
 
+const ANIMATION_MS = 800;
+
+/** Eases the score up from zero so the bar and the count load like a gauge. */
+const useCountUp = (target: number, durationMs = ANIMATION_MS): number => {
+	const [value, setValue] = useState(0);
+
+	useEffect(() => {
+		const startedAt = Date.now();
+		const timer = setInterval(() => {
+			const progress = Math.min(1, (Date.now() - startedAt) / durationMs);
+			const eased = 1 - (1 - progress) ** 3;
+			setValue(Math.round(target * eased));
+			if (progress >= 1) {
+				clearInterval(timer);
+			}
+		}, 33);
+		return () => {
+			clearInterval(timer);
+		};
+	}, [target, durationMs]);
+
+	return value;
+};
+
 export const ScoreScreen = ({
 	busy,
 	context,
@@ -121,7 +146,11 @@ export const ScoreScreen = ({
 	toast,
 }: ScoreScreenProps): React.JSX.Element => {
 	const { project, score, summary, elapsedMs, diagnostics } = result;
+	const { stdout } = useStdout();
+	const columns = stdout.columns ?? 80;
+	const shownScore = useCountUp(score.value);
 	const affectedFiles = new Set(diagnostics.map((d) => d.filePath)).size;
+	const labelWidth = Math.max(...items.map((item) => item.label.length));
 
 	const countLabel = (count: number, singular: string): string =>
 		`${count} ${singular}${count === 1 ? "" : "s"}`;
@@ -168,7 +197,7 @@ export const ScoreScreen = ({
 	return (
 		<Box flexDirection="column" gap={1}>
 			<Box flexDirection="row" gap={2}>
-				<NestBox score={score.value} />
+				<NestBox score={shownScore} />
 				<Box flexDirection="column" justifyContent="center">
 					<Text bold color={palette.bright}>
 						NESTJS DOCTOR <Text color={palette.dim}>v{context.version}</Text>
@@ -180,11 +209,11 @@ export const ScoreScreen = ({
 			<Box flexDirection="column">
 				<Text bold>
 					<Text color={scoreColor(score.value)}>
-						{`${score.value}/100`} {getStarRating(score.value)}
+						{`${shownScore}/100`} {getStarRating(shownScore)}
 					</Text>
 					<Text color={palette.muted}>{`  ${score.label}`}</Text>
 				</Text>
-				<ScoreBar score={score.value} />
+				<ScoreBar score={shownScore} />
 				<Text>
 					{severityParts.map((part, index) => (
 						<Text key={part.key}>
@@ -246,14 +275,11 @@ export const ScoreScreen = ({
 									bold={isSelected}
 									color={isSelected ? palette.bright : palette.text}
 								>
-									{padEnd(
-										item.label,
-										Math.max(...items.map((i) => i.label.length))
-									)}
+									{padEnd(item.label, labelWidth)}
 								</Text>
 								{item.hint ? (
 									<Text color={isSelected ? palette.muted : palette.dim}>
-										{item.hint}
+										{truncate(item.hint, Math.max(0, columns - labelWidth - 8))}
 									</Text>
 								) : null}
 							</Box>
