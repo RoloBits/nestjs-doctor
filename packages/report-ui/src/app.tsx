@@ -4,6 +4,7 @@ import {
 	phaseParts,
 	slowestBootClass,
 } from "./canvas/module-graph-painter";
+import { EndpointsTab } from "./components/endpoints-tab";
 import { FindingsTab } from "./components/findings-tab";
 import { ModulesTab } from "./components/modules-tab";
 import { SummaryPanel } from "./components/summary-panel";
@@ -53,6 +54,8 @@ function TabContent({
 			return <FindingsTab model={model} />;
 		case "modules":
 			return <ModulesTab focusRequest={focusRequest} model={model} />;
+		case "endpoints":
+			return <EndpointsTab model={model} />;
 		default:
 			return (
 				<p className="placeholder">

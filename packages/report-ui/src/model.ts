@@ -98,8 +98,39 @@ export interface SerializedSchemaGraph {
 	relations: unknown[];
 }
 
+export interface MethodDependencyNode {
+	assignedTo?: string | null;
+	branchGroupId?: string | null;
+	branchKind?: string | null;
+	callSiteLine?: number;
+	className: string;
+	conditional?: boolean;
+	dependencies?: MethodDependencyNode[];
+	expandedElsewhere?: boolean;
+	filePath?: string;
+	line?: number;
+	methodName: string;
+	order?: number;
+	totalMethods?: number;
+	type: string;
+}
+
+export interface EndpointNodePayload {
+	controllerClass: string;
+	dependencies: MethodDependencyNode[];
+	endLine?: number;
+	filePath: string;
+	handlerMethod: string;
+	httpMethod: string;
+	line: number;
+	returnType?: string | null;
+	routePath: string;
+	swagger?: unknown;
+	truncated?: true;
+}
+
 export interface EndpointGraphPayload {
-	endpoints: unknown[];
+	endpoints: EndpointNodePayload[];
 }
 
 export interface ReportProvider {

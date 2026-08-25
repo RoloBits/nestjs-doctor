@@ -1075,3 +1075,58 @@
 .nd-report .boot-badge:hover {
 	color: var(--white);
 }
+
+/* ── Endpoints tab ── */
+.nd-report #endpoints-sidebar {
+	flex-shrink: 0;
+	width: 300px;
+	overflow-y: auto;
+	background: var(--surface);
+	border-right: 1px solid var(--border);
+}
+.nd-report .ep-verb {
+	flex-shrink: 0;
+	padding: 1px 5px;
+	font-size: 9px;
+	font-weight: 700;
+	color: var(--text-muted);
+	border: 1px solid var(--border);
+}
+.nd-report .ep-verb.md-get {
+	color: var(--cat-correctness);
+	border-color: rgba(59, 130, 246, 0.5);
+}
+.nd-report .ep-verb.md-post {
+	color: var(--score-green);
+	border-color: rgba(74, 222, 128, 0.5);
+}
+.nd-report .ep-verb.md-put,
+.nd-report .ep-verb.md-patch {
+	color: var(--sev-warning);
+	border-color: rgba(245, 158, 11, 0.5);
+}
+.nd-report .ep-verb.md-delete {
+	color: var(--sev-error);
+	border-color: rgba(239, 68, 68, 0.5);
+}
+.nd-report #endpoints-list .st-row {
+	padding-left: 20px;
+}
+.nd-report .endpoints-hint {
+	position: absolute;
+	top: 16px;
+	right: 16px;
+	display: block;
+}
+.nd-report #ep-code-panel {
+	position: absolute;
+	right: 16px;
+	bottom: 16px;
+	z-index: 25;
+	width: min(520px, calc(100% - 32px));
+	max-height: 55%;
+	padding: 12px 14px;
+	overflow-y: auto;
+	background: rgba(10, 10, 14, 0.97);
+	border: 1px solid var(--border-strong);
+}
