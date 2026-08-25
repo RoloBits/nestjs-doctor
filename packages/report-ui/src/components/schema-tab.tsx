@@ -36,14 +36,19 @@ export function SchemaTab({ model }: { model: ReportModel }) {
 
 		const ro = new ResizeObserver(() => {
 			painter.resize(wrap.clientWidth, wrap.clientHeight);
+			painter.centerCamera();
 		});
 		ro.observe(wrap);
 
 		let panning = false;
 		let lastX = 0;
 		let lastY = 0;
+		let downX = 0;
+		let downY = 0;
 		const onPointerDown = (e: PointerEvent): void => {
 			panning = true;
+			downX = e.clientX;
+			downY = e.clientY;
 			lastX = e.clientX;
 			lastY = e.clientY;
 			canvas.setPointerCapture(e.pointerId);
@@ -59,7 +64,7 @@ export function SchemaTab({ model }: { model: ReportModel }) {
 			painter.scheduleRedraw();
 		};
 		const onPointerUp = (e: PointerEvent): void => {
-			if (Math.abs(e.clientX - lastX) + Math.abs(e.clientY - lastY) < 4) {
+			if (Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY) < 4) {
 				const rect = canvas.getBoundingClientRect();
 				const hit = painter.hitTest(
 					(e.clientX - rect.left - painter.camX) / painter.zoom,

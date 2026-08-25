@@ -109,8 +109,7 @@ export function schemaEdges(
 }
 
 /**
- * Owns the ER canvas. Grid layout instead of the legacy Manhattan router
- * for this pass; routing upgrades land with parity polish.
+ * Owns the ER canvas: grid-placed entity boxes and elbow relation edges.
  */
 export class SchemaPainter {
 	private readonly ctx: CanvasRenderingContext2D;
