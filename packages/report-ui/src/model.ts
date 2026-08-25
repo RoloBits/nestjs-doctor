@@ -82,7 +82,14 @@ export interface SerializedModuleGraph {
 	circularDeps: string[][];
 	edges: Array<{ from: string; to: string }>;
 	modules: SerializedModuleNode[];
+	phases?: { createMs?: number; initMs?: number; moduleInitMs?: number };
 	projects: string[];
+	startupMs?: number;
+	timingsAvailable?: boolean;
+	timingsTrace?: Record<
+		string,
+		{ deps: string[]; initTime: number; name: string; type: string }
+	>;
 }
 
 export interface SerializedSchemaGraph {

@@ -943,3 +943,135 @@
 	color: var(--text-muted);
 	cursor: default;
 }
+
+/* ── Module tree (project-grouped) ── */
+.nd-report .st-row {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+	width: 100%;
+	padding: 6px 14px;
+	font-family: var(--font);
+	font-size: 12px;
+	color: var(--text);
+	text-align: left;
+	cursor: pointer;
+	background: none;
+	border: none;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+.nd-report .st-row:hover {
+	background: var(--surface-hover);
+}
+.nd-report .st-row.st-selected {
+	background: rgba(234, 40, 69, 0.08);
+	box-shadow: inset 3px 0 0 var(--nest-red);
+}
+.nd-report .st-toggle {
+	flex-shrink: 0;
+	width: 12px;
+	font-size: 10px;
+	color: var(--text-dim);
+}
+.nd-report .st-label {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.nd-report .mg-tree-project .st-label {
+	font-weight: 600;
+	color: var(--white);
+}
+.nd-report .st-count {
+	flex-shrink: 0;
+	padding: 1px 7px;
+	font-size: 10px;
+	font-weight: 700;
+	color: var(--text-muted);
+	background: rgba(255, 255, 255, 0.08);
+}
+.nd-report .st-count.cycle {
+	color: var(--nest-red);
+	background: none;
+}
+
+/* ── Problems dock ── */
+.nd-report .mg-problems-toggle {
+	position: absolute;
+	bottom: 16px;
+	left: 16px;
+	z-index: 20;
+	padding: 4px 10px;
+	font-family: var(--font);
+	font-size: 11px;
+	color: var(--text-muted);
+	cursor: pointer;
+	background: rgba(10, 10, 14, 0.9);
+	border: 1px solid var(--border);
+}
+.nd-report .mg-problems-toggle:hover {
+	color: var(--white);
+}
+.nd-report #mg-dock {
+	position: absolute;
+	bottom: 44px;
+	left: 16px;
+	z-index: 22;
+	width: min(560px, calc(100% - 32px));
+	max-height: 45%;
+	overflow-y: auto;
+	background: rgba(10, 10, 14, 0.97);
+	border: 1px solid var(--border-strong);
+}
+.nd-report .mg-problem-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: baseline;
+	width: 100%;
+	padding: 7px 12px;
+	font-family: var(--font);
+	font-size: 11px;
+	color: var(--text);
+	text-align: left;
+	cursor: pointer;
+	background: none;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+.nd-report .mg-problem-row:hover {
+	background: var(--surface-hover);
+}
+.nd-report .mg-problem-sev {
+	flex-shrink: 0;
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+}
+.nd-report .mg-sev-error {
+	background: var(--sev-error);
+}
+.nd-report .mg-sev-warning {
+	background: var(--sev-warning);
+}
+.nd-report .mg-sev-info {
+	background: var(--sev-info);
+}
+.nd-report .mg-problem-msg {
+	flex: 1;
+	min-width: 200px;
+	color: var(--text);
+}
+.nd-report .mg-problem-rule,
+.nd-report .mg-problem-module {
+	color: var(--text-dim);
+}
+
+/* ── Boot badge ── */
+.nd-report .boot-badge {
+	cursor: pointer;
+}
+.nd-report .boot-badge:hover {
+	color: var(--white);
+}

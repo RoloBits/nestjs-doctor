@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
+	blastRadius,
 	MG_EXTERNAL_PROJECT,
 	type MgNode,
 	ModuleGraphPainter,
@@ -16,7 +17,45 @@ function projectColor(key: string, projects: string[]): string {
 	return i >= 0 ? PROJECT_COLORS[i % PROJECT_COLORS.length] : "#555";
 }
 
-export function ModulesTab({ model }: { model: ReportModel }) {
+interface ModuleProblem {
+	message: string;
+	module: string;
+	rule: string;
+	severity: string;
+}
+
+/** Module-graph-tagged findings mapped onto their owning module. */
+function problemsOf(model: ReportModel): ModuleProblem[] {
+	const fileToModule = new Map<string, string>();
+	for (const m of model.graph.modules) {
+		fileToModule.set(m.filePath, m.name);
+	}
+	for (const p of model.providers) {
+		if (p.module && p.filePath && !fileToModule.has(p.filePath)) {
+			fileToModule.set(p.filePath, p.module);
+		}
+	}
+	const rank: Record<string, number> = { error: 0, warning: 1, info: 2 };
+	return model.diagnostics
+		.filter((d) => Array.isArray(d.tags) && d.tags.includes("module-graph"))
+		.map((d) => ({ d, module: fileToModule.get(d.filePath) }))
+		.filter((r): r is { d: typeof r.d; module: string } => !!r.module)
+		.sort((a, b) => rank[a.d.severity] - rank[b.d.severity])
+		.map((r) => ({
+			message: r.d.message,
+			module: r.module,
+			rule: r.d.rule,
+			severity: r.d.severity,
+		}));
+}
+
+export function ModulesTab({
+	focusRequest,
+	model,
+}: {
+	focusRequest?: string | null;
+	model: ReportModel;
+}) {
 	const wrapRef = useRef<HTMLDivElement>(null);
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const tooltipRef = useRef<HTMLDivElement>(null);
@@ -27,8 +66,55 @@ export function ModulesTab({ model }: { model: ReportModel }) {
 	const [hideExternal, setHideExternal] = useState(true);
 	const [search, setSearch] = useState("");
 	const [activeProject, setActiveProject] = useState("all");
+	const [problemsOpen, setProblemsOpen] = useState(false);
 
 	const projects = model.graph.projects;
+	const problems = useMemo(() => problemsOf(model), [model]);
+	const circularNames = useMemo(() => {
+		const names = new Set<string>();
+		for (const cycle of model.graph.circularDeps) {
+			for (const name of cycle) {
+				names.add(name);
+			}
+		}
+		return names;
+	}, [model.graph.circularDeps]);
+
+	const treeGroups = useMemo(() => {
+		const byProject = new Map<string, typeof model.graph.modules>();
+		for (const m of model.graph.modules) {
+			const key = m.project || "";
+			const list = byProject.get(key) ?? [];
+			list.push(m);
+			byProject.set(key, list);
+		}
+		return [...byProject.entries()]
+			.map(([project, modules]) => ({
+				modules: [...modules].sort((a, b) =>
+					a.name.slice((a.project ?? "").length + 1).localeCompare(b.name)
+				),
+				project,
+			}))
+			.sort((a, b) => {
+				if (a.project === MG_EXTERNAL_PROJECT) {
+					return 1;
+				}
+				if (b.project === MG_EXTERNAL_PROJECT) {
+					return -1;
+				}
+				return a.project.localeCompare(b.project);
+			});
+	}, [model.graph.modules]);
+	const [openProjects, setOpenProjects] = useState<Set<string>>(
+		() => new Set(treeGroups.map((g) => g.project))
+	);
+
+	useEffect(() => {
+		if (focusRequest && painterRef.current) {
+			painterRef.current.focus(focusRequest);
+			setSelected(painterRef.current.selected);
+		}
+	}, [focusRequest]);
 
 	useEffect(() => {
 		const canvas = canvasRef.current;
@@ -177,6 +263,18 @@ export function ModulesTab({ model }: { model: ReportModel }) {
 		setSelected(painterRef.current?.selected ?? null);
 	};
 
+	const toggleProject = (project: string): void => {
+		setOpenProjects((prev) => {
+			const next = new Set(prev);
+			if (next.has(project)) {
+				next.delete(project);
+			} else {
+				next.add(project);
+			}
+			return next;
+		});
+	};
+
 	const importersOf = selected
 		? (reverseIndex(model.graph.edges)[selected.name] ?? [])
 		: [];
@@ -258,20 +356,56 @@ export function ModulesTab({ model }: { model: ReportModel }) {
 					</div>
 				)}
 				<div id="mg-tree">
-					{model.graph.modules.map((m) => {
-						const isSel = selected?.name === m.name;
+					{treeGroups.map((group) => {
+						const open = openProjects.has(group.project);
 						return (
-							<button
-								className={isSel ? "tree-file active" : "tree-file"}
-								key={m.name}
-								onClick={() => focusNode(m.name)}
-								type="button"
-							>
-								<div className="tree-file-header">
-									<span className="tree-file-name">{m.name}</span>
-									<span className="tree-count">{m.providers.length}p</span>
-								</div>
-							</button>
+							<div key={group.project}>
+								<button
+									className="st-row mg-tree-project"
+									onClick={() => toggleProject(group.project)}
+									type="button"
+								>
+									<span className="st-toggle">
+										{open ? "\u25BE" : "\u25B8"}
+									</span>
+									<span
+										className="ov-cat-icon"
+										style={{
+											background: projectColor(group.project, projects),
+											display: "inline-block",
+										}}
+									/>
+									<span className="st-label">{group.project || "modules"}</span>
+									<span className="st-count">{group.modules.length}</span>
+								</button>
+								{open && (
+									<div className="st-children st-open">
+										{group.modules.map((m) => {
+											const isSel = selected?.name === m.name;
+											const inCycle = circularNames.has(m.name);
+											return (
+												<button
+													className={
+														isSel
+															? "st-row mg-tree-module st-selected"
+															: "st-row mg-tree-module"
+													}
+													key={m.name}
+													onClick={() => focusNode(m.name)}
+													type="button"
+												>
+													<span className="st-label">
+														{ModuleGraphPainter.displayName(m)}
+													</span>
+													{inCycle && (
+														<span className="st-count cycle">cycle</span>
+													)}
+												</button>
+											);
+										})}
+									</div>
+								)}
+							</div>
 						);
 					})}
 				</div>
@@ -279,6 +413,35 @@ export function ModulesTab({ model }: { model: ReportModel }) {
 
 			<div id="mg-wrap" ref={wrapRef}>
 				<canvas id="graph" ref={canvasRef} />
+				<button
+					className="mg-problems-toggle"
+					onClick={() => setProblemsOpen((v) => !v)}
+					type="button"
+				>
+					Problems ({problems.length})
+				</button>
+				{problemsOpen && (
+					<div id="mg-dock">
+						<div id="mg-problems-list">
+							{problems.length === 0 && (
+								<div className="md-empty">No problems.</div>
+							)}
+							{problems.map((p) => (
+								<button
+									className="mg-problem-row mg-problem-linked"
+									key={`${p.rule}:${p.module}:${p.message}`}
+									onClick={() => focusNode(p.module)}
+									type="button"
+								>
+									<span className={`mg-problem-sev mg-sev-${p.severity}`} />
+									<span className="mg-problem-msg">{p.message}</span>
+									<span className="mg-problem-rule">{p.rule}</span>
+									<span className="mg-problem-module">{p.module}</span>
+								</button>
+							))}
+						</div>
+					</div>
+				)}
 				<div className="mg-zoombar">
 					<button
 						onClick={() => painterRef.current?.zoomBy(1.25)}
@@ -361,6 +524,41 @@ export function ModulesTab({ model }: { model: ReportModel }) {
 								</div>
 							))}
 						</div>
+						{(() => {
+							const blast = blastRadius(
+								selected.name,
+								reverseIndex(model.graph.edges),
+								(n) =>
+									model.graph.modules.find((m) => m.name === n)?.project ?? ""
+							);
+							if (blast.names.length === 0) {
+								return null;
+							}
+							return (
+								<div className="mg-detail-section">
+									<div className="section-label">
+										Blast radius ({blast.names.length})
+									</div>
+									{Object.entries(blast.byProject).map(([project, count]) => (
+										<div className="mg-link-row static" key={project}>
+											{project || "modules"}: {count}
+										</div>
+									))}
+									<button
+										className="mg-link-row"
+										onClick={() =>
+											painterRef.current?.fitNodes([
+												selected.name,
+												...blast.names,
+											])
+										}
+										type="button"
+									>
+										Fit all {blast.names.length} to view
+									</button>
+								</div>
+							);
+						})()}
 					</div>
 				)}
 			</div>

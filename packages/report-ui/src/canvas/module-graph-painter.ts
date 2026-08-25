@@ -307,6 +307,41 @@ export function formatMs(ms: number): string {
 	return `${Math.round(ms)}ms`;
 }
 
+/** Boot phase segments for the timings strip, in pipeline order. */
+export function phaseParts(phases?: {
+	createMs?: number;
+	initMs?: number;
+	moduleInitMs?: number;
+}): Array<{ label: string; ms: number }> {
+	if (!phases) {
+		return [];
+	}
+	const parts: Array<{ label: string; ms: number }> = [];
+	if (phases.createMs) {
+		parts.push({ label: "create", ms: phases.createMs });
+	}
+	if (phases.initMs) {
+		parts.push({ label: "init", ms: phases.initMs });
+	}
+	if (phases.moduleInitMs) {
+		parts.push({ label: "onModuleInit", ms: phases.moduleInitMs });
+	}
+	return parts;
+}
+
+/** The slowest class in the boot trace, for the header badge jump. */
+export function slowestBootClass(
+	trace: Record<string, { deps: string[]; initTime: number; name: string }> = {}
+): { name: string; initTime: number } | null {
+	let slowest: { name: string; initTime: number } | null = null;
+	for (const node of Object.values(trace)) {
+		if (!slowest || node.initTime > slowest.initTime) {
+			slowest = { name: node.name, initTime: node.initTime };
+		}
+	}
+	return slowest;
+}
+
 interface PainterOptions {
 	onSelect?: (node: MgNode | null) => void;
 	onZoomChange?: (pct: number) => void;

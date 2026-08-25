@@ -1,4 +1,9 @@
 import { useState } from "react";
+import {
+	formatMs,
+	phaseParts,
+	slowestBootClass,
+} from "./canvas/module-graph-painter";
 import { FindingsTab } from "./components/findings-tab";
 import { ModulesTab } from "./components/modules-tab";
 import { SummaryPanel } from "./components/summary-panel";
@@ -32,14 +37,22 @@ declare global {
 	}
 }
 
-function TabContent({ tab, model }: { model: ReportModel; tab: TabName }) {
+function TabContent({
+	focusRequest,
+	model,
+	tab,
+}: {
+	focusRequest?: string | null;
+	model: ReportModel;
+	tab: TabName;
+}) {
 	switch (tab) {
 		case "summary":
 			return <SummaryPanel model={model} />;
 		case "diagnosis":
 			return <FindingsTab model={model} />;
 		case "modules":
-			return <ModulesTab model={model} />;
+			return <ModulesTab focusRequest={focusRequest} model={model} />;
 		default:
 			return (
 				<p className="placeholder">
@@ -51,6 +64,21 @@ function TabContent({ tab, model }: { model: ReportModel; tab: TabName }) {
 
 export function App({ model }: { model: ReportModel }) {
 	const [active, setActive] = useState<TabName>("summary");
+	const [focusRequest, setFocusRequest] = useState<string | null>(null);
+
+	const slowest =
+		model.graph.timingsAvailable && model.graph.startupMs
+			? slowestBootClass(model.graph.timingsTrace)
+			: null;
+	const bootTip = slowest
+		? `Slowest construction chain: ${slowest.name} — click to open it in the modules graph`
+		: "";
+
+	const jumpToModule = (name: string): void => {
+		setFocusRequest(name);
+		setActive("modules");
+		window.__ndTrack?.("boot_trace_opened");
+	};
 
 	return (
 		<div className="nd-report">
@@ -63,6 +91,23 @@ export function App({ model }: { model: ReportModel }) {
 					<span className="meta-badge">{model.project.framework}</span>
 				)}
 				<span className="meta-badge">{model.graph.modules.length} modules</span>
+				{slowest && model.graph.startupMs && (
+					<button
+						className="meta-badge boot-badge"
+						onClick={() => jumpToModule(slowest.name)}
+						title={
+							bootTip +
+							(phaseParts(model.graph.phases).length
+								? ` · ${phaseParts(model.graph.phases)
+										.map((p) => `${p.label} ${formatMs(p.ms)}`)
+										.join(" · ")}`
+								: "")
+						}
+						type="button"
+					>
+						time to start ≈ {formatMs(model.graph.startupMs)}
+					</button>
+				)}
 				<span className={`score score-${scoreTone(model.project.score.value)}`}>
 					{model.project.score.value} · {model.project.score.label}
 				</span>
@@ -93,7 +138,13 @@ export function App({ model }: { model: ReportModel }) {
 						key={tab}
 						role="tabpanel"
 					>
-						{active === tab ? <TabContent model={model} tab={tab} /> : null}
+						{active === tab ? (
+							<TabContent
+								focusRequest={tab === "modules" ? focusRequest : null}
+								model={model}
+								tab={tab}
+							/>
+						) : null}
 					</section>
 				))}
 			</main>
