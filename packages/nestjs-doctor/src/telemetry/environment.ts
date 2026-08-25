@@ -9,11 +9,8 @@ export function generatedIn(
 	return isSet(env.CI) || isSet(env.GITHUB_ACTIONS) ? "ci" : "cli";
 }
 
-/**
- * The CI systems worth naming: env var first, slug second. The slug is the
- * `ci.<provider>` identity and the `ci_provider` payload value, so published
- * slugs never change. Single-variable checks only, mirroring ci-info.
- */
+/** The CI systems worth naming: env var first, slug second. Each slug is a
+ * `ci.<provider>` identity and the `ci_provider` payload value. */
 const CI_PROVIDERS: readonly (readonly [string, string])[] = [
 	["GITHUB_ACTIONS", "github"],
 	["GITLAB_CI", "gitlab"],

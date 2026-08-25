@@ -7,7 +7,7 @@ import { detectKnownCiProvider } from "./environment.js";
 interface TelemetryIdentity {
 	/** Stable per-install id, or a shared one per provider in CI. */
 	anonymousId: string;
-	/** Per-project, salted with a value that never leaves the machine. Absent in CI. */
+	/** Per-project, salted with a value that never leaves the machine. Absent under a known CI provider. */
 	projectId?: string;
 }
 

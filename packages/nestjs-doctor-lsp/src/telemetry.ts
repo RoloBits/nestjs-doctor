@@ -40,6 +40,8 @@ function configDir(env: NodeJS.ProcessEnv): string {
 	);
 }
 
+/** The CI systems worth naming: env var first, slug second. Each slug is a
+ * `ci.<provider>` identity. */
 const CI_PROVIDERS: [string, string][] = [
 	["GITHUB_ACTIONS", "github"],
 	["GITLAB_CI", "gitlab"],
@@ -47,14 +49,39 @@ const CI_PROVIDERS: [string, string][] = [
 	["TRAVIS", "travis"],
 	["BUILDKITE", "buildkite"],
 	["JENKINS_URL", "jenkins"],
+	["TEAMCITY_VERSION", "teamcity"],
+	["APPVEYOR", "appveyor"],
+	["TF_BUILD", "azure"],
+	["BITBUCKET_COMMIT", "bitbucket"],
+	["BITRISE_IO", "bitrise"],
+	["BUDDY_WORKSPACE_ID", "buddy"],
+	["CIRRUS_CI", "cirrus"],
+	["CODEBUILD_BUILD_ARN", "codebuild"],
+	["CF_BUILD_ID", "codefresh"],
+	["CM_BUILD_ID", "codemagic"],
+	["DRONE", "drone"],
+	["EARTHLY_CI", "earthly"],
+	["EAS_BUILD", "eas"],
+	["GITEA_ACTIONS", "gitea"],
+	["GO_PIPELINE_LABEL", "gocd"],
+	["BUILDER_OUTPUT", "google-cloud-build"],
+	["HARNESS_BUILD_ID", "harness"],
+	["NETLIFY", "netlify"],
+	["PROW_JOB_ID", "prow"],
+	["RENDER", "render"],
+	["SCREWDRIVER", "screwdriver"],
+	["SEMAPHORE", "semaphore"],
+	["SHIPPABLE", "shippable"],
+	["VERCEL", "vercel"],
+	["APPCENTER_BUILD_ID", "appcenter"],
+	["VELA", "vela"],
+	["CI_XCODE_PROJECT", "xcode-cloud"],
+	["XCS", "xcode-server"],
 ];
 
 function ciIdentity(env: NodeJS.ProcessEnv): string | undefined {
 	const provider = CI_PROVIDERS.find(([name]) => isSet(env[name]));
-	if (provider) {
-		return `ci.${provider[1]}`;
-	}
-	return isSet(env.CI) ? "ci.unknown" : undefined;
+	return provider ? `ci.${provider[1]}` : undefined;
 }
 
 function readStored(file: string): StoredConfig | undefined {
@@ -68,7 +95,7 @@ function readStored(file: string): StoredConfig | undefined {
 
 export interface LspIdentity {
 	anonymousId: string;
-	/** Absent in CI. */
+	/** Absent under a known CI provider. */
 	projectId?: string;
 }
 

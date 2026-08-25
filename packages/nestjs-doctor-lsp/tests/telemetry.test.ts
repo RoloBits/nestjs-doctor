@@ -6,6 +6,8 @@ import { lspTelemetryEnabled, resolveIdentity } from "../src/telemetry.js";
 
 const dirs: string[] = [];
 
+const CI_PREFIX = /^ci\./;
+
 const workspace = (config?: Record<string, unknown>): string => {
 	const dir = mkdtempSync(join(tmpdir(), "nd-lsp-"));
 	dirs.push(dir);
@@ -111,5 +113,16 @@ describe("lsp identity", () => {
 		expect(
 			resolveIdentity("/repo/a", { ...home(), GITHUB_ACTIONS: "1" }).anonymousId
 		).toBe("ci.github");
+	});
+
+	it("treats a bare CI variable as a machine, not a named provider", () => {
+		const env = { ...home(), CI: "1" };
+
+		const first = resolveIdentity("/repo/a", env);
+		const again = resolveIdentity("/repo/a", env);
+
+		expect(first.anonymousId).not.toMatch(CI_PREFIX);
+		expect(again.anonymousId).toBe(first.anonymousId);
+		expect(again.projectId).toBe(first.projectId);
 	});
 });
