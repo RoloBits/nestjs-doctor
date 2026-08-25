@@ -1,26 +1,28 @@
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 
 /** Stable digest over every file under dir, for embed freshness checks. */
 export function computeSourceHash(dir) {
 	const files = [];
-	const walk = (current) => {
+	const walk = (current, prefix) => {
 		for (const entry of readdirSync(current).sort()) {
 			const full = join(current, entry);
+			const rel = prefix ? `${prefix}${sep}${entry}` : entry;
 			if (statSync(full).isDirectory()) {
-				walk(full);
+				walk(full, rel);
 			} else {
-				files.push(full);
+				files.push([rel, full]);
 			}
 		}
 	};
-	walk(dir);
+	walk(dir, "");
 
 	const hash = createHash("sha256");
-	for (const file of files) {
-		hash.update(file);
-		hash.update(readFileSync(file));
+	for (const [rel, full] of files) {
+		// Forward slashes so the digest is identical on every platform.
+		hash.update(rel.split(sep).join("/"));
+		hash.update(readFileSync(full));
 	}
 	return hash.digest("hex");
 }
