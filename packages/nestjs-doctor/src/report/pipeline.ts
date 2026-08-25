@@ -1,5 +1,7 @@
 import { performance } from "node:perf_hooks";
+import { getCliVersion } from "../cli/output.js";
 import { spinner } from "../cli/ui/spinner.js";
+import type { ReportProvider, SourceInclusion } from "../common/artifact.js";
 import { collectEntryModules } from "../engine/graph/entry-points.js";
 import {
 	detachModuleGraph,
@@ -22,10 +24,7 @@ import {
 	type ScanConfig,
 } from "../engine/scanner.js";
 import { scanTelemetryEnabled } from "../telemetry/send.js";
-import {
-	type ReportProvider,
-	toReportProvider,
-} from "./formatters/report-data.js";
+import { buildReportArtifact, toReportProvider } from "./artifact.js";
 import { buildHtmlReport } from "./html-report.js";
 import type { BootstrapTimings } from "./timings.js";
 
@@ -35,6 +34,7 @@ type PipelineStep = () => void | Promise<void>;
 abstract class ReportPipeline {
 	protected _html!: string;
 	protected scanConfig!: ScanConfig;
+	protected readonly sources: SourceInclusion;
 	protected readonly steps: PipelineStep[] = [];
 	protected readonly targetPath: string;
 	protected readonly telemetry: boolean;
@@ -46,12 +46,14 @@ abstract class ReportPipeline {
 		targetPath: string,
 		configPath: string | undefined,
 		timings?: BootstrapTimings,
-		telemetry = true
+		telemetry = true,
+		sources: SourceInclusion = "all"
 	) {
 		this.targetPath = targetPath;
 		this.configPath = configPath;
 		this.timings = timings;
 		this.telemetry = telemetry;
+		this.sources = sources;
 	}
 
 	/**
@@ -137,19 +139,25 @@ export class SingleProjectReportPipeline extends ReportPipeline {
 	generateHtml(): this {
 		this.steps.push(() => {
 			const { moduleGraph, result, files, providers } = this._scanResult;
-			this._html = buildHtmlReport(moduleGraph, result, {
-				files,
-				bootstrapRoots: [
-					...collectEntryModules(this.context.astProject, files, moduleGraph),
-				],
-				providers: [...providers.values()].map((provider) =>
-					toReportProvider(provider, {
-						module: moduleGraph.providerToModule.get(provider.name)?.name,
-					})
-				),
-				telemetry: this.telemetryEnabled,
-				timings: this.timings,
-			});
+			this._html = buildHtmlReport(
+				buildReportArtifact({
+					moduleGraph,
+					result,
+					files,
+					bootstrapRoots: [
+						...collectEntryModules(this.context.astProject, files, moduleGraph),
+					],
+					providers: [...providers.values()].map((provider) =>
+						toReportProvider(provider, {
+							module: moduleGraph.providerToModule.get(provider.name)?.name,
+						})
+					),
+					sources: this.sources,
+					timings: this.timings,
+					version: getCliVersion(),
+				}),
+				{ telemetry: this.telemetryEnabled }
+			);
 		});
 		return this;
 	}
@@ -171,9 +179,10 @@ export class MonorepoReportPipeline extends ReportPipeline {
 		configPath: string | undefined,
 		monorepo: MonorepoInfo,
 		timings?: BootstrapTimings,
-		telemetry = true
+		telemetry = true,
+		sources: SourceInclusion = "all"
 	) {
-		super(targetPath, configPath, timings, telemetry);
+		super(targetPath, configPath, timings, telemetry, sources);
 		this.monorepo = monorepo;
 	}
 
@@ -252,14 +261,21 @@ export class MonorepoReportPipeline extends ReportPipeline {
 			const merged = this._mergedGraph ?? mergeModuleGraphs(moduleGraphs);
 			const projects = [...moduleGraphs.keys()];
 
-			this._html = buildHtmlReport(merged, result.combined, {
-				projects,
-				files: this.allFiles,
-				providers: this.allProviders,
-				bootstrapRoots: this.bootstrapRoots,
-				telemetry: this.telemetryEnabled,
-				timings: this.timings,
-			});
+			this._html = buildHtmlReport(
+				buildReportArtifact({
+					moduleGraph: merged,
+					result: result.combined,
+					projects,
+					files: this.allFiles,
+					providers: this.allProviders,
+					bootstrapRoots: this.bootstrapRoots,
+					monorepo: true,
+					sources: this.sources,
+					timings: this.timings,
+					version: getCliVersion(),
+				}),
+				{ telemetry: this.telemetryEnabled }
+			);
 		});
 		return this;
 	}

@@ -11,6 +11,16 @@ import {
 	scanMonorepo,
 } from "../engine/scanner.js";
 
+// biome-ignore lint/performance/noBarrelFile: this is the public API surface
+export {
+	REPORT_ARTIFACT_VERSION,
+	type ReportArtifact,
+	type ReportProvider,
+	type RuleExampleMap,
+	type SerializedModuleGraph,
+	type SerializedModuleNode,
+	type SourceInclusion,
+} from "../common/artifact.js";
 export type { NestjsDoctorConfig } from "../common/config.js";
 export type {
 	BaseDiagnostic,
@@ -21,7 +31,6 @@ export type {
 	SchemaDiagnostic,
 	Severity,
 } from "../common/diagnostic.js";
-// biome-ignore lint/performance/noBarrelFile: this is the public API surface
 export {
 	forSurface,
 	isCodeDiagnostic,
@@ -129,6 +138,7 @@ export {
 } from "../formatters/markdown-report.js";
 export type { SarifLog } from "../formatters/sarif-report.js";
 export { buildSarifLog } from "../formatters/sarif-report.js";
+export { buildReportArtifact } from "../report/artifact.js";
 
 function validatePath(path: string): string {
 	if (!path || path.trim() === "") {

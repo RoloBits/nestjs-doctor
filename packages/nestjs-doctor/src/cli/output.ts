@@ -1,5 +1,6 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import type { ReportArtifact } from "../common/artifact.js";
 import { MAX_DEPENDENCY_NODES } from "../common/endpoint.js";
 import type { DiagnoseResult, MonorepoResult } from "../common/result.js";
 import type { EngineResult, MonorepoEngineResult } from "../engine/scanner.js";
@@ -8,9 +9,10 @@ import {
 	printConsoleReport,
 	printMonorepoReport,
 } from "./formatters/console-reporter.js";
-import { renderResult } from "./formatters/render.js";
+import { renderResult, stringifyJson } from "./formatters/render.js";
 import { checkMinScore } from "./min-score.js";
 import type { PipelineOptions } from "./setup.js";
+import { highlighter } from "./ui/highlighter.js";
 import { logger } from "./ui/logger.js";
 
 const FAILURE_EXIT_CODE = 1;
@@ -73,7 +75,8 @@ function emit(
 	targetPath: string,
 	options: PipelineOptions,
 	scopeWarnings: string[],
-	monorepo?: MonorepoResult
+	monorepo?: MonorepoResult,
+	artifact?: () => ReportArtifact
 ): void {
 	// Always surfaced, on stderr, whatever the format: a silently degraded scope
 	// makes a report look cleaner than the code actually is.
@@ -103,6 +106,22 @@ function emit(
 
 	if (options.score) {
 		writeRendered(String(result.score.value), options.outputPath);
+		return;
+	}
+
+	if (options.format === "report-json") {
+		const built = artifact?.();
+		if (!built) {
+			logger.warn(
+				"--format report-json ran without an artifact; nothing was written."
+			);
+			return;
+		}
+		const outPath = resolve(
+			options.outputPath ?? join(targetPath, "nestjs-doctor-report.json")
+		);
+		writeRendered(stringifyJson(built, options.jsonCompact), outPath);
+		logger.info(`Report written to ${highlighter.info(outPath)}`);
 		return;
 	}
 
@@ -141,10 +160,11 @@ export const outputMonorepoResults = (
 	resolvedMinimumScore: number | undefined,
 	targetPath: string,
 	options: PipelineOptions,
-	scopeWarnings: string[] = []
+	scopeWarnings: string[] = [],
+	artifact?: () => ReportArtifact
 ): void => {
 	const { result } = monorepoScanResult;
-	emit(result.combined, targetPath, options, scopeWarnings, result);
+	emit(result.combined, targetPath, options, scopeWarnings, result, artifact);
 	enforceGates(result.combined, resolvedMinimumScore, options);
 };
 
@@ -153,9 +173,10 @@ export const outputSingleProjectResults = (
 	resolvedMinimumScore: number | undefined,
 	targetPath: string,
 	options: PipelineOptions,
-	scopeWarnings: string[] = []
+	scopeWarnings: string[] = [],
+	artifact?: () => ReportArtifact
 ): void => {
 	const { result } = singleProjectScanResult;
-	emit(result, targetPath, options, scopeWarnings);
+	emit(result, targetPath, options, scopeWarnings, undefined, artifact);
 	enforceGates(result, resolvedMinimumScore, options);
 };

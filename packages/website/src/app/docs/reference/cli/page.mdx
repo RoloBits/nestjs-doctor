@@ -59,13 +59,21 @@ compares against the base revision rather than the file list.
 
 | Flag | Does |
 |---|---|
-| `--format <f>` | `console` (default), `json`, `sarif`, `gitlab`, `markdown`, `github` |
+| `--format <f>` | `console` (default), `json`, `report-json`, `sarif`, `gitlab`, `markdown`, `github` |
 | `--json` | Shorthand for `--format json` |
 | `--json-compact` | Emit JSON formats without indentation |
 | `--output <path>` | Write to a file instead of stdout. With `--report`, where the HTML goes |
 | `--score` | Print only the number |
 | `--report` | Build the interactive HTML report. `--graph` is an alias |
-| `--timings <path>` | Overlay boot timings on the report's module graph. See [Boot trace](/docs/report/boot-trace) |
+| `--timings <path>` | Overlay boot timings on the report's module graph; with `--format report-json`, embeds them in the artifact. See [Boot trace](/docs/report/boot-trace) |
+| `--sources <mode>` | How much source text the report carries: `all` (default), `touched` (only files with findings), `none` |
+
+`--format report-json` writes the same document the HTML report embeds — score,
+findings, module graph, providers, endpoints, schema, rule examples, and source
+text — as versioned JSON for another tool to load. It writes
+`nestjs-doctor-report.json` beside the scanned project, or wherever `--output`
+points, and replaces the console report. The HTML report and the JSON artifact
+are built from that one document, so they always agree.
 
 `--report` writes HTML rather than a payload, so it refuses to share a run with
 `--format`, `--json` or `--score`. Any of those combinations exits `2` and names
@@ -136,7 +144,7 @@ output mode:
 |---|---|
 | The console report | `error` |
 | `--format github` | `error` |
-| `--score`, and the formats that replace the console report: `json`, `sarif`, `gitlab`, `markdown` | `none` |
+| `--score`, and the formats that replace the console report: `json`, `report-json`, `sarif`, `gitlab`, `markdown` | `none` |
 
 Those exit codes predate the flag. Set `--blocking` explicitly and every mode
 agrees.

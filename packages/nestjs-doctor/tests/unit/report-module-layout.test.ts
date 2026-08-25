@@ -1,22 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-	getReportScripts,
-	type ReportScriptData,
-} from "../../src/report/ui/scripts.js";
-
-const EMPTY: ReportScriptData = {
-	diagnosticsJson: "[]",
-	elapsedMsJson: "0",
-	endpointsJson: '{"endpoints":[]}',
-	examplesJson: "[]",
-	fileSourcesJson: "{}",
-	graphJson: '{"modules":[],"edges":[]}',
-	projectJson: "{}",
-	providersJson: "[]",
-	schemaJson: "null",
-	sourceLinesJson: "{}",
-	summaryJson: "{}",
-};
+import { getReportScripts } from "../../src/report/ui/scripts.js";
+import { EMPTY_ARTIFACT_JSON as EMPTY } from "./report-artifact-fixture.js";
 
 interface ModuleNode {
 	h: number;

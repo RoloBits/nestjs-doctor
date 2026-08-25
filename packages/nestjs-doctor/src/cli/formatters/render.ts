@@ -8,6 +8,7 @@ import { reportToGitHubActions } from "./github-reporter.js";
 export type OutputFormat =
 	| "console"
 	| "json"
+	| "report-json"
 	| "sarif"
 	| "gitlab"
 	| "markdown"
@@ -16,6 +17,7 @@ export type OutputFormat =
 export const OUTPUT_FORMATS: OutputFormat[] = [
 	"console",
 	"json",
+	"report-json",
 	"sarif",
 	"gitlab",
 	"markdown",
@@ -45,7 +47,7 @@ interface RenderContext {
 	warnings: string[];
 }
 
-const stringifyJson = (value: unknown, compact: boolean): string =>
+export const stringifyJson = (value: unknown, compact: boolean): string =>
 	compact ? JSON.stringify(value) : JSON.stringify(value, null, 2);
 
 /** Renders a result, returning the payload to write. `null` for `console`. */

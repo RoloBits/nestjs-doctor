@@ -19,7 +19,7 @@ export const flags = {
 	format: {
 		type: "string",
 		description:
-			"Output format: console (default), json, sarif, gitlab, markdown, github",
+			"Output format: console (default), json, report-json, sarif, gitlab, markdown, github",
 	},
 	output: {
 		type: "string",
@@ -83,6 +83,11 @@ export const flags = {
 		type: "string",
 		description:
 			"Path to a SerializedGraph JSON dump (from app.get(SerializedGraph)) to overlay bootstrap init times on the report's module graph; relative paths resolve against the scanned directory",
+	},
+	sources: {
+		type: "string",
+		description:
+			"How much source text the report embeds: all (default), touched (only files with findings), none",
 	},
 	init: {
 		type: "boolean",

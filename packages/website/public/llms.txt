@@ -28,7 +28,7 @@ Options:
   --verbose             Show file paths and line numbers per diagnostic
   --score               Output only the numeric score (for CI)
   --json                JSON output (for tooling)
-  --format <f>          console (default), json, sarif, gitlab, markdown, github
+  --format <f>          console (default), json, report-json, sarif, gitlab, markdown, github
   --output <path>       Write the output to a file instead of stdout; with --report, where the HTML goes
   --json-compact        Emit JSON-based formats without indentation
   --scope <s>           full (default), files, lines, changed
@@ -39,6 +39,7 @@ Options:
   --min-score <n>       Minimum passing score (0-100). Exits with code 1 if below threshold
   --report              Generate an interactive HTML report (--graph also works)
   --timings <path>      SerializedGraph dump to overlay bootstrap init times on the report
+  --sources <mode>      How much source text the report carries: all (default), touched (only files with findings), none
   --config <p>          Path to config file
   --force               Overwrite an existing file (with ci install)
   --list-rules          List every built-in rule and exit
@@ -48,8 +49,8 @@ Options:
 ```
 
 The `--blocking` default depends on the output mode: `error` for the console
-report and `--format github`, `none` for `--score` and for the json, sarif,
-gitlab, and markdown formats.
+report and `--format github`, `none` for `--score` and for the json,
+report-json, sarif, gitlab, and markdown formats.
 
 Exit codes: 0 = pass, 1 = a gate failed (min-score or blocking), 2 = bad input,
 130 = cancelled with Ctrl+C.
