@@ -16,6 +16,8 @@
     "@xyflow/react": "12.10.1",
     "lucide-react": "^1.27.0",
     "next": "16.3.2",
+    "react-doctor": "^0.9.12",
+    "report-ui": "workspace:*",
     "posthog-js": "^1.418.10",
     "react": "19.2.3",
     "react-dom": "19.2.3",

@@ -171,6 +171,9 @@ importers:
       react:
         specifier: 19.2.3
         version: 19.2.3
+      react-doctor:
+        specifier: ^0.9.12
+        version: 0.9.12(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(eslint@10.9.0(jiti@2.7.0))
       react-dom:
         specifier: 19.2.3
         version: 19.2.3(react@19.2.3)
@@ -180,6 +183,9 @@ importers:
       remark-gfm:
         specifier: 4.0.1
         version: 4.0.1
+      report-ui:
+        specifier: workspace:*
+        version: link:../report-ui
     devDependencies:
       '@tailwindcss/postcss':
         specifier: ^4
@@ -196,9 +202,6 @@ importers:
       '@types/react-dom':
         specifier: ^19
         version: 19.2.3(@types/react@19.2.14)
-      react-doctor:
-        specifier: ^0.9.12
-        version: 0.9.12(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(eslint@10.9.0(jiti@2.7.0))
       rehype-pretty-code:
         specifier: ^0.14.5
         version: 0.14.5(shiki@4.4.3)

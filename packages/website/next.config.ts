@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
 	output: "export",
 	images: { unoptimized: true },
 	pageExtensions: ["tsx", "ts", "mdx"],
+	transpilePackages: ["report-ui"],
 };
 
 const withMDX = createMDX({

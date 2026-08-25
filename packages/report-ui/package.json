@@ -7,7 +7,8 @@
     ".": "./src/index.tsx",
     "./app": "./src/app.tsx",
     "./model": "./src/model.ts",
-    "./styles.css": "./src/styles/report.css"
+    "./styles.css": "./src/styles/report.css",
+    "./demo/fixture": "./demo/fixture.ts"
   },
   "scripts": {
     "build": "vite build && node scripts/emit-embed.mjs",
