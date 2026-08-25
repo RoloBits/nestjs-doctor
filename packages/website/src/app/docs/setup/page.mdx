@@ -49,6 +49,7 @@ it loads nestjs-doctor from your workspace.
 | `0` | Passed |
 | `1` | A gate failed: errors were found, or the score is below `--min-score` |
 | `2` | Bad input: the path does not exist, or a flag is invalid |
+| `130` | The scan was cancelled with Ctrl+C |
 
 The console report exits `1` on any error-severity finding. The machine-readable
 formats exit `0` unless you set a gate. See

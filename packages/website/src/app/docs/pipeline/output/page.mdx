@@ -103,6 +103,9 @@ them. The error, warning and info columns count only what the combined result
 took, so they add up to the totals above. Each score is recalculated from that
 same kept set.
 
+In an interactive terminal this breakdown renders as the score screen's two-pane
+browser instead of a table. See [The menu](/docs/reference/cli#the-menu).
+
 ### HTML report (`--report`)
 
 Generates a single HTML file with an interactive report:
@@ -145,6 +148,7 @@ graph. See [Boot trace](/docs/report/boot-trace).
 | `0` | Passed |
 | `1` | A gate failed |
 | `2` | Invalid input (bad path, invalid flags) |
+| `130` | The scan was cancelled with Ctrl+C |
 
 Two gates produce `1`: the `--min-score` threshold, and the severity gate set by `--blocking`. The severity gate defaults per output mode, so the same findings exit `1` under the console report and `0` under `--format json`. See [Exit codes](/docs/reference/cli#exit-codes) for the defaults.
 

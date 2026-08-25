@@ -17,7 +17,7 @@ How nestjs-doctor works from CLI invocation to final output.
 
 | Directory | Responsibility |
 |-----------|---------------|
-| `src/cli/` | CLI flags, entry point, output formatters |
+| `src/cli/` | CLI flags, entry point, output formatters, and the scan worker entry |
 | `src/engine/` | Config loading, project detection, file collection, AST parsing, module graph, provider resolution, rule execution, diagnostic filtering, scoring |
 | `src/engine/rules/definitions/` | All 52 rules organized by category (`security/`, `correctness/`, `architecture/`, `performance/`, `schema/`) |
 | `src/report/` | HTML report generation (interactive dashboard, module graph, schema ER diagram) |
@@ -50,3 +50,7 @@ Stages that do not depend on each other run concurrently:
 
 - **Single-project mode:** config loading and custom rule resolution run first. Project detection and file collection then run together via `Promise.all`. The remaining stages run in order, from AST parsing through scoring.
 - **Monorepo mode:** file collection for every sub-project runs in parallel via `Promise.all`. The sub-projects themselves are then built one at a time. Each context is dropped before the next one is built, so peak memory stays close to a single project.
+
+### Where the scan runs
+
+An interactive terminal run executes the engine middle in a worker thread, so the spinner and progress bar keep painting while rules run. CI, every machine-readable format, and `--score` scans run in process. If the worker cannot start or fails mid-scan, the scan reruns in process and a warning goes to stderr.

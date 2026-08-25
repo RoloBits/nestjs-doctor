@@ -29,6 +29,8 @@ The directory defaults to the current one.
 | `--list-rules` | Print every built-in rule and exit |
 | `-h`, `--help` | Print usage and exit |
 
+Ctrl+C cancels a running scan immediately and exits `130`.
+
 ## Scope
 
 Scoping changes what is reported, never what is analyzed. Cross-file rules
@@ -80,11 +82,18 @@ either stream.
 ## The menu
 
 A console scan in a terminal ends on a score screen: the nest, the score with
-its bar, the severity counts, the per-project breakdown in a monorepo, and a
-short action menu — review the findings, open the HTML report, hand off to a
-coding agent, scaffold the GitHub Actions workflow when it is missing, or copy
-the findings as markdown. Everything comes from the scan that just ran, so
-nothing is scanned twice.
+its bar, the severity counts, and a short action menu. Review the findings,
+open the HTML report, hand off to a coding agent, scaffold the GitHub Actions
+workflow when it is missing, or copy the findings as markdown. Everything comes
+from the scan that just ran, so nothing is scanned twice.
+
+In a monorepo the breakdown is a two-pane browser. Sub-projects list worst score
+first. The left pane is the scrollable project list, and the right pane is the
+action menu.
+
+A side panel shows the selected project's score, error, warning and info counts,
+file count, and the rules it trips most. `↑↓` moves in the focused pane, `←→` or
+`tab` switches panes, `enter` confirms the menu action, `q` quits.
 
 An interactive run hands its presentation to that screen and prints nothing
 else. Pass `--verbose` to print the full findings list above it instead.
@@ -140,13 +149,14 @@ agrees.
 
 ## Exit codes
 
-Every run ends in one of three codes:
+Every run ends in one of four codes:
 
 | Code | Meaning |
 |------|---------|
 | `0` | Passed |
 | `1` | A gate failed |
 | `2` | Bad input: the path does not exist, a flag is invalid, or two flags conflict |
+| `130` | You cancelled the scan with Ctrl+C |
 
 The score gate is checked before the severity gate, so a run below `--min-score`
 exits `1` whether or not any diagnostic was blocking.
