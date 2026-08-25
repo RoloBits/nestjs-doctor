@@ -84,8 +84,7 @@ function buildReactReport(
 	telemetry: string
 ): string {
 	const model = buildReportModel(moduleGraph, result, options);
-	// JSON.parse rejects the <\!-- form safeJsonForScript produces, so the
-	// payload escapes every "<" instead — valid JSON, still kills </script>.
+	// Every "<" becomes \u003c: JSON-safe, and </script cannot close the tag.
 	const data = `<script id="nd-report-data" type="application/json">${JSON.stringify(model).replace(OPEN_ANGLE, "\\u003c")}</script>`;
 
 	return `<!DOCTYPE html>

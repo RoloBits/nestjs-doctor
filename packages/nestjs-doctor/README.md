@@ -62,6 +62,11 @@ Add a few lines to `main.ts`, boot once, and `--timings` overlays the real
 construction times on the module graph. The 800ms hiding in an `onModuleInit`
 becomes a bar. [Boot trace docs →](https://nestjs.doctor/docs/report/boot-trace)
 
+`--report-ui` renders the report with the React shell instead of the legacy
+template (`report.ui: true` in the config file selects it too). The React
+variant is one self-contained file with no external scripts; tabs are porting
+in stages and the default stays legacy for now.
+
 ### 3. Run in CI
 
 Write `.github/workflows/nestjs-doctor.yml`:

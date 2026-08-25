@@ -1,10 +1,4 @@
-/**
- * The report payload contract: what the CLI serialises into the
- * `nd-report-data` script tag and this package renders. Mirrors
- * `packages/nestjs-doctor/src/report/model/report-model.ts` — keep both in
- * step; the Stage 7 parity gate catches drift.
- */
-
+/** The payload the CLI serialises into the `nd-report-data` script tag. */
 export type Severity = "error" | "warning" | "info";
 
 export interface SourceLine {
@@ -89,14 +83,12 @@ export interface SerializedModuleGraph {
 	projects: string[];
 }
 
-/** Deep entity/relation shapes arrive with the schema tab (Stage 5). */
 export interface SerializedSchemaGraph {
 	entities: unknown[];
 	orm: string;
 	relations: unknown[];
 }
 
-/** Deep endpoint shapes arrive with the endpoints tab (Stage 5). */
 export interface EndpointGraphPayload {
 	endpoints: unknown[];
 }

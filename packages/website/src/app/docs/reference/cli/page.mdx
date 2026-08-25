@@ -65,6 +65,7 @@ compares against the base revision rather than the file list.
 | `--output <path>` | Write to a file instead of stdout. With `--report`, where the HTML goes |
 | `--score` | Print only the number |
 | `--report` | Build the interactive HTML report. `--graph` is an alias |
+| `--report-ui` | Render the HTML report with the React UI instead of the legacy template. `report.ui: true` in the config file does the same |
 | `--timings <path>` | Overlay boot timings on the report's module graph. See [Boot trace](/docs/report/boot-trace) |
 
 `--report` writes HTML rather than a payload, so it refuses to share a run with

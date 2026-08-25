@@ -38,6 +38,7 @@ Options:
   --blocking <level>    Severity that fails the run: none, warning, error
   --min-score <n>       Minimum passing score (0-100). Exits with code 1 if below threshold
   --report              Generate an interactive HTML report (--graph also works)
+  --report-ui           Render the HTML report with the React UI instead of the legacy template
   --timings <path>      SerializedGraph dump to overlay bootstrap init times on the report
   --config <p>          Path to config file
   --force               Overwrite an existing file (with ci install)
@@ -102,6 +103,10 @@ directives cannot silence either rule; use `ignore.rules`.
 The graph is decorator text, not a running app. Two `@Module()` classes with the same name in different directories collapse into one node outside a monorepo. A module produced only by a factory returning a `DynamicModule` never becomes an edge. `--report` ignores `--scope`, `--base`, `--staged`, `--min-score`, and `--blocking`, and always exits 0.
 
 Docs: https://nestjs.doctor/docs/report/module-graph
+
+## React report UI
+
+`--report-ui` renders the report with the React shell instead of the legacy template; `report.ui: true` in the config file selects it too. The React variant is one self-contained file that loads no external scripts, and currently ships the header and tab navigation while the remaining tabs port in stages. The default stays the legacy template.
 
 ## Boot trace
 

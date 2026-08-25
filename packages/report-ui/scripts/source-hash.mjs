@@ -22,8 +22,7 @@ export function computeSourceHash(dir) {
 
 	const hash = createHash("sha256");
 	for (const [rel, full] of files) {
-		// Forward slashes and normalized newlines so the digest is identical
-		// across platforms, including CRLF checkouts.
+		// Repo-relative posix paths, LF newlines.
 		hash.update(rel.split(sep).join("/"));
 		hash.update(readFileSync(full, "utf8").replace(CRLF, "\n"));
 	}

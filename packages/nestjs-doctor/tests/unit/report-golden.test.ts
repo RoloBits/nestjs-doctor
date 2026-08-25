@@ -4,7 +4,7 @@ import { prepareReportData } from "../../src/report/formatters/report-data.js";
 import { getReportScripts } from "../../src/report/ui/scripts.js";
 import { graph, reportProviders, result } from "./report-fixtures.js";
 
-// Update EXPECTED whenever an intentional change to the emitted report script is reviewed.
+// EXPECTED pins the legacy report script bytes.
 const EXPECTED =
 	"64ed7093de56195be76f35292e6f8a627472b8a5cbd783f2dddc0ab3a2a392d6";
 

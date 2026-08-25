@@ -110,6 +110,7 @@ export type ScanOutcome =
 			subProjectOptOut: boolean;
 			scopeWarnings: string[];
 			resolvedMinimumScore?: number;
+			reportUi: boolean;
 	  }
 	| {
 			kind: "single";
@@ -122,6 +123,7 @@ export type ScanOutcome =
 			schemaGraph: EngineResult["schemaGraph"];
 			scopeWarnings: string[];
 			resolvedMinimumScore?: number;
+			reportUi: boolean;
 	  };
 
 const displayCustomRuleWarnings = (
@@ -154,6 +156,8 @@ abstract class ScanPipeline {
 	} | null = null;
 	/** The final step; in worker mode main runs it after the outcome lands. */
 	protected outputStep: PipelineStep | null = null;
+	/** The config-file half of reportUiEnabled, resolved worker-side. */
+	protected delegatedReportUi = false;
 	/** Custom-rule warnings from the worker outcome, shown before the report. */
 	protected workerWarnings: string[] = [];
 	/** Set when any scanned sub-project declares its own opt-out. */
@@ -171,7 +175,9 @@ abstract class ScanPipeline {
 	/** The `--report-ui` flag or `report.ui: true` in the config file. */
 	protected get reportUiEnabled(): boolean {
 		return (
-			this.options.reportUi || this.scanConfig?.config?.report?.ui === true
+			this.options.reportUi ||
+			this.delegatedReportUi ||
+			this.scanConfig?.config?.report?.ui === true
 		);
 	}
 
@@ -665,6 +671,7 @@ export class MonorepoPipeline extends ScanPipeline {
 				this.allFiles.push(...outcome.allFiles);
 				this.allProviders.push(...outcome.reportProviders);
 				this.bootstrapRoots.push(...outcome.bootstrapRoots);
+				this.delegatedReportUi = outcome.reportUi;
 				this.subProjectOptOut = outcome.subProjectOptOut;
 				this.scopeWarnings.push(...outcome.scopeWarnings);
 				this.resolvedMinimumScore = outcome.resolvedMinimumScore;
@@ -685,6 +692,7 @@ export class MonorepoPipeline extends ScanPipeline {
 			subProjectOptOut: this.subProjectOptOut,
 			scopeWarnings: this.scopeWarnings,
 			resolvedMinimumScore: this.resolvedMinimumScore,
+			reportUi: this.reportUiEnabled,
 		};
 	}
 
@@ -791,6 +799,7 @@ export class SingleProjectPipeline extends ScanPipeline {
 					schemaGraph: outcome.schemaGraph,
 				};
 				this.reportProviders = outcome.reportProviders;
+				this.delegatedReportUi = outcome.reportUi;
 				this.bootstrapRoots = outcome.bootstrapRoots;
 				this.scopeWarnings.push(...outcome.scopeWarnings);
 				this.resolvedMinimumScore = outcome.resolvedMinimumScore;
@@ -811,6 +820,7 @@ export class SingleProjectPipeline extends ScanPipeline {
 			schemaGraph: this.result.schemaGraph,
 			scopeWarnings: this.scopeWarnings,
 			resolvedMinimumScore: this.resolvedMinimumScore,
+			reportUi: this.reportUiEnabled,
 		};
 	}
 

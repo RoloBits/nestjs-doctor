@@ -71,6 +71,10 @@ async function scan(args: CliArgs): Promise<void> {
 	const { targetPath, options } = ctx;
 	options.interactive = canPrompt(options);
 
+	if (args["report-ui"] && !args.report && !options.interactive) {
+		logger.warn("--report-ui is ignored without --report");
+	}
+
 	const runMenu = async (artifacts: InteractiveArtifacts) => {
 		if (!options.interactive) {
 			return;
