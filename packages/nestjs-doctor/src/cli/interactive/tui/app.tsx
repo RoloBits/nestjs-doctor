@@ -65,6 +65,9 @@ export const App = ({
 	const [toast, setToast] = useState<Toast>(null);
 	const [selectedAction, setSelectedAction] = useState(0);
 	const [selectedHandoff, setSelectedHandoff] = useState(0);
+	const [scoreFocus, setScoreFocus] = useState<"list" | "menu">("menu");
+	const [selectedSub, setSelectedSub] = useState(0);
+	const subCount = context.subProjects?.length ?? 0;
 
 	const shown = useMemo(
 		() => withSurface(context.result, "cli"),
@@ -202,17 +205,33 @@ export const App = ({
 			if (screen !== "score") {
 				return;
 			}
+			if (input === "q" && !busy) {
+				exit();
+				return;
+			}
+			if (key.return && !busy) {
+				// biome-ignore lint/suspicious/noEmptyBlockStatements: the action reports its own errors as a toast
+				runAction(items[selectedAction].action).catch(() => {});
+				return;
+			}
+			if (subCount > 0 && (key.leftArrow || key.rightArrow || key.tab)) {
+				setScoreFocus((previous) => (previous === "menu" ? "list" : "menu"));
+				return;
+			}
+			if (scoreFocus === "list" && subCount > 0) {
+				if (key.upArrow || input === "k") {
+					setSelectedSub((previous) => Math.max(0, previous - 1));
+				} else if (key.downArrow || input === "j") {
+					setSelectedSub((previous) => Math.min(subCount - 1, previous + 1));
+				}
+				return;
+			}
 			if (key.upArrow || input === "k") {
 				setSelectedAction((previous) =>
 					previous === 0 ? items.length - 1 : previous - 1
 				);
 			} else if (key.downArrow || input === "j") {
 				setSelectedAction((previous) => (previous + 1) % items.length);
-			} else if (key.return && !busy) {
-				// biome-ignore lint/suspicious/noEmptyBlockStatements: the action reports its own errors as a toast
-				runAction(items[selectedAction].action).catch(() => {});
-			} else if (input === "q" && !busy) {
-				exit();
 			}
 		},
 		{ isActive: screen === "score" }
@@ -308,9 +327,11 @@ export const App = ({
 		<ScoreScreen
 			busy={busy}
 			context={context}
+			focus={scoreFocus}
 			items={items}
 			result={shown}
 			selected={selectedAction}
+			selectedSub={selectedSub}
 			toast={toast}
 		/>
 	);

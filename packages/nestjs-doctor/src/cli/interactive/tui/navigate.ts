@@ -87,6 +87,20 @@ export const moveSelection = (
 	return next;
 };
 
+/** Keeps a scroll offset inside [0, total - visible]. */
+export const clampOffset = (
+	offset: number,
+	total: number,
+	visible: number
+): number => Math.max(0, Math.min(offset, Math.max(0, total - visible)));
+
+/** Rows a list may use: terminal height minus everything else on screen, with a floor. */
+export const listCapacity = (
+	rows: number,
+	chromeRows: number,
+	minimum: number
+): number => Math.max(minimum, rows - chromeRows);
+
 /** Keeps the selection inside the visible window. */
 export const scrollWindow = (
 	offset: number,

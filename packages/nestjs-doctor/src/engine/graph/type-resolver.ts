@@ -1,4 +1,5 @@
 import type { ClassDeclaration, Decorator, Project } from "ts-morph";
+import { YIELD_INTERVAL, yieldToEventLoop } from "../yield.js";
 
 const REQUEST_SCOPE_REGEX = /Scope\s*\.\s*REQUEST/;
 const TRANSIENT_SCOPE_REGEX = /Scope\s*\.\s*TRANSIENT/;
@@ -101,6 +102,26 @@ export function resolveProviders(
 		}
 	}
 
+	return providers;
+}
+
+/** Batched variant of resolveProviders; yields between files. */
+export async function resolveProvidersAsync(
+	project: Project,
+	files: string[]
+): Promise<Map<string, ProviderInfo>> {
+	const providers = new Map<string, ProviderInfo>();
+	for (let index = 0; index < files.length; index++) {
+		const sourceFile = project.getSourceFile(files[index]);
+		if (sourceFile) {
+			for (const info of extractProvidersFromFile(sourceFile, files[index])) {
+				providers.set(info.name, info);
+			}
+		}
+		if ((index + 1) % YIELD_INTERVAL === 0) {
+			await yieldToEventLoop();
+		}
+	}
 	return providers;
 }
 
