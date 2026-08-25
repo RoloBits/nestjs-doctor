@@ -1,4 +1,5 @@
 import { parentPort, workerData } from "node:worker_threads";
+import { setCliVersion } from "./output.js";
 import {
 	MonorepoPipeline,
 	type ScanWorkerMessage,
@@ -8,6 +9,8 @@ import {
 import type { PipelineOptions } from "./setup.js";
 
 const request = workerData as ScanWorkerRequest;
+
+setCliVersion(request.version);
 
 const post = (message: ScanWorkerMessage): void => {
 	parentPort?.postMessage(message);

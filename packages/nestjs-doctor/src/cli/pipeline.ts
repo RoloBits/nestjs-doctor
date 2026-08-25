@@ -88,6 +88,7 @@ export interface ScanWorkerRequest {
 	monorepo?: MonorepoInfo;
 	options: PipelineOptions;
 	targetPath: string;
+	version: string;
 }
 
 /** Worker → main. Progress ticks, then one outcome or one failure. */
@@ -427,9 +428,7 @@ abstract class ScanPipeline {
 		this.progress = this.options.isMachineReadable
 			? null
 			: createAnimatedProgress("Scanning...");
-		// The spinner puts stdin in raw mode, where Ctrl+C arrives as a 0x03
-		// byte rather than a signal, and the signal path is unreliable once
-		// ora's cleanup hooks are loaded. Watch the byte and the signal.
+		// Raw mode turns Ctrl+C into a 0x03 byte; watch for both it and SIGINT.
 		const cancel = (): void => {
 			this.progress?.fail("Scan cancelled");
 			this.progress = null;
@@ -440,8 +439,9 @@ abstract class ScanPipeline {
 			cancel();
 		};
 		const onByte = (data: Buffer | string): void => {
-			const code = typeof data === "string" ? data.codePointAt(0) : data.at(0);
-			if (code === 0x03) {
+			if (
+				typeof data === "string" ? data.includes("\u0003") : data.includes(0x03)
+			) {
 				cancel();
 			}
 		};
@@ -454,7 +454,8 @@ abstract class ScanPipeline {
 				try {
 					await this.delegate();
 				} catch (error) {
-					this.stopProgress();
+					this.progress?.fail("Worker scan failed");
+					this.progress = null;
 					logger.warn(
 						`The scan worker failed (${error instanceof Error ? error.message : String(error)}); scanning in process instead.`
 					);
@@ -641,6 +642,7 @@ export class MonorepoPipeline extends ScanPipeline {
 					onProgress: undefined,
 				},
 				monorepo: this.monorepo,
+				version: getCliVersion(),
 			},
 			(outcome) => {
 				if (outcome.kind !== "monorepo") {
@@ -764,6 +766,7 @@ export class SingleProjectPipeline extends ScanPipeline {
 					skipOutput: true,
 					onProgress: undefined,
 				},
+				version: getCliVersion(),
 			},
 			(outcome) => {
 				if (outcome.kind !== "single") {
