@@ -1,10 +1,6 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import {
-	buildReportModel,
-	prepareReportData,
-	toLegacyScriptData,
-} from "../../src/report/formatters/report-data.js";
+import { prepareReportData } from "../../src/report/formatters/report-data.js";
 import { getReportScripts } from "../../src/report/ui/scripts.js";
 import { graph, reportProviders, result } from "./report-fixtures.js";
 
@@ -13,15 +9,6 @@ const EXPECTED =
 	"64ed7093de56195be76f35292e6f8a627472b8a5cbd783f2dddc0ab3a2a392d6";
 
 describe("golden legacy report script", () => {
-	it("derives the legacy payload from the model byte-for-byte", () => {
-		const viaModel = toLegacyScriptData(
-			buildReportModel(graph(), result(), { providers: reportProviders })
-		);
-		expect(viaModel).toEqual(
-			prepareReportData(graph(), result(), { providers: reportProviders })
-		);
-	});
-
 	it("keeps the emitted script bytes stable", () => {
 		const data = prepareReportData(graph(), result(), {
 			providers: reportProviders,

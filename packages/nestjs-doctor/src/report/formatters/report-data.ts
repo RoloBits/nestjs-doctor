@@ -83,7 +83,7 @@ export function buildReportModel(
 }
 
 /** The string payload the legacy inline script interpolates. */
-export function toLegacyScriptData(model: ReportModel): ReportScriptData {
+function toLegacyScriptData(model: ReportModel): ReportScriptData {
 	const json = (value: unknown): string =>
 		safeJsonForScript(JSON.stringify(value));
 

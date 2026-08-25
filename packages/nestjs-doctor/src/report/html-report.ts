@@ -31,6 +31,8 @@ interface ReportHtmlOptions {
 	timings?: BootstrapTimings;
 }
 
+const OPEN_ANGLE = /</g;
+
 // The nestjs-doctor logo (packages/website/public/logo.png at 64px), inlined
 // so the report needs no extra request for it.
 const FAVICON_DATA_URI =
@@ -82,7 +84,9 @@ function buildReactReport(
 	telemetry: string
 ): string {
 	const model = buildReportModel(moduleGraph, result, options);
-	const data = `<script id="nd-report-data" type="application/json">${safeJsonForScript(JSON.stringify(model))}</script>`;
+	// JSON.parse rejects the <\!-- form safeJsonForScript produces, so the
+	// payload escapes every "<" instead — valid JSON, still kills </script>.
+	const data = `<script id="nd-report-data" type="application/json">${JSON.stringify(model).replace(OPEN_ANGLE, "\\u003c")}</script>`;
 
 	return `<!DOCTYPE html>
 <html lang="en">
