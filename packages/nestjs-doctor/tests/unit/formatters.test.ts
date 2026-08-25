@@ -83,6 +83,7 @@ describe("output formats", () => {
 		expect(OUTPUT_FORMATS).toEqual([
 			"console",
 			"json",
+			"report-json",
 			"sarif",
 			"gitlab",
 			"markdown",
@@ -94,7 +95,9 @@ describe("output formats", () => {
 		expect(isOutputFormat("sarif")).toBe(true);
 		expect(isOutputFormat("xml")).toBe(false);
 		expect(validateFormatArg("gitlab")).toBeNull();
-		expect(validateFormatArg("xml")).toContain("console, json, sarif");
+		expect(validateFormatArg("xml")).toContain(
+			"console, json, report-json, sarif"
+		);
 	});
 });
 

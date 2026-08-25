@@ -1,6 +1,7 @@
 import { stat } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
 import { Worker } from "node:worker_threads";
+import type { ReportArtifact, ReportProvider } from "../common/artifact.js";
 import type { Diagnostic } from "../common/diagnostic.js";
 import type { DiagnoseResult } from "../common/result.js";
 import { computeBaselineDelta } from "../engine/baseline.js";
@@ -33,10 +34,7 @@ import {
 	type ResolvedScope,
 	resolveScope,
 } from "../engine/scope.js";
-import {
-	type ReportProvider,
-	toReportProvider,
-} from "../report/formatters/report-data.js";
+import { buildReportArtifact, toReportProvider } from "../report/artifact.js";
 import { buildHtmlReport } from "../report/html-report.js";
 import { getEcosystem, resetEcosystem } from "../telemetry/ecosystem.js";
 import { actionContext, generatedIn } from "../telemetry/environment.js";
@@ -509,23 +507,32 @@ export class MonorepoPipeline extends ScanPipeline {
 	private readonly allProviders: ReportProvider[] = [];
 	private result!: MonorepoEngineResult;
 	private scanStartTime!: number;
+	private cachedArtifact: ReportArtifact | undefined;
+
+	/** The scan as one serializable document, built once on demand. */
+	get reportArtifact(): ReportArtifact {
+		if (!this.cachedArtifact) {
+			const { moduleGraphs, result } = this.result;
+			this.cachedArtifact = buildReportArtifact({
+				moduleGraph: mergeModuleGraphs(moduleGraphs),
+				result: result.combined,
+				projects: [...moduleGraphs.keys()],
+				files: this.allFiles,
+				providers: this.allProviders,
+				bootstrapRoots: this.bootstrapRoots,
+				monorepo: true,
+				sources: this.options.sources,
+				timings: this.options.timings,
+				version: getCliVersion(),
+			});
+		}
+		return this.cachedArtifact;
+	}
 
 	/** What the post-scan menu needs, without re-scanning. */
 	get interactiveArtifacts(): InteractiveArtifacts {
 		return {
-			buildReportHtml: () => {
-				const { moduleGraphs, result } = this.result;
-				return buildHtmlReport(
-					mergeModuleGraphs(moduleGraphs),
-					result.combined,
-					{
-						bootstrapRoots: this.bootstrapRoots,
-						files: this.allFiles,
-						projects: [...moduleGraphs.keys()],
-						providers: this.allProviders,
-					}
-				);
-			},
+			buildReportHtml: () => buildHtmlReport(this.reportArtifact),
 			printSummary: () => {
 				printMonorepoReport(this.result.result, this.options.verbose, true);
 			},
@@ -718,7 +725,8 @@ export class MonorepoPipeline extends ScanPipeline {
 				this.resolvedMinimumScore,
 				this.targetPath,
 				this.options,
-				this.scopeWarnings
+				this.scopeWarnings,
+				this.reportArtifact
 			);
 		};
 		this.steps.push(step);
@@ -734,18 +742,30 @@ export class SingleProjectPipeline extends ScanPipeline {
 	private result!: EngineResult;
 	private reportProviders: ReportProvider[] = [];
 	private bootstrapRoots: string[] = [];
+	private cachedArtifact: ReportArtifact | undefined;
+
+	/** The scan as one serializable document, built once on demand. */
+	get reportArtifact(): ReportArtifact {
+		if (!this.cachedArtifact) {
+			const { moduleGraph, files, result } = this.result;
+			this.cachedArtifact = buildReportArtifact({
+				moduleGraph,
+				result,
+				files,
+				providers: this.reportProviders,
+				bootstrapRoots: this.bootstrapRoots,
+				sources: this.options.sources,
+				timings: this.options.timings,
+				version: getCliVersion(),
+			});
+		}
+		return this.cachedArtifact;
+	}
 
 	/** What the post-scan menu needs, without re-scanning. */
 	get interactiveArtifacts(): InteractiveArtifacts {
 		return {
-			buildReportHtml: () => {
-				const { moduleGraph, files } = this.result;
-				return buildHtmlReport(moduleGraph, this.result.result, {
-					bootstrapRoots: this.bootstrapRoots,
-					files,
-					providers: this.reportProviders,
-				});
-			},
+			buildReportHtml: () => buildHtmlReport(this.reportArtifact),
 			printSummary: () => {
 				printConsoleReport(this.result.result, this.options.verbose, true);
 			},
@@ -884,7 +904,8 @@ export class SingleProjectPipeline extends ScanPipeline {
 				this.resolvedMinimumScore,
 				this.targetPath,
 				this.options,
-				this.scopeWarnings
+				this.scopeWarnings,
+				this.reportArtifact
 			);
 		};
 		this.steps.push(step);

@@ -1,5 +1,7 @@
 import { resolve } from "node:path";
+import type { SourceInclusion } from "../common/artifact.js";
 import { isScopeMode, type ScopeMode } from "../common/scope.js";
+import type { BootstrapTimings } from "../report/timings.js";
 import {
 	type BlockingLevel,
 	resolveBlocking,
@@ -33,8 +35,12 @@ export interface PipelineOptions {
 	score: boolean;
 	/** Worker-internal: the worker never prints the report. */
 	skipOutput?: boolean;
+	/** How much source text the report artifact embeds. */
+	sources: SourceInclusion;
 	staged: boolean;
 	telemetry: boolean;
+	/** Parsed bootstrap dump, for the artifact's module-graph overlay. */
+	timings?: BootstrapTimings;
 	verbose: boolean;
 }
 
@@ -61,6 +67,7 @@ export interface CliArgs {
 	report: boolean;
 	scope: string | undefined;
 	score: boolean;
+	sources: string | undefined;
 	staged: boolean;
 	telemetry: boolean;
 	timings: string | undefined;
@@ -114,6 +121,20 @@ function resolveScopeMode(args: CliArgs): ScopeMode {
 		);
 	}
 	return args.scope as ScopeMode;
+}
+
+const SOURCE_INCLUSIONS: SourceInclusion[] = ["none", "touched", "all"];
+
+function resolveSources(args: CliArgs): SourceInclusion {
+	if (!args.sources) {
+		return "all";
+	}
+	if (!SOURCE_INCLUSIONS.includes(args.sources as SourceInclusion)) {
+		failWith(
+			`Invalid --sources value: "${args.sources}". Must be one of ${SOURCE_INCLUSIONS.join(", ")}.`
+		);
+	}
+	return args.sources as SourceInclusion;
 }
 
 /** Setup builder — resolves target path, handles early-exit flags, validates args */
@@ -207,7 +228,8 @@ export class CliSetup {
 					this.args.config,
 					this.args.timings,
 					this.args.output,
-					this.args.telemetry
+					this.args.telemetry,
+					resolveSources(this.args)
 				);
 				return false;
 			}
@@ -250,11 +272,21 @@ export class CliSetup {
 			}
 		}
 
+		const format = resolveFormat(this.args);
+		let timings: BootstrapTimings | undefined;
 		if (this.args.timings) {
-			logger.warn("--timings is ignored without --report");
+			if (format === "report-json") {
+				const { loadBootstrapTimings } = await import("../report/timings.js");
+				const loaded = loadBootstrapTimings(this.targetPath, this.args.timings);
+				timings = loaded.timings;
+				for (const warning of loaded.warnings) {
+					logger.warn(warning);
+				}
+			} else {
+				logger.warn("--timings is ignored without --report");
+			}
 		}
 
-		const format = resolveFormat(this.args);
 		const score = this.args.score ?? false;
 		const isMachineReadable = score || isMachineReadableFormat(format);
 
@@ -274,8 +306,10 @@ export class CliSetup {
 				outputPath: this.args.output,
 				scope: resolveScopeMode(this.args),
 				score,
+				sources: resolveSources(this.args),
 				staged: this.args.staged ?? false,
 				telemetry: this.args.telemetry ?? true,
+				timings,
 				verbose: this.args.verbose ?? false,
 			},
 		};

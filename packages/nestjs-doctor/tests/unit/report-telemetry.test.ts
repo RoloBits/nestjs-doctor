@@ -1,49 +1,21 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import type { DiagnoseResult } from "../../src/common/result.js";
 import type { ModuleGraph } from "../../src/engine/graph/module-graph.js";
+import { buildReportArtifact } from "../../src/report/artifact.js";
 import { buildHtmlReport } from "../../src/report/html-report.js";
 import {
 	buildBeacon,
 	getTelemetryScript,
 } from "../../src/report/ui/telemetry.js";
 import { generatedIn } from "../../src/telemetry/environment.js";
+import { emptyResult } from "./report-artifact-fixture.js";
 
 const emptyGraph = (): ModuleGraph => ({
 	edges: new Map(),
 	modules: new Map(),
 	providerToModule: new Map(),
 });
-
-const emptyResult = (): DiagnoseResult =>
-	({
-		score: { value: 100, label: "Excellent" },
-		diagnostics: [],
-		project: {
-			name: "app",
-			nestVersion: "11.0.0",
-			orm: "prisma",
-			framework: "express",
-			fileCount: 1,
-			moduleCount: 1,
-		},
-		summary: {
-			total: 0,
-			errors: 0,
-			warnings: 0,
-			info: 0,
-			byCategory: {
-				security: 0,
-				performance: 0,
-				correctness: 0,
-				architecture: 0,
-				schema: 0,
-			},
-		},
-		ruleErrors: [],
-		elapsedMs: 1,
-	}) as DiagnoseResult;
 
 const TAINT = "/Users/someone/private-app/src/orders.controller.ts";
 
@@ -131,15 +103,32 @@ function runBeacon() {
 
 describe("report telemetry", () => {
 	it("embeds no beacon when telemetry is off", () => {
-		const html = buildHtmlReport(emptyGraph(), emptyResult(), {
-			telemetry: false,
-		});
+		const html = buildHtmlReport(
+			buildReportArtifact({
+				moduleGraph: emptyGraph(),
+				result: emptyResult(),
+				version: "1.2.3",
+			}),
+			{ telemetry: false }
+		);
 
 		// The tab handler's `window.__ndTrack?.()` call always ships and is
 		// inert without the beacon that defines it.
 		expect(html).not.toContain("posthog");
 		expect(html).not.toContain("report_opened");
 		expect(html).not.toContain("window.__ndTrack =");
+	});
+
+	it("stamps the beacon with the artifact's generator version", () => {
+		const html = buildHtmlReport(
+			buildReportArtifact({
+				moduleGraph: emptyGraph(),
+				result: emptyResult(),
+				version: "9.9.9",
+			})
+		);
+
+		expect(html).toContain('var VERSION = "9.9.9"');
 	});
 
 	it("embeds the beacon with the configured key", () => {

@@ -1,5 +1,6 @@
 import { highlighter } from "../cli/ui/highlighter.js";
 import { logger } from "../cli/ui/logger.js";
+import type { SourceInclusion } from "../common/artifact.js";
 import { detectMonorepo } from "../engine/project-detector.js";
 import {
 	logMonorepoSummary,
@@ -19,7 +20,8 @@ export const runReport = async (
 	configPath: string | undefined,
 	timingsPath?: string,
 	outputPath?: string,
-	telemetry = true
+	telemetry = true,
+	sources: SourceInclusion = "all"
 ): Promise<void> => {
 	const monorepo = await detectMonorepo(targetPath);
 
@@ -44,7 +46,8 @@ export const runReport = async (
 			configPath,
 			monorepo,
 			bootTimings,
-			telemetry
+			telemetry,
+			sources
 		);
 		await pipeline
 			.resolveConfig()
@@ -62,7 +65,8 @@ export const runReport = async (
 		targetPath,
 		configPath,
 		bootTimings,
-		telemetry
+		telemetry,
+		sources
 	);
 	await pipeline
 		.resolveConfig()

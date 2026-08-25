@@ -1,40 +1,25 @@
 import { REPORT_FONT_STACK } from "./styles.js";
 
-export interface ReportScriptData {
-	diagnosticsJson: string;
-	elapsedMsJson: string;
-	endpointsJson: string;
-	examplesJson: string;
-	fileSourcesJson: string;
-	graphJson: string;
-	projectJson: string;
-	providersJson: string;
-	schemaJson: string;
-	sourceLinesJson: string;
-	summaryJson: string;
-}
-
-export function getReportScripts(data: ReportScriptData): string {
+export function getReportScripts(artifactJson: string): string {
 	return `
-const graph = ${data.graphJson};
-const project = ${data.projectJson};
-const diagnostics = ${data.diagnosticsJson};
-const sourceLinesData = ${data.sourceLinesJson};
-const summary = ${data.summaryJson};
-const elapsedMs = ${data.elapsedMsJson};
-const ruleExamples = ${data.examplesJson};
-const fileSources = ${data.fileSourcesJson};
-const providers = ${data.providersJson};
-const schema = ${data.schemaJson};
-const endpoints = ${data.endpointsJson};
-const isMonorepo = Object.keys(fileSources).length === 0;
+const REPORT = ${artifactJson};
+const graph = REPORT.graph;
+const project = Object.assign({}, REPORT.project, { score: REPORT.score });
+const diagnostics = REPORT.diagnostics;
+const sourceLinesData = [];
+for (let i = 0; i < diagnostics.length; i++) {
+  const sl = diagnostics[i].sourceLines;
+  sourceLinesData.push(sl && sl.length > 0 ? sl : null);
+}
+const summary = REPORT.summary;
+const elapsedMs = REPORT.elapsedMs;
+const ruleExamples = REPORT.examples;
+const fileSources = REPORT.sources;
+const providers = REPORT.providers;
+const schema = REPORT.schema;
+const endpoints = REPORT.endpoints;
+const isMonorepo = REPORT.monorepo;
 
-// The payload omits empty collections, so every consumer can assume they exist.
-graph.modules = graph.modules || [];
-graph.edges = graph.edges || [];
-graph.projects = graph.projects || [];
-graph.circularDeps = graph.circularDeps || [];
-graph.circularDepRecommendations = graph.circularDepRecommendations || {};
 graph.bootstrapRoots = graph.bootstrapRoots || [];
 graph.timingsTrace = graph.timingsTrace || {};
 

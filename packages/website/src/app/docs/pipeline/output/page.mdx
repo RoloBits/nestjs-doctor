@@ -87,6 +87,23 @@ Useful for CI scripts that need to capture the score:
 SCORE=$(npx nestjs-doctor . --score)
 ```
 
+### Report artifact (`--format report-json`)
+
+The document the HTML report embeds, as versioned JSON: score, findings,
+summary, module graph, providers, endpoints, schema, rule examples, and source
+text. Written to `nestjs-doctor-report.json` beside the scanned project, or
+wherever `--output` points:
+
+```bash
+npx nestjs-doctor . --format report-json
+npx nestjs-doctor . --format report-json --output report.json --sources touched
+```
+
+The HTML report is rendered from the same artifact, so the two always agree.
+`--sources` controls how much source text it carries: `all` (default), `touched`
+(only files with findings), or `none`. `--timings` embeds boot timings in the
+graph the same way it does for `--report`.
+
 ### Monorepo report
 
 In monorepo mode, the console report shows the combined score and diagnostics first, exactly as it does for a single project. A per-project breakdown table follows:

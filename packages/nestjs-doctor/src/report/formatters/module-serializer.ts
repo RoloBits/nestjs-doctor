@@ -1,44 +1,13 @@
+import type {
+	SerializedModuleGraph,
+	SerializedModuleNode,
+} from "./../../common/artifact.js";
 import type { DiagnoseResult } from "../../common/result.js";
 import {
 	findCircularDeps,
 	type ModuleGraph,
 } from "../../engine/graph/module-graph.js";
-import type {
-	BootPhases,
-	BootstrapTimings,
-	ClassTiming,
-	HookTiming,
-	TraceNode,
-} from "../timings.js";
-
-interface SerializedModuleNode {
-	controllers: string[];
-	dynamicImports?: Record<string, string>;
-	exports: string[];
-	filePath: string;
-	hookTimings?: HookTiming[];
-	imports: string[];
-	initTimings?: ClassTiming[];
-	isGlobal?: boolean;
-	line?: number;
-	name: string;
-	project?: string;
-	providers: string[];
-	providerTokens?: string[];
-}
-
-interface SerializedModuleGraph {
-	bootstrapRoots?: string[];
-	circularDepRecommendations: Record<string, string>;
-	circularDeps: string[][];
-	edges: Array<{ from: string; to: string }>;
-	modules: SerializedModuleNode[];
-	phases?: BootPhases;
-	projects: string[];
-	startupMs?: number;
-	timingsAvailable?: boolean;
-	timingsTrace?: Record<string, TraceNode>;
-}
+import type { BootstrapTimings, ClassTiming, HookTiming } from "../timings.js";
 
 /** Strips the monorepo project prefix, matching getDisplayName in the report UI. */
 function bareModuleName(node: { name: string; project?: string }): string {
