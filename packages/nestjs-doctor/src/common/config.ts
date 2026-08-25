@@ -16,6 +16,7 @@ export interface NestjsDoctorIgnoreConfig {
 
 export interface NestjsDoctorReportConfig {
 	telemetry?: boolean;
+	ui?: boolean;
 }
 
 export interface NestjsDoctorConfig {

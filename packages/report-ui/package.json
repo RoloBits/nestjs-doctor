@@ -10,7 +10,7 @@
     "./styles.css": "./src/styles/report.css"
   },
   "scripts": {
-    "build": "vite build",
+    "build": "vite build && node scripts/emit-embed.mjs",
     "dev": "vite",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"

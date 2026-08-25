@@ -38,29 +38,35 @@ abstract class ReportPipeline {
 	protected readonly timings: BootstrapTimings | undefined;
 
 	private readonly configPath: string | undefined;
+	private readonly reportUi: boolean;
 
 	constructor(
 		targetPath: string,
 		configPath: string | undefined,
 		timings?: BootstrapTimings,
-		telemetry = true
+		telemetry = true,
+		reportUi = false
 	) {
 		this.targetPath = targetPath;
 		this.configPath = configPath;
 		this.timings = timings;
 		this.telemetry = telemetry;
+		this.reportUi = reportUi;
 	}
 
-	/**
-	 * The flag, `DO_NOT_TRACK`, `telemetry: false`, and `report.telemetry: false`
-	 * each disable the beacon on their own.
-	 */
+	/** The flag, `DO_NOT_TRACK`, `telemetry: false`, and `report.telemetry: false`
+	 * each disable the beacon on their own. */
 	protected get telemetryEnabled(): boolean {
 		const config = this.scanConfig?.config;
 		return (
 			scanTelemetryEnabled(this.telemetry, config, process.env, "always") &&
 			config?.report?.telemetry !== false
 		);
+	}
+
+	/** The `--report-ui` flag or `report.ui: true` in the config file. */
+	protected get reportUiEnabled(): boolean {
+		return this.reportUi || this.scanConfig?.config?.report?.ui === true;
 	}
 
 	abstract buildContext(): this;
@@ -144,6 +150,7 @@ export class SingleProjectReportPipeline extends ReportPipeline {
 						module: moduleGraph.providerToModule.get(provider.name)?.name,
 					})
 				),
+				reportUi: this.reportUiEnabled,
 				telemetry: this.telemetryEnabled,
 				timings: this.timings,
 			});
@@ -168,9 +175,10 @@ export class MonorepoReportPipeline extends ReportPipeline {
 		configPath: string | undefined,
 		monorepo: MonorepoInfo,
 		timings?: BootstrapTimings,
-		telemetry = true
+		telemetry = true,
+		reportUi = false
 	) {
-		super(targetPath, configPath, timings, telemetry);
+		super(targetPath, configPath, timings, telemetry, reportUi);
 		this.monorepo = monorepo;
 	}
 
@@ -254,6 +262,7 @@ export class MonorepoReportPipeline extends ReportPipeline {
 				files: this.allFiles,
 				providers: this.allProviders,
 				bootstrapRoots: this.bootstrapRoots,
+				reportUi: this.reportUiEnabled,
 				telemetry: this.telemetryEnabled,
 				timings: this.timings,
 			});

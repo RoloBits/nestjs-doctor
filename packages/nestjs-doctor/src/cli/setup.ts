@@ -29,6 +29,7 @@ export interface PipelineOptions {
 	/** Worker-internal: receives the progress line instead of the local spinner. */
 	onProgress?: (label: string, done?: number, total?: number) => void;
 	outputPath: string | undefined;
+	reportUi: boolean;
 	scope: ScopeMode;
 	score: boolean;
 	/** Worker-internal: the worker never prints the report. */
@@ -59,6 +60,7 @@ export interface CliArgs {
 	output: string | undefined;
 	path: string;
 	report: boolean;
+	"report-ui": boolean;
 	scope: string | undefined;
 	score: boolean;
 	staged: boolean;
@@ -207,7 +209,8 @@ export class CliSetup {
 					this.args.config,
 					this.args.timings,
 					this.args.output,
-					this.args.telemetry
+					this.args.telemetry,
+					this.args["report-ui"]
 				);
 				return false;
 			}
@@ -272,6 +275,7 @@ export class CliSetup {
 				jsonCompact: this.args["json-compact"] ?? false,
 				minScore: this.args["min-score"],
 				outputPath: this.args.output,
+				reportUi: this.args["report-ui"] ?? false,
 				scope: resolveScopeMode(this.args),
 				score,
 				staged: this.args.staged ?? false,

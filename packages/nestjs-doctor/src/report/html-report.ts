@@ -1,17 +1,35 @@
 import { getCliVersion } from "../cli/output.js";
 import type { DiagnoseResult } from "../common/result.js";
 import type { ModuleGraph } from "../engine/graph/module-graph.js";
-import { prepareReportData } from "./formatters/report-data.js";
+import {
+	buildReportModel,
+	prepareReportData,
+	safeJsonForScript,
+} from "./formatters/report-data.js";
 import type { ReportProvider } from "./model/report-model.js";
 import type { BootstrapTimings } from "./timings.js";
 import {
 	getCodeMirrorImportMap,
 	getCodeMirrorScript,
 } from "./ui/codemirror.js";
+import {
+	REPORT_UI_CSS,
+	REPORT_UI_JS,
+} from "./ui/generated/report-ui.generated.js";
 import { getReportHtml } from "./ui/html.js";
 import { getReportScripts } from "./ui/scripts.js";
 import { getReportStyles } from "./ui/styles.js";
 import { getTelemetryScript } from "./ui/telemetry.js";
+
+interface ReportHtmlOptions {
+	bootstrapRoots?: string[];
+	files?: string[];
+	projects?: string[];
+	providers?: ReportProvider[];
+	reportUi?: boolean;
+	telemetry?: boolean;
+	timings?: BootstrapTimings;
+}
 
 // The nestjs-doctor logo (packages/website/public/logo.png at 64px), inlined
 // so the report needs no extra request for it.
@@ -21,18 +39,16 @@ const FAVICON_DATA_URI =
 export function buildHtmlReport(
 	moduleGraph: ModuleGraph,
 	result: DiagnoseResult,
-	options?: {
-		bootstrapRoots?: string[];
-		files?: string[];
-		projects?: string[];
-		providers?: ReportProvider[];
-		telemetry?: boolean;
-		timings?: BootstrapTimings;
-	}
+	options?: ReportHtmlOptions
 ): string {
-	const data = prepareReportData(moduleGraph, result, options);
 	const telemetry =
 		options?.telemetry === false ? "" : getTelemetryScript(getCliVersion());
+
+	if (options?.reportUi) {
+		return buildReactReport(moduleGraph, result, options, telemetry);
+	}
+
+	const data = prepareReportData(moduleGraph, result, options);
 
 	return `<!DOCTYPE html>
 <html lang="en">
@@ -55,6 +71,37 @@ ${getReportHtml()}
 <script type="module">
 ${getCodeMirrorScript()}
 </script>
+</body>
+</html>`;
+}
+
+function buildReactReport(
+	moduleGraph: ModuleGraph,
+	result: DiagnoseResult,
+	options: ReportHtmlOptions,
+	telemetry: string
+): string {
+	const model = buildReportModel(moduleGraph, result, options);
+	const data = `<script id="nd-report-data" type="application/json">${safeJsonForScript(JSON.stringify(model))}</script>`;
+
+	return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>nestjs-doctor — Health Report</title>
+<link rel="icon" type="image/png" href="${FAVICON_DATA_URI}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@200;400;500;600;700&display=swap">
+<style>${REPORT_UI_CSS}</style>
+${telemetry}
+</head>
+<body>
+<div id="root" class="nd-report"></div>
+${data}
+<script>${safeJsonForScript(REPORT_UI_JS)}</script>
+<script>NDReport.mountReport(document.getElementById("root"));</script>
 </body>
 </html>`;
 }

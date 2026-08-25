@@ -19,7 +19,8 @@ export const runReport = async (
 	configPath: string | undefined,
 	timingsPath?: string,
 	outputPath?: string,
-	telemetry = true
+	telemetry = true,
+	reportUi = false
 ): Promise<void> => {
 	const monorepo = await detectMonorepo(targetPath);
 
@@ -44,7 +45,8 @@ export const runReport = async (
 			configPath,
 			monorepo,
 			bootTimings,
-			telemetry
+			telemetry,
+			reportUi
 		);
 		await pipeline
 			.resolveConfig()
@@ -62,7 +64,8 @@ export const runReport = async (
 		targetPath,
 		configPath,
 		bootTimings,
-		telemetry
+		telemetry,
+		reportUi
 	);
 	await pipeline
 		.resolveConfig()

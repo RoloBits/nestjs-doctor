@@ -71,6 +71,12 @@ export const flags = {
 			"Generate an interactive HTML report (summary, diagnostics, module graph, rule lab); writes beside the project unless --output names a path",
 		default: false,
 	},
+	"report-ui": {
+		type: "boolean",
+		description:
+			"Render the HTML report with the React UI instead of the legacy template",
+		default: false,
+	},
 	telemetry: {
 		type: "boolean",
 		description:

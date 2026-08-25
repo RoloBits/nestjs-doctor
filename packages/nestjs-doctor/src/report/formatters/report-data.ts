@@ -11,7 +11,8 @@ import type {
 import type { BootstrapTimings } from "../timings.js";
 import { serializeModuleGraph } from "./module-serializer.js";
 
-function safeJsonForScript(json: string): string {
+/** Escapes JSON for inline embedding in a <script> tag. */
+export function safeJsonForScript(json: string): string {
 	return json.replace(/<\/script/gi, "<\\/script").replace(/<!--/g, "<\\!--");
 }
 

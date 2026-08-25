@@ -168,6 +168,13 @@ abstract class ScanPipeline {
 		this.options = options;
 	}
 
+	/** The `--report-ui` flag or `report.ui: true` in the config file. */
+	protected get reportUiEnabled(): boolean {
+		return (
+			this.options.reportUi || this.scanConfig?.config?.report?.ui === true
+		);
+	}
+
 	/**
 	 * Reports the scan anonymously. A failure here leaves the scan untouched,
 	 * and the network call runs in a detached child.
@@ -523,6 +530,7 @@ export class MonorepoPipeline extends ScanPipeline {
 						files: this.allFiles,
 						projects: [...moduleGraphs.keys()],
 						providers: this.allProviders,
+						reportUi: this.reportUiEnabled,
 					}
 				);
 			},
@@ -744,6 +752,7 @@ export class SingleProjectPipeline extends ScanPipeline {
 					bootstrapRoots: this.bootstrapRoots,
 					files,
 					providers: this.reportProviders,
+					reportUi: this.reportUiEnabled,
 				});
 			},
 			printSummary: () => {
