@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Diagnostic } from "../../src/common/diagnostic.js";
 import type { ModuleGraph } from "../../src/engine/graph/module-graph.js";
 import { buildReportArtifact } from "../../src/report/artifact.js";
-import { codeDiagnostic, emptyResult } from "./report-artifact-fixture.js";
+import { codeDiagnostic, resultWith } from "./report-artifact-fixture.js";
 
 const emptyGraph = (): ModuleGraph => ({
 	edges: new Map(),
@@ -13,7 +13,7 @@ const emptyGraph = (): ModuleGraph => ({
 const artifactWith = (diagnostics: Diagnostic[]) =>
 	buildReportArtifact({
 		moduleGraph: emptyGraph(),
-		result: { ...emptyResult(), diagnostics },
+		result: resultWith(diagnostics),
 		version: "0.0.0",
 	});
 

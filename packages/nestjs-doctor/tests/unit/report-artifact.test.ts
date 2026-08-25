@@ -8,50 +8,17 @@ import {
 } from "../../src/common/artifact.js";
 import type {
 	CodeDiagnostic,
-	Diagnostic,
 	SchemaDiagnostic,
 } from "../../src/common/diagnostic.js";
-import type { DiagnoseResult } from "../../src/common/result.js";
 import type { ModuleGraph } from "../../src/engine/graph/module-graph.js";
 import { buildReportArtifact } from "../../src/report/artifact.js";
+import { resultWith } from "./report-artifact-fixture.js";
 
 const emptyGraph = (): ModuleGraph => ({
 	edges: new Map(),
 	modules: new Map(),
 	providerToModule: new Map(),
 });
-
-const resultWith = (diagnostics: Diagnostic[]): DiagnoseResult =>
-	({
-		score: { value: 90, label: "Excellent" },
-		diagnostics,
-		project: {
-			name: "app",
-			nestVersion: "11.0.0",
-			orm: "prisma",
-			framework: "express",
-			fileCount: 4,
-			moduleCount: 1,
-		},
-		summary: {
-			total: diagnostics.length,
-			errors: 0,
-			warnings: diagnostics.length,
-			info: 0,
-			byCategory: {
-				security: 0,
-				performance: diagnostics.length,
-				correctness: 0,
-				architecture: 0,
-				schema: 0,
-			},
-		},
-		ruleErrors: [],
-		endpoints: undefined,
-		schema: undefined,
-		scope: undefined,
-		elapsedMs: 10,
-	}) as DiagnoseResult;
 
 const code = (filePath: string): CodeDiagnostic => ({
 	rule: "performance/no-unused-providers",

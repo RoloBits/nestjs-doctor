@@ -120,12 +120,7 @@ function emit(
 		const outPath = resolve(
 			options.outputPath ?? join(targetPath, "nestjs-doctor-report.json")
 		);
-		mkdirSync(dirname(outPath), { recursive: true });
-		writeFileSync(
-			outPath,
-			`${stringifyJson(built, options.jsonCompact)}\n`,
-			"utf-8"
-		);
+		writeRendered(stringifyJson(built, options.jsonCompact), outPath);
 		logger.info(`Report written to ${highlighter.info(outPath)}`);
 		return;
 	}

@@ -8,10 +8,10 @@ import type {
 } from "../../src/common/diagnostic.js";
 import type { DiagnoseResult } from "../../src/common/result.js";
 
-export const emptyResult = (): DiagnoseResult =>
+export const resultWith = (diagnostics: Diagnostic[]): DiagnoseResult =>
 	({
 		score: { value: 90, label: "Excellent" },
-		diagnostics: [],
+		diagnostics,
 		project: {
 			name: "app",
 			nestVersion: "11.0.0",
@@ -21,21 +21,26 @@ export const emptyResult = (): DiagnoseResult =>
 			moduleCount: 1,
 		},
 		summary: {
-			total: 0,
+			total: diagnostics.length,
 			errors: 0,
-			warnings: 0,
+			warnings: diagnostics.length,
 			info: 0,
 			byCategory: {
 				security: 0,
-				performance: 0,
+				performance: diagnostics.length,
 				correctness: 0,
 				architecture: 0,
 				schema: 0,
 			},
 		},
 		ruleErrors: [],
+		endpoints: undefined,
+		schema: undefined,
+		scope: undefined,
 		elapsedMs: 10,
 	}) as DiagnoseResult;
+
+export const emptyResult = (): DiagnoseResult => resultWith([]);
 
 export const codeDiagnostic = (
 	overrides: Partial<CodeDiagnostic>

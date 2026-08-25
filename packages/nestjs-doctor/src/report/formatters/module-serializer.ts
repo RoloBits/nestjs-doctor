@@ -1,7 +1,7 @@
 import type {
 	SerializedModuleGraph,
 	SerializedModuleNode,
-} from "./../../common/artifact.js";
+} from "../../common/artifact.js";
 import type { DiagnoseResult } from "../../common/result.js";
 import {
 	findCircularDeps,
