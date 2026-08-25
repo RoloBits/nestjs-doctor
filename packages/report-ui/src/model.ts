@@ -65,7 +65,9 @@ export interface SerializedModuleNode {
 	dynamicImports?: Record<string, string>;
 	exports: string[];
 	filePath: string;
+	hookTimings?: unknown[];
 	imports: string[];
+	initTimings?: Array<{ className: string; initTime: number }>;
 	isGlobal?: boolean;
 	line?: number;
 	name: string;

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { FindingsTab } from "./components/findings-tab";
+import { ModulesTab } from "./components/modules-tab";
 import { SummaryPanel } from "./components/summary-panel";
 import type { ReportModel } from "./model";
 import { scoreTone } from "./selectors";
@@ -37,6 +38,8 @@ function TabContent({ tab, model }: { model: ReportModel; tab: TabName }) {
 			return <SummaryPanel model={model} />;
 		case "diagnosis":
 			return <FindingsTab model={model} />;
+		case "modules":
+			return <ModulesTab model={model} />;
 		default:
 			return (
 				<p className="placeholder">
