@@ -27,7 +27,7 @@ interface SerializedModuleNode {
 	providerTokens?: string[];
 }
 
-interface SerializedModuleGraph {
+export interface SerializedModuleGraph {
 	bootstrapRoots?: string[];
 	circularDepRecommendations: Record<string, string>;
 	circularDeps: string[][];

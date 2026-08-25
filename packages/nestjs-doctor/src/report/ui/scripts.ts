@@ -1,18 +1,5 @@
+import type { ReportScriptData } from "../model/report-model.js";
 import { REPORT_FONT_STACK } from "./styles.js";
-
-export interface ReportScriptData {
-	diagnosticsJson: string;
-	elapsedMsJson: string;
-	endpointsJson: string;
-	examplesJson: string;
-	fileSourcesJson: string;
-	graphJson: string;
-	projectJson: string;
-	providersJson: string;
-	schemaJson: string;
-	sourceLinesJson: string;
-	summaryJson: string;
-}
 
 export function getReportScripts(data: ReportScriptData): string {
 	return `

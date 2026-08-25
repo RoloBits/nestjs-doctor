@@ -22,11 +22,8 @@ import {
 	type ScanConfig,
 } from "../engine/scanner.js";
 import { scanTelemetryEnabled } from "../telemetry/send.js";
-import {
-	type ReportProvider,
-	toReportProvider,
-} from "./formatters/report-data.js";
 import { buildHtmlReport } from "./html-report.js";
+import { type ReportProvider, toReportProvider } from "./model/report-model.js";
 import type { BootstrapTimings } from "./timings.js";
 
 type PipelineStep = () => void | Promise<void>;

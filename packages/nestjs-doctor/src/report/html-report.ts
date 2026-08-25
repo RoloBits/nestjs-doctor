@@ -1,10 +1,8 @@
 import { getCliVersion } from "../cli/output.js";
 import type { DiagnoseResult } from "../common/result.js";
 import type { ModuleGraph } from "../engine/graph/module-graph.js";
-import {
-	prepareReportData,
-	type ReportProvider,
-} from "./formatters/report-data.js";
+import { prepareReportData } from "./formatters/report-data.js";
+import type { ReportProvider } from "./model/report-model.js";
 import type { BootstrapTimings } from "./timings.js";
 import {
 	getCodeMirrorImportMap,

@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-	getReportScripts,
-	type ReportScriptData,
-} from "../../src/report/ui/scripts.js";
+import type { ReportScriptData } from "../../src/report/model/report-model.js";
+import { getReportScripts } from "../../src/report/ui/scripts.js";
 
 const EMPTY: ReportScriptData = {
 	diagnosticsJson: "[]",
