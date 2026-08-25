@@ -178,7 +178,77 @@ export function fixtureModel(): ReportModel {
 				publicMethodCount: 3,
 			},
 		],
-		schema: { entities: [], relations: [], orm: "prisma" },
+		schema: {
+			entities: [
+				{
+					columns: [
+						{
+							isGenerated: false,
+							isNullable: false,
+							isPrimary: true,
+							isUnique: true,
+							name: "id",
+							type: "uuid",
+						},
+						{
+							isGenerated: false,
+							isNullable: false,
+							isPrimary: false,
+							isUnique: true,
+							name: "email",
+							type: "varchar",
+						},
+					],
+					filePath: "/repo/prisma/schema.prisma",
+					name: "User",
+					relations: [],
+					tableName: "users",
+				},
+				{
+					columns: [
+						{
+							isGenerated: false,
+							isNullable: false,
+							isPrimary: true,
+							isUnique: true,
+							name: "id",
+							type: "uuid",
+						},
+						{
+							isGenerated: false,
+							isNullable: false,
+							isPrimary: false,
+							isUnique: false,
+							name: "userId",
+							type: "uuid",
+						},
+						{
+							isGenerated: false,
+							isNullable: false,
+							isPrimary: false,
+							isUnique: false,
+							name: "total",
+							type: "int",
+						},
+					],
+					filePath: "/repo/prisma/schema.prisma",
+					name: "Order",
+					relations: [],
+					tableName: "orders",
+				},
+			],
+			orm: "prisma",
+			relations: [
+				{
+					fromEntity: "Order",
+					isNullable: false,
+					onDelete: "Cascade",
+					propertyName: "user",
+					toEntity: "User",
+					type: "many-to-one",
+				},
+			],
+		},
 		sourceLines: [
 			null,
 			[

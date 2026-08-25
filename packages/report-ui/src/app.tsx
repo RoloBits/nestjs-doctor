@@ -7,6 +7,7 @@ import {
 import { EndpointsTab } from "./components/endpoints-tab";
 import { FindingsTab } from "./components/findings-tab";
 import { ModulesTab } from "./components/modules-tab";
+import { SchemaTab } from "./components/schema-tab";
 import { SummaryPanel } from "./components/summary-panel";
 import type { ReportModel } from "./model";
 import { scoreTone } from "./selectors";
@@ -54,6 +55,8 @@ function TabContent({
 			return <FindingsTab model={model} />;
 		case "modules":
 			return <ModulesTab focusRequest={focusRequest} model={model} />;
+		case "schema":
+			return <SchemaTab model={model} />;
 		case "endpoints":
 			return <EndpointsTab model={model} />;
 		default:
