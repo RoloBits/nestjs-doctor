@@ -15,6 +15,22 @@ export function fixtureModel(): ReportModel {
 				severity: "warning",
 			},
 			{
+				category: "correctness",
+				column: 3,
+				filePath: "/repo/src/app.module.ts",
+				help: "Await the call.",
+				line: 8,
+				message: "Async method has no await expression.",
+				rule: "correctness/no-async-without-await",
+				scope: "file",
+				severity: "error",
+				sourceLines: [
+					{ line: 7, text: "  async onModuleInit() {" },
+					{ line: 8, text: "    this.warm();" },
+					{ line: 9, text: "  }" },
+				],
+			},
+			{
 				category: "schema",
 				entity: "User",
 				filePath: "/repo/prisma/schema.prisma",
@@ -26,8 +42,30 @@ export function fixtureModel(): ReportModel {
 		],
 		elapsedMs: 4210,
 		endpoints: { endpoints: [] },
-		examples: {},
-		fileSources: {},
+		examples: {
+			"performance/no-unused-providers": {
+				bad: "@Injectable()\nexport class NeverUsed {}",
+				good: "@Injectable()\nexport class UsedByModule {}",
+			},
+			"correctness/no-async-without-await": {
+				bad: "this.warm();",
+				good: "await this.warm();",
+			},
+		},
+		fileSources: {
+			"/repo/src/app.module.ts": [
+				"import { Module } from '@nestjs/common';",
+				"",
+				"@Module({})",
+				"export class AppModule {",
+				"  private warm = () => 1;",
+				"",
+				"  async onModuleInit() {",
+				"    this.warm();",
+				"  }",
+				"}",
+			].join("\n"),
+		},
 		graph: {
 			bootstrapRoots: ["AppModule"],
 			circularDepRecommendations: {},
@@ -76,18 +114,26 @@ export function fixtureModel(): ReportModel {
 			},
 		],
 		schema: { entities: [], relations: [], orm: "prisma" },
-		sourceLines: [null, null],
+		sourceLines: [
+			null,
+			[
+				{ line: 7, text: "  async onModuleInit() {" },
+				{ line: 8, text: "    this.warm();" },
+				{ line: 9, text: "  }" },
+			],
+			null,
+		],
 		summary: {
 			byCategory: {
 				architecture: 0,
-				correctness: 0,
+				correctness: 1,
 				performance: 1,
 				schema: 1,
 				security: 0,
 			},
 			errors: 1,
 			info: 0,
-			total: 2,
+			total: 3,
 			warnings: 1,
 		},
 	};

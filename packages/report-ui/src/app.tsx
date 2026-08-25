@@ -1,5 +1,8 @@
 import { useState } from "react";
+import { FindingsTab } from "./components/findings-tab";
+import { SummaryPanel } from "./components/summary-panel";
 import type { ReportModel } from "./model";
+import { scoreTone } from "./selectors";
 
 const TABS = [
 	"summary",
@@ -28,25 +31,12 @@ declare global {
 	}
 }
 
-function scoreTone(value: number): string {
-	if (value >= 75) {
-		return "green";
-	}
-	if (value >= 50) {
-		return "yellow";
-	}
-	return "red";
-}
-
 function TabContent({ tab, model }: { model: ReportModel; tab: TabName }) {
 	switch (tab) {
 		case "summary":
-			return (
-				<p>
-					{model.summary.total} findings across {model.project.fileCount} files
-					in {(model.elapsedMs / 1000).toFixed(1)}s
-				</p>
-			);
+			return <SummaryPanel model={model} />;
+		case "diagnosis":
+			return <FindingsTab model={model} />;
 		default:
 			return (
 				<p className="placeholder">

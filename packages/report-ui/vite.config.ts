@@ -6,7 +6,7 @@ export default defineConfig({
 	build: {
 		outDir: "dist",
 		emptyOutDir: true,
-		target: "es2020",
+		target: "es2022",
 		cssCodeSplit: false,
 		lib: {
 			entry: "src/index.tsx",
