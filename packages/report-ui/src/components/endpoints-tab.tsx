@@ -70,7 +70,11 @@ export function EndpointsTab({ model }: { model: ReportModel }) {
 				return;
 			}
 			const rect = canvas.getBoundingClientRect();
-			const hit = painter.hitTest(e.clientX - rect.left, e.clientY - rect.top);
+			const world = painter.screenToWorld(
+				e.clientX - rect.left,
+				e.clientY - rect.top
+			);
+			const hit = painter.hitTest(world.x, world.y);
 			setHovered(hit);
 			canvas.style.cursor = hit ? "pointer" : "grab";
 		};

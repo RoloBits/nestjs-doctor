@@ -131,8 +131,7 @@ function layoutNodes(nodes: EpNode[], edges: EpEdge[]): void {
 
 /**
  * Owns the endpoints canvas for the currently selected endpoint.
- * Same dead-mode contract as ModuleGraphPainter: no 2d context means
- * layout still computes so tests can assert on it.
+ * Without a 2d context only layout computes; drawing is skipped.
  */
 export class EndpointsPainter {
 	private readonly ctx: CanvasRenderingContext2D;
@@ -222,6 +221,13 @@ export class EndpointsPainter {
 	zoomBy(factor: number): void {
 		this.zoom = Math.min(4, Math.max(this.minZoom, this.zoom * factor));
 		this.scheduleRedraw();
+	}
+
+	screenToWorld(sx: number, sy: number): { x: number; y: number } {
+		return {
+			x: (sx - this.w / 2) / this.zoom + this.w / 2 - this.camX,
+			y: (sy - this.h / 2) / this.zoom + this.h / 2 - this.camY,
+		};
 	}
 
 	hitTest(wx: number, wy: number): EpNode | null {
