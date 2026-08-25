@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, sep } from "node:path";
 
+const CRLF = /\r\n/g;
+
 /** Stable digest over every file under dir, for embed freshness checks. */
 export function computeSourceHash(dir) {
 	const files = [];
@@ -20,9 +22,10 @@ export function computeSourceHash(dir) {
 
 	const hash = createHash("sha256");
 	for (const [rel, full] of files) {
-		// Forward slashes so the digest is identical on every platform.
+		// Forward slashes and normalized newlines so the digest is identical
+		// across platforms, including CRLF checkouts.
 		hash.update(rel.split(sep).join("/"));
-		hash.update(readFileSync(full));
+		hash.update(readFileSync(full, "utf8").replace(CRLF, "\n"));
 	}
 	return hash.digest("hex");
 }
