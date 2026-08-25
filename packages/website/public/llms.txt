@@ -51,7 +51,8 @@ The `--blocking` default depends on the output mode: `error` for the console
 report and `--format github`, `none` for `--score` and for the json, sarif,
 gitlab, and markdown formats.
 
-Exit codes: 0 = pass, 1 = a gate failed (min-score or blocking), 2 = bad input.
+Exit codes: 0 = pass, 1 = a gate failed (min-score or blocking), 2 = bad input,
+130 = cancelled with Ctrl+C.
 `--report` writes HTML, so combining it with `--format`, `--json` or `--score`
 exits 2 rather than writing anything.
 
