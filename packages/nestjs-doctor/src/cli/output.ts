@@ -76,7 +76,7 @@ function emit(
 	options: PipelineOptions,
 	scopeWarnings: string[],
 	monorepo?: MonorepoResult,
-	artifact?: ReportArtifact
+	artifact?: () => ReportArtifact
 ): void {
 	// Always surfaced, on stderr, whatever the format: a silently degraded scope
 	// makes a report look cleaner than the code actually is.
@@ -110,7 +110,11 @@ function emit(
 	}
 
 	if (options.format === "report-json") {
-		if (!artifact) {
+		const built = artifact?.();
+		if (!built) {
+			logger.warn(
+				"--format report-json ran without an artifact; nothing was written."
+			);
 			return;
 		}
 		const outPath = resolve(
@@ -119,7 +123,7 @@ function emit(
 		mkdirSync(dirname(outPath), { recursive: true });
 		writeFileSync(
 			outPath,
-			`${stringifyJson(artifact, options.jsonCompact)}\n`,
+			`${stringifyJson(built, options.jsonCompact)}\n`,
 			"utf-8"
 		);
 		logger.info(`Report written to ${highlighter.info(outPath)}`);
@@ -162,7 +166,7 @@ export const outputMonorepoResults = (
 	targetPath: string,
 	options: PipelineOptions,
 	scopeWarnings: string[] = [],
-	artifact?: ReportArtifact
+	artifact?: () => ReportArtifact
 ): void => {
 	const { result } = monorepoScanResult;
 	emit(result.combined, targetPath, options, scopeWarnings, result, artifact);
@@ -175,7 +179,7 @@ export const outputSingleProjectResults = (
 	targetPath: string,
 	options: PipelineOptions,
 	scopeWarnings: string[] = [],
-	artifact?: ReportArtifact
+	artifact?: () => ReportArtifact
 ): void => {
 	const { result } = singleProjectScanResult;
 	emit(result, targetPath, options, scopeWarnings, undefined, artifact);

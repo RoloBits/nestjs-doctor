@@ -111,7 +111,6 @@ describe("report artifact", () => {
 		});
 
 		expect(artifact.endpoints).toEqual({ endpoints: [] });
-		expect(artifact.schema).toBeNull();
 		expect(artifact.graph.modules).toEqual([]);
 		expect(artifact.graph.edges).toEqual([]);
 		expect(artifact.graph.circularDeps).toEqual([]);
@@ -119,6 +118,16 @@ describe("report artifact", () => {
 		expect(artifact.providers).toEqual([]);
 		expect(artifact.monorepo).toBe(false);
 		expect(artifact.generatedAt).toBeTruthy();
+	});
+
+	it("defaults an absent schema to an empty graph the UI can dereference", () => {
+		const artifact = buildReportArtifact({
+			moduleGraph: emptyGraph(),
+			result: resultWith([]),
+			version: "1.2.3",
+		});
+
+		expect(artifact.schema).toEqual({ entities: [], relations: [], orm: "" });
 	});
 
 	it("embeds every scanned file's source by default", () => {

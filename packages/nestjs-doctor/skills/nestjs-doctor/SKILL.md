@@ -80,9 +80,10 @@ engine code reads it, so setting it changes nothing.
 npx nestjs-doctor@latest . --json
 ```
 
-`--json`, `--score`, and `--format sarif|gitlab|markdown` default `--blocking` to
-`none`, so they report without failing. The console report and `--format github`
-default to `error`. Pass `--blocking` explicitly whenever the exit code matters.
+`--json`, `--score`, and `--format report-json|sarif|gitlab|markdown` default
+`--blocking` to `none`, so they report without failing. The console report and
+`--format github` default to `error`. Pass `--blocking` explicitly whenever the
+exit code matters.
 
 Two warnings are suppressed entirely in those modes rather than sent to stderr:
 a custom rule that failed to load, and a run below `--min-score`. Under `--json`
@@ -115,8 +116,10 @@ Construction times need a real boot, which a scan never performs. Use the
 | `--json` | The full result, for tooling |
 | `--score` | The number alone |
 | `--report` | Write an interactive HTML report |
+| `--format report-json` | Write the document behind that report as versioned JSON |
 | `--output <path>` | Where to write it, instead of the project root |
 | `--timings <path>` | Overlay real boot times on the report |
+| `--sources <mode>` | Report source text: all (default), touched, none |
 | `--min-score <n>` | Fail below a score |
 | `--blocking <level>` | Fail on `error`, `warning`, or never with `none` |
 | `--config <path>` | Use a specific config file |

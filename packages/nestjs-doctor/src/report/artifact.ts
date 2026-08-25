@@ -7,11 +7,18 @@ import {
 } from "../common/artifact.js";
 import { forSurface } from "../common/diagnostic.js";
 import type { DiagnoseResult } from "../common/result.js";
+import type { SerializedSchemaGraph } from "../common/schema.js";
 import type { ModuleGraph } from "../engine/graph/module-graph.js";
 import type { ProviderInfo } from "../engine/graph/type-resolver.js";
 import { getRuleExamples } from "./data/examples.js";
 import { serializeModuleGraph } from "./formatters/module-serializer.js";
 import type { BootstrapTimings } from "./timings.js";
+
+const EMPTY_SCHEMA: SerializedSchemaGraph = {
+	entities: [],
+	relations: [],
+	orm: "",
+};
 
 export function toReportProvider(
 	provider: ProviderInfo,
@@ -94,7 +101,7 @@ export function buildReportArtifact(
 		),
 		providers: input.providers ?? [],
 		endpoints: input.result.endpoints ?? { endpoints: [] },
-		schema: input.result.schema ?? null,
+		schema: input.result.schema ?? EMPTY_SCHEMA,
 		examples: getRuleExamples(),
 		sources: readSources(paths),
 	};

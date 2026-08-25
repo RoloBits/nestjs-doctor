@@ -85,7 +85,7 @@ export interface ReportArtifact {
 	project: ProjectInfo;
 	providers: ReportProvider[];
 	ruleErrors: RuleErrorInfo[];
-	schema: SerializedSchemaGraph | null;
+	schema: SerializedSchemaGraph;
 	schemaVersion: typeof REPORT_ARTIFACT_VERSION;
 	/** What `diagnostics` covers. Absent when nothing was narrowed. */
 	scope?: ScopeInfo;

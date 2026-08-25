@@ -92,7 +92,7 @@ export const EMPTY_ARTIFACT: ReportArtifact = {
 	},
 	providers: [] as ReportProvider[],
 	endpoints: { endpoints: [] },
-	schema: null,
+	schema: { entities: [], relations: [], orm: "" },
 	examples: {},
 	sources: {},
 };

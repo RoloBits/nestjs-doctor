@@ -726,7 +726,7 @@ export class MonorepoPipeline extends ScanPipeline {
 				this.targetPath,
 				this.options,
 				this.scopeWarnings,
-				this.reportArtifact
+				() => this.reportArtifact
 			);
 		};
 		this.steps.push(step);
@@ -905,7 +905,7 @@ export class SingleProjectPipeline extends ScanPipeline {
 				this.targetPath,
 				this.options,
 				this.scopeWarnings,
-				this.reportArtifact
+				() => this.reportArtifact
 			);
 		};
 		this.steps.push(step);
