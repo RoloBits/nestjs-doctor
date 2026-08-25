@@ -1,0 +1,125 @@
+@layer nd-report {
+	.nd-report {
+		--bg: #000;
+		--surface: #000;
+		--surface-hover: rgba(255, 255, 255, 0.1);
+		--border: rgba(255, 255, 255, 0.15);
+		--border-strong: rgba(255, 255, 255, 0.3);
+		--text: #e8e8e8;
+		--text-muted: #888;
+		--text-dim: #666;
+		--white: #fff;
+		--nest-red: #ea2845;
+		--cat-security: #ef4444;
+		--cat-performance: #f59e0b;
+		--cat-correctness: #3b82f6;
+		--cat-architecture: #8b5cf6;
+		--cat-schema: #10b981;
+		--sev-error: #ef4444;
+		--sev-warning: #f59e0b;
+		--sev-info: #3b82f6;
+		--score-green: #4ade80;
+		--score-yellow: #eab308;
+		--score-red: #ef4444;
+		--font:
+			"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+		box-sizing: border-box;
+		display: flex;
+		flex-direction: column;
+		min-height: 100vh;
+		font-family: var(--font);
+		color: var(--text);
+
+		background: var(--bg);
+	}
+
+	.nd-report *,
+	.nd-report *::before,
+	.nd-report *::after {
+		box-sizing: inherit;
+		padding: 0;
+		margin: 0;
+	}
+
+	/* ── Header ── */
+	.nd-header {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		align-items: center;
+		min-height: 56px;
+		padding: 10px 24px;
+		border-bottom: 1px solid var(--border);
+	}
+
+	.meta-badge {
+		padding: 3px 10px;
+		font-size: 12px;
+		color: var(--text-muted);
+		background: var(--surface-hover);
+		border: 1px solid var(--border);
+		border-radius: 4px;
+	}
+
+	.score {
+		padding: 3px 12px;
+		margin-left: auto;
+		font-size: 13px;
+		font-weight: 700;
+		border-radius: 4px;
+	}
+
+	.score-green {
+		color: var(--score-green);
+	}
+	.score-yellow {
+		color: var(--score-yellow);
+	}
+	.score-red {
+		color: var(--score-red);
+	}
+
+	/* ── Tabs ── */
+	.nd-tabs {
+		display: flex;
+		gap: 2px;
+		padding: 0 24px;
+		border-bottom: 1px solid var(--border);
+	}
+
+	.tab-btn {
+		padding: 10px 14px;
+		font-family: inherit;
+		font-size: 13px;
+		color: var(--text-muted);
+		cursor: pointer;
+		background: none;
+		border: none;
+		border-bottom: 2px solid transparent;
+	}
+
+	.tab-btn:hover {
+		color: var(--text);
+	}
+
+	.tab-btn.active {
+		color: var(--white);
+		border-bottom-color: var(--nest-red);
+	}
+
+	/* ── Panels ── */
+	.tab-panel {
+		display: none;
+		flex: 1;
+		padding: 16px 24px;
+		overflow: auto;
+	}
+
+	.tab-panel.active {
+		display: block;
+	}
+
+	.placeholder {
+		color: var(--text-dim);
+	}
+}

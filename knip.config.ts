@@ -15,6 +15,10 @@ const config: KnipConfig = {
 		"packages/nestjs-doctor": {
 			project: ["src/**/*.ts", "src/**/*.tsx"],
 		},
+		"packages/report-ui": {
+			entry: ["demo/main.tsx"],
+			project: ["src/**/*.ts", "src/**/*.tsx"],
+		},
 	},
 };
 

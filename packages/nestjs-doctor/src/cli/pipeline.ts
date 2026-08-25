@@ -33,11 +33,11 @@ import {
 	type ResolvedScope,
 	resolveScope,
 } from "../engine/scope.js";
+import { buildHtmlReport } from "../report/html-report.js";
 import {
 	type ReportProvider,
 	toReportProvider,
-} from "../report/formatters/report-data.js";
-import { buildHtmlReport } from "../report/html-report.js";
+} from "../report/model/report-model.js";
 import { getEcosystem, resetEcosystem } from "../telemetry/ecosystem.js";
 import { actionContext, generatedIn } from "../telemetry/environment.js";
 import { resolveIdentity } from "../telemetry/install-id.js";

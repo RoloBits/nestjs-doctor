@@ -27,6 +27,10 @@
     }
   },
   "files": {
-    "includes": ["!!**/tests/fixtures", "!!**/.changeset"]
+    "includes": [
+      "!!**/tests/fixtures",
+      "!!**/.changeset",
+      "!!packages/report-ui/dist"
+    ]
   }
 }
