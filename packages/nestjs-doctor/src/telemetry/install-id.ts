@@ -2,12 +2,12 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { dirname, join } from "node:path";
-import { detectCiProvider } from "./environment.js";
+import { detectKnownCiProvider } from "./environment.js";
 
 interface TelemetryIdentity {
 	/** Stable per-install id, or a shared one per provider in CI. */
 	anonymousId: string;
-	/** Per-project, salted with a value that never leaves the machine. Absent in CI. */
+	/** Per-project, salted with a value that never leaves the machine. Absent under a known CI provider. */
 	projectId?: string;
 }
 
@@ -42,7 +42,7 @@ export function configDir(env: NodeJS.ProcessEnv = process.env): string {
  * One id per CI provider, shared by every runner.
  */
 function ciIdentity(env: NodeJS.ProcessEnv): string | undefined {
-	const provider = detectCiProvider(env);
+	const provider = detectKnownCiProvider(env);
 	return provider ? `ci.${provider}` : undefined;
 }
 
