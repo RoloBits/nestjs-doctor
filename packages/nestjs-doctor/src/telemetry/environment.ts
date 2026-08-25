@@ -9,7 +9,11 @@ export function generatedIn(
 	return isSet(env.CI) || isSet(env.GITHUB_ACTIONS) ? "ci" : "cli";
 }
 
-/** The CI systems worth naming. Read through `detectCiProvider`. */
+/**
+ * The CI systems worth naming: env var first, slug second. The slug is the
+ * `ci.<provider>` identity and the `ci_provider` payload value, so published
+ * slugs never change. Single-variable checks only, mirroring ci-info.
+ */
 const CI_PROVIDERS: readonly (readonly [string, string])[] = [
 	["GITHUB_ACTIONS", "github"],
 	["GITLAB_CI", "gitlab"],
@@ -17,17 +21,47 @@ const CI_PROVIDERS: readonly (readonly [string, string])[] = [
 	["TRAVIS", "travis"],
 	["BUILDKITE", "buildkite"],
 	["JENKINS_URL", "jenkins"],
+	["TEAMCITY_VERSION", "teamcity"],
+	["APPVEYOR", "appveyor"],
+	["TF_BUILD", "azure"],
+	["BITBUCKET_COMMIT", "bitbucket"],
+	["BITRISE_IO", "bitrise"],
+	["BUDDY_WORKSPACE_ID", "buddy"],
+	["CIRRUS_CI", "cirrus"],
+	["CODEBUILD_BUILD_ARN", "codebuild"],
+	["CF_BUILD_ID", "codefresh"],
+	["CM_BUILD_ID", "codemagic"],
+	["DRONE", "drone"],
+	["EARTHLY_CI", "earthly"],
+	["EAS_BUILD", "eas"],
+	["GITEA_ACTIONS", "gitea"],
+	["GO_PIPELINE_LABEL", "gocd"],
+	["BUILDER_OUTPUT", "google-cloud-build"],
+	["HARNESS_BUILD_ID", "harness"],
+	["NETLIFY", "netlify"],
+	["PROW_JOB_ID", "prow"],
+	["RENDER", "render"],
+	["SCREWDRIVER", "screwdriver"],
+	["SEMAPHORE", "semaphore"],
+	["SHIPPABLE", "shippable"],
+	["VERCEL", "vercel"],
+	["APPCENTER_BUILD_ID", "appcenter"],
+	["VELA", "vela"],
+	["CI_XCODE_PROJECT", "xcode-cloud"],
+	["XCS", "xcode-server"],
 ];
 
-/** Which CI this is, or `unknown` on a runner that only sets `CI`. */
-export function detectCiProvider(
+/** A named CI provider, or null when none of its env vars are set. */
+export function detectKnownCiProvider(
 	env: NodeJS.ProcessEnv = process.env
 ): string | null {
 	const provider = CI_PROVIDERS.find(([name]) => isSet(env[name]));
-	if (provider) {
-		return provider[1];
-	}
-	return isSet(env.CI) ? "unknown" : null;
+	return provider ? provider[1] : null;
+}
+
+/** Which CI this is, or `unknown` on a runner that only sets `CI`. */
+function detectCiProvider(env: NodeJS.ProcessEnv = process.env): string | null {
+	return detectKnownCiProvider(env) ?? (isSet(env.CI) ? "unknown" : null);
 }
 
 /**

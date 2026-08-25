@@ -6,6 +6,7 @@ import { configDir, resolveIdentity } from "../../src/telemetry/install-id.js";
 import { scanTelemetryEnabled } from "../../src/telemetry/send.js";
 
 const SHA256_HEX = /^[a-f0-9]{64}$/;
+const CI_PREFIX = /^ci\./;
 
 const homes: string[] = [];
 
@@ -72,9 +73,23 @@ describe("install identity", () => {
 
 		expect(runner().anonymousId).toBe("ci.github");
 		expect(runner().anonymousId).toBe("ci.github");
-		expect(resolveIdentity("/repo/a", isolated({ CI: "1" })).anonymousId).toBe(
-			"ci.unknown"
-		);
+		expect(
+			resolveIdentity(
+				"/repo/a",
+				isolated({ JENKINS_URL: "https://ci.example.com" })
+			).anonymousId
+		).toBe("ci.jenkins");
+	});
+
+	it("treats a bare CI variable as a machine, not a named provider", () => {
+		const env = isolated({ CI: "1" });
+
+		const identity = resolveIdentity("/repo/a", env);
+		const again = resolveIdentity("/repo/a", env);
+
+		expect(identity.anonymousId).not.toMatch(CI_PREFIX);
+		expect(again.anonymousId).toBe(identity.anonymousId);
+		expect(again.projectId).toBe(identity.projectId);
 	});
 
 	it("sends no project id from CI", () => {
