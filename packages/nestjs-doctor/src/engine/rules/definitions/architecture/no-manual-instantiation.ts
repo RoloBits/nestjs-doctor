@@ -3,9 +3,79 @@ import type { Rule } from "../../types.js";
 
 const DI_ONLY_SUFFIXES = ["Service", "Repository", "Gateway", "Resolver"];
 const CONTEXT_AWARE_SUFFIXES = ["Guard", "Interceptor", "Pipe", "Filter"];
+const DYNAMIC_MODULE_CALL = /\.(?:forRoot|forFeature|register)(?:Async)?$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
+}
+
+// Start positions of `new` expressions that build what NestJS will own:
+// factory/useValue bodies of provider literals, and options handed to a
+// dynamic-module registration call.
+function getProviderConstructionStarts(
+	sourceFile: import("ts-morph").SourceFile
+): Set<number> {
+	const starts = new Set<number>();
+
+	for (const obj of sourceFile.getDescendantsOfKind(
+		SyntaxKind.ObjectLiteralExpression
+	)) {
+		if (!obj.getProperty("provide")) {
+			continue;
+		}
+		for (const key of ["useFactory", "useValue"]) {
+			const prop = obj.getProperty(key);
+			if (!prop) {
+				continue;
+			}
+			const initializer = prop
+				.asKind(SyntaxKind.PropertyAssignment)
+				?.getInitializer();
+			if (initializer) {
+				const direct = initializer.asKind(SyntaxKind.NewExpression);
+				if (direct) {
+					starts.add(direct.getStart());
+				}
+				for (const expr of initializer.getDescendantsOfKind(
+					SyntaxKind.NewExpression
+				)) {
+					starts.add(expr.getStart());
+				}
+			}
+			// useFactory(config) { ... }
+			const method = prop.asKind(SyntaxKind.MethodDeclaration);
+			if (method) {
+				for (const expr of method.getDescendantsOfKind(
+					SyntaxKind.NewExpression
+				)) {
+					starts.add(expr.getStart());
+				}
+			}
+		}
+	}
+
+	for (const call of sourceFile.getDescendantsOfKind(
+		SyntaxKind.CallExpression
+	)) {
+		if (!DYNAMIC_MODULE_CALL.test(call.getExpression().getText())) {
+			continue;
+		}
+		for (const arg of call.getArguments()) {
+			const literal =
+				arg.asKind(SyntaxKind.ObjectLiteralExpression) ??
+				arg.asKind(SyntaxKind.ArrayLiteralExpression);
+			if (!literal) {
+				continue;
+			}
+			for (const expr of literal.getDescendantsOfKind(
+				SyntaxKind.NewExpression
+			)) {
+				starts.add(expr.getStart());
+			}
+		}
+	}
+
+	return starts;
 }
 
 function getExcludedClasses(ruleConfig: unknown): Set<string> {
@@ -50,6 +120,9 @@ export const noManualInstantiation: Rule = {
 		const excludedClasses = getExcludedClasses(
 			context.config?.rules?.[this.meta.id]
 		);
+		const providerConstructionStarts = getProviderConstructionStarts(
+			context.sourceFile
+		);
 		const newExpressions = context.sourceFile.getDescendantsOfKind(
 			SyntaxKind.NewExpression
 		);
@@ -65,15 +138,18 @@ export const noManualInstantiation: Rule = {
 				continue;
 			}
 
+			if (providerConstructionStarts.has(expr.getStart())) {
+				continue;
+			}
+
+			const knownInjectable =
+				!!context.diProviders &&
+				(context.diProviders.has(exprText) ||
+					context.diProviders.has(simpleExprText));
+
 			// A name suffix is not a provider. Only a class NestJS instantiates can
 			// be injected instead; a plain class, or one from node_modules, cannot.
-			if (
-				context.diProviders &&
-				!(
-					context.diProviders.has(exprText) ||
-					context.diProviders.has(simpleExprText)
-				)
-			) {
+			if (context.diProviders && !knownInjectable) {
 				continue;
 			}
 
@@ -82,7 +158,9 @@ export const noManualInstantiation: Rule = {
 				exprText.endsWith(s)
 			);
 
-			if (!(isDiOnly || isContextAware)) {
+			// With decorator facts the suffix guess is unnecessary; it only
+			// widens the net when they are unavailable.
+			if (!(knownInjectable || isDiOnly || isContextAware)) {
 				continue;
 			}
 
@@ -99,7 +177,7 @@ export const noManualInstantiation: Rule = {
 				}
 			}
 
-			if (isContextAware) {
+			if (!knownInjectable && isContextAware) {
 				// Only flag if inside a method body or constructor body
 				const inMethod = expr.getFirstAncestorByKind(
 					SyntaxKind.MethodDeclaration
