@@ -1,5 +1,22 @@
 # nestjs-doctor-lsp
 
+## 4.1.1
+
+### Patch Changes
+
+- b0bc3c2: Fixes CI classification in telemetry for both the CLI and the language server. A shared `ci.<provider>` identity is now minted only when a known provider variable matches; a bare `CI` env var keeps the personal install id (the CLI records `ci_provider: "unknown"`) instead of merging the run into an anonymous machine pool. The provider table expands from 6 to 34 systems (TeamCity, Azure Pipelines, Bitbucket Pipelines, CodeBuild, Drone, Render, and others), so automated runners that set none of the previous variables are no longer counted as individual users.
+- Updated dependencies [e840d6d]
+- Updated dependencies [b0bc3c2]
+- Updated dependencies [2097f58]
+- Updated dependencies [6372d3c]
+- Updated dependencies [961edce]
+- Updated dependencies [71c7368]
+- Updated dependencies [64c83fd]
+- Updated dependencies [c447f85]
+- Updated dependencies [a32085a]
+- Updated dependencies [abc731f]
+  - nestjs-doctor@0.9.1
+
 ## 4.1.0
 
 ### Changed
