@@ -1,9 +1,3 @@
-import type {
-	BootPhases,
-	ClassTiming,
-	HookTiming,
-	TraceNode,
-} from "../report/timings.js";
 import type { Diagnostic } from "./diagnostic.js";
 import type { EndpointGraph } from "./endpoint.js";
 import type {
@@ -14,6 +8,12 @@ import type {
 } from "./result.js";
 import type { SerializedSchemaGraph } from "./schema.js";
 import type { ScopeInfo } from "./scope.js";
+import type {
+	BootPhases,
+	ClassTiming,
+	HookTiming,
+	TraceNode,
+} from "./timings.js";
 
 /**
  * Version of the report artifact shape. Bump when a field changes meaning;

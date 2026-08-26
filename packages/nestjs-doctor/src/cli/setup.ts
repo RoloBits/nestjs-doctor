@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
 import type { SourceInclusion } from "../common/artifact.js";
 import { isScopeMode, type ScopeMode } from "../common/scope.js";
-import type { BootstrapTimings } from "../report/timings.js";
+import type { BootstrapTimings } from "../common/timings.js";
 import { logger } from "../ui/logger.js";
 import {
 	type BlockingLevel,
