@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import type { SerializedModuleGraph } from "../common/artifact.js";
 import {
 	type Category,
 	type CodeDiagnostic,
@@ -13,6 +14,10 @@ import type {
 	DiagnoseSummary,
 	Score,
 } from "../common/result.js";
+import type {
+	SchemaRelation,
+	SerializedSchemaEntity,
+} from "../common/schema.js";
 import { toRelativePath } from "../engine/fingerprint.js";
 import { buildSummary } from "../engine/result-builder.js";
 
@@ -20,7 +25,9 @@ export const SHARED_REPORT_VERSION = 1;
 
 const FINDINGS_PREFIX = "findings:";
 export const SCORE_SECTION = "score";
+export const SCHEMA_SECTION = "schema";
 export const ENDPOINTS_SECTION = "endpoints";
+export const MODULES_SECTION = "modules";
 const FINDINGS_CATEGORIES: Category[] = [
 	"security",
 	"performance",
@@ -31,14 +38,21 @@ const FINDINGS_CATEGORIES: Category[] = [
 
 export type ShareSectionId =
 	| "score"
+	| "schema"
 	| "endpoints"
+	| "modules"
 	| `${typeof FINDINGS_PREFIX}${Category}`;
 
 /** Parses a `--share-sections` value; the string is what failed validation. */
 export function parseShareSections(
 	csv: string
 ): { sections: ShareSectionId[]; error?: undefined } | { error: string } {
-	const valid = new Set<string>([SCORE_SECTION, ENDPOINTS_SECTION]);
+	const valid = new Set<string>([
+		SCORE_SECTION,
+		SCHEMA_SECTION,
+		ENDPOINTS_SECTION,
+		MODULES_SECTION,
+	]);
 	for (const category of FINDINGS_CATEGORIES) {
 		valid.add(`${FINDINGS_PREFIX}${category}`);
 	}
@@ -99,6 +113,21 @@ export function enumerateShareSections(result: DiagnoseResult): ShareSection[] {
 			label: "HTTP endpoints",
 		});
 	}
+	const entityCount = result.schema?.entities.length ?? 0;
+	if (entityCount > 0) {
+		sections.push({
+			id: SCHEMA_SECTION,
+			count: entityCount,
+			label: "Relational schema",
+		});
+	}
+	if (result.project.moduleCount > 0) {
+		sections.push({
+			id: MODULES_SECTION,
+			count: result.project.moduleCount,
+			label: "Module graph",
+		});
+	}
 	return sections;
 }
 
@@ -109,14 +138,36 @@ interface SharedEndpoint {
 	routePath: string;
 }
 
+/** The module graph as a share exports it: no timings, relative paths. */
+interface SharedModuleGraph {
+	bootstrapRoots?: string[];
+	circularDeps: string[][];
+	edges: SerializedModuleGraph["edges"];
+	modules: Array<
+		Omit<
+			SerializedModuleGraph["modules"][number],
+			"hookTimings" | "initTimings" | "filePath"
+		> & { filePath: string }
+	>;
+	projects: string[];
+}
+
 interface SharedReport {
 	endpoints?: SharedEndpoint[];
 	findings: CodeDiagnostic[];
 	generatedAt: string;
 	generator: { name: "nestjs-doctor"; version: string };
 	includeCode: boolean;
+	modules?: SharedModuleGraph;
 	/** Present only when the score section is shared. */
 	project?: DiagnoseResult["project"];
+	schema?: {
+		entities: Array<
+			Omit<SerializedSchemaEntity, "filePath"> & { filePath: string }
+		>;
+		orm: string;
+		relations: SchemaRelation[];
+	};
 	schemaIssues: SchemaDiagnostic[];
 	score: Score;
 	sections: ShareSectionId[];
@@ -134,7 +185,8 @@ export function buildSharedReport(
 	result: DiagnoseResult,
 	options: { includeCode: boolean; sections: ShareSectionId[] },
 	version: string,
-	targetPath?: string
+	targetPath?: string,
+	graph?: SerializedModuleGraph
 ): SharedReport | null {
 	const categories = new Set<Category>();
 	for (const section of options.sections) {
@@ -178,10 +230,37 @@ export function buildSharedReport(
 				routePath: endpoint.routePath,
 			}))
 		: undefined;
+	const schemaGraph = result.schema;
+	const schema =
+		options.sections.includes(SCHEMA_SECTION) && schemaGraph?.entities.length
+			? {
+					entities: schemaGraph.entities.map((entity) => ({
+						...entity,
+						filePath: relativePath(entity.filePath),
+					})),
+					orm: schemaGraph.orm,
+					relations: schemaGraph.relations,
+				}
+			: undefined;
+	const modules =
+		options.sections.includes(MODULES_SECTION) && graph
+			? {
+					bootstrapRoots: graph.bootstrapRoots,
+					circularDeps: graph.circularDeps,
+					edges: graph.edges,
+					modules: graph.modules.map((module) => {
+						const { hookTimings, initTimings, ...rest } = module;
+						return { ...rest, filePath: relativePath(rest.filePath) };
+					}),
+					projects: graph.projects,
+				}
+			: undefined;
 	const summary = buildSummary(picked);
 	if (
 		!summary.total &&
 		(endpoints?.length ?? 0) === 0 &&
+		!schema &&
+		!modules &&
 		!options.sections.includes(SCORE_SECTION)
 	) {
 		return null;
@@ -201,6 +280,8 @@ export function buildSharedReport(
 			? { project: result.project }
 			: {}),
 		...(endpoints ? { endpoints } : {}),
+		...(schema ? { schema } : {}),
+		...(modules ? { modules } : {}),
 	};
 }
 

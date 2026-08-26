@@ -290,6 +290,7 @@ export const App = ({
 	if (screen === "share") {
 		return (
 			<ShareScreen
+				moduleGraph={context.moduleGraph}
 				onBack={() => setScreen("score")}
 				onToast={setToast}
 				result={shown}

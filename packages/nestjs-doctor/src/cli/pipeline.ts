@@ -77,6 +77,8 @@ const analysisLabel = (phase: AnalysisPhase): string => {
 /** Handed to the post-scan menu so its actions reuse the finished scan. */
 export interface InteractiveArtifacts {
 	buildReportHtml: () => string;
+	/** The serialized module graph, for sharing the modules section. */
+	moduleGraph: () => ReportArtifact["graph"];
 	/** Prints the persistent score box after the TUI leaves the alt screen. */
 	printSummary: () => void;
 	result: DiagnoseResult;
@@ -398,6 +400,7 @@ export class MonorepoPipeline extends ScanPipeline {
 	get interactiveArtifacts(): InteractiveArtifacts {
 		return {
 			buildReportHtml: () => buildHtmlReport(this.reportArtifact),
+			moduleGraph: () => this.reportArtifact.graph,
 			printSummary: () => {
 				printMonorepoReport(this.result.result, this.options.verbose, true);
 			},
@@ -610,6 +613,7 @@ export class SingleProjectPipeline extends ScanPipeline {
 	get interactiveArtifacts(): InteractiveArtifacts {
 		return {
 			buildReportHtml: () => buildHtmlReport(this.reportArtifact),
+			moduleGraph: () => this.reportArtifact.graph,
 			printSummary: () => {
 				printConsoleReport(this.result.result, this.options.verbose, true);
 			},

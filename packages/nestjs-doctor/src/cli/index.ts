@@ -79,6 +79,7 @@ async function scan(args: CliArgs): Promise<void> {
 		const { runInteractiveApp } = await import("./interactive/tui/run.js");
 		await runInteractiveApp({
 			buildReportHtml: artifacts.buildReportHtml,
+			moduleGraph: artifacts.moduleGraph,
 			result: artifacts.result,
 			subProjects: artifacts.subProjects?.map(({ name, result }) => ({
 				diagnostics: result.diagnostics,

@@ -11,7 +11,9 @@ import {
 	buildSharedReport,
 	ENDPOINTS_SECTION,
 	enumerateShareSections,
+	MODULES_SECTION,
 	parseShareSections,
+	SCHEMA_SECTION,
 	SCORE_SECTION,
 	SHARED_REPORT_VERSION,
 	writeSharedReportFile,
@@ -87,13 +89,15 @@ describe("enumerateShareSections", () => {
 			SCORE_SECTION,
 			"findings:security",
 			"findings:schema",
+			MODULES_SECTION,
 		]);
-		expect(sections.map((section) => section.count)).toEqual([55, 1, 1]);
+		expect(sections.map((section) => section.count)).toEqual([55, 1, 1, 1]);
 	});
 
 	it("offers endpoints only when the result has them", () => {
-		const bare = enumerateShareSections(resultWith([]));
-		expect(bare).toHaveLength(1);
+		const projectless = resultWith([]);
+		projectless.project.moduleCount = 0;
+		expect(enumerateShareSections(projectless)).toHaveLength(1);
 
 		const withEndpoints = resultWith([]);
 		withEndpoints.endpoints = {
@@ -123,7 +127,41 @@ describe("enumerateShareSections", () => {
 				count: 1,
 				label: "HTTP endpoints",
 			},
+			{
+				id: MODULES_SECTION,
+				count: 1,
+				label: "Module graph",
+			},
 		]);
+	});
+
+	it("offers schema and modules when the result carries them", () => {
+		const result = resultWith([]);
+		result.project.moduleCount = 0;
+		result.schema = {
+			entities: [
+				{
+					columns: [],
+					filePath: "/repo/src/user.entity.ts",
+					name: "User",
+					relations: [],
+					tableName: "users",
+				},
+			],
+			orm: "prisma",
+			relations: [],
+		};
+
+		const bare = enumerateShareSections(result);
+		expect(bare.map((section) => section.id)).toEqual([
+			SCORE_SECTION,
+			SCHEMA_SECTION,
+		]);
+
+		result.project.moduleCount = 3;
+		expect(enumerateShareSections(result).map((section) => section.id)).toEqual(
+			[SCORE_SECTION, SCHEMA_SECTION, MODULES_SECTION]
+		);
 	});
 });
 
@@ -276,6 +314,91 @@ describe("buildSharedReport", () => {
 				resultWith([]),
 				{ includeCode: true, sections: [ENDPOINTS_SECTION] },
 				"1.2.3"
+			)
+		).toBeNull();
+	});
+
+	it("shares the schema with relative entity paths", () => {
+		const result = resultWith([]);
+		result.schema = {
+			entities: [
+				{
+					columns: [
+						{
+							isGenerated: false,
+							isNullable: false,
+							isPrimary: true,
+							isUnique: false,
+							name: "id",
+							type: "uuid",
+						},
+					],
+					filePath: "/repo/src/user.entity.ts",
+					name: "User",
+					relations: [],
+					tableName: "users",
+				},
+			],
+			orm: "prisma",
+			relations: [],
+		};
+
+		const shared = buildSharedReport(
+			result,
+			{ includeCode: false, sections: [SCHEMA_SECTION] },
+			"1.2.3",
+			"/repo"
+		);
+
+		expect(shared?.schema?.entities[0].filePath).toBe("src/user.entity.ts");
+		expect(shared?.schema?.orm).toBe("prisma");
+		const serialized = JSON.stringify(shared);
+		expect(serialized).not.toContain("/repo/src/user.entity.ts");
+	});
+
+	it("shares a slim module graph without timings", () => {
+		const graph = {
+			bootstrapRoots: ["AppModule"],
+			circularDepRecommendations: {},
+			circularDeps: [["A", "B"]],
+			edges: [{ from: "AppModule", to: "CatsModule" }],
+			modules: [
+				{
+					controllers: ["CatsController"],
+					exports: [],
+					filePath: "/repo/src/cats.module.ts",
+					hookTimings: [{ hook: "onModuleInit", ms: 5 } as never],
+					imports: ["AppModule"],
+					name: "CatsModule",
+					providers: [],
+				},
+			],
+			projects: [],
+			timingsTrace: { CatsModule: {} as never },
+		};
+
+		const shared = buildSharedReport(
+			resultWith([]),
+			{ includeCode: false, sections: [MODULES_SECTION] },
+			"1.2.3",
+			"/repo",
+			graph
+		);
+
+		expect(shared?.modules?.modules[0].filePath).toBe("src/cats.module.ts");
+		const serialized = JSON.stringify(shared);
+		expect(serialized).not.toContain("hookTimings");
+		expect(serialized).not.toContain("timingsTrace");
+		expect(serialized).not.toContain("circularDepRecommendations");
+	});
+
+	it("omits the modules payload when no graph was handed over", () => {
+		expect(
+			buildSharedReport(
+				resultWith([]),
+				{ includeCode: false, sections: [MODULES_SECTION] },
+				"1.2.3",
+				"/repo"
 			)
 		).toBeNull();
 	});

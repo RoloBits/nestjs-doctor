@@ -1,5 +1,6 @@
 import { Box, Text, useInput } from "ink";
 import { useMemo, useState } from "react";
+import type { ReportArtifact } from "../../../common/artifact.js";
 import type { DiagnoseResult } from "../../../common/result.js";
 import {
 	buildSharedReport,
@@ -12,6 +13,7 @@ import { palette } from "./theme.js";
 import type { Toast } from "./types.js";
 
 interface ShareScreenProps {
+	moduleGraph: () => ReportArtifact["graph"];
 	onBack: () => void;
 	onToast: (toast: Toast) => void;
 	result: DiagnoseResult;
@@ -27,6 +29,7 @@ interface ShareRow {
 }
 
 export const ShareScreen = ({
+	moduleGraph,
 	onBack,
 	onToast,
 	result,
@@ -73,7 +76,8 @@ export const ShareScreen = ({
 				result,
 				{ includeCode, sections: picked },
 				version,
-				targetPath
+				targetPath,
+				picked.includes("modules") ? moduleGraph() : undefined
 			);
 			if (!shared) {
 				onToast({

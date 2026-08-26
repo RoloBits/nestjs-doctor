@@ -92,7 +92,7 @@ export const flags = {
 	"share-sections": {
 		type: "string",
 		description:
-			"Write a shareable nestjs-doctor-shared.json beside the project, limited to these comma-separated sections: score, endpoints, findings:<category> (e.g. findings:security)",
+			"Write a shareable nestjs-doctor-shared.json beside the project, limited to these comma-separated sections: score, endpoints, schema, modules, findings:<category> (e.g. findings:security)",
 	},
 	"share-code": {
 		type: "boolean",

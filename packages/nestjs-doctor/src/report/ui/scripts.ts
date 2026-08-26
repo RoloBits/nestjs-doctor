@@ -6484,6 +6484,12 @@ switchTab("summary");
     if (endpoints.endpoints.length > 0) {
       secs.push({id: "endpoints", label: "HTTP endpoints", count: endpoints.endpoints.length});
     }
+    if (schema.entities.length > 0) {
+      secs.push({id: "schema", label: "Relational schema", count: schema.entities.length});
+    }
+    if (graph.modules.length > 0) {
+      secs.push({id: "modules", label: "Module graph", count: graph.modules.length});
+    }
     return secs;
   }
 
@@ -6526,6 +6532,37 @@ switchTab("summary");
         sharedEndpoints.push({controllerClass: ep.controllerClass, handlerMethod: ep.handlerMethod, httpMethod: ep.httpMethod, routePath: ep.routePath});
       }
     }
+    var sharedSchema;
+    if (picked.indexOf("schema") >= 0 && schema.entities.length > 0) {
+      var ents = [];
+      for (var s2 = 0; s2 < schema.entities.length; s2++) {
+        var ent = schema.entities[s2];
+        var entCopy = {};
+        for (var ek in ent) if (ek !== "filePath") entCopy[ek] = ent[ek];
+        ents.push(entCopy);
+      }
+      sharedSchema = {entities: ents, orm: schema.orm, relations: schema.relations};
+    }
+    var sharedModules;
+    if (picked.indexOf("modules") >= 0 && graph.modules.length > 0) {
+      var mods = [];
+      for (var m = 0; m < graph.modules.length; m++) {
+        var mod = graph.modules[m];
+        var modCopy = {};
+        for (var mk in mod) {
+          if (mk === "filePath" || mk === "hookTimings" || mk === "initTimings") continue;
+          modCopy[mk] = mod[mk];
+        }
+        mods.push(modCopy);
+      }
+      sharedModules = {
+        bootstrapRoots: graph.bootstrapRoots || [],
+        circularDeps: graph.circularDeps,
+        edges: graph.edges,
+        modules: mods,
+        projects: graph.projects
+      };
+    }
     return {
       version: SHARE_VERSION,
       generator: REPORT.generator,
@@ -6537,7 +6574,9 @@ switchTab("summary");
       includeCode: includeCode && findings.length > 0,
       findings: findings,
       schemaIssues: schemaIssues,
-      endpoints: sharedEndpoints
+      endpoints: sharedEndpoints,
+      schema: sharedSchema,
+      modules: sharedModules
     };
   }
 

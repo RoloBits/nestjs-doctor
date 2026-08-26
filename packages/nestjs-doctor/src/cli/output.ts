@@ -172,7 +172,8 @@ async function emit(
 				sections: options.shareSections,
 			},
 			cliVersion,
-			targetPath
+			targetPath,
+			options.shareSections.includes("modules") ? artifact?.().graph : undefined
 		);
 		if (!shared) {
 			logger.warn(
