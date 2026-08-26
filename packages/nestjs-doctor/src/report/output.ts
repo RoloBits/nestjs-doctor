@@ -1,13 +1,13 @@
 import { spawn } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { highlighter } from "../cli/ui/highlighter.js";
-import { logger } from "../cli/ui/logger.js";
 import {
 	type ModuleGraph,
 	mergeModuleGraphs,
 } from "../engine/graph/module-graph.js";
 import type { EngineResult, MonorepoEngineResult } from "../engine/scanner.js";
+import { highlighter } from "../ui/highlighter.js";
+import { logger } from "../ui/logger.js";
 
 /**
  * Writes the report to `outputPath` when given, resolved against the working

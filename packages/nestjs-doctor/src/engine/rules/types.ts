@@ -7,13 +7,15 @@ import type {
 	SchemaDiagnostic,
 	Severity,
 } from "../../common/diagnostic.js";
+// biome-ignore lint/style/noExportedImports: re-export keeps the module surface stable for existing importers
+import type { RuleScope } from "../../common/rule-scope.js";
 import type { SchemaGraph } from "../../common/schema.js";
 import type { ModuleGraph } from "../graph/module-graph.js";
 import type { ProviderInfo } from "../graph/type-resolver.js";
 
 // ── Shared ──
 
-export type RuleScope = "file" | "project" | "schema";
+export type { RuleScope };
 
 export interface RuleMeta {
 	category: Category;

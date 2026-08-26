@@ -1,7 +1,8 @@
 import { resolve } from "node:path";
 import type { SourceInclusion } from "../common/artifact.js";
 import { isScopeMode, type ScopeMode } from "../common/scope.js";
-import type { BootstrapTimings } from "../report/timings.js";
+import type { BootstrapTimings } from "../common/timings.js";
+import { logger } from "../ui/logger.js";
 import {
 	type BlockingLevel,
 	resolveBlocking,
@@ -14,7 +15,6 @@ import {
 } from "./formatters/render.js";
 import { validateMinScoreArg } from "./min-score.js";
 import { validateTargetPathArg } from "./target-path.js";
-import { logger } from "./ui/logger.js";
 
 export interface PipelineOptions {
 	base: string | undefined;
@@ -229,7 +229,8 @@ export class CliSetup {
 					this.args.timings,
 					this.args.output,
 					this.args.telemetry,
-					resolveSources(this.args)
+					resolveSources(this.args),
+					this.version
 				);
 				return false;
 			}

@@ -102,7 +102,7 @@ const mockLogger = {
 	log: vi.fn(),
 };
 
-vi.mock("../../src/cli/ui/logger.js", () => ({
+vi.mock("../../src/ui/logger.js", () => ({
 	logger: mockLogger,
 }));
 

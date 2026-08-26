@@ -4,6 +4,8 @@ import type { ReportArtifact } from "../common/artifact.js";
 import { MAX_DEPENDENCY_NODES } from "../common/endpoint.js";
 import type { DiagnoseResult, MonorepoResult } from "../common/result.js";
 import type { EngineResult, MonorepoEngineResult } from "../engine/scanner.js";
+import { highlighter } from "../ui/highlighter.js";
+import { logger } from "../ui/logger.js";
 import { shouldBlock } from "./blocking.js";
 import {
 	printConsoleReport,
@@ -12,8 +14,6 @@ import {
 import { renderResult, stringifyJson } from "./formatters/render.js";
 import { checkMinScore } from "./min-score.js";
 import type { PipelineOptions } from "./setup.js";
-import { highlighter } from "./ui/highlighter.js";
-import { logger } from "./ui/logger.js";
 
 const FAILURE_EXIT_CODE = 1;
 

@@ -3,8 +3,8 @@ import { appendFile, cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { logger } from "../ui/logger.js";
 import { isCommandAvailable } from "./ui/commands.js";
-import { logger } from "./ui/logger.js";
 
 // The build copies skills/ to dist/skills. Which directory the bundled entry
 // reports depends on how it was chunked, so both places are tried.

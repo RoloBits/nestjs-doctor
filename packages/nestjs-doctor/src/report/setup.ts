@@ -1,7 +1,7 @@
-import { highlighter } from "../cli/ui/highlighter.js";
-import { logger } from "../cli/ui/logger.js";
 import type { SourceInclusion } from "../common/artifact.js";
 import { detectMonorepo } from "../engine/project-detector.js";
+import { highlighter } from "../ui/highlighter.js";
+import { logger } from "../ui/logger.js";
 import {
 	logMonorepoSummary,
 	logSingleProjectSummary,
@@ -18,10 +18,11 @@ import { type BootstrapTimings, loadBootstrapTimings } from "./timings.js";
 export const runReport = async (
 	targetPath: string,
 	configPath: string | undefined,
-	timingsPath?: string,
-	outputPath?: string,
-	telemetry = true,
-	sources: SourceInclusion = "all"
+	timingsPath: string | undefined,
+	outputPath: string | undefined,
+	telemetry: boolean | undefined,
+	sources: SourceInclusion,
+	version: string
 ): Promise<void> => {
 	const monorepo = await detectMonorepo(targetPath);
 
@@ -45,8 +46,9 @@ export const runReport = async (
 			targetPath,
 			configPath,
 			monorepo,
+			version,
 			bootTimings,
-			telemetry,
+			telemetry ?? true,
 			sources
 		);
 		await pipeline
@@ -64,8 +66,9 @@ export const runReport = async (
 	const pipeline = new SingleProjectReportPipeline(
 		targetPath,
 		configPath,
+		version,
 		bootTimings,
-		telemetry,
+		telemetry ?? true,
 		sources
 	);
 	await pipeline

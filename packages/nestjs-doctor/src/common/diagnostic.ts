@@ -1,4 +1,4 @@
-import type { RuleScope } from "../engine/rules/types.js";
+import type { RuleScope } from "./rule-scope.js";
 
 export type Severity = "error" | "warning" | "info";
 

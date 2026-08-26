@@ -1,6 +1,4 @@
 import { performance } from "node:perf_hooks";
-import { getCliVersion } from "../cli/output.js";
-import { spinner } from "../cli/ui/spinner.js";
 import type { ReportProvider, SourceInclusion } from "../common/artifact.js";
 import { collectEntryModules } from "../engine/graph/entry-points.js";
 import {
@@ -24,6 +22,7 @@ import {
 	type ScanConfig,
 } from "../engine/scanner.js";
 import { scanTelemetryEnabled } from "../telemetry/send.js";
+import { spinner } from "../ui/spinner.js";
 import { buildReportArtifact, toReportProvider } from "./artifact.js";
 import { buildHtmlReport } from "./html-report.js";
 import type { BootstrapTimings } from "./timings.js";
@@ -39,18 +38,21 @@ abstract class ReportPipeline {
 	protected readonly targetPath: string;
 	protected readonly telemetry: boolean;
 	protected readonly timings: BootstrapTimings | undefined;
+	protected readonly version: string;
 
 	private readonly configPath: string | undefined;
 
 	constructor(
 		targetPath: string,
 		configPath: string | undefined,
+		version: string,
 		timings?: BootstrapTimings,
 		telemetry = true,
 		sources: SourceInclusion = "all"
 	) {
 		this.targetPath = targetPath;
 		this.configPath = configPath;
+		this.version = version;
 		this.timings = timings;
 		this.telemetry = telemetry;
 		this.sources = sources;
@@ -154,7 +156,7 @@ export class SingleProjectReportPipeline extends ReportPipeline {
 					),
 					sources: this.sources,
 					timings: this.timings,
-					version: getCliVersion(),
+					version: this.version,
 				}),
 				{ telemetry: this.telemetryEnabled }
 			);
@@ -178,11 +180,12 @@ export class MonorepoReportPipeline extends ReportPipeline {
 		targetPath: string,
 		configPath: string | undefined,
 		monorepo: MonorepoInfo,
+		version: string,
 		timings?: BootstrapTimings,
 		telemetry = true,
 		sources: SourceInclusion = "all"
 	) {
-		super(targetPath, configPath, timings, telemetry, sources);
+		super(targetPath, configPath, version, timings, telemetry, sources);
 		this.monorepo = monorepo;
 	}
 
@@ -272,7 +275,7 @@ export class MonorepoReportPipeline extends ReportPipeline {
 					monorepo: true,
 					sources: this.sources,
 					timings: this.timings,
-					version: getCliVersion(),
+					version: this.version,
 				}),
 				{ telemetry: this.telemetryEnabled }
 			);

@@ -4,6 +4,7 @@ import {
 	detectMonorepo,
 	looksLikeMonorepo,
 } from "../engine/project-detector.js";
+import { logger } from "../ui/logger.js";
 import { flags } from "./flags.js";
 import { setCliVersion } from "./output.js";
 import {
@@ -14,7 +15,6 @@ import {
 } from "./pipeline.js";
 import { type CliArgs, CliSetup } from "./setup.js";
 import { canPrompt } from "./ui/environment.js";
-import { logger } from "./ui/logger.js";
 
 const CONFIG_ERROR_EXIT_CODE = 2;
 

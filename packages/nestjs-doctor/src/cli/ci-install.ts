@@ -2,7 +2,7 @@ import { existsSync, lstatSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { findGitRepo, runGit } from "../engine/git.js";
-import { logger } from "./ui/logger.js";
+import { logger } from "../ui/logger.js";
 
 const ORIGIN_HEAD_RE = /^origin\/(.+)$/;
 const WORKFLOW_FILE = join(".github", "workflows", "nestjs-doctor.yml");
