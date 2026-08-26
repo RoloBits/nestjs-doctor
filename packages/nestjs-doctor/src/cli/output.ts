@@ -4,6 +4,7 @@ import type { ReportArtifact } from "../common/artifact.js";
 import { MAX_DEPENDENCY_NODES } from "../common/endpoint.js";
 import type { DiagnoseResult, MonorepoResult } from "../common/result.js";
 import type { EngineResult, MonorepoEngineResult } from "../engine/scanner.js";
+import { buildSharedReport, writeSharedReportFile } from "../report/share.js";
 import { highlighter } from "../ui/highlighter.js";
 import { logger } from "../ui/logger.js";
 import { shouldBlock } from "./blocking.js";
@@ -70,14 +71,14 @@ function enforceGates(
 	}
 }
 
-function emit(
+async function emit(
 	result: DiagnoseResult,
 	targetPath: string,
 	options: PipelineOptions,
 	scopeWarnings: string[],
 	monorepo?: MonorepoResult,
 	artifact?: () => ReportArtifact
-): void {
+): Promise<void> {
 	// Always surfaced, on stderr, whatever the format: a silently degraded scope
 	// makes a report look cleaner than the code actually is.
 	for (const warning of scopeWarnings) {
@@ -153,30 +154,56 @@ function emit(
 			printConsoleReport(result, options.verbose, false);
 		}
 	}
+
+	if (options.shareSections) {
+		const shared = buildSharedReport(
+			result,
+			{
+				includeCode: options.shareCode,
+				sections: options.shareSections,
+			},
+			cliVersion
+		);
+		if (!shared) {
+			logger.warn(
+				"No shareable content matched --share-sections; nothing was written."
+			);
+			return;
+		}
+		const outPath = await writeSharedReportFile(targetPath, shared);
+		logger.info(`Shared report written to ${highlighter.info(outPath)}`);
+	}
 }
 
-export const outputMonorepoResults = (
+export const outputMonorepoResults = async (
 	monorepoScanResult: MonorepoEngineResult,
 	resolvedMinimumScore: number | undefined,
 	targetPath: string,
 	options: PipelineOptions,
 	scopeWarnings: string[] = [],
 	artifact?: () => ReportArtifact
-): void => {
+): Promise<void> => {
 	const { result } = monorepoScanResult;
-	emit(result.combined, targetPath, options, scopeWarnings, result, artifact);
+	await emit(
+		result.combined,
+		targetPath,
+		options,
+		scopeWarnings,
+		result,
+		artifact
+	);
 	enforceGates(result.combined, resolvedMinimumScore, options);
 };
 
-export const outputSingleProjectResults = (
+export const outputSingleProjectResults = async (
 	singleProjectScanResult: EngineResult,
 	resolvedMinimumScore: number | undefined,
 	targetPath: string,
 	options: PipelineOptions,
 	scopeWarnings: string[] = [],
 	artifact?: () => ReportArtifact
-): void => {
+): Promise<void> => {
 	const { result } = singleProjectScanResult;
-	emit(result, targetPath, options, scopeWarnings, undefined, artifact);
+	await emit(result, targetPath, options, scopeWarnings, undefined, artifact);
 	enforceGates(result, resolvedMinimumScore, options);
 };

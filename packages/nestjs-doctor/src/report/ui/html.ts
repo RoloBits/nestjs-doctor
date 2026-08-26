@@ -9,6 +9,7 @@ export function getReportHtml(): string {
   <div class="meta" id="header-meta"></div>
   <div class="spacer"></div>
   <div class="nav-actions">
+    <button class="nav-btn" id="nav-share" type="button">share</button>
     <a class="nav-btn" href="https://nestjs.doctor/docs" target="_blank" rel="noopener">docs</a>
     <a class="nav-btn" href="https://github.com/RoloBits/nestjs-doctor" target="_blank" rel="noopener">github</a>
   </div>

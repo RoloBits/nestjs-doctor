@@ -20,11 +20,12 @@ import { copyToClipboard } from "../clipboard.js";
 import { groupFindings } from "../findings.js";
 import { ReviewScreen } from "./review-screen.js";
 import { buildMenuItems, ScoreScreen } from "./score-screen.js";
+import { ShareScreen } from "./share-screen.js";
 import { padEnd } from "./text.js";
 import { palette } from "./theme.js";
 import type { InteractiveContext, MenuAction, Toast } from "./types.js";
 
-type Screen = "handoff" | "review" | "score";
+type Screen = "handoff" | "review" | "score" | "share";
 
 interface HandoffItem {
 	agent?: LaunchableAgent;
@@ -120,6 +121,11 @@ export const App = ({
 				setToast(null);
 				setSelectedHandoff(0);
 				setScreen("handoff");
+				return;
+			}
+			if (action === "share") {
+				setToast(null);
+				setScreen("share");
 				return;
 			}
 
@@ -277,6 +283,18 @@ export const App = ({
 				onQuit={exit}
 				onToast={setToast}
 				targetPath={context.targetPath}
+			/>
+		);
+	}
+
+	if (screen === "share") {
+		return (
+			<ShareScreen
+				onBack={() => setScreen("score")}
+				onToast={setToast}
+				result={shown}
+				targetPath={context.targetPath}
+				version={context.version}
 			/>
 		);
 	}

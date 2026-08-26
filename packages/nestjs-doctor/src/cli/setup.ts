@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import type { SourceInclusion } from "../common/artifact.js";
 import { isScopeMode, type ScopeMode } from "../common/scope.js";
 import type { BootstrapTimings } from "../common/timings.js";
+import { parseShareSections, type ShareSectionId } from "../report/share.js";
 import { logger } from "../ui/logger.js";
 import {
 	type BlockingLevel,
@@ -38,6 +39,10 @@ export interface PipelineOptions extends ScanOptions {
 	onProgress?: (label: string, done?: number, total?: number) => void;
 	outputPath: string | undefined;
 	score: boolean;
+	/** With `shareSections`, keep a few lines of code around each shared finding. */
+	shareCode: boolean;
+	/** Sections to write into a shareable JSON beside the project. */
+	shareSections: ShareSectionId[] | undefined;
 	/** Worker-internal: the worker never prints the report. */
 	skipOutput?: boolean;
 	/** How much source text the report artifact embeds. */
@@ -82,6 +87,8 @@ export interface CliArgs {
 	report: boolean;
 	scope: string | undefined;
 	score: boolean;
+	"share-code": boolean;
+	"share-sections": string | undefined;
 	sources: string | undefined;
 	staged: boolean;
 	telemetry: boolean;
@@ -280,6 +287,27 @@ export class CliSetup {
 		return this;
 	}
 
+	validateShareSections(): this {
+		this.steps.push(() => {
+			if (this.args["share-sections"] !== undefined) {
+				const { error } = parseShareSections(this.args["share-sections"]);
+				if (error) {
+					failWith(error);
+				}
+			}
+			return true;
+		});
+		return this;
+	}
+
+	private parseResolvedShareSections(): ShareSectionId[] | undefined {
+		if (!this.args["share-sections"]) {
+			return undefined;
+		}
+		const parsed = parseShareSections(this.args["share-sections"]);
+		return "sections" in parsed ? parsed.sections : undefined;
+	}
+
 	async run(): Promise<SetupContext | null> {
 		for (const step of this.steps) {
 			const shouldContinue = await step();
@@ -321,6 +349,8 @@ export class CliSetup {
 				outputPath: this.args.output,
 				scope: resolveScopeMode(this.args),
 				score,
+				shareCode: this.args["share-code"] ?? false,
+				shareSections: this.parseResolvedShareSections(),
 				sources: resolveSources(this.args),
 				staged: this.args.staged ?? false,
 				telemetry: this.args.telemetry ?? true,

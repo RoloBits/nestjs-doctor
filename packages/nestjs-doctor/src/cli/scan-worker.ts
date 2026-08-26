@@ -27,6 +27,8 @@ const options: PipelineOptions = {
 	},
 	outputPath: undefined,
 	score: false,
+	shareCode: false,
+	shareSections: undefined,
 	skipOutput: true,
 	sources: "none",
 	timings: undefined,

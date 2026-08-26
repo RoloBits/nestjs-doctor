@@ -22,7 +22,8 @@ export type MenuAction =
 	| "markdown"
 	| "quit"
 	| "report"
-	| "review";
+	| "review"
+	| "share";
 
 /** Everything the post-scan UI needs, handed over by the pipeline. */
 export interface InteractiveContext {

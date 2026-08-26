@@ -62,6 +62,7 @@ async function scan(args: CliArgs): Promise<void> {
 		.handleReport()
 		.validateMinScore()
 		.validateBlocking()
+		.validateShareSections()
 		.run();
 
 	if (!ctx) {

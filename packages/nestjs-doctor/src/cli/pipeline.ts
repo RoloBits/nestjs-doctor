@@ -564,7 +564,7 @@ export class MonorepoPipeline extends ScanPipeline {
 			return this;
 		}
 		const step: PipelineStep = () => {
-			outputMonorepoResults(
+			return outputMonorepoResults(
 				this.result,
 				this.resolvedMinimumScore,
 				this.targetPath,
@@ -731,7 +731,7 @@ export class SingleProjectPipeline extends ScanPipeline {
 			return this;
 		}
 		const step: PipelineStep = () => {
-			outputSingleProjectResults(
+			return outputSingleProjectResults(
 				this.result,
 				this.resolvedMinimumScore,
 				this.targetPath,

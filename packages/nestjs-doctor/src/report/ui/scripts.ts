@@ -6463,5 +6463,132 @@ function renderEndpoints() {
   epCanvas.style.display = "none";
 }
 
-switchTab("summary");`;
+switchTab("summary");
+
+// ── Share dialog ──
+(function() {
+  var btn = document.getElementById("nav-share");
+  if (!btn) return;
+  var SHARE_CATS = ["security", "performance", "correctness", "architecture", "schema"];
+  var SHARE_VERSION = 1;
+
+  function shareSections() {
+    var secs = [{id: "score", label: "Health score", count: project.score}];
+    for (var i = 0; i < SHARE_CATS.length; i++) {
+      var cat = SHARE_CATS[i], n = 0;
+      for (var j = 0; j < diagnostics.length; j++) {
+        if (diagnostics[j].category === cat) n++;
+      }
+      if (n > 0) secs.push({id: "findings:" + cat, label: "Findings \\u00b7 " + cat, count: n});
+    }
+    if (endpoints.endpoints.length > 0) {
+      secs.push({id: "endpoints", label: "HTTP endpoints", count: endpoints.endpoints.length});
+    }
+    return secs;
+  }
+
+  function buildSharedJson(includeCode, picked) {
+    var cats = {};
+    for (var i = 0; i < picked.length; i++) {
+      if (picked[i].indexOf("findings:") === 0) cats[picked[i].slice(9)] = true;
+    }
+    var pickedDiags = [];
+    for (var j = 0; j < diagnostics.length; j++) {
+      if (cats[diagnostics[j].category]) pickedDiags.push(diagnostics[j]);
+    }
+    var findings = [];
+    var schemaIssues = [];
+    var counts = {total: 0, errors: 0, warnings: 0, info: 0, byCategory: {security: 0, performance: 0, correctness: 0, architecture: 0, schema: 0}};
+    for (var k = 0; k < pickedDiags.length; k++) {
+      var d = pickedDiags[k];
+      counts.total++;
+      if (d.severity === "error") counts.errors++;
+      else if (d.severity === "warning") counts.warnings++;
+      else counts.info++;
+      counts.byCategory[d.category]++;
+      if (typeof d.line === "number") {
+        if (!includeCode) {
+          var copy = {};
+          for (var key in d) if (key !== "sourceLines") copy[key] = d[key];
+          findings.push(copy);
+        } else {
+          findings.push(d);
+        }
+      } else {
+        schemaIssues.push(d);
+      }
+    }
+    var sharedEndpoints;
+    if (picked.indexOf("endpoints") >= 0) {
+      sharedEndpoints = [];
+      for (var e = 0; e < endpoints.endpoints.length; e++) {
+        var ep = endpoints.endpoints[e];
+        sharedEndpoints.push({controllerClass: ep.controllerClass, handlerMethod: ep.handlerMethod, httpMethod: ep.httpMethod, routePath: ep.routePath});
+      }
+    }
+    return {
+      version: SHARE_VERSION,
+      generator: REPORT.generator,
+      generatedAt: new Date().toISOString(),
+      project: REPORT.project,
+      score: REPORT.score,
+      summary: counts,
+      sections: picked,
+      includeCode: includeCode && findings.length > 0,
+      findings: findings,
+      schemaIssues: schemaIssues,
+      endpoints: sharedEndpoints
+    };
+  }
+
+  btn.addEventListener("click", function() {
+    var old = document.getElementById("share-overlay");
+    if (old) { document.body.removeChild(old); return; }
+
+    var overlay = document.createElement("div");
+    overlay.id = "share-overlay";
+    overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center";
+
+    var sections = shareSections();
+    var html = '<div id="share-panel" style="background:#141420;border:1px solid #2a2a3a;border-radius:10px;padding:20px 24px;width:340px;max-width:90vw;color:#e8e8f0;font-family:var(--font);box-shadow:0 12px 40px rgba(0,0,0,0.5)">';
+    html += '<div style="font-weight:700;font-size:14px;margin-bottom:12px">Share the report</div>';
+    for (var i = 0; i < sections.length; i++) {
+      var s = sections[i];
+      html += '<label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" class="share-section" value="' + s.id + '" checked> ' + s.label + ' (' + s.count + ')</label>';
+    }
+    html += '<label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer;margin-top:4px"><input type="checkbox" id="share-code"> Include code snippets <span style="color:#8888a0">a few lines around each finding</span></label>';
+    html += '<div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">';
+    html += '<button id="share-download" style="padding:6px 14px;border-radius:6px;border:1px solid #ea2845;background:#ea2845;color:#fff;font-family:var(--font);font-size:13px;cursor:pointer">Download .json</button>';
+    html += '</div></div>';
+    overlay.innerHTML = html;
+
+    function close() { if (overlay.parentNode) document.body.removeChild(overlay); }
+    overlay.addEventListener("click", function(e) { if (e.target === overlay) close(); });
+    document.addEventListener("keydown", function esc(e) {
+      if (e.key === "Escape") { close(); document.removeEventListener("keydown", esc); }
+    });
+
+    overlay.querySelector("#share-download").addEventListener("click", function() {
+      var picked = [];
+      var boxes = overlay.querySelectorAll(".share-section");
+      for (var i = 0; i < boxes.length; i++) {
+        if (boxes[i].checked) picked.push(boxes[i].value);
+      }
+      if (picked.length === 0) return;
+      var includeCode = overlay.querySelector("#share-code").checked;
+      var data = buildSharedJson(includeCode, picked);
+      var blob = new Blob([JSON.stringify(data, null, 2)], {type: "application/json"});
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = project.name + "-nestjs-doctor.shared.json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+      close();
+    });
+
+    document.body.appendChild(overlay);
+  });
+})();`;
 }

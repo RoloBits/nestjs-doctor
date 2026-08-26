@@ -72,7 +72,7 @@ export function withSurface(
 	return { ...result, diagnostics, summary: buildSummary(diagnostics) };
 }
 
-function buildSummary(diagnostics: Diagnostic[]): DiagnoseSummary {
+export function buildSummary(diagnostics: Diagnostic[]): DiagnoseSummary {
 	const summary: DiagnoseSummary = {
 		total: 0,
 		errors: 0,
