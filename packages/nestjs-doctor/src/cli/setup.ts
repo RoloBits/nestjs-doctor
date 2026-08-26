@@ -47,7 +47,7 @@ export interface PipelineOptions extends ScanOptions {
 	verbose: boolean;
 }
 
-/** Picks only the engine fields; an explicit literal so new options stay opt-in. */
+/** Picks only the engine fields. */
 export const toScanOptions = (options: PipelineOptions): ScanOptions => ({
 	base: options.base,
 	blocking: options.blocking,
