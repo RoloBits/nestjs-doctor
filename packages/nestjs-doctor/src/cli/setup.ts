@@ -291,6 +291,11 @@ export class CliSetup {
 	validateShareSections(): this {
 		this.steps.push(() => {
 			if (this.args["share-sections"] !== undefined) {
+				if (this.args.output) {
+					failWith(
+						"--share-sections writes nestjs-doctor-shared.json beside the project, so it cannot be combined with --output. Run them as separate commands."
+					);
+				}
 				const { error } = parseShareSections(this.args["share-sections"]);
 				if (error) {
 					failWith(error);

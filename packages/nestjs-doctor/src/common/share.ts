@@ -6,6 +6,7 @@ import type {
 } from "./diagnostic.js";
 import type { DiagnoseSummary, ProjectInfo, Score } from "./result.js";
 import type { SchemaRelation, SerializedSchemaEntity } from "./schema.js";
+import type { ScopeInfo } from "./scope.js";
 
 /** A section the share flow can offer, with the count shown beside it. */
 export interface ShareSection {
@@ -62,6 +63,8 @@ export interface ShareManifest {
 	/** Offered to the share when the score section is picked. */
 	project: ProjectInfo;
 	schema?: SharedSchema;
+	/** What the scan's diagnostics covered, when anything was narrowed. */
+	scope?: ScopeInfo;
 	score: Score;
 	sections: ShareSection[];
 	version: number;
@@ -79,7 +82,10 @@ export interface SharedReport {
 	project?: ProjectInfo;
 	schema?: SharedSchema;
 	schemaIssues: SchemaDiagnostic[];
-	score: Score;
+	/** Present when the scan ran narrowed, so a thin share reads as such. */
+	scope?: ScopeInfo;
+	/** Present only when the score section is shared. */
+	score?: Score;
 	sections: string[];
 	summary: DiagnoseSummary;
 	version: number;

@@ -6472,6 +6472,7 @@ switchTab("summary");
   var SHARE = REPORT.share;
 
   function buildSharedJson(includeCode, picked) {
+    function isNotScored(d) { return !!(d.surfaces && d.surfaces.indexOf("score") === -1); }
     var findings = [];
     var schemaIssues = [];
     var counts = {total: 0, errors: 0, warnings: 0, info: 0, byCategory: {security: 0, performance: 0, correctness: 0, architecture: 0, schema: 0}};
@@ -6480,28 +6481,39 @@ switchTab("summary");
       var slice = SHARE.findingsByCategory[picked[i].slice(9)];
       if (!slice) continue;
       for (var f = 0; f < slice.findings.length; f++) {
+        var d = slice.findings[f];
+        if (isNotScored(d)) continue;
         if (includeCode) {
-          findings.push(slice.findings[f]);
+          findings.push(d);
         } else {
-          var d = slice.findings[f], copy = {};
+          var copy = {};
           for (var key in d) if (key !== "sourceLines") copy[key] = d[key];
           findings.push(copy);
         }
+        counts.total++;
+        if (d.severity === "error") counts.errors++;
+        else if (d.severity === "warning") counts.warnings++;
+        else counts.info++;
+        counts.byCategory[d.category]++;
       }
-      for (var s = 0; s < slice.schemaIssues.length; s++) schemaIssues.push(slice.schemaIssues[s]);
-      counts.total += slice.summary.total;
-      counts.errors += slice.summary.errors;
-      counts.warnings += slice.summary.warnings;
-      counts.info += slice.summary.info;
-      for (var cat in counts.byCategory) counts.byCategory[cat] += slice.summary.byCategory[cat] || 0;
+      for (var s = 0; s < slice.schemaIssues.length; s++) {
+        var issue = slice.schemaIssues[s];
+        if (isNotScored(issue)) continue;
+        schemaIssues.push(issue);
+        counts.total++;
+        if (issue.severity === "error") counts.errors++;
+        else if (issue.severity === "warning") counts.warnings++;
+        else counts.info++;
+        counts.byCategory[issue.category]++;
+      }
     }
     function has(id) { return picked.indexOf(id) >= 0; }
     return {
       version: SHARE.version,
       generator: REPORT.generator,
       generatedAt: new Date().toISOString(),
-      ...(has("score") ? {project: SHARE.project} : {}),
-      score: SHARE.score,
+      ...(has("score") ? {project: SHARE.project, score: SHARE.score} : {}),
+      ...(SHARE.scope ? {scope: SHARE.scope} : {}),
       summary: counts,
       sections: picked,
       includeCode: includeCode && findings.length > 0,

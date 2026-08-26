@@ -37,10 +37,7 @@ export const ShareScreen = ({
 	targetPath,
 	version,
 }: ShareScreenProps): React.JSX.Element => {
-	const sections = useMemo(
-		() => enumerateShareSections(result, moduleGraph()),
-		[moduleGraph, result]
-	);
+	const sections = useMemo(() => enumerateShareSections(result), [result]);
 	const [rows, setRows] = useState<ShareRow[]>(() => [
 		...sections.map((section) => ({
 			checked: true,

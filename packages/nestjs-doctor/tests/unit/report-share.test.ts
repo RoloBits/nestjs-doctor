@@ -83,20 +83,18 @@ function resultWith(diagnostics: Diagnostic[]): DiagnoseResult {
 }
 
 describe("enumerateShareSections", () => {
-	const noGraph = undefined;
-
 	it("always offers the score and only categories that have findings", () => {
 		const sections = enumerateShareSections(
-			resultWith([code({}), schemaIssue("schema")]),
-			noGraph
+			resultWith([code({}), schemaIssue("schema")])
 		);
 
 		expect(sections.map((section) => section.id)).toEqual([
 			SCORE_SECTION,
 			"findings:security",
 			"findings:schema",
+			MODULES_SECTION,
 		]);
-		expect(sections.map((section) => section.count)).toEqual([55, 1, 1]);
+		expect(sections.map((section) => section.count)).toEqual([55, 1, 1, 1]);
 	});
 
 	it("offers endpoints only when the result has them", () => {
@@ -117,7 +115,7 @@ describe("enumerateShareSections", () => {
 				},
 			],
 		};
-		expect(enumerateShareSections(withEndpoints, noGraph)).toEqual([
+		expect(enumerateShareSections(withEndpoints)).toEqual([
 			{
 				id: SCORE_SECTION,
 				count: 55,
@@ -128,11 +126,17 @@ describe("enumerateShareSections", () => {
 				count: 1,
 				label: "HTTP endpoints",
 			},
+			{
+				id: MODULES_SECTION,
+				count: 1,
+				label: "Module graph",
+			},
 		]);
 	});
 
-	it("offers schema and modules when the result carries them", () => {
+	it("offers schema and modules without touching any graph", () => {
 		const result = resultWith([]);
+		result.project.moduleCount = 0;
 		result.schema = {
 			entities: [
 				{
@@ -147,32 +151,16 @@ describe("enumerateShareSections", () => {
 			relations: [],
 		};
 
-		const bare = enumerateShareSections(result, noGraph);
+		const bare = enumerateShareSections(result);
 		expect(bare.map((section) => section.id)).toEqual([
 			SCORE_SECTION,
 			SCHEMA_SECTION,
 		]);
 
-		const graph = {
-			bootstrapRoots: [],
-			circularDepRecommendations: {},
-			circularDeps: [],
-			edges: [],
-			modules: [
-				{
-					controllers: [],
-					exports: [],
-					filePath: "/repo/src/app.module.ts",
-					imports: [],
-					name: "AppModule",
-					providers: [],
-				},
-			],
-			projects: [],
-		};
-		expect(
-			enumerateShareSections(result, graph).map((section) => section.id)
-		).toEqual([SCORE_SECTION, SCHEMA_SECTION, MODULES_SECTION]);
+		result.project.moduleCount = 3;
+		expect(enumerateShareSections(result).map((section) => section.id)).toEqual(
+			[SCORE_SECTION, SCHEMA_SECTION, MODULES_SECTION]
+		);
 	});
 });
 
@@ -213,7 +201,7 @@ describe("buildSharedReport", () => {
 		expect(shared?.findings[0].filePath).toBe("src/deep/a.service.ts");
 	});
 
-	it("drops project info when the score section is not picked", () => {
+	it("drops score and project info when the score section is not picked", () => {
 		const shared = buildSharedReport(
 			resultWith([code({})]),
 			{ includeCode: false, sections: ["findings:security"] },
@@ -222,7 +210,31 @@ describe("buildSharedReport", () => {
 		);
 
 		expect(shared?.project).toBeUndefined();
-		expect(shared?.score).toEqual({ value: 55, label: "Needs work" });
+		expect(shared?.score).toBeUndefined();
+	});
+
+	it("carries the scan scope so a narrowed share reads as narrowed", () => {
+		const result = resultWith([code({})]);
+		result.scope = { changedFiles: 1, mode: "changed" };
+
+		const shared = buildSharedReport(
+			result,
+			{ includeCode: false, sections: ["findings:security"] },
+			"1.2.3",
+			"/repo"
+		);
+
+		expect(shared?.scope).toEqual(result.scope);
+		expect(
+			buildSharedReport(
+				resultWith([]),
+				{
+					includeCode: false,
+					sections: [SCORE_SECTION],
+				},
+				"1.2.3"
+			)?.scope
+		).toBeUndefined();
 	});
 
 	it("never shares diagnostics outside the cli surface", () => {

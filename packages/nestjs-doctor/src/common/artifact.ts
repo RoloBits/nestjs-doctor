@@ -18,7 +18,8 @@ import type {
 
 /**
  * Version of the report artifact shape. Bump when a field changes meaning;
- * consumers narrow on this literal after checking it.
+ * additive fields do not bump. Consumers narrow on this literal after
+ * checking it.
  */
 export const REPORT_ARTIFACT_VERSION = 1;
 

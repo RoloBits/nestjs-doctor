@@ -82,12 +82,10 @@ export function parseShareSections(
 
 /**
  * The sections a result can offer, derived from its content so every
- * surface's picker shows only what exists.
+ * surface's picker shows only what exists. Reads nothing but the result,
+ * so callers never build the report artifact just to list sections.
  */
-export function enumerateShareSections(
-	result: DiagnoseResult,
-	graph?: SerializedModuleGraph
-): ShareSection[] {
+export function enumerateShareSections(result: DiagnoseResult): ShareSection[] {
 	const sections: ShareSection[] = [
 		{
 			id: SCORE_SECTION,
@@ -124,7 +122,7 @@ export function enumerateShareSections(
 			label: "Relational schema",
 		});
 	}
-	const moduleCount = graph?.modules.length ?? 0;
+	const moduleCount = result.project.moduleCount;
 	if (moduleCount > 0) {
 		sections.push({
 			id: MODULES_SECTION,
@@ -241,7 +239,7 @@ export function buildShareManifest(
 			findingsByCategory[category] = slice;
 		}
 	}
-	const sections = enumerateShareSections(result, options.graph);
+	const sections = enumerateShareSections(result);
 	const endpoints = sliceEndpoints(result);
 	const schema = sliceSchema(result, relativePath);
 	const modules = options.graph
@@ -253,6 +251,7 @@ export function buildShareManifest(
 		project: result.project,
 		sections,
 		score: result.score,
+		...(result.scope ? { scope: result.scope } : {}),
 		version: SHARED_REPORT_VERSION,
 		...(endpoints.length > 0 ? { endpoints } : {}),
 		...(schema ? { schema } : {}),
@@ -319,11 +318,13 @@ export function mergeShareSlices(
 		generator: options.generator,
 		includeCode: options.includeCode && findings.length > 0,
 		schemaIssues,
-		score: manifest.score,
 		sections: options.sections,
 		summary,
 		version: manifest.version,
-		...(has(SCORE_SECTION) ? { project: manifest.project } : {}),
+		...(has(SCORE_SECTION)
+			? { project: manifest.project, score: manifest.score }
+			: {}),
+		...(manifest.scope ? { scope: manifest.scope } : {}),
 		...(has(ENDPOINTS_SECTION) && manifest.endpoints
 			? { endpoints: manifest.endpoints }
 			: {}),
@@ -338,8 +339,7 @@ export function mergeShareSlices(
 
 /**
  * A shareable slice of a result, built by the same manifest the report page
- * assembles from. The score is carried over untouched: it measures the whole
- * project whatever the shared subset is.
+ * assembles from.
  */
 export function buildSharedReport(
 	result: DiagnoseResult,
