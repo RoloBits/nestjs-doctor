@@ -1,6 +1,5 @@
 import { performance } from "node:perf_hooks";
 import type { ReportProvider, SourceInclusion } from "../common/artifact.js";
-import { collectEntryModules } from "../engine/graph/entry-points.js";
 import {
 	detachModuleGraph,
 	type ModuleGraph,
@@ -23,7 +22,7 @@ import {
 } from "../engine/scanner.js";
 import { scanTelemetryEnabled } from "../telemetry/send.js";
 import { spinner } from "../ui/spinner.js";
-import { buildReportArtifact, toReportProvider } from "./artifact.js";
+import { buildReportArtifact, collectScanFacts } from "./artifact.js";
 import { buildHtmlReport } from "./html-report.js";
 import type { BootstrapTimings } from "./timings.js";
 
@@ -141,19 +140,19 @@ export class SingleProjectReportPipeline extends ReportPipeline {
 	generateHtml(): this {
 		this.steps.push(() => {
 			const { moduleGraph, result, files, providers } = this._scanResult;
+			const facts = collectScanFacts({
+				astProject: this.context.astProject,
+				files,
+				moduleGraph,
+				providers,
+			});
 			this._html = buildHtmlReport(
 				buildReportArtifact({
 					moduleGraph,
 					result,
 					files,
-					bootstrapRoots: [
-						...collectEntryModules(this.context.astProject, files, moduleGraph),
-					],
-					providers: [...providers.values()].map((provider) =>
-						toReportProvider(provider, {
-							module: moduleGraph.providerToModule.get(provider.name)?.name,
-						})
-					),
+					bootstrapRoots: facts.bootstrapRoots,
+					providers: facts.providers,
 					sources: this.sources,
 					timings: this.timings,
 					version: this.version,
@@ -212,24 +211,9 @@ export class MonorepoReportPipeline extends ReportPipeline {
 				this.monorepo,
 				async (name, context: AnalysisContext) => {
 					this.allFiles.push(...context.files);
-					for (const root of collectEntryModules(
-						context.astProject,
-						context.files,
-						context.moduleGraph
-					)) {
-						this.bootstrapRoots.push(`${name}/${root}`);
-					}
-					for (const provider of context.providers.values()) {
-						const owner = context.moduleGraph.providerToModule.get(
-							provider.name
-						);
-						this.allProviders.push(
-							toReportProvider(provider, {
-								project: name,
-								module: owner ? `${name}/${owner.name}` : undefined,
-							})
-						);
-					}
+					const facts = collectScanFacts({ ...context, projectName: name });
+					this.bootstrapRoots.push(...facts.bootstrapRoots);
+					this.allProviders.push(...facts.providers);
 					const scanResult = buildResult(context, await diagnose(context));
 					return {
 						...scanResult,

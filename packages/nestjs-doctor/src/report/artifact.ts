@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import type { Project } from "ts-morph";
 import {
 	REPORT_ARTIFACT_VERSION,
 	type ReportArtifact,
@@ -8,6 +9,7 @@ import {
 import { forSurface } from "../common/diagnostic.js";
 import type { DiagnoseResult } from "../common/result.js";
 import type { SerializedSchemaGraph } from "../common/schema.js";
+import { collectEntryModules } from "../engine/graph/entry-points.js";
 import type { ModuleGraph } from "../engine/graph/module-graph.js";
 import type { ProviderInfo } from "../engine/graph/type-resolver.js";
 import { getRuleExamples } from "./data/examples.js";
@@ -20,7 +22,7 @@ const EMPTY_SCHEMA: SerializedSchemaGraph = {
 	orm: "",
 };
 
-export function toReportProvider(
+function toReportProvider(
 	provider: ProviderInfo,
 	owner?: { module?: string; project?: string }
 ): ReportProvider {
@@ -32,6 +34,38 @@ export function toReportProvider(
 		scope: provider.scope,
 		module: owner?.module,
 		project: owner?.project,
+	};
+}
+
+interface ScanFactsInput {
+	astProject: Project;
+	files: string[];
+	moduleGraph: ModuleGraph;
+	projectName?: string;
+	providers: Map<string, ProviderInfo>;
+}
+
+/**
+ * The facts a scan yields for a report: bootstrap entry roots and mapped
+ * providers, prefixed with the project name in monorepo mode.
+ */
+export function collectScanFacts(input: ScanFactsInput): {
+	bootstrapRoots: string[];
+	providers: ReportProvider[];
+} {
+	const projectName = input.projectName || undefined;
+	const prefix = projectName ? `${projectName}/` : "";
+	return {
+		bootstrapRoots: [
+			...collectEntryModules(input.astProject, input.files, input.moduleGraph),
+		].map((root) => `${prefix}${root}`),
+		providers: [...input.providers.values()].map((provider) => {
+			const owner = input.moduleGraph.providerToModule.get(provider.name);
+			return toReportProvider(provider, {
+				module: owner ? `${prefix}${owner.name}` : undefined,
+				project: projectName,
+			});
+		}),
 	};
 }
 
