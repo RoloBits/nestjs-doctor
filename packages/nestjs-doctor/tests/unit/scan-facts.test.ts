@@ -159,4 +159,20 @@ describe("collectScanFacts", () => {
 		expect(facts.providers[1].module).toBeUndefined();
 		expect(facts.providers[1].project).toBeUndefined();
 	});
+
+	it("treats an empty project name as single-project mode", () => {
+		const { astProject, graph, providers } = fixture();
+
+		const facts = collectScanFacts({
+			astProject,
+			files: [],
+			moduleGraph: graph,
+			projectName: "",
+			providers,
+		});
+
+		expect(facts.bootstrapRoots).toEqual(["AppModule"]);
+		expect(facts.providers[0].module).toBe("UsersModule");
+		expect(facts.providers[0].project).toBeUndefined();
+	});
 });

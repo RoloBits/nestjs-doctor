@@ -53,7 +53,8 @@ export function collectScanFacts(input: ScanFactsInput): {
 	bootstrapRoots: string[];
 	providers: ReportProvider[];
 } {
-	const prefix = input.projectName ? `${input.projectName}/` : "";
+	const projectName = input.projectName || undefined;
+	const prefix = projectName ? `${projectName}/` : "";
 	return {
 		bootstrapRoots: [
 			...collectEntryModules(input.astProject, input.files, input.moduleGraph),
@@ -62,7 +63,7 @@ export function collectScanFacts(input: ScanFactsInput): {
 			const owner = input.moduleGraph.providerToModule.get(provider.name);
 			return toReportProvider(provider, {
 				module: owner ? `${prefix}${owner.name}` : undefined,
-				project: input.projectName,
+				project: projectName,
 			});
 		}),
 	};
