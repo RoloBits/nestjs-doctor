@@ -8,6 +8,15 @@ import {
 
 const IMPLEMENTATION_KEYS = ["useClass", "useExisting"];
 
+export function isTestFile(filePath: string): boolean {
+	return (
+		filePath.includes(".spec.") ||
+		filePath.includes(".test.") ||
+		filePath.includes("__test__") ||
+		filePath.includes("__tests__")
+	);
+}
+
 function declarationsOf(node: Node): Node[] {
 	const identifier =
 		node.asKind(SyntaxKind.Identifier) ??

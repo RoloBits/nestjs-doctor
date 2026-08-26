@@ -1,6 +1,7 @@
 import {
 	collectCustomProviderClasses,
 	collectExtendedClasses,
+	isTestFile,
 } from "../../../graph/custom-providers.js";
 import { INFRA_SUFFIXES } from "../../constants.js";
 import type { ProjectRule } from "../../types.js";
@@ -18,12 +19,6 @@ export const injectableMustBeProvided: ProjectRule = {
 	},
 
 	check(context) {
-		const isTestFile = (filePath: string): boolean =>
-			filePath.includes(".spec.") ||
-			filePath.includes(".test.") ||
-			filePath.includes("__test__") ||
-			filePath.includes("__tests__");
-
 		// Collect all provider names registered in module metadata
 		const registeredProviders = new Set<string>();
 		for (const mod of context.moduleGraph.modules.values()) {

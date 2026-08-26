@@ -109,6 +109,28 @@ describe("collectCustomProviderClasses", () => {
 		);
 	});
 
+	it("terminates on circular factory indirection and still collects", () => {
+		const { constructedClasses } = collect({
+			"a.ts": `
+        import { getCycleB } from './b';
+        export class PingService {}
+        export function cycleA() { return new PingService(getCycleB()); }
+      `,
+			"b.ts": `
+        import { cycleA } from './a';
+        export function getCycleB() { return cycleA(); }
+      `,
+			"providers.ts": `
+        import { getCycleB } from './b';
+        export const provider = { provide: 'CYCLE', useFactory: getCycleB };
+      `,
+		});
+
+		expect(
+			new Set([...constructedClasses].map((cls) => cls.getName()))
+		).toEqual(new Set(["PingService"]));
+	});
+
 	it("requires provide, ignores unresolved classes, and keeps declaration identity", () => {
 		const { constructedClasses, project } = collect({
 			"a.ts": "export class DuplicateService {}",

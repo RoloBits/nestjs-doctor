@@ -2,6 +2,7 @@ import type { ClassDeclaration } from "ts-morph";
 import {
 	collectCustomProviderClasses,
 	collectExtendedClasses,
+	isTestFile,
 } from "../../../graph/custom-providers.js";
 import { isController } from "../../../nest-class-inspector.js";
 import { INFRA_SUFFIXES } from "../../constants.js";
@@ -132,11 +133,15 @@ export const noUnusedProviders: ProjectRule = {
 		}
 
 		// Custom-provider targets and base classes are in use without being injected.
+		// Test files are left out so a spec cannot exempt a production provider.
+		const productionFiles = context.files.filter(
+			(filePath) => !isTestFile(filePath)
+		);
 		const customProviderClasses = collectCustomProviderClasses(
 			context.project,
-			context.files
+			productionFiles
 		);
-		const extended = collectExtendedClasses(context.project, context.files);
+		const extended = collectExtendedClasses(context.project, productionFiles);
 
 		for (const provider of context.providers.values()) {
 			const name = provider.name;

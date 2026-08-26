@@ -484,6 +484,32 @@ describe("factory provider consumers", () => {
 			)
 		).toHaveLength(0);
 	});
+
+	it("no-unused-providers ignores factories declared in test files", () => {
+		const diags = runProjectRule(noUnusedProviders, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { MailerService } from './mailer.service';
+        @Module({ providers: [MailerService] })
+        export class AppModule {}
+      `,
+			"mailer.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable() export class MailerService {}
+      `,
+			"mailer.service.spec.ts": `
+        import { MailerService } from './mailer.service';
+        const provider = {
+          provide: 'MAILER',
+          useFactory: () => new MailerService(),
+        };
+      `,
+		});
+
+		expect(
+			diags.filter((d) => d.message.includes("MailerService"))
+		).toHaveLength(1);
+	});
 });
 
 describe("no-orphan-modules", () => {
