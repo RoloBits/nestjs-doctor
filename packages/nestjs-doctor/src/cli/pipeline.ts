@@ -1,6 +1,4 @@
-import { stat } from "node:fs/promises";
 import { performance } from "node:perf_hooks";
-import { Worker } from "node:worker_threads";
 import type { ReportArtifact, ReportProvider } from "../common/artifact.js";
 import type { Diagnostic } from "../common/diagnostic.js";
 import type { DiagnoseResult } from "../common/result.js";
@@ -12,7 +10,6 @@ import {
 import { pruneCrossProjectOrphans } from "../engine/orphan-prune.js";
 import type { MonorepoInfo } from "../engine/project-detector.js";
 import { withScopedDiagnostics } from "../engine/result-builder.js";
-import { allRules } from "../engine/rules/index.js";
 import {
 	type AnalysisContext,
 	type AnalysisPhase,
@@ -35,14 +32,7 @@ import {
 } from "../engine/scope.js";
 import { buildReportArtifact, collectScanFacts } from "../report/artifact.js";
 import { buildHtmlReport } from "../report/html-report.js";
-import { getEcosystem, resetEcosystem } from "../telemetry/ecosystem.js";
-import { actionContext, generatedIn } from "../telemetry/environment.js";
-import { resolveIdentity } from "../telemetry/install-id.js";
-import {
-	buildScanPayload,
-	readConfigFacts,
-} from "../telemetry/scan-telemetry.js";
-import { scanTelemetryEnabled, sendScanTelemetry } from "../telemetry/send.js";
+import { resetEcosystem } from "../telemetry/ecosystem.js";
 import { logger } from "../ui/logger.js";
 import {
 	printConsoleReport,
@@ -54,11 +44,22 @@ import {
 	outputMonorepoResults,
 	outputSingleProjectResults,
 } from "./output.js";
+import type { ScanOutcome, ScanWorkerRequest } from "./worker-delegate.js";
 import {
-	type PipelineOptions,
-	type ScanOptions,
-	toScanOptions,
-} from "./setup.js";
+	canDelegateToWorker,
+	runInWorker,
+	setWorkerUrl as storeWorkerUrl,
+} from "./worker-delegate.js";
+
+// ScanOutcome lives in worker-delegate.ts; nothing imported it from here.
+export type {
+	ScanWorkerMessage,
+	ScanWorkerRequest,
+} from "./worker-delegate.js";
+
+import { watchCancellation } from "./cancellation-watcher.js";
+import { reportScanTelemetry } from "./scan-telemetry-reporter.js";
+import { type PipelineOptions, toScanOptions } from "./setup.js";
 import { createAnimatedProgress } from "./ui/animated-progress.js";
 
 type PipelineStep = () => void | Promise<void>;
@@ -82,48 +83,6 @@ export interface InteractiveArtifacts {
 	/** Per-project results in a monorepo, for the score screen's breakdown. */
 	subProjects?: { name: string; result: DiagnoseResult }[];
 }
-
-/** Main → scan worker. Everything the engine middle needs. */
-export interface ScanWorkerRequest {
-	kind: "monorepo" | "single";
-	monorepo?: MonorepoInfo;
-	options: ScanOptions;
-	targetPath: string;
-	version: string;
-}
-
-/** Worker → main. Progress ticks, then one outcome or one failure. */
-export type ScanWorkerMessage =
-	| { kind: "progress"; label: string; done?: number; total?: number }
-	| { kind: "outcome"; outcome: ScanOutcome }
-	| { kind: "error"; message: string };
-
-/** Everything the engine steps produced, in transferable data. */
-export type ScanOutcome =
-	| {
-			kind: "monorepo";
-			customRuleWarnings: string[];
-			moduleGraphs: MonorepoEngineResult["moduleGraphs"];
-			result: MonorepoEngineResult["result"];
-			reportProviders: ReportProvider[];
-			bootstrapRoots: string[];
-			allFiles: string[];
-			subProjectOptOut: boolean;
-			scopeWarnings: string[];
-			resolvedMinimumScore?: number;
-	  }
-	| {
-			kind: "single";
-			customRuleWarnings: string[];
-			files: string[];
-			moduleGraph: EngineResult["moduleGraph"];
-			reportProviders: ReportProvider[];
-			bootstrapRoots: string[];
-			result: DiagnoseResult;
-			schemaGraph: EngineResult["schemaGraph"];
-			scopeWarnings: string[];
-			resolvedMinimumScore?: number;
-	  };
 
 const displayCustomRuleWarnings = (
 	warnings: string[],
@@ -179,52 +138,18 @@ abstract class ScanPipeline {
 		fileCount: number,
 		monorepo: boolean
 	): void {
-		if (
-			this.subProjectOptOut ||
-			!scanTelemetryEnabled(this.options.telemetry, this.scanConfig?.config)
-		) {
-			return;
-		}
-		try {
-			const identity = resolveIdentity(this.targetPath);
-			const enabled = new Set(
-				[
-					...this.scanConfig.fileRules,
-					...this.scanConfig.projectRules,
-					...this.scanConfig.schemaRules,
-				].map((rule) => rule.meta.id)
-			);
-			sendScanTelemetry(
-				buildScanPayload({
-					action: actionContext(),
-					blocking: this.options.blocking,
-					config: readConfigFacts(this.scanConfig.config),
-					customRulesLoaded: this.scanConfig.combinedRules.filter((rule) =>
-						rule.meta.id.startsWith("custom/")
-					).length,
-					diagnostics,
-					disabledRuleIds: allRules
-						.map((rule) => rule.meta.id)
-						.filter((id) => !enabled.has(id)),
-					ecosystem: getEcosystem(),
-					elapsedMs: result.elapsedMs,
-					fileCount,
-					framework: result.project.framework,
-					monorepo,
-					nestVersion: result.project.nestVersion,
-					orm: result.project.orm,
-					projectId: identity.projectId,
-					ruleErrors: result.ruleErrors,
-					scopeRequested: this.options.scope,
-					score: result.score,
-					source: generatedIn(),
-					version: getCliVersion(),
-				}),
-				identity.anonymousId
-			);
-		} catch {
-			// Reporting never breaks a scan.
-		}
+		reportScanTelemetry({
+			blocking: this.options.blocking,
+			diagnostics,
+			fileCount,
+			monorepo,
+			optionsTelemetry: this.options.telemetry,
+			result,
+			scanConfig: this.scanConfig,
+			scopeRequested: this.options.scope,
+			subProjectOptOut: this.subProjectOptOut,
+			targetPath: this.targetPath,
+		});
 	}
 
 	abstract applyScope(): this;
@@ -352,76 +277,27 @@ abstract class ScanPipeline {
 	}
 
 	/** Location of the scan worker entry, injected by the CLI. */
-	private static workerUrl: URL | null = null;
-
 	static setWorkerUrl(url: URL | null): void {
-		ScanPipeline.workerUrl = url;
+		storeWorkerUrl(url);
 	}
 
 	/** Injected by the CLI entry; null until then. */
-	protected async canDelegate(): Promise<boolean> {
-		if (!this.options.interactive || this.options.isMachineReadable) {
-			return false;
-		}
-		if (this.outputStep === null || ScanPipeline.workerUrl === null) {
-			return false;
-		}
-		try {
-			await stat(ScanPipeline.workerUrl);
-			return true;
-		} catch {
-			return false;
-		}
+	protected canDelegate(): Promise<boolean> {
+		return canDelegateToWorker({
+			hasOutputStep: this.outputStep !== null,
+			interactive: this.options.interactive,
+			isMachineReadable: this.options.isMachineReadable,
+		});
 	}
 
 	protected runViaWorker(
 		request: ScanWorkerRequest,
 		apply: (outcome: ScanOutcome) => void
 	): Promise<void> {
-		return new Promise((resolve, reject) => {
-			const url = ScanPipeline.workerUrl;
-			if (!url) {
-				reject(new Error("scan worker is not available"));
-				return;
-			}
-			let settled = false;
-			const worker = new Worker(url, { workerData: request });
-			const finish = (error?: Error): void => {
-				if (settled) {
-					return;
-				}
-				settled = true;
-				// biome-ignore lint/suspicious/noEmptyBlockStatements: termination is best-effort once the promise is settled
-				worker.terminate().catch(() => {});
-				if (error) {
-					reject(error);
-				} else {
-					resolve();
-				}
-			};
-			worker.on("message", (message: ScanWorkerMessage) => {
-				if (message.kind === "progress") {
-					this.emitProgress(message.label, message.done, message.total);
-				} else if (message.kind === "outcome") {
-					try {
-						apply(message.outcome);
-					} catch (error) {
-						finish(error instanceof Error ? error : new Error(String(error)));
-						return;
-					}
-					finish();
-				} else {
-					finish(new Error(message.message));
-				}
-			});
-			worker.on("error", (error) => {
-				finish(error instanceof Error ? error : new Error(String(error)));
-			});
-			worker.on("exit", (code) => {
-				if (code !== 0) {
-					finish(new Error(`scan worker exited with code ${code}`));
-				}
-			});
+		return runInWorker(request, apply, {
+			emitProgress: (label, done, total) => {
+				this.emitProgress(label, done, total);
+			},
 		});
 	}
 
@@ -436,20 +312,7 @@ abstract class ScanPipeline {
 			logger.warn("Scan cancelled.");
 			process.exit(130);
 		};
-		const onInterrupt = (): void => {
-			cancel();
-		};
-		const onByte = (data: Buffer | string): void => {
-			if (
-				typeof data === "string" ? data.includes("\u0003") : data.includes(0x03)
-			) {
-				cancel();
-			}
-		};
-		process.on("SIGINT", onInterrupt);
-		if (process.stdin.isTTY) {
-			process.stdin.on("data", onByte);
-		}
+		const stopWatching = watchCancellation({ onInterrupt: cancel });
 		try {
 			if (await this.canDelegate()) {
 				try {
@@ -480,8 +343,7 @@ abstract class ScanPipeline {
 				await step();
 			}
 		} finally {
-			process.off("SIGINT", onInterrupt);
-			process.stdin?.off("data", onByte);
+			stopWatching();
 			this.stopProgress();
 		}
 	}
