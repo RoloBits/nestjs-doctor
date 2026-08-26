@@ -32,6 +32,11 @@ export const DOCS_PAGES: Record<string, PageCopy> = {
 		description:
 			"Overlay real per-class construction times on the report's module graph: the main.ts change that captures a NestJS boot, and how to read the result.",
 	},
+	"/docs/report/share": {
+		title: "Sharing a report",
+		description:
+			"Write part of a scan as JSON: pick the score, a findings category, the endpoints, the schema or the module graph, from the CLI, the post-scan menu, or the HTML report.",
+	},
 	"/docs/coding-agents": {
 		title: "Coding agents",
 		description:

@@ -40,6 +40,8 @@ Options:
   --report              Generate an interactive HTML report (--graph also works)
   --timings <path>      SerializedGraph dump to overlay bootstrap init times on the report
   --sources <mode>      How much source text the report carries: all (default), touched (only files with findings), none
+  --share-sections <csv> Write nestjs-doctor-shared.json beside the project with only these sections: score, endpoints, schema, modules, findings:<category>
+  --share-code          With --share-sections, include a few lines of code around each shared finding
   --config <p>          Path to config file
   --force               Overwrite an existing file (with ci install)
   --list-rules          List every built-in rule and exit
@@ -54,8 +56,10 @@ report-json, sarif, gitlab, and markdown formats.
 
 Exit codes: 0 = pass, 1 = a gate failed (min-score or blocking), 2 = bad input,
 130 = cancelled with Ctrl+C.
-`--report` writes HTML, so combining it with `--format`, `--json` or `--score`
-exits 2 rather than writing anything.
+`--report` writes HTML, so combining it with `--format`, `--json`, `--score` or
+`--share-sections` exits 2 rather than writing anything. `--share-sections` also
+refuses `--output`, and is ignored with a warning under `--score` and
+`--format report-json`.
 
 ## Scoping to a change
 
@@ -103,6 +107,31 @@ directives cannot silence either rule; use `ignore.rules`.
 The graph is decorator text, not a running app. Two `@Module()` classes with the same name in different directories collapse into one node outside a monorepo. A module produced only by a factory returning a `DynamicModule` never becomes an edge. `--report` ignores `--scope`, `--base`, `--staged`, `--min-score`, and `--blocking`, and always exits 0.
 
 Docs: https://nestjs.doctor/docs/report/module-graph
+
+## Sharing a slice
+
+`--share-sections` writes nestjs-doctor-shared.json beside the scanned project,
+carrying only the sections named: `score`, `endpoints`, `schema`, `modules`, and
+`findings:<category>` for security, performance, correctness, architecture, and
+schema. `schema` is the relational schema; `findings:schema` is what the schema
+rules reported. An unknown section exits 2. Sections with no content are skipped,
+and a run whose sections are all empty writes nothing and warns.
+
+`--share-code` adds a few lines of source around each shared finding; without it
+findings carry location and message only. File paths in the payload are relative
+to the scanned directory. The payload always carries version, generator,
+generatedAt, sections, summary, findings, schemaIssues and includeCode; project
+and score ride along only with the `score` section, scope only when the scan was
+narrowed, and endpoints, schema and modules only with theirs.
+
+The post-scan menu's "Share the report" action and the HTML report's share button
+write the same file, the second built in the browser. They differ in one way: the
+CLI and the menu share every finding on the `cli` surface, while the report's
+dialog also drops any finding whose surfaces omit `score`, which today means
+`correctness/no-async-without-await`, `correctness/prefer-readonly-injection` and
+`security/no-advisory-nestjs-packages`.
+
+Docs: https://nestjs.doctor/docs/report/share
 
 ## Boot trace
 

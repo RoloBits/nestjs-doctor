@@ -1,0 +1,119 @@
+import { BreadcrumbJsonLd } from "@/components/json-ld";
+import { docsMetadata } from "@/lib/docs-metadata";
+export const metadata = docsMetadata["/docs/report/share"];
+
+<BreadcrumbJsonLd path="/docs/report/share" />
+
+# Sharing a report
+
+A scan can write part of its result as JSON, so a teammate reads the parts that
+matter without the whole report. You pick the sections, and the file carries
+those and nothing else.
+
+Write one from the command line:
+
+```bash
+npx nestjs-doctor@latest . --share-sections score,findings:security
+```
+
+The file lands at `nestjs-doctor-shared.json` beside the scanned project. That
+path is fixed: `--share-sections` refuses `--output` and exits `2`, because the
+two would write over each other.
+
+## Sections
+
+| Section | Carries |
+|---|---|
+| `score` | The score and the project info behind it |
+| `findings:<category>` | Findings in one category: `security`, `performance`, `correctness`, `architecture`, `schema` |
+| `endpoints` | The traced HTTP routes, one entry per handler |
+| `schema` | The entities extracted from your ORM and their relations |
+| `modules` | The module graph: modules, edges, cycles, and bootstrap roots |
+
+`schema` and `findings:schema` are different sections. The first is the
+relational schema, the second is what the schema rules reported about it.
+
+An unknown section, an unknown category, or an empty list exits `2` and lists
+what is valid. A section with nothing behind it is skipped instead, and a run
+whose sections are all empty warns on stderr and writes no file.
+
+## Code snippets
+
+A shared finding carries its file, line, rule and message, never the source
+around it, unless you ask for it:
+
+```bash
+npx nestjs-doctor@latest . --share-sections findings:security --share-code
+```
+
+Each finding then carries a few lines of context. `--share-code` on its own is
+inert and silent, because there is no share for it to add them to.
+
+## From the menu and the report
+
+A console scan in a terminal ends on the score screen, whose **Share the
+report** action opens the same picker: one checkbox per section with its count,
+one for code snippets, `enter` to save. It writes the same
+`nestjs-doctor-shared.json` beside the project. See
+[The menu](/docs/reference/cli#the-menu).
+
+The HTML report carries a **share** button in its nav. The dialog builds the
+file in the browser and downloads it, so a report someone mailed you shares
+without a scan and without a network request.
+
+## What the file holds
+
+| Key | Present |
+|---|---|
+| `version`, `generator`, `generatedAt` | Always |
+| `sections` | Always. The ids you picked |
+| `summary` | Always. Totals across the shared categories only |
+| `findings`, `schemaIssues` | Always, possibly empty |
+| `includeCode` | Always. True only when code snippets were asked for and a finding carried them |
+| `project`, `score` | Only with the `score` section |
+| `scope` | Only when the scan was narrowed, so a thin share reads as narrowed |
+| `endpoints`, `schema`, `modules` | Only with that section, and only when it had content |
+
+File paths inside are relative to the scanned directory, so the file names no
+absolute path from your machine. The module graph is stripped of boot timings.
+
+Both gates run after the file is written, so a run that fails `--min-score` or
+`--blocking` still leaves the share behind.
+
+## Which findings reach the file
+
+`--share-sections` and the menu share every finding the console reported,
+meaning every finding on the `cli` surface. The report's share button is
+stricter: it drops any finding that does not also carry the `score` surface,
+and offers no row for a category whose findings are all dropped.
+
+Three built-in rules differ between the two, along with anything a `surfaces`
+override narrows:
+
+| Rule | Surfaces |
+|---|---|
+| `correctness/no-async-without-await` | `cli` |
+| `correctness/prefer-readonly-injection` | `cli` |
+| `security/no-advisory-nestjs-packages` | `cli`, `prComment` |
+
+A project whose only correctness findings come from those two rules offers no
+correctness row in the report's dialog, while `--share-sections
+findings:correctness` writes them. See
+[Findings that do not score](/docs/report#findings-that-do-not-score) and
+[Surfaces](/docs/custom-rules#surfaces).
+
+## What it does not combine with
+
+| Flag | Result |
+|---|---|
+| `--output` | Exits `2`. The path is not configurable |
+| `--report` | Exits `2`. `--report` writes HTML instead of a payload |
+| `--score` | Warns on stderr, writes nothing, continues at `0` |
+| `--format report-json` | Warns on stderr, writes nothing, continues at `0` |
+
+Every other format runs the share alongside its own output. The notice naming
+the written file goes to stderr, so a piped payload stays parseable:
+
+```bash
+npx nestjs-doctor@latest . --format json --share-sections score | jq .score
+```

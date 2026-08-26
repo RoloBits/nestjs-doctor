@@ -67,17 +67,20 @@ compares against the base revision rather than the file list.
 | `--report` | Build the interactive HTML report. `--graph` is an alias |
 | `--timings <path>` | Overlay boot timings on the report's module graph; with `--format report-json`, embeds them in the artifact. See [Boot trace](/docs/report/boot-trace) |
 | `--sources <mode>` | How much source text the report carries: `all` (default), `touched` (only files with findings), `none` |
+| `--share-sections <csv>` | Write a shareable slice as `nestjs-doctor-shared.json`. See [Sharing a report](/docs/report/share) |
+| `--share-code` | With `--share-sections`, include a few lines of code around each shared finding |
 
-`--format report-json` writes the same document the HTML report embeds — score,
-findings, module graph, providers, endpoints, schema, rule examples, and source
-text — as versioned JSON for another tool to load. It writes
+`--format report-json` writes the same document the HTML report embeds, as
+versioned JSON for another tool to load: the score, findings, module graph,
+providers, endpoints, schema, rule examples, source text, and the slices behind
+[Sharing a report](/docs/report/share). It writes
 `nestjs-doctor-report.json` beside the scanned project, or wherever `--output`
 points, and replaces the console report. The HTML report and the JSON artifact
 are built from that one document, so they always agree.
 
 `--report` writes HTML rather than a payload, so it refuses to share a run with
-`--format`, `--json` or `--score`. Any of those combinations exits `2` and names
-the flag. Run them as separate commands.
+`--format`, `--json`, `--score` or `--share-sections`. Any of those combinations
+exits `2` and names the flag. Run them as separate commands.
 
 Only the payload goes to stdout, so a machine-readable one stays parseable.
 Warnings print on stderr.
@@ -92,8 +95,12 @@ either stream.
 A console scan in a terminal ends on a score screen: the nest, the score with
 its bar, the severity counts, and a short action menu. Review the findings,
 open the HTML report, hand off to a coding agent, scaffold the GitHub Actions
-workflow when it is missing, or copy the findings as markdown. Everything comes
-from the scan that just ran, so nothing is scanned twice.
+workflow when it is missing, copy the findings as markdown, or share a slice of
+the report. Everything comes from the scan that just ran, so nothing is scanned
+twice.
+
+**Share the report** opens a checkbox picker over the sections the scan
+produced. See [Sharing a report](/docs/report/share).
 
 In a monorepo the breakdown is a two-pane browser. Sub-projects list worst score
 first. The left pane is the scrollable project list, and the right pane is the
