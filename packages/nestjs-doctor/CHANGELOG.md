@@ -1,5 +1,56 @@
 # nestjs-doctor
 
+## 0.9.1
+
+### Patch Changes
+
+- e840d6d: Internal refactor, no behavior change: the report layer no longer imports
+  from the CLI layer, and the shared types in `common/` no longer import
+  from `report/` or `engine/`. UI helpers (`logger`, `highlighter`,
+  `spinner`) moved from `src/cli/ui/` to `src/ui/`; timing types and
+  `RuleScope` now live in `src/common/`. Types that still had importers at
+  their old homes are re-exported from there.
+- b0bc3c2: Fixes CI classification in telemetry for both the CLI and the language server. A shared `ci.<provider>` identity is now minted only when a known provider variable matches; a bare `CI` env var keeps the personal install id (the CLI records `ci_provider: "unknown"`) instead of merging the run into an anonymous machine pool. The provider table expands from 6 to 34 systems (TeamCity, Azure Pipelines, Bitbucket Pipelines, CodeBuild, Drone, Render, and others), so automated runners that set none of the previous variables are no longer counted as individual users.
+- 2097f58: Stop `injectable-must-be-provided` and `no-unused-providers` reporting local
+  classes constructed by custom `useFactory` and `useValue` providers. Both rules
+  now derive custom-provider facts from production files only.
+- 6372d3c: Interactive scans run the engine in a worker thread, so the spinner and the progress bar animate continuously instead of freezing while the scan works. The bar eases toward each new count and phase labels wipe in rather than jump, and the parse, module graph, provider, and guard-index passes yield to the event loop in smaller batches. CI and machine-readable runs scan in-process exactly as before, and a worker failure falls back to the in-process scan.
+
+  The score screen's sub-project list is now a two-pane browser: the list is ordered worst score first, the view scrolls with the selection, left/right switches between the projects and the action menu, and a right panel shows the selected project's score, counts, and worst rules. Single-project scans render exactly as before.
+
+- 961edce: Stop `schema/require-primary-key` reporting MikroORM entities whose primary
+  key is declared through relations, via `primary: true` on `@ManyToOne` or
+  `@OneToOne` (composite pivot tables, shared 1:1 keys).
+- 71c7368: Stop `architecture/no-manual-instantiation` reporting instances created by
+  custom provider factories, values, dynamic module options, and module-scope
+  composition helpers.
+- 64c83fd: Internal refactor, no behavior change: the scan pipeline's cancellation
+  watching, worker-thread delegation, and telemetry reporting moved from
+  methods on the pipeline base class into their own modules
+  (src/cli/cancellation-watcher.ts, src/cli/worker-delegate.ts,
+  src/cli/scan-telemetry-reporter.ts), each covered by its own tests.
+- c447f85: Report artifact: `--format report-json` writes the document the HTML report
+  embeds — score, findings, summary, module graph, providers, endpoints, schema,
+  rule examples, and source text — as versioned JSON (`schemaVersion: 1`) for
+  another tool to load. It writes `nestjs-doctor-report.json` beside the scanned
+  project or wherever `--output` points, and `--timings` now works with it.
+
+  The new `--sources` flag controls how much source text a report carries:
+  `all` (default), `touched` (only files with findings), or `none`. It applies to
+  both the HTML report and the artifact.
+
+  The Node API exports `ReportArtifact`, `REPORT_ARTIFACT_VERSION`, its
+  sub-types, and `buildReportArtifact`.
+
+- a32085a: Internal refactor, no behavior change: the report facts each scan yields
+  (bootstrap entry roots and mapped providers) are now collected by one
+  shared function instead of four hand-copied loops across the CLI and
+  report pipelines.
+- abc731f: Internal refactor, no behavior change: the scan worker now receives only
+  the options the engine steps read (ScanOptions) instead of the full CLI
+  options object, and the defensive re-sanitization on both sides of the
+  worker boundary is gone.
+
 ## 0.9.0
 
 ### Highlights
