@@ -1,5 +1,5 @@
 ---
-"nestjs-doctor": minor
+"nestjs-doctor": patch
 ---
 
 Report artifact: `--format report-json` writes the document the HTML report
