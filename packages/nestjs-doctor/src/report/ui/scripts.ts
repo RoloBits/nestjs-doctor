@@ -6477,7 +6477,7 @@ switchTab("summary");
     for (var i = 0; i < SHARE_CATS.length; i++) {
       var cat = SHARE_CATS[i], n = 0;
       for (var j = 0; j < diagnostics.length; j++) {
-        if (diagnostics[j].category === cat) n++;
+        if (diagnostics[j].category === cat && !diagIsNotScored(diagnostics[j])) n++;
       }
       if (n > 0) secs.push({id: "findings:" + cat, label: "Findings \\u00b7 " + cat, count: n});
     }
@@ -6494,7 +6494,7 @@ switchTab("summary");
     }
     var pickedDiags = [];
     for (var j = 0; j < diagnostics.length; j++) {
-      if (cats[diagnostics[j].category]) pickedDiags.push(diagnostics[j]);
+      if (cats[diagnostics[j].category] && !diagIsNotScored(diagnostics[j])) pickedDiags.push(diagnostics[j]);
     }
     var findings = [];
     var schemaIssues = [];
@@ -6530,7 +6530,7 @@ switchTab("summary");
       version: SHARE_VERSION,
       generator: REPORT.generator,
       generatedAt: new Date().toISOString(),
-      project: REPORT.project,
+      ...(picked.indexOf("score") >= 0 ? {project: REPORT.project} : {}),
       score: REPORT.score,
       summary: counts,
       sections: picked,
