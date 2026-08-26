@@ -16,33 +16,48 @@ import {
 import { validateMinScoreArg } from "./min-score.js";
 import { validateTargetPathArg } from "./target-path.js";
 
-export interface PipelineOptions {
+/** Fields the engine steps read, wherever the scan runs — safe to post to a worker. */
+export interface ScanOptions {
 	base: string | undefined;
 	blocking: BlockingLevel;
 	changedFilesFrom: string | undefined;
 	configPath: string | undefined;
+	minScore: string | undefined;
+	scope: ScopeMode;
+	staged: boolean;
+	telemetry: boolean;
+}
+
+export interface PipelineOptions extends ScanOptions {
 	format: OutputFormat;
 	/** True when the run ends in the menu; set after setup from `canPrompt`. */
 	interactive: boolean;
 	isMachineReadable: boolean;
-	json: boolean;
 	jsonCompact: boolean;
-	minScore: string | undefined;
 	/** Worker-internal: receives the progress line instead of the local spinner. */
 	onProgress?: (label: string, done?: number, total?: number) => void;
 	outputPath: string | undefined;
-	scope: ScopeMode;
 	score: boolean;
 	/** Worker-internal: the worker never prints the report. */
 	skipOutput?: boolean;
 	/** How much source text the report artifact embeds. */
 	sources: SourceInclusion;
-	staged: boolean;
-	telemetry: boolean;
 	/** Parsed bootstrap dump, for the artifact's module-graph overlay. */
 	timings?: BootstrapTimings;
 	verbose: boolean;
 }
+
+/** Picks only the engine fields; an explicit literal so new options stay opt-in. */
+export const toScanOptions = (options: PipelineOptions): ScanOptions => ({
+	base: options.base,
+	blocking: options.blocking,
+	changedFilesFrom: options.changedFilesFrom,
+	configPath: options.configPath,
+	minScore: options.minScore,
+	scope: options.scope,
+	staged: options.staged,
+	telemetry: options.telemetry,
+});
 
 interface SetupContext {
 	options: PipelineOptions;
@@ -301,7 +316,6 @@ export class CliSetup {
 				format,
 				interactive: false,
 				isMachineReadable,
-				json: format === "json",
 				jsonCompact: this.args["json-compact"] ?? false,
 				minScore: this.args["min-score"],
 				outputPath: this.args.output,

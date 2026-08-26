@@ -30,7 +30,6 @@ const options = (format: PipelineOptions["format"]): PipelineOptions => ({
 	format,
 	interactive: false,
 	isMachineReadable: true,
-	json: false,
 	jsonCompact: false,
 	minScore: undefined,
 	outputPath: undefined,

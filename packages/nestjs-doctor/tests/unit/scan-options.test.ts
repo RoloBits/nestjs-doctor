@@ -1,0 +1,83 @@
+import { describe, expect, it } from "vitest";
+import { type PipelineOptions, toScanOptions } from "../../src/cli/setup.js";
+import type { BootstrapTimings } from "../../src/common/timings.js";
+
+const timings: BootstrapTimings = {
+	byModule: new Map([
+		[
+			"AppModule",
+			[{ id: "app", initTime: 3, name: "AppModule", type: "module" }],
+		],
+	]),
+	hooksByClass: new Map([["AppModule", [{ hook: "onModuleInit", ms: 5 }]]]),
+	phases: { initMs: 9 },
+	startupMs: 12,
+	trace: {
+		AppModule: { deps: [], initTime: 3, name: "AppModule", type: "module" },
+	},
+};
+
+const options = (over: Partial<PipelineOptions> = {}): PipelineOptions => ({
+	base: "main",
+	blocking: "error",
+	changedFilesFrom: "origin/main",
+	configPath: "nestjs-doctor.config.ts",
+	format: "report-json",
+	interactive: true,
+	isMachineReadable: false,
+	jsonCompact: true,
+	minScore: "80",
+	onProgress: (label) => label.length > 0,
+	outputPath: "out/report.json",
+	scope: "changed",
+	score: true,
+	skipOutput: false,
+	sources: "touched",
+	staged: true,
+	telemetry: false,
+	timings,
+	verbose: true,
+	...over,
+});
+
+describe("toScanOptions", () => {
+	const scan = toScanOptions(options());
+
+	it("carries every engine field through with the source value", () => {
+		expect(scan).toStrictEqual({
+			base: "main",
+			blocking: "error",
+			changedFilesFrom: "origin/main",
+			configPath: "nestjs-doctor.config.ts",
+			minScore: "80",
+			scope: "changed",
+			staged: true,
+			telemetry: false,
+		});
+	});
+
+	it("is JSON-safe: no functions and a lossless round-trip", () => {
+		for (const value of Object.values(scan)) {
+			expect(typeof value).not.toBe("function");
+		}
+		expect(JSON.parse(JSON.stringify(scan))).toStrictEqual(scan);
+	});
+
+	it("drops presentation fields", () => {
+		for (const key of [
+			"format",
+			"interactive",
+			"isMachineReadable",
+			"jsonCompact",
+			"onProgress",
+			"outputPath",
+			"score",
+			"skipOutput",
+			"sources",
+			"timings",
+			"verbose",
+		]) {
+			expect(scan).not.toHaveProperty(key);
+		}
+	});
+});
