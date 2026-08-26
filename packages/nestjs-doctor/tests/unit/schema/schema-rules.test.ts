@@ -1,3 +1,4 @@
+import { Project } from "ts-morph";
 import { describe, expect, it } from "vitest";
 import type { SchemaDiagnostic } from "../../../src/common/diagnostic.js";
 import type {
@@ -10,6 +11,7 @@ import { requireCascadeRule } from "../../../src/engine/rules/definitions/schema
 import { requirePrimaryKey } from "../../../src/engine/rules/definitions/schema/require-primary-key.js";
 import { requireTimestamps } from "../../../src/engine/rules/definitions/schema/require-timestamps.js";
 import type { SchemaRule } from "../../../src/engine/rules/types.js";
+import { extractSchema } from "../../../src/engine/schema/extract.js";
 
 const TIMESTAMP_MESSAGE_REGEX = /timestamp/;
 
@@ -109,6 +111,98 @@ describe("schema/require-primary-key", () => {
 		const diagnostics = runSchemaRule(requirePrimaryKey, graph);
 
 		expect(diagnostics).toHaveLength(1);
+	});
+});
+
+// ── require-primary-key vs MikroORM relation primary keys (issue #294) ──
+
+function createProject(files: Record<string, string>) {
+	const project = new Project({ useInMemoryFileSystem: true });
+	const paths: string[] = [];
+	for (const [name, code] of Object.entries(files)) {
+		project.createSourceFile(name, code);
+		paths.push(name);
+	}
+	return { project, paths };
+}
+
+const RELATION_PK_FILES = {
+	"user.entity.ts": `
+import { Entity, ManyToOne, OneToOne, PrimaryKey, Property, Ref, Rel } from "@mikro-orm/core";
+
+@Entity()
+export class User {
+  @PrimaryKey()
+  id!: number;
+}
+
+@Entity({ tableName: "user_bases" })
+export class UserBases {
+  @ManyToOne(() => User, { ref: true, fieldName: "user_id", primary: true })
+  user!: Ref<User>;
+
+  @ManyToOne(() => User, { ref: true, fieldName: "base_id", primary: true })
+  base!: Ref<User>;
+}
+
+@Entity({ tableName: "user_profiles" })
+export class UserProfile {
+  @OneToOne(() => User, { ref: true, fieldName: "user_id", primary: true })
+  user!: Ref<User>;
+}
+
+@Entity({ tableName: "order_items" })
+export class OrderItem {
+  @ManyToOne({ primary: true })
+  order!: Rel<User>;
+
+  @Property({ default: 1 })
+  amount!: number;
+}
+
+@Entity({ tableName: "event_details" })
+export class EventDetail {
+  @ManyToOne(() => User, { fieldName: "weekday_id", primary: true })
+  weekday!: Rel<User>;
+
+  @PrimaryKey()
+  slot!: string;
+}
+
+@Entity({ tableName: "keyless_things" })
+export class KeylessThing {
+  @ManyToOne(() => User)
+  user!: Rel<User>;
+
+  @Property()
+  label!: string;
+}`,
+};
+
+describe("require-primary-key with MikroORM relation primary keys (issue #294)", () => {
+	it("should not report entities whose primary keys come from relations", () => {
+		const { project, paths } = createProject(RELATION_PK_FILES);
+		const graph = extractSchema(project, paths, "mikro-orm", "/test");
+		const diagnostics = runSchemaRule(requirePrimaryKey, graph);
+
+		const relationKeyed = [
+			"UserBases",
+			"UserProfile",
+			"OrderItem",
+			"EventDetail",
+		];
+		expect(diagnostics.filter((d) => relationKeyed.includes(d.entity))).toEqual(
+			[]
+		);
+	});
+
+	it("should still report KeylessThing as missing a primary key", () => {
+		const { project, paths } = createProject(RELATION_PK_FILES);
+		const graph = extractSchema(project, paths, "mikro-orm", "/test");
+		const diagnostics = runSchemaRule(requirePrimaryKey, graph);
+
+		expect(diagnostics).toHaveLength(1);
+		expect(diagnostics[0].entity).toBe("KeylessThing");
 	});
 });
 

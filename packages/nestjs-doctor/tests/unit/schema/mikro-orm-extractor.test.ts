@@ -582,4 +582,187 @@ export class User extends BaseEntity {
 		const graph = extractSchema(project, paths, null, "/test");
 		expect(graph.entities.size).toBe(0);
 	});
+
+	describe("relation primary keys (issue #294)", () => {
+		it("should synthesize primary columns for @ManyToOne({ primary: true }) composite keys", () => {
+			const { project, paths } = createProject({
+				"user.entity.ts": `
+import { Entity, PrimaryKey } from "@mikro-orm/core";
+
+@Entity()
+export class User {
+  @PrimaryKey()
+  id!: number;
+}`,
+				"user-bases.entity.ts": `
+import { Entity, ManyToOne, Ref } from "@mikro-orm/core";
+import { User } from "./user.entity";
+
+@Entity()
+export class UserBases {
+  @ManyToOne(() => User, { ref: true, fieldName: "user_id", primary: true })
+  user!: Ref<User>;
+
+  @ManyToOne(() => User, { ref: true, fieldName: "base_id", primary: true })
+  base!: Ref<User>;
+}`,
+			});
+
+			const graph = extractSchema(project, paths, "mikro-orm", "/test");
+			const userBases = graph.entities.get("UserBases");
+
+			expect(userBases?.relations).toHaveLength(2);
+
+			const primaryCols = userBases?.columns.filter((c) => c.isPrimary);
+			expect(primaryCols?.map((c) => c.name).sort()).toEqual([
+				"base_id",
+				"user_id",
+			]);
+
+			const userIdCol = userBases?.columns.find((c) => c.name === "user_id");
+			expect(userIdCol?.type).toBe("unknown");
+			expect(userIdCol?.isNullable).toBe(false);
+
+			const baseIdCol = userBases?.columns.find((c) => c.name === "base_id");
+			expect(baseIdCol?.isPrimary).toBe(true);
+		});
+
+		it("should synthesize a primary column for @OneToOne({ primary: true }) shared keys", () => {
+			const { project, paths } = createProject({
+				"user.entity.ts": `
+import { Entity, PrimaryKey } from "@mikro-orm/core";
+
+@Entity()
+export class User {
+  @PrimaryKey()
+  id!: number;
+}`,
+				"user-profile.entity.ts": `
+import { Entity, OneToOne, Property, Ref } from "@mikro-orm/core";
+import { User } from "./user.entity";
+
+@Entity()
+export class UserProfile {
+  @OneToOne(() => User, { ref: true, fieldName: "user_id", primary: true })
+  user!: Ref<User>;
+
+  @Property({ nullable: true })
+  avatarUrl?: string;
+}`,
+			});
+
+			const graph = extractSchema(project, paths, "mikro-orm", "/test");
+			const profile = graph.entities.get("UserProfile");
+
+			expect(profile?.relations).toHaveLength(1);
+			expect(profile?.relations[0]?.type).toBe("one-to-one");
+
+			const userIdCol = profile?.columns.find((c) => c.name === "user_id");
+			expect(userIdCol?.isPrimary).toBe(true);
+			expect(userIdCol?.type).toBe("unknown");
+
+			const avatarCol = profile?.columns.find((c) => c.name === "avatarUrl");
+			expect(avatarCol?.isPrimary).toBe(false);
+		});
+
+		it("should synthesize a primary column when the relation target cannot be resolved", () => {
+			// Options-first factory form with a bare Rel<T>: the target stays
+			// unresolved so no relation entry is produced, but the column must
+			// still exist and fall back to the property name.
+			const { project, paths } = createProject({
+				"order-item.entity.ts": `
+import { Entity, ManyToOne, Property, Rel } from "@mikro-orm/core";
+
+@Entity()
+export class OrderItem {
+  @ManyToOne({ primary: true })
+  order!: Rel<User>;
+
+  @Property({ default: 1 })
+  amount!: number;
+}`,
+			});
+
+			const graph = extractSchema(project, paths, "mikro-orm", "/test");
+			const orderItem = graph.entities.get("OrderItem");
+
+			const orderCol = orderItem?.columns.find((c) => c.name === "order");
+			expect(orderCol?.isPrimary).toBe(true);
+			expect(orderCol?.type).toBe("unknown");
+
+			const amountCol = orderItem?.columns.find((c) => c.name === "amount");
+			expect(amountCol?.isPrimary).toBe(false);
+		});
+
+		it("should treat mixed composite keys (relation + scalar PrimaryKey) as all-primary", () => {
+			const { project, paths } = createProject({
+				"user.entity.ts": `
+import { Entity, PrimaryKey } from "@mikro-orm/core";
+
+@Entity()
+export class User {
+  @PrimaryKey()
+  id!: number;
+}`,
+				"event-detail.entity.ts": `
+import { Entity, ManyToOne, PrimaryKey, Property, Rel } from "@mikro-orm/core";
+import { User } from "./user.entity";
+
+@Entity()
+export class EventDetail {
+  @ManyToOne(() => User, { fieldName: "weekday_id", primary: true })
+  weekday!: Rel<User>;
+
+  @PrimaryKey()
+  slot!: string;
+
+  @Property()
+  what!: string;
+}`,
+			});
+
+			const graph = extractSchema(project, paths, "mikro-orm", "/test");
+			const detail = graph.entities.get("EventDetail");
+
+			expect(detail?.relations).toHaveLength(1);
+
+			const weekdayCol = detail?.columns.find((c) => c.name === "weekday_id");
+			expect(weekdayCol?.isPrimary).toBe(true);
+			expect(weekdayCol?.type).toBe("unknown");
+
+			const slotCol = detail?.columns.find((c) => c.name === "slot");
+			expect(slotCol?.isPrimary).toBe(true);
+		});
+
+		it("should not treat plain relations as primary key columns", () => {
+			const { project, paths } = createProject({
+				"user.entity.ts": `
+import { Entity, PrimaryKey } from "@mikro-orm/core";
+
+@Entity()
+export class User {
+  @PrimaryKey()
+  id!: number;
+}`,
+				"keyless-thing.entity.ts": `
+import { Entity, ManyToOne, Property, Rel } from "@mikro-orm/core";
+import { User } from "./user.entity";
+
+@Entity()
+export class KeylessThing {
+  @ManyToOne(() => User)
+  user!: Rel<User>;
+
+  @Property()
+  label!: string;
+}`,
+			});
+
+			const graph = extractSchema(project, paths, "mikro-orm", "/test");
+			const thing = graph.entities.get("KeylessThing");
+
+			expect(thing?.relations).toHaveLength(1);
+			expect(thing?.columns.some((c) => c.isPrimary)).toBe(false);
+		});
+	});
 });

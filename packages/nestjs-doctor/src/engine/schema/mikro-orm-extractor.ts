@@ -286,6 +286,24 @@ function extractColumnsFromClass(
 				if (relation) {
 					relations.push(relation);
 				}
+
+				// `primary: true` on @ManyToOne/@OneToOne makes the FK column part
+				// of the primary key — composites of relations need no surrogate id.
+				if (decName === "ManyToOne" || decName === "OneToOne") {
+					const objArg = getDecoratorObjectArg(dec);
+					if (objArg?.primary === "true") {
+						columns.push({
+							name: objArg.fieldName
+								? objArg.fieldName.replace(/['"]/g, "")
+								: propName,
+							type: "unknown",
+							isPrimary: true,
+							isNullable: false,
+							isGenerated: false,
+							isUnique: false,
+						});
+					}
+				}
 				break;
 			}
 		}

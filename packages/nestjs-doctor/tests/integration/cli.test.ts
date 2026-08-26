@@ -1341,30 +1341,36 @@ describe("scanner integration", () => {
 		it("detects MikroORM and extracts schema", () => {
 			expect(result.project.orm).toBe("mikro-orm");
 			expect(result.schema).toBeDefined();
-			expect(result.schema!.entities).toHaveLength(4);
-			expect(result.schema!.relations).toHaveLength(3);
+			expect(result.schema!.entities).toHaveLength(9);
+			expect(result.schema!.relations).toHaveLength(9);
 			expect(result.schema!.orm).toBe("mikro-orm");
 
 			const entityNames = result.schema!.entities.map((e) => e.name).sort();
 			expect(entityNames).toEqual([
 				"AuditLog",
+				"EventDetail",
+				"KeylessThing",
 				"Notification",
 				"Order",
+				"OrderItem",
 				"User",
+				"UserBases",
+				"UserProfile",
 			]);
 		});
 
-		it("fires exactly 4 schema diagnostics", () => {
+		it("fires exactly 5 schema diagnostics", () => {
 			const schemaDiags = result.diagnostics.filter(
 				(d) => d.category === "schema"
 			);
-			expect(schemaDiags).toHaveLength(4);
+			expect(schemaDiags).toHaveLength(5);
 
 			const pkDiags = schemaDiags.filter(
 				(d) => d.rule === "schema/require-primary-key"
 			);
-			expect(pkDiags).toHaveLength(1);
-			expect(pkDiags[0].entity).toBe("AuditLog");
+			expect(pkDiags).toHaveLength(2);
+			const pkEntities = pkDiags.map((d) => d.entity).sort();
+			expect(pkEntities).toEqual(["AuditLog", "KeylessThing"]);
 
 			const tsDiags = schemaDiags.filter(
 				(d) => d.rule === "schema/require-timestamps"
