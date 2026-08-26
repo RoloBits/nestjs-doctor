@@ -14,6 +14,7 @@ import type { ModuleGraph } from "../engine/graph/module-graph.js";
 import type { ProviderInfo } from "../engine/graph/type-resolver.js";
 import { getRuleExamples } from "./data/examples.js";
 import { serializeModuleGraph } from "./formatters/module-serializer.js";
+import { buildShareManifest } from "./share.js";
 import type { BootstrapTimings } from "./timings.js";
 
 const EMPTY_SCHEMA: SerializedSchemaGraph = {
@@ -90,6 +91,8 @@ interface ReportArtifactInput {
 	providers?: ReportProvider[];
 	result: DiagnoseResult;
 	sources?: SourceInclusion;
+	/** Where the scan ran; share slices relativize their paths against it. */
+	targetPath?: string;
 	timings?: BootstrapTimings;
 	version: string;
 }
@@ -99,6 +102,17 @@ export function buildReportArtifact(
 	input: ReportArtifactInput
 ): ReportArtifact {
 	const shown = forSurface(input.result.diagnostics, "cli");
+	const graph = serializeModuleGraph(
+		input.moduleGraph,
+		input.result,
+		input.projects,
+		input.bootstrapRoots,
+		input.timings
+	);
+	const share = buildShareManifest(input.result, {
+		graph,
+		targetPath: input.targetPath,
+	});
 
 	let paths: string[];
 	switch (input.sources ?? "all") {
@@ -126,17 +140,12 @@ export function buildReportArtifact(
 		diagnostics: shown,
 		ruleErrors: input.result.ruleErrors,
 		elapsedMs: input.result.elapsedMs,
-		graph: serializeModuleGraph(
-			input.moduleGraph,
-			input.result,
-			input.projects,
-			input.bootstrapRoots,
-			input.timings
-		),
+		graph,
 		providers: input.providers ?? [],
 		endpoints: input.result.endpoints ?? { endpoints: [] },
 		schema: input.result.schema ?? EMPTY_SCHEMA,
 		examples: getRuleExamples(),
+		share,
 		sources: readSources(paths),
 	};
 }

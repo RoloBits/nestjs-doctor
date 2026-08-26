@@ -81,6 +81,7 @@ canvas:active { cursor: grabbing; }
 #header-row1 .nav-actions { display: flex; gap: 8px; flex-shrink: 0; }
 #header-row1 .nav-btn {
   display: inline-flex; align-items: center;
+  background: none; cursor: pointer; font-family: var(--font);
   text-decoration: none; color: rgba(255,255,255,0.75);
   border: 1px solid var(--border-strong);
   padding: 5px 14px;
@@ -89,6 +90,37 @@ canvas:active { cursor: grabbing; }
   transition: background 0.15s, color 0.15s, border-color 0.15s; flex-shrink: 0;
 }
 #header-row1 .nav-btn:hover { background: var(--white); border-color: var(--white); color: #000; }
+
+/* ── Share dialog ── */
+.share-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,0.7);
+  display: flex; align-items: center; justify-content: center;
+}
+.share-panel {
+  background: var(--surface); border: 1px solid var(--border-strong);
+  padding: 20px 22px; width: 360px; max-width: 90vw; max-height: 80vh; overflow: auto;
+  color: var(--text); font-family: var(--font);
+}
+.share-title {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; margin-bottom: 14px; color: var(--text);
+}
+.share-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 0; font-size: 12px; cursor: pointer; color: var(--text);
+}
+.share-row input[type="checkbox"] { accent-color: var(--nest-red); cursor: pointer; }
+.share-row .share-hint { color: var(--text-dim); }
+.share-actions { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
+.share-download {
+  background: none; cursor: pointer; font-family: var(--font);
+  border: 1px solid var(--nest-red); color: var(--nest-red);
+  padding: 6px 14px; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  transition: background 0.15s, color 0.15s;
+}
+.share-download:hover { background: var(--nest-red); color: var(--white); }
 @media (max-width: 640px) {
   #header-row1 .meta { display: none; }
 }

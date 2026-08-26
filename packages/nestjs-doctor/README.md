@@ -56,6 +56,11 @@ graph. Traced HTTP endpoints, the schema ER diagram, and a
 rule playground get their own tabs.
 [Module graph docs →](https://nestjs.doctor/docs/report/module-graph)
 
+The report's share button, and `--share-sections` on the CLI, write a JSON slice
+of a scan: pick the score, a findings category, the endpoints, the schema, or the
+module graph.
+[Sharing docs →](https://nestjs.doctor/docs/report/share)
+
 ![Module Graph](https://nestjs.doctor/module-graph.png)
 
 Add a few lines to `main.ts`, boot once, and `--timings` overlays the real

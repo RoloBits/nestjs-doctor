@@ -8,6 +8,7 @@ import type {
 } from "./result.js";
 import type { SerializedSchemaGraph } from "./schema.js";
 import type { ScopeInfo } from "./scope.js";
+import type { ShareManifest } from "./share.js";
 import type {
 	BootPhases,
 	ClassTiming,
@@ -17,7 +18,8 @@ import type {
 
 /**
  * Version of the report artifact shape. Bump when a field changes meaning;
- * consumers narrow on this literal after checking it.
+ * additive fields do not bump. Consumers narrow on this literal after
+ * checking it.
  */
 export const REPORT_ARTIFACT_VERSION = 1;
 
@@ -90,6 +92,8 @@ export interface ReportArtifact {
 	/** What `diagnostics` covers. Absent when nothing was narrowed. */
 	scope?: ScopeInfo;
 	score: Score;
+	/** Precomputed share slices, so the page merges instead of rebuilding. */
+	share: ShareManifest;
 	/** Full source text keyed by absolute posix path. */
 	sources: Record<string, string>;
 	summary: DiagnoseSummary;

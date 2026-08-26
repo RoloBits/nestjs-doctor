@@ -120,6 +120,8 @@ Construction times need a real boot, which a scan never performs. Use the
 | `--output <path>` | Where to write it, instead of the project root |
 | `--timings <path>` | Overlay real boot times on the report |
 | `--sources <mode>` | Report source text: all (default), touched, none |
+| `--share-sections <csv>` | Write a shareable JSON slice: score, endpoints, schema, modules, findings:<category> |
+| `--share-code` | With `--share-sections`, include code around each shared finding |
 | `--min-score <n>` | Fail below a score |
 | `--blocking <level>` | Fail on `error`, `warning`, or never with `none` |
 | `--config <path>` | Use a specific config file |

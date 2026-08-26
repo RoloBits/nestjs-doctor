@@ -17,6 +17,7 @@ export const DOCS_NAV: NavSection[] = [
 			{ title: "The report", href: "/docs/report" },
 			{ title: "Module graph", href: "/docs/report/module-graph" },
 			{ title: "Boot trace", href: "/docs/report/boot-trace" },
+			{ title: "Sharing a report", href: "/docs/report/share" },
 		],
 	},
 	{

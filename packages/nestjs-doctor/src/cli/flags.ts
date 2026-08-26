@@ -89,6 +89,17 @@ export const flags = {
 		description:
 			"How much source text the report embeds: all (default), touched (only files with findings), none",
 	},
+	"share-sections": {
+		type: "string",
+		description:
+			"Write a shareable nestjs-doctor-shared.json beside the project, limited to these comma-separated sections: score, endpoints, schema, modules, findings:<category> (e.g. findings:security)",
+	},
+	"share-code": {
+		type: "boolean",
+		description:
+			"With --share-sections, include a few lines of code around each shared finding",
+		default: false,
+	},
 	init: {
 		type: "boolean",
 		description:

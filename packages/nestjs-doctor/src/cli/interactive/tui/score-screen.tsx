@@ -80,6 +80,11 @@ export const buildMenuItems = (
 		hint: "The pull request summary, for pasting anywhere",
 		label: "Copy findings as markdown",
 	},
+	{
+		action: "share" as const,
+		hint: "Pick the sections and save a .json others can open",
+		label: "Share the report",
+	},
 	{ action: "quit", label: "Quit" },
 ];
 

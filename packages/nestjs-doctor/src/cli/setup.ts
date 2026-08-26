@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import type { SourceInclusion } from "../common/artifact.js";
 import { isScopeMode, type ScopeMode } from "../common/scope.js";
 import type { BootstrapTimings } from "../common/timings.js";
+import { parseShareSections, type ShareSectionId } from "../report/share.js";
 import { logger } from "../ui/logger.js";
 import {
 	type BlockingLevel,
@@ -38,6 +39,10 @@ export interface PipelineOptions extends ScanOptions {
 	onProgress?: (label: string, done?: number, total?: number) => void;
 	outputPath: string | undefined;
 	score: boolean;
+	/** With `shareSections`, keep a few lines of code around each shared finding. */
+	shareCode: boolean;
+	/** Sections to write into a shareable JSON beside the project. */
+	shareSections: ShareSectionId[] | undefined;
 	/** Worker-internal: the worker never prints the report. */
 	skipOutput?: boolean;
 	/** How much source text the report artifact embeds. */
@@ -82,6 +87,8 @@ export interface CliArgs {
 	report: boolean;
 	scope: string | undefined;
 	score: boolean;
+	"share-code": boolean;
+	"share-sections": string | undefined;
 	sources: string | undefined;
 	staged: boolean;
 	telemetry: boolean;
@@ -98,8 +105,9 @@ export function reportConflict(args: {
 	format?: string;
 	json?: boolean;
 	score?: boolean;
+	"share-sections"?: string;
 }): string | null {
-	const named = (["format", "json", "score"] as const).filter(
+	const named = (["format", "json", "score", "share-sections"] as const).filter(
 		(flag) => args[flag]
 	);
 	if (named.length === 0) {
@@ -280,6 +288,32 @@ export class CliSetup {
 		return this;
 	}
 
+	validateShareSections(): this {
+		this.steps.push(() => {
+			if (this.args["share-sections"] !== undefined) {
+				if (this.args.output) {
+					failWith(
+						"--share-sections writes nestjs-doctor-shared.json beside the project, so it cannot be combined with --output. Run them as separate commands."
+					);
+				}
+				const { error } = parseShareSections(this.args["share-sections"]);
+				if (error) {
+					failWith(error);
+				}
+			}
+			return true;
+		});
+		return this;
+	}
+
+	private parseResolvedShareSections(): ShareSectionId[] | undefined {
+		if (!this.args["share-sections"]) {
+			return undefined;
+		}
+		const parsed = parseShareSections(this.args["share-sections"]);
+		return "sections" in parsed ? parsed.sections : undefined;
+	}
+
 	async run(): Promise<SetupContext | null> {
 		for (const step of this.steps) {
 			const shouldContinue = await step();
@@ -321,6 +355,8 @@ export class CliSetup {
 				outputPath: this.args.output,
 				scope: resolveScopeMode(this.args),
 				score,
+				shareCode: this.args["share-code"] ?? false,
+				shareSections: this.parseResolvedShareSections(),
 				sources: resolveSources(this.args),
 				staged: this.args.staged ?? false,
 				telemetry: this.args.telemetry ?? true,
