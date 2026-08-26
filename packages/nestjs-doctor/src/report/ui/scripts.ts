@@ -6471,8 +6471,24 @@ switchTab("summary");
   if (!btn) return;
   var SHARE = REPORT.share;
 
+  function isNotScored(d) { return !!(d.surfaces && d.surfaces.indexOf("score") === -1); }
+
+  /** What a section would actually export once not-scored findings are dropped. */
+  function scoredCount(id) {
+    if (id.indexOf("findings:") !== 0) return null;
+    var slice = SHARE.findingsByCategory[id.slice(9)];
+    if (!slice) return 0;
+    var n = 0;
+    for (var i = 0; i < slice.findings.length; i++) {
+      if (!isNotScored(slice.findings[i])) n++;
+    }
+    for (var j = 0; j < slice.schemaIssues.length; j++) {
+      if (!isNotScored(slice.schemaIssues[j])) n++;
+    }
+    return n;
+  }
+
   function buildSharedJson(includeCode, picked) {
-    function isNotScored(d) { return !!(d.surfaces && d.surfaces.indexOf("score") === -1); }
     var findings = [];
     var schemaIssues = [];
     var counts = {total: 0, errors: 0, warnings: 0, info: 0, byCategory: {security: 0, performance: 0, correctness: 0, architecture: 0, schema: 0}};
@@ -6538,7 +6554,10 @@ switchTab("summary");
     html += '<div class="share-title">Share the report</div>';
     for (var i = 0; i < sections.length; i++) {
       var s = sections[i];
-      html += '<label class="share-row"><input type="checkbox" class="share-section" value="' + s.id + '" checked> ' + s.label + ' (' + s.count + ')</label>';
+      var count = scoredCount(s.id);
+      if (count === 0) continue;
+      if (count === null) count = s.count;
+      html += '<label class="share-row"><input type="checkbox" class="share-section" value="' + s.id + '" checked> ' + s.label + ' (' + count + ')</label>';
     }
     html += '<label class="share-row" style="margin-top:4px"><input type="checkbox" id="share-code"> Include code snippets <span class="share-hint">a few lines around each finding</span></label>';
     html += '<div class="share-actions">';
