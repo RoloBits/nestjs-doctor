@@ -1,7 +1,8 @@
 import type { ClassDeclaration } from "ts-morph";
 import {
+	collectCustomProviderClasses,
 	collectExtendedClasses,
-	collectProviderImplementations,
+	isTestFile,
 } from "../../../graph/custom-providers.js";
 import { isController } from "../../../nest-class-inspector.js";
 import { INFRA_SUFFIXES } from "../../constants.js";
@@ -131,18 +132,27 @@ export const noUnusedProviders: ProjectRule = {
 			}
 		}
 
-		// Nest instantiates a useClass/useExisting target, and a base class runs
-		// through every subclass, without either being injected by type.
-		const implementations = collectProviderImplementations(
-			context.project,
-			context.files
+		// Custom-provider targets and base classes are in use without being injected.
+		// Test files are left out so a spec cannot exempt a production provider.
+		const productionFiles = context.files.filter(
+			(filePath) => !isTestFile(filePath)
 		);
-		const extended = collectExtendedClasses(context.project, context.files);
+		const customProviderClasses = collectCustomProviderClasses(
+			context.project,
+			productionFiles
+		);
+		const extended = collectExtendedClasses(context.project, productionFiles);
 
 		for (const provider of context.providers.values()) {
 			const name = provider.name;
 
-			if (implementations.has(name) || extended.has(name)) {
+			if (
+				customProviderClasses.implementationNames.has(name) ||
+				customProviderClasses.constructedClasses.has(
+					provider.classDeclaration
+				) ||
+				extended.has(name)
+			) {
 				continue;
 			}
 

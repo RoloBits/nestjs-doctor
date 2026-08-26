@@ -450,6 +450,68 @@ describe("no-unused-providers", () => {
 	});
 });
 
+describe("factory provider consumers", () => {
+	it.each([
+		["no-unused-providers", noUnusedProviders],
+		["injectable-must-be-provided", injectableMustBeProvided],
+	])("%s counts constructed classes as provided and used", (_name, rule) => {
+		const diags = runProjectRule(rule, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { mailerProvider } from './mailer.provider';
+        @Module({ providers: [mailerProvider] })
+        export class AppModule {}
+      `,
+			"mailer.provider.ts": `
+        import { MailerService, TransportService } from './mailer.service';
+        export const mailerProvider = {
+          provide: 'MAILER',
+          useFactory: async () => new MailerService(new TransportService()),
+        };
+      `,
+			"mailer.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable() export class MailerService {}
+        @Injectable() export class TransportService {}
+      `,
+		});
+
+		expect(
+			diags.filter(
+				(d) =>
+					d.message.includes("MailerService") ||
+					d.message.includes("TransportService")
+			)
+		).toHaveLength(0);
+	});
+
+	it("no-unused-providers ignores factories declared in test files", () => {
+		const diags = runProjectRule(noUnusedProviders, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { MailerService } from './mailer.service';
+        @Module({ providers: [MailerService] })
+        export class AppModule {}
+      `,
+			"mailer.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable() export class MailerService {}
+      `,
+			"mailer.service.spec.ts": `
+        import { MailerService } from './mailer.service';
+        const provider = {
+          provide: 'MAILER',
+          useFactory: () => new MailerService(),
+        };
+      `,
+		});
+
+		expect(
+			diags.filter((d) => d.message.includes("MailerService"))
+		).toHaveLength(1);
+	});
+});
+
 describe("no-orphan-modules", () => {
 	it("does not flag a module bootstrapped by NestFactory", () => {
 		const diags = runProjectRule(noOrphanModules, {
@@ -737,6 +799,31 @@ describe("injectable-must-be-provided", () => {
 			"orphan.spec.ts": `
         import { OrphanThing } from './orphan';
         class Stub extends OrphanThing {}
+      `,
+		});
+		expect(diags.filter((d) => d.message.includes("OrphanThing"))).toHaveLength(
+			1
+		);
+	});
+
+	it("does not let a factory in a test file exempt a production class", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AppModule {}
+      `,
+			"orphan.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class OrphanThing {}
+      `,
+			"orphan.spec.ts": `
+        import { OrphanThing } from './orphan';
+        const provider = {
+          provide: 'TEST_ORPHAN',
+          useFactory: () => new OrphanThing(),
+        };
       `,
 		});
 		expect(diags.filter((d) => d.message.includes("OrphanThing"))).toHaveLength(
