@@ -58,9 +58,9 @@ export class UserProfile {
 	updatedAt!: Date;
 }
 
-// GOOD: options-first factory form from the docs; target typed as a bare
-// entity class, so the relation target does not resolve and must not be
-// required for the column to count as primary.
+// GOOD: options-first factory form from the docs. The bare `Rel<User>`
+// property type alone would miss both target regexes, but the explicit
+// `entity: () => User` resolves, so this also yields a relation.
 @Entity({ tableName: "order_items" })
 export class OrderItem {
 	@ManyToOne({ entity: () => User, primary: true, deleteRule: "cascade" })
