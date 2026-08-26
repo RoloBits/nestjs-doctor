@@ -1196,6 +1196,44 @@ describe("scanner integration", () => {
 		expect(result.diagnostics).toHaveLength(0);
 	});
 
+	describe("factory-providers-app fixture (#293)", () => {
+		const targetPath = resolve(FIXTURES, "factory-providers-app/src");
+		let diags: Awaited<ReturnType<typeof buildResult>>["result"]["diagnostics"];
+
+		beforeAll(async () => {
+			const scanConfig = await resolveScanConfig(targetPath);
+			const context = await buildAnalysisContext(targetPath, scanConfig);
+			const rawOutput = await diagnose(context);
+			const { result } = buildResult(
+				context,
+				rawOutput,
+				scanConfig.customRuleWarnings
+			);
+			diags = result.diagnostics.filter(
+				(d) => d.rule === "architecture/no-manual-instantiation"
+			);
+		});
+
+		it("does not report manual instantiation inside provider factories", () => {
+			const factoryDiags = diags.filter(
+				(d) =>
+					d.filePath.includes("mailer.providers") ||
+					d.filePath.includes("search.providers") ||
+					d.filePath.includes("storage.providers") ||
+					d.filePath.includes("payments.providers") ||
+					d.filePath.includes("jwt.module")
+			);
+			expect(factoryDiags).toHaveLength(0);
+		});
+
+		it("still reports the genuine bypasses in the legacy files", () => {
+			expect(diags).toHaveLength(3);
+			expect(diags.filter((d) => d.filePath.includes("legacy"))).toHaveLength(
+				3
+			);
+		});
+	});
+
 	describe("drizzle-app fixture", () => {
 		const targetPath = resolve(FIXTURES, "drizzle-app");
 		let context: Awaited<ReturnType<typeof buildAnalysisContext>>;

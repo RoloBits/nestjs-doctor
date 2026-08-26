@@ -1,11 +1,86 @@
-import { SyntaxKind } from "ts-morph";
+import { type Node, type SourceFile, SyntaxKind } from "ts-morph";
 import type { Rule } from "../../types.js";
 
 const DI_ONLY_SUFFIXES = ["Service", "Repository", "Gateway", "Resolver"];
 const CONTEXT_AWARE_SUFFIXES = ["Guard", "Interceptor", "Pipe", "Filter"];
+const DYNAMIC_MODULE_CALL = /\.(?:forRoot|forFeature|register)(?:Async)?$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
+}
+
+function addNewExpressionStarts(node: Node, starts: Set<number>): void {
+	const directExpression = node.asKind(SyntaxKind.NewExpression);
+	if (directExpression) {
+		starts.add(directExpression.getStart());
+	}
+
+	for (const expression of node.getDescendantsOfKind(
+		SyntaxKind.NewExpression
+	)) {
+		starts.add(expression.getStart());
+	}
+}
+
+function getProviderConstructionStarts(sourceFile: SourceFile): Set<number> {
+	const starts = new Set<number>();
+
+	for (const obj of sourceFile.getDescendantsOfKind(
+		SyntaxKind.ObjectLiteralExpression
+	)) {
+		if (!obj.getProperty("provide")) {
+			continue;
+		}
+		for (const key of ["useFactory", "useValue"]) {
+			const prop = obj.getProperty(key);
+			const construction =
+				prop?.asKind(SyntaxKind.PropertyAssignment)?.getInitializer() ??
+				prop?.asKind(SyntaxKind.MethodDeclaration);
+			if (construction) {
+				addNewExpressionStarts(construction, starts);
+			}
+		}
+	}
+
+	for (const call of sourceFile.getDescendantsOfKind(
+		SyntaxKind.CallExpression
+	)) {
+		if (!DYNAMIC_MODULE_CALL.test(call.getExpression().getText())) {
+			continue;
+		}
+		for (const arg of call.getArguments()) {
+			const literal =
+				arg.asKind(SyntaxKind.ObjectLiteralExpression) ??
+				arg.asKind(SyntaxKind.ArrayLiteralExpression);
+			if (!literal) {
+				continue;
+			}
+			addNewExpressionStarts(literal, starts);
+		}
+	}
+
+	return starts;
+}
+
+function isRuntimeClassConstruction(node: Node): boolean {
+	const member = node.getFirstAncestor((ancestor) =>
+		[
+			SyntaxKind.MethodDeclaration,
+			SyntaxKind.Constructor,
+			SyntaxKind.PropertyDeclaration,
+			SyntaxKind.GetAccessor,
+			SyntaxKind.SetAccessor,
+		].includes(ancestor.getKind())
+	);
+	if (!member) {
+		return false;
+	}
+	return !(
+		member.asKind(SyntaxKind.MethodDeclaration)?.isStatic() ||
+		member.asKind(SyntaxKind.PropertyDeclaration)?.isStatic() ||
+		member.asKind(SyntaxKind.GetAccessor)?.isStatic() ||
+		member.asKind(SyntaxKind.SetAccessor)?.isStatic()
+	);
 }
 
 function getExcludedClasses(ruleConfig: unknown): Set<string> {
@@ -50,6 +125,9 @@ export const noManualInstantiation: Rule = {
 		const excludedClasses = getExcludedClasses(
 			context.config?.rules?.[this.meta.id]
 		);
+		const providerConstructionStarts = getProviderConstructionStarts(
+			context.sourceFile
+		);
 		const newExpressions = context.sourceFile.getDescendantsOfKind(
 			SyntaxKind.NewExpression
 		);
@@ -62,6 +140,14 @@ export const noManualInstantiation: Rule = {
 				excludedClasses.has(exprText) ||
 				excludedClasses.has(simpleExprText)
 			) {
+				continue;
+			}
+
+			if (providerConstructionStarts.has(expr.getStart())) {
+				continue;
+			}
+
+			if (!isRuntimeClassConstruction(expr)) {
 				continue;
 			}
 

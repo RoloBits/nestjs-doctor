@@ -1,0 +1,8 @@
+{
+	"name": "factory-providers-app",
+	"version": "1.0.0",
+	"dependencies": {
+		"@nestjs/common": "^11.0.0",
+		"@nestjs/core": "^11.0.0"
+	}
+}
