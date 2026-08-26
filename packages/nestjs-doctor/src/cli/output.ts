@@ -105,6 +105,15 @@ async function emit(
 		);
 	}
 
+	if (
+		options.shareSections &&
+		(options.score || options.format === "report-json")
+	) {
+		logger.warn(
+			`--share-sections is ignored with ${options.score ? "--score" : "--format report-json"}; nothing was shared.`
+		);
+	}
+
 	if (options.score) {
 		writeRendered(String(result.score.value), options.outputPath);
 		return;
@@ -162,7 +171,8 @@ async function emit(
 				includeCode: options.shareCode,
 				sections: options.shareSections,
 			},
-			cliVersion
+			cliVersion,
+			targetPath
 		);
 		if (!shared) {
 			logger.warn(
@@ -170,8 +180,12 @@ async function emit(
 			);
 			return;
 		}
-		const outPath = await writeSharedReportFile(targetPath, shared);
-		logger.info(`Shared report written to ${highlighter.info(outPath)}`);
+		const outPath = await writeSharedReportFile(
+			targetPath,
+			shared,
+			options.outputPath
+		);
+		console.error(`Shared report written to ${highlighter.info(outPath)}`);
 	}
 }
 

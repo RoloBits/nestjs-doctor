@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import {
 	type Category,
 	type CodeDiagnostic,
+	forSurface,
 	isCodeDiagnostic,
 	isSchemaDiagnostic,
 	type SchemaDiagnostic,
@@ -12,6 +13,7 @@ import type {
 	DiagnoseSummary,
 	Score,
 } from "../common/result.js";
+import { toRelativePath } from "../engine/fingerprint.js";
 import { buildSummary } from "../engine/result-builder.js";
 
 export const SHARED_REPORT_VERSION = 1;
@@ -113,7 +115,8 @@ interface SharedReport {
 	generatedAt: string;
 	generator: { name: "nestjs-doctor"; version: string };
 	includeCode: boolean;
-	project: DiagnoseResult["project"];
+	/** Present only when the score section is shared. */
+	project?: DiagnoseResult["project"];
 	schemaIssues: SchemaDiagnostic[];
 	score: Score;
 	sections: ShareSectionId[];
@@ -123,12 +126,15 @@ interface SharedReport {
 
 /**
  * A shareable slice of a result. The score is carried over untouched: it
- * measures the whole project whatever the shared subset is.
+ * measures the whole project whatever the shared subset is. Only the cli
+ * surface's diagnostics are eligible, and finding paths are stored relative
+ * to the scanned directory.
  */
 export function buildSharedReport(
 	result: DiagnoseResult,
 	options: { includeCode: boolean; sections: ShareSectionId[] },
-	version: string
+	version: string,
+	targetPath?: string
 ): SharedReport | null {
 	const categories = new Set<Category>();
 	for (const section of options.sections) {
@@ -136,19 +142,30 @@ export function buildSharedReport(
 			categories.add(section.slice(FINDINGS_PREFIX.length) as Category);
 		}
 	}
-	const picked = result.diagnostics.filter((diagnostic) =>
+	const picked = forSurface(result.diagnostics, "cli").filter((diagnostic) =>
 		categories.has(diagnostic.category)
 	);
+	const relativePath = (filePath: string): string =>
+		targetPath ? toRelativePath(targetPath, filePath) : filePath;
 
 	const findings: CodeDiagnostic[] = picked.flatMap((diagnostic) => {
 		if (!isCodeDiagnostic(diagnostic)) {
 			return [];
 		}
-		if (options.includeCode && diagnostic.sourceLines) {
-			return [{ ...diagnostic }];
-		}
 		const { sourceLines, ...rest } = diagnostic;
-		return [rest as CodeDiagnostic];
+		return [
+			{
+				...rest,
+				filePath: relativePath(rest.filePath),
+				...(options.includeCode && diagnostic.sourceLines
+					? {
+							sourceLines: diagnostic.sourceLines.map((entry) => ({
+								...entry,
+							})),
+						}
+					: {}),
+			},
+		];
 	});
 	const schemaIssues = picked.flatMap((diagnostic) =>
 		isSchemaDiagnostic(diagnostic) ? [diagnostic] : []
@@ -175,12 +192,14 @@ export function buildSharedReport(
 		generatedAt: new Date().toISOString(),
 		generator: { name: "nestjs-doctor", version },
 		includeCode: options.includeCode && findings.length > 0,
-		project: result.project,
 		schemaIssues,
 		score: result.score,
 		sections: options.sections,
 		summary,
 		version: SHARED_REPORT_VERSION,
+		...(options.sections.includes(SCORE_SECTION)
+			? { project: result.project }
+			: {}),
 		...(endpoints ? { endpoints } : {}),
 	};
 }

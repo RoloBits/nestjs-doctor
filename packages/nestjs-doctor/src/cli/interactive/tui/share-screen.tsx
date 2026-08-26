@@ -72,7 +72,8 @@ export const ShareScreen = ({
 			const shared = buildSharedReport(
 				result,
 				{ includeCode, sections: picked },
-				version
+				version,
+				targetPath
 			);
 			if (!shared) {
 				onToast({

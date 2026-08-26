@@ -6473,7 +6473,7 @@ switchTab("summary");
   var SHARE_VERSION = 1;
 
   function shareSections() {
-    var secs = [{id: "score", label: "Health score", count: project.score}];
+    var secs = [{id: "score", label: "Health score", count: project.score.value}];
     for (var i = 0; i < SHARE_CATS.length; i++) {
       var cat = SHARE_CATS[i], n = 0;
       for (var j = 0; j < diagnostics.length; j++) {
@@ -6580,7 +6580,7 @@ switchTab("summary");
       var blob = new Blob([JSON.stringify(data, null, 2)], {type: "application/json"});
       var a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = project.name + "-nestjs-doctor.shared.json";
+      a.download = "nestjs-doctor-shared.json";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

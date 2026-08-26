@@ -136,10 +136,12 @@ describe("buildSharedReport", () => {
 				schemaIssue("schema"),
 			]),
 			{ includeCode: false, sections: [SCORE_SECTION, "findings:security"] },
-			"1.2.3"
+			"1.2.3",
+			"/repo"
 		);
 
 		expect(shared?.score).toEqual({ value: 55, label: "Needs work" });
+		expect(shared?.project).toEqual(resultWith([]).project);
 		expect(shared?.findings).toHaveLength(1);
 		expect(shared?.findings[0].rule).toBe("security/hardcoded-secret");
 		expect(shared?.schemaIssues).toEqual([]);
@@ -149,6 +151,52 @@ describe("buildSharedReport", () => {
 			version: "1.2.3",
 		});
 		expect(shared?.summary.total).toBe(1);
+	});
+
+	it("relativises finding paths against the scanned directory", () => {
+		const shared = buildSharedReport(
+			resultWith([code({ filePath: "/repo/src/deep/a.service.ts" })]),
+			{ includeCode: false, sections: ["findings:security"] },
+			"1.2.3",
+			"/repo"
+		);
+
+		expect(shared?.findings[0].filePath).toBe("src/deep/a.service.ts");
+	});
+
+	it("drops project info when the score section is not picked", () => {
+		const shared = buildSharedReport(
+			resultWith([code({})]),
+			{ includeCode: false, sections: ["findings:security"] },
+			"1.2.3",
+			"/repo"
+		);
+
+		expect(shared?.project).toBeUndefined();
+		expect(shared?.score).toEqual({ value: 55, label: "Needs work" });
+	});
+
+	it("never shares diagnostics outside the cli surface", () => {
+		const shared = buildSharedReport(
+			resultWith([
+				code({}),
+				code({
+					category: "correctness",
+					rule: "correctness/pr-comment-only",
+					filePath: "/repo/src/b.service.ts",
+					surfaces: ["prComment"],
+				}),
+			]),
+			{
+				includeCode: false,
+				sections: ["findings:security", "findings:correctness"],
+			},
+			"1.2.3",
+			"/repo"
+		);
+
+		expect(shared?.findings).toHaveLength(1);
+		expect(shared?.findings[0].filePath).not.toContain("b.service");
 	});
 
 	it("strips snippets unless includeCode is set", () => {
@@ -268,5 +316,21 @@ describe("writeSharedReportFile", () => {
 			score: unknown;
 		};
 		expect(parsed.score).toEqual({ value: 55, label: "Needs work" });
+	});
+
+	it("honors a named output path", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "nd-share-named-"));
+		const outPath = await writeSharedReportFile(
+			"/somme/other/place",
+			buildSharedReport(
+				resultWith([]),
+				{ includeCode: false, sections: [SCORE_SECTION] },
+				"1.2.3"
+			) as NonNullable<ReturnType<typeof buildSharedReport>>,
+			join(dir, "custom.json")
+		);
+
+		expect(outPath).toBe(join(dir, "custom.json"));
+		expect(readFileSync(outPath, "utf-8")).toContain("nestjs-doctor");
 	});
 });

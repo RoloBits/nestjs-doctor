@@ -105,8 +105,9 @@ export function reportConflict(args: {
 	format?: string;
 	json?: boolean;
 	score?: boolean;
+	"share-sections"?: string;
 }): string | null {
-	const named = (["format", "json", "score"] as const).filter(
+	const named = (["format", "json", "score", "share-sections"] as const).filter(
 		(flag) => args[flag]
 	);
 	if (named.length === 0) {
