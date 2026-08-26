@@ -6547,18 +6547,18 @@ switchTab("summary");
 
     var overlay = document.createElement("div");
     overlay.id = "share-overlay";
-    overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;display:flex;align-items:center;justify-content:center";
+    overlay.className = "share-overlay";
 
     var sections = shareSections();
-    var html = '<div id="share-panel" style="background:#141420;border:1px solid #2a2a3a;border-radius:10px;padding:20px 24px;width:340px;max-width:90vw;color:#e8e8f0;font-family:var(--font);box-shadow:0 12px 40px rgba(0,0,0,0.5)">';
-    html += '<div style="font-weight:700;font-size:14px;margin-bottom:12px">Share the report</div>';
+    var html = '<div id="share-panel" class="share-panel">';
+    html += '<div class="share-title">Share the report</div>';
     for (var i = 0; i < sections.length; i++) {
       var s = sections[i];
-      html += '<label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer"><input type="checkbox" class="share-section" value="' + s.id + '" checked> ' + s.label + ' (' + s.count + ')</label>';
+      html += '<label class="share-row"><input type="checkbox" class="share-section" value="' + s.id + '" checked> ' + s.label + ' (' + s.count + ')</label>';
     }
-    html += '<label style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;cursor:pointer;margin-top:4px"><input type="checkbox" id="share-code"> Include code snippets <span style="color:#8888a0">a few lines around each finding</span></label>';
-    html += '<div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end">';
-    html += '<button id="share-download" style="padding:6px 14px;border-radius:6px;border:1px solid #ea2845;background:#ea2845;color:#fff;font-family:var(--font);font-size:13px;cursor:pointer">Download .json</button>';
+    html += '<label class="share-row" style="margin-top:4px"><input type="checkbox" id="share-code"> Include code snippets <span class="share-hint">a few lines around each finding</span></label>';
+    html += '<div class="share-actions">';
+    html += '<button id="share-download" class="share-download" type="button">Download .json</button>';
     html += '</div></div>';
     overlay.innerHTML = html;
 
