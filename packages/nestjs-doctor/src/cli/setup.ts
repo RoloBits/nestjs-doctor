@@ -229,7 +229,8 @@ export class CliSetup {
 					this.args.timings,
 					this.args.output,
 					this.args.telemetry,
-					resolveSources(this.args)
+					resolveSources(this.args),
+					this.version
 				);
 				return false;
 			}
