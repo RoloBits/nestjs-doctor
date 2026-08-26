@@ -18,12 +18,19 @@ const post = (message: ScanWorkerMessage): void => {
 
 const options: PipelineOptions = {
 	...request.options,
+	format: "console",
 	interactive: false,
 	isMachineReadable: true,
-	skipOutput: true,
+	jsonCompact: false,
 	onProgress: (label, done, total) => {
 		post({ kind: "progress", label, done, total });
 	},
+	outputPath: undefined,
+	score: false,
+	skipOutput: true,
+	sources: "none",
+	timings: undefined,
+	verbose: false,
 };
 
 try {

@@ -54,7 +54,11 @@ import {
 	outputMonorepoResults,
 	outputSingleProjectResults,
 } from "./output.js";
-import type { PipelineOptions } from "./setup.js";
+import {
+	type PipelineOptions,
+	type ScanOptions,
+	toScanOptions,
+} from "./setup.js";
 import { createAnimatedProgress } from "./ui/animated-progress.js";
 
 type PipelineStep = () => void | Promise<void>;
@@ -83,7 +87,7 @@ export interface InteractiveArtifacts {
 export interface ScanWorkerRequest {
 	kind: "monorepo" | "single";
 	monorepo?: MonorepoInfo;
-	options: PipelineOptions;
+	options: ScanOptions;
 	targetPath: string;
 	version: string;
 }
@@ -625,13 +629,7 @@ export class MonorepoPipeline extends ScanPipeline {
 			{
 				kind: "monorepo",
 				targetPath: this.targetPath,
-				options: {
-					...this.options,
-					interactive: false,
-					isMachineReadable: true,
-					skipOutput: true,
-					onProgress: undefined,
-				},
+				options: toScanOptions(this.options),
 				monorepo: this.monorepo,
 				version: getCliVersion(),
 			},
@@ -763,13 +761,7 @@ export class SingleProjectPipeline extends ScanPipeline {
 			{
 				kind: "single",
 				targetPath: this.targetPath,
-				options: {
-					...this.options,
-					interactive: false,
-					isMachineReadable: true,
-					skipOutput: true,
-					onProgress: undefined,
-				},
+				options: toScanOptions(this.options),
 				version: getCliVersion(),
 			},
 			(outcome) => {
