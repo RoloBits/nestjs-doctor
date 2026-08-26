@@ -381,6 +381,7 @@ export class MonorepoPipeline extends ScanPipeline {
 		if (!this.cachedArtifact) {
 			const { moduleGraphs, result } = this.result;
 			this.cachedArtifact = buildReportArtifact({
+				targetPath: this.targetPath,
 				moduleGraph: mergeModuleGraphs(moduleGraphs),
 				result: result.combined,
 				projects: [...moduleGraphs.keys()],
@@ -596,6 +597,7 @@ export class SingleProjectPipeline extends ScanPipeline {
 		if (!this.cachedArtifact) {
 			const { moduleGraph, files, result } = this.result;
 			this.cachedArtifact = buildReportArtifact({
+				targetPath: this.targetPath,
 				moduleGraph,
 				result,
 				files,

@@ -148,6 +148,7 @@ export class SingleProjectReportPipeline extends ReportPipeline {
 			});
 			this._html = buildHtmlReport(
 				buildReportArtifact({
+					targetPath: this.targetPath,
 					moduleGraph,
 					result,
 					files,
@@ -250,6 +251,7 @@ export class MonorepoReportPipeline extends ReportPipeline {
 
 			this._html = buildHtmlReport(
 				buildReportArtifact({
+					targetPath: this.targetPath,
 					moduleGraph: merged,
 					result: result.combined,
 					projects,

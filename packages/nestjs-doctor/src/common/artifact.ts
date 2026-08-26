@@ -8,6 +8,7 @@ import type {
 } from "./result.js";
 import type { SerializedSchemaGraph } from "./schema.js";
 import type { ScopeInfo } from "./scope.js";
+import type { ShareManifest } from "./share.js";
 import type {
 	BootPhases,
 	ClassTiming,
@@ -90,6 +91,8 @@ export interface ReportArtifact {
 	/** What `diagnostics` covers. Absent when nothing was narrowed. */
 	scope?: ScopeInfo;
 	score: Score;
+	/** Precomputed share slices, so the page merges instead of rebuilding. */
+	share: ShareManifest;
 	/** Full source text keyed by absolute posix path. */
 	sources: Record<string, string>;
 	summary: DiagnoseSummary;

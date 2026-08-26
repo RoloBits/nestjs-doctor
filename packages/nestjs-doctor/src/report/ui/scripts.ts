@@ -6469,114 +6469,47 @@ switchTab("summary");
 (function() {
   var btn = document.getElementById("nav-share");
   if (!btn) return;
-  var SHARE_CATS = ["security", "performance", "correctness", "architecture", "schema"];
-  var SHARE_VERSION = 1;
-
-  function shareSections() {
-    var secs = [{id: "score", label: "Health score", count: project.score.value}];
-    for (var i = 0; i < SHARE_CATS.length; i++) {
-      var cat = SHARE_CATS[i], n = 0;
-      for (var j = 0; j < diagnostics.length; j++) {
-        if (diagnostics[j].category === cat && !diagIsNotScored(diagnostics[j])) n++;
-      }
-      if (n > 0) secs.push({id: "findings:" + cat, label: "Findings \\u00b7 " + cat, count: n});
-    }
-    if (endpoints.endpoints.length > 0) {
-      secs.push({id: "endpoints", label: "HTTP endpoints", count: endpoints.endpoints.length});
-    }
-    if (schema.entities.length > 0) {
-      secs.push({id: "schema", label: "Relational schema", count: schema.entities.length});
-    }
-    if (graph.modules.length > 0) {
-      secs.push({id: "modules", label: "Module graph", count: graph.modules.length});
-    }
-    return secs;
-  }
+  var SHARE = REPORT.share;
 
   function buildSharedJson(includeCode, picked) {
-    var cats = {};
-    for (var i = 0; i < picked.length; i++) {
-      if (picked[i].indexOf("findings:") === 0) cats[picked[i].slice(9)] = true;
-    }
-    var pickedDiags = [];
-    for (var j = 0; j < diagnostics.length; j++) {
-      if (cats[diagnostics[j].category] && !diagIsNotScored(diagnostics[j])) pickedDiags.push(diagnostics[j]);
-    }
     var findings = [];
     var schemaIssues = [];
     var counts = {total: 0, errors: 0, warnings: 0, info: 0, byCategory: {security: 0, performance: 0, correctness: 0, architecture: 0, schema: 0}};
-    for (var k = 0; k < pickedDiags.length; k++) {
-      var d = pickedDiags[k];
-      counts.total++;
-      if (d.severity === "error") counts.errors++;
-      else if (d.severity === "warning") counts.warnings++;
-      else counts.info++;
-      counts.byCategory[d.category]++;
-      if (typeof d.line === "number") {
-        if (!includeCode) {
-          var copy = {};
+    for (var i = 0; i < picked.length; i++) {
+      if (picked[i].indexOf("findings:") !== 0) continue;
+      var slice = SHARE.findingsByCategory[picked[i].slice(9)];
+      if (!slice) continue;
+      for (var f = 0; f < slice.findings.length; f++) {
+        if (includeCode) {
+          findings.push(slice.findings[f]);
+        } else {
+          var d = slice.findings[f], copy = {};
           for (var key in d) if (key !== "sourceLines") copy[key] = d[key];
           findings.push(copy);
-        } else {
-          findings.push(d);
         }
-      } else {
-        schemaIssues.push(d);
       }
+      for (var s = 0; s < slice.schemaIssues.length; s++) schemaIssues.push(slice.schemaIssues[s]);
+      counts.total += slice.summary.total;
+      counts.errors += slice.summary.errors;
+      counts.warnings += slice.summary.warnings;
+      counts.info += slice.summary.info;
+      for (var cat in counts.byCategory) counts.byCategory[cat] += slice.summary.byCategory[cat] || 0;
     }
-    var sharedEndpoints;
-    if (picked.indexOf("endpoints") >= 0) {
-      sharedEndpoints = [];
-      for (var e = 0; e < endpoints.endpoints.length; e++) {
-        var ep = endpoints.endpoints[e];
-        sharedEndpoints.push({controllerClass: ep.controllerClass, handlerMethod: ep.handlerMethod, httpMethod: ep.httpMethod, routePath: ep.routePath});
-      }
-    }
-    var sharedSchema;
-    if (picked.indexOf("schema") >= 0 && schema.entities.length > 0) {
-      var ents = [];
-      for (var s2 = 0; s2 < schema.entities.length; s2++) {
-        var ent = schema.entities[s2];
-        var entCopy = {};
-        for (var ek in ent) if (ek !== "filePath") entCopy[ek] = ent[ek];
-        ents.push(entCopy);
-      }
-      sharedSchema = {entities: ents, orm: schema.orm, relations: schema.relations};
-    }
-    var sharedModules;
-    if (picked.indexOf("modules") >= 0 && graph.modules.length > 0) {
-      var mods = [];
-      for (var m = 0; m < graph.modules.length; m++) {
-        var mod = graph.modules[m];
-        var modCopy = {};
-        for (var mk in mod) {
-          if (mk === "filePath" || mk === "hookTimings" || mk === "initTimings") continue;
-          modCopy[mk] = mod[mk];
-        }
-        mods.push(modCopy);
-      }
-      sharedModules = {
-        bootstrapRoots: graph.bootstrapRoots || [],
-        circularDeps: graph.circularDeps,
-        edges: graph.edges,
-        modules: mods,
-        projects: graph.projects
-      };
-    }
+    function has(id) { return picked.indexOf(id) >= 0; }
     return {
-      version: SHARE_VERSION,
+      version: SHARE.version,
       generator: REPORT.generator,
       generatedAt: new Date().toISOString(),
-      ...(picked.indexOf("score") >= 0 ? {project: REPORT.project} : {}),
-      score: REPORT.score,
+      ...(has("score") ? {project: SHARE.project} : {}),
+      score: SHARE.score,
       summary: counts,
       sections: picked,
       includeCode: includeCode && findings.length > 0,
       findings: findings,
       schemaIssues: schemaIssues,
-      endpoints: sharedEndpoints,
-      schema: sharedSchema,
-      modules: sharedModules
+      ...(SHARE.endpoints && has("endpoints") ? {endpoints: SHARE.endpoints} : {}),
+      ...(SHARE.schema && has("schema") ? {schema: SHARE.schema} : {}),
+      ...(SHARE.modules && has("modules") ? {modules: SHARE.modules} : {})
     };
   }
 
@@ -6588,7 +6521,7 @@ switchTab("summary");
     overlay.id = "share-overlay";
     overlay.className = "share-overlay";
 
-    var sections = shareSections();
+    var sections = SHARE.sections;
     var html = '<div id="share-panel" class="share-panel">';
     html += '<div class="share-title">Share the report</div>';
     for (var i = 0; i < sections.length; i++) {

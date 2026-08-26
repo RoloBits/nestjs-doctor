@@ -2,10 +2,11 @@ import { Box, Text, useInput } from "ink";
 import { useMemo, useState } from "react";
 import type { ReportArtifact } from "../../../common/artifact.js";
 import type { DiagnoseResult } from "../../../common/result.js";
+import type { ShareSection } from "../../../common/share.js";
 import {
 	buildSharedReport,
 	enumerateShareSections,
-	type ShareSection,
+	type ShareSectionId,
 	writeSharedReportFile,
 } from "../../../report/share.js";
 import { truncate } from "./text.js";
@@ -36,7 +37,10 @@ export const ShareScreen = ({
 	targetPath,
 	version,
 }: ShareScreenProps): React.JSX.Element => {
-	const sections = useMemo(() => enumerateShareSections(result), [result]);
+	const sections = useMemo(
+		() => enumerateShareSections(result, moduleGraph()),
+		[moduleGraph, result]
+	);
 	const [rows, setRows] = useState<ShareRow[]>(() => [
 		...sections.map((section) => ({
 			checked: true,
@@ -62,7 +66,7 @@ export const ShareScreen = ({
 			return;
 		}
 		const picked = rows.flatMap((row) =>
-			row.checked && row.section ? [row.section.id] : []
+			row.checked && row.section ? [row.section.id as ShareSectionId] : []
 		);
 		if (picked.length === 0) {
 			onToast({ kind: "error", text: "Pick at least one section." });

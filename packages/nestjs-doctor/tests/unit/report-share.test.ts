@@ -7,11 +7,14 @@ import type {
 	Diagnostic,
 } from "../../src/common/diagnostic.js";
 import type { DiagnoseResult } from "../../src/common/result.js";
+import { buildReportArtifact } from "../../src/report/artifact.js";
 import {
 	buildSharedReport,
+	buildShareManifest,
 	ENDPOINTS_SECTION,
 	enumerateShareSections,
 	MODULES_SECTION,
+	mergeShareSlices,
 	parseShareSections,
 	SCHEMA_SECTION,
 	SCORE_SECTION,
@@ -80,25 +83,23 @@ function resultWith(diagnostics: Diagnostic[]): DiagnoseResult {
 }
 
 describe("enumerateShareSections", () => {
+	const noGraph = undefined;
+
 	it("always offers the score and only categories that have findings", () => {
 		const sections = enumerateShareSections(
-			resultWith([code({}), schemaIssue("schema")])
+			resultWith([code({}), schemaIssue("schema")]),
+			noGraph
 		);
 
 		expect(sections.map((section) => section.id)).toEqual([
 			SCORE_SECTION,
 			"findings:security",
 			"findings:schema",
-			MODULES_SECTION,
 		]);
-		expect(sections.map((section) => section.count)).toEqual([55, 1, 1, 1]);
+		expect(sections.map((section) => section.count)).toEqual([55, 1, 1]);
 	});
 
 	it("offers endpoints only when the result has them", () => {
-		const projectless = resultWith([]);
-		projectless.project.moduleCount = 0;
-		expect(enumerateShareSections(projectless)).toHaveLength(1);
-
 		const withEndpoints = resultWith([]);
 		withEndpoints.endpoints = {
 			endpoints: [
@@ -116,7 +117,7 @@ describe("enumerateShareSections", () => {
 				},
 			],
 		};
-		expect(enumerateShareSections(withEndpoints)).toEqual([
+		expect(enumerateShareSections(withEndpoints, noGraph)).toEqual([
 			{
 				id: SCORE_SECTION,
 				count: 55,
@@ -127,17 +128,11 @@ describe("enumerateShareSections", () => {
 				count: 1,
 				label: "HTTP endpoints",
 			},
-			{
-				id: MODULES_SECTION,
-				count: 1,
-				label: "Module graph",
-			},
 		]);
 	});
 
 	it("offers schema and modules when the result carries them", () => {
 		const result = resultWith([]);
-		result.project.moduleCount = 0;
 		result.schema = {
 			entities: [
 				{
@@ -152,16 +147,32 @@ describe("enumerateShareSections", () => {
 			relations: [],
 		};
 
-		const bare = enumerateShareSections(result);
+		const bare = enumerateShareSections(result, noGraph);
 		expect(bare.map((section) => section.id)).toEqual([
 			SCORE_SECTION,
 			SCHEMA_SECTION,
 		]);
 
-		result.project.moduleCount = 3;
-		expect(enumerateShareSections(result).map((section) => section.id)).toEqual(
-			[SCORE_SECTION, SCHEMA_SECTION, MODULES_SECTION]
-		);
+		const graph = {
+			bootstrapRoots: [],
+			circularDepRecommendations: {},
+			circularDeps: [],
+			edges: [],
+			modules: [
+				{
+					controllers: [],
+					exports: [],
+					filePath: "/repo/src/app.module.ts",
+					imports: [],
+					name: "AppModule",
+					providers: [],
+				},
+			],
+			projects: [],
+		};
+		expect(
+			enumerateShareSections(result, graph).map((section) => section.id)
+		).toEqual([SCORE_SECTION, SCHEMA_SECTION, MODULES_SECTION]);
 	});
 });
 
@@ -419,6 +430,144 @@ describe("parseShareSections", () => {
 		expect(parseShareSections("nope").error).toMatch(INVALID_MESSAGE);
 		expect(parseShareSections("findings:nope").error).toMatch(CATEGORY_HINT);
 		expect(parseShareSections(" , ").error).toMatch(EMPTY_LIST_MESSAGE);
+	});
+});
+
+describe("manifest parity", () => {
+	const graph = {
+		bootstrapRoots: ["AppModule"],
+		circularDepRecommendations: {},
+		circularDeps: [["A", "B"]] as string[][],
+		edges: [{ from: "AppModule", to: "CatsModule" }],
+		modules: [
+			{
+				controllers: [],
+				exports: [],
+				filePath: "/repo/src/cats.module.ts",
+				imports: [],
+				name: "CatsModule",
+				providers: [],
+			},
+		],
+		projects: [],
+	};
+
+	const sample = (): DiagnoseResult => {
+		const result = resultWith([
+			code({}),
+			code({ category: "performance", rule: "perf/x" }),
+			schemaIssue("schema"),
+		]);
+		result.endpoints = {
+			endpoints: [
+				{
+					controllerClass: "CatsController",
+					dependencies: [],
+					endLine: 9,
+					filePath: "/repo/src/cats.controller.ts",
+					handlerMethod: "findMany",
+					httpMethod: "GET",
+					line: 7,
+					returnType: null,
+					routePath: "/cats",
+					swagger: null,
+				},
+			],
+		};
+		result.schema = {
+			entities: [
+				{
+					columns: [],
+					filePath: "/repo/src/user.entity.ts",
+					name: "User",
+					relations: [],
+					tableName: "users",
+				},
+			],
+			orm: "prisma",
+			relations: [],
+		};
+		return result;
+	};
+
+	const ALL_SECTIONS = [
+		SCORE_SECTION,
+		"findings:security",
+		"findings:performance",
+		"findings:schema",
+		ENDPOINTS_SECTION,
+		SCHEMA_SECTION,
+		MODULES_SECTION,
+	];
+
+	it("merging the manifest equals building directly", () => {
+		const result = sample();
+		const manifest = buildShareManifest(result, {
+			graph,
+			targetPath: "/repo",
+		});
+
+		for (const includeCode of [false, true]) {
+			const direct = buildSharedReport(
+				result,
+				{ includeCode, sections: ALL_SECTIONS },
+				"1.2.3",
+				"/repo",
+				graph
+			);
+			const merged = mergeShareSlices(manifest, {
+				generator: { name: "nestjs-doctor", version: "1.2.3" },
+				includeCode,
+				sections: ALL_SECTIONS,
+			});
+			const strip = (value: unknown) => {
+				const parsed = JSON.parse(JSON.stringify(value)) as Record<
+					string,
+					unknown
+				>;
+				const { generatedAt, ...rest } = parsed;
+				return rest;
+			};
+			expect(strip(merged)).toEqual(strip(direct));
+		}
+	});
+
+	it("the artifact embeds the manifest the share flow consumes", () => {
+		const result = sample();
+		const moduleNode = {
+			controllers: [],
+			exports: [],
+			filePath: "/repo/src/cats.module.ts",
+			forwardRefImports: new Set<string>(),
+			imports: [],
+			isGlobal: false,
+			name: "CatsModule",
+			providers: [],
+		};
+		const moduleGraph = {
+			edges: new Map([["AppModule", new Set(["CatsModule"])]]),
+			modules: new Map([["CatsModule", moduleNode]]),
+			providerToModule: new Map(),
+		};
+		const artifact = buildReportArtifact({
+			moduleGraph,
+			result,
+			targetPath: "/repo",
+			version: "1.2.3",
+		});
+
+		expect(artifact.share).toEqual(
+			buildShareManifest(result, {
+				graph: artifact.graph,
+				targetPath: "/repo",
+			})
+		);
+		expect(artifact.share.sections.map((section) => section.id)).toEqual(
+			ALL_SECTIONS
+		);
+		expect(artifact.share.modules?.modules[0].filePath).toBe(
+			"src/cats.module.ts"
+		);
 	});
 });
 

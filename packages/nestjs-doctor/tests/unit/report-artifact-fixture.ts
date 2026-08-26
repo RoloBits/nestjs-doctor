@@ -98,6 +98,23 @@ export const EMPTY_ARTIFACT: ReportArtifact = {
 	providers: [] as ReportProvider[],
 	endpoints: { endpoints: [] },
 	schema: { entities: [], relations: [], orm: "" },
+	share: {
+		filename: "nestjs-doctor-shared.json",
+		findingsByCategory: {},
+		project: {
+			name: "app",
+			nestVersion: null,
+			orm: null,
+			framework: null,
+			fileCount: 1,
+			moduleCount: 1,
+		},
+		sections: [
+			{ count: 100, id: "score", label: "Health score and project info" },
+		],
+		score: { value: 100, label: "Excellent" },
+		version: 1,
+	},
 	examples: {},
 	sources: {},
 };
