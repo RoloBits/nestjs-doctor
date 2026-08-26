@@ -5,7 +5,6 @@ import type { ReportArtifact, ReportProvider } from "../common/artifact.js";
 import type { Diagnostic } from "../common/diagnostic.js";
 import type { DiagnoseResult } from "../common/result.js";
 import { computeBaselineDelta } from "../engine/baseline.js";
-import { collectEntryModules } from "../engine/graph/entry-points.js";
 import {
 	detachModuleGraph,
 	mergeModuleGraphs,
@@ -34,7 +33,7 @@ import {
 	type ResolvedScope,
 	resolveScope,
 } from "../engine/scope.js";
-import { buildReportArtifact, toReportProvider } from "../report/artifact.js";
+import { buildReportArtifact, collectScanFacts } from "../report/artifact.js";
 import { buildHtmlReport } from "../report/html-report.js";
 import { getEcosystem, resetEcosystem } from "../telemetry/ecosystem.js";
 import { actionContext, generatedIn } from "../telemetry/environment.js";
@@ -574,24 +573,9 @@ export class MonorepoPipeline extends ScanPipeline {
 					}
 					const label = this.projectLabel || name;
 					this.allFiles.push(...context.files);
-					for (const root of collectEntryModules(
-						context.astProject,
-						context.files,
-						context.moduleGraph
-					)) {
-						this.bootstrapRoots.push(`${name}/${root}`);
-					}
-					for (const provider of context.providers.values()) {
-						const owner = context.moduleGraph.providerToModule.get(
-							provider.name
-						);
-						this.allProviders.push(
-							toReportProvider(provider, {
-								project: name,
-								module: owner ? `${name}/${owner.name}` : undefined,
-							})
-						);
-					}
+					const facts = collectScanFacts({ ...context, projectName: name });
+					this.bootstrapRoots.push(...facts.bootstrapRoots);
+					this.allProviders.push(...facts.providers);
 					const rawOutput = await diagnose(context, (checked, total) => {
 						this.emitProgress(`${label} — running rules`, checked, total);
 					});
@@ -855,20 +839,14 @@ export class SingleProjectPipeline extends ScanPipeline {
 				this.scanConfig.customRuleWarnings
 			);
 			// Read from the live graph; the detach below strips the rest.
-			this.bootstrapRoots = [
-				...collectEntryModules(
-					this.context.astProject,
-					this.result.files,
-					this.result.moduleGraph
-				),
-			];
-			this.reportProviders = [...this.result.providers.values()].map(
-				(provider) =>
-					toReportProvider(provider, {
-						module: this.result.moduleGraph.providerToModule.get(provider.name)
-							?.name,
-					})
-			);
+			const facts = collectScanFacts({
+				astProject: this.context.astProject,
+				files: this.result.files,
+				moduleGraph: this.result.moduleGraph,
+				providers: this.result.providers,
+			});
+			this.bootstrapRoots = facts.bootstrapRoots;
+			this.reportProviders = facts.providers;
 			this.result = {
 				...this.result,
 				moduleGraph: detachModuleGraph(this.result.moduleGraph),
