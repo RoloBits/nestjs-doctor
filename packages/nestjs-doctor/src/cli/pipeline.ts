@@ -44,6 +44,7 @@ import {
 	readConfigFacts,
 } from "../telemetry/scan-telemetry.js";
 import { scanTelemetryEnabled, sendScanTelemetry } from "../telemetry/send.js";
+import { logger } from "../ui/logger.js";
 import {
 	printConsoleReport,
 	printMonorepoReport,
@@ -56,7 +57,6 @@ import {
 } from "./output.js";
 import type { PipelineOptions } from "./setup.js";
 import { createAnimatedProgress } from "./ui/animated-progress.js";
-import { logger } from "./ui/logger.js";
 
 type PipelineStep = () => void | Promise<void>;
 

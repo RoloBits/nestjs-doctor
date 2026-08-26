@@ -1,8 +1,8 @@
 import type { Category } from "../common/diagnostic.js";
 import { getRules } from "../engine/rules/index.js";
 import type { RuleMeta } from "../engine/rules/types.js";
-import { highlighter } from "./ui/highlighter.js";
-import { logger } from "./ui/logger.js";
+import { highlighter } from "../ui/highlighter.js";
+import { logger } from "../ui/logger.js";
 
 const CATEGORY_ORDER: Category[] = [
 	"security",

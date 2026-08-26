@@ -1,6 +1,5 @@
 import { performance } from "node:perf_hooks";
 import { getCliVersion } from "../cli/output.js";
-import { spinner } from "../cli/ui/spinner.js";
 import type { ReportProvider, SourceInclusion } from "../common/artifact.js";
 import { collectEntryModules } from "../engine/graph/entry-points.js";
 import {
@@ -24,6 +23,7 @@ import {
 	type ScanConfig,
 } from "../engine/scanner.js";
 import { scanTelemetryEnabled } from "../telemetry/send.js";
+import { spinner } from "../ui/spinner.js";
 import { buildReportArtifact, toReportProvider } from "./artifact.js";
 import { buildHtmlReport } from "./html-report.js";
 import type { BootstrapTimings } from "./timings.js";

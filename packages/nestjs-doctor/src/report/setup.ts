@@ -1,7 +1,7 @@
-import { highlighter } from "../cli/ui/highlighter.js";
-import { logger } from "../cli/ui/logger.js";
 import type { SourceInclusion } from "../common/artifact.js";
 import { detectMonorepo } from "../engine/project-detector.js";
+import { highlighter } from "../ui/highlighter.js";
+import { logger } from "../ui/logger.js";
 import {
 	logMonorepoSummary,
 	logSingleProjectSummary,

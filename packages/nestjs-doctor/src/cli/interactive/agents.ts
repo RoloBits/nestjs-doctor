@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import type { Diagnostic } from "../../common/diagnostic.js";
+import { logger } from "../../ui/logger.js";
 import { isCommandAvailable } from "../ui/commands.js";
-import { logger } from "../ui/logger.js";
 import { buildFixPrompt, groupFindings } from "./findings.js";
 
 export interface LaunchableAgent {

@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { outputSingleProjectResults } from "../../src/cli/output.js";
 import type { PipelineOptions } from "../../src/cli/setup.js";
-import { logger } from "../../src/cli/ui/logger.js";
 import type { EngineResult } from "../../src/engine/scanner.js";
+import { logger } from "../../src/ui/logger.js";
 import { EMPTY_ARTIFACT, emptyResult } from "./report-artifact-fixture.js";
 
 const engineResult = () =>

@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import type { SourceInclusion } from "../common/artifact.js";
 import { isScopeMode, type ScopeMode } from "../common/scope.js";
 import type { BootstrapTimings } from "../report/timings.js";
+import { logger } from "../ui/logger.js";
 import {
 	type BlockingLevel,
 	resolveBlocking,
@@ -14,7 +15,6 @@ import {
 } from "./formatters/render.js";
 import { validateMinScoreArg } from "./min-score.js";
 import { validateTargetPathArg } from "./target-path.js";
-import { logger } from "./ui/logger.js";
 
 export interface PipelineOptions {
 	base: string | undefined;

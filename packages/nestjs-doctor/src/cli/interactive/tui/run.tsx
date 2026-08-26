@@ -1,5 +1,5 @@
 import { render } from "ink";
-import { logger } from "../../ui/logger.js";
+import { logger } from "../../../ui/logger.js";
 import { type LaunchableAgent, launchAgent } from "../agents.js";
 import { App } from "./app.js";
 import type { InteractiveContext } from "./types.js";

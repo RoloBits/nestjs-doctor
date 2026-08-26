@@ -1,8 +1,8 @@
 import { type Diagnostic, onSurface } from "../../common/diagnostic.js";
 import type { DiagnoseResult, MonorepoResult } from "../../common/result.js";
 import { withSurface } from "../../engine/result-builder.js";
-import { highlighter } from "../ui/highlighter.js";
-import { logger } from "../ui/logger.js";
+import { highlighter } from "../../ui/highlighter.js";
+import { logger } from "../../ui/logger.js";
 
 const PERFECT_SCORE = 100;
 const SCORE_BAR_WIDTH = 50;
