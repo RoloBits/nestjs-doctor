@@ -777,7 +777,11 @@ describe("no-manual-instantiation", () => {
 		const diags = runRule(
 			noManualInstantiation,
 			`
-      const svc = new UserService();
+      class OrdersController {
+        run() {
+          return new UserService();
+        }
+      }
     `
 		);
 		expect(diags).toHaveLength(1);
@@ -788,7 +792,11 @@ describe("no-manual-instantiation", () => {
 		const diags = runRule(
 			noManualInstantiation,
 			`
-      const repo = new UsersRepository();
+      class UsersService {
+        load() {
+          return new UsersRepository();
+        }
+      }
     `
 		);
 		expect(diags).toHaveLength(1);
@@ -905,12 +913,16 @@ describe("no-manual-instantiation", () => {
 		expect(diags[0].message).toContain("AuthGuard");
 	});
 
-	it("still flags Service/Repository regardless of context", () => {
+	it("flags Service/Repository inside class members", () => {
 		const diags = runRule(
 			noManualInstantiation,
 			`
-      export const svc = new UserService();
-      const repo = new UsersRepository();
+      class OrdersController {
+        private readonly svc = new UserService();
+        run() {
+          return new UsersRepository();
+        }
+      }
     `
 		);
 		expect(diags).toHaveLength(2);
@@ -920,7 +932,11 @@ describe("no-manual-instantiation", () => {
 		const diags = runRule(
 			noManualInstantiation,
 			`
-      const logger = new LoggerService();
+      class AppService {
+        run() {
+          return new LoggerService();
+        }
+      }
     `,
 			"test.ts",
 			{
@@ -938,7 +954,11 @@ describe("no-manual-instantiation", () => {
 		const diags = runRule(
 			noManualInstantiation,
 			`
-      const logger = new LoggerService();
+      class AppService {
+        run() {
+          return new LoggerService();
+        }
+      }
     `,
 			"test.ts",
 			{
@@ -956,7 +976,11 @@ describe("no-manual-instantiation", () => {
 		const diags = runRule(
 			noManualInstantiation,
 			`
-      const logger = new Foo.LoggerService();
+      class AppService {
+        run() {
+          return new Foo.LoggerService();
+        }
+      }
     `,
 			"test.ts",
 			{
@@ -974,9 +998,14 @@ describe("no-manual-instantiation", () => {
 		const diags = runRule(
 			noManualInstantiation,
 			`
-      const logger = new LoggerService();
-      const cache = new CacheService();
-      const user = new UserService();
+      class AppService {
+        run() {
+          const logger = new LoggerService();
+          const cache = new CacheService();
+          const user = new UserService();
+          return [logger, cache, user];
+        }
+      }
     `,
 			"test.ts",
 			{
@@ -995,7 +1024,11 @@ describe("no-manual-instantiation", () => {
 		const diags = runRule(
 			noManualInstantiation,
 			`
-      const logger = new Foo.LoggerService();
+      class AppService {
+        run() {
+          return new Foo.LoggerService();
+        }
+      }
     `,
 			"test.ts",
 			{
@@ -1013,7 +1046,11 @@ describe("no-manual-instantiation", () => {
 		const diags = runRule(
 			noManualInstantiation,
 			`
-      const svc = new UserService();
+      class AppService {
+        run() {
+          return new UserService();
+        }
+      }
     `,
 			"test.ts",
 			{
@@ -1080,254 +1117,236 @@ describe("no-manual-instantiation", () => {
 });
 
 describe("no-manual-instantiation: provider factories (#293)", () => {
-	const DI = new Set(["MailerService", "ConfigService"]);
-
-	it("does not flag a factory body in a standalone const provider", () => {
-		const diags = runRule(
+	const DI = new Set([
+		"MailerService",
+		"ConfigService",
+		"CustomValidationPipe",
+	]);
+	const runProviderRule = (
+		code: string,
+		diProviders: ReadonlySet<string> = DI,
+		config: NestjsDoctorConfig = {}
+	) =>
+		runRule(
 			noManualInstantiation,
-			`
-      export const mailerProvider = {
-        provide: 'MAILER_TOKEN',
-        inject: [ConfigService],
-        useFactory: (config) =>
-          new MailerService({ host: config.smtpHost }, { from: config.from }),
-      };
-    `,
+			code,
 			"test.ts",
-			{},
+			config,
 			undefined,
-			DI
+			diProviders
 		);
-		expect(diags).toHaveLength(0);
-	});
 
-	it("does not flag an async factory with control flow around the construction", () => {
-		const diags = runRule(
-			noManualInstantiation,
+	it.each([
+		[
+			"a factory body in a standalone const provider",
 			`
-      export const storageProvider = {
-        provide: 'STORAGE',
-        inject: [ConfigService],
-        useFactory: async (config) => {
-          if (config.driver === 's3') {
-            try {
-              return new MailerService(config.s3, {});
-            } catch {
-              // fall through
-            }
-          }
-          return new MailerService(config.local, {});
-        },
-      };
-    `,
-			"test.ts",
-			{},
-			undefined,
-			DI
-		);
-		expect(diags).toHaveLength(0);
-	});
-
-	it("does not flag constructions inside the object a factory returns", () => {
-		const diags = runRule(
-			noManualInstantiation,
-			`
-      export const paymentsProvider = {
-        provide: 'PAYMENTS_BUNDLE',
-        inject: [ConfigService],
-        useFactory: (config) => ({
-          charges: new MailerService(config.stripe, {}),
-          cache: new ConfigService(config.redis),
-        }),
-      };
-    `,
-			"test.ts",
-			{},
-			undefined,
-			DI
-		);
-		expect(diags).toHaveLength(0);
-	});
-
-	it("does not flag a method-shorthand factory", () => {
-		const diags = runRule(
-			noManualInstantiation,
-			`
-      export const fxProvider = {
-        provide: 'FX_RATES',
-        inject: [ConfigService],
-        useFactory(config) {
-          return new MailerService(config.url, {});
-        },
-      };
-    `,
-			"test.ts",
-			{},
-			undefined,
-			DI
-		);
-		expect(diags).toHaveLength(0);
-	});
-
-	it("does not flag a useValue construction outside any decorator", () => {
-		const diags = runRule(
-			noManualInstantiation,
-			`
-      export const paymentProvider = {
-        provide: 'PAYMENT_GATEWAY',
-        useValue: new MailerService(process.env.KEY ?? '', {}),
-      };
-    `,
-			"test.ts",
-			{},
-			undefined,
-			DI
-		);
-		expect(diags).toHaveLength(0);
-	});
-
-	it("does not flag options handed directly to a forRoot call outside a decorator", () => {
-		const diags = runRule(
-			noManualInstantiation,
-			`
-      export const dynamicModule = MailModule.forRoot({
-        transport: new MailerService({ host: 'smtp' }, {}),
-        templateAdapter: new ConfigService({}),
-      });
-    `,
-			"test.ts",
-			{},
-			undefined,
-			DI
-		);
-		expect(diags).toHaveLength(0);
-	});
-
-	it("does not flag providers declared as a plain exported array", () => {
-		const diags = runRule(
-			noManualInstantiation,
-			`
-      export const queueProviders = [
-        {
-          provide: 'MAIL_QUEUE',
+        export const mailerProvider = {
+          provide: 'MAILER_TOKEN',
           inject: [ConfigService],
-          useFactory: (config) => new MailerService(config.url, {}),
-        },
-      ];
-    `,
-			"test.ts",
-			{},
-			undefined,
-			DI
-		);
-		expect(diags).toHaveLength(0);
-	});
-
-	it("still flags a bypass inside a service method", () => {
-		const diags = runRule(
-			noManualInstantiation,
+          useFactory: (config) =>
+            new MailerService({ host: config.smtpHost }, { from: config.from }),
+        };
+      `,
+		],
+		[
+			"an async factory with control flow around the construction",
 			`
-      class ReportComposer {
-        snapshot() {
-          return new MailerService({}, {});
+        export const storageProvider = {
+          provide: 'STORAGE',
+          inject: [ConfigService],
+          useFactory: async (config) => {
+            if (config.driver === 's3') {
+              try {
+                return new MailerService(config.s3, {});
+              } catch {
+                // fall through
+              }
+            }
+            return new MailerService(config.local, {});
+          },
+        };
+      `,
+		],
+		[
+			"constructions inside the object a factory returns",
+			`
+        export const paymentsProvider = {
+          provide: 'PAYMENTS_BUNDLE',
+          inject: [ConfigService],
+          useFactory: (config) => ({
+            charges: new MailerService(config.stripe, {}),
+            cache: new ConfigService(config.redis),
+          }),
+        };
+      `,
+		],
+		[
+			"a method-shorthand factory",
+			`
+        export const fxProvider = {
+          provide: 'FX_RATES',
+          inject: [ConfigService],
+          useFactory(config) {
+            return new MailerService(config.url, {});
+          },
+        };
+      `,
+		],
+		[
+			"a useValue construction outside any decorator",
+			`
+        export const paymentProvider = {
+          provide: 'PAYMENT_GATEWAY',
+          useValue: new MailerService(process.env.KEY ?? '', {}),
+        };
+      `,
+		],
+		[
+			"options handed directly to a forRoot call outside a decorator",
+			`
+        export const dynamicModule = MailModule.forRoot({
+          transport: new MailerService({ host: 'smtp' }, {}),
+          templateAdapter: new ConfigService({}),
+        });
+      `,
+		],
+		[
+			"providers declared as a plain exported array",
+			`
+        export const queueProviders = [
+          {
+            provide: 'MAIL_QUEUE',
+            inject: [ConfigService],
+            useFactory: (config) => new MailerService(config.url, {}),
+          },
+        ];
+      `,
+		],
+		[
+			"a named factory referenced by a provider",
+			`
+        function createMailer(config) {
+          return new MailerService(config.url, {});
         }
-      }
-    `,
-			"test.ts",
-			{},
-			undefined,
-			DI
-		);
-		expect(diags).toHaveLength(1);
+        export const mailerProvider = {
+          provide: 'MAILER',
+          inject: [ConfigService],
+          useFactory: createMailer,
+        };
+      `,
+		],
+		[
+			"an identifier-backed useValue provider",
+			`
+        const mailer = new MailerService({}, {});
+        export const mailerProvider = {
+          provide: 'MAILER',
+          useValue: mailer,
+        };
+      `,
+		],
+		[
+			"options assembled in a module-scope helper",
+			`
+        function buildMailOptions() {
+          return { transport: new MailerService({}, {}) };
+        }
+      `,
+		],
+		[
+			"a hoisted instance captured by a passthrough factory",
+			`
+        const impl = new MailerService({}, {});
+        export const CACHE_PROVIDER = {
+          provide: 'CACHE',
+          useFactory: () => impl,
+        };
+      `,
+		],
+		[
+			"a context-aware injectable constructed during bootstrap",
+			`
+        function bootstrap(app) {
+          app.useGlobalPipes(new CustomValidationPipe());
+        }
+      `,
+		],
+		[
+			"a static class factory referenced by a provider",
+			`
+        class MailerFactory {
+          static create(config) {
+            return new MailerService(config.url, {});
+          }
+        }
+        export const mailerProvider = {
+          provide: 'MAILER',
+          inject: [ConfigService],
+          useFactory: MailerFactory.create,
+        };
+      `,
+		],
+		[
+			"a static class value referenced by a provider",
+			`
+        class MailerFactory {
+          static readonly instance = new MailerService({}, {});
+        }
+        export const mailerProvider = {
+          provide: 'MAILER',
+          useValue: MailerFactory.instance,
+        };
+      `,
+		],
+	])("does not flag %s", (_name, code) => {
+		expect(runProviderRule(code)).toHaveLength(0);
 	});
 
-	it("still flags a literal that has useFactory but no provide key", () => {
-		const diags = runRule(
-			noManualInstantiation,
+	it.each([
+		[
+			"a bypass inside a service method",
 			`
-      const legacyDescriptor = {
-        inject: [ConfigService],
-        useFactory: (config) => new MailerService(config, {}),
-      };
-    `,
-			"test.ts",
-			{},
-			undefined,
-			DI
-		);
-		expect(diags).toHaveLength(1);
+        class ReportComposer {
+          snapshot() {
+            return new MailerService({}, {});
+          }
+        }
+      `,
+		],
+		[
+			"a literal that has useFactory but no provide key",
+			`
+        class LegacyService {
+          build() {
+            return {
+              inject: [ConfigService],
+              useFactory: (config) => new MailerService(config, {}),
+            };
+          }
+        }
+      `,
+		],
+	])("still flags %s", (_name, code) => {
+		expect(runProviderRule(code)).toHaveLength(1);
 	});
 
-	it("still flags options assembled in a plain helper function", () => {
-		const diags = runRule(
-			noManualInstantiation,
-			`
-      function buildMailOptions() {
-        return { transport: new MailerService({}, {}) };
-      }
-    `,
-			"test.ts",
-			{},
-			undefined,
-			DI
-		);
-		expect(diags).toHaveLength(1);
-	});
-
-	it("still flags a hoisted instance captured by a passthrough factory", () => {
-		const diags = runRule(
-			noManualInstantiation,
-			`
-      const impl = new MailerService({}, {});
-      export const CACHE_PROVIDER = {
-        provide: 'CACHE',
-        useFactory: () => impl,
-      };
-    `,
-			"test.ts",
-			{},
-			undefined,
-			DI
-		);
-		expect(diags).toHaveLength(1);
-	});
-
-	it("flags an unsuffixed registered injectable constructed in app code", () => {
-		const diags = runRule(
-			noManualInstantiation,
-			`
+	it("does not guess that an unsuffixed class is a provider", () => {
+		expect(
+			runProviderRule(
+				`
       class AuthService {
         constructor(users) {
           this.strategy = new LocalStrategy(users);
         }
       }
     `,
-			"test.ts",
-			{},
-			undefined,
-			new Set(["LocalStrategy"])
-		);
-		expect(diags).toHaveLength(1);
-		expect(diags[0].message).toContain("LocalStrategy");
-	});
-
-	it("keeps suffix matching as the fallback when DI facts are unavailable", () => {
-		const diags = runRule(
-			noManualInstantiation,
-			`
-      class AuthService {
-        constructor(users) {
-          this.strategy = new LocalStrategy(users);
-        }
-      }
-    `
-		);
-		expect(diags).toHaveLength(0);
+				new Set(["LocalStrategy"])
+			)
+		).toHaveLength(0);
 	});
 
 	it("still respects excludedClasses for provider factories", () => {
-		const diags = runRule(
-			noManualInstantiation,
+		const diags = runProviderRule(
 			`
       class ReportComposer {
         snapshot() {
@@ -1335,16 +1354,14 @@ describe("no-manual-instantiation: provider factories (#293)", () => {
         }
       }
     `,
-			"test.ts",
+			DI,
 			{
 				rules: {
 					"architecture/no-manual-instantiation": {
 						excludeClasses: ["MailerService"],
 					},
 				},
-			},
-			undefined,
-			DI
+			}
 		);
 		expect(diags).toHaveLength(0);
 	});

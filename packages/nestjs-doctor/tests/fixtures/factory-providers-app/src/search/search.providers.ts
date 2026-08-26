@@ -6,7 +6,6 @@ export interface VaultCredentials {
 	node: string;
 }
 
-// Async factory: credentials fetched before construction.
 export const searchProvider: Provider = {
 	provide: "SEARCH_INDEX",
 	inject: [AppConfigService],

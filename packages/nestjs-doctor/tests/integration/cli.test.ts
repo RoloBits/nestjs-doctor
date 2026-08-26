@@ -1198,23 +1198,23 @@ describe("scanner integration", () => {
 
 	describe("factory-providers-app fixture (#293)", () => {
 		const targetPath = resolve(FIXTURES, "factory-providers-app/src");
-		let result: Awaited<ReturnType<typeof buildResult>>["result"];
+		let diags: Awaited<ReturnType<typeof buildResult>>["result"]["diagnostics"];
 
 		beforeAll(async () => {
 			const scanConfig = await resolveScanConfig(targetPath);
 			const context = await buildAnalysisContext(targetPath, scanConfig);
 			const rawOutput = await diagnose(context);
-			({ result } = buildResult(
+			const { result } = buildResult(
 				context,
 				rawOutput,
 				scanConfig.customRuleWarnings
-			));
+			);
+			diags = result.diagnostics.filter(
+				(d) => d.rule === "architecture/no-manual-instantiation"
+			);
 		});
 
 		it("does not report manual instantiation inside provider factories", () => {
-			const diags = result.diagnostics.filter(
-				(d) => d.rule === "architecture/no-manual-instantiation"
-			);
 			const factoryDiags = diags.filter(
 				(d) =>
 					d.filePath.includes("mailer.providers") ||
@@ -1227,9 +1227,6 @@ describe("scanner integration", () => {
 		});
 
 		it("still reports the genuine bypasses in the legacy files", () => {
-			const diags = result.diagnostics.filter(
-				(d) => d.rule === "architecture/no-manual-instantiation"
-			);
 			expect(diags).toHaveLength(3);
 			expect(diags.filter((d) => d.filePath.includes("legacy"))).toHaveLength(
 				3

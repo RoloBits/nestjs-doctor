@@ -1,8 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { UserService } from "../users/user.service";
 
-// BAD: runtime construction inside a service method shadows the
-// container-managed instance.
 @Injectable()
 export class AuditService {
 	snapshot(): string {

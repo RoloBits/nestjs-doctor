@@ -1,6 +1,9 @@
+import { Injectable } from "@nestjs/common";
 import { UserService } from "../users/user.service";
 
-// BAD: plain helper constructing a registered injectable by hand.
-export function buildGuestUser(): UserService {
-	return new UserService();
+@Injectable()
+export class LegacyHelperService {
+	buildGuestUser(): UserService {
+		return new UserService();
+	}
 }

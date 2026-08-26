@@ -11,9 +11,9 @@ export const paymentGatewayProvider: Provider = {
 	}),
 };
 
-// Registration-time construction: the container takes ownership of this
-// exact instance, same as a decorator argument.
+const legacyGateway = new PaymentGateway(process.env.LEGACY_KEY ?? "");
+
 export const legacyGatewayProvider: Provider = {
 	provide: "LEGACY_GATEWAY",
-	useValue: new PaymentGateway(process.env.LEGACY_KEY ?? ""),
+	useValue: legacyGateway,
 };

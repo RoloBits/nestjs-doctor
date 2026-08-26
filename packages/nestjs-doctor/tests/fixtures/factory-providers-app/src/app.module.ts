@@ -9,14 +9,11 @@ import {
 	paymentGatewayProvider,
 } from "./payments/payments.providers";
 import { AuditService } from "./legacy/audit.service";
-import { buildGuestUser } from "./legacy/legacy.helpers";
-import { legacyDescriptor } from "./legacy/legacy.providers";
+import { LegacyHelperService } from "./legacy/legacy.helpers";
+import { LegacyDescriptorService } from "./legacy/legacy.providers";
 import { searchProvider, SearchIndexService } from "./search/search.providers";
 import { storageProvider, LocalStorageService } from "./storage/storage.providers";
 import { UserService } from "./users/user.service";
-
-void buildGuestUser;
-void legacyDescriptor;
 
 @Module({
 	imports: [JwtModule.register("dev-secret"), JwtModule.registerAsync()],
@@ -34,6 +31,8 @@ void legacyDescriptor;
 		TokenSignerService,
 		KeyStoreService,
 		AuditService,
+		LegacyHelperService,
+		LegacyDescriptorService,
 	],
 })
 export class AppModule {}
