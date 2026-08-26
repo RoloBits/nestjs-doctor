@@ -1,6 +1,6 @@
 import {
+	collectCustomProviderClasses,
 	collectExtendedClasses,
-	collectProviderImplementations,
 } from "../../../graph/custom-providers.js";
 import { INFRA_SUFFIXES } from "../../constants.js";
 import type { ProjectRule } from "../../types.js";
@@ -35,19 +35,20 @@ export const injectableMustBeProvided: ProjectRule = {
 			}
 		}
 
-		for (const implementation of collectProviderImplementations(
+		const productionFiles = context.files.filter(
+			(filePath) => !isTestFile(filePath)
+		);
+		const customProviderClasses = collectCustomProviderClasses(
 			context.project,
-			context.files
-		)) {
-			registeredProviders.add(implementation);
+			productionFiles
+		);
+		for (const name of customProviderClasses.implementationNames) {
+			registeredProviders.add(name);
 		}
 
 		// A base class is registered through its subclasses, not on its own. Test
 		// files are left out so a stub cannot exempt a production class.
-		const extended = collectExtendedClasses(
-			context.project,
-			context.files.filter((filePath) => !isTestFile(filePath))
-		);
+		const extended = collectExtendedClasses(context.project, productionFiles);
 
 		// Scan all files for @Injectable() classes
 		for (const filePath of context.files) {
@@ -77,7 +78,10 @@ export const injectableMustBeProvided: ProjectRule = {
 				}
 
 				// Skip if registered in any module
-				if (registeredProviders.has(className)) {
+				if (
+					registeredProviders.has(className) ||
+					customProviderClasses.constructedClasses.has(cls)
+				) {
 					continue;
 				}
 

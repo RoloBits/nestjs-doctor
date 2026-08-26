@@ -1209,28 +1209,49 @@ describe("scanner integration", () => {
 				rawOutput,
 				scanConfig.customRuleWarnings
 			);
-			diags = result.diagnostics.filter(
-				(d) => d.rule === "architecture/no-manual-instantiation"
-			);
+			diags = result.diagnostics;
 		});
 
 		it("does not report manual instantiation inside provider factories", () => {
 			const factoryDiags = diags.filter(
 				(d) =>
-					d.filePath.includes("mailer.providers") ||
-					d.filePath.includes("search.providers") ||
-					d.filePath.includes("storage.providers") ||
-					d.filePath.includes("payments.providers") ||
-					d.filePath.includes("jwt.module")
+					d.rule === "architecture/no-manual-instantiation" &&
+					(d.filePath.includes("mailer.providers") ||
+						d.filePath.includes("search.providers") ||
+						d.filePath.includes("storage.providers") ||
+						d.filePath.includes("payments.providers") ||
+						d.filePath.includes("jwt.module"))
 			);
 			expect(factoryDiags).toHaveLength(0);
 		});
 
 		it("still reports the genuine bypasses in the legacy files", () => {
-			expect(diags).toHaveLength(3);
-			expect(diags.filter((d) => d.filePath.includes("legacy"))).toHaveLength(
-				3
+			const manualDiags = diags.filter(
+				(d) => d.rule === "architecture/no-manual-instantiation"
 			);
+			expect(manualDiags).toHaveLength(3);
+			expect(
+				manualDiags.filter((d) => d.filePath.includes("legacy"))
+			).toHaveLength(3);
+		});
+
+		it("counts factory-constructed classes as provided and used (#306)", () => {
+			const factoryClasses = [
+				"MailerService",
+				"SearchIndexService",
+				"S3StorageService",
+				"LocalStorageService",
+				"PaymentGateway",
+				"TokenSignerService",
+				"KeyStoreService",
+			];
+			const projectRuleDiags = diags.filter(
+				(d) =>
+					(d.rule === "correctness/injectable-must-be-provided" ||
+						d.rule === "performance/no-unused-providers") &&
+					factoryClasses.some((name) => d.message.includes(`'${name}'`))
+			);
+			expect(projectRuleDiags).toHaveLength(0);
 		});
 	});
 

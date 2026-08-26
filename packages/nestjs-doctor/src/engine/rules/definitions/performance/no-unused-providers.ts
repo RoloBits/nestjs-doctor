@@ -1,7 +1,7 @@
 import type { ClassDeclaration } from "ts-morph";
 import {
+	collectCustomProviderClasses,
 	collectExtendedClasses,
-	collectProviderImplementations,
 } from "../../../graph/custom-providers.js";
 import { isController } from "../../../nest-class-inspector.js";
 import { INFRA_SUFFIXES } from "../../constants.js";
@@ -131,9 +131,8 @@ export const noUnusedProviders: ProjectRule = {
 			}
 		}
 
-		// Nest instantiates a useClass/useExisting target, and a base class runs
-		// through every subclass, without either being injected by type.
-		const implementations = collectProviderImplementations(
+		// Custom-provider targets and base classes are in use without being injected.
+		const customProviderClasses = collectCustomProviderClasses(
 			context.project,
 			context.files
 		);
@@ -142,7 +141,13 @@ export const noUnusedProviders: ProjectRule = {
 		for (const provider of context.providers.values()) {
 			const name = provider.name;
 
-			if (implementations.has(name) || extended.has(name)) {
+			if (
+				customProviderClasses.implementationNames.has(name) ||
+				customProviderClasses.constructedClasses.has(
+					provider.classDeclaration
+				) ||
+				extended.has(name)
+			) {
 				continue;
 			}
 
