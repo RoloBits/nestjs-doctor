@@ -27,8 +27,13 @@ const signalHub = () => {
 
 const stdinHub = (isTTY = true) => {
 	const listeners = new Map<string, Array<(data: Buffer | string) => void>>();
+	let paused = false;
 	return {
 		isTTY,
+		paused: () => paused,
+		pause: () => {
+			paused = true;
+		},
 		count: (event: string) => listeners.get(event)?.length ?? 0,
 		emit: (data: Buffer | string) => {
 			for (const listener of [...(listeners.get("data") ?? [])]) {
@@ -166,5 +171,20 @@ describe("cancellation watcher", () => {
 
 		expect(watch.onInterrupt).not.toHaveBeenCalled();
 		expect(watch.stdin.count("data")).toBe(0);
+	});
+
+	it("pauses a TTY stdin on teardown so the process can exit", () => {
+		const watch = startWatching();
+
+		expect(watch.stdin.paused()).toBe(false);
+		watch.dispose();
+		expect(watch.stdin.paused()).toBe(true);
+	});
+
+	it("leaves a non-TTY stdin alone, since it was never resumed", () => {
+		const watch = startWatching(vi.fn(), signalHub(), stdinHub(false));
+
+		watch.dispose();
+		expect(watch.stdin.paused()).toBe(false);
 	});
 });

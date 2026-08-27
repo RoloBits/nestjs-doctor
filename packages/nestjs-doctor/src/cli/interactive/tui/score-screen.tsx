@@ -1,6 +1,7 @@
 import { Box, Text, useStdout } from "ink";
 import { useEffect, useState } from "react";
 import type { DiagnoseResult } from "../../../common/result.js";
+import { usableColumns, usableRows } from "../../../ui/terminal.js";
 import { formatElapsedTime } from "../../formatters/console-reporter.js";
 import { groupFindings } from "../findings.js";
 import { clampOffset, listCapacity, scrollWindow } from "./navigate.js";
@@ -196,14 +197,14 @@ export const ScoreScreen = ({
 }: ScoreScreenProps): React.JSX.Element => {
 	const { project, score, summary, elapsedMs, diagnostics } = result;
 	const { stdout } = useStdout();
-	const columns = stdout.columns ?? 80;
+	const columns = usableColumns(stdout.columns);
 	const shownScore = useCountUp(score.value);
 	const affectedFiles = new Set(diagnostics.map((d) => d.filePath)).size;
 	const labelWidth = Math.max(...items.map((item) => item.label.length));
 
 	const subProjects = [...(context.subProjects ?? [])].sort(byWorstScore);
 	const paneRows = listCapacity(
-		stdout.rows ?? 24,
+		usableRows(stdout.rows),
 		CHROME_ROWS + items.length,
 		MIN_SUB_ROWS
 	);

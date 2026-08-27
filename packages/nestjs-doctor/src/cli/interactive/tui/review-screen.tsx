@@ -2,6 +2,7 @@ import { Box, Text, useInput, useStdout } from "ink";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Diagnostic } from "../../../common/diagnostic.js";
 import { openReportInBrowser } from "../../../report/output.js";
+import { usableColumns, usableRows } from "../../../ui/terminal.js";
 import { copyToClipboard } from "../clipboard.js";
 import { buildFixPrompt, docsUrl, groupFindings } from "../findings.js";
 import { ruleInfo } from "../rule-info.js";
@@ -40,10 +41,10 @@ export const ReviewScreen = ({
 	targetPath,
 }: ReviewScreenProps): React.JSX.Element => {
 	const { stdout } = useStdout();
-	const columns = stdout.columns ?? 80;
+	const columns = usableColumns(stdout.columns);
 	const visibleRows = Math.max(
 		MIN_VISIBLE_ROWS,
-		(stdout.rows ?? 24) - CHROME_ROWS
+		usableRows(stdout.rows) - CHROME_ROWS
 	);
 
 	const groups = useMemo(() => groupFindings(diagnostics), [diagnostics]);
