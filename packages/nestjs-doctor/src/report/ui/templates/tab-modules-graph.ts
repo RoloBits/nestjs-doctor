@@ -1,5 +1,8 @@
 import { iconButton } from "../atoms/button.js";
+import { searchInput } from "../atoms/search-input.js";
+import { checkboxRow } from "../molecules/checkbox-row.js";
 import { legend } from "../molecules/legend.js";
+import { zoomBar } from "../molecules/zoom-bar.js";
 
 export const TAB_MODULES_GRAPH = `
 <!-- ── Tab: Modules Graph ── -->
@@ -15,17 +18,11 @@ ${iconButton({ id: "mg-collapse-all", icon: "collapseAll", ariaLabel: "Collapse 
 ${iconButton({ id: "mg-sidebar-collapse", icon: "sidebarCollapse", ariaLabel: "Hide the project list", tip: "Hide list · give the graph the whole width" })}
       </div>
       <div class="mg-side-search">
-        <input type="search" id="mg-search" placeholder="Search projects and modules" spellcheck="false" autocomplete="off">
+${searchInput({ id: "mg-search", placeholder: "Search projects and modules" })}
       </div>
       <div class="mg-toggle-row">
-        <label class="schema-sync">
-          <input type="checkbox" id="mg-globals">
-          <span>Show @Global() reach</span>
-        </label>
-        <label class="schema-sync">
-          <input type="checkbox" id="mg-show-external">
-          <span>Show external modules</span>
-        </label>
+${checkboxRow({ id: "mg-globals", label: "Show @Global() reach", indent: 8 })}
+${checkboxRow({ id: "mg-show-external", label: "Show external modules", indent: 8 })}
       </div>
     </div>
     <div id="mg-tree"></div>
@@ -42,12 +39,7 @@ ${iconButton({ id: "mg-sidebar-collapse", icon: "sidebarCollapse", ariaLabel: "H
   <div id="mg-wrap">
 ${iconButton({ id: "mg-sidebar-show", icon: "sidebarShow", ariaLabel: "Show the project list", tip: "Show list · bring the project list back", indent: 4 })}
     <div id="mg-toolbar">
-      <div id="mg-zoombar">
-${iconButton({ id: "mg-zoom-out", icon: "zoomOut", modifier: "schema-zoom-btn", ariaLabel: "Zoom out", tip: "Zoom out" })}
-        <input type="range" id="mg-zoom-range" min="5" max="500" step="1" value="100" aria-label="Zoom">
-${iconButton({ id: "mg-zoom-in", icon: "zoomIn", modifier: "schema-zoom-btn", ariaLabel: "Zoom in", tip: "Zoom in" })}
-        <button class="schema-zoom-value has-tip" id="mg-zoom-value" aria-label="100% · fit to view" data-tip="Fit · size the graph to the window">100%</button>
-      </div>
+${zoomBar({ prefix: "mg", subject: "graph" })}
 ${iconButton({ id: "mg-recenter", icon: "recenter", modifier: "schema-diagram-btn", ariaLabel: "Re-center graph", tip: "Re-center · bring the graph back into view", indent: 6 })}
 ${iconButton({ id: "mg-info", icon: "info", modifier: "schema-diagram-btn", ariaLabel: "Legend and concepts", tip: "Info · legend and NestJS concepts", indent: 6 })}
     </div>
