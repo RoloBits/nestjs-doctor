@@ -1305,9 +1305,7 @@ function renderModules() {
 
 // ── Modules graph: detail panel ──
 function mgEsc(s) {
-  return String(s == null ? "" : s)
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+  return RPT.escapeHtml(s);
 }
 
 var MG_INFO_ICON = RPT.icon({ name: "info" });

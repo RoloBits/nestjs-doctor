@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { badge, treeRow } from "../../src/report/ui/browser/entry.js";
+import {
+	badge,
+	escapeHtml,
+	treeRow,
+} from "../../src/report/ui/browser/entry.js";
 import { getReportScripts } from "../../src/report/ui/scripts.js";
 import { EMPTY_ARTIFACT_JSON as EMPTY } from "./report-artifact-fixture.js";
 
@@ -40,7 +44,7 @@ function loadTraceRow(
 		mgTraceMax = 100;
 		return mgTraceRowHtml;`
 	);
-	return factory(graph, { badge, treeRow }) as (
+	return factory(graph, { badge, escapeHtml, treeRow }) as (
 		id: string,
 		depth: number,
 		path: string
