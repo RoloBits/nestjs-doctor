@@ -23,6 +23,17 @@ export {
 	visibleColCount,
 } from "./schema-layout.js";
 export {
+	buildGrids,
+	channelRouteAll,
+	corridorY,
+	edgeKey,
+	pointToSegmentDist,
+	polylineMidpoint,
+	routeManhattan,
+	segmentHitsBox,
+	simplifyPath,
+} from "./schema-routing.js";
+export {
 	card,
 	infoCard,
 	infoItem,
