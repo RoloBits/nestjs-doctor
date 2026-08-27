@@ -1,3 +1,5 @@
+import { iconButton } from "../atoms/button.js";
+
 export const TAB_ENDPOINTS = `
 <!-- ── Tab: Endpoints ── -->
 <div class="tab-content" id="tab-endpoints">
@@ -32,11 +34,7 @@ export const TAB_ENDPOINTS = `
         <p>Select an endpoint from the sidebar to view its dependency graph</p>
       </div>
       <div id="endpoints-toolbar">
-        <button class="st-btn schema-diagram-btn" id="endpoints-recenter" title="Re-center diagram">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
-          </svg>
-        </button>
+${iconButton({ id: "endpoints-recenter", icon: "recenter", modifier: "schema-diagram-btn", title: "Re-center diagram" })}
       </div>
       <canvas id="endpoints-canvas"></canvas>
       <div id="endpoints-tooltip" class="schema-tooltip" style="display:none"></div>

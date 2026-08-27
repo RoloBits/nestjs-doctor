@@ -1,0 +1,67 @@
+import { iconButton } from "../atoms/button.js";
+
+export const TAB_SCHEMA = `
+<!-- ── Tab: Schema ── -->
+<div class="tab-content" id="tab-schema">
+  <div id="schema-sidebar">
+    <div class="schema-sidebar-sticky">
+      <div class="schema-sidebar-header">
+        <span class="schema-sidebar-title" id="schema-sidebar-title">Tables</span>
+        <span class="schema-entity-count" id="schema-entity-count"></span>
+        <span style="flex:1"></span>
+${iconButton({ id: "schema-expand-all", icon: "expandAll", ariaLabel: "Expand all", tip: "Expand all \u00b7 open every table in the list" })}
+${iconButton({ id: "schema-collapse-all", icon: "collapseAll", ariaLabel: "Collapse all", tip: "Collapse all \u00b7 close every table in the list" })}
+${iconButton({ id: "schema-sidebar-collapse", icon: "sidebarCollapse", ariaLabel: "Hide the table list", tip: "Hide list \u00b7 give the diagram the whole width" })}
+      </div>
+      <div class="mg-side-search">
+        <input type="search" id="schema-search" placeholder="Search tables" spellcheck="false" autocomplete="off">
+      </div>
+      <label class="schema-sync has-tip" data-tip="Sync \u00b7 the list follows the table you pick in the diagram">
+        <input type="checkbox" id="schema-sync-sidebar" checked>
+        <span>Sync with diagram</span>
+      </label>
+      <div class="schema-disclaimer">Schema inferred from source code — may not reflect the actual database.</div>
+    </div>
+    <div id="schema-entity-list"></div>
+  </div>
+  <div id="schema-main">
+    <div id="schema-canvas-wrap">
+${iconButton({ id: "schema-sidebar-show", icon: "sidebarShow", ariaLabel: "Show the table list", tip: "Show list \u00b7 bring the table list back", indent: 6 })}
+      <div id="schema-empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+          <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+        </svg>
+        <p>Select an entity from the sidebar to explore its schema</p>
+        <button class="st-btn schema-empty-action" id="schema-show-all">Show all tables</button>
+      </div>
+      <div id="schema-toolbar">
+      <div id="schema-zoombar">
+${iconButton({ id: "schema-zoom-out", icon: "zoomOut", modifier: "schema-zoom-btn", ariaLabel: "Zoom out", tip: "Zoom out" })}
+        <input type="range" id="schema-zoom-range" min="5" max="500" step="1" value="100" aria-label="Zoom">
+${iconButton({ id: "schema-zoom-in", icon: "zoomIn", modifier: "schema-zoom-btn", ariaLabel: "Zoom in", tip: "Zoom in" })}
+        <button class="schema-zoom-value has-tip" id="schema-zoom-value" aria-label="100% \u00b7 fit to view" data-tip="Fit \u00b7 size the diagram to the window">100%</button>
+      </div>
+${iconButton({ id: "schema-toggle-view", icon: "toggleView", modifier: "schema-diagram-btn", ariaLabel: "Show all tables", tip: "All tables \u00b7 lay out the whole schema at once" })}
+${iconButton({ id: "schema-recenter", icon: "recenter", modifier: "schema-diagram-btn", ariaLabel: "Re-center diagram", tip: "Re-center \u00b7 bring the diagram back into view" })}
+${iconButton({ id: "schema-expand-tables", icon: "expandTables", modifier: "schema-diagram-btn", ariaLabel: "Expand tables", tip: "Expand \u00b7 show the columns inside each table" })}
+${iconButton({ id: "schema-minimize-tables", icon: "minimizeTables", modifier: "schema-diagram-btn", ariaLabel: "Minimize tables", tip: "Minimize \u00b7 collapse tables to names only" })}
+${iconButton({ id: "schema-toggle-cols", icon: "toggleColumns", modifier: "schema-diagram-btn", ariaLabel: "Show every column", tip: "Every column \u00b7 stop cutting the list at seven" })}
+      </div>
+      <canvas id="schema-canvas"></canvas>
+      <div id="schema-tooltip" class="schema-tooltip" style="display:none"></div>
+      <div id="schema-rel-badge" class="schema-rel-badge" style="display:none"></div>
+    </div>
+    <div id="schema-diag-panel">
+      <div id="schema-diag-header">
+        <svg class="schema-diag-chevron" id="schema-diag-chevron" width="10" height="10" viewBox="0 0 10 10"><path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="schema-diag-title">Problems</span>
+        <span class="schema-diag-count" id="schema-diag-count">0</span>
+      </div>
+      <div id="schema-diag-body" style="display:none">
+        <div id="schema-diag-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+`;

@@ -1,3 +1,6 @@
+import { iconButton } from "../atoms/button.js";
+import { pillGroup } from "../molecules/pill-group.js";
+
 export const TAB_DIAGNOSIS = `
 <!-- ── Tab: Diagnosis ── -->
 <div class="tab-content" id="tab-diagnosis">
@@ -7,18 +10,8 @@ export const TAB_DIAGNOSIS = `
         <span class="schema-sidebar-title">Files</span>
         <span class="schema-entity-count" id="diag-file-count"></span>
         <span style="flex:1"></span>
-        <button class="st-btn has-tip" id="diag-expand-all" aria-label="Expand all" data-tip="Expand all \u00b7 open every folder in the list">
-          <svg viewBox="0 0 17 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="1" y1="3" x2="8" y2="3"/><line x1="1" y1="7" x2="8" y2="7"/><line x1="1" y1="11" x2="8" y2="11"/>
-            <path d="M11 5l2.5 3L16 5"/>
-          </svg>
-        </button>
-        <button class="st-btn has-tip" id="diag-collapse-all" aria-label="Collapse all" data-tip="Collapse all \u00b7 close every folder in the list">
-          <svg viewBox="0 0 17 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="1" y1="3" x2="8" y2="3"/><line x1="1" y1="7" x2="8" y2="7"/><line x1="1" y1="11" x2="8" y2="11"/>
-            <path d="M11 11l2.5-3L16 11"/>
-          </svg>
-        </button>
+${iconButton({ id: "diag-expand-all", icon: "expandAll", ariaLabel: "Expand all", tip: "Expand all \u00b7 open every folder in the list" })}
+${iconButton({ id: "diag-collapse-all", icon: "collapseAll", ariaLabel: "Collapse all", tip: "Collapse all \u00b7 close every folder in the list" })}
       </div>
       <div class="mg-side-search">
         <input type="search" id="diag-search" placeholder="Search files" spellcheck="false" autocomplete="off">
@@ -37,25 +30,43 @@ export const TAB_DIAGNOSIS = `
       <div class="filter-rows" id="diag-filters-body">
         <div class="sev-filters">
           <span class="filter-label">Severity</span>
-          <button class="sev-pill active" data-sev="all">All</button>
-          <button class="sev-pill" data-sev="error">Errors</button>
-          <button class="sev-pill" data-sev="warning">Warnings</button>
-          <button class="sev-pill" data-sev="info">Info</button>
+${pillGroup({
+	name: "sev",
+	indent: 10,
+	items: [
+		{ value: "all", label: "All", active: true },
+		{ value: "error", label: "Errors" },
+		{ value: "warning", label: "Warnings" },
+		{ value: "info", label: "Info" },
+	],
+})}
         </div>
         <div class="scope-filters">
           <span class="filter-label">Scope</span>
-          <button class="scope-pill active" data-scope="all">All</button>
-          <button class="scope-pill" data-scope="file">File</button>
-          <button class="scope-pill" data-scope="project">Project</button>
+${pillGroup({
+	name: "scope",
+	indent: 10,
+	items: [
+		{ value: "all", label: "All", active: true },
+		{ value: "file", label: "File" },
+		{ value: "project", label: "Project" },
+	],
+})}
         </div>
         <div class="cat-filters">
           <span class="filter-label">Category</span>
-          <button class="cat-pill active" data-cat="all">All</button>
-          <button class="cat-pill" data-cat="security">Security</button>
-          <button class="cat-pill" data-cat="correctness">Correctness</button>
-          <button class="cat-pill" data-cat="schema">Schema</button>
-          <button class="cat-pill" data-cat="architecture">Architecture</button>
-          <button class="cat-pill" data-cat="performance">Performance</button>
+${pillGroup({
+	name: "cat",
+	indent: 10,
+	items: [
+		{ value: "all", label: "All", active: true },
+		{ value: "security", label: "Security" },
+		{ value: "correctness", label: "Correctness" },
+		{ value: "schema", label: "Schema" },
+		{ value: "architecture", label: "Architecture" },
+		{ value: "performance", label: "Performance" },
+	],
+})}
         </div>
       </div>
     </div>

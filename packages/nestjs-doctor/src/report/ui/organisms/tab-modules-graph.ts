@@ -1,3 +1,6 @@
+import { iconButton } from "../atoms/button.js";
+import { legend } from "../molecules/legend.js";
+
 export const TAB_MODULES_GRAPH = `
 <!-- ── Tab: Modules Graph ── -->
 <div class="tab-content" id="tab-modules">
@@ -7,23 +10,9 @@ export const TAB_MODULES_GRAPH = `
         <span class="schema-sidebar-title">Projects</span>
         <span class="schema-entity-count" id="mg-project-count"></span>
         <span style="flex:1"></span>
-        <button class="st-btn has-tip" id="mg-expand-all" aria-label="Expand all" data-tip="Expand all · open every project in the list">
-          <svg viewBox="0 0 17 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="1" y1="3" x2="8" y2="3"/><line x1="1" y1="7" x2="8" y2="7"/><line x1="1" y1="11" x2="8" y2="11"/>
-            <path d="M11 5l2.5 3L16 5"/>
-          </svg>
-        </button>
-        <button class="st-btn has-tip" id="mg-collapse-all" aria-label="Collapse all" data-tip="Collapse all · close every project in the list">
-          <svg viewBox="0 0 17 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="1" y1="3" x2="8" y2="3"/><line x1="1" y1="7" x2="8" y2="7"/><line x1="1" y1="11" x2="8" y2="11"/>
-            <path d="M11 11l2.5-3L16 11"/>
-          </svg>
-        </button>
-        <button class="st-btn has-tip" id="mg-sidebar-collapse" aria-label="Hide the project list" data-tip="Hide list · give the graph the whole width">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="9 3 4 8 9 13"/><line x1="13" y1="3" x2="13" y2="13"/>
-          </svg>
-        </button>
+${iconButton({ id: "mg-expand-all", icon: "expandAll", ariaLabel: "Expand all", tip: "Expand all · open every project in the list" })}
+${iconButton({ id: "mg-collapse-all", icon: "collapseAll", ariaLabel: "Collapse all", tip: "Collapse all · close every project in the list" })}
+${iconButton({ id: "mg-sidebar-collapse", icon: "sidebarCollapse", ariaLabel: "Hide the project list", tip: "Hide list · give the graph the whole width" })}
       </div>
       <div class="mg-side-search">
         <input type="search" id="mg-search" placeholder="Search projects and modules" spellcheck="false" autocomplete="off">
@@ -51,32 +40,16 @@ export const TAB_MODULES_GRAPH = `
   <div id="mg-resizer"></div>
   <div id="mg-main">
   <div id="mg-wrap">
-    <button class="st-btn has-tip" id="mg-sidebar-show" aria-label="Show the project list" data-tip="Show list · bring the project list back">
-      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="7 3 12 8 7 13"/><line x1="3" y1="3" x2="3" y2="13"/>
-      </svg>
-    </button>
+${iconButton({ id: "mg-sidebar-show", icon: "sidebarShow", ariaLabel: "Show the project list", tip: "Show list · bring the project list back", indent: 4 })}
     <div id="mg-toolbar">
       <div id="mg-zoombar">
-        <button class="st-btn schema-zoom-btn has-tip" id="mg-zoom-out" aria-label="Zoom out" data-tip="Zoom out">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        </button>
+${iconButton({ id: "mg-zoom-out", icon: "zoomOut", modifier: "schema-zoom-btn", ariaLabel: "Zoom out", tip: "Zoom out" })}
         <input type="range" id="mg-zoom-range" min="5" max="500" step="1" value="100" aria-label="Zoom">
-        <button class="st-btn schema-zoom-btn has-tip" id="mg-zoom-in" aria-label="Zoom in" data-tip="Zoom in">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        </button>
+${iconButton({ id: "mg-zoom-in", icon: "zoomIn", modifier: "schema-zoom-btn", ariaLabel: "Zoom in", tip: "Zoom in" })}
         <button class="schema-zoom-value has-tip" id="mg-zoom-value" aria-label="100% · fit to view" data-tip="Fit · size the graph to the window">100%</button>
       </div>
-      <button class="st-btn schema-diagram-btn has-tip" id="mg-recenter" aria-label="Re-center graph" data-tip="Re-center · bring the graph back into view">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
-        </svg>
-      </button>
-      <button class="st-btn schema-diagram-btn has-tip" id="mg-info" aria-label="Legend and concepts" data-tip="Info · legend and NestJS concepts">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
-        </svg>
-      </button>
+${iconButton({ id: "mg-recenter", icon: "recenter", modifier: "schema-diagram-btn", ariaLabel: "Re-center graph", tip: "Re-center · bring the graph back into view", indent: 6 })}
+${iconButton({ id: "mg-info", icon: "info", modifier: "schema-diagram-btn", ariaLabel: "Legend and concepts", tip: "Info · legend and NestJS concepts", indent: 6 })}
     </div>
     <canvas id="graph"></canvas>
     <div id="mg-tooltip" class="schema-tooltip" style="display:none"></div>
@@ -104,14 +77,48 @@ export const TAB_MODULES_GRAPH = `
   </div>
   <div id="mg-info-pop">
   <h3>Legend</h3>
-  <div class="legend-item"><div class="legend-color" style="background:#1a1a2e;border-color:#333"></div> Module</div>
-  <div class="legend-item"><div class="legend-color" style="background:#1a2e1a;border-color:#2a5a2a"></div> Root module</div>
-  <div class="legend-item"><div class="legend-color" style="background:#2e1a1a;border-color:#ea2845"></div> Circular dependency</div>
-  <div class="legend-item"><div class="legend-color" style="background:#2a2410;border-color:#fbbf24"></div> Global module</div>
-  <div class="legend-item"><div class="legend-line" style="background:#444"></div> Import</div>
-  <div class="legend-item"><div class="legend-line" style="background:#ea2845;border-top:1px dashed #ea2845;height:0"></div> Circular import</div>
-  <div class="legend-item" id="legend-cross" style="display:none"><div class="legend-line" style="background:transparent;border-top:2px dashed #22d3ee;height:0"></div> Cross-project import</div>
-  <div class="legend-item" id="legend-global-reach" style="display:none"><div class="legend-line" style="background:transparent;border-top:2px dotted #fbbf24;height:0"></div> Global reach (no import)</div>
+${legend([
+	{
+		kind: "color",
+		style: "background:#1a1a2e;border-color:#333",
+		label: "Module",
+	},
+	{
+		kind: "color",
+		style: "background:#1a2e1a;border-color:#2a5a2a",
+		label: "Root module",
+	},
+	{
+		kind: "color",
+		style: "background:#2e1a1a;border-color:#ea2845",
+		label: "Circular dependency",
+	},
+	{
+		kind: "color",
+		style: "background:#2a2410;border-color:#fbbf24",
+		label: "Global module",
+	},
+	{ kind: "line", style: "background:#444", label: "Import" },
+	{
+		kind: "line",
+		style: "background:#ea2845;border-top:1px dashed #ea2845;height:0",
+		label: "Circular import",
+	},
+	{
+		kind: "line",
+		style: "background:transparent;border-top:2px dashed #22d3ee;height:0",
+		label: "Cross-project import",
+		id: "legend-cross",
+		hidden: true,
+	},
+	{
+		kind: "line",
+		style: "background:transparent;border-top:2px dotted #fbbf24;height:0",
+		label: "Global reach (no import)",
+		id: "legend-global-reach",
+		hidden: true,
+	},
+])}
   <hr class="divider">
   <details class="concepts-details">
   <summary>NestJS Concepts</summary>
