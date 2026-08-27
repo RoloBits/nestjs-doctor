@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { getReportScripts } from "../../src/report/ui/scripts.js";
-import { EMPTY_ARTIFACT_JSON as EMPTY } from "./report-artifact-fixture.js";
+import {
+	computeOverviewLayout,
+	nodeHeight,
+	visibleColCount,
+} from "../../src/report/ui/browser/schema-layout.js";
 
 interface Node {
 	h: number;
@@ -13,44 +16,6 @@ interface Node {
 interface Relation {
 	fromEntity: string;
 	toEntity: string;
-}
-
-function edgeKey(from: string, to: string): string {
-	return from < to ? `${from}|${to}` : `${to}|${from}`;
-}
-
-/**
- * Pulls the layout functions out of the emitted script and runs them against a
- * synthetic schema. The report has no DOM harness, so this executes the real
- * emitted source rather than a copy.
- */
-function runOverviewLayout(relations: Relation[], nodes: Node[]): void {
-	const scripts = getReportScripts(EMPTY);
-	const start = scripts.indexOf("function sComputeComponents");
-	const end = scripts.indexOf("function sComputeStarLayout");
-	if (start < 0 || end <= start) {
-		throw new Error("layout functions not found in the emitted report script");
-	}
-
-	const factory = new Function(
-		"schema",
-		"sNodes",
-		"sEdgeKey",
-		"sRouteAllEdges",
-		"sBuildGrids",
-		`${scripts.slice(start, end)}\nreturn sComputeOverviewLayout;`
-	);
-	factory(
-		{ relations },
-		nodes,
-		edgeKey,
-		() => {
-			// Edge routing is not under test.
-		},
-		() => {
-			// Grid building is not under test.
-		}
-	)();
 }
 
 function overlaps(a: Node, b: Node): boolean {
@@ -100,7 +65,7 @@ function buildSchema(): { nodes: Node[]; relations: Relation[] } {
 describe("schema overview layout", () => {
 	it("separates every table", () => {
 		const { nodes, relations } = buildSchema();
-		runOverviewLayout(relations, nodes);
+		computeOverviewLayout(relations, nodes);
 
 		expect(nodes).toHaveLength(34);
 		expect(findOverlap(nodes)).toBeNull();
@@ -108,7 +73,7 @@ describe("schema overview layout", () => {
 
 	it("groups unrelated tables instead of stringing them out", () => {
 		const { nodes, relations } = buildSchema();
-		runOverviewLayout(relations, nodes);
+		computeOverviewLayout(relations, nodes);
 
 		const isolated = nodes.filter((n) => n.name.startsWith("isolated"));
 		const rows = new Set(isolated.map((n) => n.y));
@@ -118,30 +83,16 @@ describe("schema overview layout", () => {
 	});
 
 	it("sizes a table to every column only when all columns are shown", () => {
-		const scripts = getReportScripts(EMPTY);
-		const start = scripts.indexOf("var S_DEFAULT_MAX_COLS");
-		const end = scripts.indexOf("function sCacheNodeLabels");
-		if (start < 0 || end <= start) {
-			throw new Error("sizing helpers not found in the emitted report script");
-		}
-		const factory = new Function(
-			"sShowAllCols",
-			"sShowCols",
-			`${scripts.slice(start, end)}\nreturn { sNodeHeight: sNodeHeight, sVisibleColCount: sVisibleColCount };`
-		);
 		const wide = {
 			entity: { columns: new Array(24).fill({ type: "String" }) },
 		};
 
-		const capped = factory(false, true);
-		const all = factory(true, true);
-
-		expect(capped.sVisibleColCount(wide, true)).toBe(7);
-		expect(all.sVisibleColCount(wide, true)).toBe(24);
+		expect(visibleColCount(wide, true, false)).toBe(7);
+		expect(visibleColCount(wide, true, true)).toBe(24);
 		// Header, one row per column, the "+N more" row only while capped.
-		expect(capped.sNodeHeight(wide, true)).toBe(24 + 7 * 16 + 16 + 8);
-		expect(all.sNodeHeight(wide, true)).toBe(24 + 24 * 16 + 8);
-		expect(all.sNodeHeight(wide, false)).toBe(52);
+		expect(nodeHeight(wide, true, false)).toBe(24 + 7 * 16 + 16 + 8);
+		expect(nodeHeight(wide, true, true)).toBe(24 + 24 * 16 + 8);
+		expect(nodeHeight(wide, false, true)).toBe(52);
 	});
 
 	it("keeps a single connected schema in one block", () => {
@@ -154,7 +105,7 @@ describe("schema overview layout", () => {
 			{ fromEntity: "a", toEntity: "b" },
 			{ fromEntity: "b", toEntity: "c" },
 		];
-		runOverviewLayout(relations, nodes);
+		computeOverviewLayout(relations, nodes);
 
 		expect(findOverlap(nodes)).toBeNull();
 	});
