@@ -458,6 +458,8 @@ function epHideCodePanel() {
   if (panel) panel.classList.remove("open");
 }
 
+var EP_CTRL_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="var(--nest-red)" stroke-width="1.2"><rect x="2" y="2" width="12" height="12" rx="2"/><line x1="5" y1="6" x2="11" y2="6"/><line x1="5" y1="10" x2="9" y2="10"/></svg>';
+
 function renderEndpoints() {
   var sidebarEl = document.getElementById("endpoints-list");
   epCanvas = document.getElementById("endpoints-canvas");
@@ -497,23 +499,28 @@ function renderEndpoints() {
     var ctrlName = controllerOrder[c];
     var ctrlEndpoints = controllers[ctrlName];
     var ctrlId = "ep-ctrl-" + c;
-    html += '<div class="st-row" data-toggle="' + ctrlId + '">';
-    html += '<span class="st-toggle" data-toggle="' + ctrlId + '">\\u25BE</span>';
-    html += '<span class="st-icon"><svg viewBox="0 0 16 16" fill="none" stroke="var(--nest-red)" stroke-width="1.2"><rect x="2" y="2" width="12" height="12" rx="2"/><line x1="5" y1="6" x2="11" y2="6"/><line x1="5" y1="10" x2="9" y2="10"/></svg></span>';
-    html += '<span class="st-label"><span class="st-entity-name">' + escHtml(ctrlName) + '</span></span>';
-    html += '<span class="st-count">' + ctrlEndpoints.length + '</span>';
-    html += '</div>';
+    html += RPT.treeRow({
+      depth: 0,
+      toggleId: ctrlId,
+      toggleGlyph: "\\u25BE",
+      icon: EP_CTRL_ICON,
+      label: '<span class="st-entity-name">' + escHtml(ctrlName) + '</span>',
+      extra: '<span class="st-count">' + ctrlEndpoints.length + '</span>',
+      dataAttrs: ' data-toggle="' + ctrlId + '"'
+    });
     html += '<div class="st-children st-open" id="st-' + ctrlId + '">';
 
     for (var e = 0; e < ctrlEndpoints.length; e++) {
       var ep = ctrlEndpoints[e];
       var method = (ep.httpMethod || "GET").toUpperCase();
       var badgeClass = METHOD_COLORS[method] || "ep-method-get";
-      html += '<div class="st-row ep-endpoint-row" data-ep-ctrl="' + escHtml(ctrlName) + '" data-ep-handler="' + escHtml(ep.handlerMethod) + '">';
-      html += '<span class="st-indent"></span><span class="st-indent"></span>';
-      html += '<span class="ep-method-badge ' + badgeClass + '">' + escHtml(method) + '</span>';
-      html += '<span class="st-label">' + escHtml(ep.routePath || "/") + '</span>';
-      html += '</div>';
+      html += RPT.treeRow({
+        depth: 1,
+        before: '<span class="ep-method-badge ' + badgeClass + '">' + escHtml(method) + '</span>',
+        label: escHtml(ep.routePath || "/"),
+        classes: "ep-endpoint-row",
+        dataAttrs: ' data-ep-ctrl="' + escHtml(ctrlName) + '" data-ep-handler="' + escHtml(ep.handlerMethod) + '"'
+      });
     }
     html += '</div>';
   }

@@ -120,3 +120,139 @@ export const EMPTY_ARTIFACT: ReportArtifact = {
 };
 
 export const EMPTY_ARTIFACT_JSON = JSON.stringify(EMPTY_ARTIFACT);
+
+/**
+ * An artifact with enough graph, schema and endpoint data that the report's
+ * sidebar trees, tab panels and detail views all render something.
+ */
+export const RICH_ARTIFACT: ReportArtifact = {
+	...EMPTY_ARTIFACT,
+	project: { ...EMPTY_ARTIFACT.project, fileCount: 4, moduleCount: 3 },
+	graph: {
+		...EMPTY_ARTIFACT.graph,
+		projects: ["api"],
+		modules: [
+			{
+				name: "AppModule",
+				filePath: "src/app.module.ts",
+				imports: ["UserModule", "OrderModule"],
+				exports: [],
+				providers: [],
+				controllers: [],
+				project: "api",
+			},
+			{
+				name: "UserModule",
+				filePath: "src/user/user.module.ts",
+				imports: [],
+				exports: ["UserService"],
+				providers: ["UserService"],
+				controllers: ["UserController"],
+				project: "api",
+			},
+			{
+				name: "OrderModule",
+				filePath: "src/order/order.module.ts",
+				imports: ["UserModule"],
+				exports: [],
+				providers: ["OrderService"],
+				controllers: [],
+				project: "api",
+			},
+		],
+		edges: [
+			{ from: "AppModule", to: "UserModule" },
+			{ from: "AppModule", to: "OrderModule" },
+			{ from: "OrderModule", to: "UserModule" },
+		],
+	},
+	endpoints: {
+		endpoints: [
+			{
+				controllerClass: "UserController",
+				handlerMethod: "findAll",
+				httpMethod: "GET",
+				routePath: "/users",
+				filePath: "src/user/user.controller.ts",
+				line: 10,
+				endLine: 14,
+				returnType: "User[]",
+				swagger: null,
+				dependencies: [],
+			},
+			{
+				controllerClass: "UserController",
+				handlerMethod: "create",
+				httpMethod: "POST",
+				routePath: "/users",
+				filePath: "src/user/user.controller.ts",
+				line: 16,
+				endLine: 20,
+				returnType: "User",
+				swagger: null,
+				dependencies: [],
+			},
+		],
+	},
+	schema: {
+		orm: "typeorm",
+		entities: [
+			{
+				name: "User",
+				tableName: "users",
+				filePath: "src/user/user.entity.ts",
+				columns: [
+					{
+						name: "id",
+						type: "uuid",
+						isPrimary: true,
+						isNullable: false,
+						isUnique: true,
+					},
+					{
+						name: "email",
+						type: "varchar",
+						isPrimary: false,
+						isNullable: false,
+						isUnique: true,
+					},
+				],
+				relations: [],
+			},
+			{
+				name: "Order",
+				tableName: "orders",
+				filePath: "src/order/order.entity.ts",
+				columns: [
+					{
+						name: "id",
+						type: "uuid",
+						isPrimary: true,
+						isNullable: false,
+						isUnique: true,
+					},
+				],
+				relations: [
+					{
+						fromEntity: "Order",
+						toEntity: "User",
+						propertyName: "user",
+						type: "many-to-one",
+						isNullable: false,
+					},
+				],
+			},
+		],
+		relations: [
+			{
+				fromEntity: "Order",
+				toEntity: "User",
+				propertyName: "user",
+				type: "many-to-one",
+				isNullable: false,
+			},
+		],
+	},
+};
+
+export const RICH_ARTIFACT_JSON = JSON.stringify(RICH_ARTIFACT);

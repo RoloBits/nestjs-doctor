@@ -1,12 +1,12 @@
-export type Severity = "error" | "info" | "warning";
+type Severity = "error" | "info" | "warning";
 
-export interface TreeNode {
+interface TreeNode {
 	children: Record<string, TreeNode>;
 	files: Record<string, FileNode>;
 	name: string;
 }
 
-export interface FileNode {
+interface FileNode {
 	fullPath: string;
 	name: string;
 	[itemsKey: string]: unknown;

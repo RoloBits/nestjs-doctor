@@ -1126,19 +1126,25 @@ function mgBuildTree() {
     var mods = byProject[pname].slice().sort(function(a, b) {
       return getDisplayName(a) < getDisplayName(b) ? -1 : 1;
     });
-    html += '<div class="st-row mg-tree-project" data-project="' + mgEsc(pname) + '">' +
-      '<span class="st-toggle" data-toggle="mgp-' + j + '">\\u25B8</span>' +
-      '<span class="st-icon">' + MG_PROJECT_ICON + '</span>' +
-      '<span class="st-label"><span class="st-entity-name">' + mgEsc(pname) + '</span></span>' +
-      '<span class="st-count">' + mods.length + '</span></div>';
+    html += RPT.treeRow({
+      depth: 0,
+      toggleId: "mgp-" + j,
+      icon: MG_PROJECT_ICON,
+      label: '<span class="st-entity-name">' + mgEsc(pname) + '</span>',
+      extra: '<span class="st-count">' + mods.length + '</span>',
+      classes: "mg-tree-project",
+      dataAttrs: ' data-project="' + mgEsc(pname) + '"'
+    });
     html += '<div class="st-children" id="mgp-' + j + '">';
     for (var k = 0; k < mods.length; k++) {
       var n = mods[k];
-      html += '<div class="st-row mg-tree-module" data-module="' + mgEsc(n.name) + '">' +
-        '<span class="st-indent"></span><span class="st-indent"></span>' +
-        '<span class="st-label">' + mgEsc(getDisplayName(n)) + '</span>' +
-        (circularModules.has(n.name) ? '<span class="st-count" style="color:var(--nest-red)">cycle</span>' : "") +
-        '</div>';
+      html += RPT.treeRow({
+        depth: 1,
+        label: mgEsc(getDisplayName(n)),
+        extra: circularModules.has(n.name) ? '<span class="st-count" style="color:var(--nest-red)">cycle</span>' : "",
+        classes: "mg-tree-module",
+        dataAttrs: ' data-module="' + mgEsc(n.name) + '"'
+      });
     }
     html += '</div>';
   }

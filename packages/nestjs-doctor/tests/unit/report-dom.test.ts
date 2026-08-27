@@ -2,7 +2,7 @@ import { JSDOM } from "jsdom";
 import { expect, it } from "vitest";
 import { getReportHtml } from "../../src/report/ui/html.js";
 import { getReportScripts } from "../../src/report/ui/scripts.js";
-import { EMPTY_ARTIFACT_JSON } from "./report-artifact-fixture.js";
+import { RICH_ARTIFACT_JSON } from "./report-artifact-fixture.js";
 
 const TABS = ["summary", "diagnosis", "lab", "modules", "schema", "endpoints"];
 
@@ -70,7 +70,7 @@ it("renders every tab into a DOM", () => {
 		},
 		layout: () => undefined,
 	};
-	win.eval(getReportScripts(EMPTY_ARTIFACT_JSON));
+	win.eval(getReportScripts(RICH_ARTIFACT_JSON));
 	const snap: Record<string, string> = {};
 	for (const tab of TABS) {
 		(win as Record<string, unknown>).__t = tab;
@@ -83,4 +83,12 @@ it("renders every tab into a DOM", () => {
 	// The bundled pure helpers reach the page and the tree renders through them.
 	expect(win.eval("typeof RPT.buildFileTree")).toBe("function");
 	expect(snap.summary).toContain("ov-stat-row");
+
+	// The sidebar trees actually rendered, so a change to their markup is
+	// visible here rather than passing on an empty panel.
+	const rows = (tab: string) =>
+		(snap[tab].match(/class="st-row/g) || []).length;
+	expect(rows("modules")).toBeGreaterThan(0);
+	expect(rows("schema")).toBeGreaterThan(0);
+	expect(rows("endpoints")).toBeGreaterThan(0);
 });
