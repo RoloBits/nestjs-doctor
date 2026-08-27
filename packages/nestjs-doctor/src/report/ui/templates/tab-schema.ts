@@ -2,6 +2,7 @@ import { iconButton, textButton } from "../atoms/button.js";
 import { icon } from "../atoms/icon.js";
 import { searchInput } from "../atoms/search-input.js";
 import { checkboxRow } from "../molecules/checkbox-row.js";
+import { sidebarShowButton, treeToolbar } from "../molecules/tree-toolbar.js";
 import { zoomBar } from "../molecules/zoom-bar.js";
 
 export const TAB_SCHEMA = `
@@ -13,9 +14,7 @@ export const TAB_SCHEMA = `
         <span class="schema-sidebar-title" id="schema-sidebar-title">Tables</span>
         <span class="schema-entity-count" id="schema-entity-count"></span>
         <span style="flex:1"></span>
-${iconButton({ id: "schema-expand-all", icon: "expandAll", ariaLabel: "Expand all", tip: "Expand all \u00b7 open every table in the list" })}
-${iconButton({ id: "schema-collapse-all", icon: "collapseAll", ariaLabel: "Collapse all", tip: "Collapse all \u00b7 close every table in the list" })}
-${iconButton({ id: "schema-sidebar-collapse", icon: "sidebarCollapse", ariaLabel: "Hide the table list", tip: "Hide list \u00b7 give the diagram the whole width" })}
+${treeToolbar({ prefix: "schema", noun: "table", subject: "diagram" })}
       </div>
       <div class="mg-side-search">
 ${searchInput({ id: "schema-search", placeholder: "Search tables" })}
@@ -27,7 +26,7 @@ ${checkboxRow({ id: "schema-sync-sidebar", label: "Sync with diagram", checked: 
   </div>
   <div id="schema-main">
     <div id="schema-canvas-wrap">
-${iconButton({ id: "schema-sidebar-show", icon: "sidebarShow", ariaLabel: "Show the table list", tip: "Show list \u00b7 bring the table list back", indent: 6 })}
+${sidebarShowButton({ prefix: "schema", noun: "table", indent: 6 })}
       <div id="schema-empty-state">
 ${icon({ name: "toggleView", size: 48, stroke: "var(--text-dim)", strokeWidth: "1.5", indent: 8 })}
         <p>Select an entity from the sidebar to explore its schema</p>

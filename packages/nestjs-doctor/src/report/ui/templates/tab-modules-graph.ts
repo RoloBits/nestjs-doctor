@@ -4,6 +4,7 @@ import { icon } from "../atoms/icon.js";
 import { searchInput } from "../atoms/search-input.js";
 import { checkboxRow } from "../molecules/checkbox-row.js";
 import { legend } from "../molecules/legend.js";
+import { sidebarShowButton, treeToolbar } from "../molecules/tree-toolbar.js";
 import { zoomBar } from "../molecules/zoom-bar.js";
 
 export const TAB_MODULES_GRAPH = `
@@ -15,9 +16,7 @@ export const TAB_MODULES_GRAPH = `
         <span class="schema-sidebar-title">Projects</span>
         <span class="schema-entity-count" id="mg-project-count"></span>
         <span style="flex:1"></span>
-${iconButton({ id: "mg-expand-all", icon: "expandAll", ariaLabel: "Expand all", tip: "Expand all · open every project in the list" })}
-${iconButton({ id: "mg-collapse-all", icon: "collapseAll", ariaLabel: "Collapse all", tip: "Collapse all · close every project in the list" })}
-${iconButton({ id: "mg-sidebar-collapse", icon: "sidebarCollapse", ariaLabel: "Hide the project list", tip: "Hide list · give the graph the whole width" })}
+${treeToolbar({ prefix: "mg", noun: "project", subject: "graph" })}
       </div>
       <div class="mg-side-search">
 ${searchInput({ id: "mg-search", placeholder: "Search projects and modules" })}
@@ -39,7 +38,7 @@ ${heading({ level: 2, id: "detail-name", indent: 6 })}
   <div id="mg-resizer"></div>
   <div id="mg-main">
   <div id="mg-wrap">
-${iconButton({ id: "mg-sidebar-show", icon: "sidebarShow", ariaLabel: "Show the project list", tip: "Show list · bring the project list back", indent: 4 })}
+${sidebarShowButton({ prefix: "mg", noun: "project", indent: 4 })}
     <div id="mg-toolbar">
 ${zoomBar({ prefix: "mg", subject: "graph" })}
 ${iconButton({ id: "mg-recenter", icon: "recenter", modifier: "schema-diagram-btn", ariaLabel: "Re-center graph", tip: "Re-center · bring the graph back into view", indent: 6 })}
