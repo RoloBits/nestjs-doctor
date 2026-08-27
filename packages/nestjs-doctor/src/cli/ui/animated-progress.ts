@@ -1,4 +1,4 @@
-import ora from "ora";
+import yoctoSpinner from "yocto-spinner";
 
 const TICK_MS = 33;
 const WIPE_MS = 140;
@@ -55,9 +55,9 @@ interface AnimatedProgress {
 	update(label: string, done?: number, total?: number): void;
 }
 
-/** Owns an ora spinner whose bar eases and whose label wipes between phases. */
+/** Owns a spinner whose bar eases and whose label wipes between phases. */
 export const createAnimatedProgress = (text: string): AnimatedProgress => {
-	const instance = ora({ text }).start();
+	const instance = yoctoSpinner({ handleSignals: false, text }).start();
 	let label = text;
 	let previousLabel = text;
 	let changedAt = Date.now();
@@ -83,11 +83,11 @@ export const createAnimatedProgress = (text: string): AnimatedProgress => {
 	return {
 		fail(displayText: string): void {
 			stop();
-			instance.fail(displayText);
+			instance.error(displayText);
 		},
 		succeed(displayText: string): void {
 			stop();
-			instance.succeed(displayText);
+			instance.success(displayText);
 		},
 		update(nextLabel: string, nextDone = 0, nextTotal = 0): void {
 			if (nextLabel !== label) {

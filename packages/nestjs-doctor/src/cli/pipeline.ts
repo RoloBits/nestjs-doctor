@@ -344,6 +344,10 @@ abstract class ScanPipeline {
 			for (const step of this.steps) {
 				await step();
 			}
+		} catch (error) {
+			this.progress?.fail("Scan failed");
+			this.progress = null;
+			throw error;
 		} finally {
 			stopWatching();
 			this.stopProgress();

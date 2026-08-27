@@ -91,11 +91,16 @@ abstract class ReportPipeline {
 	async run(): Promise<void> {
 		const progress = spinner("Generating report...").start();
 
-		for (const step of this.steps) {
-			await step();
+		try {
+			for (const step of this.steps) {
+				await step();
+			}
+		} catch (error) {
+			progress.error("Report failed");
+			throw error;
 		}
 
-		progress.succeed("Report generated");
+		progress.success("Report generated");
 	}
 }
 

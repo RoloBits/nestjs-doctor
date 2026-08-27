@@ -8,6 +8,7 @@ interface CancellationWatcherDeps {
 		isTTY?: boolean;
 		off(event: string, listener: (data: Buffer | string) => void): unknown;
 		on(event: string, listener: (data: Buffer | string) => void): unknown;
+		pause(): unknown;
 	};
 }
 
@@ -28,11 +29,16 @@ export const watchCancellation = (
 		}
 	};
 	signals.on("SIGINT", onInterrupt);
-	if (stdin.isTTY) {
+	const watchingBytes = Boolean(stdin.isTTY);
+	if (watchingBytes) {
 		stdin.on("data", onByte);
 	}
 	return () => {
 		signals.off("SIGINT", onInterrupt);
 		stdin.off("data", onByte);
+		// Stops the flowing mode the data listener started.
+		if (watchingBytes) {
+			stdin.pause();
+		}
 	};
 };
