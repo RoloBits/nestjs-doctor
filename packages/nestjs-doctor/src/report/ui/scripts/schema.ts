@@ -620,262 +620,10 @@ function sPolylineMidpoint(points) {
 }
 
 /** Groups nodes into connected components using the relation edges. */
-function sComputeComponents(nodes) {
-  var index = {};
-  var parent = [];
-  for (var i = 0; i < nodes.length; i++) {
-    index[nodes[i].name] = i;
-    parent.push(i);
-  }
-  function find(a) {
-    while (parent[a] !== a) {
-      parent[a] = parent[parent[a]];
-      a = parent[a];
-    }
-    return a;
-  }
-  for (var i = 0; i < schema.relations.length; i++) {
-    var rel = schema.relations[i];
-    if (rel.fromEntity === rel.toEntity) continue;
-    var a = index[rel.fromEntity];
-    var b = index[rel.toEntity];
-    if (a === undefined || b === undefined) continue;
-    var ra = find(a), rb = find(b);
-    if (ra !== rb) parent[rb] = ra;
-  }
-  var groups = {};
-  for (var i = 0; i < nodes.length; i++) {
-    var root = find(i);
-    if (!groups[root]) groups[root] = [];
-    groups[root].push(nodes[i]);
-  }
-  var out = [];
-  for (var key in groups) {
-    if (Object.prototype.hasOwnProperty.call(groups, key)) out.push(groups[key]);
-  }
-  return out;
-}
-
-/** Positions one component from its own origin: layered left-to-right. */
-var S_BOX_W = 180;
-var S_COL_GAP = 110;
-var S_ROW_GAP = 44;
-var S_COL_CAP = 2400;
-
-function sLayoutComponent(nodes) {
-  var i, j, t, p, q;
-  if (nodes.length === 1) {
-    nodes[0].x = nodes[0].w / 2;
-    nodes[0].y = nodes[0].h / 2;
-    return { w: nodes[0].w, h: nodes[0].h };
-  }
-  var idx = {};
-  for (i = 0; i < nodes.length; i++) idx[nodes[i].name] = i;
-  var n = nodes.length;
-  var out = [], und = [];
-  for (i = 0; i < n; i++) { out.push([]); und.push([]); }
-  var seenE = {};
-  for (i = 0; i < schema.relations.length; i++) {
-    var rel = schema.relations[i];
-    if (rel.fromEntity === rel.toEntity) continue;
-    var ea = idx[rel.fromEntity], eb = idx[rel.toEntity];
-    if (ea === undefined || eb === undefined) continue;
-    var ek = ea < eb ? ea + "|" + eb : eb + "|" + ea;
-    if (seenE[ek]) continue;
-    seenE[ek] = true;
-    out[ea].push(eb);
-    und[ea].push(eb); und[eb].push(ea);
-  }
-
-  // Break cycles: depth-first, back edges are dropped from the working copy
-  var color = [], acyc = [];
-  for (i = 0; i < n; i++) { color.push(0); acyc.push([]); }
-  function dfsBreak(u) {
-    color[u] = 1;
-    for (var e = 0; e < out[u].length; e++) {
-      var v = out[u][e];
-      if (color[v] === 1) continue;
-      acyc[u].push(v);
-      if (color[v] === 0) dfsBreak(v);
-    }
-    color[u] = 2;
-  }
-  for (i = 0; i < n; i++) if (color[i] === 0) dfsBreak(i);
-
-  // Layer by longest path from sinks: referenced hubs land in column 0
-  var layer = [];
-  for (i = 0; i < n; i++) layer.push(-1);
-  function assignLayer(u) {
-    if (layer[u] >= 0) return layer[u];
-    layer[u] = 0;
-    var best = 0;
-    for (var e = 0; e < acyc[u].length; e++) {
-      var d = assignLayer(acyc[u][e]) + 1;
-      if (d > best) best = d;
-    }
-    layer[u] = best;
-    return best;
-  }
-  for (i = 0; i < n; i++) assignLayer(i);
-
-  // Order each column by neighbor barycenter, four alternating sweeps
-  var maxLayer = 0;
-  for (i = 0; i < n; i++) if (layer[i] > maxLayer) maxLayer = layer[i];
-  var cols = [];
-  for (i = 0; i <= maxLayer; i++) cols.push([]);
-  for (i = 0; i < n; i++) cols[layer[i]].push(i);
-  function sweepPair(fixed, moving) {
-    var pos = {};
-    for (p = 0; p < fixed.length; p++) pos[fixed[p]] = p;
-    var keyed = [];
-    for (p = 0; p < moving.length; p++) {
-      var u = moving[p], sum = 0, cnt = 0;
-      for (q = 0; q < und[u].length; q++) {
-        if (pos[und[u][q]] !== undefined) { sum += pos[und[u][q]]; cnt++; }
-      }
-      keyed.push({ u: u, k: cnt ? sum / cnt : p, o: p });
-    }
-    keyed.sort(function(x, y) { return x.k - y.k || x.o - y.o; });
-    for (p = 0; p < keyed.length; p++) moving[p] = keyed[p].u;
-  }
-  for (t = 0; t < 4; t++) {
-    for (i = 1; i < cols.length; i++) sweepPair(cols[i - 1], cols[i]);
-    for (i = cols.length - 2; i >= 0; i--) sweepPair(cols[i + 1], cols[i]);
-  }
-
-  // Split an over-tall column into side-by-side runs, keeping the order
-  var phys = [];
-  for (i = 0; i < cols.length; i++) {
-    var run = [], runH = 0;
-    for (j = 0; j < cols[i].length; j++) {
-      var u2 = cols[i][j];
-      var hh = nodes[u2].h + S_ROW_GAP;
-      if (runH > 0 && runH + hh > S_COL_CAP) { phys.push(run); run = []; runH = 0; }
-      run.push(u2);
-      runH += hh;
-    }
-    if (run.length > 0) phys.push(run);
-  }
-
-  // Coordinates: fixed-width columns, stacked rows, then three relax passes
-  var xCur = 0;
-  for (i = 0; i < phys.length; i++) {
-    var yCur = 0;
-    for (j = 0; j < phys[i].length; j++) {
-      var nd = nodes[phys[i][j]];
-      nd.x = xCur + nd.w / 2;
-      nd.y = yCur + nd.h / 2;
-      yCur += nd.h + S_ROW_GAP;
-    }
-    xCur += S_BOX_W + S_COL_GAP;
-  }
-  for (t = 0; t < 3; t++) {
-    for (i = 0; i < phys.length; i++) {
-      var want = [];
-      for (j = 0; j < phys[i].length; j++) {
-        var u3 = phys[i][j];
-        var s2 = 0, c2 = 0;
-        for (q = 0; q < und[u3].length; q++) { s2 += nodes[und[u3][q]].y; c2++; }
-        want.push(c2 > 0 ? s2 / c2 : nodes[u3].y);
-      }
-      for (j = 0; j < phys[i].length; j++) nodes[phys[i][j]].y = want[j];
-      // The top-down sweep resolves overlaps without reordering the column
-      var floorY = -Infinity;
-      for (j = 0; j < phys[i].length; j++) {
-        var nd2 = nodes[phys[i][j]];
-        var top = Math.max(nd2.y - nd2.h / 2, floorY);
-        nd2.y = top + nd2.h / 2;
-        floorY = top + nd2.h + S_ROW_GAP;
-      }
-    }
-  }
-
-  // Normalize to origin and report the extent
-  var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  for (i = 0; i < n; i++) {
-    minX = Math.min(minX, nodes[i].x - nodes[i].w / 2);
-    maxX = Math.max(maxX, nodes[i].x + nodes[i].w / 2);
-    minY = Math.min(minY, nodes[i].y - nodes[i].h / 2);
-    maxY = Math.max(maxY, nodes[i].y + nodes[i].h / 2);
-  }
-  for (i = 0; i < n; i++) { nodes[i].x -= minX; nodes[i].y -= minY; }
-  return { w: maxX - minX, h: maxY - minY };
-}
-
-/** Packs unrelated tables into a compact grid instead of one long rank. */
-function sLayoutIsolatedBlock(nodes, gutter) {
-  var cols = Math.max(1, Math.ceil(Math.sqrt(nodes.length)));
-  var cellW = 0, cellH = 0;
-  for (var i = 0; i < nodes.length; i++) {
-    if (nodes[i].w > cellW) cellW = nodes[i].w;
-    if (nodes[i].h > cellH) cellH = nodes[i].h;
-  }
-  var rows = Math.ceil(nodes.length / cols);
-  for (var j = 0; j < nodes.length; j++) {
-    nodes[j].x = (j % cols) * (cellW + gutter) + cellW / 2;
-    nodes[j].y = Math.floor(j / cols) * (cellH + gutter) + cellH / 2;
-  }
-  return {
-    w: cols * cellW + (cols - 1) * gutter,
-    h: rows * cellH + (rows - 1) * gutter
-  };
-}
-
-/** Shelf-packs component boxes into a roughly square area. */
-function sPackBoxes(boxes, targetW, gutter) {
-  var x = 0, y = 0, shelfH = 0;
-  for (var i = 0; i < boxes.length; i++) {
-    var box = boxes[i];
-    if (x > 0 && x + box.w > targetW) {
-      x = 0;
-      y += shelfH + gutter;
-      shelfH = 0;
-    }
-    box.ox = x;
-    box.oy = y;
-    x += box.w + gutter;
-    if (box.h > shelfH) shelfH = box.h;
-  }
-}
+var S_BOX_W = RPT.SCHEMA_BOX_W;
 
 function sComputeOverviewLayout() {
-  var GUTTER = 80;
-  var components = sComputeComponents(sNodes);
-  var boxes = [];
-  var isolated = [];
-  var i;
-
-  for (i = 0; i < components.length; i++) {
-    if (components[i].length === 1) {
-      components[i][0]._comp = -1;
-      isolated.push(components[i][0]);
-      continue;
-    }
-    for (var ci = 0; ci < components[i].length; ci++) components[i][ci]._comp = i;
-    var size = sLayoutComponent(components[i]);
-    boxes.push({ nodes: components[i], w: size.w, h: size.h });
-  }
-
-  boxes.sort(function(a, b) { return b.h - a.h || b.w - a.w; });
-
-  if (isolated.length > 0) {
-    var isoSize = sLayoutIsolatedBlock(isolated, 28);
-    boxes.push({ nodes: isolated, w: isoSize.w, h: isoSize.h });
-  }
-
-  var area = 0;
-  for (i = 0; i < boxes.length; i++) area += boxes[i].w * boxes[i].h;
-  var targetW = Math.max(900, Math.sqrt(area) * 1.6);
-  sPackBoxes(boxes, targetW, GUTTER);
-
-  for (i = 0; i < boxes.length; i++) {
-    var placed = boxes[i];
-    for (var j = 0; j < placed.nodes.length; j++) {
-      placed.nodes[j].x += placed.ox;
-      placed.nodes[j].y += placed.oy;
-    }
-  }
-
+  RPT.computeOverviewLayout(schema.relations, sNodes);
   sBuildGrids();
   sRouteAllEdges();
 }
@@ -947,7 +695,7 @@ function sComputeStarLayout(centerName) {
 }
 
 /** Columns drawn per table before the "+N more" line, unless all are shown. */
-var S_DEFAULT_MAX_COLS = 7;
+var S_DEFAULT_MAX_COLS = RPT.SCHEMA_DEFAULT_MAX_COLS;
 
 var S_PK_COLOR = "#ea2845";
 var S_FK_COLOR = "#8b5cf6";
@@ -1024,16 +772,11 @@ function sDrawColumnIcon(ctx, kind, cx, cy) {
 }
 
 function sVisibleColCount(node, showCols) {
-  if (!showCols) return 0;
-  var total = node.entity.columns.length;
-  return sShowAllCols ? total : Math.min(total, S_DEFAULT_MAX_COLS);
+  return RPT.visibleColCount(node, showCols, sShowAllCols);
 }
 
 function sNodeHeight(node, showCols) {
-  if (!showCols) return 52;
-  var visible = sVisibleColCount(node, showCols);
-  var hidden = node.entity.columns.length - visible;
-  return 24 + visible * 16 + (hidden > 0 ? 16 : 0) + 8;
+  return RPT.nodeHeight(node, showCols, sShowAllCols);
 }
 
 /** The overview shows columns; a focused star shows them for a small set. */

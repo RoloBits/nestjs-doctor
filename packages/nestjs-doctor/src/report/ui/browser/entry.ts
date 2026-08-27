@@ -6,6 +6,17 @@ export { emptyState } from "../molecules/empty-state.js";
 export { badge } from "./badge.js";
 export { escapeHtml } from "./escape.js";
 export {
+	computeComponents,
+	computeOverviewLayout,
+	layoutComponent,
+	layoutIsolatedBlock,
+	nodeHeight,
+	packBoxes,
+	SCHEMA_BOX_W,
+	SCHEMA_DEFAULT_MAX_COLS,
+	visibleColCount,
+} from "./schema-layout.js";
+export {
 	card,
 	infoCard,
 	infoItem,
