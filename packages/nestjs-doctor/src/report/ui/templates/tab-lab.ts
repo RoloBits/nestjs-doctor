@@ -1,6 +1,7 @@
 import { textButton } from "../atoms/button.js";
 import { emptyState } from "../molecules/empty-state.js";
 import { selectField } from "../molecules/select-field.js";
+import { textField } from "../molecules/text-field.js";
 
 export const TAB_LAB = `
 <!-- ── Tab: Lab ── -->
@@ -10,10 +11,7 @@ export const TAB_LAB = `
     <p class="playground-subtitle">Write and test <a href="https://www.nestjs.doctor/docs/rules/custom" target="_blank" rel="noopener">custom rules</a> against your project. Use <code>/nestjs-doctor-create-rule</code> with an AI agent to <a href="https://www.nestjs.doctor/docs/coding-agents" target="_blank" rel="noopener">scaffold rules automatically</a>.</p>
     <div class="playground-form">
       <div class="playground-form-row">
-        <div class="playground-field">
-          <label for="pg-rule-id">Rule ID</label>
-          <input type="text" id="pg-rule-id" value="my-rule" spellcheck="false">
-        </div>
+${textField({ id: "pg-rule-id", label: "Rule ID", value: "my-rule" })}
 ${selectField({
 	id: "pg-category",
 	label: "Category",
@@ -35,10 +33,7 @@ ${selectField({
 })}
       </div>
       <div class="playground-form-row">
-        <div class="playground-field playground-field-wide">
-          <label for="pg-description">Description</label>
-          <input type="text" id="pg-description" placeholder="What does this rule check?" spellcheck="false">
-        </div>
+${textField({ id: "pg-description", label: "Description", placeholder: "What does this rule check?", wide: true })}
       </div>
     </div>
     <div class="playground-preset">
