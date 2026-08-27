@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 1,
+  "generator": { "name": "nestjs-doctor", "version": "0.0.0" },
+  "generatedAt": "2026-01-01T00:00:00.000Z",
+  "monorepo": false,
+  "project": {
+    "name": "demo-app",
+    "nestVersion": "11.0.0",
+    "orm": "prisma",
+    "framework": "express",
+    "fileCount": 6,
+    "moduleCount": 2
+  },
+  "score": { "value": 86, "label": "Good" },
+  "summary": {
+    "total": 2,
+    "errors": 0,
+    "warnings": 1,
+    "info": 1,
+    "byCategory": {
+      "security": 1,
+      "performance": 0,
+      "correctness": 0,
+      "architecture": 0,
+      "schema": 1
+    }
+  },
+  "diagnostics": [
+    {
+      "rule": "security/missing-throttler",
+      "category": "security",
+      "severity": "warning",
+      "filePath": "/repo/src/app.controller.ts",
+      "message": "No throttling guard on the app controller.",
+      "help": "Add ThrottlerGuard to protect against brute-force abuse.",
+      "line": 8,
+      "column": 1,
+      "sourceLines": [
+        { "line": 7, "text": "@Controller()" },
+        { "line": 8, "text": "export class AppController {}" }
+      ]
+    },
+    {
+      "rule": "schema/missing-index",
+      "category": "schema",
+      "severity": "info",
+      "filePath": "/repo/prisma/schema.prisma",
+      "entity": "User",
+      "schemaColumn": "email",
+      "message": "Column `email` is queried but not indexed.",
+      "help": "Add @@index([email]) to the User model."
+    }
+  ],
+  "ruleErrors": [],
+  "elapsedMs": 4210,
+  "graph": {
+    "modules": [
+      {
+        "name": "AppModule",
+        "filePath": "/repo/src/app.module.ts",
+        "imports": ["UsersModule"],
+        "controllers": ["AppController"],
+        "providers": ["PrismaService"],
+        "exports": [],
+        "line": 10,
+        "isGlobal": false
+      },
+      {
+        "name": "UsersModule",
+        "filePath": "/repo/src/users/users.module.ts",
+        "imports": [],
+        "controllers": ["UsersController"],
+        "providers": ["UsersService"],
+        "exports": ["UsersService"],
+        "line": 8
+      }
+    ],
+    "edges": [{ "from": "AppModule", "to": "UsersModule" }],
+    "circularDeps": [],
+    "circularDepRecommendations": {},
+    "projects": [],
+    "bootstrapRoots": ["AppModule"],
+    "timingsTrace": {}
+  },
+  "providers": [
+    {
+      "name": "PrismaService",
+      "filePath": "/repo/src/prisma.service.ts",
+      "dependencies": [],
+      "publicMethodCount": 3
+    },
+    {
+      "name": "UsersService",
+      "filePath": "/repo/src/users/users.service.ts",
+      "dependencies": ["PrismaService"],
+      "publicMethodCount": 5
+    }
+  ],
+  "endpoints": { "endpoints": [] },
+  "schema": {
+    "orm": "prisma",
+    "entities": [
+      {
+        "name": "User",
+        "tableName": "users",
+        "filePath": "/repo/prisma/schema.prisma",
+        "columns": [
+          {
+            "name": "id",
+            "type": "String",
+            "isPrimary": true,
+            "isGenerated": true,
+            "isNullable": false,
+            "isUnique": false
+          },
+          {
+            "name": "email",
+            "type": "String",
+            "isPrimary": false,
+            "isGenerated": false,
+            "isNullable": false,
+            "isUnique": true
+          }
+        ],
+        "relations": []
+      }
+    ],
+    "relations": []
+  },
+  "share": {
+    "filename": "nestjs-doctor-shared.json",
+    "project": {
+      "name": "demo-app",
+      "nestVersion": "11.0.0",
+      "orm": "prisma",
+      "framework": "express",
+      "fileCount": 6,
+      "moduleCount": 2
+    },
+    "score": { "value": 86, "label": "Good" },
+    "sections": [
+      { "count": 86, "id": "score", "label": "Health score and project info" },
+      { "count": 2, "id": "findings", "label": "Findings by category" }
+    ],
+    "findingsByCategory": {},
+    "version": 1
+  },
+  "examples": {},
+  "sources": {
+    "/repo/src/app.controller.ts": "import { Controller, Get } from '@nestjs/common';\n\n@Controller()\nexport class AppController {\n\t@Get()\n\thealth(): string {\n\t\treturn 'ok';\n\t}\n}\n"
+  }
+}

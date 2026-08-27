@@ -8,6 +8,7 @@
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
   "ignore": [
+    "report-ui",
     "website"
   ],
   "privatePackages": {
