@@ -4,7 +4,7 @@ import { getReportHtml } from "../../src/report/ui/html.js";
 import { getReportScripts } from "../../src/report/ui/scripts.js";
 import { EMPTY_ARTIFACT_JSON } from "./report-artifact-fixture.js";
 
-const TABS = ["summary", "diagnosis", "lab"];
+const TABS = ["summary", "diagnosis", "lab", "modules", "schema", "endpoints"];
 
 // A canvas context that swallows every call, so the drawing code runs without
 // a real 2D backend and the DOM it also builds still gets built.

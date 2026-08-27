@@ -372,6 +372,7 @@ function epDraw() {
 }
 
 function epResize() {
+  if (!epCtx) return;
   if (!epCanvas) return;
   var container = epCanvas.parentElement;
   if (!container) return;
