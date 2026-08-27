@@ -5,6 +5,12 @@ export { icon } from "../atoms/icon.js";
 export { emptyState } from "../molecules/empty-state.js";
 export { badge } from "./badge.js";
 export {
+	columnKind,
+	fkKeys,
+	foreignKeyColumns,
+	keyName,
+} from "./column-kinds.js";
+export {
 	buildEndpointGraph,
 	layoutEndpointGraph,
 } from "./endpoint-layout.js";

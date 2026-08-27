@@ -159,9 +159,9 @@ function sPortRowY(node, colName) {
   var showCols = sColumnsShown(sNodes.length);
   var visible = sVisibleColCount(node, showCols);
   if (colName) {
-    var key = sKeyName(colName);
+    var key = RPT.keyName(colName);
     for (var i = 0; i < node.entity.columns.length && i < visible; i++) {
-      if (sKeyName(node.entity.columns[i].name) === key) return top + 24 + i * 16 + 8;
+      if (RPT.keyName(node.entity.columns[i].name) === key) return top + 24 + i * 16 + 8;
     }
   }
   return top + 12;
@@ -172,9 +172,9 @@ function sRelPortNames(rel) {
   var child = sNodeMap[rel.fromEntity];
   var fkName = null;
   if (child && rel.propertyName) {
-    var keys = sFkKeys(rel.propertyName);
+    var keys = RPT.fkKeys(rel.propertyName);
     for (var i = 0; i < child.entity.columns.length; i++) {
-      var kn = sKeyName(child.entity.columns[i].name);
+      var kn = RPT.keyName(child.entity.columns[i].name);
       if (kn === keys[0] || kn === keys[1]) { fkName = child.entity.columns[i].name; break; }
     }
   }
@@ -249,35 +249,6 @@ var S_DEFAULT_MAX_COLS = RPT.SCHEMA_DEFAULT_MAX_COLS;
 var S_PK_COLOR = "#ea2845";
 var S_FK_COLOR = "#8b5cf6";
 var S_IDX_COLOR = "#f59e0b";
-
-/** Names a relation's property and that property with an Id suffix. */
-function sKeyName(text) {
-  return String(text).toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
-function sFkKeys(propertyName) {
-  var base = sKeyName(propertyName);
-  return [base, base + "id"];
-}
-
-function sForeignKeyColumns(entity) {
-  var names = Object.create(null);
-  for (var i = 0; i < entity.relations.length; i++) {
-    var prop = entity.relations[i].propertyName;
-    if (!prop) continue;
-    var keys = sFkKeys(prop);
-    names[keys[0]] = true;
-    names[keys[1]] = true;
-  }
-  return names;
-}
-
-function sColumnKind(column, foreignKeys) {
-  if (column.isPrimary) return "pk";
-  if (foreignKeys[sKeyName(column.name)]) return "fk";
-  if (column.isUnique || column.hasIndex) return "idx";
-  return null;
-}
 
 /** Draws the key, link or index glyph that marks what a column is. */
 function sDrawColumnIcon(ctx, kind, cx, cy) {
@@ -372,13 +343,13 @@ function sCacheNodeLabels(nodes) {
     for (var c = 0; c < n.entity.columns.length; c++) {
       n.colTypes.push(clip(n.entity.columns[c].type, 60));
     }
-    var foreignKeys = sForeignKeyColumns(n.entity);
+    var foreignKeys = RPT.foreignKeyColumns(n.entity);
     sCtx.font = "11px " + RPT_FONT;
     n.colNames = [];
     n.colKinds = [];
     for (var k = 0; k < n.entity.columns.length; k++) {
       n.colNames.push(clip(n.entity.columns[k].name, 83));
-      n.colKinds.push(sColumnKind(n.entity.columns[k], foreignKeys));
+      n.colKinds.push(RPT.columnKind(n.entity.columns[k], foreignKeys));
     }
   }
 }
@@ -841,10 +812,10 @@ function renderSchema() {
       var colGroupId = entityId + "-cols";
       sidebarHtml += sBuildTreeRow(2, colGroupId, ICON_FOLDER_CLOSED, '<span class="st-group-name">columns</span>', '<span class="st-count">' + entity.columns.length + '</span>', "", "");
       sidebarHtml += '<div class="st-children" id="st-' + colGroupId + '">';
-      var entityForeignKeys = sForeignKeyColumns(entity);
+      var entityForeignKeys = RPT.foreignKeyColumns(entity);
       for (var c = 0; c < entity.columns.length; c++) {
         var col = entity.columns[c];
-        var colKind = sColumnKind(col, entityForeignKeys);
+        var colKind = RPT.columnKind(col, entityForeignKeys);
         var colIcon = colKind === "pk" ? ICON_KEY
           : colKind === "fk" ? ICON_FK
           : colKind === "idx" ? ICON_INDEX
