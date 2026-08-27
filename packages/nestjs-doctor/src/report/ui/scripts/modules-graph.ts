@@ -283,10 +283,7 @@ function mgEndpointsOf(controllerClass) {
 
 // ── Modules graph: build ──
 function mgFormatMs(ms) {
-  var r = Math.round(ms * 10) / 10;
-  if (r < 1) return "<1ms";
-  if (r < 10) return r.toFixed(1) + "ms";
-  return Math.round(ms) + "ms";
+  return RPT.formatMs(ms);
 }
 
 function mgMeasureNode(n) {
@@ -1081,7 +1078,7 @@ function mgBindEvents() {
       }
     } else {
       row.classList.add("expanded");
-      var node = mgTraceNode(row.dataset.trace);
+      var node = RPT.traceNode(graph.timingsTrace, row.dataset.trace);
       if (!node) return;
       var depth = parseInt(row.dataset.depth, 10) + 1;
       var parentMark = row.dataset.mark || null;
@@ -1621,45 +1618,6 @@ function mgProvidersHtml(n) {
 }
 
 var mgTraceMax = 1;
-var MG_TRACE_COLORS = {
-  provider: "34,211,238",
-  controller: "167,139,250",
-  injectable: "52,211,153",
-  middleware: "244,114,182"
-};
-
-function mgTraceNode(id) {
-  return Object.prototype.hasOwnProperty.call(graph.timingsTrace, id)
-    ? graph.timingsTrace[id] : null;
-}
-
-function mgTraceColor(type) {
-  return Object.prototype.hasOwnProperty.call(MG_TRACE_COLORS, type)
-    ? MG_TRACE_COLORS[type] : "107,114,128";
-}
-
-var MG_HOOK_META = {
-  onModuleInit: { label: "init", rgb: "52,211,153" },
-  onApplicationBootstrap: { label: "bootstrap", rgb: "167,139,250" }
-};
-
-function mgHookChipHtml(hooks) {
-  if (!hooks || hooks.length === 0) return "";
-  var html = "";
-  for (var i = 0; i < hooks.length; i++) {
-    var h = hooks[i];
-    var meta = Object.prototype.hasOwnProperty.call(MG_HOOK_META, h.hook)
-      ? MG_HOOK_META[h.hook]
-      : { label: h.hook, rgb: "107,114,128" };
-    var times = h.count && h.count > 1 ? " across " + h.count + " instances" : "";
-    html += '<span class="mg-trace-hook" style="color:rgb(' + meta.rgb + ');background:rgba(' + meta.rgb + ',0.12)"' +
-      ' data-tip="' + mgEsc(h.hook + " took " + mgFormatMs(h.ms) + times) + '">+' +
-      mgEsc(mgFormatMs(h.ms)) + ' ' + mgEsc(meta.label) +
-      (h.count && h.count > 1 ? ' \\u00d7' + h.count : '') + '</span>';
-  }
-  return html;
-}
-
 function mgPhaseParts() {
   var p = graph.phases;
   // Without createMs the earlier boundaries are unknown, so segments would mislabel.
@@ -1723,69 +1681,8 @@ function mgDockShow(name) {
   mgResize();
 }
 
-function mgTraceBadgeHtml(type) {
-  var rgb = mgTraceColor(type);
-  return RPT.badge({
-    style: "color:rgb(" + rgb + ");background:rgba(" + rgb + ",0.12)",
-    text: mgEsc(type)
-  });
-}
-
-function mgTraceBarHtml(initTime, deps, type, hollowTip) {
-  var frac = Math.max(0, Math.min(1, initTime / mgTraceMax));
-  var width = (frac * 100).toFixed(2);
-  if (hollowTip) {
-    return '<span class="mg-trace-track" data-tip="' + mgEsc(mgFormatMs(initTime) + " total \\u2014 " + hollowTip) + '">' +
-      '<span class="mg-trace-bar" style="width:' + width + '%;background:transparent;box-shadow:inset 0 0 0 1px rgba(' + mgTraceColor(type) + ',0.5)"></span>' +
-      '</span>';
-  }
-  // Slowest dep this class could actually have waited on: a dep slower than
-  // the class itself was pre-built, so it never entered this class's clock.
-  var slowestDep = 0;
-  for (var d = 0; d < deps.length; d++) {
-    var dep = mgTraceNode(deps[d]);
-    if (dep && dep.initTime <= initTime) { slowestDep = dep.initTime; break; }
-  }
-  var selfFrac = Math.max(0, Math.min(frac, (initTime - slowestDep) / mgTraceMax));
-  var tip = mgFormatMs(initTime) + " total" +
-    (slowestDep > 0 ? " \\u2014 \\u2248" + mgFormatMs(slowestDep) + " waiting on dependencies, \\u2248" + mgFormatMs(Math.max(0, initTime - slowestDep)) + " own work" : " \\u2014 all own work");
-  return '<span class="mg-trace-track" data-tip="' + mgEsc(tip) + '">' +
-    '<span class="mg-trace-bar" style="width:' + width + '%;background:rgba(' + mgTraceColor(type) + ',0.4)"></span>' +
-    (selfFrac > 0.002 ? '<span class="mg-trace-self" style="left:' + ((frac - selfFrac) * 100).toFixed(2) + '%;width:' + (selfFrac * 100).toFixed(2) + '%"></span>' : '') +
-    '</span>';
-}
-
 function mgTraceRowHtml(id, depth, path, mode) {
-  var node = mgTraceNode(id);
-  if (!node) return "";
-  var ancestors = path.split("/");
-  ancestors.pop();
-  var cyc = ancestors.indexOf(id) >= 0;
-  var expandable = !cyc && depth < 20 && node.deps.length > 0;
-  // Slower than its consumer means the dep already existed when the consumer loaded.
-  var parent = ancestors.length > 0 ? mgTraceNode(ancestors[ancestors.length - 1]) : null;
-  var reused = mode === "reused" || (parent !== null && node.initTime > parent.initTime);
-  var listed = !reused && mode === "listed";
-  var mark = reused
-    ? { cls: " mg-trace-reused", tag: "reused", tip: "Already built when this parent loaded \\u2014 its cost is counted at its first consumer", bar: "already built for an earlier consumer; not paid here" }
-    : listed
-      ? { cls: " mg-trace-reused", tag: "listed above", tip: "Has its own row at the top of this trace \\u2014 the cost is detailed there", bar: "detailed in its own row at the top of this trace" }
-      : null;
-  return '<div class="mg-trace-row' + (expandable ? ' mg-trace-expandable' : '') +
-    (mark ? mark.cls : '') + '"' +
-    ' data-trace="' + mgEsc(id) + '" data-path="' + mgEsc(path) + '" data-depth="' + depth + '"' +
-    (mark ? ' data-mark="' + (reused ? "reused" : "listed") + '"' : '') + '>' +
-    '<span class="mg-trace-label" style="padding-left:' + (Math.min(depth, 8) * 16) + 'px">' +
-    '<span class="mg-trace-caret">' + (expandable ? "\\u25B8" : "") + '</span>' +
-    '<span class="mg-trace-name" data-tip="' + mgEsc(node.name) + '">' + mgEsc(node.name) + '</span>' +
-    mgTraceBadgeHtml(node.type) +
-    mgHookChipHtml(node.hooks) +
-    (mark ? '<span class="mg-trace-reused-tag" data-tip="' + mark.tip + '">' + mark.tag + '</span>' : '') +
-    (cyc ? '<span class="mg-trace-cycle" data-tip="circular dependency">\\u21BB</span>' : '') +
-    '</span>' +
-    mgTraceBarHtml(node.initTime, node.deps, node.type, mark ? mark.bar : null) +
-    '<span class="mg-trace-time">' + mgEsc(mgFormatMs(node.initTime)) + '</span>' +
-    '</div>';
+  return RPT.traceRowHtml(graph.timingsTrace, mgTraceMax, id, depth, path, mode);
 }
 
 var mgTraceTopIds = {};
@@ -1965,7 +1862,7 @@ function mgShowDetail(n) {
         text: mgEsc(mgFormatMs(n.initTimings[0].initTime)) + ' \\u00b7 trace \\u25B8'
       });
     }
-    badges += mgHookChipHtml(n.hookTimings);
+    badges += RPT.hookChipHtml(n.hookTimings);
   }
   document.getElementById("detail-badges").innerHTML = badges;
   mgSyncTraceDrawer(n);

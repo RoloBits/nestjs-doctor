@@ -13,6 +13,12 @@ export {
 	statRow,
 } from "./summary-card.js";
 export {
+	formatMs,
+	hookChipHtml,
+	traceNode,
+	traceRowHtml,
+} from "./trace.js";
+export {
 	buildFileTree,
 	compressTree,
 	countItems,
