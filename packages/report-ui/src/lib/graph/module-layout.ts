@@ -2,7 +2,7 @@
 export interface DagreGraph {
 	node(
 		id: string
-	): { height: number; width: number; x: number; y: number } | undefined;
+	): { height?: number; width?: number; x?: number; y?: number } | undefined;
 	setDefaultEdgeLabel(factory: () => unknown): unknown;
 	setEdge(from: string, to: string): unknown;
 	setGraph(config: unknown): unknown;
@@ -143,7 +143,7 @@ function layoutCluster(
 	let maxY = Number.NEGATIVE_INFINITY;
 	for (const n of nodes) {
 		const laid = g.node(n.name);
-		if (!laid) {
+		if (!(laid && laid.x !== undefined && laid.y !== undefined)) {
 			continue;
 		}
 		n.x = laid.x;
