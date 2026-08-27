@@ -1,4 +1,4 @@
-import { iconButton } from "../atoms/button.js";
+import { closeButton, iconButton } from "../atoms/button.js";
 import { searchInput } from "../atoms/search-input.js";
 import { checkboxRow } from "../molecules/checkbox-row.js";
 import { legend } from "../molecules/legend.js";
@@ -27,7 +27,7 @@ ${checkboxRow({ id: "mg-show-external", label: "Show external modules", indent: 
     </div>
     <div id="mg-tree"></div>
     <div id="detail">
-      <button class="close-btn" id="close-detail">&times;</button>
+${closeButton({ id: "close-detail", classes: "close-btn" })}
       <h2 id="detail-name"></h2>
       <div id="detail-badges"></div>
       <div class="filepath" id="detail-path"></div>

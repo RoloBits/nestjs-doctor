@@ -1,3 +1,4 @@
+import { textButton } from "../atoms/button.js";
 import { selectField } from "../molecules/select-field.js";
 
 export const TAB_LAB = `
@@ -82,7 +83,7 @@ for (let i = 0; i < lines.length; i++) {
   }
 }</script>
     <div class="playground-actions">
-      <button id="pg-run-btn">&#9654; Run Rule</button>
+${textButton({ id: "pg-run-btn", label: "&#9654; Run Rule" })}
     </div>
     <div id="pg-error" class="playground-error" style="display:none"></div>
   </div>
