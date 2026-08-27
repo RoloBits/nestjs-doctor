@@ -35,6 +35,8 @@ describe("bundle smoke", () => {
 
 	it.skipIf(!(chrome && existsSync(DIST_HTML)))(
 		"hydrates the single exported file over file://",
+		// Chrome cold-start on runners routinely exceeds vitest's default 5s.
+		{ timeout: 120_000 },
 		() => {
 			const dom = execFileSync(
 				chrome as string,
