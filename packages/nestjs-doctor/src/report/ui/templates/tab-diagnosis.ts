@@ -1,4 +1,4 @@
-import { iconButton } from "../atoms/button.js";
+import { iconButton, textButton } from "../atoms/button.js";
 import { searchInput } from "../atoms/search-input.js";
 import { checkboxRow } from "../molecules/checkbox-row.js";
 import { pillGroup } from "../molecules/pill-group.js";
@@ -20,12 +20,15 @@ ${searchInput({ id: "diag-search", placeholder: "Search files" })}
       </div>
 ${checkboxRow({ id: "diag-show-notscored", label: "Show not scored", rowId: "diag-notscored-row" })}
       <hr class="diag-divider" id="diag-notscored-divider">
-      <button class="diag-filters-toggle" id="diag-filters-toggle" aria-expanded="false">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+${textButton({
+	id: "diag-filters-toggle",
+	classes: "diag-filters-toggle",
+	ariaExpanded: false,
+	content: `        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
         Filters
         <span class="diag-filters-count" id="diag-filters-count" style="display:none"></span>
-        <span class="diag-filters-caret">\u25B8</span>
-      </button>
+        <span class="diag-filters-caret">\u25B8</span>`,
+})}
       <div class="filter-rows" id="diag-filters-body">
         <div class="sev-filters">
           <span class="filter-label">Severity</span>

@@ -1,3 +1,5 @@
+import { textButton } from "../atoms/button.js";
+
 export const HEADER_ROW1 = `
 <!-- ── Header Row 1 ── -->
 <div id="header-row1">
@@ -8,7 +10,7 @@ export const HEADER_ROW1 = `
   <div class="meta" id="header-meta"></div>
   <div class="spacer"></div>
   <div class="nav-actions">
-    <button class="nav-btn" id="nav-share" type="button">share</button>
+${textButton({ id: "nav-share", classes: "nav-btn", type: "button", label: "share", indent: 4 })}
     <a class="nav-btn" href="https://nestjs.doctor/docs" target="_blank" rel="noopener">docs</a>
     <a class="nav-btn" href="https://github.com/RoloBits/nestjs-doctor" target="_blank" rel="noopener">github</a>
   </div>

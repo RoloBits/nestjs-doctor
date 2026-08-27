@@ -1,4 +1,4 @@
-import { iconButton } from "../atoms/button.js";
+import { iconButton, textButton } from "../atoms/button.js";
 
 interface ZoomBarOptions {
 	indent?: number;
@@ -31,7 +31,14 @@ export function zoomBar({
 			ariaLabel: "Zoom in",
 			tip: "Zoom in",
 		}),
-		`${pad}  <button class="schema-zoom-value has-tip" id="${prefix}-zoom-value" aria-label="100% · fit to view" data-tip="Fit · size the ${subject} to the window">100%</button>`,
+		textButton({
+			id: `${prefix}-zoom-value`,
+			classes: "schema-zoom-value",
+			label: "100%",
+			ariaLabel: "100% · fit to view",
+			tip: `Fit · size the ${subject} to the window`,
+			indent: indent + 2,
+		}),
 		`${pad}</div>`,
 	].join("\n");
 }

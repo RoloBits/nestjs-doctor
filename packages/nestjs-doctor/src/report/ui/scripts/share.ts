@@ -95,7 +95,7 @@ export const SHARE = `
     }
     html += '<label class="share-row" style="margin-top:4px"><input type="checkbox" id="share-code"> Include code snippets <span class="share-hint">a few lines around each finding</span></label>';
     html += '<div class="share-actions">';
-    html += '<button id="share-download" class="share-download" type="button">Download .json</button>';
+    html += RPT.textButton({ id: "share-download", classes: "share-download", type: "button", label: "Download .json", indent: 0 });
     html += '</div></div>';
     overlay.innerHTML = html;
 

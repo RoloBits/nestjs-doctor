@@ -1,4 +1,4 @@
-import { iconButton } from "../atoms/button.js";
+import { iconButton, textButton } from "../atoms/button.js";
 import { searchInput } from "../atoms/search-input.js";
 import { checkboxRow } from "../molecules/checkbox-row.js";
 import { zoomBar } from "../molecules/zoom-bar.js";
@@ -33,7 +33,7 @@ ${iconButton({ id: "schema-sidebar-show", icon: "sidebarShow", ariaLabel: "Show 
           <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
         </svg>
         <p>Select an entity from the sidebar to explore its schema</p>
-        <button class="st-btn schema-empty-action" id="schema-show-all">Show all tables</button>
+${textButton({ id: "schema-show-all", classes: "st-btn schema-empty-action", label: "Show all tables", indent: 8 })}
       </div>
       <div id="schema-toolbar">
 ${zoomBar({ prefix: "schema", subject: "diagram" })}

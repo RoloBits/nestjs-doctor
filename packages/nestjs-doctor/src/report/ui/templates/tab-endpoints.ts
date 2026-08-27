@@ -1,4 +1,4 @@
-import { iconButton } from "../atoms/button.js";
+import { closeButton, iconButton } from "../atoms/button.js";
 
 export const TAB_ENDPOINTS = `
 <!-- ── Tab: Endpoints ── -->
@@ -10,7 +10,7 @@ export const TAB_ENDPOINTS = `
         <span class="ep-code-panel-method" id="ep-code-panel-method"></span>
       </div>
       <div class="ep-code-panel-path" id="ep-code-panel-path"></div>
-      <button class="ep-code-panel-close" id="ep-code-panel-close">&times;</button>
+${closeButton({ id: "ep-code-panel-close", classes: "ep-code-panel-close" })}
     </div>
     <div class="ep-code-panel-body" id="ep-code-panel-body"></div>
     <div class="ep-code-panel-resize" id="ep-code-panel-resize"></div>
