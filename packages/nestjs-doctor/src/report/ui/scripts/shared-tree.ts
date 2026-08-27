@@ -6,71 +6,6 @@ const SVG_UP = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentCol
 const SVG_DOWN = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M0 8l1.5-1.5L8 13l6.5-6.5L16 8 8 16z"/></svg>';
 
 // ── Shared tree helpers ──
-function buildFileTree(fileMap, itemsKey) {
-  const root = { name: "", children: {}, files: {} };
-  for (const fp in fileMap) {
-    if (fp === "") continue;
-    const parts = fp.split("/");
-    const fName = parts.pop();
-    let node = root;
-    for (let p = 0; p < parts.length; p++) {
-      if (!node.children[parts[p]]) node.children[parts[p]] = { name: parts[p], children: {}, files: {} };
-      node = node.children[parts[p]];
-    }
-    const fileNode = { name: fName, fullPath: fp };
-    fileNode[itemsKey] = fileMap[fp];
-    node.files[fName] = fileNode;
-  }
-  return root;
-}
-
-function compressTree(root) {
-  function compress(n) {
-    for (const k in n.children) compress(n.children[k]);
-    const cKeys = Object.keys(n.children);
-    const fKeys = Object.keys(n.files);
-    if (cKeys.length === 1 && fKeys.length === 0) {
-      const child = n.children[cKeys[0]];
-      n.name = n.name ? n.name + "/" + child.name : child.name;
-      n.children = child.children;
-      n.files = child.files;
-    }
-  }
-  for (const rk in root.children) compress(root.children[rk]);
-}
-
-function worstSev(itemList, getSeverity) {
-  let worst = "info";
-  for (let i = 0; i < itemList.length; i++) {
-    const s = getSeverity(itemList[i]);
-    if (s === "error") return "error";
-    if (s === "warning") worst = "warning";
-  }
-  return worst;
-}
-
-function worstSevNode(n, itemsKey, getSeverity) {
-  let worst = "info";
-  for (const k in n.children) {
-    const cs = worstSevNode(n.children[k], itemsKey, getSeverity);
-    if (cs === "error") return "error";
-    if (cs === "warning") worst = "warning";
-  }
-  for (const f in n.files) {
-    const fs = worstSev(n.files[f][itemsKey], getSeverity);
-    if (fs === "error") return "error";
-    if (fs === "warning") worst = "warning";
-  }
-  return worst;
-}
-
-function countItems(n, itemsKey) {
-  let total = 0;
-  for (const k in n.children) total += countItems(n.children[k], itemsKey);
-  for (const f in n.files) total += n.files[f][itemsKey].length;
-  return total;
-}
-
 function renderTreeHtml(root, config) {
   let html = "";
   function renderNode(n, depth) {
@@ -80,8 +15,8 @@ function renderTreeHtml(root, config) {
 
     for (let i = 0; i < dirs.length; i++) {
       const child = n.children[dirs[i]];
-      const folderSev = worstSevNode(child, config.itemsKey, config.getSeverity);
-      const folderCount = countItems(child, config.itemsKey);
+      const folderSev = RPT.worstSevNode(child, config.itemsKey, config.getSeverity);
+      const folderCount = RPT.countItems(child, config.itemsKey);
       html += '<div class="tree-folder">' +
         '<div class="tree-folder-header" style="padding-left:calc(14px + ' + pad + ');--guides:' + (depth * 12) + 'px">' +
         '<span class="tree-chevron">&#9660;</span>' +
@@ -95,7 +30,7 @@ function renderTreeHtml(root, config) {
 
     for (let j = 0; j < files.length; j++) {
       const fileNode = n.files[files[j]];
-      const fileSev = worstSev(fileNode[config.itemsKey], config.getSeverity);
+      const fileSev = RPT.worstSev(fileNode[config.itemsKey], config.getSeverity);
       const fileCount = fileNode[config.itemsKey].length;
       let extraAttrs = "";
       if (config.collectSevs) extraAttrs = ' data-sevs="' + config.collectSevs(fileNode[config.itemsKey]) + '"';

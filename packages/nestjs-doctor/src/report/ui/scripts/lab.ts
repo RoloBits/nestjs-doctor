@@ -440,8 +440,8 @@ function renderLab() {
     currentPgFileMap[""] = standaloneItems;
 
     // Build tree from file paths
-    const pgTreeRoot = buildFileTree(currentPgFileMap, "findings");
-    compressTree(pgTreeRoot);
+    const pgTreeRoot = RPT.buildFileTree(currentPgFileMap, "findings");
+    RPT.compressTree(pgTreeRoot);
 
     // Render tree HTML
     let pgTreeHtml = "";
