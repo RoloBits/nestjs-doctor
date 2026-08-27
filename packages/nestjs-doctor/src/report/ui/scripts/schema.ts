@@ -118,16 +118,6 @@ function sGetRelatedEntities(entityName) {
 }
 
 // Point-to-segment distance for polyline hit-testing
-function sPointToSegmentDist(px, py, ax, ay, bx, by) {
-  var dx = bx - ax, dy = by - ay;
-  var lenSq = dx * dx + dy * dy;
-  if (lenSq === 0) return Math.sqrt((px - ax) * (px - ax) + (py - ay) * (py - ay));
-  var t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lenSq));
-  var projX = ax + t * dx;
-  var projY = ay + t * dy;
-  return Math.sqrt((px - projX) * (px - projX) + (py - projY) * (py - projY));
-}
-
 function sHitTestRelation(wx, wy) {
   var threshold = 8 / sZoom;
   for (var k = 0; k < sEdgeKeys.length; k++) {
@@ -135,7 +125,7 @@ function sHitTestRelation(wx, wy) {
     var points = sEdgeRoutes[key];
     if (!points || points.length < 2) continue;
     for (var p = 0; p < points.length - 1; p++) {
-      var d = sPointToSegmentDist(wx, wy, points[p].x, points[p].y, points[p + 1].x, points[p + 1].y);
+      var d = RPT.pointToSegmentDist(wx, wy, points[p].x, points[p].y, points[p + 1].x, points[p + 1].y);
       if (d < threshold) {
         var parts = key.split("|");
         for (var r = 0; r < schema.relations.length; r++) {
@@ -156,220 +146,11 @@ function sRelLabel(type) {
   return "N:M";
 }
 
-// Manhattan edge routing
-var S_EDGE_MARGIN = 14;
-
-function sEdgeKey(fromName, toName) {
-  return fromName < toName ? fromName + "|" + toName : toName + "|" + fromName;
-}
-
-function sSegmentHitsBox(ax, ay, bx, by, box, margin) {
-  var left = box.x - box.w / 2 - margin;
-  var right = box.x + box.w / 2 + margin;
-  var top = box.y - box.h / 2 - margin;
-  var bottom = box.y + box.h / 2 + margin;
-
-  // Horizontal segment
-  if (Math.abs(ay - by) < 1) {
-    if (ay < top || ay > bottom) return false;
-    var minX = Math.min(ax, bx);
-    var maxX = Math.max(ax, bx);
-    return maxX > left && minX < right;
-  }
-  // Vertical segment
-  if (Math.abs(ax - bx) < 1) {
-    if (ax < left || ax > right) return false;
-    var minY = Math.min(ay, by);
-    var maxY = Math.max(ay, by);
-    return maxY > top && minY < bottom;
-  }
-  return false;
-}
-
-function sSegmentHitsAnyBox(ax, ay, bx, by, excludeA, excludeB) {
-  for (var i = 0; i < sNodes.length; i++) {
-    var n = sNodes[i];
-    if (n.name === excludeA || n.name === excludeB) continue;
-    if (sSegmentHitsBox(ax, ay, bx, by, n, S_EDGE_MARGIN)) return true;
-  }
-  return false;
-}
-
-function sComputePort(from, to) {
-  var dx = to.x - from.x;
-  var dy = to.y - from.y;
-  var px, py, dir;
-  if (Math.abs(dx) >= Math.abs(dy)) {
-    if (dx >= 0) { px = from.x + from.w / 2; py = from.y; dir = "right"; }
-    else { px = from.x - from.w / 2; py = from.y; dir = "left"; }
-  } else {
-    if (dy >= 0) { px = from.x; py = from.y + from.h / 2; dir = "down"; }
-    else { px = from.x; py = from.y - from.h / 2; dir = "up"; }
-  }
-  return { x: px, y: py, dir: dir };
-}
-
-function sStepOut(port) {
-  if (port.dir === "right") return { x: port.x + S_EDGE_MARGIN, y: port.y };
-  if (port.dir === "left") return { x: port.x - S_EDGE_MARGIN, y: port.y };
-  if (port.dir === "down") return { x: port.x, y: port.y + S_EDGE_MARGIN };
-  return { x: port.x, y: port.y - S_EDGE_MARGIN };
-}
-
-function sRouteManhattan(fromNode, toNode) {
-  var portA = sComputePort(fromNode, toNode);
-  var portB = sComputePort(toNode, fromNode);
-  var stepA = sStepOut(portA);
-  var stepB = sStepOut(portB);
-
-  var fromName = fromNode.name;
-  var toName = toNode.name;
-
-  // Try L-shape: H then V
-  var midX1 = stepB.x, midY1 = stepA.y;
-  if (!sSegmentHitsAnyBox(stepA.x, stepA.y, midX1, midY1, fromName, toName) &&
-      !sSegmentHitsAnyBox(midX1, midY1, stepB.x, stepB.y, fromName, toName)) {
-    return sSimplifyPath([portA, stepA, {x: midX1, y: midY1}, stepB, portB]);
-  }
-
-  // Try L-shape: V then H
-  var midX2 = stepA.x, midY2 = stepB.y;
-  if (!sSegmentHitsAnyBox(stepA.x, stepA.y, midX2, midY2, fromName, toName) &&
-      !sSegmentHitsAnyBox(midX2, midY2, stepB.x, stepB.y, fromName, toName)) {
-    return sSimplifyPath([portA, stepA, {x: midX2, y: midY2}, stepB, portB]);
-  }
-
-  // U-shaped detour along a shared horizontal or vertical line
-  var bestPath = null;
-  var bestLen = Infinity;
-  var rails = [
-    { axis: "y", v: Math.min(stepA.y, stepB.y) - 80 },
-    { axis: "y", v: Math.max(stepA.y, stepB.y) + 80 },
-    { axis: "x", v: Math.min(stepA.x, stepB.x) - 80 },
-    { axis: "x", v: Math.max(stepA.x, stepB.x) + 80 }
-  ];
-  for (var o = 0; o < rails.length; o++) {
-    var path = rails[o].axis === "y"
-      ? [portA, stepA, {x: stepA.x, y: rails[o].v}, {x: stepB.x, y: rails[o].v}, stepB, portB]
-      : [portA, stepA, {x: rails[o].v, y: stepA.y}, {x: rails[o].v, y: stepB.y}, stepB, portB];
-    var blocked = false;
-    for (var s = 0; s < path.length - 1; s++) {
-      if (sSegmentHitsAnyBox(path[s].x, path[s].y, path[s + 1].x, path[s + 1].y, fromName, toName)) {
-        blocked = true;
-        break;
-      }
-    }
-    if (!blocked) {
-      var len = 0;
-      for (var s = 0; s < path.length - 1; s++) {
-        len += Math.abs(path[s + 1].x - path[s].x) + Math.abs(path[s + 1].y - path[s].y);
-      }
-      if (len < bestLen) { bestLen = len; bestPath = path; }
-    }
-  }
-
-  if (bestPath) return sSimplifyPath(bestPath);
-
-  // Fallback: direct L-shape (no obstacle avoidance)
-  return sSimplifyPath([portA, stepA, {x: stepB.x, y: stepA.y}, stepB, portB]);
-}
-
-function sSimplifyPath(points) {
-  if (points.length <= 2) return points;
-  var result = [points[0]];
-  for (var i = 1; i < points.length - 1; i++) {
-    var prev = result[result.length - 1];
-    var next = points[i + 1];
-    var curr = points[i];
-    // Skip collinear points
-    var sameX = Math.abs(prev.x - curr.x) < 1 && Math.abs(curr.x - next.x) < 1;
-    var sameY = Math.abs(prev.y - curr.y) < 1 && Math.abs(curr.y - next.y) < 1;
-    if (!sameX && !sameY) result.push(curr);
-  }
-  result.push(points[points.length - 1]);
-  return result;
-}
-
 // ── Schema: channel routing over the layered grid ──
-var S_LANE = 8;
 var sCompGrids = null;
 
 function sBuildGrids() {
-  sCompGrids = {};
-  var groups = {};
-  var i, m;
-  for (i = 0; i < sNodes.length; i++) {
-    var cid = sNodes[i]._comp;
-    if (cid === undefined || cid < 0) continue;
-    if (!groups[cid]) groups[cid] = [];
-    groups[cid].push(sNodes[i]);
-  }
-  for (var gKey in groups) {
-    if (!Object.prototype.hasOwnProperty.call(groups, gKey)) continue;
-    var nodes = groups[gKey];
-    var byX = {};
-    for (i = 0; i < nodes.length; i++) {
-      var cx = Math.round(nodes[i].x);
-      if (!byX[cx]) byX[cx] = [];
-      byX[cx].push(nodes[i]);
-    }
-    var xs = [];
-    for (var xk in byX) {
-      if (Object.prototype.hasOwnProperty.call(byX, xk)) xs.push(Number(xk));
-    }
-    xs.sort(function(a, b) { return a - b; });
-    var cols = [];
-    var colOf = {};
-    for (i = 0; i < xs.length; i++) {
-      var members = byX[xs[i]];
-      var boxes = [];
-      for (m = 0; m < members.length; m++) {
-        boxes.push({
-          top: members[m].y - members[m].h / 2 - 8,
-          bot: members[m].y + members[m].h / 2 + 8
-        });
-        colOf[members[m].name] = i;
-      }
-      boxes.sort(function(a, b) { return a.top - b.top; });
-      cols.push({ left: xs[i] - S_BOX_W / 2, right: xs[i] + S_BOX_W / 2, boxes: boxes });
-    }
-    var gutters = [];
-    for (i = 0; i <= cols.length; i++) {
-      var gl = i === 0 ? cols[0].left - 60 : cols[i - 1].right;
-      var gr = i === cols.length ? cols[cols.length - 1].right + 60 : cols[i].left;
-      gutters.push({ left: gl, right: gr, center: (gl + gr) / 2, runs: [] });
-    }
-    sCompGrids[gKey] = { cols: cols, gutters: gutters, colOf: colOf };
-  }
-}
-
-/** One y clear across every given column: merged intervals, nearest gap. */
-function sCorridorY(colList, target) {
-  var iv = [];
-  var i;
-  for (i = 0; i < colList.length; i++) {
-    var bx = colList[i].boxes;
-    for (var j = 0; j < bx.length; j++) iv.push({ top: bx[j].top, bot: bx[j].bot });
-  }
-  if (iv.length === 0) return target;
-  iv.sort(function(a, b) { return a.top - b.top; });
-  var merged = [iv[0]];
-  for (i = 1; i < iv.length; i++) {
-    var last = merged[merged.length - 1];
-    if (iv[i].top <= last.bot + 12) {
-      if (iv[i].bot > last.bot) last.bot = iv[i].bot;
-    } else {
-      merged.push({ top: iv[i].top, bot: iv[i].bot });
-    }
-  }
-  var cands = [merged[0].top - 10];
-  for (i = 0; i + 1 < merged.length; i++) cands.push((merged[i].bot + merged[i + 1].top) / 2);
-  cands.push(merged[merged.length - 1].bot + 10);
-  var best = cands[0];
-  for (i = 1; i < cands.length; i++) {
-    if (Math.abs(cands[i] - target) < Math.abs(best - target)) best = cands[i];
-  }
-  return best;
+  sCompGrids = RPT.buildGrids(sNodes);
 }
 
 /** Row centre of a named column when visible; header centre otherwise. */
@@ -408,149 +189,9 @@ function sRelPortNames(rel) {
 }
 
 function sChannelRouteAll() {
-  var i, j, r;
-  var jobs = [];
-  var seen = {};
-  for (i = 0; i < schema.relations.length; i++) {
-    var rel = schema.relations[i];
-    if (rel.fromEntity === rel.toEntity) continue;
-    var a = sNodeMap[rel.fromEntity];
-    var b = sNodeMap[rel.toEntity];
-    if (!a || !b) continue;
-    var key = sEdgeKey(rel.fromEntity, rel.toEntity);
-    if (seen[key]) continue;
-    seen[key] = true;
-    var grid = a._comp !== undefined && a._comp === b._comp ? sCompGrids[a._comp] : null;
-    if (!grid || grid.colOf[a.name] === undefined || grid.colOf[b.name] === undefined) {
-      sEdgeRoutes[key] = sRouteManhattan(a, b);
-      sEdgeKeys.push(key);
-      continue;
-    }
-    var names = sRelPortNames(rel);
-    var ca = grid.colOf[a.name];
-    var cb = grid.colOf[b.name];
-    var sideA, sideB;
-    if (ca === cb) {
-      sideA = "right";
-      sideB = "right";
-    } else {
-      sideA = ca < cb ? "right" : "left";
-      sideB = ca < cb ? "left" : "right";
-    }
-    jobs.push({
-      key: key, a: a, b: b, grid: grid, ca: ca, cb: cb,
-      sideA: sideA, sideB: sideB,
-      ya: sPortRowY(a, names.fk), yb: sPortRowY(b, names.pk)
-    });
-  }
-
-  // Spread ports so a hub's edges fan out instead of stacking on one point
-  var byPort = {};
-  for (i = 0; i < jobs.length; i++) {
-    var jb = jobs[i];
-    var ka = jb.a.name + "|" + jb.sideA;
-    var kb = jb.b.name + "|" + jb.sideB;
-    if (!byPort[ka]) byPort[ka] = [];
-    if (!byPort[kb]) byPort[kb] = [];
-    byPort[ka].push({ job: jb, end: "a" });
-    byPort[kb].push({ job: jb, end: "b" });
-  }
-  for (var pk in byPort) {
-    if (!Object.prototype.hasOwnProperty.call(byPort, pk)) continue;
-    var ends = byPort[pk];
-    if (ends.length < 2) continue;
-    ends.sort(function(u, v) {
-      var uy = u.end === "a" ? u.job.b.y : u.job.a.y;
-      var vy = v.end === "a" ? v.job.b.y : v.job.a.y;
-      return uy - vy;
-    });
-    var node = ends[0].end === "a" ? ends[0].job.a : ends[0].job.b;
-    var spread = Math.min(S_LANE, (node.h - 16) / ends.length);
-    for (j = 0; j < ends.length; j++) {
-      var off = (j - (ends.length - 1) / 2) * spread;
-      var lo = node.y - node.h / 2 + 8;
-      var hi = node.y + node.h / 2 - 8;
-      if (ends[j].end === "a") {
-        ends[j].job.ya = Math.max(lo, Math.min(hi, ends[j].job.ya + off));
-      } else {
-        ends[j].job.yb = Math.max(lo, Math.min(hi, ends[j].job.yb + off));
-      }
-    }
-  }
-
-  // Build gutter runs for every edge
-  var corridorUse = {};
-  for (i = 0; i < jobs.length; i++) {
-    jb = jobs[i];
-    var runs = [];
-    if (jb.ca === jb.cb) {
-      runs.push({ g: jb.grid.gutters[jb.ca + 1], fromY: jb.ya, toY: jb.yb });
-    } else {
-      var step = jb.ca < jb.cb ? 1 : -1;
-      var between = jb.grid.cols.slice(Math.min(jb.ca, jb.cb) + 1, Math.max(jb.ca, jb.cb));
-      var gFirst = jb.grid.gutters[step === 1 ? jb.ca + 1 : jb.ca];
-      var gLast = jb.grid.gutters[step === 1 ? jb.cb : jb.cb + 1];
-      if (between.length === 0) {
-        runs.push({ g: gLast, fromY: jb.ya, toY: jb.yb });
-      } else {
-        var yCorr = sCorridorY(between, (jb.ya + jb.yb) / 2);
-        var bucket = String(Math.round(yCorr / 4));
-        var used = corridorUse[bucket] || 0;
-        corridorUse[bucket] = used + 1;
-        yCorr += (used % 2 === 0 ? 1 : -1) * Math.ceil(used / 2) * 5;
-        runs.push({ g: gFirst, fromY: jb.ya, toY: yCorr });
-        runs.push({ g: gLast, fromY: yCorr, toY: jb.yb });
-      }
-    }
-    jb.runs = runs;
-    for (r = 0; r < runs.length; r++) runs[r].g.runs.push(runs[r]);
-  }
-
-  // Lane assignment: spread the vertical runs sharing a gutter
-  for (var gk in sCompGrids) {
-    if (!Object.prototype.hasOwnProperty.call(sCompGrids, gk)) continue;
-    var gutters = sCompGrids[gk].gutters;
-    for (i = 0; i < gutters.length; i++) {
-      var gut = gutters[i];
-      var live = [];
-      for (j = 0; j < gut.runs.length; j++) {
-        if (Math.abs(gut.runs[j].fromY - gut.runs[j].toY) >= 0.5) live.push(gut.runs[j]);
-      }
-      gut.runs = [];
-      live.sort(function(u, v) {
-        return (u.fromY + u.toY) / 2 - (v.fromY + v.toY) / 2;
-      });
-      var lane = live.length > 1
-        ? Math.min(S_LANE, (gut.right - gut.left - 12) / (live.length - 1))
-        : 0;
-      for (j = 0; j < live.length; j++) {
-        live[j].x = gut.center + (j - (live.length - 1) / 2) * lane;
-      }
-    }
-  }
-
-  // Materialize the polylines
-  for (i = 0; i < jobs.length; i++) {
-    jb = jobs[i];
-    var pts = [{
-      x: jb.sideA === "right" ? jb.a.x + jb.a.w / 2 : jb.a.x - jb.a.w / 2,
-      y: jb.ya
-    }];
-    var curY = jb.ya;
-    for (r = 0; r < jb.runs.length; r++) {
-      var rn = jb.runs[r];
-      if (Math.abs(rn.fromY - rn.toY) < 0.5) continue;
-      pts.push({ x: rn.x, y: curY });
-      pts.push({ x: rn.x, y: rn.toY });
-      curY = rn.toY;
-    }
-    pts.push({
-      x: jb.sideB === "right" ? jb.b.x + jb.b.w / 2 : jb.b.x - jb.b.w / 2,
-      y: jb.yb
-    });
-    sEdgeRoutes[jb.key] = sSimplifyPath(pts);
-    sEdgeKeys.push(jb.key);
-  }
+  var out = RPT.channelRouteAll(schema.relations, sNodes, sNodeMap, sCompGrids, sPortRowY, sRelPortNames);
+  sEdgeRoutes = out.routes;
+  sEdgeKeys = out.keys;
 }
 
 function sRouteAllEdges() {
@@ -569,10 +210,10 @@ function sRouteAllEdges() {
     if (!a || !b) continue;
     if (sFocusedMode && sSelectedEntity &&
         rel.fromEntity !== sSelectedEntity && rel.toEntity !== sSelectedEntity) continue;
-    var key = sEdgeKey(rel.fromEntity, rel.toEntity);
+    var key = RPT.edgeKey(rel.fromEntity, rel.toEntity);
     if (seen[key]) continue;
     seen[key] = true;
-    sEdgeRoutes[key] = sRouteManhattan(a, b);
+    sEdgeRoutes[key] = RPT.routeManhattan(sNodes, a, b);
     sEdgeKeys.push(key);
   }
 }
@@ -584,39 +225,9 @@ function sRerouteEdgesForNode(name) {
     if (parts[0] === name || parts[1] === name) {
       var a = sNodeMap[parts[0]];
       var b = sNodeMap[parts[1]];
-      if (a && b) sEdgeRoutes[key] = sRouteManhattan(a, b);
+      if (a && b) sEdgeRoutes[key] = RPT.routeManhattan(sNodes, a, b);
     }
   }
-}
-
-// Polyline midpoint for label placement
-function sPolylineMidpoint(points) {
-  if (!points || points.length === 0) return { x: 0, y: 0 };
-  if (points.length === 1) return { x: points[0].x, y: points[0].y };
-  var totalLen = 0;
-  for (var i = 0; i < points.length - 1; i++) {
-    totalLen += Math.sqrt(
-      (points[i + 1].x - points[i].x) * (points[i + 1].x - points[i].x) +
-      (points[i + 1].y - points[i].y) * (points[i + 1].y - points[i].y)
-    );
-  }
-  var half = totalLen / 2;
-  var walked = 0;
-  for (var i = 0; i < points.length - 1; i++) {
-    var segLen = Math.sqrt(
-      (points[i + 1].x - points[i].x) * (points[i + 1].x - points[i].x) +
-      (points[i + 1].y - points[i].y) * (points[i + 1].y - points[i].y)
-    );
-    if (walked + segLen >= half) {
-      var t = segLen > 0 ? (half - walked) / segLen : 0;
-      return {
-        x: points[i].x + t * (points[i + 1].x - points[i].x),
-        y: points[i].y + t * (points[i + 1].y - points[i].y)
-      };
-    }
-    walked += segLen;
-  }
-  return { x: points[points.length - 1].x, y: points[points.length - 1].y };
 }
 
 /** Groups nodes into connected components using the relation edges. */
@@ -931,14 +542,14 @@ function schemaDraw() {
     if (sFocusedMode && sSelectedEntity &&
         rel.fromEntity !== sSelectedEntity && rel.toEntity !== sSelectedEntity) continue;
 
-    var key = sEdgeKey(rel.fromEntity, rel.toEntity);
+    var key = RPT.edgeKey(rel.fromEntity, rel.toEntity);
     if (drawnEdges[key]) continue;
     drawnEdges[key] = true;
 
     var points = sEdgeRoutes[key];
     if (!points || points.length < 2) continue;
 
-    var isHovered = (sHoveredRelation && sEdgeKey(sHoveredRelation.fromEntity, sHoveredRelation.toEntity) === key);
+    var isHovered = (sHoveredRelation && RPT.edgeKey(sHoveredRelation.fromEntity, sHoveredRelation.toEntity) === key);
     var dimmed = selectedRelated && !(selectedRelated.has(rel.fromEntity) && selectedRelated.has(rel.toEntity));
 
     sCtx.globalAlpha = dimmed ? 0.12 : 1;
@@ -968,7 +579,7 @@ function schemaDraw() {
 
     // Cardinality label at polyline midpoint
     if (sZoom >= 0.35) {
-      var mid = sPolylineMidpoint(points);
+      var mid = RPT.polylineMidpoint(points);
       var labelStr = sRelLabel(rel.type);
       sCtx.font = (10 / sZoom) + "px " + RPT_FONT;
       sCtx.textAlign = "center";
