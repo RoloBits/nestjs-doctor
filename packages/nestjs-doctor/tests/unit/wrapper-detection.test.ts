@@ -411,7 +411,7 @@ describe("wrapper overloads and route paths", () => {
 });
 
 describe("same-name scoping and package imports", () => {
-	it("does not union same-name modules from different directories", () => {
+	it("unions same-name modules from different directories instead of dropping one", () => {
 		const { project, paths } = createProject({
 			"feature-a/shared.module.ts": `
 				import { Module } from '@nestjs/common';
@@ -432,8 +432,11 @@ describe("same-name scoping and package imports", () => {
 		});
 		const graph = buildModuleGraph(project, paths);
 		const shared = graph.modules.get("SharedModule");
-		expect(shared?.filePaths).toBeUndefined();
-		expect(shared?.filePath).toBe("feature-b/shared.module.ts");
+		expect(shared?.filePaths).toEqual([
+			"feature-a/shared.module.ts",
+			"feature-b/shared.module.ts",
+		]);
+		expect(graph.edges.get("SharedModule")).toEqual(new Set(["UsersModule"]));
 	});
 
 	it("leaves a package-imported name unresolved instead of binding it cross-project", () => {
@@ -542,26 +545,86 @@ describe("same-name scoping and package imports", () => {
 		expect(graph.modules.has("AppModule")).toBe(true);
 	});
 
-	it("keeps the surviving winner when updating an evicted same-name declaration", () => {
+	it("unions same-name declarations across directories", () => {
 		const { project, paths } = createProject({
 			"feature-a/shared.module.ts": `
 				import { Module } from '@nestjs/common';
+				import { AModule } from './a.module';
+				@Module({ imports: [AModule], providers: [AService] })
+				export class SharedModule {}
+			`,
+			"feature-a/a.module.ts": `
+				import { Module } from '@nestjs/common';
 				@Module({})
+				export class AModule {}
+			`,
+			"feature-b/shared.module.ts": `
+				import { Module } from '@nestjs/common';
+				import { BModule } from './b.module';
+				@Module({ imports: [BModule], providers: [BService] })
+				export class SharedModule {}
+			`,
+			"feature-b/b.module.ts": `
+				import { Module } from '@nestjs/common';
+				@Module({})
+				export class BModule {}
+			`,
+		});
+		const graph = buildModuleGraph(project, paths);
+		const shared = graph.modules.get("SharedModule");
+		expect(shared?.filePaths).toEqual([
+			"feature-a/shared.module.ts",
+			"feature-b/shared.module.ts",
+		]);
+		expect(graph.edges.get("SharedModule")).toEqual(
+			new Set(["AModule", "BModule"])
+		);
+		expect(graph.providerToModule.get("BService")).toBe(shared);
+	});
+
+	it("keeps the union when one declaration file changes", () => {
+		const { project, paths } = createProject({
+			"feature-a/shared.module.ts": `
+				import { Module } from '@nestjs/common';
+				@Module({ providers: [AService] })
 				export class SharedModule {}
 			`,
 			"feature-b/shared.module.ts": `
 				import { Module } from '@nestjs/common';
-				@Module({})
+				@Module({ providers: [BService] })
 				export class SharedModule {}
 			`,
 		});
 		const graph = buildModuleGraph(project, paths);
-		expect(graph.modules.get("SharedModule")?.filePath).toBe(
-			"feature-b/shared.module.ts"
+		updateModuleGraphForFile(graph, project, "feature-a/shared.module.ts");
+		const shared = graph.modules.get("SharedModule");
+		expect(shared?.filePaths?.sort()).toEqual([
+			"feature-a/shared.module.ts",
+			"feature-b/shared.module.ts",
+		]);
+		expect(shared?.providers.sort()).toEqual(["AService", "BService"]);
+	});
+
+	it("unions a same-name module added later on the incremental path", () => {
+		const { project, paths } = createProject({
+			"feature-b/shared.module.ts": `
+				import { Module } from '@nestjs/common';
+				@Module({ providers: [BService] })
+				export class SharedModule {}
+			`,
+		});
+		const graph = buildModuleGraph(project, paths);
+		project.createSourceFile(
+			"feature-a/shared.module.ts",
+			`
+				import { Module } from '@nestjs/common';
+				@Module({ providers: [AService] })
+				export class SharedModule {}
+			`
 		);
 		updateModuleGraphForFile(graph, project, "feature-a/shared.module.ts");
-		expect(graph.modules.get("SharedModule")?.filePath).toBe(
-			"feature-b/shared.module.ts"
-		);
+		const shared = graph.modules.get("SharedModule");
+		expect(shared?.providers.sort()).toEqual(["AService", "BService"]);
+		expect(graph.providerToModule.get("AService")).toBe(shared);
 	});
 });

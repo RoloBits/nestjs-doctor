@@ -229,24 +229,16 @@ function mergeSameNameModules(a: ModuleNode, b: ModuleNode): ModuleNode {
 	return merged;
 }
 
-function moduleDir(filePath: string): string {
-	return filePath.slice(0, filePath.lastIndexOf("/") + 1);
-}
-
-/**
- * Same-name declarations in one directory union their metadata; elsewhere
- * the latest declaration wins.
- */
+/** Same-name declarations union their metadata, wherever they are declared. */
 function addModuleNode(
 	modules: Map<string, ModuleNode>,
 	node: ModuleNode
 ): void {
 	const existing = modules.get(node.name);
-	if (existing && moduleDir(existing.filePath) === moduleDir(node.filePath)) {
-		modules.set(node.name, mergeSameNameModules(existing, node));
-		return;
-	}
-	modules.set(node.name, node);
+	modules.set(
+		node.name,
+		existing ? mergeSameNameModules(existing, node) : node
+	);
 }
 
 function collectModuleNodes(
@@ -912,12 +904,10 @@ export function updateModuleGraphForFile(
 		}
 	}
 	for (const [name, node] of added) {
-		// A surviving same-name module from another directory keeps its slot.
-		if (graph.modules.has(name)) {
-			continue;
-		}
-		graph.modules.set(name, node);
-		newModules.push(node);
+		const existing = graph.modules.get(name);
+		const next = existing ? mergeSameNameModules(existing, node) : node;
+		graph.modules.set(name, next);
+		newModules.push(next);
 	}
 
 	// 3. Rebuild edges for new modules and update providerToModule

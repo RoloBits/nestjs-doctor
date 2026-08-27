@@ -155,7 +155,11 @@ export const noCircularModuleDeps: ProjectRule = {
 
 			const cycleStr = cycle.join(" -> ");
 			const firstModule = context.moduleGraph.modules.get(cycle[0]);
-			const help = buildConcreteHelp(cycle, context);
+			let help = buildConcreteHelp(cycle, context);
+			const declarations = firstModule?.filePaths;
+			if (declarations && declarations.length > 1) {
+				help += `\n${cycle[0]} is declared in ${declarations.length} files (${declarations.join(", ")}); this report is anchored to the first.`;
+			}
 
 			context.report({
 				filePath: firstModule?.filePath ?? "unknown",
