@@ -1,6 +1,7 @@
 // biome-ignore lint/performance/noBarrelFile: the browser bundle's entry, not a consumer barrel
 export { textButton } from "../atoms/button.js";
 export { heading } from "../atoms/heading.js";
+export { icon } from "../atoms/icon.js";
 export { badge } from "./badge.js";
 export {
 	infoCard,

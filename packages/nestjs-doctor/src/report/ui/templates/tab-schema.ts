@@ -1,4 +1,5 @@
 import { iconButton, textButton } from "../atoms/button.js";
+import { icon } from "../atoms/icon.js";
 import { searchInput } from "../atoms/search-input.js";
 import { checkboxRow } from "../molecules/checkbox-row.js";
 import { zoomBar } from "../molecules/zoom-bar.js";
@@ -28,10 +29,7 @@ ${checkboxRow({ id: "schema-sync-sidebar", label: "Sync with diagram", checked: 
     <div id="schema-canvas-wrap">
 ${iconButton({ id: "schema-sidebar-show", icon: "sidebarShow", ariaLabel: "Show the table list", tip: "Show list \u00b7 bring the table list back", indent: 6 })}
       <div id="schema-empty-state">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-          <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
-        </svg>
+${icon({ name: "toggleView", size: 48, stroke: "var(--text-dim)", strokeWidth: "1.5", indent: 8 })}
         <p>Select an entity from the sidebar to explore its schema</p>
 ${textButton({ id: "schema-show-all", classes: "st-btn schema-empty-action", label: "Show all tables", indent: 8 })}
       </div>
@@ -49,7 +47,7 @@ ${iconButton({ id: "schema-toggle-cols", icon: "toggleColumns", modifier: "schem
     </div>
     <div id="schema-diag-panel">
       <div id="schema-diag-header">
-        <svg class="schema-diag-chevron" id="schema-diag-chevron" width="10" height="10" viewBox="0 0 10 10"><path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+${icon({ name: "chevronSmall", classes: "schema-diag-chevron", id: "schema-diag-chevron", size: 10, indent: 8 })}
         <span class="schema-diag-title">Problems</span>
         <span class="schema-diag-count" id="schema-diag-count">0</span>
       </div>
