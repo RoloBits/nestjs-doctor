@@ -15,6 +15,7 @@ export {
 	layoutEndpointGraph,
 } from "./endpoint-layout.js";
 export { escapeHtml } from "./escape.js";
+export { endpointsOf, providersOf, wiringChildren } from "./module-joins.js";
 export {
 	blastRadius,
 	buildClusters,
@@ -44,6 +45,8 @@ export {
 	segmentHitsBox,
 	simplifyPath,
 } from "./schema-routing.js";
+export { getScoreColor, makeScoreRingSvg } from "./score-ring.js";
+export { buildSharedJson, isNotScored, scoredCount } from "./share-payload.js";
 export {
 	card,
 	infoCard,
