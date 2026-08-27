@@ -12,8 +12,7 @@ function renderSummary() {
   var notScoredCount = (diagnostics || []).filter(function (d) {
     return d.surfaces && d.surfaces.indexOf('score') === -1;
   }).length;
-  html += '<div class="ov-card full-width">' + RPT.heading({ level: 3, text: "Health Score" }) + '<div class="ov-card-body">' +
-    '<div class="ov-score-row">' +
+  var scoreBody = '<div class="ov-score-row">' +
     '<div class="ov-score-ring">' + makeScoreRingSvg(120, 6, sv) + '</div>' +
     '<div class="ov-score-details">' +
     '<div class="ov-score-label">' + sv + ' / 100</div>' +
@@ -32,7 +31,8 @@ function renderSummary() {
         '</span>' +
         '</div>'
       : '') +
-    '</div></div></div></div>';
+    '</div></div>';
+  html += RPT.card({ title: "Health Score", fullWidth: true, body: scoreBody });
 
   // Project info card
   html += RPT.infoCard({
@@ -48,16 +48,16 @@ function renderSummary() {
   });
 
   // Category breakdown card
-  html += '<div class="ov-card">' + RPT.heading({ level: 3, text: "Issues by Category" }) + '<div class="ov-card-body">';
+  var catBody = '';
   for (const cat of CAT_ORDER) {
     const m = CAT_META[cat];
     const count = (summary.byCategory && summary.byCategory[cat]) || 0;
-    html += '<div class="ov-cat-row">' +
+    catBody += '<div class="ov-cat-row">' +
       '<div class="ov-cat-icon" style="background:' + m.color + '"></div>' +
       '<span class="ov-cat-name">' + m.label + '</span>' +
       '<span class="ov-cat-count">' + count + '</span></div>';
   }
-  html += '</div></div>';
+  html += RPT.card({ title: "Issues by Category", body: catBody });
 
   // Module graph stats card
   html += RPT.statCard({
