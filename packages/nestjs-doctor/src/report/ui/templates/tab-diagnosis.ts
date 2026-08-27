@@ -1,8 +1,9 @@
-import { iconButton, textButton } from "../atoms/button.js";
+import { textButton } from "../atoms/button.js";
 import { icon } from "../atoms/icon.js";
 import { searchInput } from "../atoms/search-input.js";
 import { checkboxRow } from "../molecules/checkbox-row.js";
 import { pillGroup } from "../molecules/pill-group.js";
+import { treeToolbar } from "../molecules/tree-toolbar.js";
 
 export const TAB_DIAGNOSIS = `
 <!-- ── Tab: Diagnosis ── -->
@@ -13,8 +14,7 @@ export const TAB_DIAGNOSIS = `
         <span class="schema-sidebar-title">Files</span>
         <span class="schema-entity-count" id="diag-file-count"></span>
         <span style="flex:1"></span>
-${iconButton({ id: "diag-expand-all", icon: "expandAll", ariaLabel: "Expand all", tip: "Expand all \u00b7 open every folder in the list" })}
-${iconButton({ id: "diag-collapse-all", icon: "collapseAll", ariaLabel: "Collapse all", tip: "Collapse all \u00b7 close every folder in the list" })}
+${treeToolbar({ prefix: "diag", noun: "folder" })}
       </div>
       <div class="mg-side-search">
 ${searchInput({ id: "diag-search", placeholder: "Search files" })}
