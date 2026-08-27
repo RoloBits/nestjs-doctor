@@ -50,8 +50,8 @@ describe("report scripts", () => {
 	});
 
 	it("colors trace bars and badges by class type", () => {
-		expect(scripts).toContain("MG_TRACE_COLORS");
-		expect(scripts).toContain("function mgTraceColor");
+		expect(scripts).toContain("TRACE_COLORS");
+		expect(scripts).toContain("function traceColor");
 	});
 
 	it("marks a dep slower than its parent as reused with a hollow bar", () => {
@@ -66,9 +66,7 @@ describe("report scripts", () => {
 	});
 
 	it("guards trace lookups against inherited object keys", () => {
-		expect(scripts).toContain(
-			"Object.prototype.hasOwnProperty.call(graph.timingsTrace, id)"
-		);
+		expect(scripts).toContain("Object.hasOwn(trace, id)");
 	});
 
 	it("shows time-to-start when the dump has startupMs, else the slowest chain", () => {
@@ -89,8 +87,8 @@ describe("report scripts", () => {
 	});
 
 	it("shows per-class hook durations as chips on trace rows", () => {
-		expect(scripts).toContain("function mgHookChipHtml");
-		expect(scripts).toContain("mgHookChipHtml(node.hooks)");
-		expect(scripts).toContain("mgHookChipHtml(n.hookTimings)");
+		expect(scripts).toContain("function hookChipHtml");
+		expect(scripts).toContain("hookChipHtml(node.hooks)");
+		expect(scripts).toContain("RPT.hookChipHtml(n.hookTimings)");
 	});
 });
