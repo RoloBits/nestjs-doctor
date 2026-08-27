@@ -13,7 +13,7 @@ function renderSummary() {
     return d.surfaces && d.surfaces.indexOf('score') === -1;
   }).length;
   var scoreBody = '<div class="ov-score-row">' +
-    '<div class="ov-score-ring">' + makeScoreRingSvg(120, 6, sv) + '</div>' +
+    '<div class="ov-score-ring">' + RPT.makeScoreRingSvg(120, 6, sv) + '</div>' +
     '<div class="ov-score-details">' +
     '<div class="ov-score-label">' + sv + ' / 100</div>' +
     '<div class="ov-score-sublabel">' + escHtml(project.score.label) + '</div>' +

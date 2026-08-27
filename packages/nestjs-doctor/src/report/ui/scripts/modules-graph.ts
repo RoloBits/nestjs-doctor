@@ -64,52 +64,19 @@ function mgScheduleRedraw() {
 /** Groups modules by owning project, keeping first-seen order. */
 // ── Modules graph: joins into the other payloads ──
 function mgProvidersOf(moduleName) {
-  var out = [];
-  for (var i = 0; i < providers.length; i++) {
-    if (providers[i].module === moduleName) out.push(providers[i]);
-  }
-  return out;
+  return RPT.providersOf(providers, moduleName);
 }
-
-var MG_WIRING_TYPES = {
-  service: 1, repository: 1, guard: 1, interceptor: 1,
-  pipe: 1, filter: 1, gateway: 1
-};
 
 /**
  * Collapses statement nodes so only injected collaborators are left, and
  * drops a class method already listed at this level.
  */
 function mgWiringChildren(deps) {
-  var seen = {}, out = [], i, j;
-  var list = deps || [];
-  for (i = 0; i < list.length; i++) {
-    var d = list[i];
-    if (MG_WIRING_TYPES[d.type]) {
-      var key = d.className + "." + d.methodName;
-      if (seen[key]) continue;
-      seen[key] = true;
-      out.push(d);
-      continue;
-    }
-    var inner = mgWiringChildren(d.dependencies);
-    for (j = 0; j < inner.length; j++) {
-      var k = inner[j].className + "." + inner[j].methodName;
-      if (seen[k]) continue;
-      seen[k] = true;
-      out.push(inner[j]);
-    }
-  }
-  return out;
+  return RPT.wiringChildren(deps);
 }
 
 function mgEndpointsOf(controllerClass) {
-  var list = (endpoints && endpoints.endpoints) || [];
-  var out = [];
-  for (var i = 0; i < list.length; i++) {
-    if (list[i].controllerClass === controllerClass) out.push(list[i]);
-  }
-  return out;
+  return RPT.endpointsOf(endpoints, controllerClass);
 }
 
 // ── Modules graph: build ──
