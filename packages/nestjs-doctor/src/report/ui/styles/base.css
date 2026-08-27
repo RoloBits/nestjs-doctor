@@ -1,0 +1,50 @@
+:root {
+  --bg: #000;
+  --surface: #000;
+  --surface-hover: rgba(255,255,255,0.1);
+  --border: rgba(255,255,255,0.15);
+  --border-hover: rgba(255,255,255,0.3);
+  --border-strong: rgba(255,255,255,0.3);
+  --text: #e8e8e8;
+  --text-muted: #888;
+  --text-dim: #666;
+  --white: #fff;
+  --nest-red: #ea2845;
+  --cat-security: #ef4444;
+  --cat-performance: #f59e0b;
+  --cat-correctness: #3b82f6;
+  --cat-architecture: #8b5cf6;
+  --cat-schema: #10b981;
+  --sev-error: #ef4444;
+  --sev-warning: #f59e0b;
+  --sev-info: #3b82f6;
+  --score-green: #4ade80;
+  --score-yellow: #eab308;
+  --score-red: #ef4444;
+  --header-h: 96px;
+  --row1-h: 56px;
+  --row2-h: 40px;
+  --font: REPORT_FONT_STACK;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* ── Scrollbars ── */
+html { scrollbar-color: #333 transparent; scrollbar-width: thin; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb { background: #333; }
+::-webkit-scrollbar-thumb:hover { background: #4a4a4a; }
+#diagnosis-sidebar::-webkit-scrollbar,
+#schema-sidebar::-webkit-scrollbar,
+#endpoints-sidebar::-webkit-scrollbar,
+#mg-tree::-webkit-scrollbar,
+#mg-problems-list::-webkit-scrollbar,
+#mg-trace-body::-webkit-scrollbar,
+#mg-info-pop::-webkit-scrollbar,
+.playground-editor::-webkit-scrollbar,
+.playground-results::-webkit-scrollbar,
+.cm-scroller::-webkit-scrollbar { width: 6px; height: 6px; }
+body { background: var(--bg); color: var(--text); font-family: var(--font); overflow: hidden; }
+canvas { display: block; cursor: grab; }
+canvas:active { cursor: grabbing; }

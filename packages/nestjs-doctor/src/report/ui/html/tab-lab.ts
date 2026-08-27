@@ -1,0 +1,98 @@
+export const TAB_LAB = `
+<!-- ── Tab: Lab ── -->
+<div class="tab-content" id="tab-lab">
+  <div class="playground-editor">
+    <div class="playground-section-label playground-title">RULE LAB</div>
+    <p class="playground-subtitle">Write and test <a href="https://www.nestjs.doctor/docs/rules/custom" target="_blank" rel="noopener">custom rules</a> against your project. Use <code>/nestjs-doctor-create-rule</code> with an AI agent to <a href="https://www.nestjs.doctor/docs/coding-agents" target="_blank" rel="noopener">scaffold rules automatically</a>.</p>
+    <div class="playground-form">
+      <div class="playground-form-row">
+        <div class="playground-field">
+          <label for="pg-rule-id">Rule ID</label>
+          <input type="text" id="pg-rule-id" value="my-rule" spellcheck="false">
+        </div>
+        <div class="playground-field">
+          <label for="pg-category">Category</label>
+          <select id="pg-category">
+            <option value="correctness" selected>correctness</option>
+            <option value="security">security</option>
+            <option value="performance">performance</option>
+            <option value="architecture">architecture</option>
+          </select>
+        </div>
+        <div class="playground-field">
+          <label for="pg-severity">Severity</label>
+          <select id="pg-severity">
+            <option value="warning" selected>warning</option>
+            <option value="error">error</option>
+            <option value="info">info</option>
+          </select>
+        </div>
+      </div>
+      <div class="playground-form-row">
+        <div class="playground-field playground-field-wide">
+          <label for="pg-description">Description</label>
+          <input type="text" id="pg-description" placeholder="What does this rule check?" spellcheck="false">
+        </div>
+      </div>
+    </div>
+    <div class="playground-preset">
+      <div class="playground-field">
+        <label for="pg-scope">Scope</label>
+        <select id="pg-scope">
+          <option value="file" selected>File rule</option>
+          <option value="project">Project rule</option>
+        </select>
+      </div>
+      <div class="playground-preset-sep"></div>
+      <div class="playground-field playground-field-wide">
+        <label for="pg-preset">Load example</label>
+        <select id="pg-preset">
+        <optgroup label="File rules">
+          <option value="todo">Find TODO comments</option>
+          <option value="console-log">Find console.log statements</option>
+          <option value="large-file">Detect large files</option>
+        </optgroup>
+        <optgroup label="Project rules">
+          <option value="orphan-modules">Find orphan modules</option>
+          <option value="unused-providers">Find unused providers</option>
+        </optgroup>
+      </select>
+      </div>
+    </div>
+    <div class="playground-section-label">CHECK FUNCTION</div>
+    <div id="pg-cm-editor" class="pg-cm-wrap"></div>
+    <div id="pg-context-hint" class="pg-context-hint">context.fileText · context.filePath · context.report({ message, line })</div>
+    <script id="pg-code-init" type="text/plain">// context.fileText  — full source code (string)
+// context.filePath  — file path (string)
+// context.report({ message, line })  — report a finding
+
+const lines = context.fileText.split("\n");
+for (let i = 0; i < lines.length; i++) {
+  if (lines[i].includes("TODO")) {
+    context.report({
+      message: "Found TODO comment",
+      line: i + 1,
+    });
+  }
+}</script>
+    <div class="playground-actions">
+      <button id="pg-run-btn">&#9654; Run Rule</button>
+    </div>
+    <div id="pg-error" class="playground-error" style="display:none"></div>
+  </div>
+  <div class="playground-results">
+    <div class="playground-section-label">RESULTS <span id="pg-result-count"></span></div>
+    <div id="pg-file-view" style="display:none">
+      <div id="pg-file-header"></div>
+      <div id="pg-file-code" class="playground-code-body"></div>
+    </div>
+    <div id="pg-result-list"></div>
+    <div id="pg-result-empty" class="playground-empty">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+      </svg>
+      <p>Write a check function and click Run</p>
+    </div>
+  </div>
+</div>
+`;

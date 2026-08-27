@@ -1,0 +1,14 @@
+@media (max-width: 640px) {
+  .summary-grid { grid-template-columns: 1fr; }
+  .ov-score-row { flex-direction: column; align-items: flex-start; }
+  #detail { width: 100%; }
+  #tab-summary { padding: 16px; }
+  #diagnosis-sidebar { width: 260px; }
+  #diagnosis-main { left: 260px; padding: 16px; }
+  #tab-lab { flex-direction: column; }
+  .playground-editor { width: 100%; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+  .playground-results { width: 100%; }
+  #schema-sidebar { width: 260px; min-width: 260px; }
+  #endpoints-sidebar { width: 260px; min-width: 260px; }
+  .ep-code-panel { width: 100%; }
+}

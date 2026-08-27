@@ -1,15 +1,15 @@
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { ModuleGraph } from "../../src/engine/graph/module-graph.js";
 import { buildReportArtifact } from "../../src/report/artifact.js";
 import { buildHtmlReport } from "../../src/report/html-report.js";
+import { getCodeMirrorScript } from "../../src/report/ui/codemirror.js";
+import { getReportScripts } from "../../src/report/ui/scripts.js";
 import {
 	buildBeacon,
 	getTelemetryScript,
 } from "../../src/report/ui/telemetry.js";
 import { generatedIn } from "../../src/telemetry/environment.js";
-import { emptyResult } from "./report-artifact-fixture.js";
+import { EMPTY_ARTIFACT_JSON, emptyResult } from "./report-artifact-fixture.js";
 
 const emptyGraph = (): ModuleGraph => ({
 	edges: new Map(),
@@ -189,14 +189,10 @@ describe("report telemetry", () => {
 	});
 
 	it("allows every name the report actually tracks", () => {
-		const scripts = ["scripts.ts", "codemirror.ts"]
-			.map((f) =>
-				readFileSync(
-					fileURLToPath(new URL(`../../src/report/ui/${f}`, import.meta.url)),
-					"utf8"
-				)
-			)
-			.join("\n");
+		const scripts = [
+			getReportScripts(EMPTY_ARTIFACT_JSON),
+			getCodeMirrorScript(),
+		].join("\n");
 		const script = buildBeacon("phc_key", "1.2.3", "cli");
 		const tracked = [...scripts.matchAll(/__ndTrack\?\.\("([a-z_]+)"\)/g)].map(
 			(m) => m[1]

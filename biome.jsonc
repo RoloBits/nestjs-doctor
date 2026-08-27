@@ -27,6 +27,12 @@
     }
   },
   "files": {
-    "includes": ["!!**/tests/fixtures", "!!**/.changeset"]
+    "includes": [
+      "!!**/tests/fixtures",
+      "!!**/.changeset",
+      // Hand-formatted stylesheet split into cascade-ordered sheets.
+      // Formatting rewrites it; noDescendingSpecificity fixes reorder rules.
+      "!!**/src/report/ui/styles"
+    ]
   }
 }
