@@ -51,20 +51,29 @@ ${selectField({
 	],
 })}
       <div class="playground-preset-sep"></div>
-      <div class="playground-field playground-field-wide">
-        <label for="pg-preset">Load example</label>
-        <select id="pg-preset">
-        <optgroup label="File rules">
-          <option value="todo">Find TODO comments</option>
-          <option value="console-log">Find console.log statements</option>
-          <option value="large-file">Detect large files</option>
-        </optgroup>
-        <optgroup label="Project rules">
-          <option value="orphan-modules">Find orphan modules</option>
-          <option value="unused-providers">Find unused providers</option>
-        </optgroup>
-      </select>
-      </div>
+${selectField({
+	id: "pg-preset",
+	label: "Load example",
+	wide: true,
+	indent: 6,
+	groups: [
+		{
+			label: "File rules",
+			options: [
+				{ value: "todo", label: "Find TODO comments" },
+				{ value: "console-log", label: "Find console.log statements" },
+				{ value: "large-file", label: "Detect large files" },
+			],
+		},
+		{
+			label: "Project rules",
+			options: [
+				{ value: "orphan-modules", label: "Find orphan modules" },
+				{ value: "unused-providers", label: "Find unused providers" },
+			],
+		},
+	],
+})}
     </div>
     <div class="playground-section-label">CHECK FUNCTION</div>
     <div id="pg-cm-editor" class="pg-cm-wrap"></div>

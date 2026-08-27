@@ -1313,9 +1313,9 @@ function mgEsc(s) {
 var MG_INFO_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
 
 function mgSection(title, count, tip) {
-  var attrs = tip ? ' class="has-tip tip-wide" data-tip="' + mgEsc(tip) + '"' : "";
   var info = tip ? ' <span class="md-info">' + MG_INFO_ICON + '</span>' : "";
-  return '<h4' + attrs + '>' + mgEsc(title) + (count === undefined ? "" : " (" + count + ")") + info + '</h4>';
+  return RPT.heading({ level: 4, classes: tip ? "tip-wide" : undefined, tip: tip ? mgEsc(tip) : undefined,
+    text: mgEsc(title) + (count === undefined ? "" : " (" + count + ")") + info });
 }
 
 function mgWiringTree(deps, depth) {
@@ -1902,7 +1902,7 @@ function mgExportsHtml(n) {
 
 function mgCyclesHtml(n) {
   if (!circularModules.has(n.name)) return "";
-  var html = '<h4 style="color:#ea2845">Circular dependencies</h4>';
+  var html = RPT.heading({ level: 4, style: "color:#ea2845", text: "Circular dependencies" });
   for (var i = 0; i < graph.circularDeps.length; i++) {
     var cycle = graph.circularDeps[i];
     if (cycle.indexOf(n.name) < 0) continue;

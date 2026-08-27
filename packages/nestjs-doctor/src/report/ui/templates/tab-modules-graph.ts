@@ -1,4 +1,5 @@
 import { closeButton, iconButton } from "../atoms/button.js";
+import { heading } from "../atoms/heading.js";
 import { searchInput } from "../atoms/search-input.js";
 import { checkboxRow } from "../molecules/checkbox-row.js";
 import { legend } from "../molecules/legend.js";
@@ -28,7 +29,7 @@ ${checkboxRow({ id: "mg-show-external", label: "Show external modules", indent: 
     <div id="mg-tree"></div>
     <div id="detail">
 ${closeButton({ id: "close-detail", classes: "close-btn" })}
-      <h2 id="detail-name"></h2>
+${heading({ level: 2, id: "detail-name", indent: 6 })}
       <div id="detail-badges"></div>
       <div class="filepath" id="detail-path"></div>
       <div id="detail-sections"></div>
@@ -68,7 +69,7 @@ ${iconButton({ id: "mg-info", icon: "info", modifier: "schema-diagram-btn", aria
     <div id="mg-trace-body"></div>
   </div>
   <div id="mg-info-pop">
-  <h3>Legend</h3>
+${heading({ level: 3, text: "Legend", indent: 2 })}
 ${legend([
 	{
 		kind: "color",
