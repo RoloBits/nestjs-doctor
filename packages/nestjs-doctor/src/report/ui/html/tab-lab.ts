@@ -1,3 +1,5 @@
+import { selectField } from "../components/field.js";
+
 export const TAB_LAB = `
 <!-- ── Tab: Lab ── -->
 <div class="tab-content" id="tab-lab">
@@ -10,23 +12,25 @@ export const TAB_LAB = `
           <label for="pg-rule-id">Rule ID</label>
           <input type="text" id="pg-rule-id" value="my-rule" spellcheck="false">
         </div>
-        <div class="playground-field">
-          <label for="pg-category">Category</label>
-          <select id="pg-category">
-            <option value="correctness" selected>correctness</option>
-            <option value="security">security</option>
-            <option value="performance">performance</option>
-            <option value="architecture">architecture</option>
-          </select>
-        </div>
-        <div class="playground-field">
-          <label for="pg-severity">Severity</label>
-          <select id="pg-severity">
-            <option value="warning" selected>warning</option>
-            <option value="error">error</option>
-            <option value="info">info</option>
-          </select>
-        </div>
+${selectField({
+	id: "pg-category",
+	label: "Category",
+	options: [
+		{ value: "correctness", label: "correctness", selected: true },
+		{ value: "security", label: "security" },
+		{ value: "performance", label: "performance" },
+		{ value: "architecture", label: "architecture" },
+	],
+})}
+${selectField({
+	id: "pg-severity",
+	label: "Severity",
+	options: [
+		{ value: "warning", label: "warning", selected: true },
+		{ value: "error", label: "error" },
+		{ value: "info", label: "info" },
+	],
+})}
       </div>
       <div class="playground-form-row">
         <div class="playground-field playground-field-wide">
@@ -36,13 +40,15 @@ export const TAB_LAB = `
       </div>
     </div>
     <div class="playground-preset">
-      <div class="playground-field">
-        <label for="pg-scope">Scope</label>
-        <select id="pg-scope">
-          <option value="file" selected>File rule</option>
-          <option value="project">Project rule</option>
-        </select>
-      </div>
+${selectField({
+	id: "pg-scope",
+	label: "Scope",
+	indent: 6,
+	options: [
+		{ value: "file", label: "File rule", selected: true },
+		{ value: "project", label: "Project rule" },
+	],
+})}
       <div class="playground-preset-sep"></div>
       <div class="playground-field playground-field-wide">
         <label for="pg-preset">Load example</label>

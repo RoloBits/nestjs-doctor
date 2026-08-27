@@ -1,4 +1,5 @@
 import { iconButton } from "../components/button.js";
+import { legend } from "../components/legend.js";
 
 export const TAB_MODULES_GRAPH = `
 <!-- ── Tab: Modules Graph ── -->
@@ -76,14 +77,48 @@ ${iconButton({ id: "mg-info", icon: "info", modifier: "schema-diagram-btn", aria
   </div>
   <div id="mg-info-pop">
   <h3>Legend</h3>
-  <div class="legend-item"><div class="legend-color" style="background:#1a1a2e;border-color:#333"></div> Module</div>
-  <div class="legend-item"><div class="legend-color" style="background:#1a2e1a;border-color:#2a5a2a"></div> Root module</div>
-  <div class="legend-item"><div class="legend-color" style="background:#2e1a1a;border-color:#ea2845"></div> Circular dependency</div>
-  <div class="legend-item"><div class="legend-color" style="background:#2a2410;border-color:#fbbf24"></div> Global module</div>
-  <div class="legend-item"><div class="legend-line" style="background:#444"></div> Import</div>
-  <div class="legend-item"><div class="legend-line" style="background:#ea2845;border-top:1px dashed #ea2845;height:0"></div> Circular import</div>
-  <div class="legend-item" id="legend-cross" style="display:none"><div class="legend-line" style="background:transparent;border-top:2px dashed #22d3ee;height:0"></div> Cross-project import</div>
-  <div class="legend-item" id="legend-global-reach" style="display:none"><div class="legend-line" style="background:transparent;border-top:2px dotted #fbbf24;height:0"></div> Global reach (no import)</div>
+${legend([
+	{
+		kind: "color",
+		style: "background:#1a1a2e;border-color:#333",
+		label: "Module",
+	},
+	{
+		kind: "color",
+		style: "background:#1a2e1a;border-color:#2a5a2a",
+		label: "Root module",
+	},
+	{
+		kind: "color",
+		style: "background:#2e1a1a;border-color:#ea2845",
+		label: "Circular dependency",
+	},
+	{
+		kind: "color",
+		style: "background:#2a2410;border-color:#fbbf24",
+		label: "Global module",
+	},
+	{ kind: "line", style: "background:#444", label: "Import" },
+	{
+		kind: "line",
+		style: "background:#ea2845;border-top:1px dashed #ea2845;height:0",
+		label: "Circular import",
+	},
+	{
+		kind: "line",
+		style: "background:transparent;border-top:2px dashed #22d3ee;height:0",
+		label: "Cross-project import",
+		id: "legend-cross",
+		hidden: true,
+	},
+	{
+		kind: "line",
+		style: "background:transparent;border-top:2px dotted #fbbf24;height:0",
+		label: "Global reach (no import)",
+		id: "legend-global-reach",
+		hidden: true,
+	},
+])}
   <hr class="divider">
   <details class="concepts-details">
   <summary>NestJS Concepts</summary>

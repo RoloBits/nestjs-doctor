@@ -1,4 +1,5 @@
 import { iconButton } from "../components/button.js";
+import { pillGroup } from "../components/pill.js";
 
 export const TAB_DIAGNOSIS = `
 <!-- ── Tab: Diagnosis ── -->
@@ -29,25 +30,43 @@ ${iconButton({ id: "diag-collapse-all", icon: "collapseAll", ariaLabel: "Collaps
       <div class="filter-rows" id="diag-filters-body">
         <div class="sev-filters">
           <span class="filter-label">Severity</span>
-          <button class="sev-pill active" data-sev="all">All</button>
-          <button class="sev-pill" data-sev="error">Errors</button>
-          <button class="sev-pill" data-sev="warning">Warnings</button>
-          <button class="sev-pill" data-sev="info">Info</button>
+${pillGroup({
+	name: "sev",
+	indent: 10,
+	items: [
+		{ value: "all", label: "All", active: true },
+		{ value: "error", label: "Errors" },
+		{ value: "warning", label: "Warnings" },
+		{ value: "info", label: "Info" },
+	],
+})}
         </div>
         <div class="scope-filters">
           <span class="filter-label">Scope</span>
-          <button class="scope-pill active" data-scope="all">All</button>
-          <button class="scope-pill" data-scope="file">File</button>
-          <button class="scope-pill" data-scope="project">Project</button>
+${pillGroup({
+	name: "scope",
+	indent: 10,
+	items: [
+		{ value: "all", label: "All", active: true },
+		{ value: "file", label: "File" },
+		{ value: "project", label: "Project" },
+	],
+})}
         </div>
         <div class="cat-filters">
           <span class="filter-label">Category</span>
-          <button class="cat-pill active" data-cat="all">All</button>
-          <button class="cat-pill" data-cat="security">Security</button>
-          <button class="cat-pill" data-cat="correctness">Correctness</button>
-          <button class="cat-pill" data-cat="schema">Schema</button>
-          <button class="cat-pill" data-cat="architecture">Architecture</button>
-          <button class="cat-pill" data-cat="performance">Performance</button>
+${pillGroup({
+	name: "cat",
+	indent: 10,
+	items: [
+		{ value: "all", label: "All", active: true },
+		{ value: "security", label: "Security" },
+		{ value: "correctness", label: "Correctness" },
+		{ value: "schema", label: "Schema" },
+		{ value: "architecture", label: "Architecture" },
+		{ value: "performance", label: "Performance" },
+	],
+})}
         </div>
       </div>
     </div>
