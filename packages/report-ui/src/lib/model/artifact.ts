@@ -12,7 +12,7 @@ import type { ShareManifest } from "./share";
 import type { BootPhases, ClassTiming, HookTiming, TraceNode } from "./timings";
 
 /** Version of the report artifact shape. Bump when a field changes meaning. */
-export const REPORT_ARTIFACT_VERSION = 1;
+const REPORT_ARTIFACT_VERSION = 1;
 
 export interface RuleExampleMap {
 	[ruleId: string]: { bad: string; good: string };

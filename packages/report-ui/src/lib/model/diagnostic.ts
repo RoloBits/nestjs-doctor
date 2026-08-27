@@ -39,11 +39,3 @@ export interface SchemaDiagnostic extends BaseDiagnostic {
 }
 
 export type Diagnostic = CodeDiagnostic | SchemaDiagnostic;
-
-export function isCodeDiagnostic(d: Diagnostic): d is CodeDiagnostic {
-	return "line" in d;
-}
-
-export function isSchemaDiagnostic(d: Diagnostic): d is SchemaDiagnostic {
-	return "entity" in d;
-}
