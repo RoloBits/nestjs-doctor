@@ -1,11 +1,11 @@
 import { HEADER_ROW1 } from "./organisms/header-row1.js";
 import { TAB_BAR } from "./organisms/tab-bar.js";
-import { TAB_DIAGNOSIS } from "./organisms/tab-diagnosis.js";
-import { TAB_ENDPOINTS } from "./organisms/tab-endpoints.js";
-import { TAB_LAB } from "./organisms/tab-lab.js";
-import { TAB_MODULES_GRAPH } from "./organisms/tab-modules-graph.js";
-import { TAB_SCHEMA } from "./organisms/tab-schema.js";
-import { TAB_SUMMARY } from "./organisms/tab-summary.js";
+import { TAB_DIAGNOSIS } from "./templates/tab-diagnosis.js";
+import { TAB_ENDPOINTS } from "./templates/tab-endpoints.js";
+import { TAB_LAB } from "./templates/tab-lab.js";
+import { TAB_MODULES_GRAPH } from "./templates/tab-modules-graph.js";
+import { TAB_SCHEMA } from "./templates/tab-schema.js";
+import { TAB_SUMMARY } from "./templates/tab-summary.js";
 
 export function getReportHtml(): string {
 	// Concatenation order is the DOM order of the report body.
