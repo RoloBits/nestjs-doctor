@@ -68,4 +68,8 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # dist/ is gitignored, so the bundle smoke test has nothing to boot
+      # unless the single-file export runs first — on every matrix entry,
+      # Windows especially, where its path handling matters most.
+      - run: pnpm --filter report-ui build:embed
       - run: pnpm test

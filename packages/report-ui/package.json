@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "build:embed": "next build && node scripts/inline-report.mjs && node scripts/emit-embed.mjs",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
