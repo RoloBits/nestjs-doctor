@@ -6,6 +6,7 @@ export { emptyState } from "../molecules/empty-state.js";
 export { badge } from "./badge.js";
 export { escapeHtml } from "./escape.js";
 export {
+	card,
 	infoCard,
 	infoItem,
 	statCard,
