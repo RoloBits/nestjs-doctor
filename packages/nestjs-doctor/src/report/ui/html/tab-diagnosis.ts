@@ -1,3 +1,5 @@
+import { iconButton } from "../components/button.js";
+
 export const TAB_DIAGNOSIS = `
 <!-- ── Tab: Diagnosis ── -->
 <div class="tab-content" id="tab-diagnosis">
@@ -7,18 +9,8 @@ export const TAB_DIAGNOSIS = `
         <span class="schema-sidebar-title">Files</span>
         <span class="schema-entity-count" id="diag-file-count"></span>
         <span style="flex:1"></span>
-        <button class="st-btn has-tip" id="diag-expand-all" aria-label="Expand all" data-tip="Expand all \u00b7 open every folder in the list">
-          <svg viewBox="0 0 17 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="1" y1="3" x2="8" y2="3"/><line x1="1" y1="7" x2="8" y2="7"/><line x1="1" y1="11" x2="8" y2="11"/>
-            <path d="M11 5l2.5 3L16 5"/>
-          </svg>
-        </button>
-        <button class="st-btn has-tip" id="diag-collapse-all" aria-label="Collapse all" data-tip="Collapse all \u00b7 close every folder in the list">
-          <svg viewBox="0 0 17 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="1" y1="3" x2="8" y2="3"/><line x1="1" y1="7" x2="8" y2="7"/><line x1="1" y1="11" x2="8" y2="11"/>
-            <path d="M11 11l2.5-3L16 11"/>
-          </svg>
-        </button>
+${iconButton({ id: "diag-expand-all", icon: "expandAll", ariaLabel: "Expand all", tip: "Expand all \u00b7 open every folder in the list" })}
+${iconButton({ id: "diag-collapse-all", icon: "collapseAll", ariaLabel: "Collapse all", tip: "Collapse all \u00b7 close every folder in the list" })}
       </div>
       <div class="mg-side-search">
         <input type="search" id="diag-search" placeholder="Search files" spellcheck="false" autocomplete="off">

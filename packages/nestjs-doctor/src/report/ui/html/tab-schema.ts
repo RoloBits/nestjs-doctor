@@ -1,3 +1,5 @@
+import { iconButton } from "../components/button.js";
+
 export const TAB_SCHEMA = `
 <!-- ── Tab: Schema ── -->
 <div class="tab-content" id="tab-schema">
@@ -7,23 +9,9 @@ export const TAB_SCHEMA = `
         <span class="schema-sidebar-title" id="schema-sidebar-title">Tables</span>
         <span class="schema-entity-count" id="schema-entity-count"></span>
         <span style="flex:1"></span>
-        <button class="st-btn has-tip" id="schema-expand-all" aria-label="Expand all" data-tip="Expand all \u00b7 open every table in the list">
-          <svg viewBox="0 0 17 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="1" y1="3" x2="8" y2="3"/><line x1="1" y1="7" x2="8" y2="7"/><line x1="1" y1="11" x2="8" y2="11"/>
-            <path d="M11 5l2.5 3L16 5"/>
-          </svg>
-        </button>
-        <button class="st-btn has-tip" id="schema-collapse-all" aria-label="Collapse all" data-tip="Collapse all \u00b7 close every table in the list">
-          <svg viewBox="0 0 17 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="1" y1="3" x2="8" y2="3"/><line x1="1" y1="7" x2="8" y2="7"/><line x1="1" y1="11" x2="8" y2="11"/>
-            <path d="M11 11l2.5-3L16 11"/>
-          </svg>
-        </button>
-        <button class="st-btn has-tip" id="schema-sidebar-collapse" aria-label="Hide the table list" data-tip="Hide list \u00b7 give the diagram the whole width">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="9 3 4 8 9 13"/><line x1="13" y1="3" x2="13" y2="13"/>
-          </svg>
-        </button>
+${iconButton({ id: "schema-expand-all", icon: "expandAll", ariaLabel: "Expand all", tip: "Expand all \u00b7 open every table in the list" })}
+${iconButton({ id: "schema-collapse-all", icon: "collapseAll", ariaLabel: "Collapse all", tip: "Collapse all \u00b7 close every table in the list" })}
+${iconButton({ id: "schema-sidebar-collapse", icon: "sidebarCollapse", ariaLabel: "Hide the table list", tip: "Hide list \u00b7 give the diagram the whole width" })}
       </div>
       <div class="mg-side-search">
         <input type="search" id="schema-search" placeholder="Search tables" spellcheck="false" autocomplete="off">
@@ -38,11 +26,7 @@ export const TAB_SCHEMA = `
   </div>
   <div id="schema-main">
     <div id="schema-canvas-wrap">
-      <button class="st-btn has-tip" id="schema-sidebar-show" aria-label="Show the table list" data-tip="Show list \u00b7 bring the table list back">
-        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="7 3 12 8 7 13"/><line x1="3" y1="3" x2="3" y2="13"/>
-        </svg>
-      </button>
+${iconButton({ id: "schema-sidebar-show", icon: "sidebarShow", ariaLabel: "Show the table list", tip: "Show list \u00b7 bring the table list back", indent: 6 })}
       <div id="schema-empty-state">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
@@ -53,42 +37,16 @@ export const TAB_SCHEMA = `
       </div>
       <div id="schema-toolbar">
       <div id="schema-zoombar">
-        <button class="st-btn schema-zoom-btn has-tip" id="schema-zoom-out" aria-label="Zoom out" data-tip="Zoom out">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        </button>
+${iconButton({ id: "schema-zoom-out", icon: "zoomOut", modifier: "schema-zoom-btn", ariaLabel: "Zoom out", tip: "Zoom out" })}
         <input type="range" id="schema-zoom-range" min="5" max="500" step="1" value="100" aria-label="Zoom">
-        <button class="st-btn schema-zoom-btn has-tip" id="schema-zoom-in" aria-label="Zoom in" data-tip="Zoom in">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        </button>
+${iconButton({ id: "schema-zoom-in", icon: "zoomIn", modifier: "schema-zoom-btn", ariaLabel: "Zoom in", tip: "Zoom in" })}
         <button class="schema-zoom-value has-tip" id="schema-zoom-value" aria-label="100% \u00b7 fit to view" data-tip="Fit \u00b7 size the diagram to the window">100%</button>
       </div>
-        <button class="st-btn schema-diagram-btn has-tip" id="schema-toggle-view" aria-label="Show all tables" data-tip="All tables \u00b7 lay out the whole schema at once">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-            <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
-          </svg>
-        </button>
-        <button class="st-btn schema-diagram-btn has-tip" id="schema-recenter" aria-label="Re-center diagram" data-tip="Re-center \u00b7 bring the diagram back into view">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
-          </svg>
-        </button>
-        <button class="st-btn schema-diagram-btn has-tip" id="schema-expand-tables" aria-label="Expand tables" data-tip="Expand \u00b7 show the columns inside each table">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
-          </svg>
-        </button>
-        <button class="st-btn schema-diagram-btn has-tip" id="schema-minimize-tables" aria-label="Minimize tables" data-tip="Minimize \u00b7 collapse tables to names only">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/>
-          </svg>
-        </button>
-        <button class="st-btn schema-diagram-btn has-tip" id="schema-toggle-cols" aria-label="Show every column" data-tip="Every column \u00b7 stop cutting the list at seven">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="10" x2="20" y2="10"/>
-            <line x1="4" y1="14" x2="20" y2="14"/><line x1="4" y1="18" x2="20" y2="18"/>
-          </svg>
-        </button>
+${iconButton({ id: "schema-toggle-view", icon: "toggleView", modifier: "schema-diagram-btn", ariaLabel: "Show all tables", tip: "All tables \u00b7 lay out the whole schema at once" })}
+${iconButton({ id: "schema-recenter", icon: "recenter", modifier: "schema-diagram-btn", ariaLabel: "Re-center diagram", tip: "Re-center \u00b7 bring the diagram back into view" })}
+${iconButton({ id: "schema-expand-tables", icon: "expandTables", modifier: "schema-diagram-btn", ariaLabel: "Expand tables", tip: "Expand \u00b7 show the columns inside each table" })}
+${iconButton({ id: "schema-minimize-tables", icon: "minimizeTables", modifier: "schema-diagram-btn", ariaLabel: "Minimize tables", tip: "Minimize \u00b7 collapse tables to names only" })}
+${iconButton({ id: "schema-toggle-cols", icon: "toggleColumns", modifier: "schema-diagram-btn", ariaLabel: "Show every column", tip: "Every column \u00b7 stop cutting the list at seven" })}
       </div>
       <canvas id="schema-canvas"></canvas>
       <div id="schema-tooltip" class="schema-tooltip" style="display:none"></div>
