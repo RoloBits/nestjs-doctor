@@ -4,6 +4,10 @@ export { heading } from "../atoms/heading.js";
 export { icon } from "../atoms/icon.js";
 export { emptyState } from "../molecules/empty-state.js";
 export { badge } from "./badge.js";
+export {
+	buildEndpointGraph,
+	layoutEndpointGraph,
+} from "./endpoint-layout.js";
 export { escapeHtml } from "./escape.js";
 export {
 	blastRadius,
