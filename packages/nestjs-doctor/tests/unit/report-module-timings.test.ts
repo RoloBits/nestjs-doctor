@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { badge, treeRow } from "../../src/report/ui/browser/entry.js";
 import { getReportScripts } from "../../src/report/ui/scripts.js";
 import { EMPTY_ARTIFACT_JSON as EMPTY } from "./report-artifact-fixture.js";
 
@@ -34,11 +35,16 @@ function loadTraceRow(
 		sliceOf("var mgTraceMax", "function mgShowModuleTrace");
 	const factory = new Function(
 		"graph",
+		"RPT",
 		`${source}
 		mgTraceMax = 100;
 		return mgTraceRowHtml;`
 	);
-	return factory(graph) as (id: string, depth: number, path: string) => string;
+	return factory(graph, { badge, treeRow }) as (
+		id: string,
+		depth: number,
+		path: string
+	) => string;
 }
 
 describe("mgTraceRowHtml", () => {

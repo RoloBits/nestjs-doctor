@@ -1515,20 +1515,16 @@ function renderSchema() {
 
   // Tree row builder
   function sBuildTreeRow(depth, toggleId, icon, labelHtml, extra, classes, dataAttrs, iconTip) {
-    var h = '<div class="st-row' + (classes ? " " + classes : "") + '"' + (dataAttrs || "") + '>';
-    for (var d = 0; d < depth; d++) h += '<span class="st-indent"></span>';
-    if (toggleId) {
-      h += '<span class="st-toggle" data-toggle="' + toggleId + '">' + "\\u25B8" + '</span>';
-    } else {
-      h += '<span class="st-indent"></span>';
-    }
-    h += iconTip
-      ? '<span class="st-icon has-tip" data-tip="' + escHtml(iconTip) + '">' + icon + '</span>'
-      : '<span class="st-icon">' + icon + '</span>';
-    h += '<span class="st-label">' + labelHtml + '</span>';
-    if (extra) h += extra;
-    h += '</div>';
-    return h;
+    return RPT.treeRow({
+      depth: depth,
+      toggleId: toggleId,
+      icon: icon,
+      iconTip: iconTip ? escHtml(iconTip) : undefined,
+      label: labelHtml,
+      extra: extra,
+      classes: classes,
+      dataAttrs: dataAttrs
+    });
   }
 
   var TIP_PK = "Primary key \\u00b7 identifies the row";

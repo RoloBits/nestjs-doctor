@@ -40,8 +40,8 @@ function renderDiagnosis() {
 
   // Build tree from file paths
   const diagSev = function(item) { return item.d.severity; };
-  const treeRoot = buildFileTree(fileMap, "diags");
-  compressTree(treeRoot);
+  const treeRoot = RPT.buildFileTree(fileMap, "diags");
+  RPT.compressTree(treeRoot);
 
   function collectSevs(diagList) {
     const sevs = {};

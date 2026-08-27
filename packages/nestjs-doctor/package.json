@@ -30,7 +30,10 @@
     "typecheck": "tsc --noEmit",
     "postbuild": "node scripts/copy-skills.mjs",
     "smoke:packed": "node scripts/smoke-packed-install.mjs",
-    "advisories:check": "node scripts/check-advisories.mjs"
+    "advisories:check": "node scripts/check-advisories.mjs",
+    "build:browser": "tsdown --config tsdown.browser.config.ts",
+    "prebuild": "pnpm run build:browser",
+    "pretest": "pnpm run build:browser"
   },
   "keywords": [
     "nestjs",
@@ -62,6 +65,7 @@
   },
   "devDependencies": {
     "@types/react": "^19",
+    "jsdom": "^26.1.0",
     "tsdown": "^0.20.3",
     "vitest": "^3.0.0"
   },

@@ -1126,19 +1126,25 @@ function mgBuildTree() {
     var mods = byProject[pname].slice().sort(function(a, b) {
       return getDisplayName(a) < getDisplayName(b) ? -1 : 1;
     });
-    html += '<div class="st-row mg-tree-project" data-project="' + mgEsc(pname) + '">' +
-      '<span class="st-toggle" data-toggle="mgp-' + j + '">\\u25B8</span>' +
-      '<span class="st-icon">' + MG_PROJECT_ICON + '</span>' +
-      '<span class="st-label"><span class="st-entity-name">' + mgEsc(pname) + '</span></span>' +
-      '<span class="st-count">' + mods.length + '</span></div>';
+    html += RPT.treeRow({
+      depth: 0,
+      toggleId: "mgp-" + j,
+      icon: MG_PROJECT_ICON,
+      label: '<span class="st-entity-name">' + mgEsc(pname) + '</span>',
+      extra: '<span class="st-count">' + mods.length + '</span>',
+      classes: "mg-tree-project",
+      dataAttrs: ' data-project="' + mgEsc(pname) + '"'
+    });
     html += '<div class="st-children" id="mgp-' + j + '">';
     for (var k = 0; k < mods.length; k++) {
       var n = mods[k];
-      html += '<div class="st-row mg-tree-module" data-module="' + mgEsc(n.name) + '">' +
-        '<span class="st-indent"></span><span class="st-indent"></span>' +
-        '<span class="st-label">' + mgEsc(getDisplayName(n)) + '</span>' +
-        (circularModules.has(n.name) ? '<span class="st-count" style="color:var(--nest-red)">cycle</span>' : "") +
-        '</div>';
+      html += RPT.treeRow({
+        depth: 1,
+        label: mgEsc(getDisplayName(n)),
+        extra: circularModules.has(n.name) ? '<span class="st-count" style="color:var(--nest-red)">cycle</span>' : "",
+        classes: "mg-tree-module",
+        dataAttrs: ' data-module="' + mgEsc(n.name) + '"'
+      });
     }
     html += '</div>';
   }
@@ -1591,9 +1597,9 @@ function mgProvidersHtml(n) {
       var row = rows[j];
       if (row.token) {
         html += '<div class="md-row">' + mgNameHtml(row.token, "") +
-          '<span class="md-badge md-token">token</span>' +
+          RPT.badge({ variant: "md-token", text: "token" }) +
           (row.strategy && row.target
-            ? '<span class="md-badge md-use">' + mgEsc(row.strategy) + ' \\u2192 ' + mgEsc(row.target) + '</span>'
+            ? RPT.badge({ variant: "md-use", text: mgEsc(row.strategy) + ' \\u2192 ' + mgEsc(row.target) })
             : "") +
           '</div>';
         continue;
@@ -1601,10 +1607,10 @@ function mgProvidersHtml(n) {
       var info = byName[row.name];
       html += '<div class="md-row">' + mgNameHtml(row.name, MG_GROUP_KIND[order[g]] || "");
       if (info && info.scope) {
-        html += '<span class="md-badge md-scope">' + mgEsc(info.scope) + '</span>';
+        html += RPT.badge({ variant: "md-scope", text: mgEsc(info.scope) });
       }
       if (mgUnusedProviders[row.name]) {
-        html += '<span class="md-badge md-unused" title="performance/no-unused-providers: never injected and not framework-activated">unused?</span>';
+        html += RPT.badge({ variant: "md-unused", title: "performance/no-unused-providers: never injected and not framework-activated", text: "unused?" });
       }
       if (info && info.publicMethodCount) {
         html += '<span class="md-blast-count">' + info.publicMethodCount + ' methods</span>';
@@ -1721,8 +1727,10 @@ function mgDockShow(name) {
 
 function mgTraceBadgeHtml(type) {
   var rgb = mgTraceColor(type);
-  return '<span class="md-badge" style="color:rgb(' + rgb + ');background:rgba(' + rgb + ',0.12)">' +
-    mgEsc(type) + '</span>';
+  return RPT.badge({
+    style: "color:rgb(" + rgb + ");background:rgba(" + rgb + ",0.12)",
+    text: mgEsc(type)
+  });
 }
 
 function mgTraceBarHtml(initTime, deps, type, hollowTip) {
@@ -1884,7 +1892,7 @@ function mgExportsHtml(n) {
     html += '<div class="md-group">';
     for (var k = 0; k < rows.length; k++) {
       html += '<div class="md-row">' + mgNameHtml(rows[k].name, rows[k].kind) +
-        (rows[k].kind === "module" ? '<span class="md-badge md-module">module</span>' : "") +
+        (rows[k].kind === "module" ? RPT.badge({ variant: "md-module", text: "module" }) : "") +
         '</div>';
     }
     html += '</div>';
@@ -1946,14 +1954,18 @@ function mgShowDetail(n) {
   document.getElementById("detail-name").textContent = getDisplayName(n);
 
   var badges = "";
-  if (n.project) badges += '<span class="md-badge md-project">' + mgEsc(n.project) + '</span>';
-  if (n.isGlobal) badges += '<span class="md-badge md-global">global</span>';
-  if (circularModules.has(n.name)) badges += '<span class="md-badge md-cycle">in cycle</span>';
-  if (rootModules.has(n.name)) badges += '<span class="md-badge md-root">root</span>';
+  if (n.project) badges += RPT.badge({ variant: "md-project", text: mgEsc(n.project) });
+  if (n.isGlobal) badges += RPT.badge({ variant: "md-global", text: "global" });
+  if (circularModules.has(n.name)) badges += RPT.badge({ variant: "md-cycle", text: "in cycle" });
+  if (rootModules.has(n.name)) badges += RPT.badge({ variant: "md-root", text: "root" });
   if (graph.timingsAvailable) {
     if (n.initTimings && n.initTimings.length > 0) {
-      badges += '<span class="md-badge md-use" id="detail-timings-btn" data-tip="Open the Boot trace">' +
-        mgEsc(mgFormatMs(n.initTimings[0].initTime)) + ' \\u00b7 trace \\u25B8</span>';
+      badges += RPT.badge({
+        variant: "md-use",
+        id: "detail-timings-btn",
+        tip: "Open the Boot trace",
+        text: mgEsc(mgFormatMs(n.initTimings[0].initTime)) + ' \\u00b7 trace \\u25B8'
+      });
     }
     badges += mgHookChipHtml(n.hookTimings);
   }
@@ -1981,12 +1993,20 @@ function mgShowDetail(n) {
       var label = target ? getDisplayName(target) : n.imports[j];
       var method = n.dynamicImports && n.dynamicImports[n.imports[j]];
       var methodTip = method ? (MG_DYNAMIC_TIPS[method] || "Dynamic import: " + method + "() returns a configured module") : "";
-      var external = !target;
+      var external = !target || target.external === true;
       html += '<li class="md-import-row' + (external ? " md-import-ext" : "") + '" data-import="' + mgEsc(n.imports[j]) + '"><span class="md-kind-module">' + mgEsc(label) + '</span>' +
-        (method ? '<span class="md-badge md-scope has-tip tip-wide badge-tip" style="margin-left:5px" data-tip="' + mgEsc(methodTip) + '">' + mgEsc(method) + '</span>' : "") +
-        (external ? '<span class="md-badge md-ext has-tip tip-wide badge-tip" style="margin-left:5px" data-tip="Not declared in this codebase \\u2014 it comes from a package, e.g. @nestjs/config">external</span>' : "") +
+        (method ? RPT.badge({ variant: "md-scope", classes: "has-tip tip-wide badge-tip", style: "margin-left:5px", tip: mgEsc(methodTip), text: mgEsc(method) }) : "") +
+        (external
+          ? RPT.badge({
+              variant: "md-ext",
+              classes: "has-tip tip-wide badge-tip",
+              style: "margin-left:5px",
+              tip: "Not declared in this codebase \\u2014 it comes from a package, e.g. @nestjs/config",
+              text: "external"
+            })
+          : "") +
         (target && target.project && target.project !== n.project
-          ? '<span class="md-badge md-project" style="margin-left:5px">' + mgEsc(target.project) + '</span>'
+          ? RPT.badge({ variant: "md-project", style: "margin-left:5px", text: mgEsc(target.project) })
           : "") +
         '</li>';
     }
