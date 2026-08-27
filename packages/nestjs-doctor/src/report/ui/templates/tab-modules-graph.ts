@@ -3,7 +3,9 @@ import { heading } from "../atoms/heading.js";
 import { icon } from "../atoms/icon.js";
 import { searchInput } from "../atoms/search-input.js";
 import { checkboxRow } from "../molecules/checkbox-row.js";
+import { emptyState } from "../molecules/empty-state.js";
 import { legend } from "../molecules/legend.js";
+import { sidebarHeader } from "../molecules/sidebar-header.js";
 import { sidebarShowButton, treeToolbar } from "../molecules/tree-toolbar.js";
 import { zoomBar } from "../molecules/zoom-bar.js";
 
@@ -12,12 +14,11 @@ export const TAB_MODULES_GRAPH = `
 <div class="tab-content" id="tab-modules">
   <div id="mg-sidebar">
     <div class="schema-sidebar-sticky">
-      <div class="schema-sidebar-header">
-        <span class="schema-sidebar-title">Projects</span>
-        <span class="schema-entity-count" id="mg-project-count"></span>
-        <span style="flex:1"></span>
-${treeToolbar({ prefix: "mg", noun: "project", subject: "graph" })}
-      </div>
+${sidebarHeader({
+	title: "Projects",
+	countId: "mg-project-count",
+	toolbar: treeToolbar({ prefix: "mg", noun: "project", subject: "graph" }),
+})}
       <div class="mg-side-search">
 ${searchInput({ id: "mg-search", placeholder: "Search projects and modules" })}
       </div>
@@ -46,10 +47,7 @@ ${iconButton({ id: "mg-info", icon: "info", modifier: "schema-diagram-btn", aria
     </div>
     <canvas id="graph"></canvas>
     <div id="mg-tooltip" class="schema-tooltip" style="display:none"></div>
-    <div id="mg-empty-state">
-${icon({ name: "toggleView", size: 48, stroke: "var(--text-dim)", strokeWidth: "1.5", indent: 6 })}
-      <p>No modules were found in this project</p>
-    </div>
+${emptyState({ id: "mg-empty-state", icon: { name: "toggleView", size: 48, stroke: "var(--text-dim)", strokeWidth: "1.5" }, text: "No modules were found in this project" })}
   </div>
   <div id="mg-dock" data-active="problems">
     <div id="mg-dock-header">

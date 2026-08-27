@@ -1,5 +1,6 @@
 import { closeButton, iconButton } from "../atoms/button.js";
-import { icon } from "../atoms/icon.js";
+import { emptyState } from "../molecules/empty-state.js";
+import { sidebarHeader } from "../molecules/sidebar-header.js";
 
 export const TAB_ENDPOINTS = `
 <!-- ── Tab: Endpoints ── -->
@@ -18,20 +19,13 @@ ${closeButton({ id: "ep-code-panel-close", classes: "ep-code-panel-close" })}
   </div>
   <div id="endpoints-sidebar">
     <div class="endpoints-sidebar-sticky">
-      <div class="endpoints-sidebar-header">
-        <span class="schema-sidebar-title">Endpoints</span>
-        <span class="schema-entity-count" id="endpoints-count"></span>
-        <span style="flex:1"></span>
-      </div>
+${sidebarHeader({ title: "Endpoints", countId: "endpoints-count", classes: "endpoints-sidebar-header" })}
     </div>
     <div id="endpoints-list"></div>
   </div>
   <div id="endpoints-main">
     <div id="endpoints-canvas-wrap">
-      <div id="endpoints-empty-state">
-${icon({ name: "activity", size: 48, indent: 8 })}
-        <p>Select an endpoint from the sidebar to view its dependency graph</p>
-      </div>
+${emptyState({ id: "endpoints-empty-state", icon: { name: "activity", size: 48 }, indent: 6, text: "Select an endpoint from the sidebar to view its dependency graph" })}
       <div id="endpoints-toolbar">
 ${iconButton({ id: "endpoints-recenter", icon: "recenter", modifier: "schema-diagram-btn", title: "Re-center diagram" })}
       </div>

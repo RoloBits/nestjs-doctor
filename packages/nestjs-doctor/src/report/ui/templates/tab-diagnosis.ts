@@ -2,7 +2,9 @@ import { textButton } from "../atoms/button.js";
 import { icon } from "../atoms/icon.js";
 import { searchInput } from "../atoms/search-input.js";
 import { checkboxRow } from "../molecules/checkbox-row.js";
+import { emptyState } from "../molecules/empty-state.js";
 import { pillGroup } from "../molecules/pill-group.js";
+import { sidebarHeader } from "../molecules/sidebar-header.js";
 import { treeToolbar } from "../molecules/tree-toolbar.js";
 
 export const TAB_DIAGNOSIS = `
@@ -10,12 +12,11 @@ export const TAB_DIAGNOSIS = `
 <div class="tab-content" id="tab-diagnosis">
   <div id="diagnosis-sidebar">
     <div class="diagnosis-toolbar">
-      <div class="schema-sidebar-header">
-        <span class="schema-sidebar-title">Files</span>
-        <span class="schema-entity-count" id="diag-file-count"></span>
-        <span style="flex:1"></span>
-${treeToolbar({ prefix: "diag", noun: "folder" })}
-      </div>
+${sidebarHeader({
+	title: "Files",
+	countId: "diag-file-count",
+	toolbar: treeToolbar({ prefix: "diag", noun: "folder" }),
+})}
       <div class="mg-side-search">
 ${searchInput({ id: "diag-search", placeholder: "Search files" })}
       </div>
@@ -76,10 +77,7 @@ ${pillGroup({
     <div id="diagnosis-rule-list"></div>
   </div>
   <div id="diagnosis-main">
-    <div id="diagnosis-empty-state">
-${icon({ name: "fileText", size: 48, stroke: "var(--text-dim)", strokeWidth: "1.5", indent: 6 })}
-      <p>Select a file to view its diagnostics</p>
-    </div>
+${emptyState({ id: "diagnosis-empty-state", icon: { name: "fileText", size: 48, stroke: "var(--text-dim)", strokeWidth: "1.5" }, text: "Select a file to view its diagnostics" })}
     <div id="diagnosis-file-view" style="display:none">
       <div id="diagnosis-file-header"></div>
       <div id="diagnosis-file-code"></div>

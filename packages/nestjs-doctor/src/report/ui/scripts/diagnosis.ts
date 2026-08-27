@@ -17,12 +17,13 @@ function renderDiagnosis() {
   if (diagnostics.length === 0) {
     sidebarEl.style.display = "none";
     mainEl.style.left = "0";
-    mainEl.innerHTML =
-      '<div class="diagnosis-clean">' +
-      RPT.icon({ name: "checkCircle", size: 48 }) +
-      '<p>No issues found</p>' +
-      '<span>Your project passed all checks.</span>' +
-      '</div>';
+    mainEl.innerHTML = RPT.emptyState({
+      classes: "diagnosis-clean",
+      icon: { name: "checkCircle", size: 48 },
+      text: "No issues found",
+      extra: "<span>Your project passed all checks.</span>",
+      indent: 0,
+    });
     return;
   }
 
@@ -559,6 +560,6 @@ function renderDiagnosis() {
 }
 
 function escHtml(s) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return RPT.escapeHtml(s);
 }
 `;
