@@ -2,6 +2,8 @@ import { iconButton, textButton } from "../atoms/button.js";
 import { icon } from "../atoms/icon.js";
 import { searchInput } from "../atoms/search-input.js";
 import { checkboxRow } from "../molecules/checkbox-row.js";
+import { emptyState } from "../molecules/empty-state.js";
+import { sidebarHeader } from "../molecules/sidebar-header.js";
 import { sidebarShowButton, treeToolbar } from "../molecules/tree-toolbar.js";
 import { zoomBar } from "../molecules/zoom-bar.js";
 
@@ -10,12 +12,12 @@ export const TAB_SCHEMA = `
 <div class="tab-content" id="tab-schema">
   <div id="schema-sidebar">
     <div class="schema-sidebar-sticky">
-      <div class="schema-sidebar-header">
-        <span class="schema-sidebar-title" id="schema-sidebar-title">Tables</span>
-        <span class="schema-entity-count" id="schema-entity-count"></span>
-        <span style="flex:1"></span>
-${treeToolbar({ prefix: "schema", noun: "table", subject: "diagram" })}
-      </div>
+${sidebarHeader({
+	title: "Tables",
+	titleId: "schema-sidebar-title",
+	countId: "schema-entity-count",
+	toolbar: treeToolbar({ prefix: "schema", noun: "table", subject: "diagram" }),
+})}
       <div class="mg-side-search">
 ${searchInput({ id: "schema-search", placeholder: "Search tables" })}
       </div>
@@ -27,11 +29,23 @@ ${checkboxRow({ id: "schema-sync-sidebar", label: "Sync with diagram", checked: 
   <div id="schema-main">
     <div id="schema-canvas-wrap">
 ${sidebarShowButton({ prefix: "schema", noun: "table", indent: 6 })}
-      <div id="schema-empty-state">
-${icon({ name: "toggleView", size: 48, stroke: "var(--text-dim)", strokeWidth: "1.5", indent: 8 })}
-        <p>Select an entity from the sidebar to explore its schema</p>
-${textButton({ id: "schema-show-all", classes: "st-btn schema-empty-action", label: "Show all tables", indent: 8 })}
-      </div>
+${emptyState({
+	id: "schema-empty-state",
+	icon: {
+		name: "toggleView",
+		size: 48,
+		stroke: "var(--text-dim)",
+		strokeWidth: "1.5",
+	},
+	text: "Select an entity from the sidebar to explore its schema",
+	extra: textButton({
+		id: "schema-show-all",
+		classes: "st-btn schema-empty-action",
+		label: "Show all tables",
+		indent: 0,
+	}),
+	indent: 6,
+})}
       <div id="schema-toolbar">
 ${zoomBar({ prefix: "schema", subject: "diagram" })}
 ${iconButton({ id: "schema-toggle-view", icon: "toggleView", modifier: "schema-diagram-btn", ariaLabel: "Show all tables", tip: "All tables \u00b7 lay out the whole schema at once" })}

@@ -2,7 +2,9 @@
 export { textButton } from "../atoms/button.js";
 export { heading } from "../atoms/heading.js";
 export { icon } from "../atoms/icon.js";
+export { emptyState } from "../molecules/empty-state.js";
 export { badge } from "./badge.js";
+export { escapeHtml } from "./escape.js";
 export {
 	infoCard,
 	infoItem,

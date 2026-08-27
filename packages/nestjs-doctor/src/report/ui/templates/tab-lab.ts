@@ -1,5 +1,5 @@
 import { textButton } from "../atoms/button.js";
-import { icon } from "../atoms/icon.js";
+import { emptyState } from "../molecules/empty-state.js";
 import { selectField } from "../molecules/select-field.js";
 
 export const TAB_LAB = `
@@ -104,10 +104,7 @@ ${textButton({ id: "pg-run-btn", label: "&#9654; Run Rule" })}
       <div id="pg-file-code" class="playground-code-body"></div>
     </div>
     <div id="pg-result-list"></div>
-    <div id="pg-result-empty" class="playground-empty">
-${icon({ name: "pencil", size: 40, indent: 6 })}
-      <p>Write a check function and click Run</p>
-    </div>
+${emptyState({ id: "pg-result-empty", classes: "playground-empty", icon: { name: "pencil", size: 40 }, text: "Write a check function and click Run" })}
   </div>
 </div>
 `;
