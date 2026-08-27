@@ -40,7 +40,7 @@ describe("report scripts", () => {
 	});
 
 	it("adds a trace button to the detail header when the module has timings", () => {
-		expect(scripts).toContain('id="detail-timings-btn"');
+		expect(scripts).toContain('id: "detail-timings-btn"');
 		expect(scripts).toContain('ev.target.closest("#detail-timings-btn")');
 	});
 

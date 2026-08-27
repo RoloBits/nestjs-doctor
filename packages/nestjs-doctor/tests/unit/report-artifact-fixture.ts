@@ -153,6 +153,7 @@ export const RICH_ARTIFACT: ReportArtifact = {
 			{
 				name: "OrderModule",
 				filePath: "src/order/order.module.ts",
+				isGlobal: true,
 				imports: ["UserModule"],
 				exports: [],
 				providers: ["OrderService"],
@@ -164,8 +165,27 @@ export const RICH_ARTIFACT: ReportArtifact = {
 			{ from: "AppModule", to: "UserModule" },
 			{ from: "AppModule", to: "OrderModule" },
 			{ from: "OrderModule", to: "UserModule" },
+			{ from: "UserModule", to: "OrderModule" },
 		],
+		circularDeps: [["OrderModule", "UserModule"]],
 	},
+	providers: [
+		{
+			name: "UserService",
+			filePath: "src/user/user.service.ts",
+			module: "UserModule",
+			dependencies: [],
+			publicMethodCount: 3,
+		},
+		{
+			name: "OrderService",
+			filePath: "src/order/order.service.ts",
+			module: "OrderModule",
+			dependencies: ["UserService"],
+			publicMethodCount: 2,
+			scope: "request",
+		},
+	],
 	endpoints: {
 		endpoints: [
 			{

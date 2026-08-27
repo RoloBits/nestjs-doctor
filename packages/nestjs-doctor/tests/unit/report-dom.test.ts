@@ -25,6 +25,8 @@ function stubCanvas(win: typeof globalThis & Window) {
 	// @ts-expect-error test stub
 	win.HTMLCanvasElement.prototype.getContext = () => ctx;
 	// @ts-expect-error test stub
+	win.Element.prototype.scrollIntoView = () => undefined;
+	// @ts-expect-error test stub
 	win.HTMLCanvasElement.prototype.getBoundingClientRect = () => ({
 		width: 800,
 		height: 600,
@@ -91,4 +93,11 @@ it("renders every tab into a DOM", () => {
 	expect(rows("modules")).toBeGreaterThan(0);
 	expect(rows("schema")).toBeGreaterThan(0);
 	expect(rows("endpoints")).toBeGreaterThan(0);
+
+	// The detail panel only renders on selection, so drive one per module.
+	win.eval("switchTab('modules')");
+	const detail = win.eval(
+		"mgNodes.map(function (n) { mgShowDetail(n); return document.getElementById('detail').innerHTML; }).join('')"
+	) as string;
+	expect(detail).toContain("md-badge");
 });
