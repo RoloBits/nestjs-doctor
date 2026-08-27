@@ -1,9 +1,9 @@
 import { textButton } from "../atoms/button.js";
 import { icon } from "../atoms/icon.js";
-import { searchInput } from "../atoms/search-input.js";
 import { checkboxRow } from "../molecules/checkbox-row.js";
 import { emptyState } from "../molecules/empty-state.js";
 import { pillGroup } from "../molecules/pill-group.js";
+import { searchField } from "../molecules/search-field.js";
 import { sidebarHeader } from "../molecules/sidebar-header.js";
 import { treeToolbar } from "../molecules/tree-toolbar.js";
 
@@ -17,9 +17,7 @@ ${sidebarHeader({
 	countId: "diag-file-count",
 	toolbar: treeToolbar({ prefix: "diag", noun: "folder" }),
 })}
-      <div class="mg-side-search">
-${searchInput({ id: "diag-search", placeholder: "Search files" })}
-      </div>
+${searchField({ id: "diag-search", placeholder: "Search files" })}
 ${checkboxRow({ id: "diag-show-notscored", label: "Show not scored", rowId: "diag-notscored-row" })}
       <hr class="diag-divider" id="diag-notscored-divider">
 ${textButton({

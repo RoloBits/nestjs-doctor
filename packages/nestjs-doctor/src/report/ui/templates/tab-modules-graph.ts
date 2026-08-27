@@ -1,10 +1,10 @@
 import { closeButton, iconButton } from "../atoms/button.js";
 import { heading } from "../atoms/heading.js";
 import { icon } from "../atoms/icon.js";
-import { searchInput } from "../atoms/search-input.js";
 import { checkboxRow } from "../molecules/checkbox-row.js";
 import { emptyState } from "../molecules/empty-state.js";
 import { legend } from "../molecules/legend.js";
+import { searchField } from "../molecules/search-field.js";
 import { sidebarHeader } from "../molecules/sidebar-header.js";
 import { sidebarShowButton, treeToolbar } from "../molecules/tree-toolbar.js";
 import { zoomBar } from "../molecules/zoom-bar.js";
@@ -19,9 +19,7 @@ ${sidebarHeader({
 	countId: "mg-project-count",
 	toolbar: treeToolbar({ prefix: "mg", noun: "project", subject: "graph" }),
 })}
-      <div class="mg-side-search">
-${searchInput({ id: "mg-search", placeholder: "Search projects and modules" })}
-      </div>
+${searchField({ id: "mg-search", placeholder: "Search projects and modules" })}
       <div class="mg-toggle-row">
 ${checkboxRow({ id: "mg-globals", label: "Show @Global() reach", indent: 8 })}
 ${checkboxRow({ id: "mg-show-external", label: "Show external modules", indent: 8 })}

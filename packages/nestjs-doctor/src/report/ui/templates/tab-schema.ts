@@ -1,8 +1,8 @@
 import { iconButton, textButton } from "../atoms/button.js";
 import { icon } from "../atoms/icon.js";
-import { searchInput } from "../atoms/search-input.js";
 import { checkboxRow } from "../molecules/checkbox-row.js";
 import { emptyState } from "../molecules/empty-state.js";
+import { searchField } from "../molecules/search-field.js";
 import { sidebarHeader } from "../molecules/sidebar-header.js";
 import { sidebarShowButton, treeToolbar } from "../molecules/tree-toolbar.js";
 import { zoomBar } from "../molecules/zoom-bar.js";
@@ -18,9 +18,7 @@ ${sidebarHeader({
 	countId: "schema-entity-count",
 	toolbar: treeToolbar({ prefix: "schema", noun: "table", subject: "diagram" }),
 })}
-      <div class="mg-side-search">
-${searchInput({ id: "schema-search", placeholder: "Search tables" })}
-      </div>
+${searchField({ id: "schema-search", placeholder: "Search tables" })}
 ${checkboxRow({ id: "schema-sync-sidebar", label: "Sync with diagram", checked: true, tip: "Sync \u00b7 the list follows the table you pick in the diagram" })}
       <div class="schema-disclaimer">Schema inferred from source code — may not reflect the actual database.</div>
     </div>
