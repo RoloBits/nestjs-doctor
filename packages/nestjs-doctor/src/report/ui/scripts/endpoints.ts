@@ -64,84 +64,13 @@ function epRoundRect(ctx, x, y, w, h, r) {
 }
 
 function epBuildGraph(ep) {
-  epNodes = [];
-  epEdges = [];
-  var nodeId = 0;
-
-  // Root node for the endpoint (controller method)
-  var rootNode = {
-    id: nodeId++,
-    className: ep.controllerClass,
-    type: "controller",
-    methodName: ep.handlerMethod,
-    conditional: false,
-    order: -1,
-    totalMethods: 1,
-    filePath: ep.filePath,
-    line: ep.line,
-    x: 0, y: 0, w: 180, h: 60
-  };
-  epNodes.push(rootNode);
-
-  // Walk dependency tree — each dep is a MethodDependencyNode (one method per node)
-  function walkDeps(parentNode, deps) {
-    for (var i = 0; i < deps.length; i++) {
-      var dep = deps[i];
-      var n = {
-        id: nodeId++,
-        className: dep.className,
-        type: dep.type,
-        methodName: dep.methodName,
-        conditional: dep.conditional,
-        order: dep.order,
-        totalMethods: dep.totalMethods,
-        filePath: dep.filePath,
-        line: dep.line,
-        expandedElsewhere: dep.expandedElsewhere,
-        x: 0, y: 0, w: 180, h: 60
-      };
-      epNodes.push(n);
-      epEdges.push({ from: parentNode.id, to: n.id, conditional: dep.conditional });
-      if (dep.dependencies && dep.dependencies.length > 0) {
-        walkDeps(n, dep.dependencies);
-      }
-    }
-  }
-
-  walkDeps(rootNode, ep.dependencies);
+  var built = RPT.buildEndpointGraph(ep);
+  epNodes = built.nodes;
+  epEdges = built.edges;
 }
 
 function epLayout() {
-  if (epNodes.length === 0) return;
-
-  if (typeof dagre !== "undefined") {
-    var g = new dagre.graphlib.Graph();
-    g.setGraph({ rankdir: "TB", nodesep: 40, ranksep: 80, marginx: 40, marginy: 40 });
-    g.setDefaultEdgeLabel(function() { return {}; });
-
-    for (var i = 0; i < epNodes.length; i++) {
-      g.setNode(epNodes[i].id, { width: epNodes[i].w, height: epNodes[i].h });
-    }
-    for (var i = 0; i < epEdges.length; i++) {
-      g.setEdge(epEdges[i].from, epEdges[i].to);
-    }
-
-    dagre.layout(g);
-
-    for (var i = 0; i < epNodes.length; i++) {
-      var laid = g.node(epNodes[i].id);
-      if (laid) {
-        epNodes[i].x = laid.x;
-        epNodes[i].y = laid.y;
-      }
-    }
-  } else {
-    // Fallback: simple vertical layout
-    for (var i = 0; i < epNodes.length; i++) {
-      epNodes[i].x = 300;
-      epNodes[i].y = 60 + i * 100;
-    }
-  }
+  RPT.layoutEndpointGraph(epNodes, epEdges, typeof dagre === "undefined" ? undefined : dagre);
 }
 
 function epCenterCamera() {
