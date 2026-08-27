@@ -458,7 +458,7 @@ function epHideCodePanel() {
   if (panel) panel.classList.remove("open");
 }
 
-var EP_CTRL_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="var(--nest-red)" stroke-width="1.2"><rect x="2" y="2" width="12" height="12" rx="2"/><line x1="5" y1="6" x2="11" y2="6"/><line x1="5" y1="10" x2="9" y2="10"/></svg>';
+var EP_CTRL_ICON = RPT.icon({ name: "controller" });
 
 function renderEndpoints() {
   var sidebarEl = document.getElementById("endpoints-list");

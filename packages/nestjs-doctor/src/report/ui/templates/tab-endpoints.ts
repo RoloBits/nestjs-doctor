@@ -1,4 +1,5 @@
 import { closeButton, iconButton } from "../atoms/button.js";
+import { icon } from "../atoms/icon.js";
 
 export const TAB_ENDPOINTS = `
 <!-- ── Tab: Endpoints ── -->
@@ -28,9 +29,7 @@ ${closeButton({ id: "ep-code-panel-close", classes: "ep-code-panel-close" })}
   <div id="endpoints-main">
     <div id="endpoints-canvas-wrap">
       <div id="endpoints-empty-state">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-        </svg>
+${icon({ name: "activity", size: 48, indent: 8 })}
         <p>Select an endpoint from the sidebar to view its dependency graph</p>
       </div>
       <div id="endpoints-toolbar">

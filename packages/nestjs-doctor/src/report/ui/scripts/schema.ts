@@ -1504,14 +1504,14 @@ function renderSchema() {
   }
 
   // SVG icon constants
-  var ICON_TABLE = '<svg viewBox="0 0 16 16" fill="none" stroke="var(--white)" stroke-width="1.2"><rect x="2" y="2" width="12" height="12" rx="1.5"/><line x1="2" y1="5.5" x2="14" y2="5.5"/><line x1="6" y1="5.5" x2="6" y2="14"/></svg>';
-  var ICON_TABLE_OPEN = '<svg viewBox="0 0 16 16" fill="none" stroke="var(--white)" stroke-width="1.2"><rect x="2" y="2" width="12" height="12" rx="1.5"/><rect x="2" y="2" width="12" height="3.5" rx="1.5" fill="var(--white)" opacity="0.35"/><line x1="2" y1="5.5" x2="14" y2="5.5"/><line x1="6" y1="5.5" x2="6" y2="14"/></svg>';
-  var ICON_FOLDER_CLOSED = '<svg viewBox="0 0 16 16" fill="none" stroke="var(--text-muted)" stroke-width="1.2"><path d="M2 4.5h4l1.5-1.5H14v10H2z"/></svg>';
-  var ICON_FOLDER_OPEN = '<svg viewBox="0 0 16 16" fill="none" stroke="var(--text-muted)" stroke-width="1.2"><path d="M2 4.5h4l1.5-1.5H14v2H4L2 13V4.5z"/><path d="M4 7h11l-2 6H2z"/></svg>';
-  var ICON_KEY = '<svg viewBox="0 0 16 16" fill="none" stroke="#ea2845" stroke-width="1.3"><circle cx="5.5" cy="6.5" r="2.5"/><line x1="8" y1="6.5" x2="14" y2="6.5"/><line x1="12" y1="6.5" x2="12" y2="9"/><line x1="14" y1="6.5" x2="14" y2="9"/></svg>';
-  var ICON_COLUMN = '<svg viewBox="0 0 16 16" fill="none" stroke="var(--text-dim)" stroke-width="1.2"><rect x="4" y="3" width="8" height="10" rx="1"/><line x1="6" y1="6" x2="10" y2="6"/><line x1="6" y1="8.5" x2="10" y2="8.5"/></svg>';
-  var ICON_FK = '<svg viewBox="0 0 16 16" fill="none" stroke="var(--cat-architecture)" stroke-width="1.2"><circle cx="5" cy="8" r="2.5"/><line x1="7.5" y1="8" x2="14" y2="8"/><polyline points="11,5.5 14,8 11,10.5"/></svg>';
-  var ICON_INDEX = '<svg viewBox="0 0 16 16" fill="none" stroke="var(--cat-performance)" stroke-width="1.2"><line x1="3" y1="4" x2="13" y2="4"/><line x1="3" y1="8" x2="10" y2="8"/><line x1="3" y1="12" x2="7" y2="12"/></svg>';
+  var ICON_TABLE = RPT.icon({ name: "schemaTable" });
+  var ICON_TABLE_OPEN = RPT.icon({ name: "schemaTableOpen" });
+  var ICON_FOLDER_CLOSED = RPT.icon({ name: "schemaFolder" });
+  var ICON_FOLDER_OPEN = RPT.icon({ name: "schemaFolderOpen" });
+  var ICON_KEY = RPT.icon({ name: "schemaKey" });
+  var ICON_COLUMN = RPT.icon({ name: "schemaColumn" });
+  var ICON_FK = RPT.icon({ name: "schemaFk" });
+  var ICON_INDEX = RPT.icon({ name: "schemaIndex" });
 
   // Tree row builder
   function sBuildTreeRow(depth, toggleId, icon, labelHtml, extra, classes, dataAttrs, iconTip) {

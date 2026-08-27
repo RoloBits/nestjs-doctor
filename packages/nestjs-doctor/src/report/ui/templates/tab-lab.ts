@@ -1,4 +1,5 @@
 import { textButton } from "../atoms/button.js";
+import { icon } from "../atoms/icon.js";
 import { selectField } from "../molecules/select-field.js";
 
 export const TAB_LAB = `
@@ -104,9 +105,7 @@ ${textButton({ id: "pg-run-btn", label: "&#9654; Run Rule" })}
     </div>
     <div id="pg-result-list"></div>
     <div id="pg-result-empty" class="playground-empty">
-      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-      </svg>
+${icon({ name: "pencil", size: 40, indent: 6 })}
       <p>Write a check function and click Run</p>
     </div>
   </div>

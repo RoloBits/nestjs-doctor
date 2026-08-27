@@ -1,5 +1,6 @@
 import { closeButton, iconButton } from "../atoms/button.js";
 import { heading } from "../atoms/heading.js";
+import { icon } from "../atoms/icon.js";
 import { searchInput } from "../atoms/search-input.js";
 import { checkboxRow } from "../molecules/checkbox-row.js";
 import { legend } from "../molecules/legend.js";
@@ -47,10 +48,7 @@ ${iconButton({ id: "mg-info", icon: "info", modifier: "schema-diagram-btn", aria
     <canvas id="graph"></canvas>
     <div id="mg-tooltip" class="schema-tooltip" style="display:none"></div>
     <div id="mg-empty-state">
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-        <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
-      </svg>
+${icon({ name: "toggleView", size: 48, stroke: "var(--text-dim)", strokeWidth: "1.5", indent: 6 })}
       <p>No modules were found in this project</p>
     </div>
   </div>
@@ -59,7 +57,7 @@ ${iconButton({ id: "mg-info", icon: "info", modifier: "schema-diagram-btn", aria
       <span class="mg-dock-tab" id="mg-dock-tab-problems" data-dock-tab="problems">Module problems <span class="schema-entity-count" id="mg-problems-count"></span></span>
       <span class="mg-dock-tab" id="mg-dock-tab-trace" data-dock-tab="trace" style="display:none">Boot trace <span class="schema-entity-count" id="mg-trace-ms"></span></span>
       <span class="mg-trace-info" tabindex="0" role="img" aria-label="How to read the trace" data-tip="How to read the trace&#10;\u2022 bars scale to the slowest row&#10;\u2022 yellow segment \u2248 the class's own work&#10;\u2022 dimmed hollow bar = reused, built earlier&#10;\u2022 rows are the create phase&#10;\u2022 +ms chips = lifecycle hooks">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+${icon({ name: "infoDot", size: 13, ariaHidden: true, indent: 10 })}
         </span>
       <span style="flex:1"></span>
       <span class="mg-problems-chevron" id="mg-dock-chevron">▴</span>
