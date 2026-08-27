@@ -1,4 +1,6 @@
 import { iconButton } from "../atoms/button.js";
+import { searchInput } from "../atoms/search-input.js";
+import { checkboxRow } from "../molecules/checkbox-row.js";
 import { pillGroup } from "../molecules/pill-group.js";
 
 export const TAB_DIAGNOSIS = `
@@ -14,12 +16,9 @@ ${iconButton({ id: "diag-expand-all", icon: "expandAll", ariaLabel: "Expand all"
 ${iconButton({ id: "diag-collapse-all", icon: "collapseAll", ariaLabel: "Collapse all", tip: "Collapse all \u00b7 close every folder in the list" })}
       </div>
       <div class="mg-side-search">
-        <input type="search" id="diag-search" placeholder="Search files" spellcheck="false" autocomplete="off">
+${searchInput({ id: "diag-search", placeholder: "Search files" })}
       </div>
-      <label class="schema-sync" id="diag-notscored-row">
-        <input type="checkbox" id="diag-show-notscored">
-        <span>Show not scored</span>
-      </label>
+${checkboxRow({ id: "diag-show-notscored", label: "Show not scored", rowId: "diag-notscored-row" })}
       <hr class="diag-divider" id="diag-notscored-divider">
       <button class="diag-filters-toggle" id="diag-filters-toggle" aria-expanded="false">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>

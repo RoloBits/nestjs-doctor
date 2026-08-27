@@ -1,4 +1,7 @@
 import { iconButton } from "../atoms/button.js";
+import { searchInput } from "../atoms/search-input.js";
+import { checkboxRow } from "../molecules/checkbox-row.js";
+import { zoomBar } from "../molecules/zoom-bar.js";
 
 export const TAB_SCHEMA = `
 <!-- ── Tab: Schema ── -->
@@ -14,12 +17,9 @@ ${iconButton({ id: "schema-collapse-all", icon: "collapseAll", ariaLabel: "Colla
 ${iconButton({ id: "schema-sidebar-collapse", icon: "sidebarCollapse", ariaLabel: "Hide the table list", tip: "Hide list \u00b7 give the diagram the whole width" })}
       </div>
       <div class="mg-side-search">
-        <input type="search" id="schema-search" placeholder="Search tables" spellcheck="false" autocomplete="off">
+${searchInput({ id: "schema-search", placeholder: "Search tables" })}
       </div>
-      <label class="schema-sync has-tip" data-tip="Sync \u00b7 the list follows the table you pick in the diagram">
-        <input type="checkbox" id="schema-sync-sidebar" checked>
-        <span>Sync with diagram</span>
-      </label>
+${checkboxRow({ id: "schema-sync-sidebar", label: "Sync with diagram", checked: true, tip: "Sync \u00b7 the list follows the table you pick in the diagram" })}
       <div class="schema-disclaimer">Schema inferred from source code — may not reflect the actual database.</div>
     </div>
     <div id="schema-entity-list"></div>
@@ -36,12 +36,7 @@ ${iconButton({ id: "schema-sidebar-show", icon: "sidebarShow", ariaLabel: "Show 
         <button class="st-btn schema-empty-action" id="schema-show-all">Show all tables</button>
       </div>
       <div id="schema-toolbar">
-      <div id="schema-zoombar">
-${iconButton({ id: "schema-zoom-out", icon: "zoomOut", modifier: "schema-zoom-btn", ariaLabel: "Zoom out", tip: "Zoom out" })}
-        <input type="range" id="schema-zoom-range" min="5" max="500" step="1" value="100" aria-label="Zoom">
-${iconButton({ id: "schema-zoom-in", icon: "zoomIn", modifier: "schema-zoom-btn", ariaLabel: "Zoom in", tip: "Zoom in" })}
-        <button class="schema-zoom-value has-tip" id="schema-zoom-value" aria-label="100% \u00b7 fit to view" data-tip="Fit \u00b7 size the diagram to the window">100%</button>
-      </div>
+${zoomBar({ prefix: "schema", subject: "diagram" })}
 ${iconButton({ id: "schema-toggle-view", icon: "toggleView", modifier: "schema-diagram-btn", ariaLabel: "Show all tables", tip: "All tables \u00b7 lay out the whole schema at once" })}
 ${iconButton({ id: "schema-recenter", icon: "recenter", modifier: "schema-diagram-btn", ariaLabel: "Re-center diagram", tip: "Re-center \u00b7 bring the diagram back into view" })}
 ${iconButton({ id: "schema-expand-tables", icon: "expandTables", modifier: "schema-diagram-btn", ariaLabel: "Expand tables", tip: "Expand \u00b7 show the columns inside each table" })}
