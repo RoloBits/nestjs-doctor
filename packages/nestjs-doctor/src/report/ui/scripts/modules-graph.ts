@@ -1993,7 +1993,7 @@ function mgShowDetail(n) {
       var label = target ? getDisplayName(target) : n.imports[j];
       var method = n.dynamicImports && n.dynamicImports[n.imports[j]];
       var methodTip = method ? (MG_DYNAMIC_TIPS[method] || "Dynamic import: " + method + "() returns a configured module") : "";
-      var external = !target;
+      var external = !target || target.external === true;
       html += '<li class="md-import-row' + (external ? " md-import-ext" : "") + '" data-import="' + mgEsc(n.imports[j]) + '"><span class="md-kind-module">' + mgEsc(label) + '</span>' +
         (method ? RPT.badge({ variant: "md-scope", classes: "has-tip tip-wide badge-tip", style: "margin-left:5px", tip: mgEsc(methodTip), text: mgEsc(method) }) : "") +
         (external

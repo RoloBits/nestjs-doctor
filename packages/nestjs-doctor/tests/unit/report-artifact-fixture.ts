@@ -128,6 +128,13 @@ export const EMPTY_ARTIFACT_JSON = JSON.stringify(EMPTY_ARTIFACT);
 export const RICH_ARTIFACT: ReportArtifact = {
 	...EMPTY_ARTIFACT,
 	project: { ...EMPTY_ARTIFACT.project, fileCount: 4, moduleCount: 3 },
+	diagnostics: [
+		codeDiagnostic({
+			rule: "performance/no-unused-providers",
+			message: "Provider 'OrderService' is never injected.",
+			filePath: "src/order/order.service.ts",
+		}),
+	],
 	graph: {
 		...EMPTY_ARTIFACT.graph,
 		projects: ["api"],
@@ -135,7 +142,8 @@ export const RICH_ARTIFACT: ReportArtifact = {
 			{
 				name: "AppModule",
 				filePath: "src/app.module.ts",
-				imports: ["UserModule", "OrderModule"],
+				imports: ["UserModule", "OrderModule", "ConfigModule"],
+				dynamicImports: { ConfigModule: "forRoot" },
 				exports: [],
 				providers: [],
 				controllers: [],
@@ -145,7 +153,8 @@ export const RICH_ARTIFACT: ReportArtifact = {
 				name: "UserModule",
 				filePath: "src/user/user.module.ts",
 				imports: [],
-				exports: ["UserService"],
+				exports: ["UserService", "SharedModule"],
+				providerTokens: ["USER_CONFIG"],
 				providers: ["UserService"],
 				controllers: ["UserController"],
 				project: "api",

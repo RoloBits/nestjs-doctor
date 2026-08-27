@@ -99,5 +99,20 @@ it("renders every tab into a DOM", () => {
 	const detail = win.eval(
 		"mgNodes.map(function (n) { mgShowDetail(n); return document.getElementById('detail').innerHTML; }).join('')"
 	) as string;
-	expect(detail).toContain("md-badge");
+	// Every badge variant the panel can draw, so a change to one is visible
+	// here rather than only in the source text.
+	for (const variant of [
+		"md-project",
+		"md-global",
+		"md-cycle",
+		"md-root",
+		"md-scope",
+		"md-use",
+		"md-token",
+		"md-module",
+		"md-unused",
+		"md-ext",
+	]) {
+		expect(detail).toContain(variant);
+	}
 });
