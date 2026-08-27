@@ -12,7 +12,7 @@ function renderSummary() {
   var notScoredCount = (diagnostics || []).filter(function (d) {
     return d.surfaces && d.surfaces.indexOf('score') === -1;
   }).length;
-  html += '<div class="ov-card full-width"><h3>Health Score</h3><div class="ov-card-body">' +
+  html += '<div class="ov-card full-width">' + RPT.heading({ level: 3, text: "Health Score" }) + '<div class="ov-card-body">' +
     '<div class="ov-score-row">' +
     '<div class="ov-score-ring">' + makeScoreRingSvg(120, 6, sv) + '</div>' +
     '<div class="ov-score-details">' +
@@ -49,7 +49,7 @@ function renderSummary() {
   });
 
   // Category breakdown card
-  html += '<div class="ov-card"><h3>Issues by Category</h3><div class="ov-card-body">';
+  html += '<div class="ov-card">' + RPT.heading({ level: 3, text: "Issues by Category" }) + '<div class="ov-card-body">';
   for (const cat of CAT_ORDER) {
     const m = CAT_META[cat];
     const count = (summary.byCategory && summary.byCategory[cat]) || 0;

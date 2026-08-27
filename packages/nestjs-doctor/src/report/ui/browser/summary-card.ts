@@ -1,3 +1,5 @@
+import { heading } from "../atoms/heading.js";
+
 interface Row {
 	label: string;
 	value: string | number;
@@ -20,10 +22,10 @@ export function infoItem({ label, value }: Row): string {
 
 // A summary card whose body is a list of stat rows.
 export function statCard({ title, rows }: CardOptions): string {
-	return `<div class="ov-card"><h3>${title}</h3><div class="ov-card-body">${rows.map(statRow).join("")}</div></div>`;
+	return `<div class="ov-card">${heading({ level: 3, text: title })}<div class="ov-card-body">${rows.map(statRow).join("")}</div></div>`;
 }
 
 // A summary card whose body is the project info grid.
 export function infoCard({ title, rows }: CardOptions): string {
-	return `<div class="ov-card"><h3>${title}</h3><div class="ov-card-body"><div class="ov-info-grid">${rows.map(infoItem).join("")}</div></div></div>`;
+	return `<div class="ov-card">${heading({ level: 3, text: title })}<div class="ov-card-body"><div class="ov-info-grid">${rows.map(infoItem).join("")}</div></div></div>`;
 }
