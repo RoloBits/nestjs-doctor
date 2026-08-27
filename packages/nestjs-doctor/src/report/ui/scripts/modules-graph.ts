@@ -62,175 +62,6 @@ function mgScheduleRedraw() {
 
 // ── Modules graph: layout ──
 /** Groups modules by owning project, keeping first-seen order. */
-function mgBuildClusters(modules) {
-  var order = [], byKey = {};
-  for (var i = 0; i < modules.length; i++) {
-    var key = modules[i].project || "";
-    if (!byKey[key]) {
-      byKey[key] = { key: key, nodes: [], x: 0, y: 0, w: 0, h: 0, innerX: 0, innerY: 0 };
-      order.push(byKey[key]);
-    }
-    byKey[key].nodes.push(modules[i]);
-  }
-  return order;
-}
-
-/** Packs nodes into a compact grid, used when dagre is absent. */
-function mgGridLayout(nodes, gutter) {
-  var cols = Math.max(1, Math.ceil(Math.sqrt(nodes.length)));
-  var cellW = 0, cellH = 0, i;
-  for (i = 0; i < nodes.length; i++) {
-    if (nodes[i].w > cellW) cellW = nodes[i].w;
-    if (nodes[i].h > cellH) cellH = nodes[i].h;
-  }
-  var rows = Math.ceil(nodes.length / cols);
-  for (i = 0; i < nodes.length; i++) {
-    nodes[i].x = (i % cols) * (cellW + gutter) + cellW / 2;
-    nodes[i].y = Math.floor(i / cols) * (cellH + gutter) + cellH / 2;
-  }
-  return {
-    w: cols * cellW + (cols - 1) * gutter,
-    h: rows * cellH + (rows - 1) * gutter
-  };
-}
-
-/** Ranks one cluster from its own origin, with dagre or a grid fallback. */
-function mgLayoutCluster(nodes, edges) {
-  var i;
-  if (nodes.length === 1 || typeof dagre === "undefined") {
-    return mgGridLayout(nodes, 30);
-  }
-
-  var present = {};
-  for (i = 0; i < nodes.length; i++) present[nodes[i].name] = true;
-
-  var g = new dagre.graphlib.Graph();
-  g.setGraph({ rankdir: "TB", nodesep: 26, ranksep: 58, marginx: 0, marginy: 0 });
-  g.setDefaultEdgeLabel(function() { return {}; });
-  for (i = 0; i < nodes.length; i++) {
-    g.setNode(nodes[i].name, { width: nodes[i].w, height: nodes[i].h });
-  }
-
-  var seen = {};
-  for (i = 0; i < edges.length; i++) {
-    var e = edges[i];
-    if (e.from === e.to) continue;
-    if (!present[e.from] || !present[e.to]) continue;
-    var key = e.from + "->" + e.to;
-    if (seen[key]) continue;
-    seen[key] = true;
-    g.setEdge(e.from, e.to);
-  }
-
-  dagre.layout(g);
-
-  var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  for (i = 0; i < nodes.length; i++) {
-    var laid = g.node(nodes[i].name);
-    if (!laid) continue;
-    nodes[i].x = laid.x;
-    nodes[i].y = laid.y;
-    minX = Math.min(minX, laid.x - nodes[i].w / 2);
-    maxX = Math.max(maxX, laid.x + nodes[i].w / 2);
-    minY = Math.min(minY, laid.y - nodes[i].h / 2);
-    maxY = Math.max(maxY, laid.y + nodes[i].h / 2);
-  }
-  if (minX === Infinity) return mgGridLayout(nodes, 30);
-  for (i = 0; i < nodes.length; i++) {
-    nodes[i].x -= minX;
-    nodes[i].y -= minY;
-  }
-  return { w: maxX - minX, h: maxY - minY };
-}
-
-/** Shelf-packs cluster boxes into a roughly square area. */
-function mgPackBoxes(boxes, targetW, gutter) {
-  var x = 0, y = 0, shelfH = 0;
-  for (var i = 0; i < boxes.length; i++) {
-    var box = boxes[i];
-    if (x > 0 && x + box.w > targetW) {
-      x = 0;
-      y += shelfH + gutter;
-      shelfH = 0;
-    }
-    box.x = x;
-    box.y = y;
-    x += box.w + gutter;
-    if (box.h > shelfH) shelfH = box.h;
-  }
-}
-
-/**
- * Lays every module out inside its project container, then packs the
- * containers. Nodes must already carry w and h.
- */
-function mgComputeLayout(modules, edges) {
-  var GUTTER = 64, PAD = 20, HEADER = 26;
-  var clusters = mgBuildClusters(modules);
-  var i, j;
-
-  for (i = 0; i < clusters.length; i++) {
-    var c = clusters[i];
-    var header = c.key ? HEADER : 0;
-    var size = mgLayoutCluster(c.nodes, edges);
-    c.innerX = PAD;
-    c.innerY = PAD + header;
-    c.header = header;
-    c.w = size.w + PAD * 2;
-    c.h = size.h + PAD * 2 + header;
-  }
-
-  clusters.sort(function(a, b) { return b.h - a.h || b.w - a.w; });
-
-  var area = 0;
-  for (i = 0; i < clusters.length; i++) area += clusters[i].w * clusters[i].h;
-  var targetW = Math.max(1000, Math.sqrt(area) * 1.7);
-  mgPackBoxes(clusters, targetW, GUTTER);
-
-  for (i = 0; i < clusters.length; i++) {
-    var box = clusters[i];
-    for (j = 0; j < box.nodes.length; j++) {
-      box.nodes[j].x += box.x + box.innerX;
-      box.nodes[j].y += box.y + box.innerY;
-    }
-  }
-  return clusters;
-}
-
-/** Maps each module to the modules that import it. */
-function mgReverseIndex(edges) {
-  var idx = {};
-  for (var i = 0; i < edges.length; i++) {
-    var e = edges[i];
-    if (!idx[e.to]) idx[e.to] = [];
-    if (idx[e.to].indexOf(e.from) < 0) idx[e.to].push(e.from);
-  }
-  return idx;
-}
-
-/** Every module that transitively imports this one, counted per project. */
-function mgBlastRadius(name, reverseIndex, projectOf) {
-  var seen = {};
-  seen[name] = true;
-  var queue = [name], names = [], byProject = {}, projectCount = 0;
-  while (queue.length > 0) {
-    var cur = queue.shift();
-    var incoming = reverseIndex[cur] || [];
-    for (var i = 0; i < incoming.length; i++) {
-      var src = incoming[i];
-      if (seen[src]) continue;
-      seen[src] = true;
-      names.push(src);
-      queue.push(src);
-      var p = projectOf(src) || "";
-      if (byProject[p] === undefined) { byProject[p] = 0; projectCount++; }
-      byProject[p]++;
-    }
-  }
-  names.sort();
-  return { names: names, byProject: byProject, projectCount: projectCount };
-}
-
 // ── Modules graph: joins into the other payloads ──
 function mgProvidersOf(moduleName) {
   var out = [];
@@ -378,8 +209,8 @@ function mgBuild() {
     });
   }
 
-  mgImporters = mgReverseIndex(allEdges);
-  mgClusters = mgComputeLayout(mgNodes, allEdges);
+  mgImporters = RPT.reverseIndex(allEdges);
+  mgClusters = RPT.computeLayout(mgNodes, allEdges, typeof dagre === "undefined" ? undefined : dagre);
 }
 
 // ── Modules graph: camera ──
@@ -1410,7 +1241,7 @@ function mgUsedByHtml(n) {
 }
 
 function mgBlastHtml(n) {
-  var blast = mgBlastRadius(n.name, mgImporters, function(name) {
+  var blast = RPT.blastRadius(n.name, mgImporters, function(name) {
     var node = mgNodeMap[name];
     return node ? node.project : "";
   });

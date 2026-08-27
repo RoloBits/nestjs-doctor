@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { getReportScripts } from "../../src/report/ui/scripts.js";
-import { EMPTY_ARTIFACT_JSON as EMPTY } from "./report-artifact-fixture.js";
+import {
+	blastRadius,
+	computeLayout,
+	reverseIndex,
+} from "../../src/report/ui/browser/module-layout.js";
 
 interface ModuleNode {
 	h: number;
@@ -21,28 +24,6 @@ interface Cluster {
 	w: number;
 	x: number;
 	y: number;
-}
-
-interface Blast {
-	byProject: Record<string, number>;
-	names: string[];
-	projectCount: number;
-}
-
-interface LayoutApi {
-	mgBlastRadius: (
-		name: string,
-		reverseIndex: Record<string, string[]>,
-		projectOf: (n: string) => string
-	) => Blast;
-	mgBuildClusters: (modules: ModuleNode[]) => Cluster[];
-	mgComputeLayout: (
-		modules: ModuleNode[],
-		edges: Array<{ from: string; to: string }>
-	) => Cluster[];
-	mgReverseIndex: (
-		edges: Array<{ from: string; to: string }>
-	) => Record<string, string[]>;
 }
 
 /** Fake dagre that ranks nodes along a diagonal, enough to exercise packing. */
@@ -80,31 +61,6 @@ const fakeDagre = {
 		// Positions are assigned in setNode.
 	},
 };
-
-/**
- * Pulls the module-graph layout functions out of the emitted script and runs
- * them. The report has no DOM harness, so this executes the real emitted
- * source rather than a copy of it.
- */
-function loadLayout(dagreImpl: unknown): LayoutApi {
-	const scripts = getReportScripts(EMPTY);
-	const start = scripts.indexOf("function mgBuildClusters");
-	const end = scripts.indexOf("function mgProvidersOf");
-	if (start < 0 || end <= start) {
-		throw new Error("layout functions not found in the emitted report script");
-	}
-	const factory = new Function(
-		"dagre",
-		`${scripts.slice(start, end)}
-		return {
-			mgBuildClusters: mgBuildClusters,
-			mgComputeLayout: mgComputeLayout,
-			mgReverseIndex: mgReverseIndex,
-			mgBlastRadius: mgBlastRadius
-		};`
-	);
-	return factory(dagreImpl) as LayoutApi;
-}
 
 function overlaps(
 	a: { h: number; w: number; x: number; y: number },
@@ -179,15 +135,13 @@ function buildMonorepo(): {
 
 describe("module graph clustered layout", () => {
 	it("survives a project with no modules", () => {
-		const api = loadLayout(fakeDagre);
-		expect(api.mgComputeLayout([], [])).toEqual([]);
-		expect(api.mgReverseIndex([])).toEqual({});
+		expect(computeLayout([], [], fakeDagre)).toEqual([]);
+		expect(reverseIndex([])).toEqual({});
 	});
 
 	it("puts every module in its project's cluster", () => {
-		const api = loadLayout(fakeDagre);
 		const { modules, edges } = buildMonorepo();
-		const clusters = api.mgComputeLayout(modules, edges);
+		const clusters = computeLayout(modules, edges, fakeDagre);
 
 		expect(clusters.map((c) => c.key).sort()).toEqual([
 			"api",
@@ -203,18 +157,16 @@ describe("module graph clustered layout", () => {
 	});
 
 	it("keeps clusters and modules from overlapping", () => {
-		const api = loadLayout(fakeDagre);
 		const { modules, edges } = buildMonorepo();
-		const clusters = api.mgComputeLayout(modules, edges);
+		const clusters = computeLayout(modules, edges, fakeDagre);
 
 		expect(findClusterOverlap(clusters)).toBeNull();
 		expect(findNodeOverlap(modules)).toBeNull();
 	});
 
 	it("keeps every module inside its own container", () => {
-		const api = loadLayout(fakeDagre);
 		const { modules, edges } = buildMonorepo();
-		const clusters = api.mgComputeLayout(modules, edges);
+		const clusters = computeLayout(modules, edges, fakeDagre);
 
 		for (const cluster of clusters) {
 			for (const node of cluster.nodes) {
@@ -224,23 +176,23 @@ describe("module graph clustered layout", () => {
 	});
 
 	it("still separates everything with no dagre on the page", () => {
-		const api = loadLayout(undefined);
 		const { modules, edges } = buildMonorepo();
-		const clusters = api.mgComputeLayout(modules, edges);
+		const clusters = computeLayout(modules, edges, undefined);
 
 		expect(findClusterOverlap(clusters)).toBeNull();
 		expect(findNodeOverlap(modules)).toBeNull();
 	});
 
 	it("gives a single-project scan one unlabelled cluster with no header", () => {
-		const api = loadLayout(fakeDagre);
 		const modules: ModuleNode[] = [
 			{ name: "AppModule", x: 0, y: 0, w: 140, h: 40 },
 			{ name: "UsersModule", x: 0, y: 0, w: 140, h: 40 },
 		];
-		const clusters = api.mgComputeLayout(modules, [
-			{ from: "AppModule", to: "UsersModule" },
-		]);
+		const clusters = computeLayout(
+			modules,
+			[{ from: "AppModule", to: "UsersModule" }],
+			fakeDagre
+		);
 
 		expect(clusters).toHaveLength(1);
 		expect(clusters[0].key).toBe("");
@@ -251,8 +203,7 @@ describe("module graph clustered layout", () => {
 
 describe("module graph blast radius", () => {
 	it("collapses duplicate import edges", () => {
-		const api = loadLayout(fakeDagre);
-		const index = api.mgReverseIndex([
+		const index = reverseIndex([
 			{ from: "a", to: "c" },
 			{ from: "a", to: "c" },
 			{ from: "b", to: "c" },
@@ -261,13 +212,12 @@ describe("module graph blast radius", () => {
 	});
 
 	it("counts transitive dependents per project", () => {
-		const api = loadLayout(fakeDagre);
 		const { modules, edges } = buildMonorepo();
 		const projectOf = (name: string) =>
 			modules.find((m) => m.name === name)?.project ?? "";
-		const blast = api.mgBlastRadius(
+		const blast = blastRadius(
 			"shared/CoreModule",
-			api.mgReverseIndex(edges),
+			reverseIndex(edges),
 			projectOf
 		);
 
@@ -282,11 +232,10 @@ describe("module graph blast radius", () => {
 	});
 
 	it("reports an empty radius for a module nothing imports", () => {
-		const api = loadLayout(fakeDagre);
 		const { edges } = buildMonorepo();
-		const blast = api.mgBlastRadius(
+		const blast = blastRadius(
 			"tools/ScriptsModule",
-			api.mgReverseIndex(edges),
+			reverseIndex(edges),
 			() => "tools"
 		);
 
@@ -295,10 +244,9 @@ describe("module graph blast radius", () => {
 	});
 
 	it("terminates on a cycle instead of looping", () => {
-		const api = loadLayout(fakeDagre);
-		const blast = api.mgBlastRadius(
+		const blast = blastRadius(
 			"A",
-			api.mgReverseIndex([
+			reverseIndex([
 				{ from: "A", to: "B" },
 				{ from: "B", to: "A" },
 			]),
