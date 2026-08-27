@@ -1,8 +1,4 @@
-interface SelectOption {
-	label: string;
-	selected?: boolean;
-	value: string;
-}
+import { type SelectOption, select } from "../atoms/select.js";
 
 interface SelectFieldOptions {
 	id: string;
@@ -11,7 +7,7 @@ interface SelectFieldOptions {
 	options: SelectOption[];
 }
 
-// Renders a labelled `<select>` row in the Rule Lab form.
+// Pairs a label with a select inside the Rule Lab's field wrapper.
 export function selectField({
 	id,
 	label,
@@ -19,18 +15,10 @@ export function selectField({
 	indent = 8,
 }: SelectFieldOptions): string {
 	const pad = " ".repeat(indent);
-	const rendered = options
-		.map(
-			(o) =>
-				`${pad}    <option value="${o.value}"${o.selected ? " selected" : ""}>${o.label}</option>`
-		)
-		.join("\n");
 	return [
 		`${pad}<div class="playground-field">`,
 		`${pad}  <label for="${id}">${label}</label>`,
-		`${pad}  <select id="${id}">`,
-		rendered,
-		`${pad}  </select>`,
+		select({ id, options, indent: indent + 2 }),
 		`${pad}</div>`,
 	].join("\n");
 }

@@ -1,4 +1,4 @@
-import { ICONS, type IconName } from "./icons.js";
+import { ICONS, type IconName } from "./icon.js";
 
 interface IconButtonOptions {
 	ariaLabel?: string;

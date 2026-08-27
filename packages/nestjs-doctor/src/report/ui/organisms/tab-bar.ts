@@ -1,4 +1,4 @@
-import { tabButton } from "../components/tab-button.js";
+import { tabButton } from "../atoms/tab-button.js";
 
 export const TAB_BAR = `
 <!-- ── Header Row 2 (Tab bar) ── -->

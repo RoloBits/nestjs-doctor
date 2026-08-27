@@ -1,4 +1,4 @@
-import { selectField } from "../components/field.js";
+import { selectField } from "../molecules/select-field.js";
 
 export const TAB_LAB = `
 <!-- ── Tab: Lab ── -->

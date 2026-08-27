@@ -1,5 +1,5 @@
-import { iconButton } from "../components/button.js";
-import { pillGroup } from "../components/pill.js";
+import { iconButton } from "../atoms/button.js";
+import { pillGroup } from "../molecules/pill-group.js";
 
 export const TAB_DIAGNOSIS = `
 <!-- ── Tab: Diagnosis ── -->

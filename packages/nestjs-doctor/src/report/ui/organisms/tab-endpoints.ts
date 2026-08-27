@@ -1,4 +1,4 @@
-import { iconButton } from "../components/button.js";
+import { iconButton } from "../atoms/button.js";
 
 export const TAB_ENDPOINTS = `
 <!-- ── Tab: Endpoints ── -->

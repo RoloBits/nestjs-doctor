@@ -1,5 +1,5 @@
-import { iconButton } from "../components/button.js";
-import { legend } from "../components/legend.js";
+import { iconButton } from "../atoms/button.js";
+import { legend } from "../molecules/legend.js";
 
 export const TAB_MODULES_GRAPH = `
 <!-- ── Tab: Modules Graph ── -->
