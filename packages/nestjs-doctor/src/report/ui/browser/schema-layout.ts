@@ -411,3 +411,85 @@ export function nodeHeight(
 	const hidden = node.entity.columns.length - visible;
 	return 24 + visible * 16 + (hidden > 0 ? 16 : 0) + 8;
 }
+
+// Focused mode: the selected table centred, neighbours on an ellipse around
+// it (or beside it when there are only one or two).
+export function computeStarLayout(
+	nodes: SchemaLayoutNode[],
+	centerName: string,
+	width: number,
+	height: number
+): void {
+	const center = nodes.find((n) => n.name === centerName);
+	if (!center) {
+		return;
+	}
+	const cx = width / 2;
+	const cy = height / 2;
+	center.x = cx;
+	center.y = cy;
+
+	const neighbors = nodes.filter((n) => n.name !== centerName);
+	if (neighbors.length === 0) {
+		return;
+	}
+
+	let maxW = 180;
+	let maxH = 52;
+	for (const nd of nodes) {
+		if (nd.w > maxW) {
+			maxW = nd.w;
+		}
+		if (nd.h > maxH) {
+			maxH = nd.h;
+		}
+	}
+
+	const isLandscape = width >= height;
+
+	if (neighbors.length === 1) {
+		if (isLandscape) {
+			neighbors[0].x = cx + maxW + 100;
+			neighbors[0].y = cy;
+		} else {
+			neighbors[0].x = cx;
+			neighbors[0].y = cy + maxH + 80;
+		}
+		return;
+	}
+
+	if (neighbors.length === 2) {
+		if (isLandscape) {
+			const hGap = maxW + 100;
+			neighbors[0].x = cx - hGap;
+			neighbors[0].y = cy;
+			neighbors[1].x = cx + hGap;
+			neighbors[1].y = cy;
+		} else {
+			const vGap = maxH + 80;
+			neighbors[0].x = cx;
+			neighbors[0].y = cy - vGap;
+			neighbors[1].x = cx;
+			neighbors[1].y = cy + vGap;
+		}
+		return;
+	}
+
+	let rx = width * 0.4 - maxW / 2;
+	let ry = height * 0.4 - maxH / 2;
+	const minR = maxW / 2 + maxH / 2 + 40;
+	if (rx < minR) {
+		rx = minR;
+	}
+	if (ry < minR) {
+		ry = minR;
+	}
+
+	const startAngle = isLandscape ? 0 : -Math.PI / 2;
+
+	for (let i = 0; i < neighbors.length; i++) {
+		const angle = startAngle + (2 * Math.PI * i) / neighbors.length;
+		neighbors[i].x = cx + rx * Math.cos(angle);
+		neighbors[i].y = cy + ry * Math.sin(angle);
+	}
+}
