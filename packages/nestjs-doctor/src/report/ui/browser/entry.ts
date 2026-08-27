@@ -14,6 +14,7 @@ export {
 export {
 	computeComponents,
 	computeOverviewLayout,
+	computeStarLayout,
 	layoutComponent,
 	layoutIsolatedBlock,
 	nodeHeight,

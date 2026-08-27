@@ -240,69 +240,7 @@ function sComputeOverviewLayout() {
 }
 
 function sComputeStarLayout(centerName) {
-  var center = sNodeMap[centerName];
-  if (!center) return;
-  var cx = sW / 2;
-  var cy = sH / 2;
-  center.x = cx;
-  center.y = cy;
-
-  var neighbors = [];
-  for (var i = 0; i < sNodes.length; i++) {
-    if (sNodes[i].name !== centerName) neighbors.push(sNodes[i]);
-  }
-  if (neighbors.length === 0) return;
-
-  var maxW = 180;
-  var maxH = 52;
-  for (var i = 0; i < sNodes.length; i++) {
-    if (sNodes[i].w > maxW) maxW = sNodes[i].w;
-    if (sNodes[i].h > maxH) maxH = sNodes[i].h;
-  }
-
-  var isLandscape = sW >= sH;
-
-  if (neighbors.length === 1) {
-    if (isLandscape) {
-      neighbors[0].x = cx + maxW + 100;
-      neighbors[0].y = cy;
-    } else {
-      neighbors[0].x = cx;
-      neighbors[0].y = cy + maxH + 80;
-    }
-    return;
-  }
-
-  if (neighbors.length === 2) {
-    if (isLandscape) {
-      var hGap = maxW + 100;
-      neighbors[0].x = cx - hGap;
-      neighbors[0].y = cy;
-      neighbors[1].x = cx + hGap;
-      neighbors[1].y = cy;
-    } else {
-      var vGap = maxH + 80;
-      neighbors[0].x = cx;
-      neighbors[0].y = cy - vGap;
-      neighbors[1].x = cx;
-      neighbors[1].y = cy + vGap;
-    }
-    return;
-  }
-
-  var rx = sW * 0.4 - maxW / 2;
-  var ry = sH * 0.4 - maxH / 2;
-  var minR = maxW / 2 + maxH / 2 + 40;
-  if (rx < minR) rx = minR;
-  if (ry < minR) ry = minR;
-
-  var startAngle = isLandscape ? 0 : -Math.PI / 2;
-
-  for (var i = 0; i < neighbors.length; i++) {
-    var angle = startAngle + (2 * Math.PI * i) / neighbors.length;
-    neighbors[i].x = cx + rx * Math.cos(angle);
-    neighbors[i].y = cy + ry * Math.sin(angle);
-  }
+  RPT.computeStarLayout(sNodes, centerName, sW, sH);
 }
 
 /** Columns drawn per table before the "+N more" line, unless all are shown. */
