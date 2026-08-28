@@ -65,7 +65,9 @@
   },
   "devDependencies": {
     "@types/react": "^19",
+    "@types/react-dom": "^19",
     "jsdom": "^26.1.0",
+    "react-dom": "19.2.3",
     "tsdown": "^0.20.3",
     "vitest": "^3.0.0"
   },

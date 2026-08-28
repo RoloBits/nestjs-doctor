@@ -132,7 +132,7 @@ function switchTab(name) {
 
 
   if (name === "diagnosis" && !diagnosisRendered) { renderDiagnosis(); diagnosisRendered = true; }
-  if (name === "summary" && !summaryRendered) { renderSummary(); summaryRendered = true; }
+  if (name === "summary" && !summaryRendered) { REPORT_APP.renderSummary(REPORT); summaryRendered = true; }
   if (name === "lab" && !labRendered) { renderLab(); labRendered = true; }
   if (name === "schema" && !schemaRendered) { renderSchema(); schemaRendered = true; }
   if (name === "endpoints" && !endpointsRendered) { renderEndpoints(); endpointsRendered = true; }

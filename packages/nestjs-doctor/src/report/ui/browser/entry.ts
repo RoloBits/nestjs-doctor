@@ -48,13 +48,6 @@ export {
 export { getScoreColor, makeScoreRingSvg } from "./score-ring.js";
 export { buildSharedJson, isNotScored, scoredCount } from "./share-payload.js";
 export {
-	card,
-	infoCard,
-	infoItem,
-	statCard,
-	statRow,
-} from "./summary-card.js";
-export {
 	formatMs,
 	hookChipHtml,
 	traceNode,
