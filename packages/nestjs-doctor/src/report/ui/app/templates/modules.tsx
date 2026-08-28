@@ -1,4 +1,5 @@
 import {
+	type CSSProperties,
 	type MouseEvent as ReactMouseEvent,
 	type ReactNode,
 	useEffect,
@@ -30,6 +31,8 @@ import {
 	ModulesCanvas,
 } from "../lib/modules-canvas.js";
 import {
+	axisStep,
+	axisTicks,
 	formatMs,
 	hookChipHtml,
 	phaseParts,
@@ -928,6 +931,31 @@ function InfoPop({
 	);
 }
 
+function TraceAxis({ maxMs }: { maxMs: number }) {
+	if (maxMs <= 0) {
+		return <div id="mg-trace-axis" />;
+	}
+	return (
+		<div id="mg-trace-axis">
+			<span className="mg-trace-label">
+				<span className="mg-axis-zero">0</span>
+			</span>
+			<span className="mg-trace-track">
+				{axisTicks(maxMs).map((tick) => (
+					<span
+						className="mg-axis-tick"
+						key={tick}
+						style={{ left: `${((tick / maxMs) * 100).toFixed(2)}%` }}
+					>
+						{formatMs(tick)}
+					</span>
+				))}
+				<span className="mg-axis-end">{formatMs(maxMs)}</span>
+			</span>
+		</div>
+	);
+}
+
 // The trace body keeps the shipped renderer: rows come from traceRowHtml and
 // expansion splices child rows in place, exactly like the script chunk did.
 function TraceBody({
@@ -1281,6 +1309,16 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 	const nodeMap = controller ? controller.nodeMap : {};
 	const importers = controller ? controller.importers : {};
 	const selected = selectedName ? (nodeMap[selectedName] ?? null) : null;
+	const traceMod =
+		selected &&
+		!selected.external &&
+		graph.timingsAvailable &&
+		selected.initTimings?.length
+			? selected
+			: null;
+	const traceMax = traceMod?.initTimings
+		? Math.max((traceMod.initTimings[0] as { initTime: number }).initTime, 0)
+		: 0;
 
 	const byProject: Record<string, MgNode[]> = {};
 	for (const n of nodes) {
@@ -1748,6 +1786,14 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 					className={dockOpen ? "open" : undefined}
 					data-active={dockActive}
 					id="mg-dock"
+					style={
+						{
+							"--mg-tick":
+								traceMax > 0
+									? `${((axisStep(traceMax) / traceMax) * 100).toFixed(3)}%`
+									: "200%",
+						} as CSSProperties
+					}
 				>
 					{/* biome-ignore lint/a11y/noStaticElementInteractions: the whole header is the click target, as in the report's CSS */}
 					{/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: the whole header is the click target, as in the report's CSS */}
@@ -1842,6 +1888,7 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 						)}
 					</div>
 					<PhasesStrip graph={graph} />
+					<TraceAxis maxMs={traceMax} />
 					<TraceBody
 						graph={graph}
 						node={selected}

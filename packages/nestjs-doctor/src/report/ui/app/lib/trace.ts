@@ -179,10 +179,14 @@ function traceBarHtml(
 ): string {
 	const frac = Math.max(0, Math.min(1, initTime / traceMax));
 	const width = (frac * 100).toFixed(2);
+	const inline =
+		`<span class="mg-trace-inline${frac > 0.8 ? " inside" : ""}"` +
+		` style="left:${width}%">${escapeHtml(formatMs(initTime))}</span>`;
 	if (hollowTip) {
 		return (
 			`<span class="mg-trace-track" data-tip="${escapeHtml(`${formatMs(initTime)} total — ${hollowTip}`)}">` +
 			`<span class="mg-trace-bar" style="width:${width}%;background:transparent;box-shadow:inset 0 0 0 1px rgba(${traceColor(type)},0.5)"></span>` +
+			inline +
 			"</span>"
 		);
 	}
@@ -211,8 +215,33 @@ function traceBarHtml(
 		(selfFrac > 0.002
 			? `<span class="mg-trace-self" style="left:${((frac - selfFrac) * 100).toFixed(2)}%;width:${(selfFrac * 100).toFixed(2)}%"></span>`
 			: "") +
+		inline +
 		"</span>"
 	);
+}
+
+// Round tick spacing so axis cuts land on 1/2/5-style values.
+export function axisStep(maxMs: number): number {
+	const raw = maxMs / 4;
+	const pow = 10 ** Math.floor(Math.log10(Math.max(raw, 0.001)));
+	for (const m of [5, 2, 1]) {
+		if (m * pow <= raw) {
+			return m * pow;
+		}
+	}
+	return pow;
+}
+
+export function axisTicks(maxMs: number): number[] {
+	if (maxMs <= 0) {
+		return [];
+	}
+	const step = axisStep(maxMs);
+	const ticks: number[] = [];
+	for (let t = step; t < maxMs * 0.92; t += step) {
+		ticks.push(t);
+	}
+	return ticks;
 }
 
 export function traceRowHtml(
@@ -278,7 +307,6 @@ export function traceRowHtml(
 			node.type,
 			mark ? mark.bar : null
 		) +
-		`<span class="mg-trace-time">${escapeHtml(formatMs(node.initTime))}</span>` +
 		"</div>"
 	);
 }

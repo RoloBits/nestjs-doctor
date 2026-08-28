@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+	axisStep,
+	axisTicks,
 	formatMs,
 	type TraceMap,
 	traceRowHtml,
@@ -32,6 +34,35 @@ describe("traceRowHtml", () => {
 	it("never marks a top-level row as reused", () => {
 		expect(row("ta", 0, "ta")).not.toContain("mg-trace-reused");
 		expect(row("tb", 0, "tb")).not.toContain("mg-trace-reused");
+	});
+
+	it("labels every bar with its time inline", () => {
+		expect(row("ta", 0, "ta")).toContain(
+			`<span class="mg-trace-inline" style="left:0.90%">&lt;1ms</span>`
+		);
+		expect(row("tb", 0, "tb")).toContain("mg-trace-inline");
+	});
+
+	it("moves the label inside the bar when it nearly fills the track", () => {
+		expect(traceRowHtml(trace, 67, "tb", 0, "tb")).toContain(
+			"mg-trace-inline inside"
+		);
+	});
+});
+
+describe("axis ticks", () => {
+	it("cuts at round steps below the maximum", () => {
+		expect(axisStep(463)).toBe(100);
+		expect(axisTicks(463)).toEqual([100, 200, 300, 400]);
+	});
+
+	it("scales down for fast boots", () => {
+		expect(axisStep(1.9)).toBe(0.2);
+		expect(axisTicks(1.9)[0]).toBe(0.2);
+	});
+
+	it("returns nothing without a positive maximum", () => {
+		expect(axisTicks(0)).toEqual([]);
 	});
 });
 
