@@ -62,8 +62,12 @@
 #mg-trace-phases { display: none; padding: 8px 14px 2px; border-top: 1px solid var(--border); }
 #mg-dock.open[data-active="trace"] #mg-trace-phases:not(:empty) { display: block; }
 #mg-trace-phases .mg-trace-note { padding: 4px 0 0; }
-.mg-phase-strip { display: flex; gap: 2px; height: 10px; margin-bottom: 4px; }
-.mg-phase-seg { border-radius: 2px; min-width: 2px; }
+.mg-phase-strip { display: flex; gap: 2px; height: 20px; margin-bottom: 4px; }
+.mg-phase-seg { border-radius: 3px; min-width: 3px; display: flex; align-items: center; padding: 0 7px; overflow: hidden; }
+.mg-phase-label { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0.02em; }
+.mg-phase-ms { color: var(--text-dim); }
+.mg-phase-note { display: flex; justify-content: space-between; gap: 12px; }
+.mg-phase-total { color: var(--text); white-space: nowrap; }
 #mg-trace-body {
   display: none; overflow-y: auto;
   border-top: 1px solid var(--border); padding: 6px 0;
