@@ -25,6 +25,13 @@ import { SummaryTab } from "./templates/summary.js";
 
 const roots = new Map<string, Root>();
 
+/** Host-supplied tweaks for embedding the report outside the CLI page. */
+export interface ChromeOptions {
+	hiddenTabs?: string[];
+	hideShare?: boolean;
+	onLoadAnother?: () => void;
+}
+
 // Renders synchronously so callers can read the DOM right after, like the
 // string renderers they replace.
 function mount(containerId: string, node: ReactNode): void {
@@ -90,9 +97,29 @@ export function labOpened(): void {
 	labOpenedImpl();
 }
 
-export function renderChrome(report: ReportArtifact): void {
-	mount("header-row1", <HeaderRow report={report} />);
-	mount("header-row2", <TabBar report={report} />);
+export function renderChrome(
+	report: ReportArtifact,
+	options: ChromeOptions = {}
+): void {
+	mount(
+		"header-row1",
+		<HeaderRow
+			hideShare={options.hideShare}
+			onLoadAnother={options.onLoadAnother}
+			report={report}
+		/>
+	);
+	mount(
+		"header-row2",
+		<TabBar hiddenTabs={options.hiddenTabs} report={report} />
+	);
+}
+
+export function unmountAll(): void {
+	for (const root of roots.values()) {
+		root.unmount();
+	}
+	roots.clear();
 }
 
 export function setActiveTab(name: string): void {

@@ -7,6 +7,7 @@ import type {
 	Diagnostic,
 } from "../../src/common/diagnostic.js";
 import type { DiagnoseResult } from "../../src/common/result.js";
+import { SHARED_REPORT_VERSION } from "../../src/common/share.js";
 import { buildReportArtifact } from "../../src/report/artifact.js";
 import {
 	buildSharedReport,
@@ -18,7 +19,6 @@ import {
 	parseShareSections,
 	SCHEMA_SECTION,
 	SCORE_SECTION,
-	SHARED_REPORT_VERSION,
 	writeSharedReportFile,
 } from "../../src/report/share.js";
 

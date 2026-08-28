@@ -119,3 +119,33 @@ it("renders every tab into a DOM", () => {
 		expect(detail).toContain(variant);
 	}
 });
+
+it("renderChrome host options hide tabs and share and add load file", () => {
+	const dom = new JSDOM(`<body>${getReportHtml()}</body>`, {
+		runScripts: "outside-only",
+		pretendToBeVisual: true,
+	});
+	const win = dom.window as unknown as typeof globalThis & Window;
+	stubCanvas(win);
+	win.eval(getReportScripts(RICH_ARTIFACT_JSON));
+
+	// Baseline: the CLI page keeps its share button and every tab.
+	expect(win.document.getElementById("nav-share")).not.toBeNull();
+	expect(win.document.getElementById("nav-load")).toBeNull();
+	const tabStyle = (tab: string) =>
+		(win.document.querySelector(`[data-tab="${tab}"]`) as HTMLElement).style
+			.display;
+	expect(tabStyle("modules")).not.toBe("none");
+
+	(win as Record<string, unknown>).__report = JSON.parse(RICH_ARTIFACT_JSON);
+	(win as Record<string, unknown>).__onLoad = () => undefined;
+	win.eval(
+		"REPORT_APP.renderChrome(__report," +
+			" {hiddenTabs: ['modules', 'lab'], hideShare: true, onLoadAnother: __onLoad})"
+	);
+	expect(win.document.getElementById("nav-share")).toBeNull();
+	expect(win.document.getElementById("nav-load")).not.toBeNull();
+	expect(tabStyle("modules")).toBe("none");
+	expect(tabStyle("lab")).toBe("none");
+	expect(tabStyle("summary")).not.toBe("none");
+});

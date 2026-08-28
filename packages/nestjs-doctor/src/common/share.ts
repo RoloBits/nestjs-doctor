@@ -8,6 +8,9 @@ import type { DiagnoseSummary, ProjectInfo, Score } from "./result.js";
 import type { SchemaRelation, SerializedSchemaEntity } from "./schema.js";
 import type { ScopeInfo } from "./scope.js";
 
+/** Version of the shared payload shape, stamped on every shared file. */
+export const SHARED_REPORT_VERSION = 1;
+
 /** A section the share flow can offer, with the count shown beside it. */
 export interface ShareSection {
 	count: number;

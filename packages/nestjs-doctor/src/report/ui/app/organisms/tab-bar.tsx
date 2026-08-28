@@ -87,7 +87,13 @@ function switchTab(name: string): void {
 	(globalThis as { switchTab?: (name: string) => void }).switchTab?.(name);
 }
 
-export function TabBar({ report }: { report: ReportArtifact }) {
+export function TabBar({
+	hiddenTabs,
+	report,
+}: {
+	hiddenTabs?: string[];
+	report: ReportArtifact;
+}) {
 	const [active, setActive] = useState("summary");
 	const [withNotScored, setWithNotScored] = useState(false);
 	useLayoutEffect(() => {
@@ -105,6 +111,9 @@ export function TabBar({ report }: { report: ReportArtifact }) {
 	).length;
 
 	const hidden = (def: TabDef): boolean => {
+		if (hiddenTabs?.includes(def.tab)) {
+			return true;
+		}
 		if (def.tab === "schema") {
 			return report.schema.entities.length === 0;
 		}
