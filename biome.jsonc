@@ -29,6 +29,8 @@
   "files": {
     "includes": [
       "!!**/tests/fixtures",
+      // Generated demo artifact served by the report viewer; stays minified.
+      "!!**/public/demo-report.json",
       "!!**/.changeset",
       // Hand-formatted stylesheet split into cascade-ordered sheets.
       // Formatting rewrites it; noDescendingSpecificity fixes reorder rules.

@@ -23,7 +23,9 @@ import {
 	unmountAll,
 } from "nestjs-doctor/report-ui";
 import posthog from "posthog-js";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+
+const NO_HIDDEN_TABS: string[] = [];
 
 const TAB_NAMES = [
 	"summary",
@@ -61,7 +63,8 @@ interface ReportGlobals {
 }
 
 type ViewerState =
-	| { phase: "empty"; error?: string }
+	| { phase: "picker"; error?: string }
+	| { phase: "example" }
 	| {
 			phase: "loaded";
 			artifact: ReportArtifact;
@@ -82,11 +85,13 @@ function track(event: string): void {
 
 function LoadedReport({
 	artifact,
+	demo,
 	hiddenTabs,
 	shared,
 	onLoadAnother,
 }: {
 	artifact: ReportArtifact;
+	demo?: boolean;
 	hiddenTabs: string[];
 	shared: boolean;
 	onLoadAnother: () => void;
@@ -162,7 +167,11 @@ function LoadedReport({
 			}
 			switchTab(initialTab(artifact, hiddenTabs));
 			if (posthog.__loaded) {
-				posthog.capture("report_opened", { viewer: "web", shared });
+				posthog.capture("report_opened", {
+					viewer: "web",
+					shared,
+					demo: demo === true,
+				});
 			}
 		})();
 
@@ -174,7 +183,7 @@ function LoadedReport({
 			g.__ndTrack = undefined;
 			g.dagre = undefined;
 		};
-	}, [artifact, hiddenTabs, shared, onLoadAnother]);
+	}, [artifact, hiddenTabs, shared, demo, onLoadAnother]);
 
 	return (
 		<>
@@ -193,15 +202,223 @@ function LoadedReport({
 	);
 }
 
+function PickerModal({
+	error,
+	onClose,
+	onFile,
+}: {
+	error?: string;
+	onClose?: () => void;
+	onFile: (file: File) => void;
+}) {
+	useEffect(() => {
+		if (!onClose) {
+			return;
+		}
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key === "Escape") {
+				onClose();
+			}
+		};
+		document.addEventListener("keydown", onKey);
+		return () => document.removeEventListener("keydown", onKey);
+	}, [onClose]);
+
+	return (
+		// The report page's own stylesheet resets margins on every element, so
+		// the modal styles itself inline to stay independent of it.
+		// biome-ignore lint/a11y/noStaticElementInteractions: clicking the backdrop reveals the example
+		// biome-ignore lint/a11y/noNoninteractiveElementInteractions: clicking the backdrop reveals the example
+		// biome-ignore lint/a11y/useKeyWithClickEvents: Escape already closes the overlay
+		<div
+			onClick={(e) => {
+				if (e.target === e.currentTarget) {
+					onClose?.();
+				}
+			}}
+			style={{
+				alignItems: "center",
+				backdropFilter: "blur(2px)",
+				background: "rgba(0,0,0,0.7)",
+				display: "flex",
+				fontFamily:
+					'"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+				inset: 0,
+				justifyContent: "center",
+				padding: 24,
+				position: "fixed",
+				zIndex: 9999,
+			}}
+		>
+			<div
+				style={{
+					background: "#000",
+					border: "1px solid #404040",
+					boxShadow: "0 25px 50px -12px rgba(0,0,0,0.9)",
+					color: "#fff",
+					maxWidth: 576,
+					padding: 32,
+					width: "100%",
+				}}
+			>
+				<p style={{ color: "#737373", fontSize: 12, marginBottom: 24 }}>
+					<a href="/" style={{ color: "#737373", textDecoration: "none" }}>
+						nestjs.doctor
+					</a>
+					<span style={{ margin: "0 8px" }}>/</span>
+					<span style={{ color: "#d4d4d4" }}>report viewer</span>
+				</p>
+				<h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 12 }}>
+					Open a report
+				</h1>
+				<p
+					style={{
+						color: "#a3a3a3",
+						fontSize: 14,
+						lineHeight: 1.6,
+						marginBottom: 16,
+					}}
+				>
+					Drop the shared file a teammate sent you — the download from a
+					report&apos;s <span style={{ color: "#e5e5e5" }}>share</span> button —
+					or write one from the terminal:
+				</p>
+				<pre
+					style={{
+						background: "#0a0a0a",
+						border: "1px solid #262626",
+						color: "#d4d4d4",
+						fontSize: 12,
+						marginBottom: 24,
+						overflowX: "auto",
+						padding: "12px 16px",
+					}}
+				>
+					npx nestjs-doctor@latest . --share-sections score,findings:security
+				</pre>
+				{/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: the label wraps the file input and takes drops */}
+				<label
+					onDragOver={(e) => e.preventDefault()}
+					onDrop={(e) => {
+						e.preventDefault();
+						const file = e.dataTransfer.files[0];
+						if (file) {
+							onFile(file);
+						}
+					}}
+					style={{
+						border: "1px dashed #404040",
+						cursor: "pointer",
+						display: "block",
+						padding: "40px 24px",
+						textAlign: "center",
+					}}
+				>
+					<span style={{ color: "#d4d4d4", display: "block", fontSize: 14 }}>
+						Drop a report file here
+					</span>
+					<span
+						style={{
+							color: "#737373",
+							display: "block",
+							fontSize: 12,
+							marginTop: 8,
+						}}
+					>
+						or click to choose one
+					</span>
+					<input
+						accept=".json,application/json"
+						onChange={(e) => {
+							const file = e.target.files?.[0];
+							if (file) {
+								onFile(file);
+							}
+							e.target.value = "";
+						}}
+						style={{
+							height: 1,
+							opacity: 0,
+							overflow: "hidden",
+							position: "absolute",
+							width: 1,
+						}}
+						type="file"
+					/>
+				</label>
+				{error && (
+					<p style={{ color: "#f87171", fontSize: 14, marginTop: 16 }}>
+						{error}
+					</p>
+				)}
+				{onClose && (
+					<button
+						onClick={onClose}
+						style={{
+							background: "transparent",
+							border: "1px solid #404040",
+							color: "#d4d4d4",
+							cursor: "pointer",
+							display: "block",
+							fontFamily: "inherit",
+							fontSize: 14,
+							marginTop: 24,
+							padding: "10px 16px",
+							textAlign: "center",
+							width: "100%",
+						}}
+						type="button"
+					>
+						or explore the example report behind this window
+					</button>
+				)}
+				<p
+					style={{
+						color: "#525252",
+						fontSize: 12,
+						lineHeight: 1.6,
+						marginTop: 24,
+					}}
+				>
+					Everything is read in your browser and never uploaded. The full report
+					as a file:{" "}
+					<code style={{ color: "#a3a3a3" }}>--format report-json</code>
+				</p>
+			</div>
+		</div>
+	);
+}
+
 export function ReportViewer() {
-	const [state, setState] = useState<ViewerState>({ phase: "empty" });
+	const [state, setState] = useState<ViewerState>({ phase: "picker" });
+	const [demo, setDemo] = useState<ReportArtifact | null>(null);
+	const [fileNonce, setFileNonce] = useState(0);
+
+	useEffect(() => {
+		let cancelled = false;
+		fetch("/demo-report.json")
+			.then((res) => (res.ok ? res.text() : Promise.reject(res.status)))
+			.then((text) => {
+				const parsed = parseReportFile(text);
+				if (!cancelled && parsed.kind === "artifact") {
+					setDemo(parsed.artifact);
+				}
+			})
+			.catch(() => undefined);
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+
+	const openPicker = useCallback(() => setState({ phase: "picker" }), []);
 
 	const openFile = async (file: File) => {
 		const parsed = parseReportFile(await file.text());
 		if (parsed.kind === "error") {
-			setState({ phase: "empty", error: parsed.error });
+			setState({ phase: "picker", error: parsed.error });
 			return;
 		}
+		setFileNonce((n) => n + 1);
 		if (parsed.kind === "shared") {
 			setState({
 				phase: "loaded",
@@ -219,75 +436,35 @@ export function ReportViewer() {
 		});
 	};
 
-	if (state.phase === "loaded") {
-		return (
-			<LoadedReport
-				artifact={state.artifact}
-				hiddenTabs={state.hiddenTabs}
-				onLoadAnother={() => setState({ phase: "empty" })}
-				shared={state.shared}
-			/>
-		);
-	}
-
 	return (
-		<main className="flex min-h-dvh flex-col items-center justify-center bg-black px-6 py-16 font-mono text-white">
-			<div className="w-full max-w-xl">
-				<p className="mb-8 text-neutral-500 text-sm">
-					<a className="hover:text-white" href="/">
-						nestjs.doctor
-					</a>
-					<span className="mx-2">/</span>
-					<span className="text-white">report viewer</span>
-				</p>
-				<h1 className="mb-3 font-semibold text-2xl">Open a report</h1>
-				<p className="mb-8 text-neutral-400 text-sm leading-relaxed">
-					Load a full report (
-					<code className="text-neutral-200">--format report-json</code>) or a
-					shared file downloaded from a report&apos;s share dialog. The file is
-					read in your browser and never uploaded.
-				</p>
-				{/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: the label wraps the file input and takes drops */}
-				<label
-					className="block cursor-pointer border border-neutral-700 border-dashed px-6 py-12 text-center transition-colors hover:border-neutral-400"
-					onDragOver={(e) => e.preventDefault()}
-					onDrop={(e) => {
-						e.preventDefault();
-						const file = e.dataTransfer.files[0];
-						if (file) {
-							openFile(file);
-						}
-					}}
-				>
-					<span className="block text-neutral-300 text-sm">
-						Drop a report file here
-					</span>
-					<span className="mt-2 block text-neutral-500 text-xs">
-						or click to choose one
-					</span>
-					<input
-						accept=".json,application/json"
-						className="sr-only"
-						onChange={(e) => {
-							const file = e.target.files?.[0];
-							if (file) {
-								openFile(file);
-							}
-							e.target.value = "";
-						}}
-						type="file"
+		<div className="min-h-dvh bg-black">
+			{state.phase === "loaded" ? (
+				<LoadedReport
+					artifact={state.artifact}
+					hiddenTabs={state.hiddenTabs}
+					key={`file-${fileNonce}`}
+					onLoadAnother={openPicker}
+					shared={state.shared}
+				/>
+			) : (
+				demo && (
+					<LoadedReport
+						artifact={demo}
+						demo
+						hiddenTabs={NO_HIDDEN_TABS}
+						key="demo"
+						onLoadAnother={openPicker}
+						shared={false}
 					/>
-				</label>
-				{state.error && (
-					<p className="mt-4 text-red-400 text-sm">{state.error}</p>
-				)}
-				<p className="mt-8 text-neutral-600 text-xs leading-relaxed">
-					Generate a report with{" "}
-					<code className="text-neutral-400">
-						npx -y nestjs-doctor@latest . --format report-json
-					</code>
-				</p>
-			</div>
-		</main>
+				)
+			)}
+			{state.phase === "picker" && (
+				<PickerModal
+					error={state.error}
+					onClose={demo ? () => setState({ phase: "example" }) : undefined}
+					onFile={openFile}
+				/>
+			)}
+		</div>
 	);
 }
