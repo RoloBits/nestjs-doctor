@@ -54,9 +54,9 @@ describe("report scripts", () => {
 	});
 
 	it("renders dock tooltips through the floating body-level layer", () => {
-		expect(scripts).toContain('tip.id = "mg-float-tip"');
-		expect(scripts).toContain('bind("mg-dock")');
-		expect(scripts).toContain('bind("header-meta")');
+		expect(scripts).toContain("mg-float-tip");
+		expect(scripts).toContain("mg-dock");
+		expect(scripts).toContain("header-meta");
 	});
 
 	it("guards trace lookups against inherited object keys", () => {

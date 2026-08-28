@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ReportArtifact } from "../../../../common/artifact.js";
 import { TextButton } from "../atoms/button.js";
+import { installFloatTip } from "../lib/float-tip.js";
 import { buildSharedJson, scoredCount } from "../lib/share-payload.js";
 import { formatMs, phaseParts } from "../lib/trace.js";
 import { jumpToSlowestBoot } from "../templates/modules.js";
@@ -178,6 +179,9 @@ export function HeaderRow({
 	report: ReportArtifact;
 }) {
 	const [shareOpen, setShareOpen] = useState(false);
+	useEffect(() => {
+		installFloatTip();
+	}, []);
 	const project = report.project;
 	const boot = bootBadge(report);
 	return (
