@@ -105,8 +105,8 @@ setDiagnosisBadge(false);
 // ── Tab switching ──
 let activeTab = "summary";
 let diagnosisRendered = false;
+let labOpened = false;
 let summaryRendered = false;
-let labRendered = false;
 let schemaRendered = false;
 let endpointsRendered = false;
 let modulesRendered = false;
@@ -133,7 +133,7 @@ function switchTab(name) {
 
   if (name === "diagnosis" && !diagnosisRendered) { REPORT_APP.renderDiagnosis(REPORT, { setDiagnosisBadge: setDiagnosisBadge }); diagnosisRendered = true; }
   if (name === "summary" && !summaryRendered) { REPORT_APP.renderSummary(REPORT); summaryRendered = true; }
-  if (name === "lab" && !labRendered) { renderLab(); labRendered = true; }
+  if (name === "lab" && !labOpened) { REPORT_APP.labOpened(); labOpened = true; }
   if (name === "schema" && !schemaRendered) { REPORT_APP.renderSchema(REPORT); schemaRendered = true; }
   if (name === "endpoints" && !endpointsRendered) { REPORT_APP.renderEndpoints(REPORT); endpointsRendered = true; }
   if (name === "modules") {

@@ -3,7 +3,6 @@ import BROWSER_BUNDLE from "./browser/bundle.iife.js?raw";
 import { BOOT } from "./scripts/boot.js";
 import { bootstrap } from "./scripts/bootstrap.js";
 import { CHROME } from "./scripts/chrome.js";
-import { LAB } from "./scripts/lab.js";
 import { SHARE } from "./scripts/share.js";
 import { SHARED_TREE } from "./scripts/shared-tree.js";
 import { TAB_VISIBILITY } from "./scripts/tab-visibility.js";
@@ -17,7 +16,6 @@ export function getReportScripts(artifactJson: string): string {
 		bootstrap(artifactJson),
 		CHROME,
 		SHARED_TREE,
-		LAB,
 		TAB_VISIBILITY,
 		BOOT,
 		SHARE,

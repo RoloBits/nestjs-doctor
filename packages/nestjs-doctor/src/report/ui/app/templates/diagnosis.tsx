@@ -9,12 +9,14 @@ import {
 import { buildFileTree, compressTree } from "../../browser/tree.js";
 import { TextButton } from "../atoms/button.js";
 import { Icon } from "../atoms/icon.js";
+import { pinExpandBelow } from "../lib/scroll.js";
 import { CheckboxRow } from "../molecules/checkbox-row.js";
 import {
 	CodeViewer,
 	type CodeViewerOptions,
 } from "../molecules/code-viewer.js";
 import { EmptyState } from "../molecules/empty-state.js";
+import { FileHeader } from "../molecules/file-header.js";
 import {
 	type AnnotatedFolder,
 	annotateTree,
@@ -94,70 +96,6 @@ function entryVisible(entry: Entry, filters: Filters): boolean {
 
 function normalizeQuery(query: string): string {
 	return query.trim().toLowerCase();
-}
-
-/** Keeps the below expander at the viewport bottom while the editors grow. */
-function pinExpandBelow(containerEl: Element): void {
-	const anchor = containerEl.querySelector(".code-expand-below") || containerEl;
-	anchor.scrollIntoView({ block: "end" });
-	const ro = new ResizeObserver(() => {
-		anchor.scrollIntoView({ block: "end" });
-	});
-	if (anchor.parentElement) {
-		ro.observe(anchor.parentElement);
-	}
-	setTimeout(() => ro.disconnect(), 1000);
-}
-
-function FileHeader({
-	filePath,
-	entries,
-}: {
-	entries: Entry[];
-	filePath: string;
-}) {
-	const parts = filePath.split("/");
-	const fileName = parts.pop();
-	const parentDir = parts.join("/");
-	const counts = { error: 0, warning: 0, info: 0 };
-	for (const entry of entries) {
-		counts[entry.d.severity]++;
-	}
-	return (
-		<>
-			<div className="file-view-title">{fileName}</div>
-			{parentDir && <div className="file-view-dir">{parentDir}/</div>}
-			<div className="file-view-counts">
-				{counts.error > 0 && (
-					<span>
-						<span
-							className="fv-count-dot"
-							style={{ background: SEV_VAR.error }}
-						/>
-						{counts.error} error{counts.error !== 1 ? "s" : ""}
-					</span>
-				)}
-				{counts.warning > 0 && (
-					<span>
-						<span
-							className="fv-count-dot"
-							style={{ background: SEV_VAR.warning }}
-						/>
-						{counts.warning} warning{counts.warning !== 1 ? "s" : ""}
-					</span>
-				)}
-				{counts.info > 0 && (
-					<span>
-						<span
-							className="fv-count-dot"
-							style={{ background: SEV_VAR.info }}
-						/>
-						{counts.info} info
-					</span>
-				)}
-			</div>
-		</>
-	);
 }
 
 interface DiagEntryMeta {
@@ -803,7 +741,10 @@ export function DiagnosisTab({
 				>
 					<div id="diagnosis-file-header">
 						{active !== null && (
-							<FileHeader entries={sorted} filePath={active} />
+							<FileHeader
+								filePath={active}
+								severities={sorted.map((entry) => entry.d.severity)}
+							/>
 						)}
 					</div>
 					<div id="diagnosis-file-code" ref={codeRef}>

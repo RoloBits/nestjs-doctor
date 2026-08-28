@@ -7,6 +7,7 @@ import {
 	DiagnosisTab,
 } from "./templates/diagnosis.js";
 import { EndpointsTab, resizeEndpointsCanvas } from "./templates/endpoints.js";
+import { LabTab, labOpened as labOpenedImpl } from "./templates/lab.js";
 import {
 	jumpToSlowestBoot as jumpToSlowestBootImpl,
 	ModulesTab,
@@ -73,4 +74,12 @@ export function jumpToSlowestBoot(): void {
 
 export function openModule(name: string): void {
 	openModuleImpl(name);
+}
+
+export function renderLab(report: ReportArtifact): void {
+	mount("tab-lab", <LabTab report={report} />);
+}
+
+export function labOpened(): void {
+	labOpenedImpl();
 }
