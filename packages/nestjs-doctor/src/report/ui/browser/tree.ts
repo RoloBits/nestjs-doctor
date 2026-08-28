@@ -1,5 +1,3 @@
-type Severity = "error" | "info" | "warning";
-
 interface TreeNode {
 	children: Record<string, TreeNode>;
 	files: Record<string, FileNode>;
@@ -56,59 +54,4 @@ export function compressTree(root: TreeNode): void {
 	for (const child of Object.values(root.children)) {
 		compress(child);
 	}
-}
-
-export function worstSev<T>(
-	itemList: T[],
-	getSeverity: (item: T) => string
-): Severity {
-	let worst: Severity = "info";
-	for (const item of itemList) {
-		const s = getSeverity(item);
-		if (s === "error") {
-			return "error";
-		}
-		if (s === "warning") {
-			worst = "warning";
-		}
-	}
-	return worst;
-}
-
-export function worstSevNode(
-	n: TreeNode,
-	itemsKey: string,
-	getSeverity: (item: unknown) => string
-): Severity {
-	let worst: Severity = "info";
-	for (const child of Object.values(n.children)) {
-		const cs = worstSevNode(child, itemsKey, getSeverity);
-		if (cs === "error") {
-			return "error";
-		}
-		if (cs === "warning") {
-			worst = "warning";
-		}
-	}
-	for (const file of Object.values(n.files)) {
-		const fs = worstSev(file[itemsKey] as unknown[], getSeverity);
-		if (fs === "error") {
-			return "error";
-		}
-		if (fs === "warning") {
-			worst = "warning";
-		}
-	}
-	return worst;
-}
-
-export function countItems(n: TreeNode, itemsKey: string): number {
-	let total = 0;
-	for (const child of Object.values(n.children)) {
-		total += countItems(child, itemsKey);
-	}
-	for (const file of Object.values(n.files)) {
-		total += (file[itemsKey] as unknown[]).length;
-	}
-	return total;
 }

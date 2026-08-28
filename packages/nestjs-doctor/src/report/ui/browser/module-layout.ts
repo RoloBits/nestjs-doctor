@@ -38,7 +38,7 @@ interface DagreLike {
 }
 
 // Groups modules into one cluster per project, keeping first-seen order.
-export function buildClusters(modules: ModuleNode[]): Cluster[] {
+function buildClusters(modules: ModuleNode[]): Cluster[] {
 	const order: Cluster[] = [];
 	const byKey: Record<string, Cluster> = {};
 	for (const mod of modules) {

@@ -23,7 +23,7 @@ const ROW_GAP = 44;
 const COL_CAP = 2400;
 
 // Groups nodes into connected components via union-find over the relations.
-export function computeComponents<N extends SchemaLayoutNode>(
+function computeComponents<N extends SchemaLayoutNode>(
 	relations: SchemaRelation[],
 	nodes: N[]
 ): N[][] {
@@ -69,7 +69,7 @@ export function computeComponents<N extends SchemaLayoutNode>(
 
 // Positions one component from its own origin: layered left-to-right, ordered
 // by neighbor barycenter, over-tall columns split, three relax passes.
-export function layoutComponent(
+function layoutComponent(
 	relations: SchemaRelation[],
 	nodes: SchemaLayoutNode[]
 ): { h: number; w: number } {
@@ -282,7 +282,7 @@ export function layoutComponent(
 }
 
 // Lays isolated tables out in a near-square grid.
-export function layoutIsolatedBlock(
+function layoutIsolatedBlock(
 	nodes: SchemaLayoutNode[],
 	gutter: number
 ): { h: number; w: number } {
@@ -316,11 +316,7 @@ interface PackedBox {
 }
 
 // Shelf-packs component boxes into a roughly square area.
-export function packBoxes(
-	boxes: PackedBox[],
-	targetW: number,
-	gutter: number
-): void {
+function packBoxes(boxes: PackedBox[], targetW: number, gutter: number): void {
 	let x = 0;
 	let y = 0;
 	let shelfH = 0;

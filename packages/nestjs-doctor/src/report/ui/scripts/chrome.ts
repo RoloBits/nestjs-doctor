@@ -1,42 +1,4 @@
 export const CHROME = `
-// ── Header: meta badges ──
-(function() {
-  const meta = document.getElementById("header-meta");
-  const badges = [];
-  badges.push('<span class="meta-badge">' + project.name + '</span>');
-  if (project.nestVersion) badges.push('<span class="meta-badge">NestJS ' + project.nestVersion + '</span>');
-  if (project.framework) badges.push('<span class="meta-badge">' + project.framework + '</span>');
-  if (project.orm) badges.push('<span class="meta-badge">' + project.orm + '</span>');
-  badges.push('<span class="meta-badge">' + graph.modules.length + ' modules</span>');
-  if (graph.timingsAvailable) {
-    let bootMs = 0;
-    let bootName = "";
-    for (const node of Object.values(graph.timingsTrace)) {
-      if (node.initTime > bootMs) {
-        bootMs = node.initTime;
-        bootName = node.name;
-      }
-    }
-    if (graph.startupMs) {
-      const phaseCaption = RPT.phaseParts(graph)
-        .map((s) => s.label + " " + RPT.formatMs(s.ms))
-        .join(" \\u00b7 ");
-      badges.push('<span class="meta-badge" id="boot-badge" style="cursor:pointer" data-tip="From bootstrap start until the app was listening, measured by the nestjs-doctor snippet in your main.ts.' +
-        (phaseCaption ? " " + escHtml(phaseCaption) + "." : "") +
-        ' Slowest construction chain: ' +
-        escHtml(bootName) + ' \\u2014 click to open it in the modules graph">time to start \\u2248 ' + escHtml(RPT.formatMs(graph.startupMs)) + '</span>');
-    } else if (bootMs > 0) {
-      badges.push('<span class="meta-badge" id="boot-badge" style="cursor:pointer" data-tip="Slowest construction chain: ' +
-        escHtml(bootName) + ' \\u2014 click to open it in the modules graph. Add startupMs to the dump for full time-to-start">boot \\u2248 ' + escHtml(RPT.formatMs(bootMs)) + '</span>');
-    }
-  }
-  meta.innerHTML = badges.join("");
-  const bootBadge = document.getElementById("boot-badge");
-  if (bootBadge) {
-    bootBadge.addEventListener("click", () => { window.__ndTrack?.("boot_trace_opened"); switchTab("modules"); REPORT_APP.jumpToSlowestBoot(); });
-  }
-})();
-
 // ── Floating tooltip for data-tip elements inside clipping containers ──
 (function() {
   const tip = document.createElement("div");
@@ -85,25 +47,7 @@ export const CHROME = `
   bind("detail-badges");
 })();
 
-// ── Diagnosis count badge ──
-function diagIsNotScored(d) {
-  return !!(d.surfaces && d.surfaces.indexOf("score") === -1);
-}
-/** Matches what the tab lists: the not-scored ones only once they are shown. */
-function setDiagnosisBadge(withNotScored) {
-  const badge = document.getElementById("diagnosis-count-badge");
-  if (!badge) return;
-  let shown = 0;
-  for (let i = 0; i < diagnostics.length; i++) {
-    if (withNotScored || !diagIsNotScored(diagnostics[i])) shown++;
-  }
-  badge.textContent = shown;
-  badge.classList.toggle("clean", diagnostics.length === 0);
-}
-setDiagnosisBadge(false);
-
 // ── Tab switching ──
-let activeTab = "summary";
 let diagnosisRendered = false;
 let labOpened = false;
 let summaryRendered = false;
@@ -111,7 +55,6 @@ let schemaRendered = false;
 let endpointsRendered = false;
 let modulesRendered = false;
 
-const tabBtns = document.querySelectorAll(".tab-btn");
 const tabContents = {
   modules: document.getElementById("tab-modules"),
   diagnosis: document.getElementById("tab-diagnosis"),
@@ -122,16 +65,12 @@ const tabContents = {
 };
 
 function switchTab(name) {
-  activeTab = name;
-  for (const btn of tabBtns) {
-    btn.classList.toggle("active", btn.dataset.tab === name);
-  }
+  REPORT_APP.setActiveTab(name);
   for (const [k, el] of Object.entries(tabContents)) {
     el.classList.toggle("active", k === name);
   }
 
-
-  if (name === "diagnosis" && !diagnosisRendered) { REPORT_APP.renderDiagnosis(REPORT, { setDiagnosisBadge: setDiagnosisBadge }); diagnosisRendered = true; }
+  if (name === "diagnosis" && !diagnosisRendered) { REPORT_APP.renderDiagnosis(REPORT, { setDiagnosisBadge: REPORT_APP.setDiagnosisBadge }); diagnosisRendered = true; }
   if (name === "summary" && !summaryRendered) { REPORT_APP.renderSummary(REPORT); summaryRendered = true; }
   if (name === "lab" && !labOpened) { REPORT_APP.labOpened(); labOpened = true; }
   if (name === "schema" && !schemaRendered) { REPORT_APP.renderSchema(REPORT); schemaRendered = true; }
@@ -140,31 +79,5 @@ function switchTab(name) {
     if (modulesRendered) { REPORT_APP.resizeModules(); } else { REPORT_APP.renderModules(REPORT); modulesRendered = true; }
   }
   if (name === "endpoints" && endpointsRendered) REPORT_APP.resizeEndpoints();
-}
-
-for (const btn of tabBtns) {
-  btn.addEventListener("click", () => {
-    switchTab(btn.dataset.tab);
-    window.__ndTrack?.(btn.dataset.tab);
-  });
-}
-
-// ── Project colors and filter setup ──
-const PROJECT_COLORS = ["#3b82f6", "#22c55e", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
-const projectColorMap = {};
-const isMonorepoGraph = graph.projects.length > 0;
-let activeProject = "all";
-
-if (isMonorepoGraph) {
-  for (let i = 0; i < graph.projects.length; i++) {
-    projectColorMap[graph.projects[i]] = PROJECT_COLORS[i % PROJECT_COLORS.length];
-  }
-}
-
-function getDisplayName(n) {
-  if (n.project && n.name.indexOf(n.project + "/") === 0) {
-    return n.name.slice(n.project.length + 1);
-  }
-  return n.name;
 }
 `;

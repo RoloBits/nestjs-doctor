@@ -106,7 +106,7 @@ export type IconName = keyof typeof ICONS;
 const STROKE_ATTR = /stroke="[^"]*"/;
 const STROKE_WIDTH_ATTR = /stroke-width="[^"]*"/;
 
-export interface IconOptions {
+interface IconOptions {
 	ariaHidden?: boolean;
 	classes?: string;
 	id?: string;

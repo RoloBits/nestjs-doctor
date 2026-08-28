@@ -82,8 +82,6 @@ it("renders every tab into a DOM", () => {
 	for (const tab of TABS) {
 		expect(snap[tab].length).toBeGreaterThan(1000);
 	}
-	// The bundled pure helpers reach the page and the tree renders through them.
-	expect(win.eval("typeof RPT.buildFileTree")).toBe("function");
 	expect(snap.summary).toContain("ov-stat-row");
 
 	// The sidebar trees actually rendered, so a change to their markup is

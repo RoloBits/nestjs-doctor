@@ -2,6 +2,12 @@ import type { ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import type { ReportArtifact } from "../../../common/artifact.js";
+import { HeaderRow } from "./organisms/header.js";
+import {
+	setActiveTab as setActiveTabImpl,
+	setDiagnosisBadge as setDiagnosisBadgeImpl,
+	TabBar,
+} from "./organisms/tab-bar.js";
 import {
 	type DiagnosisCallbacks,
 	DiagnosisTab,
@@ -82,4 +88,17 @@ export function renderLab(report: ReportArtifact): void {
 
 export function labOpened(): void {
 	labOpenedImpl();
+}
+
+export function renderChrome(report: ReportArtifact): void {
+	mount("header-row1", <HeaderRow report={report} />);
+	mount("header-row2", <TabBar report={report} />);
+}
+
+export function setActiveTab(name: string): void {
+	setActiveTabImpl(name);
+}
+
+export function setDiagnosisBadge(withNotScored: boolean): void {
+	setDiagnosisBadgeImpl(withNotScored);
 }
