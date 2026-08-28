@@ -30,6 +30,7 @@ const HOOK_META: Record<string, { label: string; rgb: string }> = {
 };
 
 interface PhasePart {
+	gloss: string;
 	label: string;
 	ms: number;
 	rgb: string;
@@ -56,6 +57,7 @@ export function phaseParts(graph: PhasedGraph): PhasePart[] {
 	let prev = 0;
 	const push = (
 		label: string,
+		gloss: string,
 		end: number | undefined,
 		rgb: string,
 		tip: string
@@ -63,30 +65,34 @@ export function phaseParts(graph: PhasedGraph): PhasePart[] {
 		if (typeof end !== "number" || end <= prev) {
 			return;
 		}
-		parts.push({ label, ms: end - prev, rgb, tip });
+		parts.push({ gloss, label, ms: end - prev, rgb, tip });
 		prev = end;
 	};
 	push(
 		"create",
+		"building modules",
 		p.createMs,
 		"34,211,238",
-		"create — constructing providers and controllers"
+		"create — NestFactory constructs every module, provider, and controller. The rows below break this segment down per class."
 	);
 	if (typeof p.moduleInitMs === "number") {
 		push(
 			"onModuleInit",
+			"init hooks",
 			p.moduleInitMs,
 			"52,211,153",
-			"onModuleInit — hooks across all classes"
+			"onModuleInit — after construction, Nest calls each class's onModuleInit() hook"
 		);
 		push(
 			"onApplicationBootstrap",
+			"bootstrap hooks",
 			p.initMs,
 			"167,139,250",
-			"onApplicationBootstrap — hooks across all classes"
+			"onApplicationBootstrap — hooks that run once the whole app is wired, right before it listens"
 		);
 	} else {
 		push(
+			"lifecycle hooks",
 			"lifecycle hooks",
 			p.initMs,
 			"52,211,153",
@@ -96,17 +102,23 @@ export function phaseParts(graph: PhasedGraph): PhasePart[] {
 	if (typeof graph.startupMs === "number") {
 		let tail = {
 			label: "hooks + listen",
+			gloss: "hooks + port",
 			tip: "hooks + listen — everything after NestFactory.create",
 		};
 		if (typeof p.initMs === "number") {
-			tail = { label: "listen", tip: "listen — binding the HTTP server" };
+			tail = {
+				label: "listen",
+				gloss: "opening the port",
+				tip: "listen — the HTTP server binds its port; at the end of this segment the app is up",
+			};
 		} else if (typeof p.moduleInitMs === "number") {
 			tail = {
 				label: "bootstrap + listen",
+				gloss: "bootstrap + port",
 				tip: "bootstrap + listen — onApplicationBootstrap hooks and the server bind",
 			};
 		}
-		push(tail.label, graph.startupMs, "107,114,128", tail.tip);
+		push(tail.label, tail.gloss, graph.startupMs, "107,114,128", tail.tip);
 	}
 	return parts;
 }

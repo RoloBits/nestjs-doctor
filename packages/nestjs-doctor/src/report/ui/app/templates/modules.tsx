@@ -1063,23 +1063,32 @@ function PhasesStrip({ graph }: { graph: SerializedModuleGraph }) {
 				{parts.map((seg) => (
 					<span
 						className="mg-phase-seg"
-						data-tip={seg.tip}
+						data-tip={`${seg.tip}. Took ${formatMs(seg.ms)}`}
 						key={seg.label}
 						style={{
 							width: `${((seg.ms / total) * 100).toFixed(2)}%`,
-							background: `rgba(${seg.rgb},0.4)`,
+							background: `rgba(${seg.rgb},0.35)`,
 						}}
-					/>
-				))}
-			</div>
-			<div className="mg-trace-note">
-				{parts.map((seg, index) => (
-					<span key={seg.label} style={{ display: "contents" }}>
-						{index > 0 ? " · " : ""}
-						<span style={{ color: `rgb(${seg.rgb})` }}>{seg.label}</span>{" "}
-						{formatMs(seg.ms)}
+					>
+						<span
+							className="mg-phase-label"
+							style={{ color: `rgb(${seg.rgb})` }}
+						>
+							{seg.gloss}{" "}
+							<span className="mg-phase-ms">{formatMs(seg.ms)}</span>
+						</span>
 					</span>
 				))}
+			</div>
+			<div className="mg-trace-note mg-phase-note">
+				<span>
+					▴ one timeline from launch to ready — the rows below detail{" "}
+					<span style={{ color: `rgb(${parts[0].rgb})` }}>
+						{parts[0].gloss}
+					</span>
+					, class by class
+				</span>
+				<span className="mg-phase-total">total {formatMs(total)}</span>
 			</div>
 		</div>
 	);
@@ -1789,7 +1798,7 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 							aria-label="How to read the trace"
 							className="mg-trace-info"
 							data-tip={
-								"How to read the trace\n• bars scale to the slowest row\n• yellow segment ≈ the class's own work\n• dimmed hollow bar = reused, built earlier\n• rows are the create phase\n• +ms chips = lifecycle hooks"
+								"How to read the trace\n• bars scale to the slowest row\n• yellow segment ≈ the class's own work\n• dimmed hollow bar = reused, built earlier\n• rows are the building-modules (create) segment\n• +ms chips = lifecycle hooks"
 							}
 							role="img"
 							// biome-ignore lint/a11y/noNoninteractiveTabindex: focusable on purpose so the tooltip opens from the keyboard

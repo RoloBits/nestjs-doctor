@@ -75,6 +75,8 @@ describe("report scripts", () => {
 
 	it("renders the lifecycle phase strip from the dump's markers", () => {
 		expect(scripts).toContain("mg-phase-strip");
+		expect(scripts).toContain("building modules");
+		expect(scripts).toContain("one timeline from launch to ready");
 		expect(scripts).toContain("lifecycle hooks");
 	});
 
