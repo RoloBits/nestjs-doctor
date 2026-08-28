@@ -73,6 +73,32 @@ describe("no-circular-module-deps", () => {
 		expect(diags[0].message).toContain("Circular");
 	});
 
+	it("names every declaration file when a cycle head is declared twice", () => {
+		const diags = runProjectRule(noCircularModuleDeps, {
+			"feature-a/shared.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { AModule } from './a.module';
+        @Module({ imports: [AModule] })
+        export class SharedModule {}
+      `,
+			"feature-a/a.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { SharedModule } from './shared.module';
+        @Module({ imports: [SharedModule] })
+        export class AModule {}
+      `,
+			"feature-b/shared.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class SharedModule {}
+      `,
+		});
+		expect(diags).toHaveLength(1);
+		expect(diags[0].help).toContain("declared in 2 files");
+		expect(diags[0].help).toContain("feature-a/shared.module.ts");
+		expect(diags[0].help).toContain("feature-b/shared.module.ts");
+	});
+
 	it("does not flag acyclic imports", () => {
 		const diags = runProjectRule(noCircularModuleDeps, {
 			"app.module.ts": `

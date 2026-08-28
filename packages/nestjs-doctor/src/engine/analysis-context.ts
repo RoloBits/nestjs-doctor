@@ -68,6 +68,20 @@ export type AnalysisProgress = (
 	total?: number
 ) => void;
 
+/** One warning per @Module class name declared in more than one file. */
+function warnDuplicateModuleNames(
+	moduleGraph: ModuleGraph,
+	warnings: string[]
+): void {
+	for (const node of moduleGraph.modules.values()) {
+		if (node.filePaths && node.filePaths.length > 1) {
+			warnings.push(
+				`@Module class ${node.name} is declared in ${node.filePaths.length} files (${node.filePaths.join(", ")}); their imports, providers, and exports are analyzed as one module`
+			);
+		}
+	}
+}
+
 export async function buildAnalysisContext(
 	targetPath: string,
 	scanConfig: ScanConfig,
@@ -93,6 +107,7 @@ export async function buildAnalysisContext(
 		files,
 		pathAliases
 	);
+	warnDuplicateModuleNames(moduleGraph, scanConfig.customRuleWarnings);
 	await yieldToEventLoop();
 	const providers = await resolveProvidersAsync(astProject, files);
 	await yieldToEventLoop();
@@ -212,6 +227,7 @@ async function buildSubProjectContext(
 		files,
 		pathAliases
 	);
+	warnDuplicateModuleNames(moduleGraph, scanConfig.customRuleWarnings);
 	await yieldToEventLoop();
 	const providers = await resolveProvidersAsync(astProject, files);
 	await yieldToEventLoop();

@@ -660,6 +660,50 @@ describe("scanner integration", () => {
 		expect(result.score.value).toBeGreaterThanOrEqual(90);
 	});
 
+	it("unions duplicate @Module class names and keeps their cycle visible", async () => {
+		const targetPath = resolve(FIXTURES, "duplicate-module-names/src");
+		const scanConfig = await resolveScanConfig(targetPath);
+		const context = await buildAnalysisContext(targetPath, scanConfig);
+		const rawOutput = await diagnose(context);
+		const { result } = buildResult(
+			context,
+			rawOutput,
+			scanConfig.customRuleWarnings
+		);
+
+		// SharedModule (declared twice) unions into one node beside AModule
+		expect(result.project.moduleCount).toBe(2);
+		const shared = context.moduleGraph.modules.get("SharedModule");
+		expect(shared?.filePaths).toHaveLength(2);
+		expect(shared?.providers).toContain("SharedService");
+		expect(context.moduleGraph.edges.get("SharedModule")?.has("AModule")).toBe(
+			true
+		);
+
+		// The scan says the name is duplicated and where
+		const warning = scanConfig.customRuleWarnings.find((w) =>
+			w.includes("@Module class SharedModule is declared in 2 files")
+		);
+		expect(warning).toContain("feature-a/shared.module.ts");
+		expect(warning).toContain("feature-b/shared.module.ts");
+
+		// The cycle through feature-a's declaration survives the collision
+		const circular = result.diagnostics.filter(
+			(d) => d.rule === "architecture/no-circular-module-deps"
+		);
+		expect(circular).toHaveLength(1);
+		expect(circular[0].message).toContain("AModule");
+		expect(circular[0].message).toContain("SharedModule");
+
+		// feature-b's provider does not resurface as a phantom finding
+		const phantom = result.diagnostics.filter(
+			(d) =>
+				d.rule === "performance/no-unused-providers" &&
+				d.message.includes("SharedService")
+		);
+		expect(phantom).toHaveLength(0);
+	});
+
 	it("resolves cross-file monorepo-style chained imports in module graph", async () => {
 		const targetPath = resolve(FIXTURES, "cross-file-monorepo/src");
 		const scanConfig = await resolveScanConfig(targetPath);
