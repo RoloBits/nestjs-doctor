@@ -60,9 +60,15 @@ importers:
       '@types/react':
         specifier: ^19
         version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19
+        version: 19.2.3(@types/react@19.2.14)
       jsdom:
         specifier: ^26.1.0
         version: 26.1.0
+      react-dom:
+        specifier: 19.2.3
+        version: 19.2.3(react@19.2.3)
       tsdown:
         specifier: ^0.20.3
         version: 0.20.3(oxc-resolver@11.24.2)(typescript@5.9.3)

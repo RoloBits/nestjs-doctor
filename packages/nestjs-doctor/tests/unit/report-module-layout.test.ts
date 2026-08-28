@@ -3,7 +3,7 @@ import {
 	blastRadius,
 	computeLayout,
 	reverseIndex,
-} from "../../src/report/ui/browser/module-layout.js";
+} from "../../src/report/ui/app/lib/module-layout.js";
 
 interface ModuleNode {
 	h: number;

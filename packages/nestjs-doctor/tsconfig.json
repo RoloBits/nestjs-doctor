@@ -9,7 +9,8 @@
     "noEmit": true, // Do not emit outputs. We are not transpiling with Typescript, but we want to generate declaration files, so we need to set this to true to prevent emitting JavaScript files.
     "declarationMap": false, // Disabled to reduce published package size.
     "strictNullChecks": true, // Enable strict null checks. This means that null and undefined are only assignable to themselves and any
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"] // The report UI under src/report/ui/app is browser-side React.
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist", "tests"]

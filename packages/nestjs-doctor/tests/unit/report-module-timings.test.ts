@@ -3,7 +3,7 @@ import {
 	formatMs,
 	type TraceMap,
 	traceRowHtml,
-} from "../../src/report/ui/browser/trace.js";
+} from "../../src/report/ui/app/lib/trace.js";
 
 describe("traceRowHtml", () => {
 	const trace: TraceMap = {

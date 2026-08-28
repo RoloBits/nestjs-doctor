@@ -3,7 +3,7 @@ import {
 	computeOverviewLayout,
 	nodeHeight,
 	visibleColCount,
-} from "../../src/report/ui/browser/schema-layout.js";
+} from "../../src/report/ui/app/lib/schema-layout.js";
 
 interface Node {
 	h: number;

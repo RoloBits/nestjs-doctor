@@ -1,22 +1,18 @@
-import { HEADER_ROW1 } from "./organisms/header-row1.js";
-import { TAB_BAR } from "./organisms/tab-bar.js";
-import { TAB_DIAGNOSIS } from "./templates/tab-diagnosis.js";
-import { TAB_ENDPOINTS } from "./templates/tab-endpoints.js";
-import { TAB_LAB } from "./templates/tab-lab.js";
-import { TAB_MODULES_GRAPH } from "./templates/tab-modules-graph.js";
-import { TAB_SCHEMA } from "./templates/tab-schema.js";
-import { TAB_SUMMARY } from "./templates/tab-summary.js";
+const TAB_IDS = [
+	"tab-summary",
+	"tab-diagnosis",
+	"tab-lab",
+	"tab-schema",
+	"tab-endpoints",
+	"tab-modules",
+];
 
+// The emitted body: two header containers and one mount point per tab,
+// in DOM order. The summary starts active; everything is filled by React.
 export function getReportHtml(): string {
-	// Concatenation order is the DOM order of the report body.
-	return [
-		HEADER_ROW1,
-		TAB_BAR,
-		TAB_SUMMARY,
-		TAB_DIAGNOSIS,
-		TAB_LAB,
-		TAB_SCHEMA,
-		TAB_ENDPOINTS,
-		TAB_MODULES_GRAPH,
-	].join("");
+	const tabs = TAB_IDS.map(
+		(id) =>
+			`\n<div class="tab-content${id === "tab-summary" ? " active" : ""}" id="${id}"></div>`
+	).join("");
+	return `\n<div id="header-row1"></div>\n<div id="header-row2"></div>${tabs}\n`;
 }

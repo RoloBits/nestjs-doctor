@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { ModuleGraph } from "../../src/engine/graph/module-graph.js";
 import { buildReportArtifact } from "../../src/report/artifact.js";
@@ -189,14 +191,23 @@ describe("report telemetry", () => {
 	});
 
 	it("allows every name the report actually tracks", () => {
+		const appDir = join(import.meta.dirname, "../../src/report/ui/app");
+		const appSources = readdirSync(appDir, { recursive: true })
+			.filter((f) => String(f).endsWith(".tsx") || String(f).endsWith(".ts"))
+			.filter((f) => !String(f).endsWith("bundle.iife.js"))
+			.map((f) => readFileSync(join(appDir, String(f)), "utf8"))
+			.join("\n");
 		const scripts = [
 			getReportScripts(EMPTY_ARTIFACT_JSON),
 			getCodeMirrorScript(),
 		].join("\n");
 		const script = buildBeacon("phc_key", "1.2.3", "cli");
-		const tracked = [...scripts.matchAll(/__ndTrack\?\.\("([a-z_]+)"\)/g)].map(
-			(m) => m[1]
-		);
+		const tracked = [
+			...[...scripts.matchAll(/__ndTrack\?\.\("([a-z_]+)"\)/g)].map(
+				(m) => m[1]
+			),
+			...[...appSources.matchAll(/\btrack\("([a-z_]+)"\)/g)].map((m) => m[1]),
+		];
 
 		expect(tracked.length).toBeGreaterThan(5);
 		for (const name of new Set(tracked)) {

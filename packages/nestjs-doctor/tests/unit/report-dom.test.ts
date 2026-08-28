@@ -82,8 +82,6 @@ it("renders every tab into a DOM", () => {
 	for (const tab of TABS) {
 		expect(snap[tab].length).toBeGreaterThan(1000);
 	}
-	// The bundled pure helpers reach the page and the tree renders through them.
-	expect(win.eval("typeof RPT.buildFileTree")).toBe("function");
 	expect(snap.summary).toContain("ov-stat-row");
 
 	// The sidebar trees actually rendered, so a change to their markup is
@@ -94,10 +92,15 @@ it("renders every tab into a DOM", () => {
 	expect(rows("schema")).toBeGreaterThan(0);
 	expect(rows("endpoints")).toBeGreaterThan(0);
 
-	// The detail panel only renders on selection, so drive one per module.
+	// The detail panel only renders on selection, so drive one per module
+	// through the same entry point the page uses.
 	win.eval("switchTab('modules')");
 	const detail = win.eval(
-		"mgNodes.map(function (n) { mgShowDetail(n); return document.getElementById('detail').innerHTML; }).join('')"
+		"Array.from(document.querySelectorAll('#mg-tree [data-module]'))" +
+			".map(function (row) {" +
+			"  REPORT_APP.openModule(row.dataset.module);" +
+			"  return document.getElementById('detail').innerHTML;" +
+			"}).join('')"
 	) as string;
 	// Every badge variant the panel can draw, so a change to one is visible
 	// here rather than only in the source text.

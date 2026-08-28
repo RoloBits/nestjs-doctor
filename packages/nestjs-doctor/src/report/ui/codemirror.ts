@@ -1,4 +1,4 @@
-import { REPORT_FONT_STACK } from "./styles.js";
+import { REPORT_FONT_STACK } from "./font.js";
 
 export function getCodeMirrorImportMap(): string {
 	return `<script type="importmap">
