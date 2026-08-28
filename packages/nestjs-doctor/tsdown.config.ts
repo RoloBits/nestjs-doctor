@@ -51,6 +51,7 @@ export default defineConfig([
 		entry: { "report-ui/index": "src/report/report-ui.ts" },
 		format: ["esm"],
 		platform: "browser",
+		external: [/^react(\/|$)/, /^react-dom(\/|$)/, "scheduler"],
 		plugins: [rawText],
 		dts: true,
 		clean: false,
