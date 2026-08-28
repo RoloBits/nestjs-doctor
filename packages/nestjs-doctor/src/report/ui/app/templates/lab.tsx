@@ -16,6 +16,7 @@ import {
 } from "../lib/lab-presets.js";
 import { pinExpandBelow } from "../lib/scroll.js";
 import { buildFileTree, compressTree } from "../lib/tree.js";
+import { useLatest } from "../lib/use-latest.js";
 import {
 	CodeViewer,
 	type CodeViewerOptions,
@@ -339,10 +340,6 @@ export function LabTab({ report }: { report: ReportArtifact }) {
 	const resultsPaneRef = useRef<HTMLDivElement>(null);
 	const fileCodeRef = useRef<HTMLDivElement>(null);
 
-	// The first tab activation loads the selected preset, like the chunk did.
-	const loadPresetRef = useRef<(key: string) => void>(() => undefined);
-	registry.firstOpen = () => loadPresetRef.current(preset);
-
 	const loadPreset = (key: string) => {
 		const p: LabPreset | undefined = PLAYGROUND_PRESETS[key];
 		if (!p) {
@@ -355,7 +352,15 @@ export function LabTab({ report }: { report: ReportArtifact }) {
 		setDescription(p.description);
 		setEditorCode(p.code);
 	};
-	loadPresetRef.current = loadPreset;
+	// The first tab activation loads the selected preset, like the chunk did.
+	const loadPresetRef = useLatest(loadPreset);
+	const presetRef = useLatest(preset);
+	useLayoutEffect(() => {
+		registry.firstOpen = () => loadPresetRef.current(presetRef.current);
+		return () => {
+			registry.firstOpen = undefined;
+		};
+	}, [loadPresetRef, presetRef]);
 
 	const onMetaChange = () => {
 		if (!metaTrackedRef.current) {

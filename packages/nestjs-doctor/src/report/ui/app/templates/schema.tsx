@@ -11,6 +11,7 @@ import type { IconName } from "../atoms/icons.js";
 import { columnKind, foreignKeyColumns } from "../lib/column-kinds.js";
 import { relLabel, SchemaCanvas } from "../lib/schema-canvas.js";
 import { SCHEMA_DEFAULT_MAX_COLS } from "../lib/schema-layout.js";
+import { useLatest } from "../lib/use-latest.js";
 import { CheckboxRow } from "../molecules/checkbox-row.js";
 import { EmptyState } from "../molecules/empty-state.js";
 import { SearchField } from "../molecules/search-field.js";
@@ -372,10 +373,8 @@ export function SchemaTab({ report }: { report: ReportArtifact }) {
 	}, []);
 
 	// Callback refs so the mount-once controller sees current handlers.
-	const syncRef = useRef(syncSidebar);
-	syncRef.current = syncSidebar;
-	const reflectSelectionRef = useRef(reflectSelection);
-	reflectSelectionRef.current = reflectSelection;
+	const syncRef = useLatest(syncSidebar);
+	const reflectSelectionRef = useLatest(reflectSelection);
 
 	// Scrolls a revealed table to the top of the list, under the sticky header.
 	useEffect(() => {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import type { ReportArtifact } from "../../../../common/artifact.js";
 import { onSurface } from "../../../../common/diagnostic.js";
 
@@ -90,8 +90,14 @@ function switchTab(name: string): void {
 export function TabBar({ report }: { report: ReportArtifact }) {
 	const [active, setActive] = useState("summary");
 	const [withNotScored, setWithNotScored] = useState(false);
-	registry.setActiveTab = setActive;
-	registry.setDiagnosisBadge = setWithNotScored;
+	useLayoutEffect(() => {
+		registry.setActiveTab = setActive;
+		registry.setDiagnosisBadge = setWithNotScored;
+		return () => {
+			registry.setActiveTab = undefined;
+			registry.setDiagnosisBadge = undefined;
+		};
+	}, []);
 
 	/** Matches what the tab lists: the not-scored ones only once they are shown. */
 	const shown = report.diagnostics.filter(

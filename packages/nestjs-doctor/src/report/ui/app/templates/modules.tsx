@@ -35,6 +35,7 @@ import {
 	traceNode,
 	traceRowHtml,
 } from "../lib/trace.js";
+import { useLatest } from "../lib/use-latest.js";
 import { CheckboxRow } from "../molecules/checkbox-row.js";
 import { EmptyState } from "../molecules/empty-state.js";
 import { SearchField } from "../molecules/search-field.js";
@@ -57,6 +58,7 @@ const MG_GROUP_KIND: Record<string, string> = {
 };
 
 const SEV_ORDER: Record<string, number> = { error: 0, warning: 1, info: 2 };
+const GROUP_ORDER = ["Services", "Repositories", "Others"];
 const PROVIDE_RE = /provide\s*:\s*([^,}]+)/;
 const USE_RE =
 	/(useExisting|useClass|useFactory|useValue)\s*:?\s*([A-Za-z0-9_$.]+)?/;
@@ -477,10 +479,9 @@ function ProvidersSection({
 	if (pv.count === 0) {
 		return <div className="md-empty">No providers.</div>;
 	}
-	const order = ["Services", "Repositories", "Others"];
 	return (
 		<>
-			{order.map((group) => {
+			{GROUP_ORDER.map((group) => {
 				const rows = pv.groups[group] as ProviderRow[];
 				if (rows.length === 0) {
 					return null;
@@ -685,10 +686,9 @@ function ExportsSection({
 		}
 		(groups[g] as { kind: string; name: string }[]).push({ name, kind });
 	}
-	const order = ["Services", "Repositories", "Others"];
 	return (
 		<>
-			{order.map((group) => {
+			{GROUP_ORDER.map((group) => {
 				const rows = groups[group] as { kind: string; name: string }[];
 				if (rows.length === 0) {
 					return null;
@@ -1189,8 +1189,7 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 		}
 		setSelectedName(name);
 	};
-	const selectRef = useRef(select);
-	selectRef.current = select;
+	const selectRef = useLatest(select);
 
 	const jump = () => {
 		const trace = graph.timingsTrace || {};
@@ -1227,8 +1226,7 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 		setDockOpen(true);
 		controllerRef.current?.resize();
 	};
-	const jumpRef = useRef(jump);
-	jumpRef.current = jump;
+	const jumpRef = useLatest(jump);
 
 	// Scroll the selected tree row into view, like the chunk's mgSyncTree.
 	useEffect(() => {
@@ -1863,6 +1861,7 @@ function useResizer(
 		if (!handle) {
 			return;
 		}
+		let detachDrag: (() => void) | null = null;
 		const onDown = (ev: MouseEvent) => {
 			ev.preventDefault();
 			const sidebarEl = sidebarRef.current;
@@ -1879,6 +1878,10 @@ function useResizer(
 				controllerRef.current?.resize();
 			};
 			const onUp = () => {
+				detachDrag?.();
+			};
+			detachDrag = () => {
+				detachDrag = null;
 				document.removeEventListener("mousemove", onMove);
 				document.removeEventListener("mouseup", onUp);
 				document.body.classList.remove("mg-resizing");
@@ -1887,7 +1890,10 @@ function useResizer(
 			document.addEventListener("mouseup", onUp);
 		};
 		handle.addEventListener("mousedown", onDown);
-		return () => handle.removeEventListener("mousedown", onDown);
+		return () => {
+			handle.removeEventListener("mousedown", onDown);
+			detachDrag?.();
+		};
 	}, [sidebarRef, controllerRef]);
 	return ref;
 }
