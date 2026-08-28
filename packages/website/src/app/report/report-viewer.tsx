@@ -290,8 +290,8 @@ function PickerModal({
 					}}
 				>
 					You can download it from a report&apos;s{" "}
-					<span style={{ color: "#e5e5e5" }}>share</span> button — generate the
-					report locally from the terminal:
+					<span style={{ color: "#e5e5e5" }}>share</span> button, or generate
+					the report locally with the command:
 				</p>
 				<pre
 					style={{
