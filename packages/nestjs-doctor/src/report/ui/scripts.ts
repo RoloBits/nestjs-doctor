@@ -4,7 +4,6 @@ import { BOOT } from "./scripts/boot.js";
 import { bootstrap } from "./scripts/bootstrap.js";
 import { CHROME } from "./scripts/chrome.js";
 import { LAB } from "./scripts/lab.js";
-import { MODULES_GRAPH } from "./scripts/modules-graph.js";
 import { SHARE } from "./scripts/share.js";
 import { SHARED_TREE } from "./scripts/shared-tree.js";
 import { TAB_VISIBILITY } from "./scripts/tab-visibility.js";
@@ -17,7 +16,6 @@ export function getReportScripts(artifactJson: string): string {
 		`\n${APP_BUNDLE}`,
 		bootstrap(artifactJson),
 		CHROME,
-		MODULES_GRAPH,
 		SHARED_TREE,
 		LAB,
 		TAB_VISIBILITY,

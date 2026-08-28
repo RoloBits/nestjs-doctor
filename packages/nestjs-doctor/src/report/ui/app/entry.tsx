@@ -7,6 +7,12 @@ import {
 	DiagnosisTab,
 } from "./templates/diagnosis.js";
 import { EndpointsTab, resizeEndpointsCanvas } from "./templates/endpoints.js";
+import {
+	jumpToSlowestBoot as jumpToSlowestBootImpl,
+	ModulesTab,
+	openModule as openModuleImpl,
+	resizeModulesCanvas,
+} from "./templates/modules.js";
 import { SchemaTab } from "./templates/schema.js";
 import { SummaryTab } from "./templates/summary.js";
 
@@ -51,4 +57,20 @@ export function resizeEndpoints(): void {
 
 export function renderSchema(report: ReportArtifact): void {
 	mount("tab-schema", <SchemaTab report={report} />);
+}
+
+export function renderModules(report: ReportArtifact): void {
+	mount("tab-modules", <ModulesTab report={report} />);
+}
+
+export function resizeModules(): void {
+	resizeModulesCanvas();
+}
+
+export function jumpToSlowestBoot(): void {
+	jumpToSlowestBootImpl();
+}
+
+export function openModule(name: string): void {
+	openModuleImpl(name);
 }

@@ -29,6 +29,88 @@ const HOOK_META: Record<string, { label: string; rgb: string }> = {
 	onApplicationBootstrap: { label: "bootstrap", rgb: "167,139,250" },
 };
 
+interface PhasePart {
+	label: string;
+	ms: number;
+	rgb: string;
+	tip: string;
+}
+
+interface PhasedGraph {
+	phases?: {
+		createMs?: number;
+		initMs?: number;
+		moduleInitMs?: number;
+	} | null;
+	startupMs?: number;
+}
+
+// Splits the captured boot into labelled segments. Without createMs the
+// earlier boundaries are unknown, so segments would mislabel.
+export function phaseParts(graph: PhasedGraph): PhasePart[] {
+	const p = graph.phases;
+	if (!p || typeof p.createMs !== "number") {
+		return [];
+	}
+	const parts: PhasePart[] = [];
+	let prev = 0;
+	const push = (
+		label: string,
+		end: number | undefined,
+		rgb: string,
+		tip: string
+	) => {
+		if (typeof end !== "number" || end <= prev) {
+			return;
+		}
+		parts.push({ label, ms: end - prev, rgb, tip });
+		prev = end;
+	};
+	push(
+		"create",
+		p.createMs,
+		"34,211,238",
+		"create — constructing providers and controllers"
+	);
+	if (typeof p.moduleInitMs === "number") {
+		push(
+			"onModuleInit",
+			p.moduleInitMs,
+			"52,211,153",
+			"onModuleInit — hooks across all classes"
+		);
+		push(
+			"onApplicationBootstrap",
+			p.initMs,
+			"167,139,250",
+			"onApplicationBootstrap — hooks across all classes"
+		);
+	} else {
+		push(
+			"lifecycle hooks",
+			p.initMs,
+			"52,211,153",
+			"lifecycle hooks — onModuleInit and onApplicationBootstrap"
+		);
+	}
+	if (typeof graph.startupMs === "number") {
+		let tail = {
+			label: "hooks + listen",
+			tip: "hooks + listen — everything after NestFactory.create",
+		};
+		if (typeof p.initMs === "number") {
+			tail = { label: "listen", tip: "listen — binding the HTTP server" };
+		} else if (typeof p.moduleInitMs === "number") {
+			tail = {
+				label: "bootstrap + listen",
+				tip: "bootstrap + listen — onApplicationBootstrap hooks and the server bind",
+			};
+		}
+		push(tail.label, graph.startupMs, "107,114,128", tail.tip);
+	}
+	return parts;
+}
+
 export function formatMs(ms: number): string {
 	const r = Math.round(ms * 10) / 10;
 	if (r < 1) {

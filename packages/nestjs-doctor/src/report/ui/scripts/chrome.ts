@@ -18,22 +18,22 @@ export const CHROME = `
       }
     }
     if (graph.startupMs) {
-      const phaseCaption = mgPhaseParts()
-        .map((s) => s.label + " " + mgFormatMs(s.ms))
+      const phaseCaption = RPT.phaseParts(graph)
+        .map((s) => s.label + " " + RPT.formatMs(s.ms))
         .join(" \\u00b7 ");
       badges.push('<span class="meta-badge" id="boot-badge" style="cursor:pointer" data-tip="From bootstrap start until the app was listening, measured by the nestjs-doctor snippet in your main.ts.' +
-        (phaseCaption ? " " + mgEsc(phaseCaption) + "." : "") +
+        (phaseCaption ? " " + escHtml(phaseCaption) + "." : "") +
         ' Slowest construction chain: ' +
-        mgEsc(bootName) + ' \\u2014 click to open it in the modules graph">time to start \\u2248 ' + mgEsc(mgFormatMs(graph.startupMs)) + '</span>');
+        escHtml(bootName) + ' \\u2014 click to open it in the modules graph">time to start \\u2248 ' + escHtml(RPT.formatMs(graph.startupMs)) + '</span>');
     } else if (bootMs > 0) {
       badges.push('<span class="meta-badge" id="boot-badge" style="cursor:pointer" data-tip="Slowest construction chain: ' +
-        mgEsc(bootName) + ' \\u2014 click to open it in the modules graph. Add startupMs to the dump for full time-to-start">boot \\u2248 ' + mgEsc(mgFormatMs(bootMs)) + '</span>');
+        escHtml(bootName) + ' \\u2014 click to open it in the modules graph. Add startupMs to the dump for full time-to-start">boot \\u2248 ' + escHtml(RPT.formatMs(bootMs)) + '</span>');
     }
   }
   meta.innerHTML = badges.join("");
   const bootBadge = document.getElementById("boot-badge");
   if (bootBadge) {
-    bootBadge.addEventListener("click", () => { window.__ndTrack?.("boot_trace_opened"); mgJumpToSlowestBoot(); });
+    bootBadge.addEventListener("click", () => { window.__ndTrack?.("boot_trace_opened"); switchTab("modules"); REPORT_APP.jumpToSlowestBoot(); });
   }
 })();
 
@@ -137,7 +137,7 @@ function switchTab(name) {
   if (name === "schema" && !schemaRendered) { REPORT_APP.renderSchema(REPORT); schemaRendered = true; }
   if (name === "endpoints" && !endpointsRendered) { REPORT_APP.renderEndpoints(REPORT); endpointsRendered = true; }
   if (name === "modules") {
-    if (modulesRendered) { mgResize(); } else { renderModules(); modulesRendered = true; }
+    if (modulesRendered) { REPORT_APP.resizeModules(); } else { REPORT_APP.renderModules(REPORT); modulesRendered = true; }
   }
   if (name === "endpoints" && endpointsRendered) REPORT_APP.resizeEndpoints();
 }

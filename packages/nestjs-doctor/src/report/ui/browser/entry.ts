@@ -50,6 +50,7 @@ export { buildSharedJson, isNotScored, scoredCount } from "./share-payload.js";
 export {
 	formatMs,
 	hookChipHtml,
+	phaseParts,
 	traceNode,
 	traceRowHtml,
 } from "./trace.js";

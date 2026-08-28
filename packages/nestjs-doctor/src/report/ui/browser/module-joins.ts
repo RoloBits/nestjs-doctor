@@ -5,7 +5,7 @@ interface Provider {
 interface WiringDep {
 	className: string;
 	dependencies?: WiringDep[];
-	methodName: string;
+	methodName: string | null;
 	type: string;
 }
 

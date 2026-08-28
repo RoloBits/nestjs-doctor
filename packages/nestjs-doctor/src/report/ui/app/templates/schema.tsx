@@ -385,7 +385,13 @@ export function SchemaTab({ report }: { report: ReportArtifact }) {
 		if (!(name && panel)) {
 			return;
 		}
-		const row = panel.querySelector(`[data-entity="${CSS.escape(name)}"]`);
+		let row: HTMLElement | null = null;
+		for (const el of panel.querySelectorAll<HTMLElement>("[data-entity]")) {
+			if (el.dataset.entity === name) {
+				row = el;
+				break;
+			}
+		}
 		const sticky = panel.querySelector(".schema-sidebar-sticky");
 		if (!row) {
 			return;
