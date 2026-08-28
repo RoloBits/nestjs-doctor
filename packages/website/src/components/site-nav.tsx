@@ -18,6 +18,9 @@ export const Nav = () => (
 			NESTJS-DOCTOR
 		</Link>
 		<div className="flex gap-2">
+			<Link className={BUTTON} href="/report">
+				open report
+			</Link>
 			<Link className={BUTTON} href="/docs">
 				docs
 			</Link>
