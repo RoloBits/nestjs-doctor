@@ -25,13 +25,14 @@ describe("report scripts", () => {
 		expect(scripts).toContain("p \u00b7 ");
 	});
 
-	it("adds a slowest-class line to the tooltip when timings are present", () => {
-		expect(scripts).toContain("slowest\u00a0class");
+	it("labels a module with its build and hook time when timings are present", () => {
+		expect(scripts).toContain(" build`");
 	});
 
-	it("syncs the timings drawer to the selected module", () => {
-		expect(scripts).toContain("Select a module to see its boot trace.");
-		expect(scripts).toContain("No timing data for ");
+	it("mounts the unified timeline in the dock, scoped to the selected module", () => {
+		expect(scripts).toContain("boot-dock-body");
+		expect(scripts).toContain("focusModule");
+		expect(scripts).toContain("No boot timings in this report");
 	});
 
 	it("adds a trace button to the detail header when the module has timings", () => {
@@ -39,18 +40,19 @@ describe("report scripts", () => {
 		expect(scripts).toContain("Open the Boot trace");
 	});
 
-	it("expands a trace row in place to reveal its dependencies", () => {
-		expect(scripts).toContain(".mg-trace-expandable");
-		expect(scripts).toContain("insertAdjacentHTML");
+	it("expands a dependency cascade under its class row", () => {
+		expect(scripts).toContain("boot-expandable");
+		expect(scripts).toContain("boot-cascade-row");
+		expect(scripts).toContain("deduped");
 	});
 
 	it("colors trace bars and badges by class type", () => {
-		expect(scripts).toContain("mg-trace-hook");
+		expect(scripts).toContain("boot-hook-chip");
 	});
 
-	it("marks a dep slower than its parent as reused with a hollow bar", () => {
-		expect(scripts).toContain("already built for an earlier consumer");
-		expect(scripts).toContain("mg-trace-reused-tag");
+	it("marks a dep slower than its parent as shared with a striped bar", () => {
+		expect(scripts).toContain("boot-reused");
+		expect(scripts).toContain("boot-reused-tag");
 	});
 
 	it("renders dock tooltips through the floating body-level layer", () => {
@@ -63,25 +65,19 @@ describe("report scripts", () => {
 		expect(scripts).toContain("hasOwn");
 	});
 
-	it("shows time-to-start when the dump has startupMs, else the slowest chain", () => {
-		expect(scripts).toContain("time to start \u2248");
-		expect(scripts).toContain("boot \u2248");
+	it("ships the boot tab button", () => {
+		expect(scripts).toContain("tab-btn-boot");
 	});
 
-	it("jumps from the boot badge to the module owning the slowest chain", () => {
-		expect(scripts).toContain("boot_trace_opened");
-		expect(scripts).toContain("boot-badge");
-	});
-
-	it("renders the lifecycle phase strip from the dump's markers", () => {
-		expect(scripts).toContain("mg-phase-strip");
+	it("renders the lifecycle phase lane from the dump's markers", () => {
+		expect(scripts).toContain("boot-phase");
 		expect(scripts).toContain("building modules");
-		expect(scripts).toContain("one timeline from launch to ready");
 		expect(scripts).toContain("lifecycle hooks");
 	});
 
-	it("shows per-class hook durations as chips on trace rows", () => {
+	it("shows per-class hook durations as chips or positioned spans", () => {
 		expect(scripts).toContain("lifecycle hooks");
-		expect(scripts).toContain("mg-trace-hook");
+		expect(scripts).toContain("boot-hook-chip");
+		expect(scripts).toContain("boot-hook-span");
 	});
 });

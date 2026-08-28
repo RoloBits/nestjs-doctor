@@ -1,0 +1,22 @@
+/* ── Hover card: rides the pointer over a bar ── */
+.hover-card {
+  position: fixed; z-index: 30; pointer-events: none;
+  min-width: 220px; max-width: 360px;
+  background: #1a1a1a; border: 1px solid var(--border);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  font-family: var(--font); font-size: 12px; color: var(--text);
+}
+.hover-card-tether {
+  position: fixed; z-index: 30; pointer-events: none; height: 0;
+  border-top: 1px solid rgba(255,255,255,0.55); transform-origin: 0 0;
+}
+.hover-card-head { padding: 8px 10px; background: #242424; }
+.hover-card-names { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.hover-card-name { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--white); }
+.hover-card-dot { width: 9px; height: 9px; flex-shrink: 0; }
+.hover-card-arrow { color: var(--text-muted); }
+.hover-card-context { margin-top: 3px; color: var(--text-muted); }
+.hover-card-body { padding: 8px 10px; border-top: 1px solid rgba(255,255,255,0.08); }
+.hover-card-title { font-weight: 600; color: var(--white); }
+.hover-card-detail { margin-top: 2px; color: var(--text); font-variant-numeric: tabular-nums; }
+.hover-card-detail .hover-card-dim { color: var(--text-muted); }

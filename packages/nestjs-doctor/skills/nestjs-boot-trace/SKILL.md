@@ -35,7 +35,7 @@ import { writeFileSync } from "node:fs";
 import { performance } from "node:perf_hooks";
 import { NestFactory, SerializedGraph } from "@nestjs/core";
 
-const hookTimings: { className: string; hook: string; ms: number }[] = [];
+const hookTimings: { className: string; hook: string; ms: number; startMs: number }[] = [];
 
 const t0 = performance.now();
 const app = await NestFactory.create(AppModule, {
@@ -50,7 +50,7 @@ const app = await NestFactory.create(AppModule, {
           instance[hook] = async function (...args: unknown[]) {
             const start = performance.now();
             try { return await original.apply(this, args); }
-            finally { hookTimings.push({ className: this.constructor.name, hook, ms: performance.now() - start }); }
+            finally { hookTimings.push({ className: this.constructor.name, hook, ms: performance.now() - start, startMs: start - t0 }); }
           };
         } catch {} // frozen instances stay untimed
       }

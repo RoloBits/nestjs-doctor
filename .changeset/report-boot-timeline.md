@@ -1,0 +1,5 @@
+---
+"nestjs-doctor": minor
+---
+
+The report's two boot timelines (the phase strip and the per-module bar list) are replaced by one Boot trace tab in the style of an APM waterfall, wearing the same shell as the Modules graph, Endpoints, and Schema tabs: a sidebar-style label column with the module tree, its count, expand and collapse, and a filter; and lanes on the right with the lifecycle phases carrying the viewport window, and the time axis. Every class sits at its real offset from boot start, grouped by module and colored by type, with wheel zoom, axis drag-pan, phase click-to-zoom, dependency cascades that open level by level as shadow rows, a hover card that follows the pointer over a bar, and search; the label column drags to resize and hides like the graph's sidebar. The Modules Graph dock keeps a compact mount of the same timeline on the same absolute axis. Dumps whose hook timings carry `startMs` render hooks as labelled spans; older dumps keep duration chips.

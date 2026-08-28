@@ -42,6 +42,13 @@ const TABS: TabDef[] = [
 			'<rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/><path d="M12 12V8"/>',
 	},
 	{
+		tab: "boot",
+		label: "Boot trace",
+		paths:
+			'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+		id: "tab-btn-boot",
+	},
+	{
 		tab: "endpoints",
 		label: "Endpoints ",
 		paths:
@@ -119,6 +126,12 @@ export function TabBar({
 		}
 		if (def.tab === "endpoints") {
 			return report.endpoints.endpoints.length === 0;
+		}
+		if (def.tab === "boot") {
+			return !(
+				report.graph.timingsAvailable ||
+				Object.keys(report.graph.timingsTrace ?? {}).length > 0
+			);
 		}
 		return false;
 	};

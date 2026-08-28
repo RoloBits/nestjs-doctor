@@ -4,9 +4,14 @@ import type {
 	SerializedModuleNode,
 } from "../../../../common/artifact.js";
 import { REPORT_FONT_STACK } from "../../font.js";
+import {
+	type ModuleTiming,
+	moduleTimingLabel,
+	moduleTimingLines,
+	moduleTimings,
+} from "./boot-timeline.js";
 import { escapeHtml } from "./escape.js";
 import { computeLayout, reverseIndex } from "./module-layout.js";
-import { formatMs } from "./trace.js";
 
 export const MG_EXTERNAL_PROJECT = "(external)";
 const MG_INTRA_EDGE = "#444";
@@ -14,6 +19,7 @@ const MG_CROSS_EDGE = "#22d3ee";
 const MG_CYCLE = "#ea2845";
 const MG_GLOBAL = "#fbbf24";
 const MG_NODE_H = 40;
+const MG_SUB_LINE_H = 12;
 const MG_SEL_OUT = "#60a5fa";
 const MG_SEL_IN = "#34d399";
 const PROJECT_COLORS = [
@@ -31,7 +37,8 @@ export interface MgNode extends SerializedModuleNode {
 	external?: boolean;
 	h: number;
 	label?: string;
-	sub?: string;
+	/** Lines under the name: counts first, then one per boot timing. */
+	subLines?: string[];
 	w: number;
 	x: number;
 	y: number;
@@ -80,6 +87,7 @@ export class ModulesCanvas {
 	readonly importers: Record<string, string[]>;
 	readonly circularModules = new Set<string>();
 	readonly rootModules = new Set<string>();
+	private readonly moduleTimings: Map<string, ModuleTiming>;
 	private readonly circularEdges = new Set<string>();
 	private readonly globalNames: string[] = [];
 	private readonly edges: MgEdge[] = [];
@@ -126,6 +134,7 @@ export class ModulesCanvas {
 		this.tooltipEl = options.tooltipEl;
 		this.callbacks = options.callbacks;
 		this.graph = options.report.graph;
+		this.moduleTimings = moduleTimings(this.graph);
 		this.ctx = this.canvas.getContext("2d");
 		this.dpr = window.devicePixelRatio || 1;
 		this.projectColorMap = buildProjectColorMap(this.graph);
@@ -194,7 +203,7 @@ export class ModulesCanvas {
 						h: MG_NODE_H,
 					};
 					this.measureNode(xn);
-					xn.sub = "package";
+					xn.subLines = ["package"];
 					this.nodes.push(xn);
 					this.nodeMap[targetName] = xn;
 				}
@@ -388,18 +397,21 @@ export class ModulesCanvas {
 			return;
 		}
 		const label = displayName(n);
-		let sub = `${n.providers.length}p · ${n.controllers.length}c`;
-		if (n.initTimings && n.initTimings.length > 0) {
-			sub += ` · ${formatMs((n.initTimings[0] as { initTime: number }).initTime)}`;
+		const subLines = [`${n.providers.length}p · ${n.controllers.length}c`];
+		const timing = this.moduleTimings.get(n.name);
+		if (timing) {
+			subLines.push(...moduleTimingLines(timing));
 		}
 		ctx.font = `bold 12px ${REPORT_FONT_STACK}`;
-		const lw = ctx.measureText(label).width;
+		let widest = ctx.measureText(label).width;
 		ctx.font = `10px ${REPORT_FONT_STACK}`;
-		const sw = ctx.measureText(sub).width;
+		for (const line of subLines) {
+			widest = Math.max(widest, ctx.measureText(line).width);
+		}
 		n.label = label;
-		n.sub = sub;
-		n.w = Math.max(112, Math.max(lw, sw) + 28);
-		n.h = MG_NODE_H;
+		n.subLines = subLines;
+		n.w = Math.max(112, widest + 28);
+		n.h = MG_NODE_H + (subLines.length - 1) * MG_SUB_LINE_H;
 	}
 
 	private scheduleRedraw(): void {
@@ -903,14 +915,18 @@ export class ModulesCanvas {
 			ctx.stroke();
 			ctx.setLineDash([]);
 
+			// Text hangs from the top edge, so extra timing lines grow the box down.
+			const top = n.y - n.h / 2;
 			ctx.textAlign = "center";
 			ctx.textBaseline = "middle";
 			ctx.fillStyle = n.external ? "#9ca3af" : "#fff";
 			ctx.font = `bold 12px ${REPORT_FONT_STACK}`;
-			ctx.fillText(n.label || n.name, n.x, n.y - 6);
+			ctx.fillText(n.label || n.name, n.x, top + 14);
 			ctx.fillStyle = "#888";
 			ctx.font = `10px ${REPORT_FONT_STACK}`;
-			ctx.fillText(n.sub || "", n.x, n.y + 9);
+			(n.subLines ?? []).forEach((line, i) => {
+				ctx.fillText(line, n.x, top + 29 + i * MG_SUB_LINE_H);
+			});
 		}
 		ctx.globalAlpha = 1;
 	}
@@ -959,10 +975,9 @@ export class ModulesCanvas {
 		bits.push(`${n.providers.length} providers`);
 		bits.push(`${n.controllers.length} controllers`);
 		bits.push(`${n.imports.length} imports`);
-		if (n.initTimings && n.initTimings.length > 0) {
-			bits.push(
-				`${formatMs((n.initTimings[0] as { initTime: number }).initTime)} slowest class`
-			);
+		const timing = this.moduleTimings.get(n.name);
+		if (timing) {
+			bits.push(moduleTimingLabel(timing));
 		}
 		this.tooltipEl.innerHTML =
 			`<div class="tt-name">${escapeHtml(displayName(n))}</div>` +

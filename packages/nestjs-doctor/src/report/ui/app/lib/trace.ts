@@ -1,4 +1,3 @@
-import { badge } from "./badge.js";
 import { escapeHtml } from "./escape.js";
 
 interface TraceHook {
@@ -7,27 +6,39 @@ interface TraceHook {
 	ms: number;
 }
 
-export interface TraceNode {
-	deps: string[];
-	hooks?: TraceHook[];
-	initTime: number;
-	name: string;
-	type: string;
+/** The report's category colours as `r,g,b` triples, for rgb()/rgba(). */
+export const PALETTE = {
+	amber: "245,158,11",
+	blue: "59,130,246",
+	green: "16,185,129",
+	grey: "136,136,136",
+	violet: "139,92,246",
+};
+
+/** Darker shade of each palette colour, so white text reads on a filled bar. */
+const FILLS: Record<string, string> = {
+	[PALETTE.amber]: "180,83,9",
+	[PALETTE.blue]: "29,78,216",
+	[PALETTE.green]: "4,120,87",
+	[PALETTE.grey]: "75,85,99",
+	[PALETTE.violet]: "109,40,217",
+};
+
+export function fillOf(rgb: string): string {
+	return Object.hasOwn(FILLS, rgb) ? FILLS[rgb] : rgb;
 }
 
-export type TraceMap = Record<string, TraceNode>;
-
-const TRACE_COLORS: Record<string, string> = {
-	provider: "34,211,238",
-	controller: "167,139,250",
-	injectable: "52,211,153",
-	middleware: "244,114,182",
-};
-
 const HOOK_META: Record<string, { label: string; rgb: string }> = {
-	onModuleInit: { label: "init", rgb: "52,211,153" },
-	onApplicationBootstrap: { label: "bootstrap", rgb: "167,139,250" },
+	onApplicationBootstrap: { label: "bootstrap", rgb: PALETTE.violet },
+	onModuleInit: { label: "init", rgb: PALETTE.green },
 };
+
+/** Short label and colour for a lifecycle hook; unknown hooks stay grey. */
+export function hookMeta(hook: string): { label: string; rgb: string } {
+	return Object.hasOwn(HOOK_META, hook)
+		? HOOK_META[hook]
+		: { label: hook, rgb: PALETTE.grey };
+}
 
 interface PhasePart {
 	gloss: string;
@@ -72,22 +83,22 @@ export function phaseParts(graph: PhasedGraph): PhasePart[] {
 		"create",
 		"building modules",
 		p.createMs,
-		"34,211,238",
-		"create — NestFactory constructs every module, provider, and controller. The rows below break this segment down per class."
+		PALETTE.blue,
+		"create — NestFactory constructs every module, provider, and controller."
 	);
 	if (typeof p.moduleInitMs === "number") {
 		push(
 			"onModuleInit",
 			"init hooks",
 			p.moduleInitMs,
-			"52,211,153",
+			PALETTE.green,
 			"onModuleInit — after construction, Nest calls each class's onModuleInit() hook"
 		);
 		push(
 			"onApplicationBootstrap",
 			"bootstrap hooks",
 			p.initMs,
-			"167,139,250",
+			PALETTE.violet,
 			"onApplicationBootstrap — hooks that run once the whole app is wired, right before it listens"
 		);
 	} else {
@@ -95,7 +106,7 @@ export function phaseParts(graph: PhasedGraph): PhasePart[] {
 			"lifecycle hooks",
 			"lifecycle hooks",
 			p.initMs,
-			"52,211,153",
+			PALETTE.green,
 			"lifecycle hooks — onModuleInit and onApplicationBootstrap"
 		);
 	}
@@ -118,7 +129,7 @@ export function phaseParts(graph: PhasedGraph): PhasePart[] {
 				tip: "bootstrap + listen — onApplicationBootstrap hooks and the server bind",
 			};
 		}
-		push(tail.label, tail.gloss, graph.startupMs, "107,114,128", tail.tip);
+		push(tail.label, tail.gloss, graph.startupMs, PALETTE.grey, tail.tip);
 	}
 	return parts;
 }
@@ -134,23 +145,13 @@ export function formatMs(ms: number): string {
 	return `${Math.round(ms)}ms`;
 }
 
-export function traceNode(trace: TraceMap, id: string): TraceNode | null {
-	return Object.hasOwn(trace, id) ? trace[id] : null;
-}
-
-function traceColor(type: string): string {
-	return Object.hasOwn(TRACE_COLORS, type) ? TRACE_COLORS[type] : "107,114,128";
-}
-
 export function hookChipHtml(hooks: TraceHook[] | undefined): string {
 	if (!hooks || hooks.length === 0) {
 		return "";
 	}
 	let html = "";
 	for (const h of hooks) {
-		const meta = Object.hasOwn(HOOK_META, h.hook)
-			? HOOK_META[h.hook]
-			: { label: h.hook, rgb: "107,114,128" };
+		const meta = hookMeta(h.hook);
 		const times = h.count && h.count > 1 ? ` across ${h.count} instances` : "";
 		html +=
 			`<span class="mg-trace-hook" style="color:rgb(${meta.rgb});background:rgba(${meta.rgb},0.12)"` +
@@ -159,65 +160,6 @@ export function hookChipHtml(hooks: TraceHook[] | undefined): string {
 			`${h.count && h.count > 1 ? ` ×${h.count}` : ""}</span>`;
 	}
 	return html;
-}
-
-function traceBadgeHtml(type: string): string {
-	const rgb = traceColor(type);
-	return badge({
-		style: `color:rgb(${rgb});background:rgba(${rgb},0.12)`,
-		text: escapeHtml(type),
-	});
-}
-
-function traceBarHtml(
-	trace: TraceMap,
-	traceMax: number,
-	initTime: number,
-	deps: string[],
-	type: string,
-	hollowTip: string | null
-): string {
-	const frac = Math.max(0, Math.min(1, initTime / traceMax));
-	const width = (frac * 100).toFixed(2);
-	const inline =
-		`<span class="mg-trace-inline${frac > 0.8 ? " inside" : ""}"` +
-		` style="left:${width}%">${escapeHtml(formatMs(initTime))}</span>`;
-	if (hollowTip) {
-		return (
-			`<span class="mg-trace-track" data-tip="${escapeHtml(`${formatMs(initTime)} total — ${hollowTip}`)}">` +
-			`<span class="mg-trace-bar" style="width:${width}%;background:transparent;box-shadow:inset 0 0 0 1px rgba(${traceColor(type)},0.5)"></span>` +
-			inline +
-			"</span>"
-		);
-	}
-	// Slowest dep this class could actually have waited on: a dep slower than
-	// the class itself was pre-built, so it never entered this class's clock.
-	let slowestDep = 0;
-	for (const d of deps) {
-		const dep = traceNode(trace, d);
-		if (dep && dep.initTime <= initTime) {
-			slowestDep = dep.initTime;
-			break;
-		}
-	}
-	const selfFrac = Math.max(
-		0,
-		Math.min(frac, (initTime - slowestDep) / traceMax)
-	);
-	const tip =
-		`${formatMs(initTime)} total` +
-		(slowestDep > 0
-			? ` — ≈${formatMs(slowestDep)} waiting on dependencies, ≈${formatMs(Math.max(0, initTime - slowestDep))} own work`
-			: " — all own work");
-	return (
-		`<span class="mg-trace-track" data-tip="${escapeHtml(tip)}">` +
-		`<span class="mg-trace-bar" style="width:${width}%;background:rgba(${traceColor(type)},0.4)"></span>` +
-		(selfFrac > 0.002
-			? `<span class="mg-trace-self" style="left:${((frac - selfFrac) * 100).toFixed(2)}%;width:${(selfFrac * 100).toFixed(2)}%"></span>`
-			: "") +
-		inline +
-		"</span>"
-	);
 }
 
 // Round tick spacing so axis cuts land on 1/2/5-style values.
@@ -242,71 +184,4 @@ export function axisTicks(maxMs: number): number[] {
 		ticks.push(t);
 	}
 	return ticks;
-}
-
-export function traceRowHtml(
-	trace: TraceMap,
-	traceMax: number,
-	id: string,
-	depth: number,
-	path: string,
-	mode?: string | null
-): string {
-	const node = traceNode(trace, id);
-	if (!node) {
-		return "";
-	}
-	const ancestors = path.split("/");
-	ancestors.pop();
-	const cyc = ancestors.indexOf(id) >= 0;
-	const expandable = !cyc && depth < 20 && node.deps.length > 0;
-	// Slower than its consumer means the dep already existed when the consumer loaded.
-	const parent =
-		ancestors.length > 0 ? traceNode(trace, ancestors.at(-1) as string) : null;
-	const reused =
-		mode === "reused" || (parent !== null && node.initTime > parent.initTime);
-	const listed = !reused && mode === "listed";
-	let mark: { bar: string; cls: string; tag: string; tip: string } | null =
-		null;
-	if (reused) {
-		mark = {
-			cls: " mg-trace-reused",
-			tag: "reused",
-			tip: "Already built when this parent loaded — its cost is counted at its first consumer",
-			bar: "already built for an earlier consumer; not paid here",
-		};
-	} else if (listed) {
-		mark = {
-			cls: " mg-trace-reused",
-			tag: "listed above",
-			tip: "Has its own row at the top of this trace — the cost is detailed there",
-			bar: "detailed in its own row at the top of this trace",
-		};
-	}
-	return (
-		`<div class="mg-trace-row${expandable ? " mg-trace-expandable" : ""}${mark ? mark.cls : ""}"` +
-		` data-trace="${escapeHtml(id)}" data-path="${escapeHtml(path)}" data-depth="${depth}"` +
-		`${mark ? ` data-mark="${reused ? "reused" : "listed"}"` : ""}>` +
-		`<span class="mg-trace-label" style="padding-left:${Math.min(depth, 8) * 16}px">` +
-		`<span class="mg-trace-caret">${expandable ? "▸" : ""}</span>` +
-		`<span class="mg-trace-name" data-tip="${escapeHtml(node.name)}">${escapeHtml(node.name)}</span>` +
-		traceBadgeHtml(node.type) +
-		hookChipHtml(node.hooks) +
-		(mark
-			? `<span class="mg-trace-reused-tag" data-tip="${mark.tip}">${mark.tag}</span>`
-			: "") +
-		(cyc
-			? '<span class="mg-trace-cycle" data-tip="circular dependency">↻</span>'
-			: "") +
-		"</span>" +
-		traceBarHtml(
-			trace,
-			traceMax,
-			node.initTime,
-			node.deps,
-			node.type,
-			mark ? mark.bar : null
-		) +
-		"</div>"
-	);
 }

@@ -11,6 +11,8 @@ export interface HookTiming {
 	count?: number;
 	hook: string;
 	ms: number;
+	/** Offset from bootstrap start when the hook first began, if captured. */
+	startMs?: number;
 }
 
 /** Cumulative milliseconds from bootstrap start to the end of each phase. */

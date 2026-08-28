@@ -5,6 +5,7 @@ const TAB_IDS = [
 	"tab-schema",
 	"tab-endpoints",
 	"tab-modules",
+	"tab-boot",
 ];
 
 // The emitted body: two header containers and one mount point per tab,

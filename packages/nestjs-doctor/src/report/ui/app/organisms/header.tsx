@@ -3,53 +3,6 @@ import type { ReportArtifact } from "../../../../common/artifact.js";
 import { TextButton } from "../atoms/button.js";
 import { installFloatTip } from "../lib/float-tip.js";
 import { buildSharedJson, scoredCount } from "../lib/share-payload.js";
-import { formatMs, phaseParts } from "../lib/trace.js";
-import { jumpToSlowestBoot } from "../templates/modules.js";
-
-function track(event: string): void {
-	(globalThis as { __ndTrack?: (e: string) => void }).__ndTrack?.(event);
-}
-
-function switchTab(name: string): void {
-	(globalThis as { switchTab?: (name: string) => void }).switchTab?.(name);
-}
-
-function bootBadge(report: ReportArtifact): {
-	label: string;
-	tip: string;
-} | null {
-	const graph = report.graph;
-	if (!graph.timingsAvailable) {
-		return null;
-	}
-	let bootMs = 0;
-	let bootName = "";
-	for (const node of Object.values(graph.timingsTrace ?? {})) {
-		if (node.initTime > bootMs) {
-			bootMs = node.initTime;
-			bootName = node.name;
-		}
-	}
-	if (graph.startupMs) {
-		const phaseCaption = phaseParts(graph)
-			.map((s) => `${s.label} ${formatMs(s.ms)}`)
-			.join(" · ");
-		return {
-			label: `time to start ≈ ${formatMs(graph.startupMs)}`,
-			tip:
-				"From bootstrap start until the app was listening, measured by the nestjs-doctor snippet in your main.ts." +
-				(phaseCaption ? ` ${phaseCaption}.` : "") +
-				` Slowest construction chain: ${bootName} — click to open it in the modules graph`,
-		};
-	}
-	if (bootMs > 0) {
-		return {
-			label: `boot ≈ ${formatMs(bootMs)}`,
-			tip: `Slowest construction chain: ${bootName} — click to open it in the modules graph. Add startupMs to the dump for full time-to-start`,
-		};
-	}
-	return null;
-}
 
 function downloadSharedJson(data: unknown): void {
 	const blob = new Blob([JSON.stringify(data, null, 2)], {
@@ -183,7 +136,6 @@ export function HeaderRow({
 		installFloatTip();
 	}, []);
 	const project = report.project;
-	const boot = bootBadge(report);
 	return (
 		<>
 			<div className="brand">
@@ -209,24 +161,6 @@ export function HeaderRow({
 				{report.graph.modules.length > 0 && (
 					<span className="meta-badge">
 						{report.graph.modules.length} modules
-					</span>
-				)}
-				{boot && (
-					// biome-ignore lint/a11y/noStaticElementInteractions: the badge is the click target, as in the report's CSS
-					// biome-ignore lint/a11y/noNoninteractiveElementInteractions: the badge is the click target, as in the report's CSS
-					// biome-ignore lint/a11y/useKeyWithClickEvents: matches the shipped report's mouse-only badge
-					<span
-						className="meta-badge"
-						data-tip={boot.tip}
-						id="boot-badge"
-						onClick={() => {
-							track("boot_trace_opened");
-							switchTab("modules");
-							jumpToSlowestBoot();
-						}}
-						style={{ cursor: "pointer" }}
-					>
-						{boot.label}
 					</span>
 				)}
 			</div>

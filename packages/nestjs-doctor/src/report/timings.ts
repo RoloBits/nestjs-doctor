@@ -186,6 +186,7 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 			const className = entry?.className;
 			const hook = entry?.hook;
 			const ms = entry?.ms;
+			const startMs = entry?.startMs;
 			if (
 				typeof className !== "string" ||
 				typeof hook !== "string" ||
@@ -210,7 +211,15 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 				existing.ms += ms;
 				existing.count = (existing.count ?? 1) + 1;
 			} else {
-				list.push({ hook, ms });
+				list.push({
+					hook,
+					ms,
+					...(typeof startMs === "number" &&
+					Number.isFinite(startMs) &&
+					startMs >= 0
+						? { startMs }
+						: {}),
+				});
 			}
 			hooksByClass.set(className, list);
 		}

@@ -1,9 +1,9 @@
 import {
-	type CSSProperties,
 	type MouseEvent as ReactMouseEvent,
 	type ReactNode,
 	useEffect,
 	useLayoutEffect,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -16,7 +16,7 @@ import { Badge } from "../atoms/badge.js";
 import { IconButton, TextButton } from "../atoms/button.js";
 import { Heading } from "../atoms/heading.js";
 import { Icon } from "../atoms/icon.js";
-import { escapeHtml } from "../lib/escape.js";
+import { moduleTimingLabel, moduleTimings } from "../lib/boot-timeline.js";
 import { installFloatTip } from "../lib/float-tip.js";
 import {
 	endpointsOf,
@@ -30,15 +30,7 @@ import {
 	type MgNode,
 	ModulesCanvas,
 } from "../lib/modules-canvas.js";
-import {
-	axisStep,
-	axisTicks,
-	formatMs,
-	hookChipHtml,
-	phaseParts,
-	traceNode,
-	traceRowHtml,
-} from "../lib/trace.js";
+import { hookChipHtml } from "../lib/trace.js";
 import { useLatest } from "../lib/use-latest.js";
 import { CheckboxRow } from "../molecules/checkbox-row.js";
 import { EmptyState } from "../molecules/empty-state.js";
@@ -46,6 +38,7 @@ import { SearchField } from "../molecules/search-field.js";
 import { SidebarHeader, TreeToolbar } from "../molecules/sidebar-header.js";
 import { TreeRow } from "../molecules/tree-row.js";
 import { ZoomBar } from "../molecules/zoom-bar.js";
+import { BootView, focusBootTrace } from "./boot.js";
 
 const MG_DYNAMIC_TIPS: Record<string, string> = {
 	forRoot: "Configures the module once for the whole app",
@@ -75,8 +68,11 @@ function track(event: string): void {
 	(globalThis as { __ndTrack?: (e: string) => void }).__ndTrack?.(event);
 }
 
+function switchTab(name: string): void {
+	(globalThis as { switchTab?: (name: string) => void }).switchTab?.(name);
+}
+
 interface ModulesRegistry {
-	jumpToSlowestBoot?: () => void;
 	resize?: () => void;
 	select?: (name: string) => void;
 }
@@ -85,10 +81,6 @@ const registry: ModulesRegistry = {};
 
 export function resizeModulesCanvas(): void {
 	registry.resize?.();
-}
-
-export function jumpToSlowestBoot(): void {
-	registry.jumpToSlowestBoot?.();
 }
 
 export function openModule(name: string): void {
@@ -931,200 +923,14 @@ function InfoPop({
 	);
 }
 
-function TraceAxis({ maxMs }: { maxMs: number }) {
-	if (maxMs <= 0) {
-		return <div id="mg-trace-axis" />;
-	}
-	return (
-		<div id="mg-trace-axis">
-			<span className="mg-trace-label">
-				<span className="mg-axis-zero">0</span>
-			</span>
-			<span className="mg-trace-track">
-				{axisTicks(maxMs).map((tick) => (
-					<span
-						className="mg-axis-tick"
-						key={tick}
-						style={{ left: `${((tick / maxMs) * 100).toFixed(2)}%` }}
-					>
-						{formatMs(tick)}
-					</span>
-				))}
-				<span className="mg-axis-end">{formatMs(maxMs)}</span>
-			</span>
-		</div>
-	);
-}
-
-// The trace body keeps the shipped renderer: rows come from traceRowHtml and
-// expansion splices child rows in place, exactly like the script chunk did.
-function TraceBody({
-	graph,
-	node,
-	onLayoutChange,
-}: {
-	graph: SerializedModuleGraph;
-	node: MgNode | null;
-	onLayoutChange: () => void;
-}) {
-	const bodyRef = useRef<HTMLDivElement>(null);
-	const topIdsRef = useRef<Record<string, boolean>>({});
-	const traceMaxRef = useRef(1);
-	const syncedNameRef = useRef<string | null>(null);
-	const renderedKeyRef = useRef<string | undefined>(undefined);
-	const trace = graph.timingsTrace || {};
-
-	useEffect(() => {
-		const body = bodyRef.current;
-		if (!body) {
-			return;
-		}
-		const mod =
-			node &&
-			!node.external &&
-			graph.timingsAvailable &&
-			node.initTimings?.length
-				? node
-				: null;
-		const renderKey = mod ? mod.name : `note:${node ? node.name : ""}`;
-		if (renderedKeyRef.current === renderKey) {
-			return;
-		}
-		renderedKeyRef.current = renderKey;
-		if (mod?.initTimings) {
-			// Re-selecting the same module keeps its expanded cascade rows.
-			if (syncedNameRef.current === mod.name) {
-				return;
-			}
-			syncedNameRef.current = mod.name;
-			const list = mod.initTimings;
-			traceMaxRef.current =
-				(list[0] as { initTime: number }).initTime > 0
-					? (list[0] as { initTime: number }).initTime
-					: 1;
-			topIdsRef.current = {};
-			let html = "";
-			// The parser writes every timed class into the trace, so rows never miss it.
-			for (const entry of list) {
-				topIdsRef.current[entry.id] = true;
-				html += traceRowHtml(trace, traceMaxRef.current, entry.id, 0, entry.id);
-			}
-			body.innerHTML = html;
-		} else {
-			syncedNameRef.current = null;
-			const message = node
-				? escapeHtml(
-						`No timing data for ${displayName(node)} — it was not part of the captured boot, or its module name repeats across projects.`
-					)
-				: "Select a module to see its boot trace.";
-			body.innerHTML = `<div class="mg-trace-note">${message}</div>`;
-		}
-		onLayoutChange();
-	});
-
-	useEffect(() => {
-		const body = bodyRef.current;
-		if (!body) {
-			return;
-		}
-		const onClick = (ev: Event) => {
-			const row = (ev.target as Element).closest<HTMLElement>(
-				".mg-trace-expandable"
-			);
-			if (!row) {
-				return;
-			}
-			const path = row.dataset.path as string;
-			if (row.classList.contains("expanded")) {
-				row.classList.remove("expanded");
-				let next = row.nextElementSibling as HTMLElement | null;
-				while (next?.dataset.path?.indexOf(`${path}/`) === 0) {
-					const gone = next;
-					next = next.nextElementSibling as HTMLElement | null;
-					gone.remove();
-				}
-			} else {
-				row.classList.add("expanded");
-				const traced = traceNode(trace, row.dataset.trace as string);
-				if (!traced) {
-					return;
-				}
-				const depth = Number.parseInt(row.dataset.depth as string, 10) + 1;
-				const parentMark = row.dataset.mark || null;
-				let html = "";
-				for (const depId of traced.deps) {
-					// A dep with its own top-level row is detailed there, not paid again here.
-					const mode =
-						parentMark || (topIdsRef.current[depId] === true ? "listed" : null);
-					html += traceRowHtml(
-						trace,
-						traceMaxRef.current,
-						depId,
-						depth,
-						`${path}/${depId}`,
-						mode
-					);
-				}
-				row.insertAdjacentHTML("afterend", html);
-			}
-			onLayoutChange();
-		};
-		body.addEventListener("click", onClick);
-		return () => body.removeEventListener("click", onClick);
-	}, [trace, onLayoutChange]);
-
-	return <div id="mg-trace-body" ref={bodyRef} />;
-}
-
-function PhasesStrip({ graph }: { graph: SerializedModuleGraph }) {
-	const parts = phaseParts(graph);
-	let total = 0;
-	for (const part of parts) {
-		total += part.ms;
-	}
-	if (parts.length === 0 || total <= 0) {
-		return <div id="mg-trace-phases" />;
-	}
-	return (
-		<div id="mg-trace-phases">
-			<div className="mg-phase-strip">
-				{parts.map((seg) => (
-					<span
-						className="mg-phase-seg"
-						data-tip={`${seg.tip}. Took ${formatMs(seg.ms)}`}
-						key={seg.label}
-						style={{
-							width: `${((seg.ms / total) * 100).toFixed(2)}%`,
-							background: `rgba(${seg.rgb},0.35)`,
-						}}
-					>
-						<span
-							className="mg-phase-label"
-							style={{ color: `rgb(${seg.rgb})` }}
-						>
-							{seg.gloss}{" "}
-							<span className="mg-phase-ms">{formatMs(seg.ms)}</span>
-						</span>
-					</span>
-				))}
-			</div>
-			<div className="mg-trace-note mg-phase-note">
-				<span>
-					▴ one timeline from launch to ready — the rows below detail{" "}
-					<span style={{ color: `rgb(${parts[0].rgb})` }}>
-						{parts[0].gloss}
-					</span>
-					, class by class
-				</span>
-				<span className="mg-phase-total">total {formatMs(total)}</span>
-			</div>
-		</div>
-	);
-}
-
 export function ModulesTab({ report }: { report: ReportArtifact }) {
 	const graph = report.graph;
 	const [selectedName, setSelectedName] = useState<string | null>(null);
+	const modTimings = useMemo(() => moduleTimings(graph), [graph]);
+	const timingLabelOf = (name: string): string => {
+		const timing = modTimings.get(name);
+		return timing ? moduleTimingLabel(timing) : "";
+	};
 	const [zoomPct, setZoomPct] = useState(100);
 	const [showGlobals, setShowGlobals] = useState(false);
 	const [showExternal, setShowExternal] = useState(false);
@@ -1181,7 +987,6 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 		setController(instance);
 		instance.init();
 		registry.resize = () => instance.resize();
-		registry.jumpToSlowestBoot = () => flushSync(() => jumpRef.current());
 		registry.select = (name) => flushSync(() => selectRef.current(name, true));
 		const onResize = () => {
 			if (canvas.offsetParent !== null) {
@@ -1195,7 +1000,6 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 			controllerRef.current = null;
 			setController(null);
 			registry.resize = undefined;
-			registry.jumpToSlowestBoot = undefined;
 			registry.select = undefined;
 		};
 	}, []);
@@ -1231,43 +1035,6 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 		setSelectedName(name);
 	};
 	const selectRef = useLatest(select);
-
-	const jump = () => {
-		const trace = graph.timingsTrace || {};
-		let maxId: string | null = null;
-		let maxT = -1;
-		for (const [id, entry] of Object.entries(trace)) {
-			if (entry.initTime > maxT) {
-				maxT = entry.initTime;
-				maxId = id;
-			}
-		}
-		let owner: string | null = null;
-		let largest: string | null = null;
-		let largestT = -1;
-		for (const m of graph.modules) {
-			if (!m.initTimings || m.initTimings.length === 0) {
-				continue;
-			}
-			for (const timing of m.initTimings) {
-				if (timing.id === maxId) {
-					owner = m.name;
-				}
-			}
-			if ((m.initTimings[0] as { initTime: number }).initTime > largestT) {
-				largestT = (m.initTimings[0] as { initTime: number }).initTime;
-				largest = m.name;
-			}
-		}
-		const target = owner || largest;
-		if (target) {
-			selectRef.current(target, true);
-		}
-		setDockActive("trace");
-		setDockOpen(true);
-		controllerRef.current?.resize();
-	};
-	const jumpRef = useLatest(jump);
 
 	// Scroll the selected tree row into view, like the chunk's mgSyncTree.
 	useEffect(() => {
@@ -1309,16 +1076,6 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 	const nodeMap = controller ? controller.nodeMap : {};
 	const importers = controller ? controller.importers : {};
 	const selected = selectedName ? (nodeMap[selectedName] ?? null) : null;
-	const traceMod =
-		selected &&
-		!selected.external &&
-		graph.timingsAvailable &&
-		selected.initTimings?.length
-			? selected
-			: null;
-	const traceMax = traceMod?.initTimings
-		? Math.max((traceMod.initTimings[0] as { initTime: number }).initTime, 0)
-		: 0;
 
 	const byProject: Record<string, MgNode[]> = {};
 	for (const n of nodes) {
@@ -1527,9 +1284,13 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 						id="detail-badges"
 						onClick={(ev) => {
 							if ((ev.target as Element).closest("#detail-timings-btn")) {
-								setDockActive("trace");
-								setDockOpen(true);
-								controllerRef.current?.resize();
+								switchTab("boot");
+								const slowestClass = (
+									selected?.initTimings?.[0] as { name?: string } | undefined
+								)?.name;
+								focusBootTrace(
+									typeof slowestClass === "string" ? slowestClass : undefined
+								);
 							}
 						}}
 					>
@@ -1552,10 +1313,7 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 									tip="Open the Boot trace"
 									variant="md-use"
 								>
-									{formatMs(
-										(selected.initTimings[0] as { initTime: number }).initTime
-									)}{" "}
-									· trace ▸
+									{timingLabelOf(selected.name)} · trace ▸
 								</Badge>
 							)}
 						{selected && graph.timingsAvailable && (
@@ -1786,14 +1544,6 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 					className={dockOpen ? "open" : undefined}
 					data-active={dockActive}
 					id="mg-dock"
-					style={
-						{
-							"--mg-tick":
-								traceMax > 0
-									? `${((axisStep(traceMax) / traceMax) * 100).toFixed(3)}%`
-									: "200%",
-						} as CSSProperties
-					}
 				>
 					{/* biome-ignore lint/a11y/noStaticElementInteractions: the whole header is the click target, as in the report's CSS */}
 					{/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: the whole header is the click target, as in the report's CSS */}
@@ -1836,21 +1586,9 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 							Boot trace{" "}
 							<span className="schema-entity-count" id="mg-trace-ms">
 								{selected?.initTimings?.length && graph.timingsAvailable
-									? `${displayName(selected)} · ${formatMs((selected.initTimings[0] as { initTime: number }).initTime)}`
+									? `${displayName(selected)} · ${timingLabelOf(selected.name)}`
 									: ""}
 							</span>
-						</span>
-						<span
-							aria-label="How to read the trace"
-							className="mg-trace-info"
-							data-tip={
-								"How to read the trace\n• bars scale to the slowest row\n• yellow segment ≈ the class's own work\n• dimmed hollow bar = reused, built earlier\n• rows are the building-modules (create) segment\n• +ms chips = lifecycle hooks"
-							}
-							role="img"
-							// biome-ignore lint/a11y/noNoninteractiveTabindex: focusable on purpose so the tooltip opens from the keyboard
-							tabIndex={0}
-						>
-							<Icon ariaHidden={true} name="infoDot" size={13} />
 						</span>
 						<span style={{ flex: 1 }} />
 						<span className="mg-problems-chevron" id="mg-dock-chevron">
@@ -1887,13 +1625,18 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 							))
 						)}
 					</div>
-					<PhasesStrip graph={graph} />
-					<TraceAxis maxMs={traceMax} />
-					<TraceBody
-						graph={graph}
-						node={selected}
-						onLayoutChange={() => controllerRef.current?.resize()}
-					/>
+					<div className="boot-dock-body" data-active={dockActive}>
+						<BootView
+							compact
+							focusModule={selectedName}
+							graph={graph}
+							onSelectSpan={(span) => {
+								if (graph.modules.some((m) => m.name === span.module)) {
+									selectRef.current(span.module, true);
+								}
+							}}
+						/>
+					</div>
 				</div>
 				<div
 					className={infoOpen ? "visible" : undefined}

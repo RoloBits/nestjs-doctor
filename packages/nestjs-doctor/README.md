@@ -63,9 +63,10 @@ module graph.
 
 ![Module Graph](https://nestjs.doctor/module-graph.png)
 
-Add a few lines to `main.ts`, boot once, and `--timings` overlays the real
-construction times on the module graph. The 800ms hiding in an `onModuleInit`
-becomes a bar. [Boot trace docs →](https://nestjs.doctor/docs/report/boot-trace)
+Add a few lines to `main.ts`, boot once, and `--timings` gives the report a
+Boot trace tab: every class on one absolute timeline with the lifecycle
+phases, zoom, hover highlights of what injects what, and a detail panel per
+class. [Boot trace docs →](https://nestjs.doctor/docs/report/boot-trace)
 
 ### 3. Run in CI
 
