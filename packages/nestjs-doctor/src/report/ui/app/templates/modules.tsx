@@ -16,6 +16,7 @@ import { IconButton, TextButton } from "../atoms/button.js";
 import { Heading } from "../atoms/heading.js";
 import { Icon } from "../atoms/icon.js";
 import { escapeHtml } from "../lib/escape.js";
+import { installFloatTip } from "../lib/float-tip.js";
 import {
 	endpointsOf,
 	providersOf,
@@ -1099,6 +1100,9 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 	const [infoOpen, setInfoOpen] = useState(false);
 	const [controller, setController] = useState<ModulesCanvas | null>(null);
 	const hideExternal = !showExternal;
+	useLayoutEffect(() => {
+		installFloatTip();
+	}, []);
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const tooltipRef = useRef<HTMLDivElement>(null);
 	const sidebarRef = useRef<HTMLDivElement>(null);

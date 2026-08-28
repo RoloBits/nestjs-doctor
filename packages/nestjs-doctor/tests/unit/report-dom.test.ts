@@ -149,3 +149,29 @@ it("renderChrome host options hide tabs and share and add load file", () => {
 	expect(tabStyle("lab")).toBe("none");
 	expect(tabStyle("summary")).not.toBe("none");
 });
+
+it("shows the floating tooltip for data-tip elements in the header", () => {
+	const dom = new JSDOM(`<body>${getReportHtml()}</body>`, {
+		runScripts: "outside-only",
+		pretendToBeVisual: true,
+	});
+	const win = dom.window as unknown as typeof globalThis & Window;
+	stubCanvas(win);
+	win.eval(getReportScripts(RICH_ARTIFACT_JSON));
+
+	const tip = win.document.getElementById("mg-float-tip");
+	expect(tip).not.toBeNull();
+	expect(tip?.style.display).not.toBe("block");
+
+	const badge = win.document.querySelector("#header-meta .meta-badge");
+	expect(badge).not.toBeNull();
+	badge?.setAttribute("data-tip", "a clipped explanation");
+	badge?.dispatchEvent(new win.MouseEvent("mouseover", { bubbles: true }));
+	expect(tip?.style.display).toBe("block");
+	expect(tip?.textContent).toBe(badge?.getAttribute("data-tip"));
+
+	win.document.body.dispatchEvent(
+		new win.MouseEvent("mouseover", { bubbles: true })
+	);
+	expect(tip?.style.display).toBe("none");
+});
