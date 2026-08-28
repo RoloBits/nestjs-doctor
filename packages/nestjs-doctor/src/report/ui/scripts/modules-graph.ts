@@ -1,6 +1,7 @@
 import { REPORT_FONT_STACK } from "../styles.js";
 
 export const MODULES_GRAPH = `
+const SEV_ORDER = { error: 0, warning: 1, info: 2 };
 // ── Modules graph: derived indexes ──
 const mgUnusedProviders = {};
 for (let di = 0; di < diagnostics.length; di++) {

@@ -3,7 +3,6 @@ import BROWSER_BUNDLE from "./browser/bundle.iife.js?raw";
 import { BOOT } from "./scripts/boot.js";
 import { bootstrap } from "./scripts/bootstrap.js";
 import { CHROME } from "./scripts/chrome.js";
-import { DIAGNOSIS } from "./scripts/diagnosis.js";
 import { ENDPOINTS } from "./scripts/endpoints.js";
 import { LAB } from "./scripts/lab.js";
 import { MODULES_GRAPH } from "./scripts/modules-graph.js";
@@ -21,7 +20,6 @@ export function getReportScripts(artifactJson: string): string {
 		bootstrap(artifactJson),
 		CHROME,
 		MODULES_GRAPH,
-		DIAGNOSIS,
 		SHARED_TREE,
 		LAB,
 		TAB_VISIBILITY,

@@ -2,12 +2,11 @@ import type { ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import type { ReportArtifact } from "../../../common/artifact.js";
+import {
+	type DiagnosisCallbacks,
+	DiagnosisTab,
+} from "./templates/diagnosis.js";
 import { SummaryTab } from "./templates/summary.js";
-
-// The report page's DOM, without pulling lib.dom into the CLI's typecheck.
-declare const document: {
-	getElementById(id: string): globalThis.Element | null;
-};
 
 const roots = new Map<string, Root>();
 
@@ -28,4 +27,14 @@ function mount(containerId: string, node: ReactNode): void {
 
 export function renderSummary(report: ReportArtifact): void {
 	mount("tab-summary", <SummaryTab report={report} />);
+}
+
+export function renderDiagnosis(
+	report: ReportArtifact,
+	callbacks: DiagnosisCallbacks
+): void {
+	mount(
+		"tab-diagnosis",
+		<DiagnosisTab callbacks={callbacks} report={report} />
+	);
 }

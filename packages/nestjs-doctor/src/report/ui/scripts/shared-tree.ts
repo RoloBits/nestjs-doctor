@@ -1,4 +1,8 @@
 export const SHARED_TREE = `
+function escHtml(s) {
+  return RPT.escapeHtml(s);
+}
+
 // ── Shared SVG icons ──
 const SVG_FOLDER = RPT.icon({ name: "folder", size: 14 });
 const SVG_FILE = RPT.icon({ name: "file", size: 14 });

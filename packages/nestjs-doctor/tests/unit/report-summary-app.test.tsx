@@ -76,10 +76,7 @@ describe("SummaryTab", () => {
 		const artifact: ReportArtifact = {
 			...EMPTY_ARTIFACT,
 			summary: { ...EMPTY_ARTIFACT.summary, total: 2 },
-			diagnostics: [
-				codeDiagnostic({ surfaces: ["report"] }),
-				codeDiagnostic({}),
-			],
+			diagnostics: [codeDiagnostic({ surfaces: ["cli"] }), codeDiagnostic({})],
 		};
 		const html = render(artifact);
 		expect(html).toContain("1 of 2 not scored");
