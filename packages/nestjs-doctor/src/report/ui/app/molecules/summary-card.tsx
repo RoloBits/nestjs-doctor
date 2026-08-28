@@ -21,8 +21,11 @@ export function Card({
 	fullWidth?: boolean;
 	title: string;
 }) {
+	const classes = ["ov-card", fullWidth ? "full-width" : undefined]
+		.filter(Boolean)
+		.join(" ");
 	return (
-		<div className={`ov-card${fullWidth ? "full-width" : ""}`}>
+		<div className={classes}>
 			<Heading level={3}>{title}</Heading>
 			<div className="ov-card-body">{children}</div>
 		</div>

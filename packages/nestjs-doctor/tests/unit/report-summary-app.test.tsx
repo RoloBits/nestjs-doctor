@@ -15,6 +15,7 @@ describe("SummaryTab", () => {
 	it("renders every card with the artifact's numbers", () => {
 		const html = render(RICH_ARTIFACT);
 		expect(html).toContain('<div class="ov-score-label">100 / 100</div>');
+		expect(html).toContain('<div class="ov-card full-width">');
 		expect(html).toContain("Excellent");
 		expect(html).toContain("★★★★★");
 		expect(html.match(/ov-cat-row/g)).toHaveLength(5);
