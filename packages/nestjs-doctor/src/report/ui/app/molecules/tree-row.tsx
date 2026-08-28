@@ -8,6 +8,8 @@ interface TreeRowProps {
 	/** Trailing content, typically a count badge. */
 	extra?: ReactNode;
 	icon?: ReactNode;
+	/** Adds the has-tip class the floating tooltip binds to. */
+	iconTip?: string;
 	label: ReactNode;
 	onClick?: () => void;
 	onToggle?: () => void;
@@ -21,6 +23,7 @@ export function TreeRow({
 	label,
 	toggleGlyph,
 	icon,
+	iconTip,
 	before,
 	extra,
 	classes,
@@ -54,7 +57,14 @@ export function TreeRow({
 			) : (
 				<span className="st-indent" />
 			)}
-			{icon && <span className="st-icon">{icon}</span>}
+			{icon && (
+				<span
+					className={iconTip ? "st-icon has-tip" : "st-icon"}
+					data-tip={iconTip}
+				>
+					{icon}
+				</span>
+			)}
 			{before}
 			<span className="st-label">{label}</span>
 			{extra}

@@ -5,7 +5,6 @@ import { bootstrap } from "./scripts/bootstrap.js";
 import { CHROME } from "./scripts/chrome.js";
 import { LAB } from "./scripts/lab.js";
 import { MODULES_GRAPH } from "./scripts/modules-graph.js";
-import { SCHEMA } from "./scripts/schema.js";
 import { SHARE } from "./scripts/share.js";
 import { SHARED_TREE } from "./scripts/shared-tree.js";
 import { TAB_VISIBILITY } from "./scripts/tab-visibility.js";
@@ -22,7 +21,6 @@ export function getReportScripts(artifactJson: string): string {
 		SHARED_TREE,
 		LAB,
 		TAB_VISIBILITY,
-		SCHEMA,
 		BOOT,
 		SHARE,
 	].join("");

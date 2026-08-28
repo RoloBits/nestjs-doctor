@@ -7,6 +7,7 @@ import {
 	DiagnosisTab,
 } from "./templates/diagnosis.js";
 import { EndpointsTab, resizeEndpointsCanvas } from "./templates/endpoints.js";
+import { SchemaTab } from "./templates/schema.js";
 import { SummaryTab } from "./templates/summary.js";
 
 const roots = new Map<string, Root>();
@@ -46,4 +47,8 @@ export function renderEndpoints(report: ReportArtifact): void {
 
 export function resizeEndpoints(): void {
 	resizeEndpointsCanvas();
+}
+
+export function renderSchema(report: ReportArtifact): void {
+	mount("tab-schema", <SchemaTab report={report} />);
 }

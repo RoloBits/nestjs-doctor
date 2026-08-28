@@ -4,6 +4,7 @@ import { Icon } from "./icon.js";
 
 interface IconButtonProps {
 	ariaLabel?: string;
+	ariaPressed?: boolean;
 	icon: IconName;
 	id?: string;
 	modifier?: string;
@@ -19,6 +20,7 @@ export function IconButton({
 	icon,
 	modifier,
 	ariaLabel,
+	ariaPressed,
 	tip,
 	title,
 	onClick,
@@ -29,6 +31,7 @@ export function IconButton({
 	return (
 		<button
 			aria-label={ariaLabel}
+			aria-pressed={ariaPressed}
 			className={classes}
 			data-tip={tip}
 			id={id}
@@ -48,6 +51,7 @@ interface TextButtonProps {
 	classes?: string;
 	id?: string;
 	onClick?: () => void;
+	tip?: string;
 }
 
 // A button whose face is arbitrary content instead of a lone icon.
@@ -57,13 +61,18 @@ export function TextButton({
 	ariaExpanded,
 	ariaLabel,
 	onClick,
+	tip,
 	children,
 }: TextButtonProps) {
+	const className = [classes, tip ? "has-tip" : undefined]
+		.filter(Boolean)
+		.join(" ");
 	return (
 		<button
 			aria-expanded={ariaExpanded}
 			aria-label={ariaLabel}
-			className={classes}
+			className={className || undefined}
+			data-tip={tip}
 			id={id}
 			onClick={onClick}
 			type="button"
