@@ -22,10 +22,10 @@ import type {
 	ShareManifest,
 	ShareSection,
 } from "../common/share.js";
+import { SHARED_REPORT_VERSION } from "../common/share.js";
 import { toRelativePath } from "../engine/fingerprint.js";
 import { buildSummary } from "../engine/result-builder.js";
 
-export const SHARED_REPORT_VERSION = 1;
 const SHARED_FILENAME = "nestjs-doctor-shared.json";
 
 const FINDINGS_PREFIX = "findings:";

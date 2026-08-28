@@ -168,7 +168,15 @@ function ShareDialog({
 	);
 }
 
-export function HeaderRow({ report }: { report: ReportArtifact }) {
+export function HeaderRow({
+	hideShare,
+	onLoadAnother,
+	report,
+}: {
+	hideShare?: boolean;
+	onLoadAnother?: () => void;
+	report: ReportArtifact;
+}) {
 	const [shareOpen, setShareOpen] = useState(false);
 	const project = report.project;
 	const boot = bootBadge(report);
@@ -194,9 +202,11 @@ export function HeaderRow({ report }: { report: ReportArtifact }) {
 					<span className="meta-badge">{project.framework}</span>
 				)}
 				{project.orm && <span className="meta-badge">{project.orm}</span>}
-				<span className="meta-badge">
-					{report.graph.modules.length} modules
-				</span>
+				{report.graph.modules.length > 0 && (
+					<span className="meta-badge">
+						{report.graph.modules.length} modules
+					</span>
+				)}
 				{boot && (
 					// biome-ignore lint/a11y/noStaticElementInteractions: the badge is the click target, as in the report's CSS
 					// biome-ignore lint/a11y/noNoninteractiveElementInteractions: the badge is the click target, as in the report's CSS
@@ -218,13 +228,20 @@ export function HeaderRow({ report }: { report: ReportArtifact }) {
 			</div>
 			<div className="spacer" />
 			<div className="nav-actions">
-				<TextButton
-					classes="nav-btn"
-					id="nav-share"
-					onClick={() => setShareOpen((prev) => !prev)}
-				>
-					share
-				</TextButton>
+				{onLoadAnother && (
+					<TextButton classes="nav-btn" id="nav-load" onClick={onLoadAnother}>
+						load file
+					</TextButton>
+				)}
+				{!hideShare && (
+					<TextButton
+						classes="nav-btn"
+						id="nav-share"
+						onClick={() => setShareOpen((prev) => !prev)}
+					>
+						share
+					</TextButton>
+				)}
 				<a
 					className="nav-btn"
 					href="https://nestjs.doctor/docs"

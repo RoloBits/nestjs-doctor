@@ -14,6 +14,10 @@
     "./api": {
       "types": "./dist/api/index.d.mts",
       "default": "./dist/api/index.mjs"
+    },
+    "./report-ui": {
+      "types": "./dist/report-ui/index.d.ts",
+      "default": "./dist/report-ui/index.js"
     }
   },
   "files": [
