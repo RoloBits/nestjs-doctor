@@ -4,25 +4,25 @@ import {
 	fkKeys,
 	foreignKeyColumns,
 	keyName,
-} from "../../src/report/ui/browser/column-kinds.js";
+} from "../../src/report/ui/app/lib/column-kinds.js";
 import {
 	buildEndpointGraph,
 	layoutEndpointGraph,
-} from "../../src/report/ui/browser/endpoint-layout.js";
+} from "../../src/report/ui/app/lib/endpoint-layout.js";
 import {
 	endpointsOf,
 	providersOf,
 	wiringChildren,
-} from "../../src/report/ui/browser/module-joins.js";
+} from "../../src/report/ui/app/lib/module-joins.js";
 import {
 	getScoreColor,
 	makeScoreRingSvg,
-} from "../../src/report/ui/browser/score-ring.js";
+} from "../../src/report/ui/app/lib/score-ring.js";
 import {
 	buildSharedJson,
 	isNotScored,
 	scoredCount,
-} from "../../src/report/ui/browser/share-payload.js";
+} from "../../src/report/ui/app/lib/share-payload.js";
 
 describe("column classification", () => {
 	it("normalises names to lowercase alphanumerics", () => {

@@ -1,4 +1,4 @@
-import { ICONS, type IconName } from "../../atoms/icon.js";
+import { ICONS, type IconName } from "./icons.js";
 
 const SVG_SHAPE = /^<svg ([^>]*)>([\s\S]*)<\/svg>$/;
 const ATTR = /([a-zA-Z-]+)="([^"]*)"/g;

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import type { IconName } from "../../atoms/icon.js";
 import { Icon } from "./icon.js";
+import type { IconName } from "./icons.js";
 
 interface IconButtonProps {
 	ariaLabel?: string;

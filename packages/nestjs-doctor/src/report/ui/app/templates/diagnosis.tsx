@@ -6,10 +6,10 @@ import {
 	isSchemaDiagnostic,
 	type Severity,
 } from "../../../../common/diagnostic.js";
-import { buildFileTree, compressTree } from "../../browser/tree.js";
 import { TextButton } from "../atoms/button.js";
 import { Icon } from "../atoms/icon.js";
 import { pinExpandBelow } from "../lib/scroll.js";
+import { buildFileTree, compressTree } from "../lib/tree.js";
 import { CheckboxRow } from "../molecules/checkbox-row.js";
 import {
 	CodeViewer,

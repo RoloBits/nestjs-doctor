@@ -5,12 +5,12 @@ import type {
 	SchemaEntity,
 	SerializedSchemaGraph,
 } from "../../../../common/schema.js";
-import type { IconName } from "../../atoms/icon.js";
-import { columnKind, foreignKeyColumns } from "../../browser/column-kinds.js";
-import { SCHEMA_DEFAULT_MAX_COLS } from "../../browser/schema-layout.js";
 import { IconButton, TextButton } from "../atoms/button.js";
 import { Icon } from "../atoms/icon.js";
+import type { IconName } from "../atoms/icons.js";
+import { columnKind, foreignKeyColumns } from "../lib/column-kinds.js";
 import { relLabel, SchemaCanvas } from "../lib/schema-canvas.js";
+import { SCHEMA_DEFAULT_MAX_COLS } from "../lib/schema-layout.js";
 import { CheckboxRow } from "../molecules/checkbox-row.js";
 import { EmptyState } from "../molecules/empty-state.js";
 import { SearchField } from "../molecules/search-field.js";

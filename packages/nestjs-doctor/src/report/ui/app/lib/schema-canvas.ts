@@ -2,20 +2,21 @@ import type {
 	SchemaEntity,
 	SerializedSchemaGraph,
 } from "../../../../common/schema.js";
+import { REPORT_FONT_STACK } from "../../font.js";
 import {
 	columnKind,
 	fkKeys,
 	foreignKeyColumns,
 	keyName,
-} from "../../browser/column-kinds.js";
-import { escapeHtml } from "../../browser/escape.js";
+} from "./column-kinds.js";
+import { escapeHtml } from "./escape.js";
 import {
 	computeOverviewLayout,
 	computeStarLayout,
 	nodeHeight,
 	SCHEMA_BOX_W,
 	visibleColCount,
-} from "../../browser/schema-layout.js";
+} from "./schema-layout.js";
 import {
 	buildGrids,
 	channelRouteAll,
@@ -23,8 +24,7 @@ import {
 	pointToSegmentDist,
 	polylineMidpoint,
 	routeManhattan,
-} from "../../browser/schema-routing.js";
-import { REPORT_FONT_STACK } from "../../font.js";
+} from "./schema-routing.js";
 
 interface SNode {
 	_comp?: number;

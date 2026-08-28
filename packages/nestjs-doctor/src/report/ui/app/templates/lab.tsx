@@ -7,7 +7,6 @@ import {
 } from "react";
 import type { ReportArtifact } from "../../../../common/artifact.js";
 import type { Severity } from "../../../../common/diagnostic.js";
-import { buildFileTree, compressTree } from "../../browser/tree.js";
 import { TextButton } from "../atoms/button.js";
 import { Icon } from "../atoms/icon.js";
 import {
@@ -16,6 +15,7 @@ import {
 	PLAYGROUND_PRESETS,
 } from "../lib/lab-presets.js";
 import { pinExpandBelow } from "../lib/scroll.js";
+import { buildFileTree, compressTree } from "../lib/tree.js";
 import {
 	CodeViewer,
 	type CodeViewerOptions,

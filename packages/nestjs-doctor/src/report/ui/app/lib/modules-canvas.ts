@@ -3,10 +3,10 @@ import type {
 	SerializedModuleGraph,
 	SerializedModuleNode,
 } from "../../../../common/artifact.js";
-import { escapeHtml } from "../../browser/escape.js";
-import { computeLayout, reverseIndex } from "../../browser/module-layout.js";
-import { formatMs } from "../../browser/trace.js";
 import { REPORT_FONT_STACK } from "../../font.js";
+import { escapeHtml } from "./escape.js";
+import { computeLayout, reverseIndex } from "./module-layout.js";
+import { formatMs } from "./trace.js";
 
 export const MG_EXTERNAL_PROJECT = "(external)";
 const MG_INTRA_EDGE = "#444";

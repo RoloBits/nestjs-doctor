@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeStarLayout } from "../../src/report/ui/browser/schema-layout.js";
+import { computeStarLayout } from "../../src/report/ui/app/lib/schema-layout.js";
 import {
 	buildGrids,
 	channelRouteAll,
@@ -9,7 +9,7 @@ import {
 	routeManhattan,
 	segmentHitsBox,
 	simplifyPath,
-} from "../../src/report/ui/browser/schema-routing.js";
+} from "../../src/report/ui/app/lib/schema-routing.js";
 
 interface Node {
 	_comp?: number;

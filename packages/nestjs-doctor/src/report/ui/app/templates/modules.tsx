@@ -11,32 +11,30 @@ import type {
 	ReportArtifact,
 	SerializedModuleGraph,
 } from "../../../../common/artifact.js";
-import { heading } from "../../atoms/heading.js";
-import { escapeHtml } from "../../browser/escape.js";
-import {
-	endpointsOf,
-	providersOf,
-	wiringChildren,
-} from "../../browser/module-joins.js";
-import { blastRadius } from "../../browser/module-layout.js";
-import {
-	formatMs,
-	hookChipHtml,
-	phaseParts,
-	traceNode,
-	traceRowHtml,
-} from "../../browser/trace.js";
-import { legend } from "../../molecules/legend.js";
 import { Badge } from "../atoms/badge.js";
 import { IconButton, TextButton } from "../atoms/button.js";
 import { Heading } from "../atoms/heading.js";
 import { Icon } from "../atoms/icon.js";
+import { escapeHtml } from "../lib/escape.js";
+import {
+	endpointsOf,
+	providersOf,
+	wiringChildren,
+} from "../lib/module-joins.js";
+import { blastRadius } from "../lib/module-layout.js";
 import {
 	displayName,
 	MG_EXTERNAL_PROJECT,
 	type MgNode,
 	ModulesCanvas,
 } from "../lib/modules-canvas.js";
+import {
+	formatMs,
+	hookChipHtml,
+	phaseParts,
+	traceNode,
+	traceRowHtml,
+} from "../lib/trace.js";
 import { CheckboxRow } from "../molecules/checkbox-row.js";
 import { EmptyState } from "../molecules/empty-state.js";
 import { SearchField } from "../molecules/search-field.js";
@@ -771,73 +769,161 @@ function CyclesSection({
 	);
 }
 
-const CONCEPTS_HTML = `
-  <hr class="divider">
-  <details class="concepts-details">
-  <summary>NestJS Concepts</summary>
-  <dl>
-    <dt>Providers</dt>
-    <dd>Injectable services (business logic, repositories, helpers) registered in the module's <code>providers</code> array. The core building block of NestJS DI.</dd>
-    <dt>Controllers</dt>
-    <dd>HTTP request handlers (routes) registered in the module's <code>controllers</code> array. They receive requests and delegate to providers.</dd>
-    <dt>Imports</dt>
-    <dd>Other modules this module depends on. Importing a module makes its exported providers available for injection.</dd>
-    <dt>Exports</dt>
-    <dd>Providers this module makes available to other modules that import it. Without exporting, providers stay private to the module.</dd>
-    <dt style="color:#ea2845">Circular Dependency</dt>
-    <dd>A cycle in module <strong style="color:#ccc">imports</strong>: Module A imports Module B, and Module B imports Module A (directly or through a chain like A &rarr; B &rarr; C &rarr; A). Because NestJS resolves modules in order, one side hasn't finished initializing — so its <strong style="color:#ccc">providers</strong> are <code>undefined</code> when the other tries to inject them.</dd>
-    <dd style="margin-top:4px">This signals <strong style="color:#ccc">tangled responsibilities</strong> — two modules that can't work without each other should probably be one module, or the shared logic should be extracted into its own module.</dd>
-    <dd style="margin-top:4px"><strong style="color:#ccc">Fix:</strong> Extract the shared providers into a new module both can import, breaking the cycle. This is the proper long-term solution.</dd>
-    <dd style="margin-top:4px"><code>forwardRef()</code> tells NestJS to defer resolving a dependency until both modules are loaded. It works, but it's a <strong style="color:#ccc">band-aid</strong> — the cycle still exists, the code is harder to follow, and adding more modules to the chain makes it fragile. Use it only as a temporary fix while you refactor.</dd>
-  </dl>
-  </details>`;
+interface LegendRow {
+	hidden?: boolean;
+	id?: string;
+	kind: "color" | "line";
+	label: string;
+	style: string;
+}
 
-function infoPopHtml(showCross: boolean, showGlobalReach: boolean): string {
+const LEGEND_ROWS: LegendRow[] = [
+	{
+		kind: "color",
+		style: "background:#1a1a2e;border-color:#333",
+		label: "Module",
+	},
+	{
+		kind: "color",
+		style: "background:#1a2e1a;border-color:#2a5a2a",
+		label: "Root module",
+	},
+	{
+		kind: "color",
+		style: "background:#2e1a1a;border-color:#ea2845",
+		label: "Circular dependency",
+	},
+	{
+		kind: "color",
+		style: "background:#2a2410;border-color:#fbbf24",
+		label: "Global module",
+	},
+	{ kind: "line", style: "background:#444", label: "Import" },
+	{
+		kind: "line",
+		style: "background:#ea2845;border-top:1px dashed #ea2845;height:0",
+		label: "Circular import",
+	},
+	{
+		kind: "line",
+		style: "background:transparent;border-top:2px dashed #22d3ee;height:0",
+		label: "Cross-project import",
+		id: "legend-cross",
+	},
+	{
+		kind: "line",
+		style: "background:transparent;border-top:2px dotted #fbbf24;height:0",
+		label: "Global reach (no import)",
+		id: "legend-global-reach",
+	},
+];
+
+// Inline style strings from the shipped legend rows, parsed into objects.
+function parseStyle(style: string): Record<string, string> {
+	const out: Record<string, string> = {};
+	for (const part of style.split(";")) {
+		const i = part.indexOf(":");
+		if (i < 0) {
+			continue;
+		}
+		const prop = part
+			.slice(0, i)
+			.trim()
+			.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
+		out[prop] = part.slice(i + 1).trim();
+	}
+	return out;
+}
+
+function InfoPop({
+	showCross,
+	showGlobalReach,
+}: {
+	showCross: boolean;
+	showGlobalReach: boolean;
+}) {
+	const rowHidden = (row: LegendRow): boolean => {
+		if (row.id === "legend-cross") {
+			return !showCross;
+		}
+		if (row.id === "legend-global-reach") {
+			return !showGlobalReach;
+		}
+		return false;
+	};
 	return (
-		heading({ level: 3, text: "Legend", indent: 2 }) +
-		legend([
-			{
-				kind: "color",
-				style: "background:#1a1a2e;border-color:#333",
-				label: "Module",
-			},
-			{
-				kind: "color",
-				style: "background:#1a2e1a;border-color:#2a5a2a",
-				label: "Root module",
-			},
-			{
-				kind: "color",
-				style: "background:#2e1a1a;border-color:#ea2845",
-				label: "Circular dependency",
-			},
-			{
-				kind: "color",
-				style: "background:#2a2410;border-color:#fbbf24",
-				label: "Global module",
-			},
-			{ kind: "line", style: "background:#444", label: "Import" },
-			{
-				kind: "line",
-				style: "background:#ea2845;border-top:1px dashed #ea2845;height:0",
-				label: "Circular import",
-			},
-			{
-				kind: "line",
-				style: "background:transparent;border-top:2px dashed #22d3ee;height:0",
-				label: "Cross-project import",
-				id: "legend-cross",
-				hidden: !showCross,
-			},
-			{
-				kind: "line",
-				style: "background:transparent;border-top:2px dotted #fbbf24;height:0",
-				label: "Global reach (no import)",
-				id: "legend-global-reach",
-				hidden: !showGlobalReach,
-			},
-		]) +
-		CONCEPTS_HTML
+		<>
+			<Heading level={3}>Legend</Heading>
+			{LEGEND_ROWS.map((row) => (
+				<div
+					className="legend-item"
+					id={row.id}
+					key={row.label}
+					style={rowHidden(row) ? { display: "none" } : undefined}
+				>
+					<div className={`legend-${row.kind}`} style={parseStyle(row.style)} />{" "}
+					{row.label}
+				</div>
+			))}
+			<hr className="divider" />
+			<details className="concepts-details">
+				<summary>NestJS Concepts</summary>
+				<dl>
+					<dt>Providers</dt>
+					<dd>
+						Injectable services (business logic, repositories, helpers)
+						registered in the module's <code>providers</code> array. The core
+						building block of NestJS DI.
+					</dd>
+					<dt>Controllers</dt>
+					<dd>
+						HTTP request handlers (routes) registered in the module's{" "}
+						<code>controllers</code> array. They receive requests and delegate
+						to providers.
+					</dd>
+					<dt>Imports</dt>
+					<dd>
+						Other modules this module depends on. Importing a module makes its
+						exported providers available for injection.
+					</dd>
+					<dt>Exports</dt>
+					<dd>
+						Providers this module makes available to other modules that import
+						it. Without exporting, providers stay private to the module.
+					</dd>
+					<dt style={{ color: "#ea2845" }}>Circular Dependency</dt>
+					<dd>
+						A cycle in module <strong style={{ color: "#ccc" }}>imports</strong>
+						: Module A imports Module B, and Module B imports Module A (directly
+						or through a chain like A &rarr; B &rarr; C &rarr; A). Because
+						NestJS resolves modules in order, one side hasn't finished
+						initializing — so its{" "}
+						<strong style={{ color: "#ccc" }}>providers</strong> are{" "}
+						<code>undefined</code> when the other tries to inject them.
+					</dd>
+					<dd style={{ marginTop: 4 }}>
+						This signals{" "}
+						<strong style={{ color: "#ccc" }}>tangled responsibilities</strong>{" "}
+						— two modules that can't work without each other should probably be
+						one module, or the shared logic should be extracted into its own
+						module.
+					</dd>
+					<dd style={{ marginTop: 4 }}>
+						<strong style={{ color: "#ccc" }}>Fix:</strong> Extract the shared
+						providers into a new module both can import, breaking the cycle.
+						This is the proper long-term solution.
+					</dd>
+					<dd style={{ marginTop: 4 }}>
+						<code>forwardRef()</code> tells NestJS to defer resolving a
+						dependency until both modules are loaded. It works, but it's a{" "}
+						<strong style={{ color: "#ccc" }}>band-aid</strong> — the cycle
+						still exists, the code is harder to follow, and adding more modules
+						to the chain makes it fragile. Use it only as a temporary fix while
+						you refactor.
+					</dd>
+				</dl>
+			</details>
+		</>
 	);
 }
 
@@ -1753,13 +1839,14 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 				</div>
 				<div
 					className={infoOpen ? "visible" : undefined}
-					// biome-ignore lint/security/noDangerouslySetInnerHtml: static legend markup from the report's own string molecules
-					dangerouslySetInnerHTML={{
-						__html: infoPopHtml(graph.projects.length > 0, showGlobals),
-					}}
 					id="mg-info-pop"
 					ref={infoPopRef}
-				/>
+				>
+					<InfoPop
+						showCross={graph.projects.length > 0}
+						showGlobalReach={showGlobals}
+					/>
+				</div>
 			</div>
 		</>
 	);

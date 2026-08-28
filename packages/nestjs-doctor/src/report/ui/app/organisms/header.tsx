@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import type { ReportArtifact } from "../../../../common/artifact.js";
-import { buildSharedJson, scoredCount } from "../../browser/share-payload.js";
-import { formatMs, phaseParts } from "../../browser/trace.js";
 import { TextButton } from "../atoms/button.js";
+import { buildSharedJson, scoredCount } from "../lib/share-payload.js";
+import { formatMs, phaseParts } from "../lib/trace.js";
 import { jumpToSlowestBoot } from "../templates/modules.js";
 
 function track(event: string): void {

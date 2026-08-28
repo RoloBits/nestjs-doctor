@@ -1,9 +1,6 @@
-import {
-	buildEndpointGraph,
-	layoutEndpointGraph,
-} from "../../browser/endpoint-layout.js";
-import { escapeHtml } from "../../browser/escape.js";
 import { REPORT_FONT_STACK } from "../../font.js";
+import { buildEndpointGraph, layoutEndpointGraph } from "./endpoint-layout.js";
+import { escapeHtml } from "./escape.js";
 
 type Built = ReturnType<typeof buildEndpointGraph>;
 type EpNode = Built["nodes"][number];

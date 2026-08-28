@@ -1,8 +1,8 @@
 import type { ReportArtifact } from "../../../../common/artifact.js";
 import type { Category } from "../../../../common/diagnostic.js";
 import { onSurface } from "../../../../common/diagnostic.js";
-import { icon } from "../../atoms/icon.js";
-import { makeScoreRingSvg } from "../../browser/score-ring.js";
+import { Icon } from "../atoms/icon.js";
+import { makeScoreRingSvg } from "../lib/score-ring.js";
 import { Card, InfoCard, StatCard } from "../molecules/summary-card.js";
 
 const NOT_SCORED_HELP =
@@ -82,15 +82,13 @@ function ScoreCard({ report }: { report: ReportArtifact }) {
 							<span
 								aria-label={NOT_SCORED_HELP}
 								className="ov-info has-tip"
-								// biome-ignore lint/security/noDangerouslySetInnerHtml: trusted SVG built by our own atom
-								dangerouslySetInnerHTML={{
-									__html: icon({ name: "infoDot", size: 13, ariaHidden: true }),
-								}}
 								data-tip={NOT_SCORED_HELP}
 								role="img"
 								// biome-ignore lint/a11y/noNoninteractiveTabindex: focusable on purpose so the tooltip opens from the keyboard
 								tabIndex={0}
-							/>
+							>
+								<Icon ariaHidden={true} name="infoDot" size={13} />
+							</span>
 						</div>
 					)}
 				</div>
