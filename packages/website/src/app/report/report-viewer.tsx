@@ -276,12 +276,22 @@ function PickerModal({
 						color: "#a3a3a3",
 						fontSize: 14,
 						lineHeight: 1.6,
+						marginBottom: 8,
+					}}
+				>
+					Drop the shared file a teammate sent you.
+				</p>
+				<p
+					style={{
+						color: "#a3a3a3",
+						fontSize: 14,
+						lineHeight: 1.6,
 						marginBottom: 16,
 					}}
 				>
-					Drop the shared file a teammate sent you — the download from a
-					report&apos;s <span style={{ color: "#e5e5e5" }}>share</span> button —
-					or write one from the terminal:
+					You can download it from a report&apos;s{" "}
+					<span style={{ color: "#e5e5e5" }}>share</span> button — generate the
+					report locally from the terminal:
 				</p>
 				<pre
 					style={{
@@ -294,7 +304,7 @@ function PickerModal({
 						padding: "12px 16px",
 					}}
 				>
-					npx nestjs-doctor@latest . --share-sections score,findings:security
+					npx nestjs-doctor@latest .
 				</pre>
 				{/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: the label wraps the file input and takes drops */}
 				<label
@@ -380,9 +390,18 @@ function PickerModal({
 						marginTop: 24,
 					}}
 				>
-					Everything is read in your browser and never uploaded. The full report
-					as a file:{" "}
-					<code style={{ color: "#a3a3a3" }}>--format report-json</code>
+					Everything is read in your browser and never uploaded.
+				</p>
+				<p
+					style={{
+						color: "#525252",
+						fontSize: 11,
+						lineHeight: 1.6,
+						marginTop: 6,
+					}}
+				>
+					The full report as a file:{" "}
+					<code style={{ color: "#737373" }}>--format report-json</code>
 				</p>
 			</div>
 		</div>
