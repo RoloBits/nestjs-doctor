@@ -1,4 +1,4 @@
-import { REPORT_FONT_STACK } from "../styles.js";
+import { REPORT_FONT_STACK } from "../font.js";
 
 export const MODULES_GRAPH = `
 const SEV_ORDER = { error: 0, warning: 1, info: 2 };

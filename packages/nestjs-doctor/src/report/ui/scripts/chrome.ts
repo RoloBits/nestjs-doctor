@@ -135,11 +135,11 @@ function switchTab(name) {
   if (name === "summary" && !summaryRendered) { REPORT_APP.renderSummary(REPORT); summaryRendered = true; }
   if (name === "lab" && !labRendered) { renderLab(); labRendered = true; }
   if (name === "schema" && !schemaRendered) { renderSchema(); schemaRendered = true; }
-  if (name === "endpoints" && !endpointsRendered) { renderEndpoints(); endpointsRendered = true; }
+  if (name === "endpoints" && !endpointsRendered) { REPORT_APP.renderEndpoints(REPORT); endpointsRendered = true; }
   if (name === "modules") {
     if (modulesRendered) { mgResize(); } else { renderModules(); modulesRendered = true; }
   }
-  if (name === "endpoints" && endpointsRendered) epResize();
+  if (name === "endpoints" && endpointsRendered) REPORT_APP.resizeEndpoints();
 }
 
 for (const btn of tabBtns) {

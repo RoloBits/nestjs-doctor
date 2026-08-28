@@ -5,7 +5,7 @@ interface DependencyNode {
 	expandedElsewhere?: boolean;
 	filePath?: string;
 	line?: number;
-	methodName: string;
+	methodName: string | null;
 	order: number;
 	totalMethods: number;
 	type: string;
@@ -27,7 +27,7 @@ interface EndpointNode {
 	h: number;
 	id: number;
 	line?: number;
-	methodName: string;
+	methodName: string | null;
 	order: number;
 	totalMethods: number;
 	type: string;

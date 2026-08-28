@@ -6,6 +6,7 @@ import {
 	type DiagnosisCallbacks,
 	DiagnosisTab,
 } from "./templates/diagnosis.js";
+import { EndpointsTab, resizeEndpointsCanvas } from "./templates/endpoints.js";
 import { SummaryTab } from "./templates/summary.js";
 
 const roots = new Map<string, Root>();
@@ -37,4 +38,12 @@ export function renderDiagnosis(
 		"tab-diagnosis",
 		<DiagnosisTab callbacks={callbacks} report={report} />
 	);
+}
+
+export function renderEndpoints(report: ReportArtifact): void {
+	mount("tab-endpoints", <EndpointsTab report={report} />);
+}
+
+export function resizeEndpoints(): void {
+	resizeEndpointsCanvas();
 }

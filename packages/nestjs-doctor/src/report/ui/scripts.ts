@@ -3,7 +3,6 @@ import BROWSER_BUNDLE from "./browser/bundle.iife.js?raw";
 import { BOOT } from "./scripts/boot.js";
 import { bootstrap } from "./scripts/bootstrap.js";
 import { CHROME } from "./scripts/chrome.js";
-import { ENDPOINTS } from "./scripts/endpoints.js";
 import { LAB } from "./scripts/lab.js";
 import { MODULES_GRAPH } from "./scripts/modules-graph.js";
 import { SCHEMA } from "./scripts/schema.js";
@@ -24,7 +23,6 @@ export function getReportScripts(artifactJson: string): string {
 		LAB,
 		TAB_VISIBILITY,
 		SCHEMA,
-		ENDPOINTS,
 		BOOT,
 		SHARE,
 	].join("");

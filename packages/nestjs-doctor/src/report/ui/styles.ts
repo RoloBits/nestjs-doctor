@@ -1,3 +1,4 @@
+import { REPORT_FONT_STACK } from "./font.js";
 import base from "./styles/base.css?raw";
 import diagnosis from "./styles/diagnosis.css?raw";
 import endpoints from "./styles/endpoints.css?raw";
@@ -7,9 +8,6 @@ import modulesGraph from "./styles/modules-graph.css?raw";
 import responsive from "./styles/responsive.css?raw";
 import schema from "./styles/schema.css?raw";
 import summary from "./styles/summary.css?raw";
-
-export const REPORT_FONT_STACK =
-	'"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
 
 const TRAILING_NEWLINE = /\n$/;
 
