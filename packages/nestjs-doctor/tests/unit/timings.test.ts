@@ -24,8 +24,9 @@ function edge(source: string, target: string, type = "class-to-class") {
 	return { source, target, metadata: { type } };
 }
 
-const imports = (importer: string, imported: string) =>
-	edge(importer, imported, "module-to-module");
+function imports(importer: string, imported: string) {
+	return edge(importer, imported, "module-to-module");
+}
 
 function dump(
 	nodes: Record<string, unknown>,

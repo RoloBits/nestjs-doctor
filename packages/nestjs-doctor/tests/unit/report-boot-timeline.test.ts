@@ -49,6 +49,11 @@ function traceNode(
 	return { deps, hooks, initTime, name: "", type: "provider", ...extra };
 }
 
+// A trace node the dump labelled with its module; no deps, no hooks.
+function inModule(module: string, name: string, initTime: number) {
+	return traceNode(initTime, [], undefined, { module, name });
+}
+
 /** A graph module; a `project/Name` name also carries its project. */
 function mod(
 	name: string,
@@ -170,14 +175,8 @@ describe("buildBootTimeline", () => {
 				],
 				timingsAvailable: true,
 				timingsTrace: {
-					ta: traceNode(154.3, [], undefined, {
-						module: "UsersModule",
-						name: "UsersService",
-					}),
-					tb: traceNode(154.1, [], undefined, {
-						module: "TypeOrmModule",
-						name: "UserRepository",
-					}),
+					ta: inModule("UsersModule", "UsersService", 154.3),
+					tb: inModule("TypeOrmModule", "UserRepository", 154.1),
 				},
 			})
 		);
@@ -193,10 +192,7 @@ describe("buildBootTimeline", () => {
 				modules: [mod("api/UsersModule"), mod("worker/UsersModule")],
 				timingsAvailable: true,
 				timingsTrace: {
-					ta: traceNode(154.3, [], undefined, {
-						module: "UsersModule",
-						name: "UsersService",
-					}),
+					ta: inModule("UsersModule", "UsersService", 154.3),
 				},
 			})
 		);
@@ -213,14 +209,8 @@ describe("buildBootTimeline", () => {
 				modules: [mod("ConfigModule")],
 				timingsAvailable: true,
 				timingsTrace: {
-					ta: traceNode(1.3, [], undefined, {
-						module: "ConfigModule",
-						name: "ConfigService",
-					}),
-					tb: traceNode(2.1, [], undefined, {
-						module: "ConfigModule",
-						name: "ConfigService",
-					}),
+					ta: inModule("ConfigModule", "ConfigService", 1.3),
+					tb: inModule("ConfigModule", "ConfigService", 2.1),
 				},
 			})
 		);
@@ -235,16 +225,14 @@ describe("buildBootTimeline", () => {
 			graph({
 				timingsAvailable: true,
 				timingsTrace: {
-					ta: traceNode(154.15, [], undefined, {
-						module: "TypeOrmModule",
-						name: "UserRepository",
+					ta: {
+						...inModule("TypeOrmModule", "UserRepository", 154.15),
 						via: "UsersModule",
-					}),
-					tb: traceNode(154.12, [], undefined, {
-						module: "TypeOrmModule",
-						name: "CategoryRepository",
+					},
+					tb: {
+						...inModule("TypeOrmModule", "CategoryRepository", 154.12),
 						via: "CatalogModule",
-					}),
+					},
 				},
 			})
 		);
@@ -261,10 +249,7 @@ describe("buildBootTimeline", () => {
 			graph({
 				timingsAvailable: true,
 				timingsTrace: {
-					ta: traceNode(154.1, [], undefined, {
-						module: "TypeOrmModule",
-						name: "UserRepository",
-					}),
+					ta: inModule("TypeOrmModule", "UserRepository", 154.1),
 				},
 			})
 		);
@@ -424,10 +409,7 @@ describe("moduleTimings", () => {
 			graph({
 				timingsAvailable: true,
 				timingsTrace: {
-					topt: traceNode(1.6, [], undefined, {
-						module: "TypeOrmCoreModule",
-						name: "TypeOrmModuleOptions",
-					}),
+					topt: inModule("TypeOrmCoreModule", "TypeOrmModuleOptions", 1.6),
 					tds: traceNode(154.1, ["topt"], [{ hook: "onModuleInit", ms: 2 }], {
 						module: "TypeOrmCoreModule",
 						name: "DataSource",
@@ -805,10 +787,7 @@ describe("external groups in rowsHtml", () => {
 			timingsAvailable: true,
 			timingsTrace: {
 				tc: traceNode(200, [], undefined, { name: "CatsService" }),
-				ta: traceNode(154.1, [], undefined, {
-					module: "TypeOrmModule",
-					name: "UserRepository",
-				}),
+				ta: inModule("TypeOrmModule", "UserRepository", 154.1),
 			},
 		})
 	)!;
@@ -844,10 +823,7 @@ describe("external groups in rowsHtml", () => {
 				modules: [mod("ConfigModule")],
 				timingsAvailable: true,
 				timingsTrace: {
-					ta: traceNode(1.3, [], undefined, {
-						module: "ConfigModule",
-						name: "ConfigService",
-					}),
+					ta: inModule("ConfigModule", "ConfigService", 1.3),
 				},
 			})
 		) as NonNullable<ReturnType<typeof buildBootTimeline>>;
