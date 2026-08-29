@@ -543,17 +543,28 @@ export function axisHtml(win: BootWindow): string {
 	return html;
 }
 
+// Narrowest a phase segment draws, as a share of the lane.
+const PHASE_MIN_PCT = 0.6;
+
 // The phase lane: tinted segments over the whole boot with their names and
-// durations; each carries its range so a click can zoom to it.
+// durations; each carries its range so a click can zoom to it, and a tip so
+// a segment too narrow for its label still names itself.
 export function phaseLaneHtml(t: BootTimeline): string {
 	const full: BootWindow = { from: 0, to: t.maxMs };
 	let html = "";
 	for (const p of t.phases) {
+		const width = Math.max(
+			pct(p.end, full) - pct(p.start, full),
+			PHASE_MIN_PCT
+		);
+		const left = Math.min(pct(p.start, full), 100 - width);
+		const ms = formatMs(p.end - p.start);
 		html +=
 			`<span class="boot-phase" data-from="${p.start}" data-to="${p.end}"` +
-			` style="${barStyle(p.start, p.end, full, 0.1)};background:rgba(${p.rgb},0.3)">` +
+			` data-tip="${escapeHtml(`${ms} · ${p.tip}`)}"` +
+			` style="left:${left.toFixed(3)}%;width:${width.toFixed(3)}%;background:rgba(${p.rgb},0.3)">` +
 			`<span class="boot-phase-label" style="color:rgb(${p.rgb})">${escapeHtml(p.gloss)} ` +
-			`<span class="boot-phase-ms">${escapeHtml(formatMs(p.end - p.start))}</span></span></span>`;
+			`<span class="boot-phase-ms">${escapeHtml(ms)}</span></span></span>`;
 	}
 	return html;
 }

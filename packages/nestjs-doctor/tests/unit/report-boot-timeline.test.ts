@@ -917,7 +917,30 @@ describe("lanes and axis", () => {
 		expect(html).toContain("boot-phase");
 		expect(html).toContain('data-from="0" data-to="100"');
 		expect(html).toContain("building modules");
-		expect(html).not.toContain("data-tip");
+		expect(html).toContain(
+			'data-tip="100ms · create — NestFactory constructs every module, provider, and controller."'
+		);
+		expect(html).toContain('data-tip="100ms · listen — ');
+	});
+
+	it("keeps a sub-millisecond phase wide enough to hover, inside the lane", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 246.9, initMs: 277.8 },
+				startupMs: 278.5,
+				timingsAvailable: true,
+				timingsTrace: { ta: traceNode(50) },
+			})
+		)!;
+		const html = phaseLaneHtml(t);
+		const styles = [...html.matchAll(/left:([\d.]+)%;width:([\d.]+)%/g)].map(
+			(m) => [Number(m[1]), Number(m[2])]
+		);
+		expect(styles).toHaveLength(3);
+		const [left, width] = styles[2] as [number, number];
+		expect(width).toBeGreaterThanOrEqual(0.6);
+		expect(left + width).toBeLessThanOrEqual(100.0001);
+		expect(html).toContain('data-tip="&lt;1ms · listen — ');
 	});
 
 	it("renders the windowed axis with edge labels", () => {

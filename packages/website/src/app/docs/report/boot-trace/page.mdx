@@ -156,7 +156,7 @@ its real offset from boot start.
 
 | Element | Where | Means |
 |---|---|---|
-| Overview lane | Top of the lanes | `building modules · lifecycle hooks · opening the port`, from the `createMs`, `initMs`, and `startupMs` markers; with `moduleInitMs` the hooks split into `init hooks · bootstrap hooks`. The window on top is the view: drag it to pan, drag its edges to resize, scroll to zoom, click a phase to frame it |
+| Overview lane | Top of the lanes | `building modules · lifecycle hooks · opening the port`, from the `createMs`, `initMs`, and `startupMs` markers; with `moduleInitMs` the hooks split into `init hooks · bootstrap hooks`. The window on top is the view: drag it to pan, drag its edges to resize, scroll to zoom, click a phase to frame it, hover one for its name and time |
 | Dotted line | Down the rows | Where one phase hands over to the next |
 | Group header | Above its classes | The module that owns them in the dump, their count, and an `external` or `ambiguous` tag when the graph has no single node for it |
 | Class bar | Per row, under its module's header | From its slowest dependency's finish to its own, or from boot start when nothing traced came before; colored by type. The time it took sits inside the bar |

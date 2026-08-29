@@ -1,4 +1,4 @@
-const ROOT_IDS = ["mg-dock", "header-meta", "detail-badges"];
+const ROOTS = ["#mg-dock", "#header-meta", "#detail-badges", ".boot-overview"];
 
 let installed = false;
 let shown: Element | null = null;
@@ -44,7 +44,7 @@ function onMouseOver(ev: Event): void {
 	}
 	const tip = tipElement();
 	const el = target.closest("[data-tip]");
-	if (!(el && ROOT_IDS.some((id) => el.closest(`#${id}`)))) {
+	if (!(el && ROOTS.some((root) => el.closest(root)))) {
 		if (shown) {
 			hide(tip);
 		}

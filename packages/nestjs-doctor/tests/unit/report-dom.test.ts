@@ -175,3 +175,24 @@ it("shows the floating tooltip for data-tip elements in the header", () => {
 	);
 	expect(tip?.style.display).toBe("none");
 });
+
+it("shows the floating tooltip for a phase in the boot overview lane", () => {
+	const dom = new JSDOM(`<body>${getReportHtml()}</body>`, {
+		runScripts: "outside-only",
+		pretendToBeVisual: true,
+	});
+	const win = dom.window as unknown as typeof globalThis & Window;
+	stubCanvas(win);
+	win.eval(getReportScripts(RICH_ARTIFACT_JSON));
+
+	const lane = win.document.createElement("div");
+	lane.className = "boot-lane boot-overview";
+	lane.innerHTML =
+		'<span class="boot-phases"><span class="boot-phase" data-tip="<1ms · listen"></span></span>';
+	win.document.body.appendChild(lane);
+	const phase = lane.querySelector(".boot-phase");
+	phase?.dispatchEvent(new win.MouseEvent("mouseover", { bubbles: true }));
+	const tip = win.document.getElementById("mg-float-tip");
+	expect(tip?.style.display).toBe("block");
+	expect(tip?.textContent).toBe("<1ms · listen");
+});
