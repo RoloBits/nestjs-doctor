@@ -1,5 +1,32 @@
 # nestjs-doctor
 
+## 0.9.2
+
+### Highlights
+
+- **Boot trace tab** — `--timings` gets its own tab: every class at its real offset from boot start on one absolute axis, grouped by module and colored by type, with the lifecycle phases above the rows carrying the viewport window. Scroll to zoom, drag the axis to pan, click a phase to frame it. Dependency cascades open level by level, a class already costed above reappears as a `deduped` shadow, and a hover card follows the pointer over any bar.
+- **Shareable reports** — pick which sections to share (score, findings per category, schema, module graph, endpoints) and whether to include code, from the post-scan menu or the report's new share button; both write `nestjs-doctor-shared.json`. Non-interactive: `--share-sections score,findings:security` and `--share-code`.
+- **`nestjs-doctor/report-ui`** — a new export with the report's render seams, styles, page skeleton, and an adapter for shared JSON files, so other hosts can render report files in the browser. The docs site's viewer at nestjs.doctor/report is built on it.
+- **Report on React** — every tab of the HTML report is now rendered by React inside the page, and the UI source is real modules instead of template literals. The page is still one self-contained file, and its markup and behavior are unchanged.
+
+### Behavior changes
+
+- Module nodes in the graph show `build` and hook time on separate lines (`104ms build`, `63ms init`) instead of one raw number. The header `time to start` badge and the phase strip are gone; the tab's overview lane carries the phases.
+- Hook timings render as spans at their real offset when the dump carries `startMs`, which the documented `main.ts` snippet now records. Older dumps keep the `+120ms init` chips.
+- A failed scan or report ends its spinner with `✖ Scan failed` instead of a green `✔ Scan complete` before the error, and the CLI exits after a scan on a TTY stdin rather than lingering.
+
+### Fixed
+
+- The CLI hung forever when the terminal reported no size: a pty without a window size reports `columns: 0`, which sent the spinner into an infinite loop that pegged a core and wrote escapes until the disk filled. The spinner is now `yocto-spinner`, which handles a zero width.
+- Two `@Module()` classes sharing a name in different directories silently dropped one from the module graph. They now union their metadata, so cycles through either are detected and the phantom `no-unused-providers`, `no-unused-module-exports`, and `no-orphan-modules` findings stop; a scan warns once per duplicated name.
+- A module node showed its slowest class's raw `initTime`, which included time spent waiting on dependencies: `DatabaseModule · 142ms` was `104ms build` plus `63ms init` after 38ms waiting on `ConfigService`.
+- The module detail panel never marked an import as external, so `ConfigModule` from `@nestjs/config` looked like a module in your codebase.
+- Collapsing a module group in the trace dock toggled a class and hid nothing.
+
+### Docs
+
+- The boot trace page is rewritten for the tab, and its `main.ts` snippet records `startMs`. The docs site gains a report viewer at nestjs.doctor/report that opens a `report-json` file or a shared report.
+
 ## 0.9.1
 
 ### Patch Changes
