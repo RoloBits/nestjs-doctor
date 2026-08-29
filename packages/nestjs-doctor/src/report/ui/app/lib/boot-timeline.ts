@@ -59,7 +59,6 @@ interface BootPhase {
 
 export interface BootTimeline {
 	byId: Map<string, BootSpan>;
-	consumersOf: Map<string, string[]>;
 	groups: BootGroup[];
 	maxMs: number;
 	phases: BootPhase[];
@@ -120,39 +119,26 @@ export function buildBootTimeline(
 		groupMap.set(s.module, list);
 	}
 	const groups: BootGroup[] = [];
-	// Groups run in the order their first class finished.
-	const firstEnd = new Map<string, number>();
 	for (const [module, spans] of groupMap) {
 		spans.sort((a, b) => a.end - b.end || a.name.localeCompare(b.name));
 		let start = Number.POSITIVE_INFINITY;
 		let end = 0;
 		for (const s of spans) {
 			start = Math.min(start, s.start);
-			let spanEnd = s.end;
+			end = Math.max(end, s.end);
 			for (const h of s.hooks ?? []) {
 				if (typeof h.startMs === "number") {
-					spanEnd = Math.max(spanEnd, h.startMs + h.ms);
+					end = Math.max(end, h.startMs + h.ms);
 				}
 			}
-			end = Math.max(end, spanEnd);
 		}
-		firstEnd.set(module, (spans[0] as BootSpan).end);
 		groups.push({ end, module, spans, start });
 	}
+	// Groups run in the order their first class finished.
+	const firstEnd = (g: BootGroup) => (g.spans[0] as BootSpan).end;
 	groups.sort(
-		(a, b) =>
-			(firstEnd.get(a.module) ?? 0) - (firstEnd.get(b.module) ?? 0) ||
-			a.module.localeCompare(b.module)
+		(a, b) => firstEnd(a) - firstEnd(b) || a.module.localeCompare(b.module)
 	);
-
-	const consumersOf = new Map<string, string[]>();
-	for (const s of byId.values()) {
-		for (const d of s.deps) {
-			const list = consumersOf.get(d) ?? [];
-			list.push(s.id);
-			consumersOf.set(d, list);
-		}
-	}
 
 	const phases: BootPhase[] = [];
 	let prev = 0;
@@ -168,28 +154,22 @@ export function buildBootTimeline(
 		prev += p.ms;
 	}
 
-	let maxMs = graph.startupMs ?? 0;
-	for (const g of groups) {
-		maxMs = Math.max(maxMs, g.end);
-	}
-	for (const p of phases) {
-		maxMs = Math.max(maxMs, p.end);
-	}
+	const maxMs = Math.max(
+		graph.startupMs ?? 0,
+		...groups.map((g) => g.end),
+		...phases.map((p) => p.end)
+	);
 	if (maxMs <= 0) {
 		return null;
 	}
-	return { byId, consumersOf, groups, maxMs, phases };
+	return { byId, groups, maxMs, phases };
 }
 
 /** Ids of every class whose dependencies can be cascaded open. */
 export function expandableIds(t: BootTimeline): Set<string> {
-	const ids = new Set<string>();
-	for (const s of t.byId.values()) {
-		if (s.deps.length > 0) {
-			ids.add(s.id);
-		}
-	}
-	return ids;
+	return new Set(
+		[...t.byId.values()].filter((s) => s.deps.length > 0).map((s) => s.id)
+	);
 }
 
 export interface ModuleTiming {
@@ -335,29 +315,31 @@ interface BootRowOptions {
 	win: BootWindow;
 }
 
-function groupBarStyle(g: BootGroup, win: BootWindow): string {
-	const left = pct(g.start, win);
-	const right = pct(g.end, win);
-	return `left:${left.toFixed(3)}%;width:${Math.max(right - left, 0.1).toFixed(3)}%`;
+/** Inline `left`/`width` percentages placing a bar inside the window. */
+function barStyle(
+	start: number,
+	end: number,
+	win: BootWindow,
+	minWidth: number
+): string {
+	const left = pct(start, win);
+	const width = Math.max(pct(end, win) - left, minWidth);
+	return `left:${left.toFixed(3)}%;width:${width.toFixed(3)}%`;
 }
 
 // Every bar carries the time it took, inside it; narrow bars clip the text.
 function classBarHtml(span: BootSpan, win: BootWindow): string {
-	const left = pct(span.start, win);
-	const width = Math.max(pct(span.end, win) - left, 0.12);
 	let html =
-		`<span class="boot-bar" style="left:${left.toFixed(3)}%;width:${width.toFixed(3)}%;background:rgb(${fillOf(spanColor(span.type))})">` +
+		`<span class="boot-bar" style="${barStyle(span.start, span.end, win, 0.12)};background:rgb(${fillOf(spanColor(span.type))})">` +
 		`${escapeHtml(formatMs(span.end - span.start))}</span>`;
 	(span.hooks ?? []).forEach((h, index) => {
 		if (typeof h.startMs !== "number") {
 			return;
 		}
 		const meta = hookMeta(h.hook);
-		const left = pct(h.startMs, win);
-		const width = Math.max(pct(h.startMs + h.ms, win) - left, 0.12);
 		html +=
 			`<span class="boot-hook-span" data-hook="${index}"` +
-			` style="left:${left.toFixed(3)}%;width:${width.toFixed(3)}%;background:rgb(${fillOf(meta.rgb)})">` +
+			` style="${barStyle(h.startMs, h.startMs + h.ms, win, 0.12)};background:rgb(${fillOf(meta.rgb)})">` +
 			`${escapeHtml(`+${formatMs(h.ms)} ${meta.label}`)}</span>`;
 	});
 	return html;
@@ -487,7 +469,7 @@ export function rowsHtml(t: BootTimeline, o: BootRowOptions): string {
 			`<span class="boot-count">${g.spans.length}</span>` +
 			"</span>" +
 			'<span class="boot-track">' +
-			`<span class="boot-group-bar" style="${groupBarStyle(g, o.win)}"></span>` +
+			`<span class="boot-group-bar" style="${barStyle(g.start, g.end, o.win, 0.1)}"></span>` +
 			"</span></div>";
 		for (const s of g.spans) {
 			const matched = spanMatches(s, o.query);
@@ -524,11 +506,9 @@ export function phaseLaneHtml(t: BootTimeline): string {
 	const full: BootWindow = { from: 0, to: t.maxMs };
 	let html = "";
 	for (const p of t.phases) {
-		const left = pct(p.start, full);
-		const width = Math.max(pct(p.end, full) - left, 0.1);
 		html +=
 			`<span class="boot-phase" data-from="${p.start}" data-to="${p.end}"` +
-			` style="left:${left.toFixed(3)}%;width:${width.toFixed(3)}%;background:rgba(${p.rgb},0.3)">` +
+			` style="${barStyle(p.start, p.end, full, 0.1)};background:rgba(${p.rgb},0.3)">` +
 			`<span class="boot-phase-label" style="color:rgb(${p.rgb})">${escapeHtml(p.gloss)} ` +
 			`<span class="boot-phase-ms">${escapeHtml(formatMs(p.end - p.start))}</span></span></span>`;
 	}

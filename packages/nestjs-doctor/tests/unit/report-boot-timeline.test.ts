@@ -191,19 +191,6 @@ describe("buildBootTimeline", () => {
 		]);
 	});
 
-	it("maps dependencies to their consumers", () => {
-		const t = buildBootTimeline(
-			graph({
-				timingsAvailable: true,
-				timingsTrace: {
-					tb: traceNode(70),
-					ta: traceNode(100, ["tb"]),
-				},
-			})
-		);
-		expect(t?.consumersOf.get("tb")).toEqual(["ta"]);
-	});
-
 	it("returns null when there are no timings", () => {
 		expect(buildBootTimeline(graph())).toBeNull();
 		expect(buildBootTimeline(graph({ timingsAvailable: true }))).toBeNull();

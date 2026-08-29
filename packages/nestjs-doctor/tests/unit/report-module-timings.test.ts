@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-	axisStep,
-	axisTicks,
-	formatMs,
-	hookChipHtml,
-} from "../../src/report/ui/app/lib/trace.js";
+import { formatMs, hookChipHtml } from "../../src/report/ui/app/lib/trace.js";
 
 describe("hookChipHtml", () => {
 	it("renders a chip with the hook label and duration", () => {
@@ -22,22 +17,6 @@ describe("hookChipHtml", () => {
 	it("renders nothing without hooks", () => {
 		expect(hookChipHtml(undefined)).toBe("");
 		expect(hookChipHtml([])).toBe("");
-	});
-});
-
-describe("axis ticks", () => {
-	it("cuts at round steps below the maximum", () => {
-		expect(axisStep(463)).toBe(100);
-		expect(axisTicks(463)).toEqual([100, 200, 300, 400]);
-	});
-
-	it("scales down for fast boots", () => {
-		expect(axisStep(1.9)).toBe(0.2);
-		expect(axisTicks(1.9)[0]).toBe(0.2);
-	});
-
-	it("returns nothing without a positive maximum", () => {
-		expect(axisTicks(0)).toEqual([]);
 	});
 });
 

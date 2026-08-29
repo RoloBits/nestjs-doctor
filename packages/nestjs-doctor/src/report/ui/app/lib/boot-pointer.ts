@@ -1,9 +1,8 @@
 import type { BootWindow } from "./boot-timeline.js";
+import { cssAttr } from "./escape.js";
 
 const TETHER_DX = 26;
 const TETHER_DY = 18;
-
-const cssAttr = (value: string): string => value.replace(/["\\]/g, "\\$&");
 
 /** The time under a client x on a track that spans the window. */
 export function timeAt(
@@ -71,8 +70,9 @@ export function hoverAnchor(
 	hookIndex: number | null,
 	pointerY: number
 ): HoverAnchor {
+	const own = { bar: el, y: pointerY };
 	if (!row.classList.contains("boot-cascade-row")) {
-		return { bar: el, y: pointerY };
+		return own;
 	}
 	const part =
 		hookIndex === null
@@ -83,11 +83,11 @@ export function hoverAnchor(
 	);
 	const view = scroll?.getBoundingClientRect();
 	if (!(original && view)) {
-		return { bar: el, y: pointerY };
+		return own;
 	}
 	const r = original.getBoundingClientRect();
 	if (r.top < view.top || r.bottom > view.bottom) {
-		return { bar: el, y: pointerY };
+		return own;
 	}
 	return { bar: original, y: r.top + r.height / 2 };
 }

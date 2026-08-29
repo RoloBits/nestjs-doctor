@@ -15,6 +15,7 @@ import {
 	slowestSpanId,
 	windowAround,
 } from "../lib/boot-timeline.js";
+import { cssAttr } from "../lib/escape.js";
 import { formatMs } from "../lib/trace.js";
 import { useLatest } from "../lib/use-latest.js";
 import { BootCrosshair } from "../molecules/boot-crosshair.js";
@@ -37,7 +38,19 @@ interface BootViewProps {
 	onSelectSpan?: (span: BootSpan) => void;
 }
 
-const cssAttr = (value: string): string => value.replace(/["\\]/g, "\\$&");
+function toggled(set: ReadonlySet<string>, key: string): Set<string> {
+	const next = new Set(set);
+	if (!next.delete(key)) {
+		next.add(key);
+	}
+	return next;
+}
+
+function visibleRows(wrap: HTMLElement): HTMLElement[] {
+	return Array.from(
+		wrap.querySelectorAll<HTMLElement>(".boot-class-row:not(.boot-filtered)")
+	);
+}
 
 const registry: { focus?: (className?: string) => void } = {};
 
@@ -63,9 +76,10 @@ export function BootView({
 	onSelectSpan,
 }: BootViewProps) {
 	const timeline = useMemo(() => buildBootTimeline(graph), [graph]);
-	const [win, setWin] = useState<BootWindow>(() =>
-		timeline ? { from: 0, to: timeline.maxMs } : { from: 0, to: 1 }
-	);
+	const [win, setWin] = useState<BootWindow>({
+		from: 0,
+		to: timeline?.maxMs ?? 1,
+	});
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [query, setQuery] = useState("");
 	const [sideHidden, setSideHidden] = useState(false);
@@ -104,20 +118,10 @@ export function BootView({
 		if (!t) {
 			return;
 		}
-		let target: BootSpan | null = null;
-		if (className) {
-			for (const s of t.byId.values()) {
-				if (s.name === className) {
-					target = s;
-					break;
-				}
-			}
-		}
-		if (!target) {
-			const slowest = slowestSpanId(t);
-			target = slowest ? (t.byId.get(slowest) ?? null) : null;
-		}
-		const hit = target;
+		const named = className
+			? [...t.byId.values()].find((s) => s.name === className)
+			: undefined;
+		const hit = named ?? t.byId.get(slowestSpanId(t) ?? "");
 		if (!hit) {
 			return;
 		}
@@ -203,15 +207,7 @@ export function BootView({
 				if (!name) {
 					return;
 				}
-				setExpandedModules((prev) => {
-					const next = new Set(prev);
-					if (next.has(name)) {
-						next.delete(name);
-					} else {
-						next.add(name);
-					}
-					return next;
-				});
+				setExpandedModules((prev) => toggled(prev, name));
 				return;
 			}
 			const row = target.closest<HTMLElement>(".boot-row");
@@ -220,15 +216,7 @@ export function BootView({
 				return;
 			}
 			if (target.closest(".boot-caret")) {
-				setExpandedCascades((prev) => {
-					const next = new Set(prev);
-					if (next.has(id)) {
-						next.delete(id);
-					} else {
-						next.add(id);
-					}
-					return next;
-				});
+				setExpandedCascades((prev) => toggled(prev, id));
 				return;
 			}
 			// A second click on the selected row clears the selection. Selecting
@@ -346,11 +334,7 @@ export function BootView({
 				return;
 			}
 			ev.preventDefault();
-			const visible = Array.from(
-				wrap.querySelectorAll<HTMLElement>(
-					".boot-class-row:not(.boot-filtered)"
-				)
-			);
+			const visible = visibleRows(wrap);
 			if (visible.length === 0) {
 				return;
 			}
@@ -427,9 +411,7 @@ export function BootView({
 		if (!wrap) {
 			return;
 		}
-		const matches = Array.from(
-			wrap.querySelectorAll<HTMLElement>(".boot-class-row:not(.boot-filtered)")
-		);
+		const matches = visibleRows(wrap);
 		if (matches.length === 0) {
 			return;
 		}

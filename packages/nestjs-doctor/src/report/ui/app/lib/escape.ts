@@ -6,3 +6,8 @@ export function escapeHtml(value: unknown): string {
 		.replace(/>/g, "&gt;")
 		.replace(/"/g, "&quot;");
 }
+
+// Escapes a value for a double-quoted attribute selector, e.g. [data-id="…"].
+export function cssAttr(value: string): string {
+	return value.replace(/["\\]/g, "\\$&");
+}

@@ -1285,12 +1285,7 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 						onClick={(ev) => {
 							if ((ev.target as Element).closest("#detail-timings-btn")) {
 								switchTab("boot");
-								const slowestClass = (
-									selected?.initTimings?.[0] as { name?: string } | undefined
-								)?.name;
-								focusBootTrace(
-									typeof slowestClass === "string" ? slowestClass : undefined
-								);
+								focusBootTrace(selected?.initTimings?.[0]?.name);
 							}
 						}}
 					>

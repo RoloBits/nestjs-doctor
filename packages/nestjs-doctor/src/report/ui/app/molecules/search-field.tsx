@@ -24,15 +24,11 @@ export function SearchField({
 				autoComplete="off"
 				id={id}
 				onChange={(e) => onChange(e.target.value)}
-				onKeyDown={
-					onEnter
-						? (e) => {
-								if (e.key === "Enter") {
-									onEnter();
-								}
-							}
-						: undefined
-				}
+				onKeyDown={(e) => {
+					if (e.key === "Enter") {
+						onEnter?.();
+					}
+				}}
 				placeholder={placeholder}
 				spellCheck={false}
 				type="search"

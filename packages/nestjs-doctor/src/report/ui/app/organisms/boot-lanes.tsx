@@ -82,17 +82,19 @@ export function BootLanes({
 			document.addEventListener("mousemove", onMove);
 			document.addEventListener("mouseup", onUp);
 		};
-		const setWin = (next: BootWindow) => changeRef.current(next);
+		const setRange = (from: number, to: number) =>
+			changeRef.current(clampWindow({ from, to }, timelineRef.current.maxMs));
 
 		on(
 			lanes,
 			"wheel",
 			(ev) => {
-				const t = timelineRef.current;
 				ev.preventDefault();
 				const factor = ev.deltaY > 0 ? 1.25 : 0.8;
 				const anchor = timeAt(ev.clientX, axis, winRef.current);
-				setWin(zoomWindow(winRef.current, t.maxMs, factor, anchor));
+				changeRef.current(
+					zoomWindow(winRef.current, timelineRef.current.maxMs, factor, anchor)
+				);
 			},
 			{ passive: false }
 		);
@@ -128,44 +130,26 @@ export function BootLanes({
 				if (mode === "slide") {
 					const center = toT(mv.clientX);
 					const w = startWin.to - startWin.from;
-					setWin(
-						clampWindow({ from: center - w / 2, to: center + w / 2 }, t.maxMs)
-					);
+					setRange(center - w / 2, center + w / 2);
 					return;
 				}
 				const dt = toT(mv.clientX) - toT(startX);
 				if (mode === "move") {
-					setWin(
-						clampWindow(
-							{ from: startWin.from + dt, to: startWin.to + dt },
-							t.maxMs
-						)
-					);
+					setRange(startWin.from + dt, startWin.to + dt);
 				} else if (mode === "l") {
-					setWin(
-						clampWindow(
-							{
-								from: Math.min(startWin.from + dt, startWin.to - minW),
-								to: startWin.to,
-							},
-							t.maxMs
-						)
+					setRange(
+						Math.min(startWin.from + dt, startWin.to - minW),
+						startWin.to
 					);
 				} else {
-					setWin(
-						clampWindow(
-							{
-								from: startWin.from,
-								to: Math.max(startWin.to + dt, startWin.from + minW),
-							},
-							t.maxMs
-						)
+					setRange(
+						startWin.from,
+						Math.max(startWin.to + dt, startWin.from + minW)
 					);
 				}
 			});
 		});
 		on(overview, "click", (ev) => {
-			const t = timelineRef.current;
 			const seg = (ev.target as Element).closest(".boot-phase");
 			if (moved || !seg) {
 				return;
@@ -176,11 +160,10 @@ export function BootLanes({
 				return;
 			}
 			const pad = (to - from) * 0.05;
-			setWin(clampWindow({ from: from - pad, to: to + pad }, t.maxMs));
+			setRange(from - pad, to + pad);
 		});
 
 		on(axis, "mousedown", (ev) => {
-			const t = timelineRef.current;
 			ev.preventDefault();
 			const rect = axis.getBoundingClientRect();
 			const startWin = { ...winRef.current };
@@ -188,12 +171,7 @@ export function BootLanes({
 			const startX = ev.clientX;
 			drag((mv) => {
 				const dt = (mv.clientX - startX) * msPerPx;
-				setWin(
-					clampWindow(
-						{ from: startWin.from - dt, to: startWin.to - dt },
-						t.maxMs
-					)
-				);
+				setRange(startWin.from - dt, startWin.to - dt);
 			});
 		});
 

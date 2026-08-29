@@ -173,15 +173,3 @@ export function axisStep(maxMs: number): number {
 	}
 	return pow;
 }
-
-export function axisTicks(maxMs: number): number[] {
-	if (maxMs <= 0) {
-		return [];
-	}
-	const step = axisStep(maxMs);
-	const ticks: number[] = [];
-	for (let t = step; t < maxMs * 0.92; t += step) {
-		ticks.push(t);
-	}
-	return ticks;
-}
