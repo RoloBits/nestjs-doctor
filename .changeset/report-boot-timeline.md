@@ -1,9 +1,21 @@
 ---
-"nestjs-doctor": minor
+"nestjs-doctor": patch
 ---
 
-The report's two boot timelines, the phase strip and the per-module bar list, are replaced by one Boot trace tab in the style of an APM waterfall. It wears the same shell as the Modules graph, Endpoints, and Schema tabs: a sidebar-style label column with the module tree, its count, expand and collapse, and a filter, then lanes with the lifecycle phases carrying the viewport window and the time axis.
+### Highlights
 
-Every class sits at its real offset from boot start, grouped by module and colored by type. The lanes zoom on wheel, pan on axis drag, and frame a phase on click. Dependency cascades open level by level as shadow rows, a hover card follows the pointer over a bar, and the label column drags to resize and hides like the graph's sidebar.
+- **Boot trace tab** — `--timings` gets its own tab: every class at its real offset from boot start on one absolute axis, grouped by module and colored by type, with the lifecycle phases above the rows carrying the viewport window. Scroll to zoom, drag the axis to pan, click a phase to frame it.
+- **Dependency cascades** — a class row opens level by level into what it waited on. A class already costed above reappears as a `deduped` shadow, and selecting the shadow jumps to its own row.
+- **Hover card** — one card follows the pointer over a bar or a hook span, on a diagonal tether, with the class, what it waited on, its module and type, and its time.
+- **Modules graph** — nodes show `build` and hook time on separate lines (`104ms build`, `63ms init`) instead of one raw number. The dock keeps a compact mount of the trace, and selecting a class there selects its module on the graph and back.
 
-The Modules graph dock keeps a compact mount of the same timeline on the same axis, and module nodes show the build of their slowest class plus their hook time. Dumps whose hook timings carry `startMs` render hooks as labelled spans; older dumps keep duration chips. The `report-ui` entry now exports `renderBoot` and `focusBootTrace` for the tab, in place of `jumpToSlowestBoot`.
+### Behavior changes
+
+- The header `time to start` badge and the phase strip are gone; the tab's overview lane carries the phases.
+- Hook timings render as spans at their real offset when the dump carries `startMs`, which the documented `main.ts` snippet now records. Older dumps keep the `+120ms init` chips.
+- `nestjs-doctor/report-ui` exports `renderBoot` and `focusBootTrace` in place of `jumpToSlowestBoot`.
+
+### Fixed
+
+- A module node showed its slowest class's raw `initTime`, which included time spent waiting on dependencies: `DatabaseModule · 142ms` was `104ms build` plus `63ms init` after 38ms waiting on `ConfigService`.
+- Collapsing a module group in the trace dock toggled a class and hid nothing.
