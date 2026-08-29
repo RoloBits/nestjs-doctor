@@ -290,74 +290,71 @@ describe("BootTab", () => {
 	});
 
 	it("walks own rows only on Enter, past deduped copies of a later row", () => {
-		act(() => {
-			root.render(
-				<BootView
-					graph={{
-						...TIMED_ARTIFACT.graph,
-						modules: [
+		mount({
+			...TIMED_ARTIFACT,
+			graph: {
+				...TIMED_ARTIFACT.graph,
+				modules: [
+					{
+						controllers: [],
+						exports: [],
+						filePath: "cats.ts",
+						imports: [],
+						initTimings: [
 							{
-								controllers: [],
-								exports: [],
-								filePath: "cats.ts",
-								imports: [],
-								initTimings: [
-									{
-										id: "ta",
-										initTime: 100,
-										name: "CatsService",
-										type: "provider",
-									},
-								],
-								name: "CatsModule",
-								providers: ["CatsService"],
-							},
-							{
-								controllers: [],
-								exports: [],
-								filePath: "dogs.ts",
-								imports: [],
-								initTimings: [
-									{
-										id: "tb",
-										initTime: 120,
-										name: "DogsService",
-										type: "provider",
-									},
-									{
-										id: "tc",
-										initTime: 130,
-										name: "VetService",
-										type: "provider",
-									},
-								],
-								name: "DogsModule",
-								providers: ["DogsService", "VetService"],
-							},
-						],
-						timingsTrace: {
-							ta: {
-								deps: ["tb"],
+								id: "ta",
 								initTime: 100,
 								name: "CatsService",
 								type: "provider",
 							},
-							tb: {
-								deps: [],
+						],
+						name: "CatsModule",
+						providers: ["CatsService"],
+					},
+					{
+						controllers: [],
+						exports: [],
+						filePath: "dogs.ts",
+						imports: [],
+						initTimings: [
+							{
+								id: "tb",
 								initTime: 120,
 								name: "DogsService",
 								type: "provider",
 							},
-							tc: {
-								deps: [],
+							{
+								id: "tc",
 								initTime: 130,
 								name: "VetService",
 								type: "provider",
 							},
-						},
-					}}
-				/>
-			);
+						],
+						name: "DogsModule",
+						providers: ["DogsService", "VetService"],
+					},
+				],
+				timingsTrace: {
+					ta: {
+						deps: ["tb"],
+						initTime: 100,
+						name: "CatsService",
+						type: "provider",
+					},
+					tb: {
+						deps: [],
+						initTime: 120,
+						name: "DogsService",
+						type: "provider",
+					},
+					tc: {
+						deps: [],
+						initTime: 130,
+						name: "VetService",
+						type: "provider",
+					},
+				},
+			},
 		});
 		const fire = (sel: string, ev: Event) =>
 			act(() => {
