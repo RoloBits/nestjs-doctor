@@ -57,6 +57,8 @@ interface BootGroup {
 }
 
 interface BootPhase {
+	/** No class or hook span falls inside the phase. */
+	empty: boolean;
 	end: number;
 	gloss: string;
 	label: string;
@@ -177,6 +179,7 @@ export function buildBootTimeline(
 	let prev = 0;
 	for (const p of phaseParts(graph)) {
 		phases.push({
+			empty: false,
 			end: prev + p.ms,
 			gloss: p.gloss,
 			label: p.label,
@@ -185,6 +188,10 @@ export function buildBootTimeline(
 			tip: p.tip,
 		});
 		prev += p.ms;
+	}
+	const spans = [...byId.values()];
+	for (const ph of phases) {
+		ph.empty = !spans.some((s) => spanTouches(s, ph));
 	}
 
 	const maxMs = Math.max(
@@ -196,6 +203,29 @@ export function buildBootTimeline(
 		return null;
 	}
 	return { byId, groups, maxMs, phases };
+}
+
+// A chip has no offset, so it counts toward the phase named for its hook.
+function chipBelongs(hook: string, phaseLabel: string): boolean {
+	if (
+		phaseLabel === "onModuleInit" ||
+		phaseLabel === "onApplicationBootstrap"
+	) {
+		return hook === phaseLabel;
+	}
+	return phaseLabel !== "create" && phaseLabel !== "listen";
+}
+
+function spanTouches(s: BootSpan, ph: BootPhase): boolean {
+	const inside = (from: number, to: number) => from < ph.end && to > ph.start;
+	if (inside(s.start, s.end)) {
+		return true;
+	}
+	return (s.hooks ?? []).some((h) =>
+		typeof h.startMs === "number"
+			? inside(h.startMs, h.startMs + h.ms)
+			: chipBelongs(h.hook, ph.label)
+	);
 }
 
 /** Ids of every class whose dependencies can be cascaded open. */
@@ -543,17 +573,35 @@ export function axisHtml(win: BootWindow): string {
 	return html;
 }
 
+// Narrowest a phase segment draws, as a share of the lane; an empty one
+// gets more room so its weave shows.
+const PHASE_MIN_PCT = 0.6;
+const EMPTY_PHASE_MIN_PCT = 1.5;
+
 // The phase lane: tinted segments over the whole boot with their names and
-// durations; each carries its range so a click can zoom to it.
+// durations; each carries its range so a click can zoom to it, and a tip so
+// a segment too narrow for its label still names itself.
 export function phaseLaneHtml(t: BootTimeline): string {
 	const full: BootWindow = { from: 0, to: t.maxMs };
 	let html = "";
 	for (const p of t.phases) {
+		const width = Math.max(
+			pct(p.end, full) - pct(p.start, full),
+			p.empty ? EMPTY_PHASE_MIN_PCT : PHASE_MIN_PCT
+		);
+		const left = Math.min(pct(p.start, full), 100 - width);
+		const ms = formatMs(p.end - p.start);
+		const tip = p.empty
+			? `${ms} · ${p.tip} · nothing ran inside`
+			: `${ms} · ${p.tip}`;
+		const fill = p.empty ? "" : `;background:rgba(${p.rgb},0.3)`;
+		const ink = p.empty ? "rgba(255,255,255,0.45)" : `rgb(${p.rgb})`;
 		html +=
-			`<span class="boot-phase" data-from="${p.start}" data-to="${p.end}"` +
-			` style="${barStyle(p.start, p.end, full, 0.1)};background:rgba(${p.rgb},0.3)">` +
-			`<span class="boot-phase-label" style="color:rgb(${p.rgb})">${escapeHtml(p.gloss)} ` +
-			`<span class="boot-phase-ms">${escapeHtml(formatMs(p.end - p.start))}</span></span></span>`;
+			`<span class="boot-phase${p.empty ? " boot-phase-empty" : ""}" data-from="${p.start}" data-to="${p.end}"` +
+			` data-tip="${escapeHtml(tip)}"` +
+			` style="left:${left.toFixed(3)}%;width:${width.toFixed(3)}%${fill}">` +
+			`<span class="boot-phase-label" style="color:${ink}">${escapeHtml(p.gloss)} ` +
+			`<span class="boot-phase-ms">${escapeHtml(ms)}</span></span></span>`;
 	}
 	return html;
 }

@@ -27,6 +27,11 @@ import {
 	zoomWindow,
 } from "../../src/report/ui/app/lib/boot-timeline.js";
 
+const PHASE_POSITION_RE = /left:([\d.]+)%;width:([\d.]+)%/g;
+const PHASE_TAG_RE =
+	/<span class="boot-phase([^"]*)" data-from="[^"]*" data-to="[^"]*" data-tip="([^"]*)" style="([^"]*)"/g;
+const PHASE_WIDTH_RE = /width:([\d.]+)%/;
+
 function graph(
 	overrides: Partial<SerializedModuleGraph> = {}
 ): SerializedModuleGraph {
@@ -315,6 +320,52 @@ describe("buildBootTimeline", () => {
 			["onModuleInit", 100, 250],
 			["onApplicationBootstrap", 250, 300],
 			["listen", 300, 400],
+		]);
+	});
+
+	it("marks a phase empty when no class or hook span falls inside it", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 100, initMs: 300, moduleInitMs: 250 },
+				startupMs: 400,
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: traceNode(
+						50,
+						[],
+						[{ hook: "onModuleInit", ms: 20, startMs: 150 }]
+					),
+				},
+			})
+		);
+		expect(t?.phases.map((p) => [p.label, p.empty])).toEqual([
+			["create", false],
+			["onModuleInit", false],
+			["onApplicationBootstrap", true],
+			["listen", true],
+		]);
+	});
+
+	it("counts a hook chip without an offset toward its own phase", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 100, initMs: 300, moduleInitMs: 250 },
+				startupMs: 400,
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: traceNode(
+						50,
+						[],
+						[{ count: 2, hook: "onApplicationBootstrap", ms: 20 }]
+					),
+				},
+			})
+		);
+		expect(t?.phases.map((p) => [p.label, p.empty])).toEqual([
+			["create", false],
+			["onModuleInit", true],
+			["onApplicationBootstrap", false],
+			["listen", true],
 		]);
 	});
 
@@ -917,7 +968,57 @@ describe("lanes and axis", () => {
 		expect(html).toContain("boot-phase");
 		expect(html).toContain('data-from="0" data-to="100"');
 		expect(html).toContain("building modules");
-		expect(html).not.toContain("data-tip");
+		expect(html).toContain(
+			'data-tip="100ms · create — NestFactory constructs every module, provider, and controller."'
+		);
+		expect(html).toContain('data-tip="100ms · listen — ');
+	});
+
+	it("keeps a sub-millisecond phase wide enough to hover, inside the lane", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 246.9, initMs: 277.8 },
+				startupMs: 278.5,
+				timingsAvailable: true,
+				timingsTrace: { ta: traceNode(50) },
+			})
+		)!;
+		const html = phaseLaneHtml(t);
+		const styles = [...html.matchAll(PHASE_POSITION_RE)].map((m) => [
+			Number(m[1]),
+			Number(m[2]),
+		]);
+		expect(styles).toHaveLength(3);
+		const [left, width] = styles[2] as [number, number];
+		expect(width).toBeGreaterThanOrEqual(0.6);
+		expect(left + width).toBeLessThanOrEqual(100.0001);
+		expect(html).toContain('data-tip="&lt;1ms · listen — ');
+	});
+
+	it("draws an empty phase as a wider woven segment with a plain tip", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 246.9, initMs: 277.8 },
+				startupMs: 278.5,
+				timingsAvailable: true,
+				timingsTrace: { ta: traceNode(50) },
+			})
+		)!;
+		const html = phaseLaneHtml(t);
+		const tags = [...html.matchAll(PHASE_TAG_RE)].map((m) => ({
+			classes: m[1],
+			style: m[3],
+			tip: m[2],
+		}));
+		expect(tags).toHaveLength(3);
+		expect(tags[0]?.classes).toBe("");
+		expect(tags[0]?.style).toContain("background:rgba");
+		expect(tags[1]?.classes).toBe(" boot-phase-empty");
+		expect(tags[1]?.tip).toContain("nothing ran inside");
+		expect(tags[1]?.style).not.toContain("background:rgba");
+		expect(tags[2]?.classes).toBe(" boot-phase-empty");
+		const width = Number(PHASE_WIDTH_RE.exec(tags[2]?.style ?? "")?.[1]);
+		expect(width).toBeGreaterThanOrEqual(1.5);
 	});
 
 	it("renders the windowed axis with edge labels", () => {

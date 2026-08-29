@@ -60,6 +60,13 @@
   overflow: hidden; display: flex; align-items: flex-start;
   padding: 5px 6px 0; cursor: pointer; box-sizing: border-box;
 }
+/* A phase nothing ran inside: black carbon weave instead of a tint. */
+.boot-phase-empty {
+  background-color: #0a0a0a;
+  background-image:
+    repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0 2px, transparent 2px 6px),
+    repeating-linear-gradient(-45deg, rgba(255,255,255,0.06) 0 2px, transparent 2px 6px);
+}
 .boot-phase-label {
   font-size: 10px; white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis; letter-spacing: 0.02em;

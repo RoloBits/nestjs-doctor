@@ -9,6 +9,11 @@ describe("report styles", () => {
 		expect(css).not.toContain("REPORT_FONT_STACK");
 	});
 
+	it("weaves the empty boot phase", () => {
+		expect(css).toContain(".boot-phase-empty {");
+		expect(css).toContain("repeating-linear-gradient(45deg");
+	});
+
 	it("concatenates every sheet", () => {
 		for (const marker of [
 			":root {",
