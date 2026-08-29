@@ -96,7 +96,16 @@ time. If `UsersService` reads 120ms and the `SlowService` it injects reads 119ms
 
 A module node shows the build of its slowest class, never a sum across
 classes. Its hook time is the total across the module's classes, for example
-`104ms build · 63ms init`.
+`104ms build · 63ms init`. A package node keeps its `package` line and shows
+its time in the tooltip.
+
+Classes from package modules (`TypeOrmCoreModule`, `BullModule`,
+`ConfigHostModule`) sit in their own groups with an `external` tag. The slow
+part of a boot is often there: `DataSource` in `TypeOrmCoreModule` is the
+database connection, and every repository waits on it. When exactly one
+module imports a non-global package module instance, the hover card names
+it, which is where `forFeature` or `registerQueue` was called. Global ones
+such as `TypeOrmCoreModule` and `ConfigHostModule` never name an importer.
 
 ## 5. Put main.ts back
 

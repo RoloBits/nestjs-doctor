@@ -116,7 +116,8 @@ meant it.
 
 `--timings` overlays how long each class took to construct during one real boot.
 Node subtitles gain the slowest class's build time and the module's hook
-time. A Boot trace tab appears, with a compact mount in the bottom dock.
+time. A package node keeps its `package` line and shows its time in the
+tooltip. A Boot trace tab appears, with a compact mount in the bottom dock.
 
 That needs one change to `main.ts`, because a scan never runs your application.
 [Boot trace](/docs/report/boot-trace) covers the change and how to read the

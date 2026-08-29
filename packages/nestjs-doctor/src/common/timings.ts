@@ -27,8 +27,12 @@ export interface TraceNode {
 	deps: string[];
 	hooks?: HookTiming[];
 	initTime: number;
+	/** Label of the dump module that owns the class; absent in older artifacts. */
+	module?: string;
 	name: string;
 	type: string;
+	/** Label of the one module importing the owning module, when it is not global. */
+	via?: string;
 }
 
 export interface BootstrapTimings {

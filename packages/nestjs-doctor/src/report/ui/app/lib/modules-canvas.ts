@@ -398,7 +398,8 @@ export class ModulesCanvas {
 		}
 		const label = displayName(n);
 		const subLines = [`${n.providers.length}p · ${n.controllers.length}c`];
-		const timing = this.moduleTimings.get(n.name);
+		// Skips the timing lines for a package node; the tooltip still shows its timing.
+		const timing = n.external ? undefined : this.moduleTimings.get(n.name);
 		if (timing) {
 			subLines.push(...moduleTimingLines(timing));
 		}

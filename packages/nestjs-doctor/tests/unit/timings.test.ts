@@ -7,8 +7,8 @@ import {
 	parseBootstrapTimings,
 } from "../../src/report/timings.js";
 
-function moduleNode(label: string, internal = false) {
-	return { id: label, label, metadata: { type: "module", internal } };
+function moduleNode(label: string, internal = false, global = false) {
+	return { id: label, label, metadata: { type: "module", internal, global } };
 }
 
 function classNode(
@@ -22,6 +22,10 @@ function classNode(
 
 function edge(source: string, target: string, type = "class-to-class") {
 	return { source, target, metadata: { type } };
+}
+
+function imports(importer: string, imported: string) {
+	return edge(importer, imported, "module-to-module");
 }
 
 function dump(
@@ -75,6 +79,7 @@ describe("parseBootstrapTimings", () => {
 			type: "controller",
 			initTime: 210,
 			deps: ["tc2"],
+			module: "CatsModule",
 		});
 		expect(trace.tc2.deps).toEqual(["tc3"]);
 		expect(trace.tc3.deps).toEqual([]);
@@ -116,12 +121,13 @@ describe("parseBootstrapTimings", () => {
 			type: "provider",
 			initTime: 5,
 			deps: [],
+			module: "CatsModule",
 		});
 		expect(trace.tc2.deps).toEqual(["t__proto__"]);
 	});
 
 	it("ignores nodes whose metadata.internal is true", () => {
-		const { modules } = parseBootstrapTimings(
+		const { modules, trace } = parseBootstrapTimings(
 			dump({
 				m1: moduleNode("InternalCoreModule", true),
 				c1: classNode("ModuleRef", "m1", 1.2),
@@ -134,6 +140,7 @@ describe("parseBootstrapTimings", () => {
 		);
 
 		expect(modules.size).toBe(0);
+		expect(trace).toEqual({});
 	});
 
 	it("skips a class node with no numeric initTime rather than recording 0", () => {
@@ -150,7 +157,7 @@ describe("parseBootstrapTimings", () => {
 		]);
 	});
 
-	it("attaches no classes to a module name that appears more than once in the dump", () => {
+	it("keeps classes of a repeated module name in the trace but attaches them to no module", () => {
 		const { modules, trace, warnings } = parseBootstrapTimings(
 			dump({
 				m1: moduleNode("SharedModule"),
@@ -166,9 +173,125 @@ describe("parseBootstrapTimings", () => {
 		expect(modules.get("CatsModule")).toHaveLength(1);
 		// The classes keep their own trace entries; only the module join is refused.
 		expect(trace.tc1.name).toBe("BillingService");
-		expect(warnings.join(" ")).toContain(
-			"2 class timings belong to module names that appear more than once"
+		expect(trace.tc1.module).toBe("SharedModule");
+		expect(trace.tc2.module).toBe("SharedModule");
+		expect(warnings).toEqual([]);
+	});
+
+	it("records the parent module's label on every trace node", () => {
+		const { trace } = parseBootstrapTimings(
+			dump({
+				m1: moduleNode("CatsModule"),
+				c1: classNode("CatsService", "m1", 4.5),
+			})
 		);
+
+		expect(trace.tc1).toEqual({
+			deps: [],
+			initTime: 4.5,
+			module: "CatsModule",
+			name: "CatsService",
+			type: "provider",
+		});
+	});
+
+	it("drops a class whose parent module is missing from the dump", () => {
+		const { modules, trace } = parseBootstrapTimings(
+			dump({
+				m1: moduleNode("CatsModule"),
+				c1: classNode("Orphan", "gone", 4.5),
+			})
+		);
+
+		expect(trace).toEqual({});
+		expect(modules.size).toBe(0);
+	});
+
+	it("names the one module that imports a class's module as via", () => {
+		const { trace } = parseBootstrapTimings(
+			dump(
+				{
+					mUsers: moduleNode("UsersModule"),
+					mTypeOrm: moduleNode("TypeOrmModule"),
+					c1: classNode("UserRepository", "mTypeOrm", 154.1),
+				},
+				{ e1: imports("mUsers", "mTypeOrm") }
+			)
+		);
+
+		expect(trace.tc1.module).toBe("TypeOrmModule");
+		expect(trace.tc1.via).toBe("UsersModule");
+	});
+
+	it("leaves via unset for a global module, even with one importer", () => {
+		const { trace } = parseBootstrapTimings(
+			dump(
+				{
+					mApp: moduleNode("AppModule"),
+					mConfig: moduleNode("ConfigModule", false, true),
+					c1: classNode("ConfigService", "mConfig", 2),
+				},
+				{ e1: imports("mApp", "mConfig") }
+			)
+		);
+
+		expect(trace.tc1.module).toBe("ConfigModule");
+		expect(trace.tc1.via).toBeUndefined();
+	});
+
+	it("leaves via unset for a module more than one module imports", () => {
+		const { trace } = parseBootstrapTimings(
+			dump(
+				{
+					mApp: moduleNode("AppModule"),
+					mAdmin: moduleNode("AdminModule"),
+					mCatalog: moduleNode("CatalogModule"),
+					mUsers: moduleNode("UsersModule"),
+					mCore: moduleNode("TypeOrmCoreModule"),
+					c1: classNode("DataSource", "mCore", 154),
+					c2: classNode("UsersService", "mUsers", 150),
+				},
+				{
+					e1: imports("mUsers", "mCore"),
+					e2: imports("mCatalog", "mCore"),
+					e3: imports("mAdmin", "mCore"),
+					e4: imports("mApp", "mUsers"),
+					e5: imports("mAdmin", "mUsers"),
+				}
+			)
+		);
+
+		expect(trace.tc1.via).toBeUndefined();
+		expect(trace.tc2.via).toBeUndefined();
+	});
+
+	it("counts only module nodes as importers, ignoring malformed and self edges", () => {
+		const { trace } = parseBootstrapTimings(
+			dump(
+				{
+					mUsers: moduleNode("UsersModule"),
+					mInternal: moduleNode("InternalCoreModule", true),
+					mTypeOrm: moduleNode("TypeOrmModule"),
+					c1: classNode("UserRepository", "mTypeOrm", 154.1),
+					c2: classNode("UsersService", "mUsers", 155),
+				},
+				{
+					e1: imports("mUsers", "mTypeOrm"),
+					e2: imports("mInternal", "mTypeOrm"),
+					e3: imports("c2", "mTypeOrm"),
+					e4: imports("missing", "mTypeOrm"),
+					e5: { metadata: { type: "module-to-module" } },
+					e6: {
+						source: 7,
+						target: "mTypeOrm",
+						metadata: { type: "module-to-module" },
+					},
+					e7: imports("mTypeOrm", "mTypeOrm"),
+				}
+			)
+		);
+
+		expect(trace.tc1.via).toBe("UsersModule");
 	});
 
 	it("returns an empty map and a warning for JSON that does not parse", () => {
@@ -384,5 +507,24 @@ describe("loadBootstrapTimings", () => {
 		expect(timings?.startupMs).toBe(4200);
 		expect(timings?.byModule.size).toBe(0);
 		expect(warnings.join(" ")).toContain("no class init times");
+	});
+
+	it("returns timings when every module label repeats", () => {
+		writeFileSync(
+			join(dir, "repeated.json"),
+			dump({
+				m1: moduleNode("SharedModule"),
+				m2: moduleNode("SharedModule"),
+				c1: classNode("BillingService", "m1", 5),
+				c2: classNode("AuthService", "m2", 3),
+			})
+		);
+
+		const { timings, warnings } = loadBootstrapTimings(dir, "repeated.json");
+
+		expect(warnings).toEqual([]);
+		expect(timings?.byModule.size).toBe(0);
+		expect(timings?.trace.tc1.module).toBe("SharedModule");
+		expect(timings?.trace.tc2.module).toBe("SharedModule");
 	});
 });

@@ -63,6 +63,25 @@ const TIMED_ARTIFACT: ReportArtifact = {
 	},
 };
 
+// One class from a third-party module the graph has no node for.
+const EXTERNAL_ARTIFACT: ReportArtifact = {
+	...TIMED_ARTIFACT,
+	graph: {
+		...TIMED_ARTIFACT.graph,
+		modules: [],
+		timingsTrace: {
+			ta: {
+				deps: [],
+				initTime: 154,
+				module: "TypeOrmModule",
+				name: "UserRepository",
+				type: "provider",
+				via: "UsersModule",
+			},
+		},
+	},
+};
+
 describe("BootTab", () => {
 	let container: HTMLDivElement;
 	let root: Root;
@@ -496,6 +515,48 @@ describe("BootTab", () => {
 				);
 		});
 		expect(picked).toEqual(["CatsModule"]);
+	});
+
+	it("names a third-party module group instead of the unattributed bucket", () => {
+		mount(EXTERNAL_ARTIFACT);
+		const rows = container.querySelector(".boot-rows");
+		expect(rows?.innerHTML).toContain('data-group="TypeOrmModule"');
+		expect(rows?.innerHTML).not.toContain("unattributed");
+		expect(container.querySelector(".boot-rows .boot-count")?.textContent).toBe(
+			"1"
+		);
+	});
+
+	it("selects an external row and names its module on hover", () => {
+		mount(EXTERNAL_ARTIFACT);
+		act(() => {
+			container
+				.querySelector<HTMLElement>('.boot-rows [data-id="ta"]')
+				?.dispatchEvent(
+					new MouseEvent("click", { bubbles: true, composed: true })
+				);
+		});
+		expect(
+			container
+				.querySelector('.boot-rows [data-id="ta"]')
+				?.classList.contains("boot-selected")
+		).toBe(true);
+		act(() => {
+			container
+				.querySelector<HTMLElement>('.boot-rows [data-id="ta"] .boot-bar')
+				?.dispatchEvent(
+					new MouseEvent("mousemove", {
+						bubbles: true,
+						clientX: 40,
+						clientY: 30,
+					})
+				);
+		});
+		const card = container.querySelector<HTMLElement>(".hover-card");
+		expect(card?.hidden).toBe(false);
+		expect(card?.textContent).toContain(
+			"TypeOrmModule · imported by UsersModule"
+		);
 	});
 
 	it("shows a crosshair with a time chip while the mouse moves", () => {

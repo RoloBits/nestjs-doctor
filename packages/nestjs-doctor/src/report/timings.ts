@@ -32,6 +32,7 @@ function asPositiveMs(value: unknown): number | undefined {
 interface DumpNode {
 	label?: unknown;
 	metadata?: {
+		global?: unknown;
 		initTime?: unknown;
 		internal?: unknown;
 		type?: unknown;
@@ -76,6 +77,7 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 	const dumpNodes = nodes as Record<string, DumpNode>;
 	const moduleLabels = new Map<string, string>();
 	const moduleLabelCounts = new Map<string, number>();
+	const globalModules = new Set<string>();
 	// Counts class-node labels; hook entries only join to a unique label.
 	// Module nodes are excluded: a module class also appears as a class node.
 	const labelCounts = new Map<string, number>();
@@ -94,6 +96,9 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 			typeof node.label === "string"
 		) {
 			moduleLabels.set(id, node.label);
+			if (meta.global === true) {
+				globalModules.add(id);
+			}
 			moduleLabelCounts.set(
 				node.label,
 				(moduleLabelCounts.get(node.label) ?? 0) + 1
@@ -101,8 +106,40 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 		}
 	}
 
+	const rawEdges = (data as { edges?: unknown }).edges;
+	const edges =
+		typeof rawEdges === "object" && rawEdges !== null
+			? Object.values(rawEdges as Record<string, DumpEdge>)
+			: [];
+	// Distinct importing module ids per module id; only module nodes count.
+	const importersByModule = new Map<string, Set<string>>();
+	for (const edge of edges) {
+		if (edge?.metadata?.type !== "module-to-module") {
+			continue;
+		}
+		const { source, target } = edge;
+		if (
+			typeof source !== "string" ||
+			typeof target !== "string" ||
+			source === target ||
+			!moduleLabels.has(source)
+		) {
+			continue;
+		}
+		const importers = importersByModule.get(target) ?? new Set<string>();
+		importers.add(source);
+		importersByModule.set(target, importers);
+	}
+	// Only a non-global module with exactly one importer gets a via label.
+	const viaOf = (moduleId: string): string | undefined => {
+		const importers = importersByModule.get(moduleId);
+		if (globalModules.has(moduleId) || importers?.size !== 1) {
+			return undefined;
+		}
+		return moduleLabels.get([...importers][0] as string);
+	};
+
 	const modules = new Map<string, ClassTiming[]>();
-	let ambiguousModuleClasses = 0;
 	// Ids get a "t" prefix so an id like "__proto__" stays a plain object key.
 	const trace: Record<string, TraceNode> = {};
 	for (const [rawId, node] of Object.entries(dumpNodes)) {
@@ -127,10 +164,17 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 		}
 		const type = typeof meta.type === "string" ? meta.type : "provider";
 		const id = `t${rawId}`;
-		trace[id] = { name: node.label, type, initTime, deps: [] };
+		const via = viaOf(node.parent);
+		trace[id] = {
+			name: node.label,
+			type,
+			initTime,
+			deps: [],
+			module: moduleName,
+			...(via ? { via } : {}),
+		};
 		// Two dump modules sharing a name would merge their class lists; skip both.
 		if (moduleLabelCounts.get(moduleName) !== 1) {
-			ambiguousModuleClasses++;
 			continue;
 		}
 		const list = modules.get(moduleName) ?? [];
@@ -138,23 +182,20 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 		modules.set(moduleName, list);
 	}
 
-	const edges = (data as { edges?: unknown }).edges;
-	if (typeof edges === "object" && edges !== null) {
-		for (const edge of Object.values(edges as Record<string, DumpEdge>)) {
-			if (edge?.metadata?.type !== "class-to-class") {
-				continue;
-			}
-			const { source, target } = edge;
-			if (typeof source !== "string" || typeof target !== "string") {
-				continue;
-			}
-			const from = Object.hasOwn(trace, `t${source}`)
-				? trace[`t${source}`]
-				: undefined;
-			const to = `t${target}`;
-			if (from && Object.hasOwn(trace, to) && !from.deps.includes(to)) {
-				from.deps.push(to);
-			}
+	for (const edge of edges) {
+		if (edge?.metadata?.type !== "class-to-class") {
+			continue;
+		}
+		const { source, target } = edge;
+		if (typeof source !== "string" || typeof target !== "string") {
+			continue;
+		}
+		const from = Object.hasOwn(trace, `t${source}`)
+			? trace[`t${source}`]
+			: undefined;
+		const to = `t${target}`;
+		if (from && Object.hasOwn(trace, to) && !from.deps.includes(to)) {
+			from.deps.push(to);
 		}
 	}
 
@@ -166,14 +207,9 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 	}
 
 	const warnings: string[] = [];
-	if (modules.size === 0) {
+	if (Object.keys(trace).length === 0) {
 		warnings.push(
 			"--timings: no class init times found in the dump — was it produced with NestFactory.create(AppModule, { snapshot: true })?"
-		);
-	}
-	if (ambiguousModuleClasses > 0) {
-		warnings.push(
-			`--timings: ${ambiguousModuleClasses} class timings belong to module names that appear more than once in the dump; they are not attached to a module`
 		);
 	}
 
@@ -286,7 +322,9 @@ export function loadBootstrapTimings(
 	}
 	const { hooksByClass, modules, phases, startupMs, trace, warnings } =
 		parseBootstrapTimings(raw);
-	return modules.size > 0 || startupMs !== undefined || phases !== undefined
+	return Object.keys(trace).length > 0 ||
+		startupMs !== undefined ||
+		phases !== undefined
 		? {
 				timings: { byModule: modules, hooksByClass, phases, startupMs, trace },
 				warnings,
