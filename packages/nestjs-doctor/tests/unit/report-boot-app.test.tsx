@@ -289,6 +289,102 @@ describe("BootTab", () => {
 		expect(selected()).toBe("tb");
 	});
 
+	it("walks own rows only on Enter, past deduped copies of a later row", () => {
+		act(() => {
+			root.render(
+				<BootView
+					graph={{
+						...TIMED_ARTIFACT.graph,
+						modules: [
+							{
+								controllers: [],
+								exports: [],
+								filePath: "cats.ts",
+								imports: [],
+								initTimings: [
+									{
+										id: "ta",
+										initTime: 100,
+										name: "CatsService",
+										type: "provider",
+									},
+								],
+								name: "CatsModule",
+								providers: ["CatsService"],
+							},
+							{
+								controllers: [],
+								exports: [],
+								filePath: "dogs.ts",
+								imports: [],
+								initTimings: [
+									{
+										id: "tb",
+										initTime: 120,
+										name: "DogsService",
+										type: "provider",
+									},
+									{
+										id: "tc",
+										initTime: 130,
+										name: "VetService",
+										type: "provider",
+									},
+								],
+								name: "DogsModule",
+								providers: ["DogsService", "VetService"],
+							},
+						],
+						timingsTrace: {
+							ta: {
+								deps: ["tb"],
+								initTime: 100,
+								name: "CatsService",
+								type: "provider",
+							},
+							tb: {
+								deps: [],
+								initTime: 120,
+								name: "DogsService",
+								type: "provider",
+							},
+							tc: {
+								deps: [],
+								initTime: 130,
+								name: "VetService",
+								type: "provider",
+							},
+						},
+					}}
+				/>
+			);
+		});
+		const fire = (sel: string, ev: Event) =>
+			act(() => {
+				container.querySelector<HTMLElement>(sel)?.dispatchEvent(ev);
+			});
+		fire(
+			'.boot-rows [data-id="ta"] .boot-caret',
+			new MouseEvent("click", { bubbles: true, composed: true })
+		);
+		expect(
+			container.querySelector('.boot-rows [data-id="tb"].boot-cascade-row')
+		).not.toBeNull();
+		const walk: string[] = [];
+		for (let i = 0; i < 4; i++) {
+			fire(
+				"#boot-search",
+				new KeyboardEvent("keydown", { bubbles: true, key: "Enter" })
+			);
+			walk.push(
+				container
+					.querySelector(".boot-rows .boot-selected")
+					?.getAttribute("data-id") ?? ""
+			);
+		}
+		expect(walk).toEqual(["ta", "tb", "tc", "ta"]);
+	});
+
 	it("selecting a deduped row opens its module and marks the class's own row", () => {
 		mount(TIMED_ARTIFACT);
 		const click = (sel: string) =>

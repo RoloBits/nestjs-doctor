@@ -915,7 +915,7 @@ export class ModulesCanvas {
 			ctx.stroke();
 			ctx.setLineDash([]);
 
-			// Text hangs from the top edge, so extra timing lines grow the box down.
+			// The label sits at the top edge, one sub line per 12px below it.
 			const top = n.y - n.h / 2;
 			ctx.textAlign = "center";
 			ctx.textBaseline = "middle";

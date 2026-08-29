@@ -11,7 +11,7 @@ export interface HookTiming {
 	count?: number;
 	hook: string;
 	ms: number;
-	/** Offset from bootstrap start when the hook first began, if captured. */
+	/** Offset from bootstrap start, when captured and the hook ran once. */
 	startMs?: number;
 }
 

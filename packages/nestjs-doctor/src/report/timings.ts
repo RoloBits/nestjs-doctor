@@ -205,7 +205,8 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 				continue;
 			}
 			const list = hooksByClass.get(className) ?? [];
-			// Transient providers report once per instance; merge into one total.
+			// Transient providers report once per instance; merged into one total
+			// with no offset.
 			const existing = list.find((h) => h.hook === hook);
 			if (existing) {
 				existing.ms += ms;

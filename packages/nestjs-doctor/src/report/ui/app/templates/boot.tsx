@@ -411,7 +411,9 @@ export function BootView({
 		if (!wrap) {
 			return;
 		}
-		const matches = visibleRows(wrap);
+		const matches = visibleRows(wrap).filter(
+			(el) => !el.classList.contains("boot-cascade-row")
+		);
 		if (matches.length === 0) {
 			return;
 		}
@@ -420,7 +422,7 @@ export function BootView({
 			? matches.findIndex((el) => el.dataset.id === current)
 			: -1;
 		const id = matches[(idx + 1) % matches.length]?.dataset.id;
-		if (id) {
+		if (id && id !== current) {
 			setSelectedId(id);
 			pendingScrollRef.current = id;
 		}

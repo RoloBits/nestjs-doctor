@@ -315,7 +315,7 @@ interface BootRowOptions {
 	win: BootWindow;
 }
 
-/** Inline `left`/`width` percentages placing a bar inside the window. */
+/** Inline left/width percentages for a bar, relative to the window. */
 function barStyle(
 	start: number,
 	end: number,
@@ -401,8 +401,7 @@ function hookChipsHtml(span: BootSpan): string {
 	return html;
 }
 
-// Every class has its own row in its module group, so a cascade row is a
-// striped shadow of it, deduped: the cost is drawn once, at the row above.
+// A cascade row is a deduped shadow of the class's own row in its group.
 export function cascadeChildrenHtml(
 	t: BootTimeline,
 	parentId: string,
@@ -420,7 +419,7 @@ export function cascadeChildrenHtml(
 		if (!dep) {
 			continue;
 		}
-		// A dep slower than its consumer was pre-built for an earlier consumer.
+		// Finished after its consumer: built earlier, for another consumer.
 		const cyclic = ancestors.has(depId);
 		const reused = !cyclic && dep.end > parent.end;
 		let tag = "deduped";
