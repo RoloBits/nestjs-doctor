@@ -1,5 +1,50 @@
 # nestjs-doctor
 
+## 0.9.2
+
+### Patch Changes
+
+- 63203f2: Two `@Module()` classes sharing a class name in different directories no longer silently drop one of the declarations from the module graph. The declarations now union their imports, providers, exports, and controllers — the same behaviour same-directory declarations already had — so cycles through either declaration are detected, and providers or exports on the previously dropped module stop producing phantom `no-unused-providers`, `no-unused-module-exports`, and `no-orphan-modules` findings. A scan warns once per duplicated name, listing every declaration file, and a `no-circular-module-deps` report whose cycle head is declared in several files now names all of them in its help text.
+- 03e3e8c: ### Highlights
+
+  - **Boot trace tab** — `--timings` gets its own tab: every class at its real offset from boot start on one absolute axis, grouped by module and colored by type, with the lifecycle phases above the rows carrying the viewport window. Scroll to zoom, drag the axis to pan, click a phase to frame it.
+  - **Dependency cascades** — a class row opens level by level into what it waited on. A class already costed above reappears as a `deduped` shadow, and selecting the shadow jumps to its own row.
+  - **Hover card** — one card follows the pointer over a bar or a hook span, on a diagonal tether, with the class, what it waited on, its module and type, and its time.
+  - **Modules graph** — nodes show `build` and hook time on separate lines (`104ms build`, `63ms init`) instead of one raw number. The dock keeps a compact mount of the trace, and selecting a class there selects its module on the graph and back.
+
+  ### Behavior changes
+
+  - The header `time to start` badge and the phase strip are gone; the tab's overview lane carries the phases.
+  - Hook timings render as spans at their real offset when the dump carries `startMs`, which the documented `main.ts` snippet now records. Older dumps keep the `+120ms init` chips.
+  - `nestjs-doctor/report-ui` exports `renderBoot` and `focusBootTrace` in place of `jumpToSlowestBoot`.
+
+  ### Fixed
+
+  - A module node showed its slowest class's raw `initTime`, which included time spent waiting on dependencies: `DatabaseModule · 142ms` was `104ms build` plus `63ms init` after 38ms waiting on `ConfigService`.
+  - Collapsing a module group in the trace dock toggled a class and hid nothing.
+
+- bd569e2: Internal refactor, no behavior change: the report's shared tree helpers are now real TypeScript modules instead of text inside a template literal. `src/report/ui/browser/` is bundled to an IIFE and inlined into the report ahead of the remaining script chunks, so `buildFileTree`, `compressTree`, `worstSev`, `worstSevNode` and `countItems` have one definition that the type checker and the linter can both see. The rendered report is unchanged, verified against a jsdom snapshot of every tab.
+- 7e1874e: Internal refactor, no behavior change: the report's markup chunks now render their repeated families from components in `src/report/ui/components/`. Icon buttons, tab-bar buttons, filter pills, the modules-graph legend and the Rule Lab selects each have a single definition, backed by a registry of twelve named icons. Twenty-two hand-written button blocks and four repeated markup families are gone from the tab chunks. The emitted report is byte-identical.
+- 058b254: Fix the module detail panel never marking an import as external. The graph creates a stand-in node for any import it cannot resolve and flags it `external`, so the panel's `!target` check was always false and both the "external" badge and the dashed row styling were unreachable. An import that comes from a package, for example `ConfigModule` from `@nestjs/config`, now reads as external instead of looking like a module in your codebase.
+- 1e98755: Restore the report's floating tooltip for data-tip elements in the boot trace dock, the header badges, and the module detail badges. The React port left its binding running before the containers mounted, so it never attached; it now installs as a delegated listener from the app itself.
+- ceeeebf: The HTML report's header, tab bar and share dialog are now rendered by React; the RPT helper bundle is gone from the page, since every consumer imports the modules directly.
+- cdb5990: The HTML report's Findings tab is now rendered by React inside the page; its markup and behaviour are unchanged.
+- f25ff5f: The HTML report's Endpoints tab is now rendered by React inside the page; the canvas painter is unchanged behind a typed controller.
+- c23d674: The HTML report's Rule Lab tab is now rendered by React inside the page; presets, execution and results behave the same.
+- e8b61b9: The HTML report's Modules Graph tab is now rendered by React inside the page; the canvas painter, camera flights and layouts are unchanged behind a typed controller.
+- e58f77e: The HTML report's Relational Schema tab is now rendered by React inside the page; the ER-diagram painter is unchanged behind a typed controller.
+- 9592457: The report UI source collapses into the React app: the pure logic modules move to app/lib, the icon data and legend live in the app, and the last string atoms are gone. The emitted page is unchanged.
+- 8235220: The HTML report's Summary tab is now rendered by React inside the page; its markup and behaviour are unchanged.
+- 97b97dc: Add a `nestjs-doctor/report-ui` export with the report's render seams, styles, page skeleton, and an adapter that expands a shared JSON file into the artifact shape, so other hosts can render report files in the browser.
+- e6a97a2: Shareable reports. Pick which sections to share — the health score, findings per category, the relational schema, the module graph, endpoints — and whether to include code snippets, from the post-scan menu or the report's new share button; both write a `nestjs-doctor-shared.json`. Also available non-interactively via `--share-sections score,findings:security` and `--share-code`.
+- 277193f: Fix the CLI hanging forever when the terminal reports no size. A pty created without a window size reports `columns: 0`, which sent the scan and report spinners into a synchronous infinite loop that pegged a core and wrote ANSI escapes until the disk filled. The spinner now uses `yocto-spinner`, which handles a zero width, in place of `ora`, which does not.
+
+  A failed scan or report now ends its spinner with `✖ Scan failed` instead of printing a green `✔ Scan complete` just before the error. The CLI also exits after a scan on a TTY stdin rather than lingering.
+
+- 13b48aa: Internal refactor, no behavior change: the HTML report's UI sources are split into files instead of three template literals. The stylesheet moved out of `styles.ts` into nine cascade-ordered `.css` files loaded with `?raw` and inlined at build time, the report's script split into twelve modules, and its markup into eight. The emitted report is byte-identical, still one self-contained file with no extra network requests.
+
+  `tsdown.config.ts` gained a small plugin that resolves a `?raw` import to the file's text and registers the file with the watcher, so `pnpm dev` rebuilds on a stylesheet edit.
+
 ## 0.9.1
 
 ### Patch Changes
