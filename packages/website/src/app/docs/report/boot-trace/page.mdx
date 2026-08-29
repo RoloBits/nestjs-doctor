@@ -158,7 +158,7 @@ its real offset from boot start.
 |---|---|---|
 | Overview lane | Top of the lanes | `building modules · lifecycle hooks · opening the port`, from the `createMs`, `initMs`, and `startupMs` markers; with `moduleInitMs` the hooks split into `init hooks · bootstrap hooks`. The window on top is the view: drag it to pan, drag its edges to resize, scroll to zoom, click a phase to frame it |
 | Dotted line | Down the rows | Where one phase hands over to the next |
-| Group header | Above its classes | The module that owns them in the dump and their count. A package module shows an `external` tag; a user module whose name repeats shows an `ambiguous` tag |
+| Group header | Above its classes | The module that owns them in the dump, their count, and an `external` or `ambiguous` tag when the graph has no single node for it |
 | Class bar | Per row, under its module's header | From its slowest dependency's finish to its own, or from boot start when nothing traced came before; colored by type. The time it took sits inside the bar |
 | Hook span | On a row, after the bar | An `onModuleInit` or `onApplicationBootstrap` at its real offset, time inside, when the dump carries `startMs`. Older dumps show a `+120ms init` chip instead |
 | Cascade row | Under an opened chevron, solid black | A shadow of the dependency's own row in its module group, where its cost is drawn once. `deduped` says so, as `npm ls` would. `shared` means it was built earlier for another consumer, `circular` closes a loop to an ancestor |

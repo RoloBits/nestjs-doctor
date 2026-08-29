@@ -41,7 +41,7 @@ export interface BootSpan {
 	name: string;
 	start: number;
 	type: string;
-	/** The importer of the class's module, when that module is not global and has one. */
+	/** The importer of the class's module, when it is not global and has exactly one. */
 	via?: string;
 	/** Id of the dependency whose finish set this class's start, if any. */
 	waitedOn?: string;
