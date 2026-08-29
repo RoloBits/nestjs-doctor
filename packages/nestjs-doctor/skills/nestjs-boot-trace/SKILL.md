@@ -98,6 +98,13 @@ A module node shows the build of its slowest class, never a sum across
 classes. Its hook time is the total across the module's classes, for example
 `104ms build · 63ms init`.
 
+Classes from package modules (`TypeOrmCoreModule`, `BullModule`,
+`ConfigHostModule`) sit in their own groups with an `external` tag. A slow boot
+often lives there: `DataSource` in `TypeOrmCoreModule` is the database
+connection, and every repository waits on it. When a package module has
+exactly one importer the hover card names it, which is where `forFeature` or
+`registerQueue` was called.
+
 ## 5. Put main.ts back
 
 Revert the instrumentation unless the user asked to keep it behind a flag.

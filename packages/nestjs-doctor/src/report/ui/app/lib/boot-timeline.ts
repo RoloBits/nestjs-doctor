@@ -11,7 +11,7 @@ import {
 	phaseParts,
 } from "./trace.js";
 
-/** Group for trace classes whose module name repeated across projects. */
+/** Group for trace nodes written before the dump's module label was kept. */
 export const UNATTRIBUTED_MODULE = "unattributed";
 
 const SPAN_COLORS: Record<string, string> = {
@@ -31,18 +31,23 @@ export interface BootSpan {
 	deps: string[];
 	/** Offset from boot start when construction finished (the dump's initTime). */
 	end: number;
+	/** The class lives in a package module, one the scanned graph never saw. */
+	external?: boolean;
 	hooks?: HookTiming[];
 	id: string;
 	module: string;
 	name: string;
 	start: number;
 	type: string;
+	/** The one module importing the class's module, for external spans. */
+	via?: string;
 	/** Id of the dependency whose finish set this class's start, if any. */
 	waitedOn?: string;
 }
 
 interface BootGroup {
 	end: number;
+	external?: boolean;
 	module: string;
 	spans: BootSpan[];
 	start: number;
@@ -69,6 +74,13 @@ export interface BootWindow {
 	to: number;
 }
 
+// Same rule as displayName in modules-canvas, which imports this file.
+function bareName(m: { name: string; project?: string }): string {
+	return m.project && m.name.startsWith(`${m.project}/`)
+		? m.name.slice(m.project.length + 1)
+		: m.name;
+}
+
 export function buildBootTimeline(
 	graph: SerializedModuleGraph
 ): BootTimeline | null {
@@ -77,7 +89,9 @@ export function buildBootTimeline(
 		return null;
 	}
 	const moduleOfId = new Map<string, string>();
+	const graphNames = new Set<string>();
 	for (const m of graph.modules) {
+		graphNames.add(bareName(m));
 		for (const t of m.initTimings ?? []) {
 			moduleOfId.set(t.id, m.name);
 		}
@@ -99,15 +113,23 @@ export function buildBootTimeline(
 				break;
 			}
 		}
+		const attributed = moduleOfId.get(id);
+		// A dump module with no node in the scanned graph is a package module.
+		const external =
+			attributed === undefined &&
+			node.module !== undefined &&
+			!graphNames.has(node.module);
 		byId.set(id, {
 			deps: node.deps,
 			end: node.initTime,
+			...(external ? { external: true } : {}),
 			hooks: node.hooks,
 			id,
-			module: moduleOfId.get(id) ?? UNATTRIBUTED_MODULE,
+			module: attributed ?? node.module ?? UNATTRIBUTED_MODULE,
 			name: node.name,
 			start,
 			type: node.type,
+			...(node.via ? { via: node.via } : {}),
 			...(waitedOn ? { waitedOn } : {}),
 		});
 	}
@@ -132,7 +154,13 @@ export function buildBootTimeline(
 				}
 			}
 		}
-		groups.push({ end, module, spans, start });
+		groups.push({
+			end,
+			...(spans.every((s) => s.external) ? { external: true } : {}),
+			module,
+			spans,
+			start,
+		});
 	}
 	// Groups run in the order their first class finished.
 	const firstEnd = (g: BootGroup) => (g.spans[0] as BootSpan).end;
@@ -465,6 +493,7 @@ export function rowsHtml(t: BootTimeline, o: BootRowOptions): string {
 			'<span class="boot-label">' +
 			caretHtml(true) +
 			`<span class="boot-name">${escapeHtml(g.module)}</span>` +
+			(g.external ? '<span class="boot-reused-tag">external</span>' : "") +
 			`<span class="boot-count">${g.spans.length}</span>` +
 			"</span>" +
 			'<span class="boot-track">' +

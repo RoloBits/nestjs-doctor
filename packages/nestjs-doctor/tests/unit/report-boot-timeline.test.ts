@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { SerializedModuleGraph } from "../../src/common/artifact.js";
+import type {
+	SerializedModuleGraph,
+	SerializedModuleNode,
+} from "../../src/common/artifact.js";
+import type { ClassTiming } from "../../src/common/timings.js";
+import { parseBootstrapTimings } from "../../src/report/timings.js";
 import {
 	axisHtml,
 	type BootWindow,
@@ -38,9 +43,28 @@ function graph(
 function traceNode(
 	initTime: number,
 	deps: string[] = [],
-	hooks?: { hook: string; ms: number; startMs?: number }[]
+	hooks?: { hook: string; ms: number; startMs?: number }[],
+	extra: { module?: string; name?: string; via?: string } = {}
 ) {
-	return { deps, hooks, initTime, name: "", type: "provider" };
+	return { deps, hooks, initTime, name: "", type: "provider", ...extra };
+}
+
+/** A graph module; a `project/Name` name also carries its project. */
+function mod(
+	name: string,
+	initTimings: ClassTiming[] = []
+): SerializedModuleNode {
+	const slash = name.indexOf("/");
+	return {
+		controllers: [],
+		exports: [],
+		filePath: `${name}.ts`,
+		imports: [],
+		initTimings,
+		name,
+		...(slash > 0 ? { project: name.slice(0, slash) } : {}),
+		providers: [],
+	};
 }
 
 const WIN: BootWindow = { from: 0, to: 100 };
@@ -117,7 +141,7 @@ describe("buildBootTimeline", () => {
 		expect(t?.groups[0]?.spans[0]?.id).toBe("td");
 	});
 
-	it("collects classes from repeated module names into an unattributed group", () => {
+	it("falls back to an unattributed group for nodes without a module", () => {
 		const t = buildBootTimeline(
 			graph({
 				timingsAvailable: true,
@@ -128,6 +152,99 @@ describe("buildBootTimeline", () => {
 		);
 		expect(t?.groups).toHaveLength(1);
 		expect(t?.groups[0]?.module).toBe(UNATTRIBUTED_MODULE);
+		expect(t?.groups[0]?.external).toBeUndefined();
+	});
+
+	it("groups by the graph module when it claims a span, by the dump label when it does not", () => {
+		const t = buildBootTimeline(
+			graph({
+				modules: [
+					mod("api/UsersModule", [
+						{
+							id: "ta",
+							initTime: 154.3,
+							name: "UsersService",
+							type: "provider",
+						},
+					]),
+				],
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: traceNode(154.3, [], undefined, {
+						module: "UsersModule",
+						name: "UsersService",
+					}),
+					tb: traceNode(154.1, [], undefined, {
+						module: "TypeOrmModule",
+						name: "UserRepository",
+					}),
+				},
+			})
+		);
+		expect(t?.groups.map((g) => [g.module, g.external ?? false])).toEqual([
+			["TypeOrmModule", true],
+			["api/UsersModule", false],
+		]);
+	});
+
+	it("keeps a repeated user module under its bare name without the external tag", () => {
+		const t = buildBootTimeline(
+			graph({
+				modules: [mod("api/UsersModule"), mod("worker/UsersModule")],
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: traceNode(154.3, [], undefined, {
+						module: "UsersModule",
+						name: "UsersService",
+					}),
+				},
+			})
+		);
+		expect(t?.groups.map((g) => g.module)).toEqual(["UsersModule"]);
+		expect(t?.groups[0]?.external).toBeUndefined();
+	});
+
+	it("merges two dump modules with the same label into one external group", () => {
+		const t = buildBootTimeline(
+			graph({
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: traceNode(154.15, [], undefined, {
+						module: "TypeOrmModule",
+						name: "UserRepository",
+						via: "UsersModule",
+					}),
+					tb: traceNode(154.12, [], undefined, {
+						module: "TypeOrmModule",
+						name: "CategoryRepository",
+						via: "CatalogModule",
+					}),
+				},
+			})
+		);
+		expect(t?.groups).toHaveLength(1);
+		expect(t?.groups[0]?.module).toBe("TypeOrmModule");
+		expect(t?.groups[0]?.external).toBe(true);
+		expect(t?.groups[0]?.spans.map((s) => s.id)).toEqual(["tb", "ta"]);
+		expect(t?.byId.get("ta")?.via).toBe("UsersModule");
+		expect(t?.byId.get("tb")?.via).toBe("CatalogModule");
+	});
+
+	it("finds an external span by its third-party module label", () => {
+		const t = buildBootTimeline(
+			graph({
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: traceNode(154.1, [], undefined, {
+						module: "TypeOrmModule",
+						name: "UserRepository",
+					}),
+				},
+			})
+		);
+		const span = t?.byId.get("ta");
+		expect(span).toBeDefined();
+		expect(spanMatches(span as NonNullable<typeof span>, "typeorm")).toBe(true);
 	});
 
 	it("extends maxMs to startupMs and to hook ends", () => {
@@ -274,6 +391,157 @@ describe("moduleTimings", () => {
 
 	it("is empty without timings", () => {
 		expect(moduleTimings(graph()).size).toBe(0);
+	});
+
+	it("reports an external group's own build time and its hooks", () => {
+		const timings = moduleTimings(
+			graph({
+				timingsAvailable: true,
+				timingsTrace: {
+					topt: traceNode(1.6, [], undefined, {
+						module: "TypeOrmCoreModule",
+						name: "TypeOrmModuleOptions",
+					}),
+					tds: traceNode(154.1, ["topt"], [{ hook: "onModuleInit", ms: 2 }], {
+						module: "TypeOrmCoreModule",
+						name: "DataSource",
+					}),
+				},
+			})
+		);
+		const core = timings.get("TypeOrmCoreModule");
+		expect(core?.buildMs).toBeCloseTo(152.5, 6);
+		expect(core?.hooks).toEqual([{ label: "init", ms: 2 }]);
+	});
+});
+
+describe("external modules from a real dump", () => {
+	// A NestJS SerializedGraph dump for a shop API: user modules plus the
+	// TypeORM and Bull modules they pull in, one of which is internal.
+	function shopDump(): string {
+		const module = (label: string, extra: Record<string, unknown> = {}) => ({
+			label,
+			metadata: { type: "module", ...extra },
+		});
+		const klass = (label: string, parent: string, initTime: number) => ({
+			label,
+			metadata: { initTime, type: "provider" },
+			parent,
+		});
+		const m2m = (source: string, target: string) => ({
+			metadata: { type: "module-to-module" },
+			source,
+			target,
+		});
+		const c2c = (source: string, target: string) => ({
+			metadata: { type: "class-to-class" },
+			source,
+			target,
+		});
+		return JSON.stringify({
+			createMs: 246.9,
+			edges: {
+				e01: m2m("mApp", "mUsers"),
+				e02: m2m("mApp", "mCatalog"),
+				e03: m2m("mApp", "mNotifications"),
+				e04: m2m("mUsers", "mTypeOrm1"),
+				e05: m2m("mCatalog", "mTypeOrm2"),
+				e06: m2m("mUsers", "mTypeOrmCore"),
+				e07: m2m("mCatalog", "mTypeOrmCore"),
+				e08: m2m("mApp", "mBullGlobal"),
+				e09: m2m("mUsers", "mBullGlobal"),
+				e10: m2m("mNotifications", "mBullQueue"),
+				e11: m2m("mUsers", "mInternal"),
+				e12: c2c("cUsersService", "cUserRepository"),
+				e13: c2c("cUserRepository", "cDataSource"),
+				e14: c2c("cCategoryRepository", "cDataSource"),
+				e15: c2c("cDataSource", "cTypeOrmModuleOptions"),
+			},
+			entrypoints: {},
+			hookTimings: [
+				{
+					className: "BullRegistrar",
+					hook: "onModuleInit",
+					ms: 0.48,
+					startMs: 250.7,
+				},
+			],
+			initMs: 277.8,
+			nodes: {
+				mApp: module("AppModule"),
+				mUsers: module("UsersModule"),
+				mCatalog: module("CatalogModule"),
+				mNotifications: module("NotificationsModule"),
+				mTypeOrm1: module("TypeOrmModule", { dynamic: "forFeature" }),
+				mTypeOrm2: module("TypeOrmModule", { dynamic: "forFeature" }),
+				mTypeOrmCore: module("TypeOrmCoreModule", {
+					dynamic: "forRoot",
+					global: true,
+				}),
+				mBullGlobal: module("BullModule", {
+					dynamic: "forRoot",
+					global: true,
+				}),
+				mBullQueue: module("BullModule", { dynamic: "registerQueue" }),
+				mInternal: module("InternalCoreModule", { internal: true }),
+				cUsersService: klass("UsersService", "mUsers", 154.261_584),
+				cUserRepository: klass("UserRepository", "mTypeOrm1", 154.147_917),
+				cCategoryRepository: klass(
+					"CategoryRepository",
+					"mTypeOrm2",
+					154.125_166
+				),
+				cDataSource: klass("DataSource", "mTypeOrmCore", 154.115_708),
+				cTypeOrmModuleOptions: klass(
+					"TypeOrmModuleOptions",
+					"mTypeOrmCore",
+					1.585_834
+				),
+				cBullRegistrar: klass("BullRegistrar", "mBullGlobal", 1.363_375),
+				cBullQueue_notifications: klass(
+					"BullQueue_notifications",
+					"mBullQueue",
+					33.928_042
+				),
+				cModuleRef: klass("ModuleRef", "mInternal", 0.2),
+			},
+			startupMs: 278.5,
+		});
+	}
+
+	it("splits a real dump into the user module and the third-party modules behind it", () => {
+		const parsed = parseBootstrapTimings(shopDump());
+		expect(parsed.warnings).toEqual([]);
+
+		const g = graph({
+			modules: [
+				mod("api/UsersModule", parsed.modules.get("UsersModule") ?? []),
+			],
+			phases: parsed.phases,
+			projects: ["api"],
+			startupMs: parsed.startupMs,
+			timingsAvailable: true,
+			timingsTrace: parsed.trace,
+		});
+		const t = buildBootTimeline(g);
+		expect(t).not.toBeNull();
+		expect(
+			t?.groups.map((x) => [x.module, x.spans.length, x.external ?? false])
+		).toEqual([
+			["BullModule", 2, true],
+			["TypeOrmCoreModule", 2, true],
+			["TypeOrmModule", 2, true],
+			["api/UsersModule", 1, false],
+		]);
+		expect(t?.byId.get("tcUserRepository")?.via).toBe("UsersModule");
+		expect(t?.byId.get("tcDataSource")?.via).toBeUndefined();
+		expect(t?.byId.get("tcModuleRef")).toBeUndefined();
+
+		const timings = moduleTimings(g);
+		expect(timings.get("TypeOrmCoreModule")?.buildMs).toBeCloseTo(152.53, 2);
+		expect(timings.get("BullModule")?.hooks).toEqual([
+			{ label: "init", ms: 0.48 },
+		]);
 	});
 });
 
@@ -497,6 +765,51 @@ describe("rowsHtml", () => {
 		expect(html2).toContain('<span class="boot-hook-span" data-hook="0"');
 		expect(html2).toContain("+5.0ms init</span>");
 		expect(html2).not.toContain("boot-hook-chip");
+	});
+});
+
+describe("external groups in rowsHtml", () => {
+	const t = buildBootTimeline(
+		graph({
+			modules: [
+				mod("CatsModule", [
+					{ id: "tc", initTime: 200, name: "CatsService", type: "provider" },
+				]),
+			],
+			timingsAvailable: true,
+			timingsTrace: {
+				tc: traceNode(200, [], undefined, { name: "CatsService" }),
+				ta: traceNode(154.1, [], undefined, {
+					module: "TypeOrmModule",
+					name: "UserRepository",
+				}),
+			},
+		})
+	)!;
+	const base = {
+		expandedModules: new Set(["CatsModule", "TypeOrmModule"]),
+		query: "",
+		selectedId: null,
+		win: { from: 0, to: 300 },
+	};
+
+	it("tags an external group right after its name and leaves user modules untagged", () => {
+		const html = rowsHtml(t, base);
+		const external = html.indexOf('data-group="TypeOrmModule"');
+		const cats = html.indexOf('data-group="CatsModule"');
+		expect(external).toBeGreaterThanOrEqual(0);
+		expect(cats).toBeGreaterThan(external);
+		expect(html.slice(external, cats)).toContain(
+			'<span class="boot-name">TypeOrmModule</span><span class="boot-reused-tag">external</span>'
+		);
+		expect(html.slice(cats)).not.toContain("boot-reused-tag");
+	});
+
+	it("highlights an external group picked from the graph", () => {
+		const html = rowsHtml(t, { ...base, selectedModule: "TypeOrmModule" });
+		expect(html).toContain(
+			'data-group="TypeOrmModule"><div class="boot-row boot-group-row boot-group-selected">'
+		);
 	});
 });
 

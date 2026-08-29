@@ -11,16 +11,23 @@ function share(ms: number, maxMs: number): string {
 	return `${((ms / maxMs) * 100).toFixed(1)}% of boot`;
 }
 
+function contextOf(span: BootSpan): string {
+	if (span.module === UNATTRIBUTED_MODULE) {
+		return `module not identified · ${span.type}`;
+	}
+	if (span.external && span.via) {
+		return `in ${span.module} · imported by ${span.via} · ${span.type}`;
+	}
+	return `in ${span.module} · ${span.type}`;
+}
+
 /** What the hover card says for a class bar, or for one of its hook spans. */
 export function hoverCardData(
 	t: BootTimeline,
 	span: BootSpan,
 	hookIndex: number | null
 ): HoverCardData {
-	const context =
-		span.module === UNATTRIBUTED_MODULE
-			? `module not identified · ${span.type}`
-			: `in ${span.module} · ${span.type}`;
+	const context = contextOf(span);
 	const from = { color: `rgb(${spanColor(span.type)})`, label: span.name };
 	const hook = hookIndex === null ? undefined : span.hooks?.[hookIndex];
 	if (hook) {
