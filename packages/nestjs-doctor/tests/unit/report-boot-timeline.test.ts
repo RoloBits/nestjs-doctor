@@ -49,7 +49,7 @@ function traceNode(
 	return { deps, hooks, initTime, name: "", type: "provider", ...extra };
 }
 
-// A trace node the dump labelled with its module; no deps, no hooks.
+/** A trace node the dump labelled with its module. */
 function inModule(module: string, name: string, initTime: number) {
 	return traceNode(initTime, [], undefined, { module, name });
 }
@@ -203,7 +203,6 @@ describe("buildBootTimeline", () => {
 	});
 
 	it("merges two dump instances of a user module name into one ambiguous group", () => {
-		// The serializer attaches nothing to ConfigModule: its label repeats.
 		const t = buildBootTimeline(
 			graph({
 				modules: [mod("ConfigModule")],

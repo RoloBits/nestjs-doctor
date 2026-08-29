@@ -41,7 +41,7 @@ export interface BootSpan {
 	name: string;
 	start: number;
 	type: string;
-	/** The one non-global module importing the class's module, when exactly one does. */
+	/** The importer of the class's module, when that module is not global and has one. */
 	via?: string;
 	/** Id of the dependency whose finish set this class's start, if any. */
 	waitedOn?: string;
@@ -119,9 +119,9 @@ export function buildBootTimeline(
 		const attributed = moduleOfId.get(id);
 		// An unattributed label matching no scanned module's bare name is a
 		// package module; one that matches is a name the graph could not join.
-		const unattributed = attributed === undefined && node.module !== undefined;
-		const external = unattributed && !graphNames.has(node.module as string);
-		const ambiguous = unattributed && !external;
+		const label = attributed === undefined ? node.module : undefined;
+		const external = label !== undefined && !graphNames.has(label);
+		const ambiguous = label !== undefined && !external;
 		byId.set(id, {
 			...(ambiguous ? { ambiguous: true } : {}),
 			deps: node.deps,
