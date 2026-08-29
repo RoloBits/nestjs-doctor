@@ -85,10 +85,8 @@ export function buildBootTimeline(
 	}
 	const byId = new Map<string, BootSpan>();
 	for (const [id, node] of Object.entries(trace)) {
-		// Deps are sorted slowest first; the slowest one built before this class
-		// marks when this class's own construction could begin. A dep finished
-		// after it was pre-built for an earlier consumer, so it is skipped; with
-		// no dep to wait on, the whole time is the class's own, from boot start.
+		// Deps are sorted slowest first; the slowest one that finished before this
+		// class sets its start, otherwise the class starts at boot.
 		let start = 0;
 		let waitedOn: string | undefined;
 		for (const d of node.deps) {
@@ -122,7 +120,7 @@ export function buildBootTimeline(
 		groupMap.set(s.module, list);
 	}
 	const groups: BootGroup[] = [];
-	// Groups run in the order their first class finished, since many start at 0.
+	// Groups run in the order their first class finished.
 	const firstEnd = new Map<string, number>();
 	for (const [module, spans] of groupMap) {
 		spans.sort((a, b) => a.end - b.end || a.name.localeCompare(b.name));
@@ -305,7 +303,7 @@ export function windowTicks(win: BootWindow): number[] {
 	}
 	const step = axisStep(width);
 	const ticks: number[] = [];
-	// Clear of both edges so tick labels never collide with the edge labels.
+	// Ticks stay clear of both edge labels.
 	for (let i = Math.floor(win.from / step) + 1; i * step < win.to; i++) {
 		const tick = i * step;
 		if (tick - win.from >= width * 0.05 && win.to - tick >= width * 0.06) {
@@ -365,8 +363,7 @@ function classBarHtml(span: BootSpan, win: BootWindow): string {
 	return html;
 }
 
-// Tree furniture shared by every row: one indent per level, then the
-// chevron slot, kept even when there is nothing to expand so names align.
+// One indent per level, then the chevron slot, present on every row.
 function indentsHtml(depth: number): string {
 	return '<span class="boot-indent"></span>'.repeat(Math.min(depth, 8));
 }

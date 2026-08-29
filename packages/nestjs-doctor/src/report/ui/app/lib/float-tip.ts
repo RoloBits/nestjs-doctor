@@ -53,14 +53,6 @@ function onMouseOver(ev: Event): void {
 	if (el === shown) {
 		return;
 	}
-	// Skips the tip when the name is fully visible.
-	if (
-		el.classList.contains("mg-trace-name") &&
-		el.scrollWidth <= el.clientWidth
-	) {
-		hide(tip);
-		return;
-	}
 	show(tip, el);
 }
 

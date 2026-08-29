@@ -4,7 +4,7 @@ const SIDE_MIN = 200;
 const SIDE_MAX = 640;
 
 interface BootResizerProps {
-	/** The view whose `--boot-label-w` the drag rewrites. */
+	/** The view whose `--boot-label-drag` the drag rewrites. */
 	viewRef: RefObject<HTMLDivElement | null>;
 }
 
@@ -32,7 +32,7 @@ export function BootResizer({ viewRef }: BootResizerProps) {
 					SIDE_MIN,
 					Math.min(SIDE_MAX, startW + (mv.clientX - startX))
 				);
-				view.style.setProperty("--boot-label-w", `${width}px`);
+				view.style.setProperty("--boot-label-drag", `${width}px`);
 			};
 			const onUp = () => stop?.();
 			stop = () => {

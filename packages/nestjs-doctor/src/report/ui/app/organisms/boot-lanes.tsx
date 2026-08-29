@@ -18,7 +18,7 @@ import {
 import { useLatest } from "../lib/use-latest.js";
 
 interface BootLanesProps {
-	/** The axis track; shared so the owner can place its crosshair on it. */
+	/** The axis track, shared with the owner's crosshair. */
 	axisRef: RefObject<HTMLDivElement | null>;
 	onWindowChange: (win: BootWindow) => void;
 	timeline: BootTimeline;
@@ -27,9 +27,8 @@ interface BootLanesProps {
 
 type DragMode = "l" | "r" | "move" | "slide";
 
-// The lanes over the tracks: the lifecycle phases carrying the viewport
-// window, and the time axis. Wheel zooms, the window and the axis drag, and
-// a plain click on a phase zooms to it.
+// The lanes over the tracks: the phases carrying the viewport window, and
+// the axis. Wheel zooms, the window and axis drag, a phase click zooms to it.
 export function BootLanes({
 	axisRef,
 	onWindowChange,

@@ -63,8 +63,7 @@
   padding: 2px 8px; border: 1px solid var(--border); border-radius: 4px;
 }
 #mg-trace-ms:empty { display: none; }
-#boot-badge { color: #22d3ee; }
-#boot-badge:hover { text-decoration: underline; }
+#mg-dock .has-tip:is(:hover, :focus-visible)::after { content: none; }
 #mg-problems-list { display: none; overflow-y: auto; border-top: 1px solid var(--border); }
 #mg-dock.open[data-active="problems"] #mg-problems-list { display: block; }
 .mg-problem-row {

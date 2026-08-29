@@ -281,7 +281,7 @@ describe("parseBootstrapTimings", () => {
 		expect(warnings.join(" ")).not.toContain("malformed");
 	});
 
-	it("keeps the first startMs when merging per-instance hook entries", () => {
+	it("drops startMs when merging per-instance hook entries", () => {
 		const base = JSON.parse(
 			dump({
 				m1: moduleNode("CatsModule"),
@@ -305,7 +305,7 @@ describe("parseBootstrapTimings", () => {
 
 		const { trace } = parseBootstrapTimings(JSON.stringify(base));
 		expect(trace.tc1.hooks).toEqual([
-			{ hook: "onModuleInit", ms: 39, count: 2, startMs: 305 },
+			{ hook: "onModuleInit", ms: 39, count: 2 },
 		]);
 	});
 

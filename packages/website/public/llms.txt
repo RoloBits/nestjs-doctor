@@ -154,7 +154,7 @@ writeFileSync("nestjs-doctor-timings.json", JSON.stringify(graph));
 npx nestjs-doctor . --report --timings nestjs-doctor-timings.json
 ```
 
-Each class's time includes waiting on its own dependencies, so a shared slow dependency counts again in every class that awaits it. Module nodes show the slowest single class, never a sum. Timings are display-only and never affect the score, the diagnostics, or the exit code. An unusable dump degrades to a stderr warning.
+Each class's time includes waiting on its own dependencies, so a shared slow dependency counts again in every class that awaits it. Module nodes show the build of the slowest class, never a sum across classes, plus the hook time across the module's classes. Timings are display-only and never affect the score, the diagnostics, or the exit code. An unusable dump degrades to a stderr warning.
 
 Docs: https://nestjs.doctor/docs/report/boot-trace
 

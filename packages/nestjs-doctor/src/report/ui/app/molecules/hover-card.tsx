@@ -27,9 +27,8 @@ function Name({ color, label }: { color: string; label: string }) {
 	);
 }
 
-// A card that rides the pointer over a bar, the way a trace waterfall
-// names a span: who and where up top, what and how long below. The owner
-// positions it and its tether through the refs on every mouse move.
+// The card over a bar: who and where up top, what and how long below.
+// The owner positions it and its tether through the refs.
 export function HoverCard({ cardRef, data, tetherRef }: HoverCardProps) {
 	return (
 		<>

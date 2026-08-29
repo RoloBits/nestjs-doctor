@@ -3,7 +3,7 @@
 #tab-boot.active { display: flex; }
 .boot-tab { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--bg); }
 .boot-view {
-  --boot-label-w: 340px;
+  --boot-label-w: var(--boot-label-drag, 340px);
   flex: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0;
   position: relative;
 }
@@ -66,14 +66,14 @@
 }
 .boot-phase-ms { color: rgba(255,255,255,0.55); }
 .boot-guides { position: absolute; top: 0; bottom: 0; left: 0; right: 0; display: block; pointer-events: none; }
-#boot-rows .boot-guides { left: calc(var(--boot-label-w) + 14px); right: 14px; }
+.boot-rows .boot-guides { left: calc(var(--boot-label-w) + 14px); right: 14px; }
 .boot-guide { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dotted; }
 .boot-minimap-window {
   position: absolute; top: 0; height: 100%;
   background: rgba(255,255,255,0.07);
   border: 1px solid rgba(255,255,255,0.9);
   border-radius: 2px; cursor: grab; box-sizing: border-box;
-  /* Dim everything outside the window to convey the zoomed-out overview. */
+  /* Dims everything outside the window. */
   box-shadow: 0 0 0 9999px rgba(0,0,0,0.55);
 }
 .boot-minimap-window:active { cursor: grabbing; }
@@ -94,7 +94,7 @@
 /* Waterfall rows: the label column, then the track on the shared axis. */
 .boot-body { position: relative; flex: 1; display: flex; min-height: 0; }
 .boot-scroll { flex: 1; overflow: auto; min-height: 0; outline: none; }
-#boot-rows { position: relative; padding: 4px 0 24px; }
+.boot-rows { position: relative; padding: 4px 0 24px; }
 .boot-row { display: flex; align-items: center; padding: 0 14px 0 0; font-size: 12px; line-height: 26px; }
 .boot-label {
   width: var(--boot-label-w); flex-shrink: 0; box-sizing: border-box;
@@ -153,10 +153,9 @@
 /* Compact mount inside the modules dock. */
 .boot-dock-body { display: none; flex: 1; min-height: 0; }
 #mg-dock.open[data-active="trace"] .boot-dock-body { display: flex; flex-direction: column; }
-.boot-compact { --boot-label-w: 240px; }
+.boot-compact { --boot-label-w: var(--boot-label-drag, 240px); }
 .boot-compact .boot-side-head { justify-content: flex-end; padding: 0 0 6px; }
-/* Doubled up so it outranks the shared header rule that loads after this sheet. */
-.boot-compact .boot-dock-header.boot-dock-header { padding: 4px 10px 4px 14px; border-bottom: none; }
+.boot-compact .boot-dock-header { padding: 4px 10px 4px 14px; border-bottom: none; }
 .boot-dock-header .schema-sidebar-title { font-size: 12px; }
 .boot-compact .boot-side-head .mg-side-search { padding: 0 10px 0 14px; }
 .boot-compact .boot-side-head .mg-side-search input { padding: 3px 8px; font-size: 11px; }

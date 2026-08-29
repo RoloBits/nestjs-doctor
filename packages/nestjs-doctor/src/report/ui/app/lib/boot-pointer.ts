@@ -19,9 +19,8 @@ export function timeAt(
 	return win.from + frac * (win.to - win.from);
 }
 
-// The card sits diagonally up from the pointer, on whichever side has room,
-// with a thin tether from the pointer to its nearest corner. Its height is
-// anchored to the hovered bar, so moving inside the bar never bounces it.
+// Places the card diagonally off the pointer, on the side with room, and
+// draws the tether from the pointer to the card's nearest corner.
 export function placeHoverCard(
 	card: HTMLElement | null,
 	tether: HTMLElement | null,
@@ -62,11 +61,7 @@ interface HoverAnchor {
 	y: number;
 }
 
-/**
- * Where the card hangs from. A deduped bar hands over to the class's own bar
- * when that row is open and inside the scroll view; the tether then starts
- * where the cursor's line crosses the original.
- */
+/** The bar the card hangs from: a deduped bar defers to its open original. */
 export function hoverAnchor(
 	rows: HTMLElement,
 	scroll: HTMLElement | null,

@@ -33,7 +33,7 @@ interface BootViewProps {
 	compact?: boolean;
 	focusModule?: string | null;
 	graph: SerializedModuleGraph;
-	/** Fires when a class row is selected, so a host can follow to its module. */
+	/** Fires with the span whenever a class row is selected. */
 	onSelectSpan?: (span: BootSpan) => void;
 }
 
@@ -310,7 +310,7 @@ export function BootView({
 		};
 	}, [timeline]);
 
-	// Once new content is in the card its size is known, so place it again.
+	// Places the card again once its new content has rendered.
 	useLayoutEffect(() => {
 		const last = lastHoverRef.current;
 		if (hover && last) {
@@ -433,16 +433,14 @@ export function BootView({
 		if (matches.length === 0) {
 			return;
 		}
-		const idx = matches.findIndex((el) => el.classList.contains("boot-flash"));
-		const next = matches[(idx + 1) % matches.length];
-		for (const el of matches) {
-			el.classList.remove("boot-flash");
-		}
-		const id = next?.dataset.id;
+		const current = selectedIdRef.current;
+		const idx = current
+			? matches.findIndex((el) => el.dataset.id === current)
+			: -1;
+		const id = matches[(idx + 1) % matches.length]?.dataset.id;
 		if (id) {
 			setSelectedId(id);
-			next.scrollIntoView?.({ block: "nearest" });
-			next.classList.add("boot-flash");
+			pendingScrollRef.current = id;
 		}
 	};
 

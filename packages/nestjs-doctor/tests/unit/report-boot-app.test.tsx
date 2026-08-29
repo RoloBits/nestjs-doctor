@@ -93,7 +93,7 @@ describe("BootTab", () => {
 
 	it("renders module groups and class rows on one absolute axis", () => {
 		mount(TIMED_ARTIFACT);
-		const rows = container.querySelector("#boot-rows");
+		const rows = container.querySelector(".boot-rows");
 		expect(rows?.innerHTML).toContain('data-group="CatsModule"');
 		expect(rows?.innerHTML).toContain('data-id="ta"');
 		expect(rows?.innerHTML).toContain('data-id="tb"');
@@ -102,7 +102,7 @@ describe("BootTab", () => {
 	it("selects a row when it is clicked", () => {
 		mount(TIMED_ARTIFACT);
 		const row = container.querySelector<HTMLElement>(
-			'#boot-rows [data-id="ta"]'
+			'.boot-rows [data-id="ta"]'
 		);
 		act(() => {
 			row?.dispatchEvent(
@@ -111,12 +111,12 @@ describe("BootTab", () => {
 		});
 		const selected = () =>
 			container
-				.querySelector('#boot-rows [data-id="ta"]')
+				.querySelector('.boot-rows [data-id="ta"]')
 				?.classList.contains("boot-selected");
 		expect(selected()).toBe(true);
 		act(() => {
 			container
-				.querySelector<HTMLElement>('#boot-rows [data-id="ta"]')
+				.querySelector<HTMLElement>('.boot-rows [data-id="ta"]')
 				?.dispatchEvent(
 					new MouseEvent("click", { bubbles: true, composed: true })
 				);
@@ -131,7 +131,7 @@ describe("BootTab", () => {
 		});
 		expect(
 			container
-				.querySelector('#boot-rows [data-id="ta"]')
+				.querySelector('.boot-rows [data-id="ta"]')
 				?.classList.contains("boot-selected")
 		).toBe(true);
 	});
@@ -143,7 +143,7 @@ describe("BootTab", () => {
 		});
 		expect(
 			container
-				.querySelector('#boot-rows [data-id="tb"]')
+				.querySelector('.boot-rows [data-id="tb"]')
 				?.classList.contains("boot-selected")
 		).toBe(true);
 	});
@@ -152,13 +152,13 @@ describe("BootTab", () => {
 		mount(TIMED_ARTIFACT);
 		act(() => {
 			container
-				.querySelector<HTMLElement>('#boot-rows [data-id="ta"] .boot-caret')
+				.querySelector<HTMLElement>('.boot-rows [data-id="ta"] .boot-caret')
 				?.dispatchEvent(
 					new MouseEvent("click", { bubbles: true, composed: true })
 				);
 		});
 		expect(
-			container.querySelector('#boot-rows [data-id="tb"].boot-cascade-row')
+			container.querySelector('.boot-rows [data-id="tb"].boot-cascade-row')
 		).not.toBeNull();
 	});
 
@@ -166,13 +166,13 @@ describe("BootTab", () => {
 		mount(TIMED_ARTIFACT);
 		act(() => {
 			container
-				.querySelector<HTMLElement>("#boot-rows .boot-group-row")
+				.querySelector<HTMLElement>(".boot-rows .boot-group-row")
 				?.dispatchEvent(
 					new MouseEvent("click", { bubbles: true, composed: true })
 				);
 		});
 		expect(
-			container.querySelector("#boot-rows .boot-group.boot-collapsed")
+			container.querySelector(".boot-rows .boot-group.boot-collapsed")
 		).not.toBeNull();
 	});
 
@@ -197,11 +197,11 @@ describe("BootTab", () => {
 			});
 		click("boot-collapse-all");
 		expect(
-			container.querySelector("#boot-rows .boot-group.boot-collapsed")
+			container.querySelector(".boot-rows .boot-group.boot-collapsed")
 		).not.toBeNull();
 		click("boot-expand-all");
 		expect(
-			container.querySelector("#boot-rows .boot-group.boot-collapsed")
+			container.querySelector(".boot-rows .boot-group.boot-collapsed")
 		).toBeNull();
 	});
 
@@ -215,7 +215,7 @@ describe("BootTab", () => {
 				);
 		});
 		expect(
-			container.querySelector('#boot-rows [data-id="tb"].boot-cascade-row')
+			container.querySelector('.boot-rows [data-id="tb"].boot-cascade-row')
 		).not.toBeNull();
 	});
 
@@ -238,9 +238,9 @@ describe("BootTab", () => {
 
 	it("rides a hover card over a bar and hides it when the pointer leaves", () => {
 		mount(TIMED_ARTIFACT);
-		const rows = container.querySelector<HTMLElement>("#boot-rows");
+		const rows = container.querySelector<HTMLElement>(".boot-rows");
 		const bar = container.querySelector<HTMLElement>(
-			'#boot-rows [data-id="ta"] .boot-bar'
+			'.boot-rows [data-id="ta"] .boot-bar'
 		);
 		const card = () => container.querySelector<HTMLElement>(".hover-card");
 		expect(card()?.hidden).toBe(true);
@@ -268,6 +268,27 @@ describe("BootTab", () => {
 		expect(card()?.hidden).toBe(true);
 	});
 
+	it("walks every match on Enter in the filter, in order", () => {
+		mount(TIMED_ARTIFACT);
+		const input = container.querySelector<HTMLInputElement>("#boot-search");
+		const press = () =>
+			act(() => {
+				input?.dispatchEvent(
+					new KeyboardEvent("keydown", { bubbles: true, key: "Enter" })
+				);
+			});
+		const selected = () =>
+			container
+				.querySelector(".boot-rows .boot-selected")
+				?.getAttribute("data-id");
+		press();
+		expect(selected()).toBe("tb");
+		press();
+		expect(selected()).toBe("ta");
+		press();
+		expect(selected()).toBe("tb");
+	});
+
 	it("selecting a deduped row opens its module and marks the class's own row", () => {
 		mount(TIMED_ARTIFACT);
 		const click = (sel: string) =>
@@ -278,18 +299,18 @@ describe("BootTab", () => {
 						new MouseEvent("click", { bubbles: true, composed: true })
 					);
 			});
-		click('#boot-rows [data-id="ta"] .boot-caret');
-		click("#boot-rows .boot-group-row");
+		click('.boot-rows [data-id="ta"] .boot-caret');
+		click(".boot-rows .boot-group-row");
 		expect(
-			container.querySelector("#boot-rows .boot-group.boot-collapsed")
+			container.querySelector(".boot-rows .boot-group.boot-collapsed")
 		).not.toBeNull();
-		click('#boot-rows [data-id="tb"].boot-cascade-row .boot-name');
+		click('.boot-rows [data-id="tb"].boot-cascade-row .boot-name');
 		expect(
-			container.querySelector("#boot-rows .boot-group.boot-collapsed")
+			container.querySelector(".boot-rows .boot-group.boot-collapsed")
 		).toBeNull();
 		expect(
 			container
-				.querySelector('#boot-rows .boot-group > [data-id="tb"]')
+				.querySelector('.boot-rows .boot-group > [data-id="tb"]')
 				?.classList.contains("boot-selected")
 		).toBe(true);
 	});
@@ -298,13 +319,13 @@ describe("BootTab", () => {
 		mount(TIMED_ARTIFACT);
 		act(() => {
 			container
-				.querySelector<HTMLElement>('#boot-rows [data-id="ta"] .boot-caret')
+				.querySelector<HTMLElement>('.boot-rows [data-id="ta"] .boot-caret')
 				?.dispatchEvent(
 					new MouseEvent("click", { bubbles: true, composed: true })
 				);
 		});
 		const shadow = container.querySelector<HTMLElement>(
-			'#boot-rows [data-id="tb"].boot-cascade-row .boot-bar'
+			'.boot-rows [data-id="tb"].boot-cascade-row .boot-bar'
 		);
 		expect(shadow).not.toBeNull();
 		act(() => {
@@ -332,12 +353,12 @@ describe("BootTab", () => {
 		});
 		expect(
 			container
-				.querySelector("#boot-rows .boot-group-row")
+				.querySelector(".boot-rows .boot-group-row")
 				?.classList.contains("boot-group-selected")
 		).toBe(true);
 		act(() => {
 			container
-				.querySelector<HTMLElement>('#boot-rows [data-id="ta"] .boot-name')
+				.querySelector<HTMLElement>('.boot-rows [data-id="ta"] .boot-name')
 				?.dispatchEvent(
 					new MouseEvent("click", { bubbles: true, composed: true })
 				);

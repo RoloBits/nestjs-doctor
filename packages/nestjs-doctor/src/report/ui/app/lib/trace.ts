@@ -15,7 +15,7 @@ export const PALETTE = {
 	violet: "139,92,246",
 };
 
-/** Darker shade of each palette colour, so white text reads on a filled bar. */
+/** Darker shade of each palette colour, used to fill bars that carry text. */
 const FILLS: Record<string, string> = {
 	[PALETTE.amber]: "180,83,9",
 	[PALETTE.blue]: "29,78,216",

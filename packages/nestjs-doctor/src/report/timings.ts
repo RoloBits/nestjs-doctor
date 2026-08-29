@@ -210,6 +210,7 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 			if (existing) {
 				existing.ms += ms;
 				existing.count = (existing.count ?? 1) + 1;
+				existing.startMs = undefined;
 			} else {
 				list.push({
 					hook,
