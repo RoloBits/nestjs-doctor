@@ -6,7 +6,7 @@ interface TraceHook {
 	ms: number;
 }
 
-/** The report's category colours as `r,g,b` triples, for rgb()/rgba(). */
+/** The report's category colors as `r,g,b` triples, for rgb()/rgba(). */
 export const PALETTE = {
 	amber: "245,158,11",
 	blue: "59,130,246",
@@ -15,7 +15,7 @@ export const PALETTE = {
 	violet: "139,92,246",
 };
 
-/** Darker shade of each palette colour, used to fill bars that carry text. */
+/** Darker shade of each palette color, used to fill bars that carry text. */
 const FILLS: Record<string, string> = {
 	[PALETTE.amber]: "180,83,9",
 	[PALETTE.blue]: "29,78,216",
@@ -33,7 +33,7 @@ const HOOK_META: Record<string, { label: string; rgb: string }> = {
 	onModuleInit: { label: "init", rgb: PALETTE.green },
 };
 
-/** Short label and colour for a lifecycle hook; unknown hooks stay grey. */
+/** Short label and color for a lifecycle hook; unknown hooks stay gray. */
 export function hookMeta(hook: string): { label: string; rgb: string } {
 	return Object.hasOwn(HOOK_META, hook)
 		? HOOK_META[hook]

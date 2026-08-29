@@ -46,9 +46,12 @@ function toggled(set: ReadonlySet<string>, key: string): Set<string> {
 	return next;
 }
 
+// A class's own row, in an open group, matching the filter.
 function visibleRows(wrap: HTMLElement): HTMLElement[] {
 	return Array.from(
-		wrap.querySelectorAll<HTMLElement>(".boot-class-row:not(.boot-filtered)")
+		wrap.querySelectorAll<HTMLElement>(
+			".boot-group:not(.boot-collapsed) > .boot-class-row:not(.boot-cascade-row):not(.boot-filtered)"
+		)
 	);
 }
 
@@ -411,9 +414,7 @@ export function BootView({
 		if (!wrap) {
 			return;
 		}
-		const matches = visibleRows(wrap).filter(
-			(el) => !el.classList.contains("boot-cascade-row")
-		);
+		const matches = visibleRows(wrap);
 		if (matches.length === 0) {
 			return;
 		}

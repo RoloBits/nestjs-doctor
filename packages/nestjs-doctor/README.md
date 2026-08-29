@@ -64,8 +64,8 @@ module graph.
 ![Module Graph](https://nestjs.doctor/module-graph.png)
 
 Add a few lines to `main.ts`, boot once, and `--timings` gives the report a
-Boot trace tab: every class on one absolute timeline with the lifecycle
-phases, a hover card per bar, and graph nodes that say what each module cost.
+Boot trace tab. Every class sits on one absolute timeline, with a hover card
+per bar and graph nodes that say what each module cost.
 [Boot trace docs →](https://nestjs.doctor/docs/report/boot-trace)
 
 ### 3. Run in CI

@@ -259,7 +259,7 @@ export function zoomWindow(
 	return clampWindow({ from, to: from + width }, maxMs);
 }
 
-/** Window centred on a span with context around it, clamped to the boot. */
+/** Window centered on a span with context around it, clamped to the boot. */
 export function windowAround(
 	span: { end: number; start: number },
 	maxMs: number

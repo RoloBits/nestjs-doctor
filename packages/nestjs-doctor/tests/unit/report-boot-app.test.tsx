@@ -250,7 +250,7 @@ describe("BootTab", () => {
 			);
 		});
 		expect(card()?.hidden).toBe(false);
-		// Diagonal from the pointer; jsdom bars have no box, so it drops below.
+		// Diagonal from the pointer; with a zero-size bar it lands below.
 		expect(card()?.style.left).toBe("66px");
 		expect(card()?.style.top).toBe("18px");
 		const tether = container.querySelector<HTMLElement>(".hover-card-tether");
@@ -380,6 +380,45 @@ describe("BootTab", () => {
 			);
 		}
 		expect(walk).toEqual(["ta", "tb", "tc", "ta"]);
+	});
+
+	it("walks own rows only with the arrow keys, and skips collapsed groups", () => {
+		mount(TIMED_ARTIFACT);
+		const fire = (sel: string, ev: Event) =>
+			act(() => {
+				container.querySelector<HTMLElement>(sel)?.dispatchEvent(ev);
+			});
+		const selected = () =>
+			container
+				.querySelector(".boot-rows .boot-selected")
+				?.getAttribute("data-id") ?? null;
+		const down = () =>
+			fire(
+				".boot-scroll",
+				new KeyboardEvent("keydown", { bubbles: true, key: "ArrowDown" })
+			);
+		fire(
+			'.boot-rows [data-id="ta"] .boot-caret',
+			new MouseEvent("click", { bubbles: true, composed: true })
+		);
+		expect(
+			container.querySelector('.boot-rows [data-id="tb"].boot-cascade-row')
+		).not.toBeNull();
+		down();
+		expect(selected()).toBe("tb");
+		down();
+		expect(selected()).toBe("ta");
+		down();
+		expect(selected()).toBe("ta");
+		fire(
+			".boot-rows .boot-group-row",
+			new MouseEvent("click", { bubbles: true, composed: true })
+		);
+		fire(
+			"#boot-search",
+			new KeyboardEvent("keydown", { bubbles: true, key: "Enter" })
+		);
+		expect(selected()).toBe("ta");
 	});
 
 	it("selecting a deduped row opens its module and marks the class's own row", () => {
