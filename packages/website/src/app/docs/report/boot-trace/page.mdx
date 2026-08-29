@@ -71,7 +71,7 @@ import { performance } from "node:perf_hooks";
 import { NestFactory, SerializedGraph } from "@nestjs/core";
 import { AppModule } from "./app.module";
 
-const hookTimings: { className: string; hook: string; ms: number }[] = [];
+const hookTimings: { className: string; hook: string; ms: number; startMs: number }[] = [];
 
 const t0 = performance.now();
 const app = await NestFactory.create(AppModule, {
@@ -86,7 +86,7 @@ const app = await NestFactory.create(AppModule, {
           instance[hook] = async function (...args: unknown[]) {
             const start = performance.now();
             try { return await original.apply(this, args); }
-            finally { hookTimings.push({ className: this.constructor.name, hook, ms: performance.now() - start }); }
+            finally { hookTimings.push({ className: this.constructor.name, hook, ms: performance.now() - start, startMs: start - t0 }); }
           };
         } catch {} // frozen instances stay untimed
       }
@@ -141,23 +141,34 @@ Read down a cascade until the number drops. The class where it drops owns the
 time. If `UsersService` reads 120ms and the `SlowService` it injects reads
 119ms, `SlowService` owns it.
 
-A module node shows its slowest single class, never a sum.
+A module node shows two numbers. The build is the own construction of its
+slowest class, after that class's dependencies, never a sum across classes.
+The hook time is the total its classes spent in lifecycle hooks, for example
+`104ms build · 63ms init`.
 
 ## What the report shows
 
+The Boot trace tab is one waterfall on one absolute axis, read the way an APM
+trace is. The label column lists each module and its classes. The lanes hold
+the lifecycle phases, the viewport window, and the time axis; each bar sits at
+its real offset from boot start.
+
 | Element | Where | Means |
 |---|---|---|
-| `time to start ≈ <ms>` | Header badge | Bootstrap start until `app.listen()` resolved, hooks included, from `startupMs`. Without it, falls back to `boot ≈ <ms>`, the slowest construction chain |
-| Lifecycle strip | Top of the Boot trace tab | `create · lifecycle hooks · listen`, from the `createMs` and `initMs` markers |
-| Proportional bars | Per class, slowest first | Colored by type: provider, controller, injectable, middleware |
-| Amber segment | On a class bar | The share not explained by that class's slowest dependency, so roughly its own work |
-| `+120ms init` chip | On a trace row | A `hookTimings` entry, joined only when the class name is unique in the dump. Repeated entries from transient providers merge into one `×N` chip |
-| `reused` tag | Dimmed, hollow row | The dependency was already built when its parent loaded, so its cost was paid at its first consumer |
-| `listed above` tag | On a repeat | The dependency has its own top-level row, so its cost is not drawn twice |
+| Overview lane | Top of the lanes | `building modules · lifecycle hooks · opening the port`, from the `createMs`, `initMs`, and `startupMs` markers; with `moduleInitMs` the hooks split into `init hooks · bootstrap hooks`. The window on top is the view: drag it to pan, drag its edges to resize, scroll to zoom, click a phase to frame it |
+| Dotted line | Down the rows | Where one phase hands over to the next |
+| Class bar | Per row, grouped by module | From its slowest dependency's finish to its own, or from boot start when nothing traced came before; colored by type. The time it took sits inside the bar |
+| Hook span | On a row, after the bar | An `onModuleInit` or `onApplicationBootstrap` at its real offset, time inside, when the dump carries `startMs`. Older dumps show a `+120ms init` chip instead |
+| Cascade row | Under an opened chevron, solid black | A shadow of the dependency's own row in its module group, where its cost is drawn once. `deduped` says so, as `npm ls` would. `shared` means it was built earlier for another consumer, `circular` closes a loop to an ancestor |
 
-Either tag carries down to the rows nested under it. Selecting a module fills
-the Boot trace tab, which shares the bottom dock with Module problems. A trace
-button next to the module's name in the detail panel opens the same tab.
+The chevron before a class opens its dependencies in place; expand all in the
+header opens every level at once. Hovering a bar or a hook span shows a card
+with the class, what it waited on, its module and type, and its time.
+
+The label column drags to resize and hides like the graph's sidebar. The
+Modules graph keeps a compact mount of the same timeline in its dock. The
+trace button in a module's detail panel opens the tab on that module's slowest
+class.
 
 ## Limits
 

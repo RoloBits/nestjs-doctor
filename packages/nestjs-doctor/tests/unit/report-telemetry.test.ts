@@ -183,7 +183,7 @@ describe("report telemetry", () => {
 		expect(script).toContain("report_opened");
 		expect(script).toContain("report_section_viewed");
 		expect(script).toContain(
-			'["summary", "diagnosis", "modules", "endpoints", "schema", "lab"]'
+			'["summary", "diagnosis", "modules", "endpoints", "schema", "lab", "boot"]'
 		);
 		expect(script).toContain("report_action");
 		expect(script).toContain("rule_lab_run");

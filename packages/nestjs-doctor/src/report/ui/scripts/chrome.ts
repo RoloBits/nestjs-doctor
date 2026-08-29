@@ -6,6 +6,7 @@ let summaryRendered = false;
 let schemaRendered = false;
 let endpointsRendered = false;
 let modulesRendered = false;
+let bootRendered = false;
 
 const tabContents = {
   modules: document.getElementById("tab-modules"),
@@ -14,6 +15,7 @@ const tabContents = {
   lab: document.getElementById("tab-lab"),
   schema: document.getElementById("tab-schema"),
   endpoints: document.getElementById("tab-endpoints"),
+  boot: document.getElementById("tab-boot"),
 };
 
 function switchTab(name) {
@@ -31,5 +33,6 @@ function switchTab(name) {
     if (modulesRendered) { REPORT_APP.resizeModules(); } else { REPORT_APP.renderModules(REPORT); modulesRendered = true; }
   }
   if (name === "endpoints" && endpointsRendered) REPORT_APP.resizeEndpoints();
+  if (name === "boot" && !bootRendered) { REPORT_APP.renderBoot(REPORT); bootRendered = true; }
 }
 `;

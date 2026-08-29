@@ -40,7 +40,7 @@ html { scrollbar-color: #333 transparent; scrollbar-width: thin; }
 #endpoints-sidebar::-webkit-scrollbar,
 #mg-tree::-webkit-scrollbar,
 #mg-problems-list::-webkit-scrollbar,
-#mg-trace-body::-webkit-scrollbar,
+.boot-scroll::-webkit-scrollbar,
 #mg-info-pop::-webkit-scrollbar,
 .playground-editor::-webkit-scrollbar,
 .playground-results::-webkit-scrollbar,

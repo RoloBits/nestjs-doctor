@@ -1,0 +1,166 @@
+/* ── Boot trace: one timeline, mounted as a tab and inside the graph dock ── */
+#tab-boot { z-index: 1; }
+#tab-boot.active { display: flex; }
+.boot-tab { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--bg); }
+.boot-view {
+  --boot-label-w: var(--boot-label-drag, 340px);
+  flex: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0;
+  position: relative;
+}
+/* The label column reads as the sidebar the other tabs have: one divider
+   runs the full height, through the head and the rows, and drags to resize. */
+.boot-resizer {
+  position: absolute; top: 0; bottom: 0; left: var(--boot-label-w); width: 5px;
+  border-left: 1px solid var(--border); cursor: col-resize; z-index: 3;
+}
+.boot-resizer:hover { background: rgba(59,130,246,0.35); }
+/* Hidden list: a slim strip keeps the show button where the list was. */
+.boot-side-hidden { --boot-label-w: 44px; }
+.boot-side-hidden .boot-resizer, .boot-side-hidden .boot-label { display: none; }
+.boot-side-hidden .boot-row { padding-left: var(--boot-label-w); }
+.boot-side-mini { justify-content: flex-start; align-items: flex-start; padding: 8px 0 0 8px; }
+.boot-empty { padding: 40px; color: var(--text-dim); font-size: 13px; line-height: 1.7; max-width: 640px; }
+.boot-empty code { background: rgba(255,255,255,0.08); padding: 1px 4px; border-radius: 3px; }
+
+.boot-main { flex: 1; display: flex; flex-direction: column; min-height: 0; position: relative; }
+.boot-cursor {
+  position: absolute; top: 0; bottom: 0; width: 0; display: none;
+  border-left: 1px solid rgba(255,255,255,0.35);
+  pointer-events: none; z-index: 4;
+}
+.boot-cursor-chip {
+  position: absolute; top: 0; left: 0; transform: translateX(-50%);
+  background: #1a1a1a; color: var(--white); border: 1px solid rgba(255,255,255,0.12);
+  font-size: 10px; line-height: 1.4; padding: 1px 6px; border-radius: 3px;
+  white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+
+/* Head: the sidebar header over the label column, the lanes over the tracks. */
+.boot-head {
+  display: flex; align-items: stretch; flex-shrink: 0;
+  border-bottom: 1px solid var(--border); background: var(--surface); user-select: none;
+}
+.boot-side-head {
+  width: var(--boot-label-w); flex-shrink: 0; min-width: 0;
+  display: flex; flex-direction: column; justify-content: space-between;
+}
+.boot-side-head .mg-side-search { padding: 8px 16px 10px; }
+.boot-lanes { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; padding: 8px 14px 6px; }
+.boot-lane { position: relative; display: block; }
+
+/* Overview lane: the lifecycle phases over the whole boot, with the window
+   you are looking at on top. Click a phase to zoom to it. */
+.boot-overview {
+  height: 56px; background: rgba(255,255,255,0.04);
+  border-radius: 3px; overflow: hidden; cursor: crosshair;
+}
+.boot-phases { position: absolute; inset: 0; display: block; }
+.boot-phase {
+  position: absolute; top: 0; height: 100%; min-width: 2px; border-radius: 2px;
+  overflow: hidden; display: flex; align-items: flex-start;
+  padding: 5px 6px 0; cursor: pointer; box-sizing: border-box;
+}
+.boot-phase-label {
+  font-size: 10px; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; letter-spacing: 0.02em;
+}
+.boot-phase-ms { color: rgba(255,255,255,0.55); }
+.boot-guides { position: absolute; top: 0; bottom: 0; left: 0; right: 0; display: block; pointer-events: none; }
+.boot-rows .boot-guides { left: calc(var(--boot-label-w) + 14px); right: 14px; }
+.boot-guide { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dotted; }
+.boot-minimap-window {
+  position: absolute; top: 0; height: 100%;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.9);
+  border-radius: 2px; cursor: grab; box-sizing: border-box;
+  /* Dims everything outside the window. */
+  box-shadow: 0 0 0 9999px rgba(0,0,0,0.55);
+}
+.boot-minimap-window:active { cursor: grabbing; }
+.boot-handle { position: absolute; top: 0; width: 7px; height: 100%; cursor: ew-resize; }
+.boot-handle-l { left: -3px; }
+.boot-handle-r { right: -3px; }
+
+/* Axis: the visible window's ticks, drag to pan. */
+.boot-axis { height: 16px; margin-top: 2px; font-size: 9px; color: var(--text-dim); cursor: grab; }
+.boot-axis:active { cursor: grabbing; }
+.boot-axis-zero { position: absolute; left: 0; bottom: 0; font-variant-numeric: tabular-nums; }
+.boot-axis-tick {
+  position: absolute; bottom: 0; transform: translateX(-50%);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.boot-axis-end { position: absolute; right: 0; bottom: 0; color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* Waterfall rows: the label column, then the track on the shared axis. */
+.boot-body { position: relative; flex: 1; display: flex; min-height: 0; }
+.boot-scroll { flex: 1; overflow: auto; min-height: 0; outline: none; }
+.boot-rows { position: relative; padding: 4px 0 24px; }
+.boot-row { display: flex; align-items: center; padding: 0 14px 0 0; font-size: 12px; line-height: 26px; }
+.boot-label {
+  width: var(--boot-label-w); flex-shrink: 0; box-sizing: border-box;
+  display: flex; align-items: center; gap: 6px; padding: 0 12px 0 16px;
+  color: var(--text); overflow: hidden; white-space: nowrap;
+}
+.boot-name { overflow: hidden; text-overflow: ellipsis; }
+.boot-count { font-size: 11px; color: var(--text-muted); background: rgba(255,255,255,0.06); padding: 0 6px; border-radius: 10px; line-height: 16px; }
+.boot-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.boot-track { position: relative; flex: 1; height: 20px; margin-left: 14px; background: rgba(255,255,255,0.03); border-radius: 2px; overflow: hidden; }
+/* Tree furniture: indent guides that show on hover, and chevrons that turn. */
+.boot-indent { width: 16px; min-width: 16px; align-self: stretch; position: relative; }
+.boot-indent::before {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 7px;
+  border-left: 2px solid rgba(255,255,255,0.12);
+}
+.boot-caret {
+  width: 16px; min-width: 16px; height: 16px; flex-shrink: 0; border-radius: 3px;
+  display: inline-flex; align-items: center; justify-content: center; color: var(--text-dim);
+}
+.boot-caret svg { width: 10px; height: 10px; transition: transform 0.12s; }
+.boot-group:not(.boot-collapsed) > .boot-group-row .boot-caret svg,
+.boot-expanded > .boot-label .boot-caret svg { transform: rotate(90deg); }
+.boot-group.boot-collapsed > .boot-class-row { display: none; }
+.boot-group-row { cursor: pointer; padding-top: 4px; }
+.boot-group-row .boot-name { color: var(--text-muted); font-weight: 500; }
+.boot-group-bar {
+  position: absolute; top: 6px; height: 8px; border-radius: 2px;
+  background: rgba(255,255,255,0.3); min-width: 2px;
+}
+.boot-class-row { cursor: pointer; }
+.boot-cascade-row { background: rgba(255,255,255,0.02); }
+/* Bars are solid and carry their own time; hook spans follow the same shape. */
+.boot-bar, .boot-hook-span {
+  position: absolute; top: 2px; height: 16px; border-radius: 2px; min-width: 2px;
+  overflow: hidden; white-space: nowrap; box-sizing: border-box;
+  padding: 0 5px; font-size: 10px; line-height: 16px; color: var(--white);
+  font-variant-numeric: tabular-nums;
+}
+.boot-hook-chip { font-size: 9px; padding: 0 4px; border-radius: 3px; flex-shrink: 0; line-height: 14px; }
+/* Shadow rows: deduped copies of a class listed above, as solid black boxes. */
+.boot-reused { opacity: 0.7; }
+.boot-reused .boot-bar, .boot-reused .boot-hook-span {
+  background: #000 !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3); color: var(--text-muted);
+}
+.boot-reused .boot-dot { background: transparent !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35); }
+.boot-reused .boot-hook-chip { color: var(--text-dim) !important; background: transparent !important; box-shadow: inset 0 0 0 1px var(--border); }
+.boot-reused-tag {
+  font-size: 10px; color: var(--text-dim); line-height: 14px;
+  border: 1px solid var(--border); border-radius: 3px; padding: 0 4px;
+}
+.boot-filtered { opacity: 0.25; }
+.boot-selected, .boot-group-selected { background: rgba(59,130,246,0.15); outline: 1px solid rgba(59,130,246,0.4); outline-offset: -1px; }
+.boot-flash { background: rgba(245,158,11,0.22); }
+
+/* Compact mount inside the modules dock. */
+.boot-dock-body { display: none; flex: 1; min-height: 0; }
+#mg-dock.open[data-active="trace"] .boot-dock-body { display: flex; flex-direction: column; }
+.boot-compact { --boot-label-w: var(--boot-label-drag, 240px); }
+.boot-compact .boot-side-head { justify-content: flex-end; padding: 0 0 6px; }
+.boot-compact .boot-dock-header { padding: 4px 10px 4px 14px; border-bottom: none; }
+.boot-dock-header .schema-sidebar-title { font-size: 12px; }
+.boot-compact .boot-side-head .mg-side-search { padding: 0 10px 0 14px; }
+.boot-compact .boot-side-head .mg-side-search input { padding: 3px 8px; font-size: 11px; }
+.boot-compact .boot-lanes { padding-top: 6px; }
+.boot-compact .boot-overview { height: 36px; }
+.boot-compact .boot-row { font-size: 11px; line-height: 22px; }
+.boot-compact .boot-track { height: 16px; }
+.boot-compact .boot-bar, .boot-compact .boot-hook-span { height: 12px; line-height: 12px; font-size: 9px; }

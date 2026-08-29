@@ -35,7 +35,7 @@ import { writeFileSync } from "node:fs";
 import { performance } from "node:perf_hooks";
 import { NestFactory, SerializedGraph } from "@nestjs/core";
 
-const hookTimings: { className: string; hook: string; ms: number }[] = [];
+const hookTimings: { className: string; hook: string; ms: number; startMs: number }[] = [];
 
 const t0 = performance.now();
 const app = await NestFactory.create(AppModule, {
@@ -50,7 +50,7 @@ const app = await NestFactory.create(AppModule, {
           instance[hook] = async function (...args: unknown[]) {
             const start = performance.now();
             try { return await original.apply(this, args); }
-            finally { hookTimings.push({ className: this.constructor.name, hook, ms: performance.now() - start }); }
+            finally { hookTimings.push({ className: this.constructor.name, hook, ms: performance.now() - start, startMs: start - t0 }); }
           };
         } catch {} // frozen instances stay untimed
       }
@@ -94,7 +94,9 @@ Read down a cascade until the number drops. The class where it drops owns the
 time. If `UsersService` reads 120ms and the `SlowService` it injects reads 119ms,
 `SlowService` owns it.
 
-A module node shows its slowest single class, never a sum.
+A module node shows the build of its slowest class, never a sum across
+classes. Its hook time is the total across the module's classes, for example
+`104ms build · 63ms init`.
 
 ## 5. Put main.ts back
 

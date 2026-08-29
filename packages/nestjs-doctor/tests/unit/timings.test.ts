@@ -281,6 +281,54 @@ describe("parseBootstrapTimings", () => {
 		expect(warnings.join(" ")).not.toContain("malformed");
 	});
 
+	it("drops startMs when merging per-instance hook entries", () => {
+		const base = JSON.parse(
+			dump({
+				m1: moduleNode("CatsModule"),
+				c1: classNode("TransientProv", "m1", 2),
+			})
+		);
+		base.hookTimings = [
+			{
+				className: "TransientProv",
+				hook: "onModuleInit",
+				ms: 20,
+				startMs: 305,
+			},
+			{
+				className: "TransientProv",
+				hook: "onModuleInit",
+				ms: 19,
+				startMs: 320,
+			},
+		];
+
+		const { trace } = parseBootstrapTimings(JSON.stringify(base));
+		expect(trace.tc1.hooks).toEqual([
+			{ hook: "onModuleInit", ms: 39, count: 2 },
+		]);
+	});
+
+	it("drops a malformed startMs but keeps the hook entry", () => {
+		const base = JSON.parse(
+			dump({
+				m1: moduleNode("CatsModule"),
+				c1: classNode("CatsService", "m1", 3),
+			})
+		);
+		base.hookTimings = [
+			{ className: "CatsService", hook: "onModuleInit", ms: 5, startMs: -1 },
+			{ className: "CatsService", hook: "onApplicationBootstrap", ms: 6 },
+		];
+
+		const { trace, warnings } = parseBootstrapTimings(JSON.stringify(base));
+		expect(trace.tc1.hooks).toEqual([
+			{ hook: "onModuleInit", ms: 5 },
+			{ hook: "onApplicationBootstrap", ms: 6 },
+		]);
+		expect(warnings).toEqual([]);
+	});
+
 	it("warns when a valid dump carries no timings at all", () => {
 		const { warnings } = parseBootstrapTimings(
 			dump({ m1: moduleNode("CatsModule") })

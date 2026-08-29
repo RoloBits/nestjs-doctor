@@ -7,6 +7,7 @@ import {
 	labOpened,
 	parseReportFile,
 	type ReportArtifact,
+	renderBoot,
 	renderChrome,
 	renderDiagnosis,
 	renderEndpoints,
@@ -34,6 +35,7 @@ const TAB_NAMES = [
 	"schema",
 	"endpoints",
 	"modules",
+	"boot",
 ];
 
 // The report beacon's allow-lists, so web events match the CLI report's.
@@ -53,7 +55,7 @@ const ACTIONS = new Set([
 	"module_tree_expanded",
 	"schema_tree_expanded",
 	"endpoint_code_opened",
-	"boot_trace_opened",
+	"boot_span_selected",
 ]);
 
 interface ReportGlobals {
@@ -136,6 +138,10 @@ function LoadedReport({
 					renderModules(artifact);
 					rendered.modules = true;
 				}
+			}
+			if (name === "boot" && !rendered.boot) {
+				renderBoot(artifact);
+				rendered.boot = true;
 			}
 			if (name === "endpoints" && rendered.endpoints) {
 				resizeEndpoints();

@@ -22,7 +22,7 @@ function hide(tip: HTMLElement): void {
 function show(tip: HTMLElement, el: Element): void {
 	shown = el;
 	tip.textContent = el.getAttribute("data-tip");
-	// A leftover left offset would constrain the width measurement.
+	// Resets the offset before measuring the width.
 	tip.style.left = "0px";
 	tip.style.top = "0px";
 	tip.style.display = "block";
@@ -53,22 +53,11 @@ function onMouseOver(ev: Event): void {
 	if (el === shown) {
 		return;
 	}
-	// Skips the tip when the name is fully visible.
-	if (
-		el.classList.contains("mg-trace-name") &&
-		el.scrollWidth <= el.clientWidth
-	) {
-		hide(tip);
-		return;
-	}
 	show(tip, el);
 }
 
-/**
- * Floating tooltip for data-tip elements inside clipping containers: the
- * boot trace dock, the header badges, and the module detail badges. One
- * delegated listener for the page's lifetime, installed on first mount.
- */
+// Floating tooltip for data-tip elements inside clipping containers, one
+// delegated listener for the page, installed on first mount.
 export function installFloatTip(): void {
 	if (installed) {
 		return;

@@ -9,13 +9,16 @@ import {
 	TabBar,
 } from "./organisms/tab-bar.js";
 import {
+	BootTab,
+	focusBootTrace as focusBootTraceImpl,
+} from "./templates/boot.js";
+import {
 	type DiagnosisCallbacks,
 	DiagnosisTab,
 } from "./templates/diagnosis.js";
 import { EndpointsTab, resizeEndpointsCanvas } from "./templates/endpoints.js";
 import { LabTab, labOpened as labOpenedImpl } from "./templates/lab.js";
 import {
-	jumpToSlowestBoot as jumpToSlowestBootImpl,
 	ModulesTab,
 	openModule as openModuleImpl,
 	resizeModulesCanvas,
@@ -81,8 +84,12 @@ export function resizeModules(): void {
 	resizeModulesCanvas();
 }
 
-export function jumpToSlowestBoot(): void {
-	jumpToSlowestBootImpl();
+export function renderBoot(report: ReportArtifact): void {
+	mount("tab-boot", <BootTab report={report} />);
+}
+
+export function focusBootTrace(className?: string): void {
+	focusBootTraceImpl(className);
 }
 
 export function openModule(name: string): void {

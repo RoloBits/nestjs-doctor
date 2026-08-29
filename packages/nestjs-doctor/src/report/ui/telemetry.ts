@@ -26,8 +26,8 @@ export function buildBeacon(
   var URL = ${JSON.stringify(`${POSTHOG_HOST}/e/`)};
   var VERSION = ${JSON.stringify(version)};
   var SOURCE = ${JSON.stringify(source)};
-  var SECTIONS = ["summary", "diagnosis", "modules", "endpoints", "schema", "lab"];
-  var ACTIONS = ["rule_lab_run", "rule_lab_preset_loaded", "rule_lab_scope_changed", "rule_lab_result_opened", "rule_lab_code_edited", "rule_lab_metadata_changed", "module_opened_from_finding", "module_opened_from_tree", "graph_recentered", "graph_zoomed", "graph_sidebar_toggled", "module_tree_expanded", "schema_tree_expanded", "endpoint_code_opened", "boot_trace_opened"];
+  var SECTIONS = ["summary", "diagnosis", "modules", "endpoints", "schema", "lab", "boot"];
+  var ACTIONS = ["rule_lab_run", "rule_lab_preset_loaded", "rule_lab_scope_changed", "rule_lab_result_opened", "rule_lab_code_edited", "rule_lab_metadata_changed", "module_opened_from_finding", "module_opened_from_tree", "graph_recentered", "graph_zoomed", "graph_sidebar_toggled", "module_tree_expanded", "schema_tree_expanded", "endpoint_code_opened", "boot_span_selected"];
   var id;
   try {
     id = crypto.randomUUID();

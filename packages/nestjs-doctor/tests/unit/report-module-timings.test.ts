@@ -1,37 +1,22 @@
 import { describe, expect, it } from "vitest";
-import {
-	formatMs,
-	type TraceMap,
-	traceRowHtml,
-} from "../../src/report/ui/app/lib/trace.js";
+import { formatMs, hookChipHtml } from "../../src/report/ui/app/lib/trace.js";
 
-describe("traceRowHtml", () => {
-	const trace: TraceMap = {
-		ta: {
-			name: "BookingController",
-			type: "controller",
-			initTime: 0.9,
-			deps: ["tb"],
-		},
-		tb: {
-			name: "SchedulingService",
-			type: "provider",
-			initTime: 67,
-			deps: [],
-		},
-	};
-	const row = (id: string, depth: number, path: string) =>
-		traceRowHtml(trace, 100, id, depth, path);
-
-	it("marks a dep slower than its parent as reused", () => {
-		const html = row("tb", 1, "ta/tb");
-		expect(html).toContain("mg-trace-reused");
-		expect(html).toContain("already built for an earlier consumer");
+describe("hookChipHtml", () => {
+	it("renders a chip with the hook label and duration", () => {
+		const html = hookChipHtml([{ hook: "onModuleInit", ms: 120.4 }]);
+		expect(html).toContain("mg-trace-hook");
+		expect(html).toContain("120ms init");
 	});
 
-	it("never marks a top-level row as reused", () => {
-		expect(row("ta", 0, "ta")).not.toContain("mg-trace-reused");
-		expect(row("tb", 0, "tb")).not.toContain("mg-trace-reused");
+	it("marks per-instance totals with a count", () => {
+		const html = hookChipHtml([{ hook: "onModuleInit", ms: 39, count: 2 }]);
+		expect(html).toContain("×2");
+		expect(html).toContain("across 2 instances");
+	});
+
+	it("renders nothing without hooks", () => {
+		expect(hookChipHtml(undefined)).toBe("");
+		expect(hookChipHtml([])).toBe("");
 	});
 });
 
