@@ -187,7 +187,7 @@ describe("buildBootTimeline", () => {
 		]);
 	});
 
-	it("keeps a repeated user module under its bare name without the external tag", () => {
+	it("tags a user module name repeated across projects as ambiguous, not external", () => {
 		const t = buildBootTimeline(
 			graph({
 				modules: [mod("api/UsersModule"), mod("worker/UsersModule")],
@@ -201,6 +201,32 @@ describe("buildBootTimeline", () => {
 			})
 		);
 		expect(t?.groups.map((g) => g.module)).toEqual(["UsersModule"]);
+		expect(t?.groups[0]?.external).toBeUndefined();
+		expect(t?.groups[0]?.ambiguous).toBe(true);
+		expect(t?.byId.get("ta")?.ambiguous).toBe(true);
+	});
+
+	it("merges two dump instances of a user module name into one ambiguous group", () => {
+		// The serializer attaches nothing to ConfigModule: its label repeats.
+		const t = buildBootTimeline(
+			graph({
+				modules: [mod("ConfigModule")],
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: traceNode(1.3, [], undefined, {
+						module: "ConfigModule",
+						name: "ConfigService",
+					}),
+					tb: traceNode(2.1, [], undefined, {
+						module: "ConfigModule",
+						name: "ConfigService",
+					}),
+				},
+			})
+		);
+		expect(
+			t?.groups.map((g) => [g.module, g.spans.length, g.ambiguous ?? false])
+		).toEqual([["ConfigModule", 2, true]]);
 		expect(t?.groups[0]?.external).toBeUndefined();
 	});
 
@@ -810,6 +836,28 @@ describe("external groups in rowsHtml", () => {
 		expect(html).toContain(
 			'data-group="TypeOrmModule"><div class="boot-row boot-group-row boot-group-selected">'
 		);
+	});
+
+	it("tags an ambiguous group when its name matches a graph module it could not join", () => {
+		const a = buildBootTimeline(
+			graph({
+				modules: [mod("ConfigModule")],
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: traceNode(1.3, [], undefined, {
+						module: "ConfigModule",
+						name: "ConfigService",
+					}),
+				},
+			})
+		) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+		const html = rowsHtml(a, {
+			...base,
+			expandedModules: new Set(["ConfigModule"]),
+		});
+		expect(html).toContain('data-group="ConfigModule"');
+		expect(html).toContain('boot-reused-tag">ambiguous</span>');
+		expect(html).not.toContain(">external<");
 	});
 });
 

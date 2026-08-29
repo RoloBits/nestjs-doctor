@@ -60,7 +60,43 @@ const EXTERNAL = buildBootTimeline({
 	},
 } as SerializedModuleGraph);
 
+// A user module name the graph could not join to one node.
+const AMBIGUOUS = buildBootTimeline({
+	...EMPTY_ARTIFACT.graph,
+	modules: [
+		{
+			controllers: [],
+			exports: [],
+			filePath: "config.module.ts",
+			imports: [],
+			isGlobal: false,
+			line: 1,
+			name: "ConfigModule",
+			providerTokens: [],
+			providers: [],
+		},
+	],
+	startupMs: 400,
+	timingsAvailable: true,
+	timingsTrace: {
+		ta: {
+			deps: [],
+			initTime: 1.3,
+			module: "ConfigModule",
+			name: "ConfigService",
+			type: "provider",
+		},
+	},
+} as SerializedModuleGraph);
+
 describe("hoverCardData", () => {
+	it("marks a module name the graph could not join as ambiguous", () => {
+		const t = AMBIGUOUS as NonNullable<typeof AMBIGUOUS>;
+		expect(hoverCardData(t, t.byId.get("ta") as never, null).context).toBe(
+			"in ConfigModule (ambiguous name) · provider"
+		);
+	});
+
 	it("names an external module and the one module importing it", () => {
 		const t = EXTERNAL as NonNullable<typeof EXTERNAL>;
 		expect(hoverCardData(t, t.byId.get("ta") as never, null).context).toBe(

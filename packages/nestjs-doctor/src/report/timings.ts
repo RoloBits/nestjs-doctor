@@ -130,7 +130,7 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 		importers.add(source);
 		importersByModule.set(target, importers);
 	}
-	// A global module is reachable from everywhere, so its importer says nothing.
+	// Only a non-global module with exactly one importer gets a via label.
 	const viaOf = (moduleId: string): string | undefined => {
 		const importers = importersByModule.get(moduleId);
 		if (globalModules.has(moduleId) || importers?.size !== 1) {

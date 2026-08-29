@@ -157,15 +157,15 @@ its real offset from boot start.
 |---|---|---|
 | Overview lane | Top of the lanes | `building modules · lifecycle hooks · opening the port`, from the `createMs`, `initMs`, and `startupMs` markers; with `moduleInitMs` the hooks split into `init hooks · bootstrap hooks`. The window on top is the view: drag it to pan, drag its edges to resize, scroll to zoom, click a phase to frame it |
 | Dotted line | Down the rows | Where one phase hands over to the next |
-| Class bar | Per row, under the module that owns it in the dump; a package module wears an `external` tag | From its slowest dependency's finish to its own, or from boot start when nothing traced came before; colored by type. The time it took sits inside the bar |
+| Class bar | Per row, under the module that owns it in the dump; a package module shows an `external` tag | From its slowest dependency's finish to its own, or from boot start when nothing traced came before; colored by type. The time it took sits inside the bar |
 | Hook span | On a row, after the bar | An `onModuleInit` or `onApplicationBootstrap` at its real offset, time inside, when the dump carries `startMs`. Older dumps show a `+120ms init` chip instead |
 | Cascade row | Under an opened chevron, solid black | A shadow of the dependency's own row in its module group, where its cost is drawn once. `deduped` says so, as `npm ls` would. `shared` means it was built earlier for another consumer, `circular` closes a loop to an ancestor |
 
 The chevron before a class opens its dependencies in place; expand all in the
 header opens every level at once. Hovering a bar or a hook span shows a card
 with the class, what it waited on, its module and type, and its time. For a
-package module it also names the one module that imports it, when there is
-exactly one.
+package module that is not global it also names the importing module, when
+exactly one module imports it.
 
 The label column drags to resize and hides like the graph's sidebar. The
 Modules graph keeps a compact mount of the same timeline in its dock. The
@@ -181,5 +181,6 @@ class.
 - Out-of-order phase markers drop the lifecycle strip, also with a warning.
 - A class joins a graph module only when that module's class name is unique,
   inside the dump and across a monorepo's projects. Otherwise it sits under
-  the name the dump gives it: a package module such as `TypeOrmModule` gets an
-  `external` tag, a user module whose name repeats does not.
+  the name the dump gives it. A package module such as `TypeOrmModule` shows
+  an `external` tag; a user module whose name repeats shows an `ambiguous`
+  tag. Every instance with the same name lands in one group.

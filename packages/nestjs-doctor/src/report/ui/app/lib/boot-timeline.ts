@@ -28,6 +28,8 @@ export function spanColor(type: string): string {
 }
 
 export interface BootSpan {
+	/** The class's module name repeats, so it joined no single graph module. */
+	ambiguous?: boolean;
 	deps: string[];
 	/** Offset from boot start when construction finished (the dump's initTime). */
 	end: number;
@@ -39,13 +41,14 @@ export interface BootSpan {
 	name: string;
 	start: number;
 	type: string;
-	/** The one module importing the class's module, for external spans. */
+	/** The one non-global module importing the class's module, when exactly one does. */
 	via?: string;
 	/** Id of the dependency whose finish set this class's start, if any. */
 	waitedOn?: string;
 }
 
 interface BootGroup {
+	ambiguous?: boolean;
 	end: number;
 	external?: boolean;
 	module: string;
@@ -74,7 +77,7 @@ export interface BootWindow {
 	to: number;
 }
 
-// Same rule as displayName in modules-canvas, which imports this file.
+// Drops the "<project>/" prefix from a module name.
 function bareName(m: { name: string; project?: string }): string {
 	return m.project && m.name.startsWith(`${m.project}/`)
 		? m.name.slice(m.project.length + 1)
@@ -114,12 +117,13 @@ export function buildBootTimeline(
 			}
 		}
 		const attributed = moduleOfId.get(id);
-		// A dump module with no node in the scanned graph is a package module.
-		const external =
-			attributed === undefined &&
-			node.module !== undefined &&
-			!graphNames.has(node.module);
+		// An unattributed label matching no scanned module's bare name is a
+		// package module; one that matches is a name the graph could not join.
+		const unattributed = attributed === undefined && node.module !== undefined;
+		const external = unattributed && !graphNames.has(node.module as string);
+		const ambiguous = unattributed && !external;
 		byId.set(id, {
+			...(ambiguous ? { ambiguous: true } : {}),
 			deps: node.deps,
 			end: node.initTime,
 			...(external ? { external: true } : {}),
@@ -155,6 +159,7 @@ export function buildBootTimeline(
 			}
 		}
 		groups.push({
+			...(spans.every((s) => s.ambiguous) ? { ambiguous: true } : {}),
 			end,
 			...(spans.every((s) => s.external) ? { external: true } : {}),
 			module,
@@ -483,6 +488,16 @@ export function cascadeChildrenHtml(
 	return html;
 }
 
+function groupTagHtml(g: BootGroup): string {
+	if (g.external) {
+		return '<span class="boot-reused-tag">external</span>';
+	}
+	if (g.ambiguous) {
+		return '<span class="boot-reused-tag">ambiguous</span>';
+	}
+	return "";
+}
+
 export function rowsHtml(t: BootTimeline, o: BootRowOptions): string {
 	let html = guidesHtml(t, o.win);
 	for (const g of t.groups) {
@@ -493,7 +508,7 @@ export function rowsHtml(t: BootTimeline, o: BootRowOptions): string {
 			'<span class="boot-label">' +
 			caretHtml(true) +
 			`<span class="boot-name">${escapeHtml(g.module)}</span>` +
-			(g.external ? '<span class="boot-reused-tag">external</span>' : "") +
+			groupTagHtml(g) +
 			`<span class="boot-count">${g.spans.length}</span>` +
 			"</span>" +
 			'<span class="boot-track">' +

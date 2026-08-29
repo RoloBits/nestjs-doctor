@@ -99,11 +99,12 @@ classes. Its hook time is the total across the module's classes, for example
 `104ms build · 63ms init`.
 
 Classes from package modules (`TypeOrmCoreModule`, `BullModule`,
-`ConfigHostModule`) sit in their own groups with an `external` tag. A slow boot
-often lives there: `DataSource` in `TypeOrmCoreModule` is the database
-connection, and every repository waits on it. When a package module has
-exactly one importer the hover card names it, which is where `forFeature` or
-`registerQueue` was called.
+`ConfigHostModule`) sit in their own groups with an `external` tag. The slow
+part of a boot is often there: `DataSource` in `TypeOrmCoreModule` is the
+database connection, and every repository waits on it. When a non-global
+package module has exactly one importer the hover card names it, which is
+where `forFeature` or `registerQueue` was called. Global ones such as
+`TypeOrmCoreModule` and `ConfigHostModule` never name an importer.
 
 ## 5. Put main.ts back
 

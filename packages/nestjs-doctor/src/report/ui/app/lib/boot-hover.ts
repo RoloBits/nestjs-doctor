@@ -18,6 +18,9 @@ function contextOf(span: BootSpan): string {
 	if (span.external && span.via) {
 		return `in ${span.module} · imported by ${span.via} · ${span.type}`;
 	}
+	if (span.ambiguous) {
+		return `in ${span.module} (ambiguous name) · ${span.type}`;
+	}
 	return `in ${span.module} · ${span.type}`;
 }
 
