@@ -31,7 +31,12 @@ describe("report styles", () => {
 	});
 
 	it("aligns the lanes with the scrolled rows and labels the guides", () => {
-		expect(css).toContain("calc(14px + var(--boot-sbw, 0px))");
+		expect(css).toContain(
+			".boot-scroll { flex: 1; overflow: auto; min-height: 0; outline: none; scrollbar-gutter: stable; }"
+		);
+		expect(css).toContain(
+			"overflow: hidden; scrollbar-gutter: stable; padding: 8px 14px 6px;"
+		);
 		expect(css).toContain("border-left: 2px dotted;");
 		expect(css).toContain(".boot-guide-ms {");
 		expect(css).toContain("position: sticky");

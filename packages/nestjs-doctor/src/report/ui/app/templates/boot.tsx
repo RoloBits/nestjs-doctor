@@ -202,43 +202,6 @@ export function BootView({
 		win,
 	]);
 
-	// The lanes pad their right edge by the rows' scrollbar width.
-	useLayoutEffect(() => {
-		const scroll = scrollRef.current;
-		const main = mainRef.current;
-		if (!(scroll && main)) {
-			return;
-		}
-		const measure = (force = false) => {
-			// A box hidden by an ancestor measures 0x0; keep the last real value.
-			if (scroll.offsetWidth === 0 && !force) {
-				return;
-			}
-			main.style.setProperty(
-				"--boot-sbw",
-				`${scroll.offsetWidth - scroll.clientWidth}px`
-			);
-		};
-		measure(true);
-		const watchers: { disconnect(): void }[] = [];
-		if (typeof ResizeObserver !== "undefined") {
-			const ro = new ResizeObserver(() => measure());
-			ro.observe(scroll);
-			watchers.push(ro);
-		}
-		// Fires when a dock that mounted this hidden is opened.
-		if (typeof IntersectionObserver !== "undefined") {
-			const io = new IntersectionObserver(() => measure());
-			io.observe(scroll);
-			watchers.push(io);
-		}
-		return () => {
-			for (const w of watchers) {
-				w.disconnect();
-			}
-		};
-	}, []);
-
 	// Clicks: group headers collapse, carets cascade, rows select.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the handler reads the latest selection and timeline through stable useLatest refs
 	useEffect(() => {

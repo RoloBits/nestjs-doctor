@@ -45,7 +45,7 @@
   display: flex; flex-direction: column; justify-content: space-between;
 }
 .boot-side-head .mg-side-search { padding: 8px 16px 10px; }
-.boot-lanes { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; padding: 8px calc(14px + var(--boot-sbw, 0px)) 6px 14px; }
+.boot-lanes { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; scrollbar-gutter: stable; padding: 8px 14px 6px; }
 .boot-lane { position: relative; display: block; }
 
 /* Overview lane: the lifecycle phases over the whole boot, with the window
@@ -135,7 +135,7 @@
 
 /* Waterfall rows: the label column, then the track on the shared axis. */
 .boot-body { position: relative; flex: 1; display: flex; min-height: 0; }
-.boot-scroll { flex: 1; overflow: auto; min-height: 0; outline: none; }
+.boot-scroll { flex: 1; overflow: auto; min-height: 0; outline: none; scrollbar-gutter: stable; }
 .boot-rows { position: relative; padding: 4px 0 24px; }
 .boot-row { display: flex; align-items: center; padding: 0 14px 0 0; font-size: 12px; line-height: 26px; }
 .boot-label {
