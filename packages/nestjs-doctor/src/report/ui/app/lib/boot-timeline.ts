@@ -75,6 +75,7 @@ export interface BootTimeline {
 	groups: BootGroup[];
 	maxMs: number;
 	phases: BootPhase[];
+	scale: TimeScale;
 }
 
 export interface BootWindow {
@@ -226,7 +227,7 @@ export function buildBootTimeline(
 	if (maxMs <= 0) {
 		return null;
 	}
-	return { byId, groups, maxMs, phases };
+	return { byId, groups, maxMs, phases, scale: buildTimeScale(phases, maxMs) };
 }
 
 // A hook without an offset counts toward the phase named for its kind.
@@ -440,19 +441,19 @@ function barStyle(
 }
 
 // Every bar carries the time it took, inside it; narrow bars clip the text.
-function classBarHtml(span: BootSpan, win: BootWindow): string {
+function classBarHtml(span: BootSpan, win: BootWindow, sc: TimeScale): string {
 	const hookEnds = (span.hooks ?? [])
 		.filter((h) => typeof h.startMs === "number")
-		.map((h) => (h.startMs as number) + h.ms);
-	const rowEnd = Math.max(span.end, ...hookEnds);
+		.map((h) => u(sc, (h.startMs as number) + h.ms, true));
+	const rowEnd = Math.max(u(sc, span.end, true), ...hookEnds);
 	let html = "";
 	if (pct(rowEnd, win) < 0) {
 		html += '<span class="boot-offscreen boot-offscreen-l"></span>';
-	} else if (pct(span.start, win) > 100) {
+	} else if (pct(u(sc, span.start), win) > 100) {
 		html += '<span class="boot-offscreen boot-offscreen-r"></span>';
 	}
 	html +=
-		`<span class="boot-bar" style="${barStyle(span.start, span.end, win, 0.12)};background:rgb(${fillOf(spanColor(span.type))})">` +
+		`<span class="boot-bar" style="${barStyle(u(sc, span.start), u(sc, span.end, true), win, 0.12)};background:rgb(${fillOf(spanColor(span.type))})">` +
 		`${escapeHtml(formatMs(span.end - span.start))}</span>`;
 	(span.hooks ?? []).forEach((h, index) => {
 		if (typeof h.startMs !== "number") {
@@ -461,7 +462,7 @@ function classBarHtml(span: BootSpan, win: BootWindow): string {
 		const meta = hookMeta(h.hook);
 		html +=
 			`<span class="boot-hook-span" data-hook="${index}"` +
-			` style="${barStyle(h.startMs, h.startMs + h.ms, win, 0.12)};background:rgb(${fillOf(meta.rgb)})">` +
+			` style="${barStyle(u(sc, h.startMs as number), u(sc, (h.startMs as number) + h.ms, true), win, 0.12)};background:rgb(${fillOf(meta.rgb)})">` +
 			`${escapeHtml(`+${formatMs(h.ms)} ${meta.label}`)}</span>`;
 	});
 	return html;
@@ -495,10 +496,11 @@ function classLabelHtml(
 
 /** Dotted lines where one lifecycle phase hands over to the next. */
 function guidesHtml(t: BootTimeline, win: BootWindow): string {
-	// Instants where a zero-length phase sits; their guide wears its weave.
+	// Instants where a zero-length phase sits; their guide is its weave band.
 	const zeroAt = new Set(
 		t.phases.filter((p) => p.end <= p.start).map((p) => p.start)
 	);
+	const s = t.scale;
 	let html = "";
 	let lastAt = Number.NaN;
 	for (const p of t.phases.slice(1)) {
@@ -507,12 +509,20 @@ function guidesHtml(t: BootTimeline, win: BootWindow): string {
 			continue;
 		}
 		lastAt = p.start;
-		const left = pct(p.start, win);
-		if (left < 0 || left > 100) {
-			continue;
+		if (zeroAt.has(p.start)) {
+			const left = pct(u(s, p.start, true), win);
+			const right = pct(u(s, p.start), win);
+			if (right < 0 || left > 100) {
+				continue;
+			}
+			html += `<span class="boot-guide boot-guide-zero" style="left:${left.toFixed(3)}%;width:${(right - left).toFixed(3)}%;border-color:rgba(${p.rgb},0.6)"></span>`;
+		} else {
+			const left = pct(u(s, p.start), win);
+			if (left < 0 || left > 100) {
+				continue;
+			}
+			html += `<span class="boot-guide" style="left:${left.toFixed(3)}%;border-color:rgba(${p.rgb},0.6)"></span>`;
 		}
-		const zero = zeroAt.has(p.start) ? " boot-guide-zero" : "";
-		html += `<span class="boot-guide${zero}" style="left:${left.toFixed(3)}%;border-color:rgba(${p.rgb},0.6)"></span>`;
 	}
 	return html ? `<span class="boot-guides">${html}</span>` : "";
 }
@@ -556,7 +566,7 @@ export function cascadeChildrenHtml(
 				`<span class="boot-reused-tag">${tag}</span>`
 			) +
 			'<span class="boot-track">' +
-			classBarHtml(dep, o.win) +
+			classBarHtml(dep, o.win, t.scale) +
 			"</span></div>";
 		if (expanded) {
 			html += cascadeChildrenHtml(
@@ -595,7 +605,7 @@ export function rowsHtml(t: BootTimeline, o: BootRowOptions): string {
 			`<span class="boot-count">${g.spans.length}</span>` +
 			"</span>" +
 			'<span class="boot-track">' +
-			`<span class="boot-group-bar" style="${barStyle(g.start, g.end, o.win, 0.1)}"></span>` +
+			`<span class="boot-group-bar" style="${barStyle(u(t.scale, g.start), u(t.scale, g.end, true), o.win, 0.1)}"></span>` +
 			"</span></div>";
 		for (const s of g.spans) {
 			const matched = spanMatches(s, o.query);
@@ -606,7 +616,7 @@ export function rowsHtml(t: BootTimeline, o: BootRowOptions): string {
 				` data-id="${escapeHtml(s.id)}">` +
 				classLabelHtml(s, 1, expandable) +
 				'<span class="boot-track">' +
-				classBarHtml(s, o.win) +
+				classBarHtml(s, o.win, t.scale) +
 				"</span></div>";
 			if (cascaded) {
 				html += cascadeChildrenHtml(t, s.id, 1, o);
@@ -617,12 +627,30 @@ export function rowsHtml(t: BootTimeline, o: BootRowOptions): string {
 	return html;
 }
 
-export function axisHtml(win: BootWindow): string {
-	let html = `<span class="boot-axis-zero">${escapeHtml(formatMs(win.from))}</span>`;
-	for (const tick of windowTicks(win)) {
-		html += `<span class="boot-axis-tick" style="left:${pct(tick, win).toFixed(2)}%">${escapeHtml(formatMs(tick))}</span>`;
+export function axisHtml(win: BootWindow, s?: TimeScale): string {
+	let html = "";
+	if (s && !s.linear) {
+		// The widened stretches, marked with the weave in the axis lane too.
+		for (let i = 0; i < s.inflated.length; i++) {
+			if (!s.inflated[i]) {
+				continue;
+			}
+			const left = pct(s.us[i] as number, win);
+			const right = pct(s.us[i + 1] as number, win);
+			if (right < 0 || left > 100) {
+				continue;
+			}
+			html += `<span class="boot-axis-warp" style="left:${left.toFixed(3)}%;width:${(right - left).toFixed(3)}%"></span>`;
+		}
 	}
-	html += `<span class="boot-axis-end">${escapeHtml(formatMs(win.to))}</span>`;
+	const from = s ? tOf(s, win.from) : win.from;
+	const to = s ? tOf(s, win.to) : win.to;
+	html += `<span class="boot-axis-zero">${escapeHtml(formatMs(from))}</span>`;
+	for (const tick of windowTicks({ from, to })) {
+		const left = s ? pct(u(s, tick), win) : pct(tick, win);
+		html += `<span class="boot-axis-tick" style="left:${left.toFixed(2)}%">${escapeHtml(formatMs(tick))}</span>`;
+	}
+	html += `<span class="boot-axis-end">${escapeHtml(formatMs(to))}</span>`;
 	return html;
 }
 
@@ -630,6 +658,135 @@ export function axisHtml(win: BootWindow): string {
 // gets more room so its weave shows.
 const PHASE_MIN_PCT = 0.6;
 const EMPTY_PHASE_MIN_PCT = 4.5;
+
+/** Monotone piecewise map from true ms to display ms; identity when linear. */
+export interface TimeScale {
+	/** Per segment: the column was widened past its true share. */
+	inflated: boolean[];
+	/** No segment was widened, so display time equals true time. */
+	linear: boolean;
+	maxMs: number;
+	/** Segment edges in true ms, ascending; an equal pair is a 0ms phase. */
+	ts: number[];
+	/** The same edges in display ms; the last one is maxMs. */
+	us: number[];
+}
+
+// The lane's donation pass: every column gets at least its minimum share,
+// paid for by the columns with slack, in proportion to their slack.
+function buildTimeScale(phases: BootPhase[], maxMs: number): TimeScale {
+	if (phases.length === 0 || maxMs <= 0) {
+		return {
+			inflated: [],
+			linear: true,
+			maxMs,
+			ts: [0, maxMs],
+			us: [0, maxMs],
+		};
+	}
+	const last = phases.at(-1) as BootPhase;
+	const budget = (last.end / maxMs) * 100;
+	const nat = phases.map((p) => ((p.end - p.start) / maxMs) * 100);
+	let mins: number[] = phases.map((p) =>
+		p.empty ? EMPTY_PHASE_MIN_PCT : PHASE_MIN_PCT
+	);
+	const minSum = mins.reduce((a, b) => a + b, 0);
+	if (minSum > budget) {
+		mins = mins.map((m) => (m * budget) / minSum);
+	}
+	const widths = nat.map((w, i) => Math.max(w, mins[i] as number));
+	const excess = widths.reduce((a, b) => a + b, 0) - budget;
+	if (excess > 0) {
+		const slack = widths.map((w, i) => w - (mins[i] as number));
+		const slackSum = slack.reduce((a, b) => a + b, 0);
+		for (let i = 0; i < widths.length; i++) {
+			widths[i] =
+				(widths[i] as number) - ((slack[i] as number) * excess) / slackSum;
+		}
+	}
+	const inflated = widths.map((w, i) => w > (nat[i] as number) + 1e-9);
+	const ts = [0, ...phases.map((p) => p.end)];
+	const us = [0];
+	let acc = 0;
+	for (const w of widths) {
+		acc += w;
+		us.push((acc / 100) * maxMs);
+	}
+	if (last.end < maxMs) {
+		ts.push(maxMs);
+		us.push(maxMs);
+		inflated.push(false);
+	} else {
+		us[us.length - 1] = maxMs;
+	}
+	return { inflated, linear: !inflated.some(Boolean), maxMs, ts, us };
+}
+
+/** True to display ms; an end lands left of a 0ms band, a start lands right. */
+export function u(s: TimeScale, t: number, atEnd = false): number {
+	if (s.linear) {
+		return t;
+	}
+	const n = s.ts.length;
+	if (t <= (s.ts[0] as number)) {
+		return s.us[0] as number;
+	}
+	if (t >= (s.ts[n - 1] as number)) {
+		return s.us[n - 1] as number;
+	}
+	if (atEnd) {
+		for (let i = 1; i < n; i++) {
+			const b = s.ts[i] as number;
+			if (b === t) {
+				return s.us[i] as number;
+			}
+			if (b > t) {
+				const a = s.ts[i - 1] as number;
+				const ua = s.us[i - 1] as number;
+				return ua + ((t - a) / (b - a)) * ((s.us[i] as number) - ua);
+			}
+		}
+	}
+	for (let i = n - 1; i >= 0; i--) {
+		const a = s.ts[i] as number;
+		if (a === t) {
+			return s.us[i] as number;
+		}
+		if (a < t) {
+			const b = s.ts[i + 1] as number;
+			const ua = s.us[i] as number;
+			return ua + ((t - a) / (b - a)) * ((s.us[i + 1] as number) - ua);
+		}
+	}
+	return t;
+}
+
+/** Display ms back to true ms; constant across a 0ms band. */
+export function tOf(s: TimeScale, x: number): number {
+	if (s.linear) {
+		return x;
+	}
+	const n = s.us.length;
+	if (x <= (s.us[0] as number)) {
+		return s.ts[0] as number;
+	}
+	if (x >= (s.us[n - 1] as number)) {
+		return s.ts[n - 1] as number;
+	}
+	for (let i = 0; i < n - 1; i++) {
+		const b = s.us[i + 1] as number;
+		if (x <= b) {
+			const a = s.us[i] as number;
+			const ta = s.ts[i] as number;
+			const tb = s.ts[i + 1] as number;
+			if (tb === ta || b === a) {
+				return ta;
+			}
+			return ta + ((x - a) / (b - a)) * (tb - ta);
+		}
+	}
+	return x;
+}
 
 // The phase lane: tinted segments over the whole boot with their names and
 // durations; each carries its range so a click can zoom to it, and a tip so
@@ -659,38 +816,16 @@ export function phaseLaneHtml(t: BootTimeline): string {
 	if (t.phases.length === 0) {
 		return "";
 	}
-	const full: BootWindow = { from: 0, to: t.maxMs };
-	const last = t.phases.at(-1) as BootPhase;
-	// The lane tiles [0, last phase end]: boundaries are placed, not segments,
-	// so widening one column shrinks the others and nothing overlaps.
-	const budget = pct(last.end, full);
-	const nat = t.phases.map((p) => pct(p.end, full) - pct(p.start, full));
-	let mins: number[] = t.phases.map((p) =>
-		p.empty ? EMPTY_PHASE_MIN_PCT : PHASE_MIN_PCT
-	);
-	const minSum = mins.reduce((a, b) => a + b, 0);
-	if (minSum > budget) {
-		mins = mins.map((m) => (m * budget) / minSum);
-	}
-	const widths = nat.map((w, i) => Math.max(w, mins[i] as number));
-	const excess = widths.reduce((a, b) => a + b, 0) - budget;
-	if (excess > 0) {
-		// Every column with slack cedes in proportion to its slack.
-		const slack = widths.map((w, i) => w - (mins[i] as number));
-		const slackSum = slack.reduce((a, b) => a + b, 0);
-		for (let i = 0; i < widths.length; i++) {
-			widths[i] =
-				(widths[i] as number) - ((slack[i] as number) * excess) / slackSum;
-		}
-	}
+	const s = t.scale;
 	let html = "";
-	let left = 0;
 	t.phases.forEach((p, i) => {
-		const width = widths[i] as number;
+		const left = ((s.us[i] as number) / s.maxMs) * 100;
+		const width =
+			(((s.us[i + 1] as number) - (s.us[i] as number)) / s.maxMs) * 100;
 		const trueMs = p.end - p.start;
 		const zero = trueMs <= 0;
 		const ms = zero ? "0ms" : formatMs(trueMs);
-		const inflated = width > (nat[i] as number) + 1e-9;
+		const inflated = s.inflated[i] === true;
 		const covered = p.empty ? 0 : phaseCoverageMs(t, p);
 		const short = !p.empty && covered < trueMs * 0.95;
 		const coveredMs = covered <= 0 ? "0ms" : formatMs(covered);
@@ -712,11 +847,11 @@ export function phaseLaneHtml(t: BootTimeline): string {
 		html +=
 			`<span class="${classes}" data-from="${p.start}" data-to="${p.end}"` +
 			` data-tip="${escapeHtml(tip)}"` +
-			` style="left:${left.toFixed(3)}%;width:${width.toFixed(3)}%${fill}">` +
+			` style="left:${left.toFixed(3)}%;width:${width.toFixed(3)}%${fill}"` +
+			` data-index="${i}">` +
 			`<span class="boot-phase-label" style="color:${ink}">` +
 			`<span class="boot-phase-gloss">${escapeHtml(p.gloss)}</span>` +
 			`<span class="boot-phase-ms">${escapeHtml(msLabel)}</span></span></span>`;
-		left += width;
 	});
 	return html;
 }

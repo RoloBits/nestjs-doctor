@@ -18,6 +18,10 @@ describe("report styles", () => {
 		expect(css).toContain(".boot-guide-zero {");
 	});
 
+	it("weaves the widened stretch of the axis", () => {
+		expect(css).toContain(".boot-axis-warp {");
+	});
+
 	it("dashes a widened phase and keeps its number from shrinking", () => {
 		expect(css).toContain(".boot-phase-inflated {");
 		expect(css).toContain(

@@ -1,11 +1,11 @@
-import type { BootWindow } from "./boot-timeline.js";
+import { type BootWindow, type TimeScale, tOf } from "./boot-timeline.js";
 import { cssAttr } from "./escape.js";
 
 const TETHER_DX = 26;
 const TETHER_DY = 18;
 
-/** The time under a client x on a track that spans the window. */
-export function timeAt(
+/** The display position under a client x on a track that spans the window. */
+export function posAt(
 	clientX: number,
 	trackEl: HTMLElement,
 	win: BootWindow
@@ -16,6 +16,17 @@ export function timeAt(
 		Math.min(1, (clientX - r.left) / Math.max(r.width, 1))
 	);
 	return win.from + frac * (win.to - win.from);
+}
+
+/** The true time under a client x; inverts the piecewise scale. */
+export function timeAt(
+	clientX: number,
+	trackEl: HTMLElement,
+	win: BootWindow,
+	s?: TimeScale
+): number {
+	const x = posAt(clientX, trackEl, win);
+	return s ? tOf(s, x) : x;
 }
 
 // Places the card diagonally off the pointer, on the side with room, and

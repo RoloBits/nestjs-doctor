@@ -87,7 +87,17 @@
 .boot-guide { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dotted; }
 /* A coincident-marker instant: the 0ms phase's weave, echoed down the rows. */
 .boot-guide-zero {
-  width: 7px; margin-left: -3px; border-left: none;
+  border-left: none; min-width: 3px;
+  background-color: rgba(10,10,10,0.6);
+  background-image:
+    repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0 2px, transparent 2px 6px),
+    repeating-linear-gradient(-45deg, rgba(255,255,255,0.06) 0 2px, transparent 2px 6px);
+}
+/* Under a widened column: this stretch of the axis is not to scale. */
+.boot-axis-warp {
+  position: absolute; top: 0; bottom: 0; pointer-events: none;
+  border-left: 1px dashed rgba(255,255,255,0.3);
+  border-right: 1px dashed rgba(255,255,255,0.3);
   background-color: rgba(10,10,10,0.6);
   background-image:
     repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0 2px, transparent 2px 6px),

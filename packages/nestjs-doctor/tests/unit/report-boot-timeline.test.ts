@@ -21,6 +21,7 @@ import {
 	rowsHtml,
 	slowestSpanId,
 	spanMatches,
+	tOf,
 	UNATTRIBUTED_MODULE,
 	windowAround,
 	windowTicks,
@@ -1296,6 +1297,133 @@ describe("lanes and axis", () => {
 			win: { from: 0, to: 400 },
 		});
 		expect(html).not.toContain("boot-guide-zero");
+	});
+
+	describe("time scale", () => {
+		it("is the identity when nothing is widened", () => {
+			const t = buildBootTimeline(
+				graph({
+					phases: { createMs: 100, initMs: 300, moduleInitMs: 250 },
+					startupMs: 400,
+					timingsAvailable: true,
+					timingsTrace: { ta: traceNode(50) },
+				})
+			) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+			expect(t.scale.linear).toBe(true);
+			expect(t.scale.us).toEqual([0, 100, 250, 300, 400]);
+		});
+
+		it("widens the sub-millisecond listen and compresses the rest", () => {
+			const t = buildBootTimeline(
+				graph({
+					phases: { createMs: 130.06, initMs: 358.25, moduleInitMs: 256.51 },
+					startupMs: 358.82,
+					timingsAvailable: true,
+					timingsTrace: { ta: traceNode(358.25) },
+				})
+			) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+			expect(t.scale.linear).toBe(false);
+			expect(t.scale.inflated).toEqual([false, false, false, true]);
+			const expected = [0, 124.396, 245.343, 342.673, 358.82];
+			for (let i = 0; i < expected.length; i++) {
+				expect(t.scale.us[i]).toBeCloseTo(expected[i] as number, 2);
+			}
+			const html = phaseLaneHtml(t);
+			expect(html).toContain("left:0.000%;width:34.668%");
+			expect(html).toContain("left:34.668%;width:33.707%");
+			expect(html).toContain("left:68.375%;width:27.125%");
+			expect(html).toContain("left:95.500%;width:4.500%");
+		});
+
+		it("holds tOf constant across a zero band and inverts elsewhere", () => {
+			const t = buildBootTimeline(
+				graph({
+					phases: { createMs: 200, initMs: 600, moduleInitMs: 200 },
+					startupMs: 1000,
+					timingsAvailable: true,
+					timingsTrace: {
+						ta: traceNode(600, ["tb"]),
+						tb: traceNode(200),
+					},
+				})
+			) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+			expect(tOf(t.scale, 200)).toBe(200);
+			expect(tOf(t.scale, 235)).toBe(200);
+			expect(tOf(t.scale, 190)).toBeCloseTo(199.22, 2);
+		});
+
+		it("keeps a bar that starts on a coincidence out of the 0ms band", () => {
+			const t = buildBootTimeline(
+				graph({
+					phases: { createMs: 200, initMs: 600, moduleInitMs: 200 },
+					startupMs: 1000,
+					timingsAvailable: true,
+					timingsTrace: {
+						ta: traceNode(600, ["tb"]),
+						tb: traceNode(200),
+					},
+				})
+			) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+			const html = rowsHtml(t, {
+				expandedModules: new Set([UNATTRIBUTED_MODULE]),
+				query: "",
+				selectedId: null,
+				win: { from: 0, to: 1000 },
+			});
+			expect(html).toContain("left:0.000%;width:19.074%");
+			expect(html).toContain("left:23.574%;width:38.120%");
+		});
+
+		it("draws the zero guide as a band the width of its column", () => {
+			const t = buildBootTimeline(
+				graph({
+					phases: { createMs: 200, initMs: 600, moduleInitMs: 200 },
+					startupMs: 1000,
+					timingsAvailable: true,
+					timingsTrace: {
+						ta: traceNode(600, ["tb"]),
+						tb: traceNode(200),
+					},
+				})
+			) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+			const html = rowsHtml(t, {
+				expandedModules: new Set([UNATTRIBUTED_MODULE]),
+				query: "",
+				selectedId: null,
+				win: { from: 0, to: 1000 },
+			});
+			expect(html).toContain(
+				'class="boot-guide boot-guide-zero" style="left:19.074%;width:4.500%'
+			);
+		});
+
+		it("marks the widened stretch on the axis and warps the ticks", () => {
+			const t = buildBootTimeline(
+				graph({
+					phases: { createMs: 130.06, initMs: 358.25, moduleInitMs: 256.51 },
+					startupMs: 358.82,
+					timingsAvailable: true,
+					timingsTrace: { ta: traceNode(358.25) },
+				})
+			) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+			const html = axisHtml({ from: 0, to: 358.82 }, t.scale);
+			expect(html).toContain(
+				'<span class="boot-axis-warp" style="left:95.500%;width:4.500%"></span>'
+			);
+			expect(html).toContain("left:13.33%");
+			expect(html).toContain("left:79.97%");
+			const linear = buildBootTimeline(
+				graph({
+					phases: { createMs: 100, initMs: 300, moduleInitMs: 250 },
+					startupMs: 400,
+					timingsAvailable: true,
+					timingsTrace: { ta: traceNode(50) },
+				})
+			) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+			expect(axisHtml({ from: 0, to: 400 }, linear.scale)).not.toContain(
+				"boot-axis-warp"
+			);
+		});
 	});
 
 	it("renders the windowed axis with edge labels", () => {
