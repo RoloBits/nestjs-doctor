@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReportArtifact } from "../../src/common/artifact.js";
 import {
 	BootTab,
@@ -125,6 +125,44 @@ describe("BootTab", () => {
 				.querySelector<HTMLElement>(".boot-main")
 				?.style.getPropertyValue("--boot-sbw")
 		).toBe("0px");
+	});
+
+	it("re-measures the scrollbar when the rows resize", () => {
+		const observed: Element[] = [];
+		let onResize: (() => void) | undefined;
+		class FakeResizeObserver {
+			constructor(cb: () => void) {
+				onResize = cb;
+			}
+			observe(el: Element) {
+				observed.push(el);
+			}
+			disconnect() {
+				// noop
+			}
+			unobserve() {
+				// noop
+			}
+		}
+		vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+		mount(TIMED_ARTIFACT);
+		const scroll = container.querySelector(".boot-scroll") as HTMLElement;
+		expect(observed).toContain(scroll);
+		Object.defineProperty(scroll, "offsetWidth", {
+			configurable: true,
+			value: 300,
+		});
+		Object.defineProperty(scroll, "clientWidth", {
+			configurable: true,
+			value: 285,
+		});
+		act(() => onResize?.());
+		expect(
+			container
+				.querySelector<HTMLElement>(".boot-main")
+				?.style.getPropertyValue("--boot-sbw")
+		).toBe("15px");
+		vi.unstubAllGlobals();
 	});
 
 	it("selects a row when it is clicked", () => {

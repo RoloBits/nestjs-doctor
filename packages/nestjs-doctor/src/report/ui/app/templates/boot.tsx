@@ -180,14 +180,6 @@ export function BootView({
 			selectedModule: compact ? focusModule : null,
 			win,
 		});
-		const scroll = scrollRef.current;
-		if (scroll && mainRef.current) {
-			// The lanes pad their right edge by the rows' scrollbar width.
-			mainRef.current.style.setProperty(
-				"--boot-sbw",
-				`${scroll.offsetWidth - scroll.clientWidth}px`
-			);
-		}
 		const pending = pendingScrollRef.current;
 		if (pending) {
 			pendingScrollRef.current = null;
@@ -209,6 +201,28 @@ export function BootView({
 		timeline,
 		win,
 	]);
+
+	// The lanes pad their right edge by the rows' scrollbar width.
+	useLayoutEffect(() => {
+		const scroll = scrollRef.current;
+		const main = mainRef.current;
+		if (!(scroll && main)) {
+			return;
+		}
+		const measure = () => {
+			main.style.setProperty(
+				"--boot-sbw",
+				`${scroll.offsetWidth - scroll.clientWidth}px`
+			);
+		};
+		measure();
+		if (typeof ResizeObserver === "undefined") {
+			return;
+		}
+		const ro = new ResizeObserver(measure);
+		ro.observe(scroll);
+		return () => ro.disconnect();
+	}, []);
 
 	// Clicks: group headers collapse, carets cascade, rows select.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the handler reads the latest selection and timeline through stable useLatest refs
