@@ -1135,7 +1135,11 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 
 	return (
 		<>
-			<div id="mg-sidebar" ref={sidebarRef}>
+			<div
+				className={selected ? "mg-detail-open" : undefined}
+				id="mg-sidebar"
+				ref={sidebarRef}
+			>
 				<div className="schema-sidebar-sticky">
 					<SidebarHeader
 						count={projectNames.length}
