@@ -102,8 +102,8 @@ export function serializeModuleGraph(
 		0
 	);
 	const primary = traces?.[primaryIdx]?.timings;
-	// A project with its own entry point but no dump attaches nothing;
-	// projects without one fall back to the primary trace.
+	// Once any dump is attributed, a project with its own entry point but
+	// no dump attaches nothing; otherwise every node uses the primary trace.
 	const timingsFor = (node: {
 		project?: string;
 	}): { scoped: boolean; timings: BootstrapTimings } | undefined => {

@@ -430,6 +430,7 @@ export interface LoadedBootTrace {
 }
 
 const EXT_RE = /\.[^.]*$/;
+const SEP_RE = /[\\/]/;
 
 /** Loads a comma list of dumps; `label=path` names one explicitly. */
 export function loadBootstrapTraces(
@@ -444,8 +445,10 @@ export function loadBootstrapTraces(
 			continue;
 		}
 		const eq = item.indexOf("=");
-		const label = eq > 0 ? item.slice(0, eq).trim() : undefined;
-		const path = eq > 0 ? item.slice(eq + 1).trim() : item;
+		// A prefix with a path separator is part of the path, not a label.
+		const labelled = eq > 0 && !SEP_RE.test(item.slice(0, eq));
+		const label = labelled ? item.slice(0, eq).trim() : undefined;
+		const path = labelled ? item.slice(eq + 1).trim() : item;
 		const loaded = loadBootstrapTimings(targetPath, path);
 		warnings.push(...loaded.warnings);
 		if (loaded.timings) {

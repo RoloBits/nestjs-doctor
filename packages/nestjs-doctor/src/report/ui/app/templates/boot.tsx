@@ -488,7 +488,7 @@ export function BootView({
 		<div className={viewClasses} ref={viewRef}>
 			{!compact && <BootResizer viewRef={viewRef} />}
 			<div className="boot-main" ref={mainRef}>
-				{!compact && views.length > 1 && (
+				{!compact && traceIndex === undefined && views.length > 1 && (
 					<div className="boot-trace-picker">
 						{views.map((v, i) => {
 							const cls = i === activeIdx ? "active" : undefined;

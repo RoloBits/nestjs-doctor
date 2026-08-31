@@ -225,3 +225,4 @@ export async function diagnoseMonorepo(
 	const { result } = await scanMonorepo(targetPath, scanConfig, monorepo);
 	return result;
 }
+export type { LoadedBootTrace } from "../report/timings.js";

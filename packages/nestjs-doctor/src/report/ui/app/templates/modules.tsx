@@ -1620,7 +1620,7 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 					<div className="boot-dock-body" data-active={dockActive}>
 						{dockTraceIdx === -1 ? (
 							<div className="boot-dock-empty">
-								No boot timings cover {selected?.project ?? "this module"}
+								No boot timings cover {selected?.project || "this module"}
 							</div>
 						) : (
 							<BootView

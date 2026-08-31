@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
@@ -873,6 +873,22 @@ describe("loadBootstrapTraces", () => {
 			["worker", "w"],
 		]);
 		expect(Object.keys(traces[1]?.timings.trace ?? {})).toContain("tc1");
+		rmSync(dir, { recursive: true, force: true });
+	});
+
+	it("keeps an equals sign inside a path when the prefix looks like a directory", () => {
+		const dir = mkdtempSync(join(tmpdir(), "nd-traces-"));
+		mkdirSync(join(dir, "out=v2"));
+		writeFileSync(
+			join(dir, "out=v2", "dump.json"),
+			dump({
+				c1: classNode("AppService", "m1", 5),
+				m1: moduleNode("AppModule"),
+			})
+		);
+		const { traces, warnings } = loadBootstrapTraces(dir, "./out=v2/dump.json");
+		expect(warnings).toEqual([]);
+		expect(traces.map((t) => [t.label, t.name])).toEqual([[undefined, "dump"]]);
 		rmSync(dir, { recursive: true, force: true });
 	});
 

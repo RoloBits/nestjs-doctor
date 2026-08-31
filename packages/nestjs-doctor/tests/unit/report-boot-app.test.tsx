@@ -678,6 +678,10 @@ describe("BootTab traces", () => {
 		});
 		expect(container.querySelector(".boot-trace-picker")).toBeNull();
 		expect(container.querySelector('.boot-rows [data-id="tb"]')).not.toBeNull();
+		act(() => {
+			root.render(<BootView graph={TWO_TRACE_ARTIFACT.graph} traceIndex={1} />);
+		});
+		expect(container.querySelector(".boot-trace-picker")).toBeNull();
 		expect(container.querySelector('.boot-rows [data-id="ta"]')).toBeNull();
 	});
 });

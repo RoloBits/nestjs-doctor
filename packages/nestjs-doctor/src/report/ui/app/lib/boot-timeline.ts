@@ -256,6 +256,9 @@ function hookBelongs(hook: string, phaseLabel: string): boolean {
 	) {
 		return hook === phaseLabel;
 	}
+	if (phaseLabel === "create + onModuleInit") {
+		return hook === "onModuleInit";
+	}
 	return phaseLabel !== "create" && phaseLabel !== "listen";
 }
 
@@ -908,8 +911,9 @@ export function traceIndexForModule(
 	views: BootTraceView[],
 	m: { name: string; project?: string }
 ): number {
+	const proj = m.project || undefined;
 	const byProject = views.findIndex(
-		(v) => v.project !== undefined && v.project === m.project
+		(v) => v.project !== undefined && v.project === proj
 	);
 	if (byProject !== -1) {
 		return byProject;
@@ -925,11 +929,7 @@ export function traceIndexForModule(
 	if (holders.length > 0) {
 		return holders[0] ?? -1;
 	}
-	if (
-		views.length === 1 &&
-		views[0]?.project === undefined &&
-		m.project === undefined
-	) {
+	if (views.length === 1 && views[0]?.project === undefined) {
 		return 0;
 	}
 	return -1;

@@ -853,6 +853,26 @@ describe("rowsHtml", () => {
 		expect(html).toMatch(GUIDE_MS_300_RE);
 	});
 
+	it("keeps a bootstrap hook inside its own phase unstriped under a merged label", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { initMs: 90, moduleInitMs: 50 },
+				startupMs: 100,
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: traceNode(
+						5,
+						[],
+						[{ hook: "onApplicationBootstrap", ms: 20, startMs: 60 }]
+					),
+				},
+			})
+		)!;
+		const html = rowsHtml(t, { ...base, win: { from: 0, to: 100 } });
+		expect(html).not.toContain("boot-hook-stray");
+		expect(t.phases[1]?.empty).toBe(false);
+	});
+
 	it("stripes a hook that ran outside the phase its kind names", () => {
 		const t = buildBootTimeline(
 			graph({
@@ -1694,7 +1714,46 @@ describe("trace views", () => {
 		expect(traceIndexForModule(views, mod("ghost/GhostModule"))).toBe(-1);
 	});
 
-	it("keeps a legacy single view for its own single project only", () => {
+	it("treats a canvas empty-string project like no project at all", () => {
+		const legacy = traceViews(
+			graph({
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: traceNode(50, [], undefined, { module: "AppModule" }),
+				},
+			})
+		);
+		expect(
+			traceIndexForModule(legacy, { name: "CoreModule", project: "" })
+		).toBe(0);
+		expect(
+			traceIndexForModule(legacy, { name: "api/AppModule", project: "api" })
+		).toBe(0);
+		const two = traceViews(
+			graph({
+				timingsAvailable: true,
+				traces: [
+					{
+						label: "api",
+						project: "api",
+						startupMs: 300,
+						trace: { ta: traceNode(5) },
+					},
+					{
+						label: "worker",
+						project: "worker",
+						startupMs: 120,
+						trace: { tb: traceNode(3) },
+					},
+				],
+			})
+		);
+		expect(traceIndexForModule(two, { name: "GhostModule", project: "" })).toBe(
+			-1
+		);
+	});
+
+	it("serves every module from a lone unattributed view", () => {
 		const g = graph({
 			timingsAvailable: true,
 			timingsTrace: {
@@ -1703,6 +1762,6 @@ describe("trace views", () => {
 		});
 		const views = traceViews(g);
 		expect(traceIndexForModule(views, mod("AppModule"))).toBe(0);
-		expect(traceIndexForModule(views, mod("worker/JobsModule"))).toBe(-1);
+		expect(traceIndexForModule(views, mod("worker/JobsModule"))).toBe(0);
 	});
 });
