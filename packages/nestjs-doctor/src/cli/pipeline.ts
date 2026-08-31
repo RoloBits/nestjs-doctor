@@ -571,8 +571,8 @@ export class MonorepoPipeline extends ScanPipeline {
 		if (this.options.skipOutput) {
 			return this;
 		}
-		const step: PipelineStep = () => {
-			return outputMonorepoResults(
+		const step: PipelineStep = () =>
+			outputMonorepoResults(
 				this.result,
 				this.resolvedMinimumScore,
 				this.targetPath,
@@ -580,7 +580,6 @@ export class MonorepoPipeline extends ScanPipeline {
 				this.scopeWarnings,
 				() => this.reportArtifact
 			);
-		};
 		this.steps.push(step);
 		this.outputStep = step;
 		return this;
@@ -740,8 +739,8 @@ export class SingleProjectPipeline extends ScanPipeline {
 		if (this.options.skipOutput) {
 			return this;
 		}
-		const step: PipelineStep = () => {
-			return outputSingleProjectResults(
+		const step: PipelineStep = () =>
+			outputSingleProjectResults(
 				this.result,
 				this.resolvedMinimumScore,
 				this.targetPath,
@@ -749,7 +748,6 @@ export class SingleProjectPipeline extends ScanPipeline {
 				this.scopeWarnings,
 				() => this.reportArtifact
 			);
-		};
 		this.steps.push(step);
 		this.outputStep = step;
 		return this;

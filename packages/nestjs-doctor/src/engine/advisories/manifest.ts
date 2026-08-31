@@ -9,7 +9,7 @@ const BACKSLASH_RE = /\\/g;
  */
 export const MAX_WALK = 24;
 
-export type DependencyBlock = "dependencies" | "devDependencies";
+type DependencyBlock = "dependencies" | "devDependencies";
 
 export interface Declaration {
 	block: DependencyBlock;

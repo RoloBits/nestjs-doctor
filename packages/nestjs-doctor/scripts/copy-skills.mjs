@@ -39,9 +39,11 @@ if (dirs.length === 0) {
 	throw new Error("skills/ has no skill directories");
 }
 
-for (const dir of dirs) {
-	validate(dir, await readFile(join(SOURCE, dir, "SKILL.md"), "utf-8"));
-}
+await Promise.all(
+	dirs.map(async (dir) =>
+		validate(dir, await readFile(join(SOURCE, dir, "SKILL.md"), "utf-8"))
+	)
+);
 
 await rm(TARGET, { force: true, recursive: true });
 await cp(SOURCE, TARGET, { recursive: true });

@@ -89,7 +89,7 @@ function readStored(file: string): StoredConfig | undefined {
 		const parsed = JSON.parse(readFileSync(file, "utf-8")) as StoredConfig;
 		return parsed.anonymousId && parsed.salt ? parsed : undefined;
 	} catch {
-		return;
+		// A missing or corrupt store means no stored id.
 	}
 }
 

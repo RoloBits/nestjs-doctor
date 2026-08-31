@@ -2,25 +2,6 @@
   "name": "nestjs-doctor-lsp",
   "version": "4.1.1",
   "description": "Language Server Protocol server for nestjs-doctor diagnostics",
-  "type": "module",
-  "main": "dist/server.cjs",
-  "bin": {
-    "nestjs-doctor-lsp": "dist/server.cjs"
-  },
-  "files": [
-    "dist"
-  ],
-  "engines": {
-    "node": ">=20.19.0"
-  },
-  "scripts": {
-    "build": "tsdown",
-    "dev": "tsdown --watch",
-    "smoke:bundle": "node scripts/smoke-bundle.mjs",
-    "test": "vitest run",
-    "prepack": "pnpm run build",
-    "typecheck": "tsc --noEmit"
-  },
   "keywords": [
     "nestjs",
     "nest",
@@ -29,23 +10,42 @@
     "diagnostics",
     "static-analysis"
   ],
-  "author": "RoloBits",
-  "license": "MIT",
+  "homepage": "https://www.nestjs.doctor/docs/language-server",
   "repository": {
     "type": "git",
     "url": "https://github.com/RoloBits/nestjs-doctor.git",
     "directory": "packages/nestjs-doctor-lsp"
   },
-  "homepage": "https://www.nestjs.doctor/docs/language-server",
+  "license": "MIT",
+  "author": "RoloBits",
+  "type": "module",
+  "main": "dist/server.cjs",
+  "bin": {
+    "nestjs-doctor-lsp": "dist/server.cjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "prepack": "pnpm run build",
+    "smoke:bundle": "node scripts/smoke-bundle.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
   "dependencies": {
     "vscode-languageserver": "^9.0.0",
     "vscode-languageserver-textdocument": "^1.0.0"
   },
-  "peerDependencies": {
-    "nestjs-doctor": "workspace:>=0.9.1"
-  },
   "devDependencies": {
     "tsdown": "^0.22.14",
     "vitest": "^4.1.11"
+  },
+  "peerDependencies": {
+    "nestjs-doctor": "workspace:>=0.9.1"
+  },
+  "engines": {
+    "node": ">=20.19.0"
   }
 }

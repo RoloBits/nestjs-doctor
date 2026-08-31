@@ -1057,10 +1057,10 @@ export function findCircularDeps(graph: ModuleGraph): string[][] {
 				dfs(neighbor, [...path, neighbor]);
 			} else if (recursionStack.has(neighbor)) {
 				const cycleStart = path.indexOf(neighbor);
-				if (cycleStart !== -1) {
-					cycles.push(path.slice(cycleStart));
-				} else {
+				if (cycleStart === -1) {
 					cycles.push([...path, neighbor]);
+				} else {
+					cycles.push(path.slice(cycleStart));
 				}
 			}
 		}

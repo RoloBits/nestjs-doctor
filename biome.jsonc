@@ -13,16 +13,36 @@
       "unsafeParameterDecoratorsEnabled": true
     }
   },
+  "assist": {
+    "actions": {
+      "source": {
+        // Re-sorting object literals changes fixtures whose order is the
+        // subject and any object whose iteration order is behavior.
+        "useSortedKeys": "off"
+      }
+    }
+  },
   "linter": {
     "rules": {
       "complexity": {
         "noExcessiveCognitiveComplexity": "off"
       },
+      // New in Ultracite 6: several hundred pre-existing sites each. Off until
+      // the codebase is migrated rule by rule; do not add new violations.
+      "performance": {
+        "noAwaitInLoops": "off",
+        "noJsxPropsBind": "off"
+      },
       "style": {
-        "noNonNullAssertion": "off"
+        "noIncrementDecrement": "off",
+        "noNonNullAssertion": "off",
+        "useConsistentMethodSignatures": "off",
+        "useDestructuring": "off"
       },
       "suspicious": {
-        "noControlCharactersInRegex": "off"
+        "noControlCharactersInRegex": "off",
+        "noShadow": "off",
+        "noUnnecessaryConditions": "off"
       }
     }
   },
@@ -31,6 +51,8 @@
       "!!**/tests/fixtures",
       // Generated demo artifact served by the report viewer; stays minified.
       "!!**/public/demo-report.json",
+      // Exported marketing artwork, not UI.
+      "!!**/public/nestjs-doctor-og-banner.svg",
       "!!**/.changeset",
       // Hand-formatted stylesheet split into cascade-ordered sheets.
       // Formatting rewrites it; noDescendingSpecificity fixes reorder rules.

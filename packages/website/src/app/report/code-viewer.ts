@@ -75,7 +75,7 @@ function makeHighlightPlugin(targetLines: number[]) {
 				this.decorations = Decoration.set(builder, true);
 			}
 			update() {
-				return;
+				// Decorations are rebuilt in the constructor path only.
 			}
 		},
 		{ decorations: (v) => v.decorations }

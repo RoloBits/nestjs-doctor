@@ -1,6 +1,6 @@
 import type { Category, DiagnosticSurface, Severity } from "./diagnostic.js";
 
-export interface RuleOverride {
+interface RuleOverride {
 	enabled?: boolean;
 	excludeClasses?: string[];
 	options?: Record<string, unknown>;
@@ -9,12 +9,12 @@ export interface RuleOverride {
 	surfaces?: DiagnosticSurface[];
 }
 
-export interface NestjsDoctorIgnoreConfig {
+interface NestjsDoctorIgnoreConfig {
 	files?: string[];
 	rules?: string[];
 }
 
-export interface NestjsDoctorReportConfig {
+interface NestjsDoctorReportConfig {
 	telemetry?: boolean;
 }
 

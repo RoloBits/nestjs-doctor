@@ -163,12 +163,10 @@ const ShareContent = () => {
 	);
 };
 
-const SharePage = () => {
-	return (
-		<Suspense>
-			<ShareContent />
-		</Suspense>
-	);
-};
+const SharePage = () => (
+	<Suspense>
+		<ShareContent />
+	</Suspense>
+);
 
 export default SharePage;

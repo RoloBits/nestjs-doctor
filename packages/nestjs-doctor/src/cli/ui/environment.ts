@@ -30,9 +30,7 @@ const AGENT_ENV_VARS = [
 /** True in CI or inside a coding agent, where a prompt would hang the run. */
 export const isNonInteractiveEnvironment = (
 	env: NodeJS.ProcessEnv = process.env
-): boolean => {
-	return [...CI_ENV_VARS, ...AGENT_ENV_VARS].some((name) => env[name]);
-};
+): boolean => [...CI_ENV_VARS, ...AGENT_ENV_VARS].some((name) => env[name]);
 
 interface PromptGate {
 	format: string;

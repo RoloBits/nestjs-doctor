@@ -2,43 +2,6 @@
   "name": "nestjs-doctor",
   "version": "0.9.3",
   "description": "Static analysis tool for NestJS that produces a health score with actionable diagnostics and an interactive report",
-  "type": "module",
-  "bin": {
-    "nestjs-doctor": "./dist/cli/index.mjs"
-  },
-  "exports": {
-    ".": {
-      "types": "./dist/api/index.d.mts",
-      "default": "./dist/api/index.mjs"
-    },
-    "./api": {
-      "types": "./dist/api/index.d.mts",
-      "default": "./dist/api/index.mjs"
-    },
-    "./report-ui": {
-      "types": "./dist/report-ui/index.d.ts",
-      "default": "./dist/report-ui/index.js"
-    }
-  },
-  "files": [
-    "dist"
-  ],
-  "engines": {
-    "node": ">=20.19.0"
-  },
-  "scripts": {
-    "build": "tsdown",
-    "dev": "tsdown --watch",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
-    "postbuild": "node scripts/copy-skills.mjs",
-    "smoke:packed": "node scripts/smoke-packed-install.mjs",
-    "advisories:check": "node scripts/check-advisories.mjs",
-    "build:browser": "tsdown --config tsdown.browser.config.ts",
-    "prebuild": "pnpm run build:browser",
-    "pretest": "pnpm run build:browser"
-  },
   "keywords": [
     "nestjs",
     "nest",
@@ -56,24 +19,50 @@
     "devtools",
     "best-practices"
   ],
-  "author": "RoloBits",
-  "license": "MIT",
+  "homepage": "https://www.nestjs.doctor",
+  "bugs": {
+    "url": "https://github.com/RoloBits/nestjs-doctor/issues"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/RoloBits/nestjs-doctor.git",
     "directory": "packages/nestjs-doctor"
   },
-  "homepage": "https://www.nestjs.doctor",
-  "bugs": {
-    "url": "https://github.com/RoloBits/nestjs-doctor/issues"
+  "license": "MIT",
+  "author": "RoloBits",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/api/index.d.mts",
+      "default": "./dist/api/index.mjs"
+    },
+    "./api": {
+      "types": "./dist/api/index.d.mts",
+      "default": "./dist/api/index.mjs"
+    },
+    "./report-ui": {
+      "types": "./dist/report-ui/index.d.ts",
+      "default": "./dist/report-ui/index.js"
+    }
   },
-  "devDependencies": {
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "jsdom": "^30.0.1",
-    "react-dom": "19.2.3",
-    "tsdown": "^0.22.14",
-    "vitest": "^4.1.11"
+  "bin": {
+    "nestjs-doctor": "./dist/cli/index.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "advisories:check": "node scripts/check-advisories.mjs",
+    "prebuild": "pnpm run build:browser",
+    "build": "tsdown",
+    "postbuild": "node scripts/copy-skills.mjs",
+    "build:browser": "tsdown --config tsdown.browser.config.ts",
+    "dev": "tsdown --watch",
+    "smoke:packed": "node scripts/smoke-packed-install.mjs",
+    "pretest": "pnpm run build:browser",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "citty": "^0.2.2",
@@ -85,5 +74,16 @@
     "tinyglobby": "^0.2.17",
     "ts-morph": "^28.0.0",
     "yocto-spinner": "^1.2.2"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "jsdom": "^30.0.1",
+    "react-dom": "19.2.3",
+    "tsdown": "^0.22.14",
+    "vitest": "^4.1.11"
+  },
+  "engines": {
+    "node": ">=20.19.0"
   }
 }

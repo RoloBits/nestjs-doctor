@@ -27,7 +27,7 @@ import type {
 import { hasDecorator } from "../nest-class-inspector.js";
 import type { OrmSchemaExtractor } from "./extract.js";
 
-const FORWARD_REF_REGEX = /=>\s*(\w+)/;
+const FORWARD_REF_REGEX = /[=]>\s*(\w+)/;
 
 const COLUMN_DECORATORS = new Set([
 	"Column",

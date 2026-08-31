@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import type { Severity } from "../../../../common/diagnostic.js";
 import { Icon } from "../atoms/icon.js";
 
-export interface AnnotatedFile {
+interface AnnotatedFile {
 	count: number;
 	dataSevs?: string;
 	hidden: boolean;
