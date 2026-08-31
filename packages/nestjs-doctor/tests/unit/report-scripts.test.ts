@@ -46,8 +46,9 @@ describe("report scripts", () => {
 		expect(scripts).toContain("deduped");
 	});
 
-	it("colors trace bars and badges by class type", () => {
-		expect(scripts).toContain("boot-hook-chip");
+	it("colors trace bars and dots by class type", () => {
+		expect(scripts).toContain("boot-bar");
+		expect(scripts).toContain("boot-dot");
 	});
 
 	it("marks a dep slower than its parent as shared with a striped bar", () => {
@@ -75,9 +76,9 @@ describe("report scripts", () => {
 		expect(scripts).toContain("lifecycle hooks");
 	});
 
-	it("shows per-class hook durations as chips or positioned spans", () => {
+	it("positions every hook as its own span, never a chip", () => {
 		expect(scripts).toContain("lifecycle hooks");
-		expect(scripts).toContain("boot-hook-chip");
 		expect(scripts).toContain("boot-hook-span");
+		expect(scripts).not.toContain("boot-hook-chip");
 	});
 });

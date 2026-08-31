@@ -376,7 +376,7 @@ describe("parseBootstrapTimings", () => {
 		expect(warnings.join(" ")).toContain("2 hook timings name classes");
 	});
 
-	it("merges per-instance hook entries and joins module-class hooks", () => {
+	it("keeps per-instance hook entries separate and joins module-class hooks", () => {
 		const base = JSON.parse(
 			dump({
 				m1: moduleNode("CatsModule"),
@@ -395,7 +395,8 @@ describe("parseBootstrapTimings", () => {
 			JSON.stringify(base)
 		);
 		expect(hooksByClass.get("TransientProv")).toEqual([
-			{ hook: "onModuleInit", ms: 39, count: 2 },
+			{ hook: "onModuleInit", ms: 20 },
+			{ hook: "onModuleInit", ms: 19 },
 		]);
 		// The module node does not make its class-node label ambiguous.
 		expect(hooksByClass.get("CatsModule")).toEqual([
@@ -404,7 +405,7 @@ describe("parseBootstrapTimings", () => {
 		expect(warnings.join(" ")).not.toContain("malformed");
 	});
 
-	it("drops startMs when merging per-instance hook entries", () => {
+	it("keeps each instance's own startMs", () => {
 		const base = JSON.parse(
 			dump({
 				m1: moduleNode("CatsModule"),
@@ -428,7 +429,8 @@ describe("parseBootstrapTimings", () => {
 
 		const { trace } = parseBootstrapTimings(JSON.stringify(base));
 		expect(trace.tc1.hooks).toEqual([
-			{ hook: "onModuleInit", ms: 39, count: 2 },
+			{ hook: "onModuleInit", ms: 20, startMs: 305 },
+			{ hook: "onModuleInit", ms: 19, startMs: 320 },
 		]);
 	});
 

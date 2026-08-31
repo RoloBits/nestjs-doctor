@@ -430,7 +430,6 @@ function classLabelHtml(
 		`<span class="boot-dot" style="background:rgb(${spanColor(span.type)})"></span>` +
 		`<span class="boot-name">${escapeHtml(span.name)}</span>` +
 		mark +
-		hookChipsHtml(span) +
 		"</span>"
 	);
 }
@@ -446,22 +445,6 @@ function guidesHtml(t: BootTimeline, win: BootWindow): string {
 		html += `<span class="boot-guide" style="left:${left.toFixed(3)}%;border-color:rgba(${p.rgb},0.6)"></span>`;
 	}
 	return html ? `<span class="boot-guides">${html}</span>` : "";
-}
-
-function hookChipsHtml(span: BootSpan): string {
-	const chips = (span.hooks ?? []).filter((h) => typeof h.startMs !== "number");
-	if (chips.length === 0) {
-		return "";
-	}
-	let html = "";
-	for (const h of chips) {
-		const meta = hookMeta(h.hook);
-		const times = h.count && h.count > 1 ? ` ×${h.count}` : "";
-		html +=
-			`<span class="boot-hook-chip" style="color:rgb(${meta.rgb});background:rgba(${meta.rgb},0.12)">+` +
-			`${escapeHtml(formatMs(h.ms))} ${escapeHtml(meta.label)}${escapeHtml(times)}</span>`;
-	}
-	return html;
 }
 
 // A cascade row is a deduped shadow of the class's own row in its group.

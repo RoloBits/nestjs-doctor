@@ -241,24 +241,16 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 				continue;
 			}
 			const list = hooksByClass.get(className) ?? [];
-			// Transient providers report once per instance; merged into one total
-			// with no offset.
-			const existing = list.find((h) => h.hook === hook);
-			if (existing) {
-				existing.ms += ms;
-				existing.count = (existing.count ?? 1) + 1;
-				existing.startMs = undefined;
-			} else {
-				list.push({
-					hook,
-					ms,
-					...(typeof startMs === "number" &&
-					Number.isFinite(startMs) &&
-					startMs >= 0
-						? { startMs }
-						: {}),
-				});
-			}
+			// One entry per run; a transient provider gets one per instance.
+			list.push({
+				hook,
+				ms,
+				...(typeof startMs === "number" &&
+				Number.isFinite(startMs) &&
+				startMs >= 0
+					? { startMs }
+					: {}),
+			});
 			hooksByClass.set(className, list);
 		}
 		if (malformed > 0) {

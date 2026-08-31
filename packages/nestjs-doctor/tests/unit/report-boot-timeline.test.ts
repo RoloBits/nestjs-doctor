@@ -796,9 +796,29 @@ describe("rowsHtml", () => {
 		expect(html).toContain("boot-collapsed");
 	});
 
-	it("renders hook durations without offsets as chips, with offsets as spans", () => {
+	it("never renders a chip, and gives every offset hook its own span", () => {
 		const html = rowsHtml(ROW_TIMELINE, base);
-		expect(html).toContain("boot-hook-chip");
+		expect(html).not.toContain("boot-hook-chip");
+		const twoRuns = buildBootTimeline(
+			graph({
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: {
+						deps: [],
+						hooks: [
+							{ hook: "onModuleInit", ms: 5, startMs: 120 },
+							{ hook: "onModuleInit", ms: 6, startMs: 200 },
+						],
+						initTime: 100,
+						name: "A",
+						type: "provider",
+					},
+				},
+			})
+		)!;
+		const twoHtml = rowsHtml(twoRuns, base);
+		expect(twoHtml).toContain('<span class="boot-hook-span" data-hook="0"');
+		expect(twoHtml).toContain('<span class="boot-hook-span" data-hook="1"');
 		const withStart = buildBootTimeline(
 			graph({
 				timingsAvailable: true,

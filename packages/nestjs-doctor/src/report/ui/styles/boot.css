@@ -141,14 +141,12 @@
   padding: 0 5px; font-size: 10px; line-height: 16px; color: var(--white);
   font-variant-numeric: tabular-nums;
 }
-.boot-hook-chip { font-size: 9px; padding: 0 4px; border-radius: 3px; flex-shrink: 0; line-height: 14px; }
 /* Shadow rows: deduped copies of a class listed above, as solid black boxes. */
 .boot-reused { opacity: 0.7; }
 .boot-reused .boot-bar, .boot-reused .boot-hook-span {
   background: #000 !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3); color: var(--text-muted);
 }
 .boot-reused .boot-dot { background: transparent !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35); }
-.boot-reused .boot-hook-chip { color: var(--text-dim) !important; background: transparent !important; box-shadow: inset 0 0 0 1px var(--border); }
 .boot-reused-tag {
   font-size: 10px; color: var(--text-dim); line-height: 14px;
   border: 1px solid var(--border); border-radius: 3px; padding: 0 4px;
