@@ -960,18 +960,18 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 	}, [dockOpen, dockActive]);
 	const resizerRef = useResizer(sidebarRef, controllerRef);
 
-	const unusedProviders = useRef<Record<string, boolean> | null>(null);
-	if (unusedProviders.current === null) {
-		unusedProviders.current = {};
+	const unusedProviders = useMemo(() => {
+		const map: Record<string, boolean> = {};
 		for (const d of report.diagnostics) {
 			if (d.rule === "performance/no-unused-providers") {
 				const um = (d.message || "").match(PROVIDER_NAME_RE);
 				if (um) {
-					unusedProviders.current[um[1] as string] = true;
+					map[um[1] as string] = true;
 				}
 			}
 		}
-	}
+		return map;
+	}, [report]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the controller mounts once for the page's lifetime
 	useLayoutEffect(() => {
@@ -1375,7 +1375,7 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 								<ProvidersSection
 									n={selected}
 									report={report}
-									unusedProviders={unusedProviders.current}
+									unusedProviders={unusedProviders}
 								/>
 								{selected.imports.length > 0 && (
 									<>

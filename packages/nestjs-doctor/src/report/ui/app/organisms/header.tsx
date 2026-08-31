@@ -36,7 +36,7 @@ function ShareDialog({
 		})
 		.filter((row) => row.count !== 0);
 	const [picked, setPicked] = useState<ReadonlySet<string>>(
-		new Set(visibleSections.map((row) => row.section.id))
+		() => new Set(visibleSections.map((row) => row.section.id))
 	);
 	const [includeCode, setIncludeCode] = useState(false);
 
