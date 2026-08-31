@@ -1642,7 +1642,7 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 					</div>
 				</div>
 				<div
-					className={infoOpen ? "visible" : undefined}
+					className={infoOpen ? "modal-panel visible" : "modal-panel"}
 					id="mg-info-pop"
 					ref={infoPopRef}
 				>
