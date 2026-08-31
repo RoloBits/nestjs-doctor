@@ -533,8 +533,8 @@ describe("BootTab", () => {
 				?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 		});
 		const win = container.querySelector<HTMLElement>(".boot-minimap-window");
-		expect(win?.style.left).toBe("15.034%");
-		expect(win?.style.width).toBe("12.5%");
+		expect(win?.style.left).toBe("14.139%");
+		expect(win?.style.width).toBe("16%");
 	});
 
 	it("names a third-party module group instead of the unattributed bucket", () => {

@@ -657,7 +657,7 @@ export function axisHtml(win: BootWindow, s?: TimeScale): string {
 // Narrowest a phase segment draws, as a share of the lane; an empty one
 // gets more room so its weave shows.
 const PHASE_MIN_PCT = 0.6;
-const EMPTY_PHASE_MIN_PCT = 4.5;
+const EMPTY_PHASE_MIN_PCT = 8;
 
 /** Monotone piecewise map from true ms to display ms; identity when linear. */
 export interface TimeScale {

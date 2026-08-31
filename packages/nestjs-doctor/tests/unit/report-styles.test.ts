@@ -22,10 +22,11 @@ describe("report styles", () => {
 		expect(css).toContain(".boot-axis-warp {");
 	});
 
-	it("dashes a widened phase and keeps its number from shrinking", () => {
+	it("dashes a widened phase and stacks the name over the time", () => {
 		expect(css).toContain(".boot-phase-inflated {");
+		expect(css).toContain("flex-direction: column");
 		expect(css).toContain(
-			".boot-phase-ms { color: rgba(255,255,255,0.55); flex-shrink: 0; }"
+			".boot-phase-ms { color: rgba(255,255,255,0.55); overflow: hidden; text-overflow: ellipsis; }"
 		);
 	});
 

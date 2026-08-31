@@ -1084,8 +1084,8 @@ describe("lanes and axis", () => {
 		expect(tags[1]?.style).not.toContain("background:rgba");
 		expect(tags[2]?.classes).toBe(" boot-phase-empty boot-phase-inflated");
 		const width = Number(PHASE_WIDTH_RE.exec(tags[2]?.style ?? "")?.[1]);
-		expect(width).toBeGreaterThanOrEqual(4.5);
-		expect(html).toContain("left:95.500%;width:4.500%");
+		expect(width).toBeGreaterThanOrEqual(8);
+		expect(html).toContain("left:92.000%;width:8.000%");
 	});
 
 	it("says how much of a phase its bars cover, only when they fall short", () => {
@@ -1212,10 +1212,10 @@ describe("lanes and axis", () => {
 		});
 
 		it("emits the exact tiles the donation pass produces", () => {
-			expect(html).toContain("left:0.000%;width:19.034%");
-			expect(html).toContain("left:19.034%;width:4.500%");
-			expect(html).toContain("left:23.534%;width:38.233%");
-			expect(html).toContain("left:61.767%;width:38.233%");
+			expect(html).toContain("left:0.000%;width:18.139%");
+			expect(html).toContain("left:18.139%;width:8.000%");
+			expect(html).toContain("left:26.139%;width:36.930%");
+			expect(html).toContain("left:63.070%;width:36.930%");
 		});
 
 		it("reads 0ms, never <1ms, on a marker coincidence", () => {
@@ -1324,15 +1324,15 @@ describe("lanes and axis", () => {
 			) as NonNullable<ReturnType<typeof buildBootTimeline>>;
 			expect(t.scale.linear).toBe(false);
 			expect(t.scale.inflated).toEqual([false, false, false, true]);
-			const expected = [0, 124.396, 245.343, 342.673, 358.82];
+			const expected = [0, 119.833, 236.339, 330.114, 358.82];
 			for (let i = 0; i < expected.length; i++) {
 				expect(t.scale.us[i]).toBeCloseTo(expected[i] as number, 2);
 			}
 			const html = phaseLaneHtml(t);
-			expect(html).toContain("left:0.000%;width:34.668%");
-			expect(html).toContain("left:34.668%;width:33.707%");
-			expect(html).toContain("left:68.375%;width:27.125%");
-			expect(html).toContain("left:95.500%;width:4.500%");
+			expect(html).toContain("left:0.000%;width:33.396%");
+			expect(html).toContain("left:33.396%;width:32.470%");
+			expect(html).toContain("left:65.866%;width:26.134%");
+			expect(html).toContain("left:92.000%;width:8.000%");
 		});
 
 		it("holds tOf constant across a zero band and inverts elsewhere", () => {
@@ -1349,7 +1349,7 @@ describe("lanes and axis", () => {
 			) as NonNullable<ReturnType<typeof buildBootTimeline>>;
 			expect(tOf(t.scale, 200)).toBe(200);
 			expect(tOf(t.scale, 235)).toBe(200);
-			expect(tOf(t.scale, 190)).toBeCloseTo(199.22, 2);
+			expect(tOf(t.scale, 150)).toBeCloseTo(164.017, 2);
 		});
 
 		it("keeps a bar that starts on a coincidence out of the 0ms band", () => {
@@ -1370,8 +1370,8 @@ describe("lanes and axis", () => {
 				selectedId: null,
 				win: { from: 0, to: 1000 },
 			});
-			expect(html).toContain("left:0.000%;width:19.074%");
-			expect(html).toContain("left:23.574%;width:38.120%");
+			expect(html).toContain("left:0.000%;width:18.291%");
+			expect(html).toContain("left:26.291%;width:36.529%");
 		});
 
 		it("draws the zero guide as a band the width of its column", () => {
@@ -1393,7 +1393,7 @@ describe("lanes and axis", () => {
 				win: { from: 0, to: 1000 },
 			});
 			expect(html).toContain(
-				'class="boot-guide boot-guide-zero" style="left:19.074%;width:4.500%'
+				'class="boot-guide boot-guide-zero" style="left:18.291%;width:8.000%'
 			);
 		});
 
@@ -1408,10 +1408,10 @@ describe("lanes and axis", () => {
 			) as NonNullable<ReturnType<typeof buildBootTimeline>>;
 			const html = axisHtml({ from: 0, to: 358.82 }, t.scale);
 			expect(html).toContain(
-				'<span class="boot-axis-warp" style="left:95.500%;width:4.500%"></span>'
+				'<span class="boot-axis-warp" style="left:92.000%;width:8.000%"></span>'
 			);
-			expect(html).toContain("left:13.33%");
-			expect(html).toContain("left:79.97%");
+			expect(html).toContain("left:12.84%");
+			expect(html).toContain("left:77.04%");
 			const linear = buildBootTimeline(
 				graph({
 					phases: { createMs: 100, initMs: 300, moduleInitMs: 250 },
