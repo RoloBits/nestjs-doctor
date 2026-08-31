@@ -50,8 +50,8 @@ export const launchAgent = (
 	agent: LaunchableAgent,
 	prompt: string,
 	cwd: string
-): Promise<void> => {
-	return new Promise((resolvePromise) => {
+): Promise<void> =>
+	new Promise((resolvePromise) => {
 		const child = spawn(agent.binary, [prompt], {
 			cwd,
 			stdio: "inherit",
@@ -62,4 +62,3 @@ export const launchAgent = (
 		});
 		child.on("close", () => resolvePromise());
 	});
-};

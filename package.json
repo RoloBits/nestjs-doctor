@@ -1,27 +1,27 @@
 {
   "name": "nestjs-doctor-monorepo",
   "private": true,
-  "packageManager": "pnpm@10.2.0",
   "scripts": {
-    "dev": "pnpm --filter nestjs-doctor run dev",
     "build": "pnpm --filter nestjs-doctor --filter nestjs-doctor-lsp --filter nestjs-doctor-vscode run build",
-    "test": "pnpm --filter nestjs-doctor --filter nestjs-doctor-lsp run test",
-    "check": "ultracite check",
-    "fix": "ultracite fix",
-    "typecheck": "pnpm --filter nestjs-doctor --filter nestjs-doctor-lsp --filter nestjs-doctor-vscode run typecheck",
     "build:website": "pnpm --filter website run build",
     "changeset": "changeset",
-    "version": "changeset version && pnpm install --no-frozen-lockfile && node scripts/sync-skill-version.mjs",
-    "release": "pnpm build && changeset publish",
+    "check": "ultracite check",
+    "dev": "pnpm --filter nestjs-doctor run dev",
+    "fix": "ultracite fix",
     "knip": "knip",
-    "prepare": "husky"
+    "prepare": "husky",
+    "release": "pnpm build && changeset publish",
+    "test": "pnpm --filter nestjs-doctor --filter nestjs-doctor-lsp run test",
+    "typecheck": "pnpm --filter nestjs-doctor --filter nestjs-doctor-lsp --filter nestjs-doctor-vscode run typecheck",
+    "version": "changeset version && pnpm install --no-frozen-lockfile && node scripts/sync-skill-version.mjs"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.6",
-    "@changesets/cli": "^2.27.0",
+    "@biomejs/biome": "2.5.11",
+    "@changesets/cli": "^3.0.1",
     "husky": "9.1.7",
-    "knip": "5.86.0",
+    "knip": "6.33.0",
     "typescript": "^5.7.0",
-    "ultracite": "7.2.5"
-  }
+    "ultracite": "7.10.7"
+  },
+  "packageManager": "pnpm@10.2.0"
 }

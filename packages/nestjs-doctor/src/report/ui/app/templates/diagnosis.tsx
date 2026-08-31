@@ -258,7 +258,7 @@ function FileCode({
 						>
 							{gapBefore > 0 && (
 								<div className="code-separator-row">
-									⋯ {gapBefore} line{gapBefore !== 1 ? "s" : ""} hidden
+									⋯ {gapBefore} line{gapBefore === 1 ? "" : "s"} hidden
 								</div>
 							)}
 							<div>
@@ -561,9 +561,9 @@ export function DiagnosisTab({
 
 	const anyNotScored = diagnostics.some(isNotScored);
 	const filterCount =
-		(sev !== "all" ? 1 : 0) +
-		(scope !== "all" ? 1 : 0) +
-		(cat !== "all" ? 1 : 0);
+		(sev === "all" ? 0 : 1) +
+		(scope === "all" ? 0 : 1) +
+		(cat === "all" ? 0 : 1);
 	const shownFiles = Object.keys(fileMap).filter(
 		(fp) =>
 			visibleEntries(fp).length > 0 &&
@@ -588,13 +588,13 @@ export function DiagnosisTab({
 
 	const active = activeVisible && activePath !== null ? activePath : null;
 	const sorted =
-		active !== null
-			? visibleEntries(active).sort(
+		active === null
+			? []
+			: visibleEntries(active).sort(
 					(a, b) =>
 						(isCodeDiagnostic(a.d) ? a.d.line : 0) -
 						(isCodeDiagnostic(b.d) ? b.d.line : 0)
-				)
-			: [];
+				);
 	const expand = (active !== null && fileExpand[active]) || {
 		above: 0,
 		below: 0,

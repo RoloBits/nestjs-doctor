@@ -54,9 +54,10 @@ async function readConfigFile(path: string): Promise<NestjsDoctorConfig> {
 	let parsed: NestjsDoctorConfig;
 	try {
 		parsed = JSON.parse(raw) as NestjsDoctorConfig;
-	} catch {
+	} catch (error) {
 		throw new Error(
-			`${path} is not valid JSON. A trailing comma or a comment makes the whole file unreadable.`
+			`${path} is not valid JSON. A trailing comma or a comment makes the whole file unreadable.`,
+			{ cause: error }
 		);
 	}
 	return mergeConfig(parsed);

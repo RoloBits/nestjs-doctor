@@ -32,7 +32,7 @@ export function FileHeader({
 							className="fv-count-dot"
 							style={{ background: SEV_VAR.error }}
 						/>
-						{counts.error} error{counts.error !== 1 ? "s" : ""}
+						{counts.error} error{counts.error === 1 ? "" : "s"}
 					</span>
 				)}
 				{counts.warning > 0 && (
@@ -41,7 +41,7 @@ export function FileHeader({
 							className="fv-count-dot"
 							style={{ background: SEV_VAR.warning }}
 						/>
-						{counts.warning} warning{counts.warning !== 1 ? "s" : ""}
+						{counts.warning} warning{counts.warning === 1 ? "" : "s"}
 					</span>
 				)}
 				{counts.info > 0 && (

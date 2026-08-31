@@ -103,20 +103,23 @@ describe("rule examples", () => {
 	// Both halves in one test, and the good sample is checked in the very
 	// context the bad one fired in: a good sample the rule never inspects
 	// would otherwise pass for the wrong reason.
-	it.each(
-		testable
-	)("%s: bad fires, good does not, in the same file", async (rule) => {
-		const filename = await fireContext(examples[rule].bad, rule);
-		expect(filename, "the bad sample never fires this rule").not.toBeNull();
-		expect(await scan(examples[rule].good, filename as string)).not.toContain(
-			rule
-		);
-	}, 60_000);
+	it.each(testable)(
+		"%s: bad fires, good does not, in the same file",
+		async (rule) => {
+			const filename = await fireContext(examples[rule].bad, rule);
+			expect(filename, "the bad sample never fires this rule").not.toBeNull();
+			expect(await scan(examples[rule].good, filename as string)).not.toContain(
+				rule
+			);
+		},
+		60_000
+	);
 
-	it.each([
-		...NEEDS_WIDER_FIXTURE.keys(),
-	])("%s: has a sample, and is documented as needing a wider fixture", (rule) => {
-		expect(examples[rule]?.bad ?? "").not.toBe("");
-		expect(NEEDS_WIDER_FIXTURE.get(rule)).toBeTruthy();
-	});
+	it.each([...NEEDS_WIDER_FIXTURE.keys()])(
+		"%s: has a sample, and is documented as needing a wider fixture",
+		(rule) => {
+			expect(examples[rule]?.bad ?? "").not.toBe("");
+			expect(NEEDS_WIDER_FIXTURE.get(rule)).toBeTruthy();
+		}
+	);
 });

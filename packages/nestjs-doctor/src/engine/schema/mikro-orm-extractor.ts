@@ -29,7 +29,7 @@ import type {
 import { hasDecorator } from "../nest-class-inspector.js";
 import type { OrmSchemaExtractor } from "./extract.js";
 
-const FORWARD_REF_REGEX = /=>\s*(\w+)/;
+const FORWARD_REF_REGEX = /[=]>\s*(\w+)/;
 // Intentionally unanchored — ts-morph may surface the type as a bare
 // `Collection<Book>` (when annotated) or a namespace-prefixed
 // `import("@mikro-orm/core").Collection<Book>` (when only the initializer is

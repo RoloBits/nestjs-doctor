@@ -1,29 +1,11 @@
 {
   "name": "nestjs-doctor-vscode",
   "displayName": "NestJS Doctor",
-  "description": "Static analysis for NestJS — inline diagnostics and health score",
   "version": "0.1.4",
   "private": true,
-  "publisher": "rolobits",
-  "engines": {
-    "vscode": "^1.85.0"
-  },
-  "icon": "icon.png",
-  "galleryBanner": {
-    "color": "#18181b",
-    "theme": "dark"
-  },
-  "badges": [
-    {
-      "url": "https://img.shields.io/npm/v/nestjs-doctor?color=%2318181b",
-      "href": "https://www.npmjs.com/package/nestjs-doctor",
-      "description": "npm version"
-    },
-    {
-      "url": "https://img.shields.io/visual-studio-marketplace/i/rolobits.nestjs-doctor-vscode?color=%2318181b",
-      "href": "https://marketplace.visualstudio.com/items?itemName=rolobits.nestjs-doctor-vscode",
-      "description": "Marketplace installs"
-    }
+  "description": "Static analysis for NestJS — inline diagnostics and health score",
+  "categories": [
+    "Linters"
   ],
   "keywords": [
     "nestjs",
@@ -32,15 +14,27 @@
     "circular-dependency",
     "code-quality"
   ],
-  "categories": [
-    "Linters"
-  ],
-  "activationEvents": [
-    "workspaceContains:**/node_modules/@nestjs/core",
-    "onLanguage:typescript"
-  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RoloBits/nestjs-doctor.git",
+    "directory": "packages/nestjs-doctor-vscode"
+  },
+  "license": "MIT",
+  "publisher": "rolobits",
   "main": "./dist/extension.cjs",
+  "scripts": {
+    "build": "tsdown && cp ../nestjs-doctor-lsp/dist/server.cjs dist/server.cjs && cp ../nestjs-doctor-lsp/dist/scan-worker.cjs dist/scan-worker.cjs",
+    "dev": "pnpm --filter nestjs-doctor-lsp build && tsdown --watch",
+    "typecheck": "tsc --noEmit",
+    "verify:package": "node scripts/verify-package.mjs"
+  },
   "contributes": {
+    "commands": [
+      {
+        "command": "nestjs-doctor.scan",
+        "title": "NestJS Doctor: Scan Project"
+      }
+    ],
     "configuration": {
       "title": "NestJS Doctor",
       "properties": {
@@ -65,32 +59,38 @@
           "description": "Debounce delay (ms) before re-scanning after a file save. Lower values give faster feedback."
         }
       }
-    },
-    "commands": [
-      {
-        "command": "nestjs-doctor.scan",
-        "title": "NestJS Doctor: Scan Project"
-      }
-    ]
+    }
   },
-  "scripts": {
-    "build": "tsdown && cp ../nestjs-doctor-lsp/dist/server.cjs dist/server.cjs && cp ../nestjs-doctor-lsp/dist/scan-worker.cjs dist/scan-worker.cjs",
-    "dev": "pnpm --filter nestjs-doctor-lsp build && tsdown --watch",
-    "verify:package": "node scripts/verify-package.mjs",
-    "typecheck": "tsc --noEmit"
-  },
+  "activationEvents": [
+    "workspaceContains:**/node_modules/@nestjs/core",
+    "onLanguage:typescript"
+  ],
   "dependencies": {
     "vscode-languageclient": "^9.0.0"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/RoloBits/nestjs-doctor.git",
-    "directory": "packages/nestjs-doctor-vscode"
-  },
-  "license": "MIT",
   "devDependencies": {
-    "@types/vscode": "^1.85.0",
+    "@types/vscode": "^1.134.0",
     "nestjs-doctor-lsp": "workspace:*",
     "tsdown": "^0.20.3"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "icon": "icon.png",
+  "badges": [
+    {
+      "description": "npm version",
+      "url": "https://img.shields.io/npm/v/nestjs-doctor?color=%2318181b",
+      "href": "https://www.npmjs.com/package/nestjs-doctor"
+    },
+    {
+      "description": "Marketplace installs",
+      "url": "https://img.shields.io/visual-studio-marketplace/i/rolobits.nestjs-doctor-vscode?color=%2318181b",
+      "href": "https://marketplace.visualstudio.com/items?itemName=rolobits.nestjs-doctor-vscode"
+    }
+  ],
+  "galleryBanner": {
+    "color": "#18181b",
+    "theme": "dark"
   }
 }

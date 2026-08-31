@@ -85,10 +85,9 @@ function resolveSourceText(
 			const raw = readFileSync(filePath, "utf8");
 			return raw.includes(SUPPRESSION_MARKER) ? blankPrismaStrings(raw) : raw;
 		} catch {
-			return;
+			// An unreadable source file reports without a snippet.
 		}
 	}
-	return;
 }
 
 export interface RawDiagnosticOutput {

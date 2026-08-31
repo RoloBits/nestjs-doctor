@@ -58,7 +58,7 @@ export interface SerializedModuleNode {
 }
 
 /** One boot trace: a dump's classes and phases, attributed to a project when known. */
-export interface SerializedBootTrace {
+interface SerializedBootTrace {
 	label: string;
 	phases?: BootPhases;
 	project?: string;

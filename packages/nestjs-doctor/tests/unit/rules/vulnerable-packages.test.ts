@@ -112,16 +112,12 @@ describe("parseRange", () => {
 		expect(parseRange(spec)).toEqual({ from, below });
 	});
 
-	it.each([
-		"11.x",
-		"*",
-		"latest",
-		"workspace:*",
-		"10 || 11",
-		"npm:fork@1.2.3",
-	])("gives up on %s rather than guessing", (spec) => {
-		expect(parseRange(spec)).toBeNull();
-	});
+	it.each(["11.x", "*", "latest", "workspace:*", "10 || 11", "npm:fork@1.2.3"])(
+		"gives up on %s rather than guessing",
+		(spec) => {
+			expect(parseRange(spec)).toBeNull();
+		}
+	);
 });
 
 describe("rangeIsWhollyBelow", () => {

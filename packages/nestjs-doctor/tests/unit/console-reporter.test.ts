@@ -278,9 +278,10 @@ describe("console-reporter", () => {
 			];
 
 			const severityOrder = { error: 0, warning: 1, info: 2 };
-			const sorted = [...groups].sort(([, a], [, b]) => {
-				return severityOrder[a[0].severity] - severityOrder[b[0].severity];
-			});
+			const sorted = [...groups].sort(
+				([, a], [, b]) =>
+					severityOrder[a[0].severity] - severityOrder[b[0].severity]
+			);
 
 			expect(sorted[0][0]).toBe("error-rule");
 			expect(sorted[1][0]).toBe("warning-rule");

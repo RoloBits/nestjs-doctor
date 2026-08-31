@@ -640,9 +640,9 @@ export function LabTab({ report }: { report: ReportArtifact }) {
 				<div className="playground-section-label">
 					RESULTS{" "}
 					<span id="pg-result-count">
-						{results !== null
-							? `(${results.length} finding${results.length !== 1 ? "s" : ""})`
-							: ""}
+						{results === null
+							? ""
+							: `(${results.length} finding${results.length === 1 ? "" : "s"})`}
 					</span>
 				</div>
 				<div
@@ -726,7 +726,7 @@ export function LabTab({ report }: { report: ReportArtifact }) {
 										>
 											{gapBefore > 0 && (
 												<div className="code-separator-row">
-													⋯ {gapBefore} line{gapBefore !== 1 ? "s" : ""} hidden
+													⋯ {gapBefore} line{gapBefore === 1 ? "" : "s"} hidden
 												</div>
 											)}
 											<div>

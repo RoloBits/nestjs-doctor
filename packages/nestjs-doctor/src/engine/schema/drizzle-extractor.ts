@@ -32,7 +32,7 @@ import type { OrmSchemaExtractor } from "./extract.js";
 
 const TABLE_FACTORIES = new Set(["pgTable", "mysqlTable", "sqliteTable"]);
 const AUTO_GEN_TYPES = new Set(["serial", "bigserial", "smallserial"]);
-const FORWARD_REF_REGEX = /=>\s*(\w+)/;
+const FORWARD_REF_REGEX = /[=]>\s*(\w+)/;
 
 interface ColumnInfo {
 	defaultValue?: string;

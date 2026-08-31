@@ -2,7 +2,7 @@ import type { ReportArtifact } from "../../../common/artifact.js";
 import type { Diagnostic } from "../../../common/diagnostic.js";
 import type { DiagnoseResult } from "../../../common/result.js";
 
-export interface SubProjectView {
+interface SubProjectView {
 	diagnostics: Diagnostic[];
 	errors: number;
 	fileCount: number;

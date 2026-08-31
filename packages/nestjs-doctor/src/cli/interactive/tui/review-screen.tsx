@@ -236,7 +236,6 @@ export const ReviewScreen = ({
 					width={panelInner + 2}
 				>
 					{shownPanel.map((line, index) => (
-						// biome-ignore lint/suspicious/noArrayIndexKey: panel lines are positional, they have no other identity
 						<Text key={index}>
 							{line.spans.map((part, partIndex) => (
 								<Text
@@ -244,7 +243,6 @@ export const ReviewScreen = ({
 									bold={part.bold}
 									color={part.color}
 									dimColor={part.dim}
-									// biome-ignore lint/suspicious/noArrayIndexKey: spans render once, in order
 									key={partIndex}
 								>
 									{part.text}

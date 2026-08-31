@@ -16,24 +16,19 @@ describe("isNonInteractiveEnvironment", () => {
 		expect(isNonInteractiveEnvironment({})).toBe(false);
 	});
 
-	it.each([
-		"CI",
-		"GITHUB_ACTIONS",
-		"GITLAB_CI",
-		"JENKINS_URL",
-		"BUILDKITE",
-	])("detects the %s CI marker", (name) => {
-		expect(isNonInteractiveEnvironment({ [name]: "1" })).toBe(true);
-	});
+	it.each(["CI", "GITHUB_ACTIONS", "GITLAB_CI", "JENKINS_URL", "BUILDKITE"])(
+		"detects the %s CI marker",
+		(name) => {
+			expect(isNonInteractiveEnvironment({ [name]: "1" })).toBe(true);
+		}
+	);
 
-	it.each([
-		"CLAUDECODE",
-		"CURSOR_AGENT",
-		"CODEX_SANDBOX",
-		"AMP_THREAD_ID",
-	])("detects the %s coding-agent marker", (name) => {
-		expect(isNonInteractiveEnvironment({ [name]: "1" })).toBe(true);
-	});
+	it.each(["CLAUDECODE", "CURSOR_AGENT", "CODEX_SANDBOX", "AMP_THREAD_ID"])(
+		"detects the %s coding-agent marker",
+		(name) => {
+			expect(isNonInteractiveEnvironment({ [name]: "1" })).toBe(true);
+		}
+	);
 });
 
 describe("canPrompt", () => {

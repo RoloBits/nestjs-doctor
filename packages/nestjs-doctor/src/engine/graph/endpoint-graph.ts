@@ -859,7 +859,7 @@ function extractMethodParameters(
 		}));
 }
 
-const CONDENSED_ARROW_BODY_REGEX = /=>\s*\{[^}]*\}/g;
+const CONDENSED_ARROW_BODY_REGEX = /[=]>\s*\{[^}]*\}/g;
 const CONDENSED_CALLBACK_REGEX = /\(([^)]{20,})\)\s*=>/g;
 const CONDENSED_WHITESPACE_REGEX = /\s+/g;
 
