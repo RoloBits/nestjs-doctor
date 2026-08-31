@@ -209,19 +209,34 @@ export function BootView({
 		if (!(scroll && main)) {
 			return;
 		}
-		const measure = () => {
+		const measure = (force = false) => {
+			// A box hidden by an ancestor measures 0x0; keep the last real value.
+			if (scroll.offsetWidth === 0 && !force) {
+				return;
+			}
 			main.style.setProperty(
 				"--boot-sbw",
 				`${scroll.offsetWidth - scroll.clientWidth}px`
 			);
 		};
-		measure();
-		if (typeof ResizeObserver === "undefined") {
-			return;
+		measure(true);
+		const watchers: { disconnect(): void }[] = [];
+		if (typeof ResizeObserver !== "undefined") {
+			const ro = new ResizeObserver(() => measure());
+			ro.observe(scroll);
+			watchers.push(ro);
 		}
-		const ro = new ResizeObserver(measure);
-		ro.observe(scroll);
-		return () => ro.disconnect();
+		// Fires when a dock that mounted this hidden is opened.
+		if (typeof IntersectionObserver !== "undefined") {
+			const io = new IntersectionObserver(() => measure());
+			io.observe(scroll);
+			watchers.push(io);
+		}
+		return () => {
+			for (const w of watchers) {
+				w.disconnect();
+			}
+		};
 	}, []);
 
 	// Clicks: group headers collapse, carets cascade, rows select.

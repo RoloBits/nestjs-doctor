@@ -165,6 +165,44 @@ describe("BootTab", () => {
 		vi.unstubAllGlobals();
 	});
 
+	it("re-measures when the hidden view is revealed", () => {
+		const observed: Element[] = [];
+		let onShow: (() => void) | undefined;
+		class FakeIntersectionObserver {
+			constructor(cb: () => void) {
+				onShow = cb;
+			}
+			observe(el: Element) {
+				observed.push(el);
+			}
+			disconnect() {
+				// noop
+			}
+			unobserve() {
+				// noop
+			}
+		}
+		vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver);
+		mount(TIMED_ARTIFACT);
+		const scroll = container.querySelector(".boot-scroll") as HTMLElement;
+		expect(observed).toContain(scroll);
+		Object.defineProperty(scroll, "offsetWidth", {
+			configurable: true,
+			value: 300,
+		});
+		Object.defineProperty(scroll, "clientWidth", {
+			configurable: true,
+			value: 285,
+		});
+		act(() => onShow?.());
+		expect(
+			container
+				.querySelector<HTMLElement>(".boot-main")
+				?.style.getPropertyValue("--boot-sbw")
+		).toBe("15px");
+		vi.unstubAllGlobals();
+	});
+
 	it("selects a row when it is clicked", () => {
 		mount(TIMED_ARTIFACT);
 		const row = container.querySelector<HTMLElement>(
