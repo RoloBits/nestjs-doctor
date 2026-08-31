@@ -71,7 +71,7 @@
   "devDependencies": {
     "@types/vscode": "^1.134.0",
     "nestjs-doctor-lsp": "workspace:*",
-    "tsdown": "^0.22.14"
+    "tsdown": "^0.20.3"
   },
   "engines": {
     "vscode": "^1.85.0"
