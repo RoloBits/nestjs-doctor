@@ -1070,7 +1070,8 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 		}
 		const onDocClick = (ev: Event) => {
 			const pop = infoPopRef.current;
-			if (pop && !pop.contains(ev.target as Node)) {
+			const target = ev.target as Element;
+			if (pop && !(pop.contains(target) || target.closest("#mg-info"))) {
 				setInfoOpen(false);
 			}
 		};
