@@ -49,13 +49,10 @@ interface PhasedGraph {
 	startupMs?: number;
 }
 
-// Splits the captured boot into labelled segments. Without createMs the
-// earlier boundaries are unknown, so segments would mislabel.
+// Splits the captured boot into labelled segments. Missing markers fold
+// into merged neighbours; startupMs alone yields one whole-boot segment.
 export function phaseParts(graph: PhasedGraph): PhasePart[] {
-	const p = graph.phases;
-	if (!p || typeof p.createMs !== "number") {
-		return [];
-	}
+	const p = graph.phases ?? {};
 	const parts: PhasePart[] = [];
 	let prev = 0;
 	const push = (
@@ -73,20 +70,21 @@ export function phaseParts(graph: PhasedGraph): PhasePart[] {
 		parts.push({ gloss, label, ms: end - prev, rgb, tip });
 		prev = end;
 	};
-	push(
-		"create",
-		"building modules",
-		p.createMs,
-		PALETTE.blue,
-		"create — NestFactory constructs every module, provider, and controller."
-	);
-	if (typeof p.moduleInitMs === "number") {
+	if (typeof p.createMs === "number") {
 		push(
-			"onModuleInit",
-			"init hooks",
+			"create",
+			"building modules",
+			p.createMs,
+			PALETTE.blue,
+			"create — NestFactory constructs every module, provider, and controller."
+		);
+	} else if (typeof p.moduleInitMs === "number") {
+		push(
+			"create + onModuleInit",
+			"build + init hooks",
 			p.moduleInitMs,
 			PALETTE.green,
-			"onModuleInit — after construction, Nest calls each class's onModuleInit() hook"
+			"create + onModuleInit — construction and init hooks together; the trace carried no create marker to split them"
 		);
 		push(
 			"onApplicationBootstrap",
@@ -95,14 +93,51 @@ export function phaseParts(graph: PhasedGraph): PhasePart[] {
 			PALETTE.violet,
 			"onApplicationBootstrap — hooks that run once the whole app is wired, right before it listens"
 		);
-	} else {
+	} else if (typeof p.initMs === "number") {
 		push(
-			"lifecycle hooks",
-			"lifecycle hooks",
+			"create + hooks",
+			"build + hooks",
 			p.initMs,
 			PALETTE.green,
-			"lifecycle hooks — onModuleInit and onApplicationBootstrap"
+			"create + hooks — construction and lifecycle hooks together; the trace carried no create marker to split them"
 		);
+	} else if (typeof graph.startupMs === "number") {
+		push(
+			"boot",
+			"whole boot",
+			graph.startupMs,
+			PALETTE.grey,
+			"boot — the whole startup; the trace carried no phase markers"
+		);
+		return parts;
+	} else {
+		return parts;
+	}
+	if (typeof p.createMs === "number") {
+		if (typeof p.moduleInitMs === "number") {
+			push(
+				"onModuleInit",
+				"init hooks",
+				p.moduleInitMs,
+				PALETTE.green,
+				"onModuleInit — after construction, Nest calls each class's onModuleInit() hook"
+			);
+			push(
+				"onApplicationBootstrap",
+				"bootstrap hooks",
+				p.initMs,
+				PALETTE.violet,
+				"onApplicationBootstrap — hooks that run once the whole app is wired, right before it listens"
+			);
+		} else {
+			push(
+				"lifecycle hooks",
+				"lifecycle hooks",
+				p.initMs,
+				PALETTE.green,
+				"lifecycle hooks — onModuleInit and onApplicationBootstrap"
+			);
+		}
 	}
 	if (typeof graph.startupMs === "number") {
 		let tail = {

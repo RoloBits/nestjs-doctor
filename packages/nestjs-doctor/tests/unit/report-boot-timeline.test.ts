@@ -376,6 +376,38 @@ describe("buildBootTimeline", () => {
 		]);
 	});
 
+	it("tiles the phases over the whole boot for every marker subset", () => {
+		const subsets = [
+			{},
+			{ createMs: 100 },
+			{ moduleInitMs: 250 },
+			{ initMs: 300 },
+			{ createMs: 100, moduleInitMs: 250 },
+			{ createMs: 100, initMs: 300 },
+			{ initMs: 300, moduleInitMs: 250 },
+			{ createMs: 100, initMs: 300, moduleInitMs: 250 },
+		];
+		for (const phases of subsets) {
+			const label = JSON.stringify(phases);
+			const t = buildBootTimeline(
+				graph({
+					phases,
+					startupMs: 400,
+					timingsAvailable: true,
+					timingsTrace: { ta: traceNode(50) },
+				})
+			);
+			expect(t, label).not.toBeNull();
+			const ph = t?.phases ?? [];
+			expect(ph.length, label).toBeGreaterThanOrEqual(1);
+			expect(ph[0]?.start, label).toBe(0);
+			for (let i = 1; i < ph.length; i++) {
+				expect(ph[i]?.start, label).toBe(ph[i - 1]?.end);
+			}
+			expect(ph.at(-1)?.end, label).toBe(t?.maxMs);
+		}
+	});
+
 	it("marks a phase empty when no class or hook span falls inside it", () => {
 		const t = buildBootTimeline(
 			graph({
