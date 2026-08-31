@@ -108,3 +108,10 @@ export interface ReportArtifact {
 	sources: Record<string, string>;
 	summary: DiagnoseSummary;
 }
+
+/** Strips the monorepo project prefix from a module name. */
+export function bareModuleName(m: { name: string; project?: string }): string {
+	return m.project && m.name.startsWith(`${m.project}/`)
+		? m.name.slice(m.project.length + 1)
+		: m.name;
+}

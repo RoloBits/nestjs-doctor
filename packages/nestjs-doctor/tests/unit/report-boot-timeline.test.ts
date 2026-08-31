@@ -1753,6 +1753,54 @@ describe("trace views", () => {
 		);
 	});
 
+	it("labels every project's modules from its own trace", () => {
+		const g = graph({
+			modules: [
+				mod("api/AppModule", [
+					{ id: "ta", initTime: 50, name: "ApiService", type: "provider" },
+				]),
+				mod("worker/JobsModule", [
+					{ id: "tb", initTime: 20, name: "JobsService", type: "provider" },
+				]),
+			],
+			startupMs: 300,
+			timingsAvailable: true,
+			timingsTrace: {
+				ta: traceNode(50, [], undefined, {
+					module: "AppModule",
+					name: "ApiService",
+				}),
+			},
+			traces: [
+				{
+					label: "api",
+					project: "api",
+					startupMs: 300,
+					trace: {
+						ta: traceNode(50, [], undefined, {
+							module: "AppModule",
+							name: "ApiService",
+						}),
+					},
+				},
+				{
+					label: "worker",
+					project: "worker",
+					startupMs: 120,
+					trace: {
+						tb: traceNode(20, [], undefined, {
+							module: "JobsModule",
+							name: "JobsService",
+						}),
+					},
+				},
+			],
+		});
+		const timings = moduleTimings(g);
+		expect(timings.get("api/AppModule")?.buildMs).toBeGreaterThan(0);
+		expect(timings.get("worker/JobsModule")?.buildMs).toBeGreaterThan(0);
+	});
+
 	it("serves every module from a lone unattributed view", () => {
 		const g = graph({
 			timingsAvailable: true,

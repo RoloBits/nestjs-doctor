@@ -1,6 +1,7 @@
-import type {
-	SerializedModuleGraph,
-	SerializedModuleNode,
+import {
+	bareModuleName,
+	type SerializedModuleGraph,
+	type SerializedModuleNode,
 } from "../../common/artifact.js";
 import type { DiagnoseResult } from "../../common/result.js";
 import {
@@ -13,13 +14,7 @@ import type {
 	HookTiming,
 	LoadedBootTrace,
 } from "../timings.js";
-
-/** Strips the monorepo project prefix, matching getDisplayName in the report UI. */
-function bareModuleName(node: { name: string; project?: string }): string {
-	return node.project && node.name.startsWith(`${node.project}/`)
-		? node.name.slice(node.project.length + 1)
-		: node.name;
-}
+import { attributeTraces } from "./trace-attribution.js";
 
 export function serializeModuleGraph(
 	graph: ModuleGraph,
@@ -28,10 +23,6 @@ export function serializeModuleGraph(
 	bootstrapRoots?: string[],
 	traces?: LoadedBootTrace[]
 ): SerializedModuleGraph {
-	const rootSet = new Set(bootstrapRoots ?? []);
-	const projectsByBare = new Map<string, Set<string | undefined>>();
-	const rootProjectsByBare = new Map<string, Set<string | undefined>>();
-	const rootedProjects = new Set<string>();
 	// A timing entry only knows the bare name; a project-scoped trace needs
 	// it unique inside the project, a shared one unique across the graph.
 	const bareNameCounts = new Map<string, number>();
@@ -41,55 +32,14 @@ export function serializeModuleGraph(
 		const key = `${node.project ?? ""}\u0000${bare}`;
 		bareNameCounts.set(key, (bareNameCounts.get(key) ?? 0) + 1);
 		globalNameCounts.set(bare, (globalNameCounts.get(bare) ?? 0) + 1);
-		const owners = projectsByBare.get(bare) ?? new Set();
-		owners.add(node.project);
-		projectsByBare.set(bare, owners);
-		if (rootSet.has(node.name)) {
-			const rootOwners = rootProjectsByBare.get(bare) ?? new Set();
-			rootOwners.add(node.project);
-			rootProjectsByBare.set(bare, rootOwners);
-			if (node.project) {
-				rootedProjects.add(node.project);
-			}
-		}
 	}
 
-	const only = (set: Set<string | undefined> | undefined) =>
-		set && set.size === 1 ? [...set][0] : undefined;
-
-	// A dump names no project; its label, its root module, or the modules
-	// only one project owns decide where it belongs.
-	const attributeProject = (t: LoadedBootTrace): string | undefined => {
-		if (!projects?.length) {
-			return undefined;
-		}
-		if (t.label && projects.includes(t.label)) {
-			return t.label;
-		}
-		if (t.timings.rootModule) {
-			const owner = only(rootProjectsByBare.get(t.timings.rootModule));
-			if (owner) {
-				return owner;
-			}
-		}
-		const votes = new Map<string, number>();
-		for (const bare of t.timings.byModule.keys()) {
-			const owner = only(projectsByBare.get(bare));
-			if (owner) {
-				votes.set(owner, (votes.get(owner) ?? 0) + 1);
-			}
-		}
-		const ranked = [...votes.entries()].sort((a, b) => b[1] - a[1]);
-		if (
-			ranked.length > 0 &&
-			(ranked.length === 1 || (ranked[0]?.[1] ?? 0) > (ranked[1]?.[1] ?? 0))
-		) {
-			return ranked[0]?.[0];
-		}
-		return undefined;
-	};
-
-	const attributed = (traces ?? []).map(attributeProject);
+	const { projects: attributed, rootedProjects } = attributeTraces(
+		traces ?? [],
+		graph.modules.values(),
+		projects,
+		bootstrapRoots
+	);
 	const traceByProject = new Map<string, BootstrapTimings>();
 	(traces ?? []).forEach((t, i) => {
 		const p = attributed[i];

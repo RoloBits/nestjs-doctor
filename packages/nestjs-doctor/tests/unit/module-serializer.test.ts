@@ -6,6 +6,7 @@ import {
 	mergeModuleGraphs,
 } from "../../src/engine/graph/module-graph.js";
 import { serializeModuleGraph } from "../../src/report/formatters/module-serializer.js";
+import { attributeTraces } from "../../src/report/formatters/trace-attribution.js";
 
 function createProject(files: Record<string, string>) {
 	const project = new Project({ useInMemoryFileSystem: true });
@@ -411,5 +412,43 @@ describe("module-serializer traces", () => {
 		);
 		expect(serialized.traces?.[0]?.label).toBe("mystery");
 		expect(serialized.traces?.[0]?.project).toBeUndefined();
+	});
+});
+
+describe("attributeTraces", () => {
+	const mods = [
+		{ name: "api/AppModule", project: "api" },
+		{ name: "worker/WorkerModule", project: "worker" },
+	];
+
+	it("prefers the explicit label over inference", () => {
+		const { projects } = attributeTraces(
+			[
+				{
+					label: "worker",
+					name: "d",
+					timings: timingsOf("AppModule", "A", 1, "AppModule"),
+				},
+			],
+			mods,
+			["api", "worker"],
+			["api/AppModule"]
+		);
+		expect(projects).toEqual(["worker"]);
+	});
+
+	it("leaves a tied vote unattributed", () => {
+		const shared = [
+			{ name: "api/SharedModule", project: "api" },
+			{ name: "worker/SharedModule", project: "worker" },
+		];
+		const { projects, rootedProjects } = attributeTraces(
+			[{ name: "d", timings: timingsOf("SharedModule", "S", 1) }],
+			shared,
+			["api", "worker"],
+			["api/SharedModule"]
+		);
+		expect(projects).toEqual([undefined]);
+		expect(rootedProjects).toEqual(new Set(["api"]));
 	});
 });

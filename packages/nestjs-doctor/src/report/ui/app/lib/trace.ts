@@ -36,9 +36,16 @@ interface PhasePart {
 	gloss: string;
 	label: string;
 	ms: number;
+	/** The lifecycle hook kinds this phase owns. */
+	owns: readonly string[];
 	rgb: string;
 	tip: string;
 }
+
+const NO_HOOKS: readonly string[] = [];
+const INIT_HOOKS: readonly string[] = ["onModuleInit"];
+const BOOTSTRAP_HOOKS: readonly string[] = ["onApplicationBootstrap"];
+const ALL_HOOKS: readonly string[] = ["onModuleInit", "onApplicationBootstrap"];
 
 interface PhasedGraph {
 	phases?: {
@@ -60,14 +67,15 @@ export function phaseParts(graph: PhasedGraph): PhasePart[] {
 		gloss: string,
 		end: number | undefined,
 		rgb: string,
-		tip: string
+		tip: string,
+		owns: readonly string[]
 	) => {
 		// Markers are validated monotonic upstream; only coincident markers
 		// reach here, and they are a real 0ms phase.
 		if (typeof end !== "number" || end < prev) {
 			return;
 		}
-		parts.push({ gloss, label, ms: end - prev, rgb, tip });
+		parts.push({ gloss, label, ms: end - prev, owns, rgb, tip });
 		prev = end;
 	};
 	if (typeof p.createMs === "number") {
@@ -76,7 +84,8 @@ export function phaseParts(graph: PhasedGraph): PhasePart[] {
 			"building modules",
 			p.createMs,
 			PALETTE.blue,
-			"create — NestFactory constructs every module, provider, and controller."
+			"create — NestFactory constructs every module, provider, and controller.",
+			NO_HOOKS
 		);
 	} else if (typeof p.moduleInitMs === "number") {
 		push(
@@ -84,14 +93,16 @@ export function phaseParts(graph: PhasedGraph): PhasePart[] {
 			"build + init hooks",
 			p.moduleInitMs,
 			PALETTE.green,
-			"create + onModuleInit — construction and init hooks together; the trace carried no create marker to split them"
+			"create + onModuleInit — construction and init hooks together; the trace carried no create marker to split them",
+			INIT_HOOKS
 		);
 		push(
 			"onApplicationBootstrap",
 			"bootstrap hooks",
 			p.initMs,
 			PALETTE.violet,
-			"onApplicationBootstrap — hooks that run once the whole app is wired, right before it listens"
+			"onApplicationBootstrap — hooks that run once the whole app is wired, right before it listens",
+			BOOTSTRAP_HOOKS
 		);
 	} else if (typeof p.initMs === "number") {
 		push(
@@ -99,7 +110,8 @@ export function phaseParts(graph: PhasedGraph): PhasePart[] {
 			"build + hooks",
 			p.initMs,
 			PALETTE.green,
-			"create + hooks — construction and lifecycle hooks together; the trace carried no create marker to split them"
+			"create + hooks — construction and lifecycle hooks together; the trace carried no create marker to split them",
+			ALL_HOOKS
 		);
 	} else if (typeof graph.startupMs === "number") {
 		push(
@@ -107,7 +119,8 @@ export function phaseParts(graph: PhasedGraph): PhasePart[] {
 			"whole boot",
 			graph.startupMs,
 			PALETTE.grey,
-			"boot — the whole startup; the trace carried no phase markers"
+			"boot — the whole startup; the trace carried no phase markers",
+			ALL_HOOKS
 		);
 		return parts;
 	} else {
@@ -120,14 +133,16 @@ export function phaseParts(graph: PhasedGraph): PhasePart[] {
 				"init hooks",
 				p.moduleInitMs,
 				PALETTE.green,
-				"onModuleInit — after construction, Nest calls each class's onModuleInit() hook"
+				"onModuleInit — after construction, Nest calls each class's onModuleInit() hook",
+				INIT_HOOKS
 			);
 			push(
 				"onApplicationBootstrap",
 				"bootstrap hooks",
 				p.initMs,
 				PALETTE.violet,
-				"onApplicationBootstrap — hooks that run once the whole app is wired, right before it listens"
+				"onApplicationBootstrap — hooks that run once the whole app is wired, right before it listens",
+				BOOTSTRAP_HOOKS
 			);
 		} else {
 			push(
@@ -135,7 +150,8 @@ export function phaseParts(graph: PhasedGraph): PhasePart[] {
 				"lifecycle hooks",
 				p.initMs,
 				PALETTE.green,
-				"lifecycle hooks — onModuleInit and onApplicationBootstrap"
+				"lifecycle hooks — onModuleInit and onApplicationBootstrap",
+				ALL_HOOKS
 			);
 		}
 	}
@@ -143,22 +159,32 @@ export function phaseParts(graph: PhasedGraph): PhasePart[] {
 		let tail = {
 			label: "hooks + listen",
 			gloss: "hooks + port",
+			owns: ALL_HOOKS,
 			tip: "hooks + listen — everything after NestFactory.create",
 		};
 		if (typeof p.initMs === "number") {
 			tail = {
 				label: "listen",
 				gloss: "opening the port",
+				owns: NO_HOOKS,
 				tip: "listen — the HTTP server binds its port; at the end of this segment the app is up",
 			};
 		} else if (typeof p.moduleInitMs === "number") {
 			tail = {
 				label: "bootstrap + listen",
 				gloss: "bootstrap + port",
+				owns: BOOTSTRAP_HOOKS,
 				tip: "bootstrap + listen — onApplicationBootstrap hooks and the server bind",
 			};
 		}
-		push(tail.label, tail.gloss, graph.startupMs, PALETTE.grey, tail.tip);
+		push(
+			tail.label,
+			tail.gloss,
+			graph.startupMs,
+			PALETTE.grey,
+			tail.tip,
+			tail.owns
+		);
 	}
 	return parts;
 }

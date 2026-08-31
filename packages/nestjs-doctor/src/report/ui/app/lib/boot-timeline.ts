@@ -1,4 +1,7 @@
-import type { SerializedModuleGraph } from "../../../../common/artifact.js";
+import {
+	bareModuleName,
+	type SerializedModuleGraph,
+} from "../../../../common/artifact.js";
 import type { HookTiming } from "../../../../common/timings.js";
 import { ICONS } from "../atoms/icons.js";
 import { escapeHtml } from "./escape.js";
@@ -65,6 +68,8 @@ interface BootPhase {
 	end: number;
 	gloss: string;
 	label: string;
+	/** The lifecycle hook kinds this phase owns. */
+	owns: readonly string[];
 	rgb: string;
 	start: number;
 	tip: string;
@@ -84,12 +89,6 @@ export interface BootWindow {
 }
 
 // Drops the "<project>/" prefix from a module name.
-function bareName(m: { name: string; project?: string }): string {
-	return m.project && m.name.startsWith(`${m.project}/`)
-		? m.name.slice(m.project.length + 1)
-		: m.name;
-}
-
 export function buildBootTimeline(
 	graph: SerializedModuleGraph
 ): BootTimeline | null {
@@ -100,7 +99,7 @@ export function buildBootTimeline(
 	const moduleOfId = new Map<string, string>();
 	const graphNames = new Set<string>();
 	for (const m of graph.modules) {
-		graphNames.add(bareName(m));
+		graphNames.add(bareModuleName(m));
 		for (const t of m.initTimings ?? []) {
 			moduleOfId.set(t.id, m.name);
 		}
@@ -211,6 +210,7 @@ export function buildBootTimeline(
 			end: prev + p.ms,
 			gloss: p.gloss,
 			label: p.label,
+			owns: p.owns,
 			rgb: p.rgb,
 			start: prev,
 			tip: p.tip,
@@ -224,7 +224,7 @@ export function buildBootTimeline(
 			if (typeof h.startMs !== "number") {
 				return h;
 			}
-			const own = phases.find((p) => hookBelongs(h.hook, p.label));
+			const own = phases.find((p) => p.owns.includes(h.hook));
 			if (!own || own.end <= own.start) {
 				return h;
 			}
@@ -248,20 +248,6 @@ export function buildBootTimeline(
 	return { byId, groups, maxMs, phases, scale: buildTimeScale(phases, maxMs) };
 }
 
-// A hook without an offset counts toward the phase named for its kind.
-function hookBelongs(hook: string, phaseLabel: string): boolean {
-	if (
-		phaseLabel === "onModuleInit" ||
-		phaseLabel === "onApplicationBootstrap"
-	) {
-		return hook === phaseLabel;
-	}
-	if (phaseLabel === "create + onModuleInit") {
-		return hook === "onModuleInit";
-	}
-	return phaseLabel !== "create" && phaseLabel !== "listen";
-}
-
 function spanTouches(s: BootSpan, ph: BootPhase): boolean {
 	const inside = (from: number, to: number) => from < ph.end && to > ph.start;
 	if (inside(s.start, s.end)) {
@@ -270,7 +256,8 @@ function spanTouches(s: BootSpan, ph: BootPhase): boolean {
 	return (s.hooks ?? []).some((h) =>
 		typeof h.startMs === "number"
 			? inside(h.startMs, h.startMs + h.ms)
-			: hookBelongs(h.hook, ph.label)
+			: // A hook without an offset counts toward the phase owning its kind.
+				ph.owns.includes(h.hook)
 	);
 }
 
@@ -305,37 +292,42 @@ export function moduleTimings(
 	graph: SerializedModuleGraph
 ): Map<string, ModuleTiming> {
 	const out = new Map<string, ModuleTiming>();
-	const t = buildBootTimeline(graph);
-	if (!t) {
-		return out;
-	}
-	for (const g of t.groups) {
-		let buildMs = 0;
-		// Overlapping runs count once; hooks without an offset add their ms.
-		const hooks = new Map<
-			string,
-			{ loose: number; runs: [number, number][] }
-		>();
-		for (const s of g.spans) {
-			buildMs = Math.max(buildMs, s.end - s.start);
-			for (const h of s.hooks ?? []) {
-				const label = hookMeta(h.hook).label;
-				const entry = hooks.get(label) ?? { loose: 0, runs: [] };
-				if (typeof h.startMs === "number") {
-					entry.runs.push([h.startMs, h.startMs + h.ms]);
-				} else {
-					entry.loose += h.ms;
-				}
-				hooks.set(label, entry);
-			}
+	for (const view of traceViews(graph)) {
+		const t = buildBootTimeline(view.graph);
+		if (!t) {
+			continue;
 		}
-		out.set(g.module, {
-			buildMs,
-			hooks: [...hooks].map(([label, e]) => ({
-				label,
-				ms: e.loose + unionMs(e.runs),
-			})),
-		});
+		for (const g of t.groups) {
+			if (out.has(g.module)) {
+				continue;
+			}
+			let buildMs = 0;
+			// Overlapping runs count once; hooks without an offset add their ms.
+			const hooks = new Map<
+				string,
+				{ loose: number; runs: [number, number][] }
+			>();
+			for (const s of g.spans) {
+				buildMs = Math.max(buildMs, s.end - s.start);
+				for (const h of s.hooks ?? []) {
+					const label = hookMeta(h.hook).label;
+					const entry = hooks.get(label) ?? { loose: 0, runs: [] };
+					if (typeof h.startMs === "number") {
+						entry.runs.push([h.startMs, h.startMs + h.ms]);
+					} else {
+						entry.loose += h.ms;
+					}
+					hooks.set(label, entry);
+				}
+			}
+			out.set(g.module, {
+				buildMs,
+				hooks: [...hooks].map(([label, e]) => ({
+					label,
+					ms: e.loose + unionMs(e.runs),
+				})),
+			});
+		}
 	}
 	return out;
 }
@@ -918,7 +910,7 @@ export function traceIndexForModule(
 	if (byProject !== -1) {
 		return byProject;
 	}
-	const bare = bareName(m);
+	const bare = bareModuleName(m);
 	const holders = views
 		.map((_, i) => i)
 		.filter((i) =>
