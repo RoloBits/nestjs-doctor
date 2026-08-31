@@ -57,6 +57,29 @@ describe("parseBootstrapTimings", () => {
 		]);
 	});
 
+	it("keeps a hooks-only dump without a phase breakdown", () => {
+		const { phases, warnings } = parseBootstrapTimings(
+			JSON.stringify({
+				edges: {},
+				entrypoints: {},
+				hookTimings: [
+					{
+						className: "CatsService",
+						hook: "onModuleInit",
+						ms: 12,
+						startMs: 40,
+					},
+				],
+				nodes: {
+					c1: classNode("CatsService", "m1", 5),
+					m1: moduleNode("CatsModule"),
+				},
+			})
+		);
+		expect(phases).toBeUndefined();
+		expect(warnings).toEqual([]);
+	});
+
 	it("extracts class-to-class edges as deps, sorted slowest first", () => {
 		const { trace } = parseBootstrapTimings(
 			dump(

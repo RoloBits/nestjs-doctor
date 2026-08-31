@@ -19,3 +19,4 @@
 ### Behavior changes
 
 - A hook the dump gives no offset no longer renders on the class row; it still counts in its module's totals. Hook entries no longer carry `count`.
+- Review-pass fixes: a row whose bar sits left of the window and its hooks right of it shows both offscreen ticks; a reclocked bar stops at the create boundary instead of claiming time in the next phase; warped axis ticks keep clear of the edge labels; a dump carrying only hook timings no longer surfaces an empty Boot tab.

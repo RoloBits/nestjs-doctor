@@ -30,7 +30,7 @@ import {
 
 const PHASE_POSITION_RE = /left:([\d.]+)%;width:([\d.]+)%/g;
 const PHASE_TAG_RE =
-	/<span class="boot-phase([^"]*)" data-from="[^"]*" data-to="[^"]*" data-tip="([^"]*)" style="([^"]*)"/g;
+	/<span class="boot-phase([^"]*)" data-tip="([^"]*)" style="([^"]*)"/g;
 const PHASE_WIDTH_RE = /width:([\d.]+)%/;
 
 function graph(
@@ -818,6 +818,42 @@ describe("rowsHtml", () => {
 		expect(html).toMatch(GUIDE_MS_300_RE);
 	});
 
+	it("marks offscreen content on both sides of the window", () => {
+		const t = buildBootTimeline(
+			graph({
+				startupMs: 600,
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: traceNode(
+						20,
+						[],
+						[{ hook: "onApplicationBootstrap", ms: 10, startMs: 500 }]
+					),
+				},
+			})
+		)!;
+		const html = rowsHtml(t, { ...base, win: { from: 100, to: 300 } });
+		const row = html.slice(html.indexOf('data-id="ta"'));
+		expect(row).toContain("boot-offscreen-l");
+		expect(row).toContain("boot-offscreen-r");
+	});
+
+	it("clamps a reclocked finish to the create boundary", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 130, initMs: 155, moduleInitMs: 150 },
+				startupMs: 160,
+				timingsAvailable: true,
+				timingsTrace: {
+					c1: traceNode(45, ["d1"]),
+					d1: traceNode(100),
+				},
+			})
+		)!;
+		expect(t.byId.get("c1")?.end).toBe(130);
+		expect(t.phases[1]?.empty).toBe(true);
+	});
+
 	it("draws a dotted guide where each phase hands over", () => {
 		const t = buildBootTimeline(
 			graph({
@@ -1052,7 +1088,7 @@ describe("lanes and axis", () => {
 		)!;
 		const html = phaseLaneHtml(t);
 		expect(html).toContain("boot-phase");
-		expect(html).toContain('data-from="0" data-to="100"');
+		expect(html).toContain('data-index="0"');
 		expect(html).toContain("building modules");
 		expect(html).toContain(
 			'data-tip="100ms · create — NestFactory constructs every module, provider, and controller. · 50ms not covered by any class bar"'
@@ -1415,6 +1451,21 @@ describe("lanes and axis", () => {
 			expect(html).toContain(
 				'class="boot-guide boot-guide-zero" style="left:18.291%;width:8.000%'
 			);
+		});
+
+		it("drops warped ticks that crowd the edge labels", () => {
+			const t = buildBootTimeline(
+				graph({
+					phases: { createMs: 300, initMs: 480, moduleInitMs: 300.5 },
+					startupMs: 500,
+					timingsAvailable: true,
+					timingsTrace: { ta: traceNode(250) },
+				})
+			) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+			const html = axisHtml({ from: 242.68, to: 310 }, t.scale);
+			expect(html).toContain(">290ms<");
+			expect(html).toContain(">300ms<");
+			expect(html).not.toContain(">310ms<");
 		});
 
 		it("labels the zero band with its instant", () => {

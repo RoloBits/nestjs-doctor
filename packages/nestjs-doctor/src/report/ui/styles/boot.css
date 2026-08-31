@@ -73,7 +73,7 @@
 }
 .boot-phase-gloss { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .boot-phase-ms { color: rgba(255,255,255,0.55); overflow: hidden; text-overflow: ellipsis; }
-/* Widened past its true share so it stays readable: dashed edges say "not to scale". */
+/* Widened past its true share; dashed edges mark it as not to scale. */
 .boot-phase-inflated {
   border-left: 1px dashed rgba(255,255,255,0.3);
   border-right: 1px dashed rgba(255,255,255,0.3);

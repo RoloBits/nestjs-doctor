@@ -34,7 +34,7 @@ export interface BootSpan {
 	/** The class's module name repeats, so it joined no single graph module. */
 	ambiguous?: boolean;
 	deps: string[];
-	/** Offset from boot start when construction finished (the dump's initTime). */
+	/** Offset from boot start when construction finished (the dump's initTime; a reclocked class gets a synthesized finish). */
 	end: number;
 	/** The class lives in a package module, one the scanned graph never saw. */
 	external?: boolean;
@@ -107,8 +107,9 @@ export function buildBootTimeline(
 	}
 	const byId = new Map<string, BootSpan>();
 	for (const [id, node] of Object.entries(trace)) {
-		// Deps are sorted slowest first; the slowest one that finished before this
-		// class sets its start, otherwise the class starts at boot.
+		// Deps are sorted slowest first; the slowest dep sets the start: a
+		// near-tie keeps its own finish, a reclocked bar follows the dep, and
+		// the rest start at boot.
 		let start = 0;
 		let end = node.initTime;
 		let waitedOn: string | undefined;
@@ -125,6 +126,11 @@ export function buildBootTimeline(
 				// from its module's later load start; the bar follows the dep.
 				start = slowest.initTime;
 				end = slowest.initTime + node.initTime;
+				const createEnd = graph.phases?.createMs;
+				if (createEnd !== undefined && createEnd > start) {
+					// A synthesized finish stays inside the create phase.
+					end = Math.min(end, createEnd);
+				}
 				waitedOn = slowestId;
 			}
 		}
@@ -214,8 +220,7 @@ export function buildBootTimeline(
 	}
 	const spans = [...byId.values()];
 	for (const ph of phases) {
-		// Coincident markers leave no room for anything to run in, whatever an
-		// offsetless hook named for the phase would otherwise claim.
+		// A zero-width phase is empty even when an offsetless hook names it.
 		ph.empty = ph.end <= ph.start || !spans.some((s) => spanTouches(s, ph));
 	}
 
@@ -442,15 +447,20 @@ function barStyle(
 
 // Every bar carries the time it took, inside it; narrow bars clip the text.
 function classBarHtml(span: BootSpan, win: BootWindow, sc: TimeScale): string {
-	const hookEnds = (span.hooks ?? [])
-		.filter((h) => typeof h.startMs === "number")
-		.map((h) => u(sc, (h.startMs as number) + h.ms, true));
-	const rowEnd = Math.max(u(sc, span.end, true), ...hookEnds);
+	const segs: [number, number][] = [[u(sc, span.start), u(sc, span.end, true)]];
+	for (const h of span.hooks ?? []) {
+		if (typeof h.startMs === "number") {
+			segs.push([u(sc, h.startMs), u(sc, h.startMs + h.ms, true)]);
+		}
+	}
 	let html = "";
-	if (pct(rowEnd, win) < 0) {
-		html += '<span class="boot-offscreen boot-offscreen-l"></span>';
-	} else if (pct(u(sc, span.start), win) > 100) {
-		html += '<span class="boot-offscreen boot-offscreen-r"></span>';
+	if (!segs.some(([a, b]) => pct(b, win) >= 0 && pct(a, win) <= 100)) {
+		if (segs.some(([, b]) => pct(b, win) < 0)) {
+			html += '<span class="boot-offscreen boot-offscreen-l"></span>';
+		}
+		if (segs.some(([a]) => pct(a, win) > 100)) {
+			html += '<span class="boot-offscreen boot-offscreen-r"></span>';
+		}
 	}
 	html +=
 		`<span class="boot-bar" style="${barStyle(u(sc, span.start), u(sc, span.end, true), win, 0.12)};background:rgb(${fillOf(spanColor(span.type))})">` +
@@ -515,13 +525,13 @@ function guidesHtml(t: BootTimeline, win: BootWindow): string {
 			if (right < 0 || left > 100) {
 				continue;
 			}
-			html += `<span class="boot-guide boot-guide-zero" style="left:${left.toFixed(3)}%;width:${(right - left).toFixed(3)}%;border-color:rgba(${p.rgb},0.6)"><span class="boot-guide-ms" style="color:rgba(${p.rgb},0.95)">${formatMs(p.start)}</span></span>`;
+			html += `<span class="boot-guide boot-guide-zero" style="left:${left.toFixed(3)}%;width:${(right - left).toFixed(3)}%;border-color:rgba(${p.rgb},0.6)"><span class="boot-guide-ms" style="color:rgba(${p.rgb},0.95)">${escapeHtml(formatMs(p.start))}</span></span>`;
 		} else {
 			const left = pct(u(s, p.start), win);
 			if (left < 0 || left > 100) {
 				continue;
 			}
-			html += `<span class="boot-guide" style="left:${left.toFixed(3)}%;border-color:rgba(${p.rgb},0.6)"><span class="boot-guide-ms" style="color:rgba(${p.rgb},0.95)">${formatMs(p.start)}</span></span>`;
+			html += `<span class="boot-guide" style="left:${left.toFixed(3)}%;border-color:rgba(${p.rgb},0.6)"><span class="boot-guide-ms" style="color:rgba(${p.rgb},0.95)">${escapeHtml(formatMs(p.start))}</span></span>`;
 		}
 	}
 	return html ? `<span class="boot-guides">${html}</span>` : "";
@@ -648,6 +658,10 @@ export function axisHtml(win: BootWindow, s?: TimeScale): string {
 	html += `<span class="boot-axis-zero">${escapeHtml(formatMs(from))}</span>`;
 	for (const tick of windowTicks({ from, to })) {
 		const left = s ? pct(u(s, tick), win) : pct(tick, win);
+		// Warped ticks keep clear of the edge labels in display space.
+		if (left < 5 || left > 94) {
+			continue;
+		}
 		html += `<span class="boot-axis-tick" style="left:${left.toFixed(2)}%">${escapeHtml(formatMs(tick))}</span>`;
 	}
 	html += `<span class="boot-axis-end">${escapeHtml(formatMs(to))}</span>`;
@@ -789,7 +803,7 @@ export function tOf(s: TimeScale, x: number): number {
 }
 
 // The phase lane: tinted segments over the whole boot with their names and
-// durations; each carries its range so a click can zoom to it, and a tip so
+// durations; each carries its index so a click can frame it, and a tip so
 // a segment too narrow for its label still names itself.
 // Length of the phase its class bars and hook spans cover.
 function phaseCoverageMs(t: BootTimeline, ph: BootPhase): number {
@@ -845,7 +859,7 @@ export function phaseLaneHtml(t: BootTimeline): string {
 		const ink = p.empty ? "rgba(255,255,255,0.45)" : `rgb(${p.rgb})`;
 		const classes = `boot-phase${p.empty ? " boot-phase-empty" : ""}${inflated ? " boot-phase-inflated" : ""}`;
 		html +=
-			`<span class="${classes}" data-from="${p.start}" data-to="${p.end}"` +
+			`<span class="${classes}"` +
 			` data-tip="${escapeHtml(tip)}"` +
 			` style="left:${left.toFixed(3)}%;width:${width.toFixed(3)}%${fill}"` +
 			` data-index="${i}">` +

@@ -131,11 +131,10 @@ export function BootView({
 		}
 		setExpandedModules((prev) => new Set(prev).add(hit.module));
 		setSelectedId(hit.id);
+		const a = u(t.scale, hit.start);
+		const b = u(t.scale, hit.end, true);
 		setWin(
-			windowAround(
-				{ end: u(t.scale, hit.end, true), start: u(t.scale, hit.start) },
-				t.maxMs
-			)
+			windowAround({ end: Math.max(a, b), start: Math.min(a, b) }, t.maxMs)
 		);
 		pendingScrollRef.current = hit.id;
 	};

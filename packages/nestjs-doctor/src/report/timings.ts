@@ -163,7 +163,7 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 			continue;
 		}
 		const type = typeof meta.type === "string" ? meta.type : "provider";
-		// Middleware is constructed during app.init(), on a later clock.
+		// Middleware nodes stay out of the trace and the module rollups.
 		if (type === "middleware") {
 			continue;
 		}
@@ -297,7 +297,10 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 		(data as { moduleInitMs?: unknown }).moduleInitMs
 	);
 	const initMs = asPositiveMs((data as { initMs?: unknown }).initMs);
-	if (moduleInitMs === undefined) {
+	if (
+		moduleInitMs === undefined &&
+		(createMs ?? initMs ?? startupMs) !== undefined
+	) {
 		// The boundary sits where the first bootstrap hook starts, else where
 		// the last init hook ends.
 		const derived = firstBootstrapStart ?? lastInitEnd;
