@@ -13,6 +13,7 @@ import {
 	expandableIds,
 	rowsHtml,
 	slowestSpanId,
+	u,
 	windowAround,
 } from "../lib/boot-timeline.js";
 import { cssAttr } from "../lib/escape.js";
@@ -130,7 +131,11 @@ export function BootView({
 		}
 		setExpandedModules((prev) => new Set(prev).add(hit.module));
 		setSelectedId(hit.id);
-		setWin(windowAround(hit, t.maxMs));
+		const a = u(t.scale, hit.start);
+		const b = u(t.scale, hit.end, true);
+		setWin(
+			windowAround({ end: Math.max(a, b), start: Math.min(a, b) }, t.maxMs)
+		);
 		pendingScrollRef.current = hit.id;
 	};
 	const focusRef = useLatest(focusSpan);
@@ -386,7 +391,9 @@ export function BootView({
 			const x = ev.clientX - rect.left;
 			line.style.display = "block";
 			line.style.left = `${x}px`;
-			chip.textContent = formatMs(timeAt(ev.clientX, axis, winRef.current));
+			chip.textContent = formatMs(
+				timeAt(ev.clientX, axis, winRef.current, timelineRef.current?.scale)
+			);
 			chip.style.top = `${axisRect.top - rect.top}px`;
 			// The chip rides the line; clamp it so it never leaves the lanes.
 			const half = chip.offsetWidth / 2 + 2;

@@ -5,7 +5,7 @@ import {
 	useMemo,
 	useRef,
 } from "react";
-import { timeAt } from "../lib/boot-pointer.js";
+import { posAt } from "../lib/boot-pointer.js";
 import {
 	axisHtml,
 	type BootTimeline,
@@ -47,7 +47,7 @@ export function BootLanes({
 	useLayoutEffect(() => {
 		const full: BootWindow = { from: 0, to: timeline.maxMs };
 		if (axisRef.current) {
-			axisRef.current.innerHTML = axisHtml(win);
+			axisRef.current.innerHTML = axisHtml(win, timeline.scale);
 		}
 		if (windowElRef.current) {
 			const left = pct(win.from, full);
@@ -91,7 +91,7 @@ export function BootLanes({
 			(ev) => {
 				ev.preventDefault();
 				const factor = ev.deltaY > 0 ? 1.25 : 0.8;
-				const anchor = timeAt(ev.clientX, axis, winRef.current);
+				const anchor = posAt(ev.clientX, axis, winRef.current);
 				changeRef.current(
 					zoomWindow(winRef.current, timelineRef.current.maxMs, factor, anchor)
 				);
@@ -154,12 +154,18 @@ export function BootLanes({
 			if (moved || !seg) {
 				return;
 			}
-			const from = Number.parseFloat(seg.getAttribute("data-from") ?? "0");
-			const to = Number.parseFloat(seg.getAttribute("data-to") ?? "0");
-			if (!(Number.isFinite(from) && Number.isFinite(to) && to > from)) {
+			const idx = Number.parseInt(seg.getAttribute("data-index") ?? "-1", 10);
+			const sc = timelineRef.current.scale;
+			const from = sc.us[idx];
+			const to = sc.us[idx + 1];
+			if (!(typeof from === "number" && typeof to === "number")) {
 				return;
 			}
-			const pad = (to - from) * 0.05;
+			// Frames the drawn column; the pad floor keeps an instant readable.
+			const pad = Math.max(
+				(to - from) * 0.05,
+				timelineRef.current.maxMs * 0.04
+			);
 			setRange(from - pad, to + pad);
 		});
 

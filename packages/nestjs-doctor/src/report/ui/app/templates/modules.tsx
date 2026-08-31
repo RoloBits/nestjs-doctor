@@ -30,7 +30,6 @@ import {
 	type MgNode,
 	ModulesCanvas,
 } from "../lib/modules-canvas.js";
-import { hookChipHtml } from "../lib/trace.js";
 import { useLatest } from "../lib/use-latest.js";
 import { CheckboxRow } from "../molecules/checkbox-row.js";
 import { EmptyState } from "../molecules/empty-state.js";
@@ -1311,15 +1310,6 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 									{timingLabelOf(selected.name)} · trace ▸
 								</Badge>
 							)}
-						{selected && graph.timingsAvailable && (
-							<span
-								// biome-ignore lint/security/noDangerouslySetInnerHtml: hook chips come from the tested trace module
-								dangerouslySetInnerHTML={{
-									__html: hookChipHtml(selected.hookTimings),
-								}}
-								style={{ display: "contents" }}
-							/>
-						)}
 					</div>
 					<div className="filepath" id="detail-path">
 						{selected

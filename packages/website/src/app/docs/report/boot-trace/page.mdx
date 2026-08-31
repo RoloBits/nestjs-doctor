@@ -156,11 +156,11 @@ its real offset from boot start.
 
 | Element | Where | Means |
 |---|---|---|
-| Overview lane | Top of the lanes | `building modules · lifecycle hooks · opening the port`, from the `createMs`, `initMs`, and `startupMs` markers; with `moduleInitMs` the hooks split into `init hooks · bootstrap hooks`. The window on top is the view: drag it to pan, drag its edges to resize, scroll to zoom, click a phase to frame it, hover one for its name and time. A phase nothing ran inside draws as a black weave |
-| Dotted line | Down the rows | Where one phase hands over to the next |
+| Overview lane | Top of the lanes | `building modules · lifecycle hooks · opening the port`, from the `createMs`, `initMs`, and `startupMs` markers; with `moduleInitMs` the hooks split into `init hooks · bootstrap hooks`. The window on top is the view: drag it to pan, drag its edges to resize, scroll to zoom, click a phase to frame it, hover one for its name and time. A phase nothing ran inside draws as a black weave; when bars cover less than a phase, its label adds `· Nms in classes`. Coincident markers make a `0ms` phase, kept as a narrow woven column; clicking it frames the boundary. The whole timeline shares one scale: where a `0ms` or sub-millisecond column is widened to stay readable, the axis, the guides, and the bars widen with it, and the axis marks that stretch with the same dashed weave. Every label is still a real time; the distance between two of them is not always to scale |
+| Dotted line | Down the rows | Where one phase hands over to the next; a woven stripe where the markers coincide, echoing the lane's `0ms` column |
 | Group header | Above its classes | The module that owns them in the dump, their count, and an `external` or `ambiguous` tag when the graph has no single node for it |
 | Class bar | Per row, under its module's header | From its slowest dependency's finish to its own, or from boot start when nothing traced came before; colored by type. The time it took sits inside the bar |
-| Hook span | On a row, after the bar | An `onModuleInit` or `onApplicationBootstrap` at its real offset, time inside, when the dump carries `startMs`. Older dumps show a `+120ms init` chip instead |
+| Hook span | On a row, at its real offset | An `onModuleInit` or `onApplicationBootstrap`, time inside; one span per run, so a transient provider shows one per instance. A hook the dump gives no offset counts only in its module's totals |
 | Cascade row | Under an opened chevron, solid black | A shadow of the dependency's own row in its module group, where its cost is drawn once. `deduped` says so, as `npm ls` would. `shared` means it was built earlier for another consumer, `circular` closes a loop to an ancestor |
 
 The chevron before a class opens its dependencies in place; expand all in the
@@ -181,6 +181,12 @@ class.
 - An unreadable, malformed, or unrecognized dump degrades to a stderr warning,
   and the report renders without timings.
 - Out-of-order phase markers drop the lifecycle strip, also with a warning.
+- Bars sit on Nest's load clock, which starts after the module scan: the
+  first stretch of `building modules` has no bars under it.
+- Middleware is constructed during `app.init()`, not the build phase, so it
+  has no bar.
+- A controller or injectable is clocked from its module's later load start;
+  its bar draws after its slowest dependency instead.
 - A class joins a graph module only when that module's class name is unique,
   inside the dump and across a monorepo's projects. Otherwise it sits under
   the name the dump gives it. A package module such as `TypeOrmModule` shows

@@ -6,12 +6,13 @@ export interface ClassTiming {
 	type: string;
 }
 
-/** One lifecycle hook's total duration for one class, in milliseconds. */
+/** One run of a lifecycle hook for one class, in milliseconds. */
 export interface HookTiming {
+	/** Instance count from artifacts written before hooks stayed one per run. */
 	count?: number;
 	hook: string;
 	ms: number;
-	/** Offset from bootstrap start, when captured and the hook ran once. */
+	/** Offset from bootstrap start, when the dump captured it. */
 	startMs?: number;
 }
 

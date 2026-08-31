@@ -45,7 +45,7 @@
   display: flex; flex-direction: column; justify-content: space-between;
 }
 .boot-side-head .mg-side-search { padding: 8px 16px 10px; }
-.boot-lanes { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; padding: 8px 14px 6px; }
+.boot-lanes { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; scrollbar-gutter: stable; padding: 8px 14px 6px; }
 .boot-lane { position: relative; display: block; }
 
 /* Overview lane: the lifecycle phases over the whole boot, with the window
@@ -68,13 +68,48 @@
     repeating-linear-gradient(-45deg, rgba(255,255,255,0.06) 0 2px, transparent 2px 6px);
 }
 .boot-phase-label {
-  font-size: 10px; white-space: nowrap; overflow: hidden;
-  text-overflow: ellipsis; letter-spacing: 0.02em;
+  display: flex; flex-direction: column; gap: 1px; min-width: 0;
+  font-size: 10px; white-space: nowrap; letter-spacing: 0.02em;
 }
-.boot-phase-ms { color: rgba(255,255,255,0.55); }
+.boot-phase-gloss { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.boot-phase-ms { color: rgba(255,255,255,0.55); overflow: hidden; text-overflow: ellipsis; }
+/* Widened past its true share; dashed edges mark it as not to scale. */
+.boot-phase-inflated {
+  border-left: 1px dashed rgba(255,255,255,0.3);
+  border-right: 1px dashed rgba(255,255,255,0.3);
+}
+/* A 2px tick when the row's spans sit entirely outside the window. */
+.boot-offscreen { position: absolute; top: 25%; height: 50%; width: 2px; background: var(--text-dim); opacity: 0.7; }
+.boot-offscreen-l { left: 0; }
+.boot-offscreen-r { right: 0; }
 .boot-guides { position: absolute; top: 0; bottom: 0; left: 0; right: 0; display: block; pointer-events: none; }
 .boot-rows .boot-guides { left: calc(var(--boot-label-w) + 14px); right: 14px; }
-.boot-guide { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dotted; }
+.boot-guide { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px dotted; }
+/* The boundary's time, pinned near the top while the rows scroll. */
+.boot-guide-ms {
+  position: sticky; top: 4px; display: inline-block; margin: 4px 0 0 4px;
+  padding: 1px 4px; font-size: 9px; line-height: 1; white-space: nowrap;
+  background: rgba(10,10,10,0.85); border-radius: 3px;
+  font-variant-numeric: tabular-nums;
+}
+/* A coincident-marker instant: the 0ms phase's weave, echoed down the rows. */
+.boot-guide-zero {
+  border-left: none; min-width: 3px;
+  background-color: rgba(10,10,10,0.6);
+  background-image:
+    repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0 2px, transparent 2px 6px),
+    repeating-linear-gradient(-45deg, rgba(255,255,255,0.06) 0 2px, transparent 2px 6px);
+}
+/* Under a widened column: this stretch of the axis is not to scale. */
+.boot-axis-warp {
+  position: absolute; top: 0; bottom: 0; pointer-events: none;
+  border-left: 1px dashed rgba(255,255,255,0.3);
+  border-right: 1px dashed rgba(255,255,255,0.3);
+  background-color: rgba(10,10,10,0.6);
+  background-image:
+    repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0 2px, transparent 2px 6px),
+    repeating-linear-gradient(-45deg, rgba(255,255,255,0.06) 0 2px, transparent 2px 6px);
+}
 .boot-minimap-window {
   position: absolute; top: 0; height: 100%;
   background: rgba(255,255,255,0.07);
@@ -100,7 +135,7 @@
 
 /* Waterfall rows: the label column, then the track on the shared axis. */
 .boot-body { position: relative; flex: 1; display: flex; min-height: 0; }
-.boot-scroll { flex: 1; overflow: auto; min-height: 0; outline: none; }
+.boot-scroll { flex: 1; overflow: auto; min-height: 0; outline: none; scrollbar-gutter: stable; }
 .boot-rows { position: relative; padding: 4px 0 24px; }
 .boot-row { display: flex; align-items: center; padding: 0 14px 0 0; font-size: 12px; line-height: 26px; }
 .boot-label {
@@ -141,14 +176,12 @@
   padding: 0 5px; font-size: 10px; line-height: 16px; color: var(--white);
   font-variant-numeric: tabular-nums;
 }
-.boot-hook-chip { font-size: 9px; padding: 0 4px; border-radius: 3px; flex-shrink: 0; line-height: 14px; }
 /* Shadow rows: deduped copies of a class listed above, as solid black boxes. */
 .boot-reused { opacity: 0.7; }
 .boot-reused .boot-bar, .boot-reused .boot-hook-span {
   background: #000 !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3); color: var(--text-muted);
 }
 .boot-reused .boot-dot { background: transparent !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35); }
-.boot-reused .boot-hook-chip { color: var(--text-dim) !important; background: transparent !important; box-shadow: inset 0 0 0 1px var(--border); }
 .boot-reused-tag {
   font-size: 10px; color: var(--text-dim); line-height: 14px;
   border: 1px solid var(--border); border-radius: 3px; padding: 0 4px;

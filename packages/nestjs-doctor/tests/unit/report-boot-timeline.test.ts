@@ -21,6 +21,7 @@ import {
 	rowsHtml,
 	slowestSpanId,
 	spanMatches,
+	tOf,
 	UNATTRIBUTED_MODULE,
 	windowAround,
 	windowTicks,
@@ -29,7 +30,7 @@ import {
 
 const PHASE_POSITION_RE = /left:([\d.]+)%;width:([\d.]+)%/g;
 const PHASE_TAG_RE =
-	/<span class="boot-phase([^"]*)" data-from="[^"]*" data-to="[^"]*" data-tip="([^"]*)" style="([^"]*)"/g;
+	/<span class="boot-phase([^"]*)" data-tip="([^"]*)" style="([^"]*)"/g;
 const PHASE_WIDTH_RE = /width:([\d.]+)%/;
 
 function graph(
@@ -79,6 +80,11 @@ function mod(
 
 const WIN: BootWindow = { from: 0, to: 100 };
 
+const GUIDE_MS_100_RE = /boot-guide-ms[^>]*>100ms</;
+const GUIDE_MS_250_RE = /boot-guide-ms[^>]*>250ms</;
+const GUIDE_MS_300_RE = /boot-guide-ms[^>]*>300ms</;
+const GUIDE_MS_200_RE = /boot-guide-ms[^>]*>200ms</;
+
 describe("buildBootTimeline", () => {
 	it("starts a class after its slowest dependency that finished before it", () => {
 		const t = buildBootTimeline(
@@ -98,17 +104,37 @@ describe("buildBootTimeline", () => {
 		});
 	});
 
-	it("skips a dependency that finished after its consumer and starts from boot", () => {
+	it("keeps its own finish when a dependency ties past it", () => {
+		const t = buildBootTimeline(
+			graph({
+				timingsAvailable: true,
+				timingsTrace: {
+					tb: traceNode(70.05),
+					td: traceNode(70, ["tb"]),
+				},
+			})
+		);
+		expect(t?.byId.get("td")).toMatchObject({
+			end: 70,
+			start: 70,
+			waitedOn: "tb",
+		});
+	});
+
+	it("moves a class clocked from a later load start after its slowest dependency", () => {
 		const t = buildBootTimeline(
 			graph({
 				timingsAvailable: true,
 				timingsTrace: {
 					tb: traceNode(70),
-					td: traceNode(40, ["tb"]),
+					td: traceNode(0.5, ["tb"]),
 				},
 			})
 		);
-		expect(t?.byId.get("td")).toMatchObject({ end: 40, start: 0 });
+		const td = t?.byId.get("td");
+		expect(td?.start).toBe(70);
+		expect(td?.end).toBeCloseTo(70.5, 6);
+		expect(td?.waitedOn).toBe("tb");
 	});
 
 	it("groups spans by module and sorts groups by their first construction", () => {
@@ -246,6 +272,30 @@ describe("buildBootTimeline", () => {
 		expect(t?.groups[0]?.spans.map((s) => s.id)).toEqual(["tb", "ta"]);
 		expect(t?.byId.get("ta")?.via).toBe("UsersModule");
 		expect(t?.byId.get("tb")?.via).toBe("CatalogModule");
+	});
+
+	it("unions overlapping hook runs and adds offsetless ones", () => {
+		const timings = moduleTimings(
+			graph({
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: traceNode(
+						1,
+						[],
+						[
+							{ hook: "onModuleInit", ms: 5.72, startMs: 133.19 },
+							{ hook: "onModuleInit", ms: 5.72, startMs: 133.21 },
+							{ hook: "onModuleInit", ms: 3 },
+						],
+						{ module: "SharedModule", name: "MetricsService" }
+					),
+				},
+			})
+		);
+		const shared = timings.get("SharedModule");
+		expect(shared?.hooks).toHaveLength(1);
+		expect(shared?.hooks[0]?.label).toBe("init");
+		expect(shared?.hooks[0]?.ms).toBeCloseTo(8.74, 2);
 	});
 
 	it("finds an external span by its third-party module label", () => {
@@ -597,9 +647,10 @@ describe("external modules from a real dump", () => {
 
 		const timings = moduleTimings(g);
 		expect(timings.get("TypeOrmCoreModule")?.buildMs).toBeCloseTo(152.53, 2);
-		expect(timings.get("BullModule")?.hooks).toEqual([
-			{ label: "init", ms: 0.48 },
-		]);
+		const bull = timings.get("BullModule")?.hooks;
+		expect(bull).toHaveLength(1);
+		expect(bull?.[0]?.label).toBe("init");
+		expect(bull?.[0]?.ms).toBeCloseTo(0.48, 6);
 	});
 });
 
@@ -752,6 +803,57 @@ describe("rowsHtml", () => {
 		expect(rowsHtml(ROW_TIMELINE, base)).not.toContain("data-tip");
 	});
 
+	it("labels each guide with its boundary time", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 100, initMs: 300, moduleInitMs: 250 },
+				startupMs: 400,
+				timingsAvailable: true,
+				timingsTrace: { ta: traceNode(50) },
+			})
+		)!;
+		const html = rowsHtml(t, { ...base, win: { from: 0, to: 400 } });
+		expect(html).toMatch(GUIDE_MS_100_RE);
+		expect(html).toMatch(GUIDE_MS_250_RE);
+		expect(html).toMatch(GUIDE_MS_300_RE);
+	});
+
+	it("marks offscreen content on both sides of the window", () => {
+		const t = buildBootTimeline(
+			graph({
+				startupMs: 600,
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: traceNode(
+						20,
+						[],
+						[{ hook: "onApplicationBootstrap", ms: 10, startMs: 500 }]
+					),
+				},
+			})
+		)!;
+		const html = rowsHtml(t, { ...base, win: { from: 100, to: 300 } });
+		const row = html.slice(html.indexOf('data-id="ta"'));
+		expect(row).toContain("boot-offscreen-l");
+		expect(row).toContain("boot-offscreen-r");
+	});
+
+	it("clamps a reclocked finish to the create boundary", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 130, initMs: 155, moduleInitMs: 150 },
+				startupMs: 160,
+				timingsAvailable: true,
+				timingsTrace: {
+					c1: traceNode(45, ["d1"]),
+					d1: traceNode(100),
+				},
+			})
+		)!;
+		expect(t.byId.get("c1")?.end).toBe(130);
+		expect(t.phases[1]?.empty).toBe(true);
+	});
+
 	it("draws a dotted guide where each phase hands over", () => {
 		const t = buildBootTimeline(
 			graph({
@@ -796,9 +898,29 @@ describe("rowsHtml", () => {
 		expect(html).toContain("boot-collapsed");
 	});
 
-	it("renders hook durations without offsets as chips, with offsets as spans", () => {
+	it("never renders a chip, and gives every offset hook its own span", () => {
 		const html = rowsHtml(ROW_TIMELINE, base);
-		expect(html).toContain("boot-hook-chip");
+		expect(html).not.toContain("boot-hook-chip");
+		const twoRuns = buildBootTimeline(
+			graph({
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: {
+						deps: [],
+						hooks: [
+							{ hook: "onModuleInit", ms: 5, startMs: 120 },
+							{ hook: "onModuleInit", ms: 6, startMs: 200 },
+						],
+						initTime: 100,
+						name: "A",
+						type: "provider",
+					},
+				},
+			})
+		)!;
+		const twoHtml = rowsHtml(twoRuns, base);
+		expect(twoHtml).toContain('<span class="boot-hook-span" data-hook="0"');
+		expect(twoHtml).toContain('<span class="boot-hook-span" data-hook="1"');
 		const withStart = buildBootTimeline(
 			graph({
 				timingsAvailable: true,
@@ -907,7 +1029,7 @@ describe("cascadeChildrenHtml", () => {
 			graph({
 				timingsAvailable: true,
 				timingsTrace: {
-					tc: traceNode(30, ["ta"]),
+					tc: traceNode(60, ["ta"]),
 					tb: traceNode(70, ["tc"]),
 					ta: traceNode(100, ["tb"]),
 				},
@@ -966,10 +1088,10 @@ describe("lanes and axis", () => {
 		)!;
 		const html = phaseLaneHtml(t);
 		expect(html).toContain("boot-phase");
-		expect(html).toContain('data-from="0" data-to="100"');
+		expect(html).toContain('data-index="0"');
 		expect(html).toContain("building modules");
 		expect(html).toContain(
-			'data-tip="100ms · create — NestFactory constructs every module, provider, and controller."'
+			'data-tip="100ms · create — NestFactory constructs every module, provider, and controller. · 50ms not covered by any class bar"'
 		);
 		expect(html).toContain('data-tip="100ms · listen — ');
 	});
@@ -1016,9 +1138,381 @@ describe("lanes and axis", () => {
 		expect(tags[1]?.classes).toBe(" boot-phase-empty");
 		expect(tags[1]?.tip).toContain("nothing ran inside");
 		expect(tags[1]?.style).not.toContain("background:rgba");
-		expect(tags[2]?.classes).toBe(" boot-phase-empty");
+		expect(tags[2]?.classes).toBe(" boot-phase-empty boot-phase-inflated");
 		const width = Number(PHASE_WIDTH_RE.exec(tags[2]?.style ?? "")?.[1]);
-		expect(width).toBeGreaterThanOrEqual(1.5);
+		expect(width).toBeGreaterThanOrEqual(8);
+		expect(html).toContain("left:92.000%;width:8.000%");
+	});
+
+	it("says how much of a phase its bars cover, only when they fall short", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 100, initMs: 300 },
+				startupMs: 400,
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: traceNode(
+						80,
+						[],
+						[{ hook: "onModuleInit", ms: 190, startMs: 105 }]
+					),
+				},
+			})
+		) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+		const html = phaseLaneHtml(t);
+		expect(html).toContain(">100ms · 80ms in classes<");
+		expect(html).toContain(
+			"· 20ms not covered by any class bar&quot;".replace("&quot;", '"')
+		);
+		expect(html).toContain('boot-phase-ms">200ms</span>');
+		expect(html.split(" in classes").length - 1).toBe(1);
+		expect(html).toContain("nothing ran inside");
+	});
+
+	it("marks a row whose spans sit fully left or right of the window", () => {
+		const t = buildBootTimeline(
+			graph({
+				startupMs: 400,
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: traceNode(80, ["tb"], undefined, { name: "A" }),
+					tb: traceNode(50, [], undefined, { name: "B" }),
+				},
+			})
+		) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+		const opts = {
+			expandedModules: new Set([UNATTRIBUTED_MODULE]),
+			query: "",
+			selectedId: null,
+		};
+		const leftHtml = rowsHtml(t, { ...opts, win: { from: 200, to: 400 } });
+		expect(leftHtml).toContain("boot-offscreen-l");
+		expect(leftHtml).not.toContain("boot-offscreen-r");
+		const rightHtml = rowsHtml(t, { ...opts, win: { from: 0, to: 10 } });
+		const rightTicks = rightHtml.split("boot-offscreen-r").length - 1;
+		expect(rightTicks).toBe(1);
+		const inside = rowsHtml(t, { ...opts, win: { from: 0, to: 400 } });
+		expect(inside).not.toContain("boot-offscreen");
+	});
+
+	it("says 0ms in classes when nothing inside the phase has an offset", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 100, initMs: 300 },
+				startupMs: 400,
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: traceNode(50, [], [{ hook: "onModuleInit", ms: 5 }]),
+				},
+			})
+		) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+		const html = phaseLaneHtml(t);
+		expect(html).toContain(">200ms · 0ms in classes<");
+		expect(html).not.toContain("&lt;1ms in classes");
+	});
+
+	it("keeps a zero-length phase when two markers coincide", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 200, initMs: 600, moduleInitMs: 200 },
+				startupMs: 1000,
+				timingsAvailable: true,
+				timingsTrace: { ta: traceNode(100) },
+			})
+		);
+		expect(t?.phases.map((p) => [p.label, p.start, p.end])).toEqual([
+			["create", 0, 200],
+			["onModuleInit", 200, 200],
+			["onApplicationBootstrap", 200, 600],
+			["listen", 600, 1000],
+		]);
+	});
+
+	it("marks a zero-length phase empty even when an offsetless hook names it", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 200, initMs: 600, moduleInitMs: 200 },
+				startupMs: 1000,
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: traceNode(100, [], [{ hook: "onModuleInit", ms: 20 }]),
+				},
+			})
+		);
+		expect(t?.phases[1]?.empty).toBe(true);
+	});
+
+	describe("zero-length phases in the lane", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 200, initMs: 600, moduleInitMs: 200 },
+				startupMs: 1000,
+				timingsAvailable: true,
+				timingsTrace: { ta: traceNode(100) },
+			})
+		) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+		const html = phaseLaneHtml(t);
+
+		it("tiles the lane without gaps or overlap", () => {
+			const tiles = [...html.matchAll(PHASE_POSITION_RE)].map((m) => [
+				Number(m[1]),
+				Number(m[2]),
+			]);
+			expect(tiles).toHaveLength(4);
+			for (let i = 0; i < 3; i++) {
+				const [left, width] = tiles[i] as [number, number];
+				expect((tiles[i + 1] as number[])[0]).toBeCloseTo(left + width, 2);
+			}
+			const [lastLeft, lastWidth] = tiles[3] as [number, number];
+			expect(lastLeft + lastWidth).toBeCloseTo(100, 2);
+		});
+
+		it("emits the exact tiles the donation pass produces", () => {
+			expect(html).toContain("left:0.000%;width:18.139%");
+			expect(html).toContain("left:18.139%;width:8.000%");
+			expect(html).toContain("left:26.139%;width:36.930%");
+			expect(html).toContain("left:63.070%;width:36.930%");
+		});
+
+		it("reads 0ms, never <1ms, on a marker coincidence", () => {
+			expect(html).toContain('boot-phase-ms">0ms</span>');
+			expect(html).not.toContain(">&lt;1ms<");
+		});
+
+		it("says the markers coincide and the column widened", () => {
+			expect(html).toContain('data-tip="0ms · onModuleInit');
+			expect(html).toContain(
+				'· no time elapsed between the markers · column widened to stay readable"'
+			);
+		});
+
+		it("marks only widened phases inflated", () => {
+			const classes = [...html.matchAll(PHASE_TAG_RE)].map((m) => m[1]);
+			expect(classes).toEqual([
+				"",
+				" boot-phase-empty boot-phase-inflated",
+				" boot-phase-empty",
+				" boot-phase-empty",
+			]);
+		});
+	});
+
+	it("scales the minimums down together when they cannot all fit", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 1, initMs: 2, moduleInitMs: 1 },
+				startupMs: 3,
+				timingsAvailable: true,
+				timingsTrace: { ta: traceNode(100) },
+			})
+		) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+		const tiles = [...phaseLaneHtml(t).matchAll(PHASE_POSITION_RE)].map((m) => [
+			Number(m[1]),
+			Number(m[2]),
+		]);
+		expect(tiles).toHaveLength(4);
+		for (const [, width] of tiles as [number, number][]) {
+			expect(width).toBeGreaterThan(0);
+		}
+		const [lastLeft, lastWidth] = tiles[3] as [number, number];
+		expect(lastLeft + lastWidth).toBeCloseTo(3, 2);
+	});
+
+	it("draws one guide where two phases meet at the same instant", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 200, initMs: 600, moduleInitMs: 200 },
+				startupMs: 1000,
+				timingsAvailable: true,
+				timingsTrace: { ta: traceNode(100) },
+			})
+		) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+		const html = rowsHtml(t, {
+			expandedModules: new Set([UNATTRIBUTED_MODULE]),
+			query: "",
+			selectedId: null,
+			win: { from: 0, to: 1000 },
+		});
+		expect(html.split('boot-guide-zero"').length - 1).toBe(1);
+		expect(html.split('boot-guide"').length - 1).toBe(1);
+	});
+
+	it("keeps the woven stripe off ordinary boundaries", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 100, initMs: 300, moduleInitMs: 250 },
+				startupMs: 400,
+				timingsAvailable: true,
+				timingsTrace: { ta: traceNode(50) },
+			})
+		) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+		const html = rowsHtml(t, {
+			expandedModules: new Set([UNATTRIBUTED_MODULE]),
+			query: "",
+			selectedId: null,
+			win: { from: 0, to: 400 },
+		});
+		expect(html).not.toContain("boot-guide-zero");
+	});
+
+	describe("time scale", () => {
+		it("is the identity when nothing is widened", () => {
+			const t = buildBootTimeline(
+				graph({
+					phases: { createMs: 100, initMs: 300, moduleInitMs: 250 },
+					startupMs: 400,
+					timingsAvailable: true,
+					timingsTrace: { ta: traceNode(50) },
+				})
+			) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+			expect(t.scale.linear).toBe(true);
+			expect(t.scale.us).toEqual([0, 100, 250, 300, 400]);
+		});
+
+		it("widens the sub-millisecond listen and compresses the rest", () => {
+			const t = buildBootTimeline(
+				graph({
+					phases: { createMs: 130.06, initMs: 358.25, moduleInitMs: 256.51 },
+					startupMs: 358.82,
+					timingsAvailable: true,
+					timingsTrace: { ta: traceNode(358.25) },
+				})
+			) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+			expect(t.scale.linear).toBe(false);
+			expect(t.scale.inflated).toEqual([false, false, false, true]);
+			const expected = [0, 119.833, 236.339, 330.114, 358.82];
+			for (let i = 0; i < expected.length; i++) {
+				expect(t.scale.us[i]).toBeCloseTo(expected[i] as number, 2);
+			}
+			const html = phaseLaneHtml(t);
+			expect(html).toContain("left:0.000%;width:33.396%");
+			expect(html).toContain("left:33.396%;width:32.470%");
+			expect(html).toContain("left:65.866%;width:26.134%");
+			expect(html).toContain("left:92.000%;width:8.000%");
+		});
+
+		it("holds tOf constant across a zero band and inverts elsewhere", () => {
+			const t = buildBootTimeline(
+				graph({
+					phases: { createMs: 200, initMs: 600, moduleInitMs: 200 },
+					startupMs: 1000,
+					timingsAvailable: true,
+					timingsTrace: {
+						ta: traceNode(600, ["tb"]),
+						tb: traceNode(200),
+					},
+				})
+			) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+			expect(tOf(t.scale, 200)).toBe(200);
+			expect(tOf(t.scale, 235)).toBe(200);
+			expect(tOf(t.scale, 150)).toBeCloseTo(164.017, 2);
+		});
+
+		it("keeps a bar that starts on a coincidence out of the 0ms band", () => {
+			const t = buildBootTimeline(
+				graph({
+					phases: { createMs: 200, initMs: 600, moduleInitMs: 200 },
+					startupMs: 1000,
+					timingsAvailable: true,
+					timingsTrace: {
+						ta: traceNode(600, ["tb"]),
+						tb: traceNode(200),
+					},
+				})
+			) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+			const html = rowsHtml(t, {
+				expandedModules: new Set([UNATTRIBUTED_MODULE]),
+				query: "",
+				selectedId: null,
+				win: { from: 0, to: 1000 },
+			});
+			expect(html).toContain("left:0.000%;width:18.291%");
+			expect(html).toContain("left:26.291%;width:36.529%");
+		});
+
+		it("draws the zero guide as a band the width of its column", () => {
+			const t = buildBootTimeline(
+				graph({
+					phases: { createMs: 200, initMs: 600, moduleInitMs: 200 },
+					startupMs: 1000,
+					timingsAvailable: true,
+					timingsTrace: {
+						ta: traceNode(600, ["tb"]),
+						tb: traceNode(200),
+					},
+				})
+			) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+			const html = rowsHtml(t, {
+				expandedModules: new Set([UNATTRIBUTED_MODULE]),
+				query: "",
+				selectedId: null,
+				win: { from: 0, to: 1000 },
+			});
+			expect(html).toContain(
+				'class="boot-guide boot-guide-zero" style="left:18.291%;width:8.000%'
+			);
+		});
+
+		it("drops warped ticks that crowd the edge labels", () => {
+			const t = buildBootTimeline(
+				graph({
+					phases: { createMs: 300, initMs: 480, moduleInitMs: 300.5 },
+					startupMs: 500,
+					timingsAvailable: true,
+					timingsTrace: { ta: traceNode(250) },
+				})
+			) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+			const html = axisHtml({ from: 242.68, to: 310 }, t.scale);
+			expect(html).toContain(">290ms<");
+			expect(html).toContain(">300ms<");
+			expect(html).not.toContain(">310ms<");
+		});
+
+		it("labels the zero band with its instant", () => {
+			const t = buildBootTimeline(
+				graph({
+					phases: { createMs: 200, initMs: 600, moduleInitMs: 200 },
+					startupMs: 1000,
+					timingsAvailable: true,
+					timingsTrace: { ta: traceNode(600, ["tb"]), tb: traceNode(200) },
+				})
+			) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+			const html = rowsHtml(t, {
+				expandedModules: new Set([UNATTRIBUTED_MODULE]),
+				query: "",
+				selectedId: null,
+				win: { from: 0, to: 1000 },
+			});
+			expect(html).toMatch(GUIDE_MS_200_RE);
+		});
+
+		it("marks the widened stretch on the axis and warps the ticks", () => {
+			const t = buildBootTimeline(
+				graph({
+					phases: { createMs: 130.06, initMs: 358.25, moduleInitMs: 256.51 },
+					startupMs: 358.82,
+					timingsAvailable: true,
+					timingsTrace: { ta: traceNode(358.25) },
+				})
+			) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+			const html = axisHtml({ from: 0, to: 358.82 }, t.scale);
+			expect(html).toContain(
+				'<span class="boot-axis-warp" style="left:92.000%;width:8.000%"></span>'
+			);
+			expect(html).toContain("left:12.84%");
+			expect(html).toContain("left:77.04%");
+			const linear = buildBootTimeline(
+				graph({
+					phases: { createMs: 100, initMs: 300, moduleInitMs: 250 },
+					startupMs: 400,
+					timingsAvailable: true,
+					timingsTrace: { ta: traceNode(50) },
+				})
+			) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+			expect(axisHtml({ from: 0, to: 400 }, linear.scale)).not.toContain(
+				"boot-axis-warp"
+			);
+		});
 	});
 
 	it("renders the windowed axis with edge labels", () => {

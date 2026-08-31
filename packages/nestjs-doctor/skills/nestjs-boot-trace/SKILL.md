@@ -90,8 +90,14 @@ stderr before trusting an empty trace.
 Each class's time includes waiting on its own dependencies. A shared slow
 dependency therefore counts again in every class that awaits it.
 
+The init and bootstrap segments split where the first
+`onApplicationBootstrap` hook starts; a dump without hook offsets shows one
+merged hooks segment.
+
 Read down a cascade until the number drops. The class where it drops owns the
-time. If `UsersService` reads 120ms and the `SlowService` it injects reads 119ms,
+time. Nest clocks each class from its own load start, so the first stretch of
+the build phase (the module scan) has no bars, and a controller's bar draws
+after its slowest dependency. If `UsersService` reads 120ms and the `SlowService` it injects reads 119ms,
 `SlowService` owns it.
 
 A module node shows the build of its slowest class, never a sum across
