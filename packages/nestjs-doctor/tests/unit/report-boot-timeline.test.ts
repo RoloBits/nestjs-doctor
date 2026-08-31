@@ -1156,6 +1156,26 @@ describe("lanes and axis", () => {
 		expect(html).toContain('data-tip="100ms · listen — ');
 	});
 
+	it("renders four sections for a context app's derived markers", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 139.9, initMs: 170.8, moduleInitMs: 170.1 },
+				startupMs: 170.8,
+				timingsAvailable: true,
+				timingsTrace: { ta: traceNode(50) },
+			})
+		) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+		const html = phaseLaneHtml(t);
+		expect(html).toContain("building modules");
+		expect(html).toContain("init hooks");
+		expect(html).toContain("bootstrap hooks");
+		expect(html).toContain("opening the port");
+		const tags = [...html.matchAll(PHASE_TAG_RE)].map((m) => m[1]);
+		expect(tags).toHaveLength(4);
+		expect(tags[3]).toContain("boot-phase-empty");
+		expect(html).toContain('boot-phase-ms">0ms</span>');
+	});
+
 	it("keeps a sub-millisecond phase wide enough to hover, inside the lane", () => {
 		const t = buildBootTimeline(
 			graph({

@@ -226,6 +226,7 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 
 	const hooksByClass = new Map<string, HookTiming[]>();
 	let firstBootstrapStart: number | undefined;
+	let firstHookStart: number | undefined;
 	let lastInitEnd: number | undefined;
 	const rawHooks = (data as { hookTimings?: unknown }).hookTimings;
 	if (Array.isArray(rawHooks)) {
@@ -254,6 +255,10 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 				Number.isFinite(startMs) &&
 				startMs >= 0
 			) {
+				firstHookStart = Math.min(
+					firstHookStart ?? Number.POSITIVE_INFINITY,
+					startMs
+				);
 				if (hook === "onApplicationBootstrap") {
 					firstBootstrapStart = Math.min(
 						firstBootstrapStart ?? Number.POSITIVE_INFINITY,
@@ -299,11 +304,11 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 	}
 
 	const startupMs = asPositiveMs((data as { startupMs?: unknown }).startupMs);
-	const createMs = asPositiveMs((data as { createMs?: unknown }).createMs);
+	let createMs = asPositiveMs((data as { createMs?: unknown }).createMs);
 	let moduleInitMs = asPositiveMs(
 		(data as { moduleInitMs?: unknown }).moduleInitMs
 	);
-	const initMs = asPositiveMs((data as { initMs?: unknown }).initMs);
+	let initMs = asPositiveMs((data as { initMs?: unknown }).initMs);
 	if (
 		moduleInitMs === undefined &&
 		(createMs ?? initMs ?? startupMs) !== undefined
@@ -322,6 +327,32 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 				break;
 			}
 		}
+	}
+	// The earliest positioned hook start stands in for an absent create marker,
+	// only when a measured marker anchors the dump.
+	if (
+		createMs === undefined &&
+		(moduleInitMs ?? initMs ?? startupMs) !== undefined &&
+		firstHookStart !== undefined &&
+		firstHookStart > 0 &&
+		(moduleInitMs === undefined || firstHookStart <= moduleInitMs) &&
+		(initMs === undefined || firstHookStart <= initMs) &&
+		(startupMs === undefined || firstHookStart <= startupMs)
+	) {
+		createMs = firstHookStart;
+	}
+	// An empty entrypoints object is a context app: init ends when creation
+	// returns, there is no listen.
+	const entrypoints = (data as { entrypoints?: unknown }).entrypoints;
+	if (
+		initMs === undefined &&
+		startupMs !== undefined &&
+		typeof entrypoints === "object" &&
+		entrypoints !== null &&
+		!Array.isArray(entrypoints) &&
+		Object.keys(entrypoints).length === 0
+	) {
+		initMs = startupMs;
 	}
 	const markers = [createMs, moduleInitMs, initMs, startupMs].filter(
 		(m): m is number => m !== undefined

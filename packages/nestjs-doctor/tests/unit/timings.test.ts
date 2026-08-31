@@ -566,6 +566,118 @@ describe("parseBootstrapTimings", () => {
 		expect(warnings).toEqual([]);
 	});
 
+	it("derives all three markers for a context app dump", () => {
+		const { phases, warnings } = parseBootstrapTimings(
+			JSON.stringify({
+				edges: {},
+				entrypoints: {},
+				hookTimings: [
+					{
+						className: "QueueService",
+						hook: "onModuleInit",
+						ms: 30.2,
+						startMs: 139.9,
+					},
+					{
+						className: "JobsService",
+						hook: "onModuleInit",
+						ms: 19.8,
+						startMs: 150.3,
+					},
+				],
+				nodes: {
+					c1: classNode("QueueService", "m1", 5),
+					c2: classNode("JobsService", "m1", 3),
+					m1: moduleNode("WorkerModule"),
+				},
+				startupMs: 170.8,
+			})
+		);
+		expect(warnings).toEqual([]);
+		expect(phases?.createMs).toBeCloseTo(139.9, 5);
+		expect(phases?.moduleInitMs).toBeCloseTo(170.1, 5);
+		expect(phases?.initMs).toBeCloseTo(170.8, 5);
+	});
+
+	it("keeps initMs unset when the dump has entrypoints", () => {
+		const { phases, warnings } = parseBootstrapTimings(
+			JSON.stringify({
+				edges: {},
+				entrypoints: { e1: { id: "e1" } },
+				hookTimings: [
+					{
+						className: "QueueService",
+						hook: "onModuleInit",
+						ms: 30.2,
+						startMs: 139.9,
+					},
+				],
+				nodes: {
+					c1: classNode("QueueService", "m1", 5),
+					m1: moduleNode("WorkerModule"),
+				},
+				startupMs: 170.8,
+			})
+		);
+		expect(warnings).toEqual([]);
+		expect(phases?.createMs).toBeCloseTo(139.9, 5);
+		expect(phases?.moduleInitMs).toBeCloseTo(170.1, 5);
+		expect(phases?.initMs).toBeUndefined();
+	});
+
+	it("skips the derived createMs when the earliest hook starts past moduleInitMs", () => {
+		const { phases, warnings } = parseBootstrapTimings(
+			JSON.stringify({
+				edges: {},
+				entrypoints: {},
+				hookTimings: [
+					{
+						className: "QueueService",
+						hook: "onModuleInit",
+						ms: 10,
+						startMs: 150,
+					},
+				],
+				moduleInitMs: 100,
+				nodes: {
+					c1: classNode("QueueService", "m1", 5),
+					m1: moduleNode("WorkerModule"),
+				},
+				startupMs: 200,
+			})
+		);
+		expect(warnings).toEqual([]);
+		expect(phases?.createMs).toBeUndefined();
+		expect(phases?.moduleInitMs).toBe(100);
+		expect(phases?.initMs).toBe(200);
+	});
+
+	it("keeps an explicit createMs over a smaller hook start", () => {
+		const { phases, warnings } = parseBootstrapTimings(
+			JSON.stringify({
+				createMs: 100,
+				edges: {},
+				entrypoints: {},
+				hookTimings: [
+					{
+						className: "QueueService",
+						hook: "onModuleInit",
+						ms: 10,
+						startMs: 50,
+					},
+				],
+				nodes: {
+					c1: classNode("QueueService", "m1", 5),
+					m1: moduleNode("WorkerModule"),
+				},
+				startupMs: 200,
+			})
+		);
+		expect(warnings).toEqual([]);
+		expect(phases?.createMs).toBe(100);
+		expect(phases?.initMs).toBe(200);
+	});
+
 	it("leaves middleware out of the trace", () => {
 		const { modules, trace } = parseBootstrapTimings(
 			dump({
