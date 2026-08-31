@@ -495,6 +495,10 @@ function classLabelHtml(
 
 /** Dotted lines where one lifecycle phase hands over to the next. */
 function guidesHtml(t: BootTimeline, win: BootWindow): string {
+	// Instants where a zero-length phase sits; their guide wears its weave.
+	const zeroAt = new Set(
+		t.phases.filter((p) => p.end <= p.start).map((p) => p.start)
+	);
 	let html = "";
 	let lastAt = Number.NaN;
 	for (const p of t.phases.slice(1)) {
@@ -507,7 +511,8 @@ function guidesHtml(t: BootTimeline, win: BootWindow): string {
 		if (left < 0 || left > 100) {
 			continue;
 		}
-		html += `<span class="boot-guide" style="left:${left.toFixed(3)}%;border-color:rgba(${p.rgb},0.6)"></span>`;
+		const zero = zeroAt.has(p.start) ? " boot-guide-zero" : "";
+		html += `<span class="boot-guide${zero}" style="left:${left.toFixed(3)}%;border-color:rgba(${p.rgb},0.6)"></span>`;
 	}
 	return html ? `<span class="boot-guides">${html}</span>` : "";
 }

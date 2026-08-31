@@ -1276,7 +1276,26 @@ describe("lanes and axis", () => {
 			selectedId: null,
 			win: { from: 0, to: 1000 },
 		});
-		expect(html.split('boot-guide"').length - 1).toBe(2);
+		expect(html.split('boot-guide-zero"').length - 1).toBe(1);
+		expect(html.split('boot-guide"').length - 1).toBe(1);
+	});
+
+	it("keeps the woven stripe off ordinary boundaries", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 100, initMs: 300, moduleInitMs: 250 },
+				startupMs: 400,
+				timingsAvailable: true,
+				timingsTrace: { ta: traceNode(50) },
+			})
+		) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+		const html = rowsHtml(t, {
+			expandedModules: new Set([UNATTRIBUTED_MODULE]),
+			query: "",
+			selectedId: null,
+			win: { from: 0, to: 400 },
+		});
+		expect(html).not.toContain("boot-guide-zero");
 	});
 
 	it("renders the windowed axis with edge labels", () => {

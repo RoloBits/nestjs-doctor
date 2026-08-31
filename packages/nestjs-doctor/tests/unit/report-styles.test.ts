@@ -14,6 +14,10 @@ describe("report styles", () => {
 		expect(css).toContain("repeating-linear-gradient(45deg");
 	});
 
+	it("weaves the guide under a zero-length phase", () => {
+		expect(css).toContain(".boot-guide-zero {");
+	});
+
 	it("dashes a widened phase and keeps its number from shrinking", () => {
 		expect(css).toContain(".boot-phase-inflated {");
 		expect(css).toContain(

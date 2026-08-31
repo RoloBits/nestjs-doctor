@@ -85,6 +85,14 @@
 .boot-guides { position: absolute; top: 0; bottom: 0; left: 0; right: 0; display: block; pointer-events: none; }
 .boot-rows .boot-guides { left: calc(var(--boot-label-w) + 14px); right: 14px; }
 .boot-guide { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dotted; }
+/* A coincident-marker instant: the 0ms phase's weave, echoed down the rows. */
+.boot-guide-zero {
+  width: 7px; margin-left: -3px; border-left: none;
+  background-color: rgba(10,10,10,0.6);
+  background-image:
+    repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0 2px, transparent 2px 6px),
+    repeating-linear-gradient(-45deg, rgba(255,255,255,0.06) 0 2px, transparent 2px 6px);
+}
 .boot-minimap-window {
   position: absolute; top: 0; height: 100%;
   background: rgba(255,255,255,0.07);
