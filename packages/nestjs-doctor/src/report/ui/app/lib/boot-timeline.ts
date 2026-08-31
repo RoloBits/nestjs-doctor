@@ -107,9 +107,8 @@ export function buildBootTimeline(
 	}
 	const byId = new Map<string, BootSpan>();
 	for (const [id, node] of Object.entries(trace)) {
-		// Deps are sorted slowest first; the slowest dep sets the start: a
-		// near-tie keeps its own finish, a reclocked bar follows the dep, and
-		// the rest start at boot.
+		// Deps are sorted slowest first. The start: own finish on a near-tie,
+		// the dep's finish when reclocked or waited on, else boot.
 		let start = 0;
 		let end = node.initTime;
 		let waitedOn: string | undefined;
@@ -128,7 +127,7 @@ export function buildBootTimeline(
 				end = slowest.initTime + node.initTime;
 				const createEnd = graph.phases?.createMs;
 				if (createEnd !== undefined && createEnd > start) {
-					// A synthesized finish stays inside the create phase.
+					// The synthesized finish is capped at the create boundary.
 					end = Math.min(end, createEnd);
 				}
 				waitedOn = slowestId;
@@ -507,7 +506,7 @@ function classLabelHtml(
 	);
 }
 
-/** Dotted lines where one lifecycle phase hands over to the next. */
+/** Guides at each phase handover: a dotted line, or a weave band at a 0ms phase. */
 function guidesHtml(t: BootTimeline, win: BootWindow): string {
 	// Instants where a zero-length phase sits; their guide is its weave band.
 	const zeroAt = new Set(
@@ -523,7 +522,7 @@ function guidesHtml(t: BootTimeline, win: BootWindow): string {
 		}
 		lastAt = p.start;
 		const zero = zeroAt.has(p.start);
-		// The two edges differ only across a zero band, which the guide spans.
+		// Left and right land on the edges of a zero band, or on the same point.
 		const left = pct(u(s, p.start, true), win);
 		const right = pct(u(s, p.start), win);
 		if (right < 0 || left > 100) {
@@ -800,9 +799,8 @@ export function tOf(s: TimeScale, x: number): number {
 	return x;
 }
 
-// The phase lane: tinted segments over the whole boot with their names and
-// durations; each carries its index so a click can frame it, and a tip so
-// a segment too narrow for its label still names itself.
+// The phase lane: tinted segments over the boot; each carries its index
+// so a click can frame it, and a tip that names a too-narrow segment.
 // Length of the phase its class bars and hook spans cover.
 function phaseCoverageMs(t: BootTimeline, ph: BootPhase): number {
 	const intervals: [number, number][] = [];
