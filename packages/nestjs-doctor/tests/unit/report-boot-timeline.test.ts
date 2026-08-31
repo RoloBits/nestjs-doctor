@@ -1138,6 +1138,22 @@ describe("lanes and axis", () => {
 		expect(inside).not.toContain("boot-offscreen");
 	});
 
+	it("says 0ms in classes when nothing inside the phase has an offset", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 100, initMs: 300 },
+				startupMs: 400,
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: traceNode(50, [], [{ hook: "onModuleInit", ms: 5 }]),
+				},
+			})
+		) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+		const html = phaseLaneHtml(t);
+		expect(html).toContain(">200ms · 0ms in classes<");
+		expect(html).not.toContain("&lt;1ms in classes");
+	});
+
 	it("keeps a zero-length phase when two markers coincide", () => {
 		const t = buildBootTimeline(
 			graph({

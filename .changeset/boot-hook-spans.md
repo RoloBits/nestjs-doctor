@@ -13,7 +13,7 @@
 - A phase whose bars cover less than 95% of it says so on its label (`building modules 130ms · 80ms in classes`) and on its tip, matching how tracers state self time.
 - The init and bootstrap segments split without a `moduleInitMs` marker: the parser derives the boundary from the first `onApplicationBootstrap` start, falling back to the last `onModuleInit` end.
 - Middleware nodes are timed during `app.init()`, so they no longer draw inside `building modules`; they are left out of the trace.
-- A phase between two coincident markers (`createMs === moduleInitMs`) had no width, so the next segment painted over it: invisible, no tip, dead click. The overview lane now tiles the boot instead of positioning each segment independently — no segment overlaps its neighbour, the last one ends where the boot ends, and a segment widened past its true share carries dashed edges and says so on its tip. A zero-length phase reads `0ms`, draws as a weave, and zooms to a slice of the boot around its instant when clicked.
+- A phase between two coincident markers (`createMs === moduleInitMs`) had no width, so the next segment painted over it: invisible, no tip, dead click. The overview lane now tiles the boot instead of positioning each segment independently — no segment overlaps its neighbour, the last one ends where its marker ends, and a segment widened past its true share carries dashed edges and says so on its tip. A zero-length phase reads `0ms`, draws as a weave, and zooms to a slice of the boot around its instant when clicked.
 
 ### Behavior changes
 

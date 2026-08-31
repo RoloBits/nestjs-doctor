@@ -305,7 +305,8 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 			derived !== undefined &&
 			derived > 0 &&
 			(createMs === undefined || derived >= createMs) &&
-			(initMs === undefined || derived <= initMs)
+			(initMs === undefined || derived <= initMs) &&
+			(startupMs === undefined || derived <= startupMs)
 		) {
 			moduleInitMs = derived;
 		}

@@ -461,6 +461,29 @@ describe("parseBootstrapTimings", () => {
 		expect(warnings).toEqual([]);
 	});
 
+	it("drops a derived boundary past startupMs", () => {
+		const base = JSON.parse(
+			dump({
+				m1: moduleNode("CatsModule"),
+				c1: classNode("CatsService", "m1", 3),
+			})
+		);
+		base.createMs = 100;
+		base.startupMs = 320;
+		base.hookTimings = [
+			{
+				className: "CatsService",
+				hook: "onApplicationBootstrap",
+				ms: 10,
+				startMs: 350,
+			},
+		];
+		const { phases, warnings } = parseBootstrapTimings(JSON.stringify(base));
+		expect(phases?.createMs).toBe(100);
+		expect(phases?.moduleInitMs).toBeUndefined();
+		expect(warnings).toEqual([]);
+	});
+
 	it("leaves middleware out of the trace", () => {
 		const { modules, trace } = parseBootstrapTimings(
 			dump({

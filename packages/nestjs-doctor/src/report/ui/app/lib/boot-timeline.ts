@@ -688,7 +688,8 @@ export function phaseLaneHtml(t: BootTimeline): string {
 		const inflated = width > (nat[i] as number) + 1e-9;
 		const covered = p.empty ? 0 : phaseCoverageMs(t, p);
 		const short = !p.empty && covered < trueMs * 0.95;
-		const msLabel = short ? `${ms} · ${formatMs(covered)} in classes` : ms;
+		const coveredMs = covered <= 0 ? "0ms" : formatMs(covered);
+		const msLabel = short ? `${ms} · ${coveredMs} in classes` : ms;
 		let tip = `${ms} · ${p.tip}`;
 		if (zero) {
 			tip += " · no time elapsed between the markers";
