@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { basename } from "node:path";
 import type {
 	BootPhases,
 	BootstrapTimings,
@@ -18,6 +19,7 @@ interface ParsedTimings {
 	hooksByClass: Map<string, HookTiming[]>;
 	modules: Map<string, ClassTiming[]>;
 	phases?: BootPhases;
+	rootModule?: string;
 	startupMs?: number;
 	trace: Record<string, TraceNode>;
 	warnings: string[];
@@ -138,6 +140,11 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 		}
 		return moduleLabels.get([...importers][0] as string);
 	};
+	const rootIds = [...moduleLabels.keys()].filter(
+		(id) => !importersByModule.has(id)
+	);
+	const rootModule =
+		rootIds.length === 1 ? moduleLabels.get(rootIds[0] as string) : undefined;
 
 	const modules = new Map<string, ClassTiming[]>();
 	// Ids get a "t" prefix so an id like "__proto__" stays a plain object key.
@@ -330,7 +337,15 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 	) {
 		phases = { createMs, initMs, moduleInitMs };
 	}
-	return { hooksByClass, modules, phases, startupMs, trace, warnings };
+	return {
+		hooksByClass,
+		modules,
+		phases,
+		rootModule,
+		startupMs,
+		trace,
+		warnings,
+	};
 }
 
 /** Reads and parses a timings dump; any failure degrades to a warning, never a crash. */
@@ -349,14 +364,64 @@ export function loadBootstrapTimings(
 			],
 		};
 	}
-	const { hooksByClass, modules, phases, startupMs, trace, warnings } =
-		parseBootstrapTimings(raw);
+	const {
+		hooksByClass,
+		modules,
+		phases,
+		rootModule,
+		startupMs,
+		trace,
+		warnings,
+	} = parseBootstrapTimings(raw);
 	return Object.keys(trace).length > 0 ||
 		startupMs !== undefined ||
 		phases !== undefined
 		? {
-				timings: { byModule: modules, hooksByClass, phases, startupMs, trace },
+				timings: {
+					byModule: modules,
+					hooksByClass,
+					phases,
+					rootModule,
+					startupMs,
+					trace,
+				},
 				warnings,
 			}
 		: { warnings };
+}
+
+export interface LoadedBootTrace {
+	label?: string;
+	name: string;
+	timings: BootstrapTimings;
+}
+
+const EXT_RE = /\.[^.]*$/;
+
+/** Loads a comma list of dumps; `label=path` names one explicitly. */
+export function loadBootstrapTraces(
+	targetPath: string,
+	spec: string
+): { traces: LoadedBootTrace[]; warnings: string[] } {
+	const traces: LoadedBootTrace[] = [];
+	const warnings: string[] = [];
+	for (const part of spec.split(",")) {
+		const item = part.trim();
+		if (!item) {
+			continue;
+		}
+		const eq = item.indexOf("=");
+		const label = eq > 0 ? item.slice(0, eq).trim() : undefined;
+		const path = eq > 0 ? item.slice(eq + 1).trim() : item;
+		const loaded = loadBootstrapTimings(targetPath, path);
+		warnings.push(...loaded.warnings);
+		if (loaded.timings) {
+			traces.push({
+				label,
+				name: basename(path).replace(EXT_RE, ""),
+				timings: loaded.timings,
+			});
+		}
+	}
+	return { traces, warnings };
 }

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import {
 	loadBootstrapTimings,
+	loadBootstrapTraces,
 	parseBootstrapTimings,
 } from "../../src/report/timings.js";
 
@@ -55,6 +56,31 @@ describe("parseBootstrapTimings", () => {
 			},
 			{ id: "tc1", name: "CatsService", type: "provider", initTime: 4.5 },
 		]);
+	});
+
+	it("names the dump's root module when exactly one has no importer", () => {
+		const { rootModule } = parseBootstrapTimings(
+			dump(
+				{
+					c1: classNode("CatsService", "m1", 5),
+					m1: moduleNode("CatsModule"),
+					m2: moduleNode("DogsModule"),
+				},
+				{ e1: imports("m1", "m2") }
+			)
+		);
+		expect(rootModule).toBe("CatsModule");
+	});
+
+	it("leaves the root module unset when two modules have no importer", () => {
+		const { rootModule } = parseBootstrapTimings(
+			dump({
+				c1: classNode("CatsService", "m1", 5),
+				m1: moduleNode("CatsModule"),
+				m2: moduleNode("DogsModule"),
+			})
+		);
+		expect(rootModule).toBeUndefined();
 	});
 
 	it("keeps a hooks-only dump without a phase breakdown", () => {
@@ -672,5 +698,55 @@ describe("loadBootstrapTimings", () => {
 		expect(timings?.byModule.size).toBe(0);
 		expect(timings?.trace.tc1.module).toBe("SharedModule");
 		expect(timings?.trace.tc2.module).toBe("SharedModule");
+	});
+});
+
+describe("loadBootstrapTraces", () => {
+	it("loads a comma list, keeping labels and naming unlabeled dumps by file", () => {
+		const dir = mkdtempSync(join(tmpdir(), "nd-traces-"));
+		writeFileSync(
+			join(dir, "api.json"),
+			dump({
+				c1: classNode("AppService", "m1", 5),
+				m1: moduleNode("AppModule"),
+			})
+		);
+		writeFileSync(
+			join(dir, "w.json"),
+			dump({
+				c1: classNode("JobsService", "m1", 3),
+				m1: moduleNode("WorkerModule"),
+			})
+		);
+		const { traces, warnings } = loadBootstrapTraces(
+			dir,
+			"api.json,worker=w.json"
+		);
+		expect(warnings).toEqual([]);
+		expect(traces.map((t) => [t.label, t.name])).toEqual([
+			[undefined, "api"],
+			["worker", "w"],
+		]);
+		expect(Object.keys(traces[1]?.timings.trace ?? {})).toContain("tc1");
+		rmSync(dir, { recursive: true, force: true });
+	});
+
+	it("keeps loading past a bad path and says which one failed", () => {
+		const dir = mkdtempSync(join(tmpdir(), "nd-traces-"));
+		writeFileSync(
+			join(dir, "api.json"),
+			dump({
+				c1: classNode("AppService", "m1", 5),
+				m1: moduleNode("AppModule"),
+			})
+		);
+		const { traces, warnings } = loadBootstrapTraces(
+			dir,
+			"missing.json,api.json"
+		);
+		expect(traces).toHaveLength(1);
+		expect(traces[0]?.name).toBe("api");
+		expect(warnings.some((w) => w.includes("missing.json"))).toBe(true);
+		rmSync(dir, { recursive: true, force: true });
 	});
 });

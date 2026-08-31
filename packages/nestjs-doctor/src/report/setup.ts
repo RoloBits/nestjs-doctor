@@ -12,7 +12,8 @@ import {
 	MonorepoReportPipeline,
 	SingleProjectReportPipeline,
 } from "./pipeline.js";
-import { type BootstrapTimings, loadBootstrapTimings } from "./timings.js";
+import type { LoadedBootTrace } from "./timings.js";
+import { loadBootstrapTraces } from "./timings.js";
 
 /** Detect monorepo vs single project and run the appropriate report pipeline */
 export const runReport = async (
@@ -32,10 +33,10 @@ export const runReport = async (
 		openReportInBrowser(outPath);
 	};
 
-	let bootTimings: BootstrapTimings | undefined;
+	let bootTraces: LoadedBootTrace[] | undefined;
 	if (timingsPath) {
-		const { timings, warnings } = loadBootstrapTimings(targetPath, timingsPath);
-		bootTimings = timings;
+		const { traces, warnings } = loadBootstrapTraces(targetPath, timingsPath);
+		bootTraces = traces;
 		for (const warning of warnings) {
 			logger.warn(warning);
 		}
@@ -47,7 +48,7 @@ export const runReport = async (
 			configPath,
 			monorepo,
 			version,
-			bootTimings,
+			bootTraces,
 			telemetry ?? true,
 			sources
 		);
@@ -67,7 +68,7 @@ export const runReport = async (
 		targetPath,
 		configPath,
 		version,
-		bootTimings,
+		bootTraces,
 		telemetry ?? true,
 		sources
 	);

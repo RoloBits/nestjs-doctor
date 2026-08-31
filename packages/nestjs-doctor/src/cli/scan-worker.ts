@@ -31,7 +31,7 @@ const options: PipelineOptions = {
 	shareSections: undefined,
 	skipOutput: true,
 	sources: "none",
-	timings: undefined,
+	traces: undefined,
 	verbose: false,
 };
 

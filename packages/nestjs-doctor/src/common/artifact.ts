@@ -57,6 +57,15 @@ export interface SerializedModuleNode {
 	providerTokens?: string[];
 }
 
+/** One boot trace: a dump's classes and phases, attributed to a project when known. */
+export interface SerializedBootTrace {
+	label: string;
+	phases?: BootPhases;
+	project?: string;
+	startupMs?: number;
+	trace: Record<string, TraceNode>;
+}
+
 export interface SerializedModuleGraph {
 	bootstrapRoots?: string[];
 	circularDepRecommendations: Record<string, string>;
@@ -68,6 +77,7 @@ export interface SerializedModuleGraph {
 	startupMs?: number;
 	timingsAvailable?: boolean;
 	timingsTrace?: Record<string, TraceNode>;
+	traces?: SerializedBootTrace[];
 }
 
 /**

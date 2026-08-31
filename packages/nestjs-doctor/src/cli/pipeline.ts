@@ -394,7 +394,7 @@ export class MonorepoPipeline extends ScanPipeline {
 				bootstrapRoots: this.bootstrapRoots,
 				monorepo: true,
 				sources: this.options.sources,
-				timings: this.options.timings,
+				traces: this.options.traces,
 				version: getCliVersion(),
 			});
 		}
@@ -608,7 +608,7 @@ export class SingleProjectPipeline extends ScanPipeline {
 				providers: this.reportProviders,
 				bootstrapRoots: this.bootstrapRoots,
 				sources: this.options.sources,
-				timings: this.options.timings,
+				traces: this.options.traces,
 				version: getCliVersion(),
 			});
 		}

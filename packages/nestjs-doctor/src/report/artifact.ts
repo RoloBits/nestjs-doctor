@@ -15,7 +15,7 @@ import type { ProviderInfo } from "../engine/graph/type-resolver.js";
 import { getRuleExamples } from "./data/examples.js";
 import { serializeModuleGraph } from "./formatters/module-serializer.js";
 import { buildShareManifest } from "./share.js";
-import type { BootstrapTimings } from "./timings.js";
+import type { LoadedBootTrace } from "./timings.js";
 
 const EMPTY_SCHEMA: SerializedSchemaGraph = {
 	entities: [],
@@ -93,7 +93,7 @@ interface ReportArtifactInput {
 	sources?: SourceInclusion;
 	/** Where the scan ran; share slices relativize their paths against it. */
 	targetPath?: string;
-	timings?: BootstrapTimings;
+	traces?: LoadedBootTrace[];
 	version: string;
 }
 
@@ -107,7 +107,7 @@ export function buildReportArtifact(
 		input.result,
 		input.projects,
 		input.bootstrapRoots,
-		input.timings
+		input.traces
 	);
 	const share = buildShareManifest(input.result, {
 		graph,
