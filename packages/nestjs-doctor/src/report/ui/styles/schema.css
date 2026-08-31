@@ -42,6 +42,13 @@
   color: var(--text-dim); user-select: none;
 }
 .st-indent { width: 16px; min-width: 16px; }
+/* Indent guides on hover, like the file tree on the findings tab. */
+.st-guide { position: relative; align-self: stretch; }
+#mg-tree:hover .st-guide::before,
+#schema-entity-list:hover .st-guide::before {
+  content: ""; position: absolute; top: -3px; bottom: -3px; left: 7px;
+  border-left: 1px solid rgba(255,255,255,0.14);
+}
 .st-icon {
   width: 18px; min-width: 18px; height: 18px; display: flex;
   align-items: center; justify-content: center; margin-right: 4px;
