@@ -139,6 +139,7 @@ export {
 export type { SarifLog } from "../formatters/sarif-report.js";
 export { buildSarifLog } from "../formatters/sarif-report.js";
 export { buildReportArtifact } from "../report/artifact.js";
+export type { LoadedBootTrace } from "../report/timings.js";
 
 function validatePath(path: string): string {
 	if (!path || path.trim() === "") {

@@ -1,9 +1,10 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import {
 	loadBootstrapTimings,
+	loadBootstrapTraces,
 	parseBootstrapTimings,
 } from "../../src/report/timings.js";
 
@@ -55,6 +56,64 @@ describe("parseBootstrapTimings", () => {
 			},
 			{ id: "tc1", name: "CatsService", type: "provider", initTime: 4.5 },
 		]);
+	});
+
+	it("names the dump's root module when exactly one has no importer", () => {
+		const { rootModule } = parseBootstrapTimings(
+			dump(
+				{
+					c1: classNode("CatsService", "m1", 5),
+					m1: moduleNode("CatsModule"),
+					m2: moduleNode("DogsModule"),
+				},
+				{ e1: imports("m1", "m2") }
+			)
+		);
+		expect(rootModule).toBe("CatsModule");
+	});
+
+	it("leaves the root module unset when two modules have no importer", () => {
+		const { rootModule } = parseBootstrapTimings(
+			dump({
+				c1: classNode("CatsService", "m1", 5),
+				m1: moduleNode("CatsModule"),
+				m2: moduleNode("DogsModule"),
+			})
+		);
+		expect(rootModule).toBeUndefined();
+	});
+
+	it("derives the boundary from the last init end when the first bootstrap start is past initMs", () => {
+		const { phases, warnings } = parseBootstrapTimings(
+			JSON.stringify({
+				createMs: 60.4,
+				edges: {},
+				entrypoints: {},
+				hookTimings: [
+					{
+						className: "JobsService",
+						hook: "onModuleInit",
+						ms: 18.2,
+						startMs: 61.1,
+					},
+					{
+						className: "SyncService",
+						hook: "onApplicationBootstrap",
+						ms: 6.8,
+						startMs: 85,
+					},
+				],
+				initMs: 84.2,
+				nodes: {
+					c1: classNode("JobsService", "m1", 5),
+					c2: classNode("SyncService", "m1", 3),
+					m1: moduleNode("WorkerModule"),
+				},
+				startupMs: 92.7,
+			})
+		);
+		expect(warnings).toEqual([]);
+		expect(phases?.moduleInitMs).toBeCloseTo(79.3, 5);
 	});
 
 	it("keeps a hooks-only dump without a phase breakdown", () => {
@@ -507,6 +566,118 @@ describe("parseBootstrapTimings", () => {
 		expect(warnings).toEqual([]);
 	});
 
+	it("derives all three markers for a context app dump", () => {
+		const { phases, warnings } = parseBootstrapTimings(
+			JSON.stringify({
+				edges: {},
+				entrypoints: {},
+				hookTimings: [
+					{
+						className: "QueueService",
+						hook: "onModuleInit",
+						ms: 30.2,
+						startMs: 139.9,
+					},
+					{
+						className: "JobsService",
+						hook: "onModuleInit",
+						ms: 19.8,
+						startMs: 150.3,
+					},
+				],
+				nodes: {
+					c1: classNode("QueueService", "m1", 5),
+					c2: classNode("JobsService", "m1", 3),
+					m1: moduleNode("WorkerModule"),
+				},
+				startupMs: 170.8,
+			})
+		);
+		expect(warnings).toEqual([]);
+		expect(phases?.createMs).toBeCloseTo(139.9, 5);
+		expect(phases?.moduleInitMs).toBeCloseTo(170.1, 5);
+		expect(phases?.initMs).toBeCloseTo(170.8, 5);
+	});
+
+	it("keeps initMs unset when the dump has entrypoints", () => {
+		const { phases, warnings } = parseBootstrapTimings(
+			JSON.stringify({
+				edges: {},
+				entrypoints: { e1: { id: "e1" } },
+				hookTimings: [
+					{
+						className: "QueueService",
+						hook: "onModuleInit",
+						ms: 30.2,
+						startMs: 139.9,
+					},
+				],
+				nodes: {
+					c1: classNode("QueueService", "m1", 5),
+					m1: moduleNode("WorkerModule"),
+				},
+				startupMs: 170.8,
+			})
+		);
+		expect(warnings).toEqual([]);
+		expect(phases?.createMs).toBeCloseTo(139.9, 5);
+		expect(phases?.moduleInitMs).toBeCloseTo(170.1, 5);
+		expect(phases?.initMs).toBeUndefined();
+	});
+
+	it("skips the derived createMs when the earliest hook starts past moduleInitMs", () => {
+		const { phases, warnings } = parseBootstrapTimings(
+			JSON.stringify({
+				edges: {},
+				entrypoints: {},
+				hookTimings: [
+					{
+						className: "QueueService",
+						hook: "onModuleInit",
+						ms: 10,
+						startMs: 150,
+					},
+				],
+				moduleInitMs: 100,
+				nodes: {
+					c1: classNode("QueueService", "m1", 5),
+					m1: moduleNode("WorkerModule"),
+				},
+				startupMs: 200,
+			})
+		);
+		expect(warnings).toEqual([]);
+		expect(phases?.createMs).toBeUndefined();
+		expect(phases?.moduleInitMs).toBe(100);
+		expect(phases?.initMs).toBe(200);
+	});
+
+	it("keeps an explicit createMs over a smaller hook start", () => {
+		const { phases, warnings } = parseBootstrapTimings(
+			JSON.stringify({
+				createMs: 100,
+				edges: {},
+				entrypoints: {},
+				hookTimings: [
+					{
+						className: "QueueService",
+						hook: "onModuleInit",
+						ms: 10,
+						startMs: 50,
+					},
+				],
+				nodes: {
+					c1: classNode("QueueService", "m1", 5),
+					m1: moduleNode("WorkerModule"),
+				},
+				startupMs: 200,
+			})
+		);
+		expect(warnings).toEqual([]);
+		expect(phases?.createMs).toBe(100);
+		expect(phases?.initMs).toBe(200);
+	});
+
 	it("leaves middleware out of the trace", () => {
 		const { modules, trace } = parseBootstrapTimings(
 			dump({
@@ -672,5 +843,71 @@ describe("loadBootstrapTimings", () => {
 		expect(timings?.byModule.size).toBe(0);
 		expect(timings?.trace.tc1.module).toBe("SharedModule");
 		expect(timings?.trace.tc2.module).toBe("SharedModule");
+	});
+});
+
+describe("loadBootstrapTraces", () => {
+	it("loads a comma list, keeping labels and naming unlabeled dumps by file", () => {
+		const dir = mkdtempSync(join(tmpdir(), "nd-traces-"));
+		writeFileSync(
+			join(dir, "api.json"),
+			dump({
+				c1: classNode("AppService", "m1", 5),
+				m1: moduleNode("AppModule"),
+			})
+		);
+		writeFileSync(
+			join(dir, "w.json"),
+			dump({
+				c1: classNode("JobsService", "m1", 3),
+				m1: moduleNode("WorkerModule"),
+			})
+		);
+		const { traces, warnings } = loadBootstrapTraces(
+			dir,
+			"api.json,worker=w.json"
+		);
+		expect(warnings).toEqual([]);
+		expect(traces.map((t) => [t.label, t.name])).toEqual([
+			[undefined, "api"],
+			["worker", "w"],
+		]);
+		expect(Object.keys(traces[1]?.timings.trace ?? {})).toContain("tc1");
+		rmSync(dir, { recursive: true, force: true });
+	});
+
+	it("keeps an equals sign inside a path when the prefix looks like a directory", () => {
+		const dir = mkdtempSync(join(tmpdir(), "nd-traces-"));
+		mkdirSync(join(dir, "out=v2"));
+		writeFileSync(
+			join(dir, "out=v2", "dump.json"),
+			dump({
+				c1: classNode("AppService", "m1", 5),
+				m1: moduleNode("AppModule"),
+			})
+		);
+		const { traces, warnings } = loadBootstrapTraces(dir, "./out=v2/dump.json");
+		expect(warnings).toEqual([]);
+		expect(traces.map((t) => [t.label, t.name])).toEqual([[undefined, "dump"]]);
+		rmSync(dir, { recursive: true, force: true });
+	});
+
+	it("keeps loading past a bad path and says which one failed", () => {
+		const dir = mkdtempSync(join(tmpdir(), "nd-traces-"));
+		writeFileSync(
+			join(dir, "api.json"),
+			dump({
+				c1: classNode("AppService", "m1", 5),
+				m1: moduleNode("AppModule"),
+			})
+		);
+		const { traces, warnings } = loadBootstrapTraces(
+			dir,
+			"missing.json,api.json"
+		);
+		expect(traces).toHaveLength(1);
+		expect(traces[0]?.name).toBe("api");
+		expect(warnings.some((w) => w.includes("missing.json"))).toBe(true);
+		rmSync(dir, { recursive: true, force: true });
 	});
 });

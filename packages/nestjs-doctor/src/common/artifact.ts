@@ -57,6 +57,15 @@ export interface SerializedModuleNode {
 	providerTokens?: string[];
 }
 
+/** One boot trace: a dump's classes and phases, attributed to a project when known. */
+export interface SerializedBootTrace {
+	label: string;
+	phases?: BootPhases;
+	project?: string;
+	startupMs?: number;
+	trace: Record<string, TraceNode>;
+}
+
 export interface SerializedModuleGraph {
 	bootstrapRoots?: string[];
 	circularDepRecommendations: Record<string, string>;
@@ -68,6 +77,7 @@ export interface SerializedModuleGraph {
 	startupMs?: number;
 	timingsAvailable?: boolean;
 	timingsTrace?: Record<string, TraceNode>;
+	traces?: SerializedBootTrace[];
 }
 
 /**
@@ -97,4 +107,11 @@ export interface ReportArtifact {
 	/** Full source text keyed by absolute posix path. */
 	sources: Record<string, string>;
 	summary: DiagnoseSummary;
+}
+
+/** Strips the monorepo project prefix from a module name. */
+export function bareModuleName(m: { name: string; project?: string }): string {
+	return m.project && m.name.startsWith(`${m.project}/`)
+		? m.name.slice(m.project.length + 1)
+		: m.name;
 }

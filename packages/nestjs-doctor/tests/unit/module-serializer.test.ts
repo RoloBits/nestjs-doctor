@@ -6,6 +6,7 @@ import {
 	mergeModuleGraphs,
 } from "../../src/engine/graph/module-graph.js";
 import { serializeModuleGraph } from "../../src/report/formatters/module-serializer.js";
+import { attributeTraces } from "../../src/report/formatters/trace-attribution.js";
 
 function createProject(files: Record<string, string>) {
 	const project = new Project({ useInMemoryFileSystem: true });
@@ -134,7 +135,7 @@ describe("module-serializer", () => {
 			emptyResult,
 			undefined,
 			undefined,
-			timings
+			[{ name: "boot", timings }]
 		);
 
 		expect(serialized.timingsAvailable).toBe(true);
@@ -205,7 +206,7 @@ describe("module-serializer", () => {
 			emptyResult,
 			["api", "shared"],
 			undefined,
-			timings
+			[{ name: "boot", timings }]
 		);
 
 		const cats = serialized.modules.find(
@@ -254,7 +255,7 @@ describe("module-serializer", () => {
 			emptyResult,
 			["api", "worker"],
 			undefined,
-			timings
+			[{ name: "boot", timings }]
 		);
 
 		expect(serialized.timingsAvailable).toBe(true);
@@ -280,5 +281,174 @@ describe("module-serializer", () => {
 		expect(serialized.modules[0].name).toBe("AppModule");
 		expect(serialized.modules[0].project).toBeUndefined();
 		expect(serialized.bootstrapRoots).toBeUndefined();
+	});
+});
+
+function nestModule(name: string): string {
+	return [
+		"import { Module } from '@nestjs/common';",
+		"@Module({})",
+		`export class ${name} {}`,
+	].join("\n");
+}
+
+function timingsOf(
+	moduleName: string,
+	className: string,
+	initTime: number,
+	rootModule?: string
+) {
+	return {
+		byModule: new Map([
+			[moduleName, [{ id: "c1", initTime, name: className, type: "provider" }]],
+		]),
+		hooksByClass: new Map(),
+		rootModule,
+		trace: {
+			c1: { deps: [], initTime, name: className, type: "provider" },
+		},
+	};
+}
+
+describe("module-serializer traces", () => {
+	function twoProjects(workerHasAppModule = false) {
+		const { project: api, paths: apiPaths } = createProject({
+			"app.module.ts": nestModule("AppModule"),
+		});
+		const workerFiles: Record<string, string> = {
+			"worker.module.ts": nestModule("WorkerModule"),
+		};
+		if (workerHasAppModule) {
+			workerFiles["app.module.ts"] = nestModule("AppModule");
+		}
+		const { project: worker, paths: workerPaths } = createProject(workerFiles);
+		return mergeModuleGraphs(
+			new Map([
+				["api", buildModuleGraph(api, apiPaths)],
+				["worker", buildModuleGraph(worker, workerPaths)],
+			])
+		);
+	}
+
+	it("emits one trace per dump, attributed by root module, mirroring the first", () => {
+		const apiTimings = {
+			...timingsOf("AppModule", "AppService", 42, "AppModule"),
+			startupMs: 300,
+		};
+		const workerTimings = {
+			...timingsOf("WorkerModule", "JobsService", 7, "WorkerModule"),
+			startupMs: 120,
+		};
+		const serialized = serializeModuleGraph(
+			twoProjects(),
+			emptyResult,
+			["api", "worker"],
+			["api/AppModule", "worker/WorkerModule"],
+			[
+				{ name: "api-dump", timings: apiTimings },
+				{ name: "worker-dump", timings: workerTimings },
+			]
+		);
+		expect(serialized.traces?.map((t) => [t.label, t.project])).toEqual([
+			["api", "api"],
+			["worker", "worker"],
+		]);
+		expect(serialized.timingsTrace).toEqual(apiTimings.trace);
+		expect(serialized.startupMs).toBe(300);
+		const app = serialized.modules.find((m) => m.name === "api/AppModule");
+		expect(app?.initTimings?.[0]?.name).toBe("AppService");
+		const wm = serialized.modules.find((m) => m.name === "worker/WorkerModule");
+		expect(wm?.initTimings?.[0]?.name).toBe("JobsService");
+	});
+
+	it("attaches same-named modules from each project's own trace", () => {
+		const apiTimings = timingsOf("AppModule", "AppService", 42, "AppModule");
+		const workerTimings = timingsOf(
+			"AppModule",
+			"WorkerBoot",
+			9,
+			"WorkerModule"
+		);
+		const serialized = serializeModuleGraph(
+			twoProjects(true),
+			emptyResult,
+			["api", "worker"],
+			["api/AppModule", "worker/WorkerModule"],
+			[
+				{ name: "api-dump", timings: apiTimings },
+				{ name: "worker-dump", timings: workerTimings },
+			]
+		);
+		const app = serialized.modules.find((m) => m.name === "api/AppModule");
+		expect(app?.initTimings?.[0]?.name).toBe("AppService");
+		const wapp = serialized.modules.find((m) => m.name === "worker/AppModule");
+		expect(wapp?.initTimings?.[0]?.name).toBe("WorkerBoot");
+	});
+
+	it("attributes a dump by its explicit label before inference", () => {
+		const workerTimings = timingsOf("AppModule", "WorkerBoot", 9, "AppModule");
+		const serialized = serializeModuleGraph(
+			twoProjects(true),
+			emptyResult,
+			["api", "worker"],
+			["api/AppModule", "worker/WorkerModule"],
+			[{ label: "worker", name: "dump", timings: workerTimings }]
+		);
+		expect(serialized.traces?.[0]?.project).toBe("worker");
+		const app = serialized.modules.find((m) => m.name === "api/AppModule");
+		expect(app?.initTimings).toBeUndefined();
+		const wapp = serialized.modules.find((m) => m.name === "worker/AppModule");
+		expect(wapp?.initTimings?.[0]?.name).toBe("WorkerBoot");
+	});
+
+	it("keeps an unattributable dump as a trace without a project and warns", () => {
+		const timings = timingsOf("ShopModule", "ShopService", 4);
+		const serialized = serializeModuleGraph(
+			twoProjects(),
+			emptyResult,
+			["api", "worker"],
+			["api/AppModule", "worker/WorkerModule"],
+			[{ name: "mystery", timings }]
+		);
+		expect(serialized.traces?.[0]?.label).toBe("mystery");
+		expect(serialized.traces?.[0]?.project).toBeUndefined();
+	});
+});
+
+describe("attributeTraces", () => {
+	const mods = [
+		{ name: "api/AppModule", project: "api" },
+		{ name: "worker/WorkerModule", project: "worker" },
+	];
+
+	it("prefers the explicit label over inference", () => {
+		const { projects } = attributeTraces(
+			[
+				{
+					label: "worker",
+					name: "d",
+					timings: timingsOf("AppModule", "A", 1, "AppModule"),
+				},
+			],
+			mods,
+			["api", "worker"],
+			["api/AppModule"]
+		);
+		expect(projects).toEqual(["worker"]);
+	});
+
+	it("leaves a tied vote unattributed", () => {
+		const shared = [
+			{ name: "api/SharedModule", project: "api" },
+			{ name: "worker/SharedModule", project: "worker" },
+		];
+		const { projects, rootedProjects } = attributeTraces(
+			[{ name: "d", timings: timingsOf("SharedModule", "S", 1) }],
+			shared,
+			["api", "worker"],
+			["api/SharedModule"]
+		);
+		expect(projects).toEqual([undefined]);
+		expect(rootedProjects).toEqual(new Set(["api"]));
 	});
 });

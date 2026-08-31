@@ -1,8 +1,8 @@
 import { resolve } from "node:path";
 import type { SourceInclusion } from "../common/artifact.js";
 import { isScopeMode, type ScopeMode } from "../common/scope.js";
-import type { BootstrapTimings } from "../common/timings.js";
 import { parseShareSections, type ShareSectionId } from "../report/share.js";
+import type { LoadedBootTrace } from "../report/timings.js";
 import { logger } from "../ui/logger.js";
 import {
 	type BlockingLevel,
@@ -48,7 +48,7 @@ export interface PipelineOptions extends ScanOptions {
 	/** How much source text the report artifact embeds. */
 	sources: SourceInclusion;
 	/** Parsed bootstrap dump, for the artifact's module-graph overlay. */
-	timings?: BootstrapTimings;
+	traces?: LoadedBootTrace[];
 	verbose: boolean;
 }
 
@@ -323,12 +323,12 @@ export class CliSetup {
 		}
 
 		const format = resolveFormat(this.args);
-		let timings: BootstrapTimings | undefined;
+		let traces: LoadedBootTrace[] | undefined;
 		if (this.args.timings) {
 			if (format === "report-json") {
-				const { loadBootstrapTimings } = await import("../report/timings.js");
-				const loaded = loadBootstrapTimings(this.targetPath, this.args.timings);
-				timings = loaded.timings;
+				const { loadBootstrapTraces } = await import("../report/timings.js");
+				const loaded = loadBootstrapTraces(this.targetPath, this.args.timings);
+				traces = loaded.traces;
 				for (const warning of loaded.warnings) {
 					logger.warn(warning);
 				}
@@ -360,7 +360,7 @@ export class CliSetup {
 				sources: resolveSources(this.args),
 				staged: this.args.staged ?? false,
 				telemetry: this.args.telemetry ?? true,
-				timings,
+				traces,
 				verbose: this.args.verbose ?? false,
 			},
 		};

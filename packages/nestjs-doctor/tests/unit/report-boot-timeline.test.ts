@@ -5,6 +5,7 @@ import type {
 } from "../../src/common/artifact.js";
 import type { ClassTiming } from "../../src/common/timings.js";
 import { parseBootstrapTimings } from "../../src/report/timings.js";
+import { hoverCardData } from "../../src/report/ui/app/lib/boot-hover.js";
 import {
 	axisHtml,
 	type BootWindow,
@@ -22,6 +23,8 @@ import {
 	slowestSpanId,
 	spanMatches,
 	tOf,
+	traceIndexForModule,
+	traceViews,
 	UNATTRIBUTED_MODULE,
 	windowAround,
 	windowTicks,
@@ -371,6 +374,38 @@ describe("buildBootTimeline", () => {
 			["onApplicationBootstrap", 250, 300],
 			["listen", 300, 400],
 		]);
+	});
+
+	it("tiles the phases over the whole boot for every marker subset", () => {
+		const subsets = [
+			{},
+			{ createMs: 100 },
+			{ moduleInitMs: 250 },
+			{ initMs: 300 },
+			{ createMs: 100, moduleInitMs: 250 },
+			{ createMs: 100, initMs: 300 },
+			{ initMs: 300, moduleInitMs: 250 },
+			{ createMs: 100, initMs: 300, moduleInitMs: 250 },
+		];
+		for (const phases of subsets) {
+			const label = JSON.stringify(phases);
+			const t = buildBootTimeline(
+				graph({
+					phases,
+					startupMs: 400,
+					timingsAvailable: true,
+					timingsTrace: { ta: traceNode(50) },
+				})
+			);
+			expect(t, label).not.toBeNull();
+			const ph = t?.phases ?? [];
+			expect(ph.length, label).toBeGreaterThanOrEqual(1);
+			expect(ph[0]?.start, label).toBe(0);
+			for (let i = 1; i < ph.length; i++) {
+				expect(ph[i]?.start, label).toBe(ph[i - 1]?.end);
+			}
+			expect(ph.at(-1)?.end, label).toBe(t?.maxMs);
+		}
 	});
 
 	it("marks a phase empty when no class or hook span falls inside it", () => {
@@ -818,6 +853,51 @@ describe("rowsHtml", () => {
 		expect(html).toMatch(GUIDE_MS_300_RE);
 	});
 
+	it("keeps a bootstrap hook inside its own phase unstriped under a merged label", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { initMs: 90, moduleInitMs: 50 },
+				startupMs: 100,
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: traceNode(
+						5,
+						[],
+						[{ hook: "onApplicationBootstrap", ms: 20, startMs: 60 }]
+					),
+				},
+			})
+		)!;
+		const html = rowsHtml(t, { ...base, win: { from: 0, to: 100 } });
+		expect(html).not.toContain("boot-hook-stray");
+		expect(t.phases[1]?.empty).toBe(false);
+	});
+
+	it("stripes a hook that ran outside the phase its kind names", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 60.4, initMs: 84.2, moduleInitMs: 79.3 },
+				startupMs: 92.7,
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: traceNode(
+						5,
+						[],
+						[{ hook: "onApplicationBootstrap", ms: 6.8, startMs: 85 }]
+					),
+					tb: traceNode(4, [], [{ hook: "onModuleInit", ms: 3, startMs: 62 }]),
+				},
+			})
+		)!;
+		const html = rowsHtml(t, { ...base, win: { from: 0, to: 92.7 } });
+		expect(html.split("boot-hook-stray").length - 1).toBe(1);
+		expect(html).toContain("boot-hook-span boot-hook-stray");
+		const card = hoverCardData(t, t.byId.get("ta") as never, 0);
+		expect(card.detail.dim).toContain("past its phase");
+		const tame = hoverCardData(t, t.byId.get("tb") as never, 0);
+		expect(tame.detail.dim).not.toContain("past its phase");
+	});
+
 	it("marks offscreen content on both sides of the window", () => {
 		const t = buildBootTimeline(
 			graph({
@@ -1094,6 +1174,26 @@ describe("lanes and axis", () => {
 			'data-tip="100ms · create — NestFactory constructs every module, provider, and controller. · 50ms not covered by any class bar"'
 		);
 		expect(html).toContain('data-tip="100ms · listen — ');
+	});
+
+	it("renders four sections for a context app's derived markers", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 139.9, initMs: 170.8, moduleInitMs: 170.1 },
+				startupMs: 170.8,
+				timingsAvailable: true,
+				timingsTrace: { ta: traceNode(50) },
+			})
+		) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+		const html = phaseLaneHtml(t);
+		expect(html).toContain("building modules");
+		expect(html).toContain("init hooks");
+		expect(html).toContain("bootstrap hooks");
+		expect(html).toContain("opening the port");
+		const tags = [...html.matchAll(PHASE_TAG_RE)].map((m) => m[1]);
+		expect(tags).toHaveLength(4);
+		expect(tags[3]).toContain("boot-phase-empty");
+		expect(html).toContain('boot-phase-ms">0ms</span>');
 	});
 
 	it("keeps a sub-millisecond phase wide enough to hover, inside the lane", () => {
@@ -1520,5 +1620,196 @@ describe("lanes and axis", () => {
 		expect(html).toContain("boot-axis-zero");
 		expect(html).toContain("boot-axis-tick");
 		expect(html).toContain("boot-axis-end");
+	});
+});
+
+describe("trace views", () => {
+	it("normalizes a legacy graph into one view", () => {
+		const g = graph({
+			startupMs: 100,
+			timingsAvailable: true,
+			timingsTrace: { ta: traceNode(50) },
+		});
+		const views = traceViews(g);
+		expect(views).toHaveLength(1);
+		expect(views[0]?.label).toBe("boot");
+		expect(views[0]?.graph.timingsTrace).toBe(g.timingsTrace);
+	});
+
+	it("builds one view per serialized trace with its own clock", () => {
+		const g = graph({
+			startupMs: 300,
+			timingsAvailable: true,
+			timingsTrace: { ta: traceNode(50) },
+			traces: [
+				{
+					label: "api",
+					project: "api",
+					startupMs: 300,
+					trace: { ta: traceNode(50) },
+				},
+				{
+					label: "worker",
+					project: "worker",
+					startupMs: 120,
+					trace: { tb: traceNode(20) },
+				},
+			],
+		});
+		const views = traceViews(g);
+		expect(views.map((v) => [v.label, v.project])).toEqual([
+			["api", "api"],
+			["worker", "worker"],
+		]);
+		expect(views[1]?.graph.startupMs).toBe(120);
+		expect(buildBootTimeline(views[1]?.graph ?? g)?.maxMs).toBe(120);
+	});
+
+	it("locks a module to its own project's view and to none when absent", () => {
+		const g = graph({
+			timingsAvailable: true,
+			traces: [
+				{
+					label: "api",
+					project: "api",
+					startupMs: 300,
+					trace: { ta: traceNode(50) },
+				},
+				{
+					label: "worker",
+					project: "worker",
+					startupMs: 120,
+					trace: {
+						tb: traceNode(20, [], undefined, { module: "SharedModule" }),
+					},
+				},
+			],
+		});
+		const views = traceViews(g);
+		expect(traceIndexForModule(views, mod("worker/JobsModule"))).toBe(1);
+		expect(traceIndexForModule(views, mod("api/AppModule"))).toBe(0);
+		expect(traceIndexForModule(views, mod("shared/SharedModule"))).toBe(1);
+		const both = traceViews(
+			graph({
+				timingsAvailable: true,
+				traces: [
+					{
+						label: "api",
+						project: "api",
+						trace: {
+							ta: traceNode(5, [], undefined, { module: "SharedModule" }),
+						},
+					},
+					{
+						label: "worker",
+						project: "worker",
+						trace: {
+							tb: traceNode(3, [], undefined, { module: "SharedModule" }),
+						},
+					},
+				],
+			})
+		);
+		expect(traceIndexForModule(both, mod("shared/SharedModule"))).toBe(0);
+		expect(traceIndexForModule(views, mod("ghost/GhostModule"))).toBe(-1);
+	});
+
+	it("treats a canvas empty-string project like no project at all", () => {
+		const legacy = traceViews(
+			graph({
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: traceNode(50, [], undefined, { module: "AppModule" }),
+				},
+			})
+		);
+		expect(
+			traceIndexForModule(legacy, { name: "CoreModule", project: "" })
+		).toBe(0);
+		expect(
+			traceIndexForModule(legacy, { name: "api/AppModule", project: "api" })
+		).toBe(0);
+		const two = traceViews(
+			graph({
+				timingsAvailable: true,
+				traces: [
+					{
+						label: "api",
+						project: "api",
+						startupMs: 300,
+						trace: { ta: traceNode(5) },
+					},
+					{
+						label: "worker",
+						project: "worker",
+						startupMs: 120,
+						trace: { tb: traceNode(3) },
+					},
+				],
+			})
+		);
+		expect(traceIndexForModule(two, { name: "GhostModule", project: "" })).toBe(
+			-1
+		);
+	});
+
+	it("labels every project's modules from its own trace", () => {
+		const g = graph({
+			modules: [
+				mod("api/AppModule", [
+					{ id: "ta", initTime: 50, name: "ApiService", type: "provider" },
+				]),
+				mod("worker/JobsModule", [
+					{ id: "tb", initTime: 20, name: "JobsService", type: "provider" },
+				]),
+			],
+			startupMs: 300,
+			timingsAvailable: true,
+			timingsTrace: {
+				ta: traceNode(50, [], undefined, {
+					module: "AppModule",
+					name: "ApiService",
+				}),
+			},
+			traces: [
+				{
+					label: "api",
+					project: "api",
+					startupMs: 300,
+					trace: {
+						ta: traceNode(50, [], undefined, {
+							module: "AppModule",
+							name: "ApiService",
+						}),
+					},
+				},
+				{
+					label: "worker",
+					project: "worker",
+					startupMs: 120,
+					trace: {
+						tb: traceNode(20, [], undefined, {
+							module: "JobsModule",
+							name: "JobsService",
+						}),
+					},
+				},
+			],
+		});
+		const timings = moduleTimings(g);
+		expect(timings.get("api/AppModule")?.buildMs).toBeGreaterThan(0);
+		expect(timings.get("worker/JobsModule")?.buildMs).toBeGreaterThan(0);
+	});
+
+	it("serves every module from a lone unattributed view", () => {
+		const g = graph({
+			timingsAvailable: true,
+			timingsTrace: {
+				ta: traceNode(50, [], undefined, { module: "AppModule" }),
+			},
+		});
+		const views = traceViews(g);
+		expect(traceIndexForModule(views, mod("AppModule"))).toBe(0);
+		expect(traceIndexForModule(views, mod("worker/JobsModule"))).toBe(0);
 	});
 });

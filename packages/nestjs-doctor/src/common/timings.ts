@@ -40,6 +40,7 @@ export interface BootstrapTimings {
 	byModule: Map<string, ClassTiming[]>;
 	hooksByClass: Map<string, HookTiming[]>;
 	phases?: BootPhases;
+	rootModule?: string;
 	startupMs?: number;
 	trace: Record<string, TraceNode>;
 }

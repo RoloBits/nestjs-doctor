@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { basename } from "node:path";
 import type {
 	BootPhases,
 	BootstrapTimings,
@@ -18,6 +19,7 @@ interface ParsedTimings {
 	hooksByClass: Map<string, HookTiming[]>;
 	modules: Map<string, ClassTiming[]>;
 	phases?: BootPhases;
+	rootModule?: string;
 	startupMs?: number;
 	trace: Record<string, TraceNode>;
 	warnings: string[];
@@ -138,6 +140,11 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 		}
 		return moduleLabels.get([...importers][0] as string);
 	};
+	const rootIds = [...moduleLabels.keys()].filter(
+		(id) => !importersByModule.has(id)
+	);
+	const rootModule =
+		rootIds.length === 1 ? moduleLabels.get(rootIds[0] as string) : undefined;
 
 	const modules = new Map<string, ClassTiming[]>();
 	// Ids get a "t" prefix so an id like "__proto__" stays a plain object key.
@@ -219,6 +226,7 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 
 	const hooksByClass = new Map<string, HookTiming[]>();
 	let firstBootstrapStart: number | undefined;
+	let firstHookStart: number | undefined;
 	let lastInitEnd: number | undefined;
 	const rawHooks = (data as { hookTimings?: unknown }).hookTimings;
 	if (Array.isArray(rawHooks)) {
@@ -247,6 +255,10 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 				Number.isFinite(startMs) &&
 				startMs >= 0
 			) {
+				firstHookStart = Math.min(
+					firstHookStart ?? Number.POSITIVE_INFINITY,
+					startMs
+				);
 				if (hook === "onApplicationBootstrap") {
 					firstBootstrapStart = Math.min(
 						firstBootstrapStart ?? Number.POSITIVE_INFINITY,
@@ -292,27 +304,55 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 	}
 
 	const startupMs = asPositiveMs((data as { startupMs?: unknown }).startupMs);
-	const createMs = asPositiveMs((data as { createMs?: unknown }).createMs);
+	let createMs = asPositiveMs((data as { createMs?: unknown }).createMs);
 	let moduleInitMs = asPositiveMs(
 		(data as { moduleInitMs?: unknown }).moduleInitMs
 	);
-	const initMs = asPositiveMs((data as { initMs?: unknown }).initMs);
+	let initMs = asPositiveMs((data as { initMs?: unknown }).initMs);
 	if (
 		moduleInitMs === undefined &&
 		(createMs ?? initMs ?? startupMs) !== undefined
 	) {
-		// The boundary sits where the first bootstrap hook starts, else where
-		// the last init hook ends.
-		const derived = firstBootstrapStart ?? lastInitEnd;
-		if (
-			derived !== undefined &&
-			derived > 0 &&
-			(createMs === undefined || derived >= createMs) &&
-			(initMs === undefined || derived <= initMs) &&
-			(startupMs === undefined || derived <= startupMs)
-		) {
-			moduleInitMs = derived;
+		// The boundary is the first bootstrap start, else the last init end;
+		// the first candidate that fits between the markers wins.
+		for (const derived of [firstBootstrapStart, lastInitEnd]) {
+			if (
+				derived !== undefined &&
+				derived > 0 &&
+				(createMs === undefined || derived >= createMs) &&
+				(initMs === undefined || derived <= initMs) &&
+				(startupMs === undefined || derived <= startupMs)
+			) {
+				moduleInitMs = derived;
+				break;
+			}
 		}
+	}
+	// The earliest positioned hook start stands in for an absent create marker,
+	// only when a measured marker anchors the dump.
+	if (
+		createMs === undefined &&
+		(moduleInitMs ?? initMs ?? startupMs) !== undefined &&
+		firstHookStart !== undefined &&
+		firstHookStart > 0 &&
+		(moduleInitMs === undefined || firstHookStart <= moduleInitMs) &&
+		(initMs === undefined || firstHookStart <= initMs) &&
+		(startupMs === undefined || firstHookStart <= startupMs)
+	) {
+		createMs = firstHookStart;
+	}
+	// An empty entrypoints object is a context app: init ends when creation
+	// returns, there is no listen.
+	const entrypoints = (data as { entrypoints?: unknown }).entrypoints;
+	if (
+		initMs === undefined &&
+		startupMs !== undefined &&
+		typeof entrypoints === "object" &&
+		entrypoints !== null &&
+		!Array.isArray(entrypoints) &&
+		Object.keys(entrypoints).length === 0
+	) {
+		initMs = startupMs;
 	}
 	const markers = [createMs, moduleInitMs, initMs, startupMs].filter(
 		(m): m is number => m !== undefined
@@ -330,7 +370,15 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 	) {
 		phases = { createMs, initMs, moduleInitMs };
 	}
-	return { hooksByClass, modules, phases, startupMs, trace, warnings };
+	return {
+		hooksByClass,
+		modules,
+		phases,
+		rootModule,
+		startupMs,
+		trace,
+		warnings,
+	};
 }
 
 /** Reads and parses a timings dump; any failure degrades to a warning, never a crash. */
@@ -349,14 +397,67 @@ export function loadBootstrapTimings(
 			],
 		};
 	}
-	const { hooksByClass, modules, phases, startupMs, trace, warnings } =
-		parseBootstrapTimings(raw);
+	const {
+		hooksByClass,
+		modules,
+		phases,
+		rootModule,
+		startupMs,
+		trace,
+		warnings,
+	} = parseBootstrapTimings(raw);
 	return Object.keys(trace).length > 0 ||
 		startupMs !== undefined ||
 		phases !== undefined
 		? {
-				timings: { byModule: modules, hooksByClass, phases, startupMs, trace },
+				timings: {
+					byModule: modules,
+					hooksByClass,
+					phases,
+					rootModule,
+					startupMs,
+					trace,
+				},
 				warnings,
 			}
 		: { warnings };
+}
+
+export interface LoadedBootTrace {
+	label?: string;
+	name: string;
+	timings: BootstrapTimings;
+}
+
+const EXT_RE = /\.[^.]*$/;
+const SEP_RE = /[\\/]/;
+
+/** Loads a comma list of dumps; `label=path` names one explicitly. */
+export function loadBootstrapTraces(
+	targetPath: string,
+	spec: string
+): { traces: LoadedBootTrace[]; warnings: string[] } {
+	const traces: LoadedBootTrace[] = [];
+	const warnings: string[] = [];
+	for (const part of spec.split(",")) {
+		const item = part.trim();
+		if (!item) {
+			continue;
+		}
+		const eq = item.indexOf("=");
+		// A prefix with a path separator is part of the path, not a label.
+		const labelled = eq > 0 && !SEP_RE.test(item.slice(0, eq));
+		const label = labelled ? item.slice(0, eq).trim() : undefined;
+		const path = labelled ? item.slice(eq + 1).trim() : item;
+		const loaded = loadBootstrapTimings(targetPath, path);
+		warnings.push(...loaded.warnings);
+		if (loaded.timings) {
+			traces.push({
+				label,
+				name: basename(path).replace(EXT_RE, ""),
+				timings: loaded.timings,
+			});
+		}
+	}
+	return { traces, warnings };
 }

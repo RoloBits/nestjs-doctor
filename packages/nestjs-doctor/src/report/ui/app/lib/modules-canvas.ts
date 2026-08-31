@@ -3,6 +3,7 @@ import type {
 	SerializedModuleGraph,
 	SerializedModuleNode,
 } from "../../../../common/artifact.js";
+import { bareModuleName } from "../../../../common/artifact.js";
 import { REPORT_FONT_STACK } from "../../font.js";
 import {
 	type ModuleTiming,
@@ -54,10 +55,7 @@ interface MgEdge {
 }
 
 export function displayName(n: { name: string; project?: string }): string {
-	if (n.project && n.name.indexOf(`${n.project}/`) === 0) {
-		return n.name.slice(n.project.length + 1);
-	}
-	return n.name;
+	return bareModuleName(n);
 }
 
 function buildProjectColorMap(

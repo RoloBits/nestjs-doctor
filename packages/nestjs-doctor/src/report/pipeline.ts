@@ -24,7 +24,7 @@ import { scanTelemetryEnabled } from "../telemetry/send.js";
 import { spinner } from "../ui/spinner.js";
 import { buildReportArtifact, collectScanFacts } from "./artifact.js";
 import { buildHtmlReport } from "./html-report.js";
-import type { BootstrapTimings } from "./timings.js";
+import type { LoadedBootTrace } from "./timings.js";
 
 type PipelineStep = () => void | Promise<void>;
 
@@ -36,7 +36,7 @@ abstract class ReportPipeline {
 	protected readonly steps: PipelineStep[] = [];
 	protected readonly targetPath: string;
 	protected readonly telemetry: boolean;
-	protected readonly timings: BootstrapTimings | undefined;
+	protected readonly traces: LoadedBootTrace[] | undefined;
 	protected readonly version: string;
 
 	private readonly configPath: string | undefined;
@@ -45,14 +45,14 @@ abstract class ReportPipeline {
 		targetPath: string,
 		configPath: string | undefined,
 		version: string,
-		timings?: BootstrapTimings,
+		traces?: LoadedBootTrace[],
 		telemetry = true,
 		sources: SourceInclusion = "all"
 	) {
 		this.targetPath = targetPath;
 		this.configPath = configPath;
 		this.version = version;
-		this.timings = timings;
+		this.traces = traces;
 		this.telemetry = telemetry;
 		this.sources = sources;
 	}
@@ -160,7 +160,7 @@ export class SingleProjectReportPipeline extends ReportPipeline {
 					bootstrapRoots: facts.bootstrapRoots,
 					providers: facts.providers,
 					sources: this.sources,
-					timings: this.timings,
+					traces: this.traces,
 					version: this.version,
 				}),
 				{ telemetry: this.telemetryEnabled }
@@ -186,11 +186,11 @@ export class MonorepoReportPipeline extends ReportPipeline {
 		configPath: string | undefined,
 		monorepo: MonorepoInfo,
 		version: string,
-		timings?: BootstrapTimings,
+		traces?: LoadedBootTrace[],
 		telemetry = true,
 		sources: SourceInclusion = "all"
 	) {
-		super(targetPath, configPath, version, timings, telemetry, sources);
+		super(targetPath, configPath, version, traces, telemetry, sources);
 		this.monorepo = monorepo;
 	}
 
@@ -265,7 +265,7 @@ export class MonorepoReportPipeline extends ReportPipeline {
 					bootstrapRoots: this.bootstrapRoots,
 					monorepo: true,
 					sources: this.sources,
-					timings: this.timings,
+					traces: this.traces,
 					version: this.version,
 				}),
 				{ telemetry: this.telemetryEnabled }

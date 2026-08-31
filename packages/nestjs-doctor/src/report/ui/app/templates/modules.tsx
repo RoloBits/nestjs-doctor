@@ -16,7 +16,12 @@ import { Badge } from "../atoms/badge.js";
 import { IconButton, TextButton } from "../atoms/button.js";
 import { Heading } from "../atoms/heading.js";
 import { Icon } from "../atoms/icon.js";
-import { moduleTimingLabel, moduleTimings } from "../lib/boot-timeline.js";
+import {
+	moduleTimingLabel,
+	moduleTimings,
+	traceIndexForModule,
+	traceViews,
+} from "../lib/boot-timeline.js";
 import { installFloatTip } from "../lib/float-tip.js";
 import {
 	endpointsOf,
@@ -926,6 +931,7 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 	const graph = report.graph;
 	const [selectedName, setSelectedName] = useState<string | null>(null);
 	const modTimings = useMemo(() => moduleTimings(graph), [graph]);
+	const bootViews = useMemo(() => traceViews(graph), [graph]);
 	const timingLabelOf = (name: string): string => {
 		const timing = modTimings.get(name);
 		return timing ? moduleTimingLabel(timing) : "";
@@ -1075,6 +1081,7 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 	const nodeMap = controller ? controller.nodeMap : {};
 	const importers = controller ? controller.importers : {};
 	const selected = selectedName ? (nodeMap[selectedName] ?? null) : null;
+	const dockTraceIdx = selected ? traceIndexForModule(bootViews, selected) : 0;
 
 	const byProject: Record<string, MgNode[]> = {};
 	for (const n of nodes) {
@@ -1611,16 +1618,23 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 						)}
 					</div>
 					<div className="boot-dock-body" data-active={dockActive}>
-						<BootView
-							compact
-							focusModule={selectedName}
-							graph={graph}
-							onSelectSpan={(span) => {
-								if (graph.modules.some((m) => m.name === span.module)) {
-									selectRef.current(span.module, true);
-								}
-							}}
-						/>
+						{dockTraceIdx === -1 ? (
+							<div className="boot-dock-empty">
+								No boot timings cover {selected?.project || "this module"}
+							</div>
+						) : (
+							<BootView
+								compact
+								focusModule={selectedName}
+								graph={graph}
+								onSelectSpan={(span) => {
+									if (graph.modules.some((m) => m.name === span.module)) {
+										selectRef.current(span.module, true);
+									}
+								}}
+								traceIndex={dockTraceIdx}
+							/>
+						)}
 					</div>
 				</div>
 				<div

@@ -599,3 +599,89 @@ describe("BootTab", () => {
 		expect(cursor?.style.display).toBe("none");
 	});
 });
+
+const TWO_TRACE_ARTIFACT: ReportArtifact = {
+	...EMPTY_ARTIFACT,
+	graph: {
+		...EMPTY_ARTIFACT.graph,
+		startupMs: 300,
+		timingsAvailable: true,
+		timingsTrace: {
+			ta: { deps: [], initTime: 50, name: "ApiService", type: "provider" },
+		},
+		traces: [
+			{
+				label: "api",
+				project: "api",
+				startupMs: 300,
+				trace: {
+					ta: { deps: [], initTime: 50, name: "ApiService", type: "provider" },
+				},
+			},
+			{
+				label: "worker",
+				project: "worker",
+				startupMs: 120,
+				trace: {
+					tb: { deps: [], initTime: 20, name: "JobsService", type: "provider" },
+				},
+			},
+		],
+	},
+};
+
+describe("BootTab traces", () => {
+	let container: HTMLDivElement;
+	let root: Root;
+
+	beforeEach(() => {
+		container = document.createElement("div");
+		document.body.appendChild(container);
+		root = createRoot(container);
+	});
+
+	afterEach(() => {
+		act(() => root.unmount());
+		container.remove();
+	});
+
+	const mount = (artifact: ReportArtifact) => {
+		act(() => {
+			root.render(<BootTab report={artifact} />);
+		});
+	};
+
+	it("shows a picker for two traces and switches between them", () => {
+		mount(TWO_TRACE_ARTIFACT);
+		const picker = container.querySelector(".boot-trace-picker");
+		expect(picker?.textContent).toContain("api");
+		expect(picker?.textContent).toContain("worker");
+		expect(container.querySelector('.boot-rows [data-id="ta"]')).not.toBeNull();
+		const workerBtn = [
+			...container.querySelectorAll<HTMLElement>(".boot-trace-picker button"),
+		].find((b) => b.textContent === "worker");
+		act(() => workerBtn?.click());
+		expect(container.querySelector('.boot-rows [data-id="tb"]')).not.toBeNull();
+		expect(container.querySelector('.boot-rows [data-id="ta"]')).toBeNull();
+	});
+
+	it("locks the compact view to the given trace with no picker", () => {
+		act(() => {
+			root.render(
+				<BootView
+					compact
+					focusModule={null}
+					graph={TWO_TRACE_ARTIFACT.graph}
+					traceIndex={1}
+				/>
+			);
+		});
+		expect(container.querySelector(".boot-trace-picker")).toBeNull();
+		expect(container.querySelector('.boot-rows [data-id="tb"]')).not.toBeNull();
+		act(() => {
+			root.render(<BootView graph={TWO_TRACE_ARTIFACT.graph} traceIndex={1} />);
+		});
+		expect(container.querySelector(".boot-trace-picker")).toBeNull();
+		expect(container.querySelector('.boot-rows [data-id="ta"]')).toBeNull();
+	});
+});
