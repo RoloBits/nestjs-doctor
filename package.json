@@ -20,7 +20,7 @@
     "@changesets/cli": "^3.0.1",
     "husky": "9.1.7",
     "knip": "6.33.0",
-    "typescript": "^7.0.2",
+    "typescript": "^5.7.0",
     "ultracite": "7.10.7"
   },
   "packageManager": "pnpm@10.2.0"

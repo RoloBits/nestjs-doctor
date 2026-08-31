@@ -80,7 +80,7 @@
     "@types/react-dom": "^19",
     "jsdom": "^30.0.1",
     "react-dom": "19.2.3",
-    "tsdown": "^0.22.14",
+    "tsdown": "^0.20.3",
     "vitest": "^4.1.11"
   },
   "engines": {
