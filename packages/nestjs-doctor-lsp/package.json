@@ -45,7 +45,7 @@
     "nestjs-doctor": "workspace:>=0.9.1"
   },
   "devDependencies": {
-    "tsdown": "^0.20.3",
-    "vitest": "^3.2.4"
+    "tsdown": "^0.22.14",
+    "vitest": "^4.1.11"
   }
 }

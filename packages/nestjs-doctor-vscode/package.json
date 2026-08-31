@@ -89,8 +89,8 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "@types/vscode": "^1.85.0",
+    "@types/vscode": "^1.134.0",
     "nestjs-doctor-lsp": "workspace:*",
-    "tsdown": "^0.20.3"
+    "tsdown": "^0.22.14"
   }
 }
