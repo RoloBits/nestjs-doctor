@@ -156,10 +156,15 @@ export function BootLanes({
 			}
 			const from = Number.parseFloat(seg.getAttribute("data-from") ?? "0");
 			const to = Number.parseFloat(seg.getAttribute("data-to") ?? "0");
-			if (!(Number.isFinite(from) && Number.isFinite(to) && to > from)) {
+			if (!(Number.isFinite(from) && Number.isFinite(to) && to >= from)) {
 				return;
 			}
-			const pad = (to - from) * 0.05;
+			// A zero-length or sub-millisecond phase gets a fixed slice of the
+			// boot instead of a window too tight to read.
+			const pad = Math.max(
+				(to - from) * 0.05,
+				timelineRef.current.maxMs * 0.04
+			);
 			setRange(from - pad, to + pad);
 		});
 

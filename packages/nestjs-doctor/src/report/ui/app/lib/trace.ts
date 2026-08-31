@@ -65,7 +65,9 @@ export function phaseParts(graph: PhasedGraph): PhasePart[] {
 		rgb: string,
 		tip: string
 	) => {
-		if (typeof end !== "number" || end <= prev) {
+		// Markers are validated monotonic upstream; only coincident markers
+		// reach here, and they are a real 0ms phase.
+		if (typeof end !== "number" || end < prev) {
 			return;
 		}
 		parts.push({ gloss, label, ms: end - prev, rgb, tip });

@@ -213,7 +213,9 @@ export function buildBootTimeline(
 	}
 	const spans = [...byId.values()];
 	for (const ph of phases) {
-		ph.empty = !spans.some((s) => spanTouches(s, ph));
+		// Coincident markers leave no room for anything to run in, whatever an
+		// offsetless hook named for the phase would otherwise claim.
+		ph.empty = ph.end <= ph.start || !spans.some((s) => spanTouches(s, ph));
 	}
 
 	const maxMs = Math.max(
@@ -494,7 +496,13 @@ function classLabelHtml(
 /** Dotted lines where one lifecycle phase hands over to the next. */
 function guidesHtml(t: BootTimeline, win: BootWindow): string {
 	let html = "";
+	let lastAt = Number.NaN;
 	for (const p of t.phases.slice(1)) {
+		// Two phases meeting at one instant draw one line.
+		if (p.start === lastAt) {
+			continue;
+		}
+		lastAt = p.start;
 		const left = pct(p.start, win);
 		if (left < 0 || left > 100) {
 			continue;
@@ -616,7 +624,7 @@ export function axisHtml(win: BootWindow): string {
 // Narrowest a phase segment draws, as a share of the lane; an empty one
 // gets more room so its weave shows.
 const PHASE_MIN_PCT = 0.6;
-const EMPTY_PHASE_MIN_PCT = 1.5;
+const EMPTY_PHASE_MIN_PCT = 4.5;
 
 // The phase lane: tinted segments over the whole boot with their names and
 // durations; each carries its range so a click can zoom to it, and a tip so
@@ -643,32 +651,66 @@ function phaseCoverageMs(t: BootTimeline, ph: BootPhase): number {
 }
 
 export function phaseLaneHtml(t: BootTimeline): string {
+	if (t.phases.length === 0) {
+		return "";
+	}
 	const full: BootWindow = { from: 0, to: t.maxMs };
+	const last = t.phases.at(-1) as BootPhase;
+	// The lane tiles [0, last phase end]: boundaries are placed, not segments,
+	// so widening one column shrinks the others and nothing overlaps.
+	const budget = pct(last.end, full);
+	const nat = t.phases.map((p) => pct(p.end, full) - pct(p.start, full));
+	let mins: number[] = t.phases.map((p) =>
+		p.empty ? EMPTY_PHASE_MIN_PCT : PHASE_MIN_PCT
+	);
+	const minSum = mins.reduce((a, b) => a + b, 0);
+	if (minSum > budget) {
+		mins = mins.map((m) => (m * budget) / minSum);
+	}
+	const widths = nat.map((w, i) => Math.max(w, mins[i] as number));
+	const excess = widths.reduce((a, b) => a + b, 0) - budget;
+	if (excess > 0) {
+		// Every column with slack cedes in proportion to its slack.
+		const slack = widths.map((w, i) => w - (mins[i] as number));
+		const slackSum = slack.reduce((a, b) => a + b, 0);
+		for (let i = 0; i < widths.length; i++) {
+			widths[i] =
+				(widths[i] as number) - ((slack[i] as number) * excess) / slackSum;
+		}
+	}
 	let html = "";
-	for (const p of t.phases) {
-		const width = Math.max(
-			pct(p.end, full) - pct(p.start, full),
-			p.empty ? EMPTY_PHASE_MIN_PCT : PHASE_MIN_PCT
-		);
-		const left = Math.min(pct(p.start, full), 100 - width);
-		const ms = formatMs(p.end - p.start);
+	let left = 0;
+	t.phases.forEach((p, i) => {
+		const width = widths[i] as number;
+		const trueMs = p.end - p.start;
+		const zero = trueMs <= 0;
+		const ms = zero ? "0ms" : formatMs(trueMs);
+		const inflated = width > (nat[i] as number) + 1e-9;
 		const covered = p.empty ? 0 : phaseCoverageMs(t, p);
-		const short = !p.empty && covered < (p.end - p.start) * 0.95;
+		const short = !p.empty && covered < trueMs * 0.95;
 		const msLabel = short ? `${ms} · ${formatMs(covered)} in classes` : ms;
 		let tip = `${ms} · ${p.tip}`;
-		if (p.empty) {
+		if (zero) {
+			tip += " · no time elapsed between the markers";
+		} else if (p.empty) {
 			tip += " · nothing ran inside";
 		} else if (short) {
-			tip += ` · ${formatMs(p.end - p.start - covered)} not covered by any class bar`;
+			tip += ` · ${formatMs(trueMs - covered)} not covered by any class bar`;
+		}
+		if (inflated) {
+			tip += " · column widened to stay readable";
 		}
 		const fill = p.empty ? "" : `;background:rgba(${p.rgb},0.3)`;
 		const ink = p.empty ? "rgba(255,255,255,0.45)" : `rgb(${p.rgb})`;
+		const classes = `boot-phase${p.empty ? " boot-phase-empty" : ""}${inflated ? " boot-phase-inflated" : ""}`;
 		html +=
-			`<span class="boot-phase${p.empty ? " boot-phase-empty" : ""}" data-from="${p.start}" data-to="${p.end}"` +
+			`<span class="${classes}" data-from="${p.start}" data-to="${p.end}"` +
 			` data-tip="${escapeHtml(tip)}"` +
 			` style="left:${left.toFixed(3)}%;width:${width.toFixed(3)}%${fill}">` +
-			`<span class="boot-phase-label" style="color:${ink}">${escapeHtml(p.gloss)} ` +
+			`<span class="boot-phase-label" style="color:${ink}">` +
+			`<span class="boot-phase-gloss">${escapeHtml(p.gloss)}</span>` +
 			`<span class="boot-phase-ms">${escapeHtml(msLabel)}</span></span></span>`;
-	}
+		left += width;
+	});
 	return html;
 }

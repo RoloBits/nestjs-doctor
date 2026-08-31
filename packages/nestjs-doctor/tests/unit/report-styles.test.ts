@@ -14,6 +14,13 @@ describe("report styles", () => {
 		expect(css).toContain("repeating-linear-gradient(45deg");
 	});
 
+	it("dashes a widened phase and keeps its number from shrinking", () => {
+		expect(css).toContain(".boot-phase-inflated {");
+		expect(css).toContain(
+			".boot-phase-ms { color: rgba(255,255,255,0.55); flex-shrink: 0; }"
+		);
+	});
+
 	it("concatenates every sheet", () => {
 		for (const marker of [
 			":root {",

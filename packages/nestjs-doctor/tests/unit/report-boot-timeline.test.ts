@@ -1081,9 +1081,10 @@ describe("lanes and axis", () => {
 		expect(tags[1]?.classes).toBe(" boot-phase-empty");
 		expect(tags[1]?.tip).toContain("nothing ran inside");
 		expect(tags[1]?.style).not.toContain("background:rgba");
-		expect(tags[2]?.classes).toBe(" boot-phase-empty");
+		expect(tags[2]?.classes).toBe(" boot-phase-empty boot-phase-inflated");
 		const width = Number(PHASE_WIDTH_RE.exec(tags[2]?.style ?? "")?.[1]);
-		expect(width).toBeGreaterThanOrEqual(1.5);
+		expect(width).toBeGreaterThanOrEqual(4.5);
+		expect(html).toContain("left:95.500%;width:4.500%");
 	});
 
 	it("says how much of a phase its bars cover, only when they fall short", () => {
@@ -1135,6 +1136,131 @@ describe("lanes and axis", () => {
 		expect(rightTicks).toBe(1);
 		const inside = rowsHtml(t, { ...opts, win: { from: 0, to: 400 } });
 		expect(inside).not.toContain("boot-offscreen");
+	});
+
+	it("keeps a zero-length phase when two markers coincide", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 200, initMs: 600, moduleInitMs: 200 },
+				startupMs: 1000,
+				timingsAvailable: true,
+				timingsTrace: { ta: traceNode(100) },
+			})
+		);
+		expect(t?.phases.map((p) => [p.label, p.start, p.end])).toEqual([
+			["create", 0, 200],
+			["onModuleInit", 200, 200],
+			["onApplicationBootstrap", 200, 600],
+			["listen", 600, 1000],
+		]);
+	});
+
+	it("marks a zero-length phase empty even when an offsetless hook names it", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 200, initMs: 600, moduleInitMs: 200 },
+				startupMs: 1000,
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: traceNode(100, [], [{ hook: "onModuleInit", ms: 20 }]),
+				},
+			})
+		);
+		expect(t?.phases[1]?.empty).toBe(true);
+	});
+
+	describe("zero-length phases in the lane", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 200, initMs: 600, moduleInitMs: 200 },
+				startupMs: 1000,
+				timingsAvailable: true,
+				timingsTrace: { ta: traceNode(100) },
+			})
+		) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+		const html = phaseLaneHtml(t);
+
+		it("tiles the lane without gaps or overlap", () => {
+			const tiles = [...html.matchAll(PHASE_POSITION_RE)].map((m) => [
+				Number(m[1]),
+				Number(m[2]),
+			]);
+			expect(tiles).toHaveLength(4);
+			for (let i = 0; i < 3; i++) {
+				const [left, width] = tiles[i] as [number, number];
+				expect((tiles[i + 1] as number[])[0]).toBeCloseTo(left + width, 2);
+			}
+			const [lastLeft, lastWidth] = tiles[3] as [number, number];
+			expect(lastLeft + lastWidth).toBeCloseTo(100, 2);
+		});
+
+		it("emits the exact tiles the donation pass produces", () => {
+			expect(html).toContain("left:0.000%;width:19.034%");
+			expect(html).toContain("left:19.034%;width:4.500%");
+			expect(html).toContain("left:23.534%;width:38.233%");
+			expect(html).toContain("left:61.767%;width:38.233%");
+		});
+
+		it("reads 0ms, never <1ms, on a marker coincidence", () => {
+			expect(html).toContain('boot-phase-ms">0ms</span>');
+			expect(html).not.toContain(">&lt;1ms<");
+		});
+
+		it("says the markers coincide and the column widened", () => {
+			expect(html).toContain('data-tip="0ms · onModuleInit');
+			expect(html).toContain(
+				'· no time elapsed between the markers · column widened to stay readable"'
+			);
+		});
+
+		it("marks only widened phases inflated", () => {
+			const classes = [...html.matchAll(PHASE_TAG_RE)].map((m) => m[1]);
+			expect(classes).toEqual([
+				"",
+				" boot-phase-empty boot-phase-inflated",
+				" boot-phase-empty",
+				" boot-phase-empty",
+			]);
+		});
+	});
+
+	it("scales the minimums down together when they cannot all fit", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 1, initMs: 2, moduleInitMs: 1 },
+				startupMs: 3,
+				timingsAvailable: true,
+				timingsTrace: { ta: traceNode(100) },
+			})
+		) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+		const tiles = [...phaseLaneHtml(t).matchAll(PHASE_POSITION_RE)].map((m) => [
+			Number(m[1]),
+			Number(m[2]),
+		]);
+		expect(tiles).toHaveLength(4);
+		for (const [, width] of tiles as [number, number][]) {
+			expect(width).toBeGreaterThan(0);
+		}
+		const [lastLeft, lastWidth] = tiles[3] as [number, number];
+		expect(lastLeft + lastWidth).toBeCloseTo(3, 2);
+	});
+
+	it("draws one guide where two phases meet at the same instant", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 200, initMs: 600, moduleInitMs: 200 },
+				startupMs: 1000,
+				timingsAvailable: true,
+				timingsTrace: { ta: traceNode(100) },
+			})
+		) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+		const html = rowsHtml(t, {
+			expandedModules: new Set([UNATTRIBUTED_MODULE]),
+			query: "",
+			selectedId: null,
+			win: { from: 0, to: 1000 },
+		});
+		expect(html.split('boot-guide"').length - 1).toBe(2);
 	});
 
 	it("renders the windowed axis with edge labels", () => {

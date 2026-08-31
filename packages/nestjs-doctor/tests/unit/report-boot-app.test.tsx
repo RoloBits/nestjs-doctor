@@ -517,6 +517,26 @@ describe("BootTab", () => {
 		expect(picked).toEqual(["CatsModule"]);
 	});
 
+	it("zooms to a zero-duration phase when it is clicked", () => {
+		const artifact: ReportArtifact = {
+			...TIMED_ARTIFACT,
+			graph: {
+				...TIMED_ARTIFACT.graph,
+				phases: { createMs: 200, initMs: 600, moduleInitMs: 200 },
+				startupMs: 1000,
+			},
+		};
+		mount(artifact);
+		act(() => {
+			container
+				.querySelector<HTMLElement>(".boot-phases .boot-phase:nth-child(2)")
+				?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+		});
+		const win = container.querySelector<HTMLElement>(".boot-minimap-window");
+		expect(win?.style.left).toBe("16%");
+		expect(win?.style.width).toBe("8%");
+	});
+
 	it("names a third-party module group instead of the unattributed bucket", () => {
 		mount(EXTERNAL_ARTIFACT);
 		const rows = container.querySelector(".boot-rows");
