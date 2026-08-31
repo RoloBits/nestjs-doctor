@@ -447,12 +447,23 @@ function barStyle(
 
 // Every bar carries the time it took, inside it; narrow bars clip the text.
 function classBarHtml(span: BootSpan, win: BootWindow, sc: TimeScale): string {
-	const segs: [number, number][] = [[u(sc, span.start), u(sc, span.end, true)]];
-	for (const h of span.hooks ?? []) {
-		if (typeof h.startMs === "number") {
-			segs.push([u(sc, h.startMs), u(sc, h.startMs + h.ms, true)]);
+	const barFrom = u(sc, span.start);
+	const barTo = u(sc, span.end, true);
+	const segs: [number, number][] = [[barFrom, barTo]];
+	let hookHtml = "";
+	(span.hooks ?? []).forEach((h, index) => {
+		if (typeof h.startMs !== "number") {
+			return;
 		}
-	}
+		const from = u(sc, h.startMs);
+		const to = u(sc, h.startMs + h.ms, true);
+		segs.push([from, to]);
+		const meta = hookMeta(h.hook);
+		hookHtml +=
+			`<span class="boot-hook-span" data-hook="${index}"` +
+			` style="${barStyle(from, to, win, 0.12)};background:rgb(${fillOf(meta.rgb)})">` +
+			`${escapeHtml(`+${formatMs(h.ms)} ${meta.label}`)}</span>`;
+	});
 	let html = "";
 	if (!segs.some(([a, b]) => pct(b, win) >= 0 && pct(a, win) <= 100)) {
 		if (segs.some(([, b]) => pct(b, win) < 0)) {
@@ -462,20 +473,12 @@ function classBarHtml(span: BootSpan, win: BootWindow, sc: TimeScale): string {
 			html += '<span class="boot-offscreen boot-offscreen-r"></span>';
 		}
 	}
-	html +=
-		`<span class="boot-bar" style="${barStyle(u(sc, span.start), u(sc, span.end, true), win, 0.12)};background:rgb(${fillOf(spanColor(span.type))})">` +
-		`${escapeHtml(formatMs(span.end - span.start))}</span>`;
-	(span.hooks ?? []).forEach((h, index) => {
-		if (typeof h.startMs !== "number") {
-			return;
-		}
-		const meta = hookMeta(h.hook);
-		html +=
-			`<span class="boot-hook-span" data-hook="${index}"` +
-			` style="${barStyle(u(sc, h.startMs as number), u(sc, (h.startMs as number) + h.ms, true), win, 0.12)};background:rgb(${fillOf(meta.rgb)})">` +
-			`${escapeHtml(`+${formatMs(h.ms)} ${meta.label}`)}</span>`;
-	});
-	return html;
+	return (
+		html +
+		`<span class="boot-bar" style="${barStyle(barFrom, barTo, win, 0.12)};background:rgb(${fillOf(spanColor(span.type))})">` +
+		`${escapeHtml(formatMs(span.end - span.start))}</span>` +
+		hookHtml
+	);
 }
 
 // One indent per level, then the chevron slot, present on every row.
@@ -519,20 +522,16 @@ function guidesHtml(t: BootTimeline, win: BootWindow): string {
 			continue;
 		}
 		lastAt = p.start;
-		if (zeroAt.has(p.start)) {
-			const left = pct(u(s, p.start, true), win);
-			const right = pct(u(s, p.start), win);
-			if (right < 0 || left > 100) {
-				continue;
-			}
-			html += `<span class="boot-guide boot-guide-zero" style="left:${left.toFixed(3)}%;width:${(right - left).toFixed(3)}%;border-color:rgba(${p.rgb},0.6)"><span class="boot-guide-ms" style="color:rgba(${p.rgb},0.95)">${escapeHtml(formatMs(p.start))}</span></span>`;
-		} else {
-			const left = pct(u(s, p.start), win);
-			if (left < 0 || left > 100) {
-				continue;
-			}
-			html += `<span class="boot-guide" style="left:${left.toFixed(3)}%;border-color:rgba(${p.rgb},0.6)"><span class="boot-guide-ms" style="color:rgba(${p.rgb},0.95)">${escapeHtml(formatMs(p.start))}</span></span>`;
+		const zero = zeroAt.has(p.start);
+		// The two edges differ only across a zero band, which the guide spans.
+		const left = pct(u(s, p.start, true), win);
+		const right = pct(u(s, p.start), win);
+		if (right < 0 || left > 100) {
+			continue;
 		}
+		const cls = zero ? "boot-guide boot-guide-zero" : "boot-guide";
+		const band = zero ? `;width:${(right - left).toFixed(3)}%` : "";
+		html += `<span class="${cls}" style="left:${left.toFixed(3)}%${band};border-color:rgba(${p.rgb},0.6)"><span class="boot-guide-ms" style="color:rgba(${p.rgb},0.95)">${escapeHtml(formatMs(p.start))}</span></span>`;
 	}
 	return html ? `<span class="boot-guides">${html}</span>` : "";
 }
@@ -645,8 +644,8 @@ export function axisHtml(win: BootWindow, s?: TimeScale): string {
 			if (!s.inflated[i]) {
 				continue;
 			}
-			const left = pct(s.us[i] as number, win);
-			const right = pct(s.us[i + 1] as number, win);
+			const left = pct(s.us[i], win);
+			const right = pct(s.us[i + 1], win);
 			if (right < 0 || left > 100) {
 				continue;
 			}
@@ -708,17 +707,16 @@ function buildTimeScale(phases: BootPhase[], maxMs: number): TimeScale {
 	if (minSum > budget) {
 		mins = mins.map((m) => (m * budget) / minSum);
 	}
-	const widths = nat.map((w, i) => Math.max(w, mins[i] as number));
+	const widths = nat.map((w, i) => Math.max(w, mins[i]));
 	const excess = widths.reduce((a, b) => a + b, 0) - budget;
 	if (excess > 0) {
-		const slack = widths.map((w, i) => w - (mins[i] as number));
+		const slack = widths.map((w, i) => w - mins[i]);
 		const slackSum = slack.reduce((a, b) => a + b, 0);
 		for (let i = 0; i < widths.length; i++) {
-			widths[i] =
-				(widths[i] as number) - ((slack[i] as number) * excess) / slackSum;
+			widths[i] -= (slack[i] * excess) / slackSum;
 		}
 	}
-	const inflated = widths.map((w, i) => w > (nat[i] as number) + 1e-9);
+	const inflated = widths.map((w, i) => w > nat[i] + 1e-9);
 	const ts = [0, ...phases.map((p) => p.end)];
 	const us = [0];
 	let acc = 0;
@@ -742,34 +740,34 @@ export function u(s: TimeScale, t: number, atEnd = false): number {
 		return t;
 	}
 	const n = s.ts.length;
-	if (t <= (s.ts[0] as number)) {
-		return s.us[0] as number;
+	if (t <= s.ts[0]) {
+		return s.us[0];
 	}
-	if (t >= (s.ts[n - 1] as number)) {
-		return s.us[n - 1] as number;
+	if (t >= s.ts[n - 1]) {
+		return s.us[n - 1];
 	}
 	if (atEnd) {
 		for (let i = 1; i < n; i++) {
-			const b = s.ts[i] as number;
+			const b = s.ts[i];
 			if (b === t) {
-				return s.us[i] as number;
+				return s.us[i];
 			}
 			if (b > t) {
-				const a = s.ts[i - 1] as number;
-				const ua = s.us[i - 1] as number;
-				return ua + ((t - a) / (b - a)) * ((s.us[i] as number) - ua);
+				const a = s.ts[i - 1];
+				const ua = s.us[i - 1];
+				return ua + ((t - a) / (b - a)) * (s.us[i] - ua);
 			}
 		}
 	}
 	for (let i = n - 1; i >= 0; i--) {
-		const a = s.ts[i] as number;
+		const a = s.ts[i];
 		if (a === t) {
-			return s.us[i] as number;
+			return s.us[i];
 		}
 		if (a < t) {
-			const b = s.ts[i + 1] as number;
-			const ua = s.us[i] as number;
-			return ua + ((t - a) / (b - a)) * ((s.us[i + 1] as number) - ua);
+			const b = s.ts[i + 1];
+			const ua = s.us[i];
+			return ua + ((t - a) / (b - a)) * (s.us[i + 1] - ua);
 		}
 	}
 	return t;
@@ -781,18 +779,18 @@ export function tOf(s: TimeScale, x: number): number {
 		return x;
 	}
 	const n = s.us.length;
-	if (x <= (s.us[0] as number)) {
-		return s.ts[0] as number;
+	if (x <= s.us[0]) {
+		return s.ts[0];
 	}
-	if (x >= (s.us[n - 1] as number)) {
-		return s.ts[n - 1] as number;
+	if (x >= s.us[n - 1]) {
+		return s.ts[n - 1];
 	}
 	for (let i = 0; i < n - 1; i++) {
-		const b = s.us[i + 1] as number;
+		const b = s.us[i + 1];
 		if (x <= b) {
-			const a = s.us[i] as number;
-			const ta = s.ts[i] as number;
-			const tb = s.ts[i + 1] as number;
+			const a = s.us[i];
+			const ta = s.ts[i];
+			const tb = s.ts[i + 1];
 			if (tb === ta || b === a) {
 				return ta;
 			}
@@ -833,9 +831,8 @@ export function phaseLaneHtml(t: BootTimeline): string {
 	const s = t.scale;
 	let html = "";
 	t.phases.forEach((p, i) => {
-		const left = ((s.us[i] as number) / s.maxMs) * 100;
-		const width =
-			(((s.us[i + 1] as number) - (s.us[i] as number)) / s.maxMs) * 100;
+		const left = (s.us[i] / s.maxMs) * 100;
+		const width = ((s.us[i + 1] - s.us[i]) / s.maxMs) * 100;
 		const trueMs = p.end - p.start;
 		const zero = trueMs <= 0;
 		const ms = zero ? "0ms" : formatMs(trueMs);
