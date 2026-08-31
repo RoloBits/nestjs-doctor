@@ -156,7 +156,7 @@ its real offset from boot start.
 
 | Element | Where | Means |
 |---|---|---|
-| Overview lane | Top of the lanes | `building modules · lifecycle hooks · opening the port`, from the `createMs`, `initMs`, and `startupMs` markers; with `moduleInitMs` the hooks split into `init hooks · bootstrap hooks`. The window on top is the view: drag it to pan, drag its edges to resize, scroll to zoom, click a phase to frame it, hover one for its name and time. A phase nothing ran inside draws as a black weave |
+| Overview lane | Top of the lanes | `building modules · lifecycle hooks · opening the port`, from the `createMs`, `initMs`, and `startupMs` markers; with `moduleInitMs` the hooks split into `init hooks · bootstrap hooks`. The window on top is the view: drag it to pan, drag its edges to resize, scroll to zoom, click a phase to frame it, hover one for its name and time. A phase nothing ran inside draws as a black weave; when bars cover less than a phase, its label adds `· Nms in classes` |
 | Dotted line | Down the rows | Where one phase hands over to the next |
 | Group header | Above its classes | The module that owns them in the dump, their count, and an `external` or `ambiguous` tag when the graph has no single node for it |
 | Class bar | Per row, under its module's header | From its slowest dependency's finish to its own, or from boot start when nothing traced came before; colored by type. The time it took sits inside the bar |
@@ -183,6 +183,8 @@ class.
 - Out-of-order phase markers drop the lifecycle strip, also with a warning.
 - Bars sit on Nest's load clock, which starts after the module scan: the
   first stretch of `building modules` has no bars under it.
+- Middleware is constructed during `app.init()`, not the build phase, so it
+  has no bar.
 - A controller or injectable is clocked from its module's later load start;
   its bar draws after its slowest dependency instead.
 - A class joins a graph module only when that module's class name is unique,

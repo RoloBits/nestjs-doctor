@@ -621,6 +621,27 @@ const EMPTY_PHASE_MIN_PCT = 1.5;
 // The phase lane: tinted segments over the whole boot with their names and
 // durations; each carries its range so a click can zoom to it, and a tip so
 // a segment too narrow for its label still names itself.
+// Length of the phase its class bars and hook spans cover.
+function phaseCoverageMs(t: BootTimeline, ph: BootPhase): number {
+	const intervals: [number, number][] = [];
+	const clip = (from: number, to: number) => {
+		const f = Math.max(from, ph.start);
+		const e = Math.min(to, ph.end);
+		if (e > f) {
+			intervals.push([f, e]);
+		}
+	};
+	for (const s of t.byId.values()) {
+		clip(s.start, s.end);
+		for (const h of s.hooks ?? []) {
+			if (typeof h.startMs === "number") {
+				clip(h.startMs, h.startMs + h.ms);
+			}
+		}
+	}
+	return unionMs(intervals);
+}
+
 export function phaseLaneHtml(t: BootTimeline): string {
 	const full: BootWindow = { from: 0, to: t.maxMs };
 	let html = "";
@@ -631,9 +652,15 @@ export function phaseLaneHtml(t: BootTimeline): string {
 		);
 		const left = Math.min(pct(p.start, full), 100 - width);
 		const ms = formatMs(p.end - p.start);
-		const tip = p.empty
-			? `${ms} · ${p.tip} · nothing ran inside`
-			: `${ms} · ${p.tip}`;
+		const covered = p.empty ? 0 : phaseCoverageMs(t, p);
+		const short = !p.empty && covered < (p.end - p.start) * 0.95;
+		const msLabel = short ? `${ms} · ${formatMs(covered)} in classes` : ms;
+		let tip = `${ms} · ${p.tip}`;
+		if (p.empty) {
+			tip += " · nothing ran inside";
+		} else if (short) {
+			tip += ` · ${formatMs(p.end - p.start - covered)} not covered by any class bar`;
+		}
 		const fill = p.empty ? "" : `;background:rgba(${p.rgb},0.3)`;
 		const ink = p.empty ? "rgba(255,255,255,0.45)" : `rgb(${p.rgb})`;
 		html +=
@@ -641,7 +668,7 @@ export function phaseLaneHtml(t: BootTimeline): string {
 			` data-tip="${escapeHtml(tip)}"` +
 			` style="left:${left.toFixed(3)}%;width:${width.toFixed(3)}%${fill}">` +
 			`<span class="boot-phase-label" style="color:${ink}">${escapeHtml(p.gloss)} ` +
-			`<span class="boot-phase-ms">${escapeHtml(ms)}</span></span></span>`;
+			`<span class="boot-phase-ms">${escapeHtml(msLabel)}</span></span></span>`;
 	}
 	return html;
 }

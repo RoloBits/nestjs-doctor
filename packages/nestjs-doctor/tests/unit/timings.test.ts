@@ -376,6 +376,104 @@ describe("parseBootstrapTimings", () => {
 		expect(warnings.join(" ")).toContain("2 hook timings name classes");
 	});
 
+	it("derives the init boundary from the first bootstrap hook", () => {
+		const base = JSON.parse(
+			dump({
+				m1: moduleNode("CatsModule"),
+				c1: classNode("CatsService", "m1", 3),
+			})
+		);
+		base.createMs = 100;
+		base.initMs = 300;
+		base.startupMs = 320;
+		base.hookTimings = [
+			{ className: "CatsService", hook: "onModuleInit", ms: 20, startMs: 150 },
+			{
+				className: "CatsService",
+				hook: "onApplicationBootstrap",
+				ms: 10,
+				startMs: 256.5,
+			},
+		];
+		const { phases, warnings } = parseBootstrapTimings(JSON.stringify(base));
+		expect(phases?.moduleInitMs).toBe(256.5);
+		expect(warnings).toEqual([]);
+	});
+
+	it("falls back to the last init hook's end when nothing runs at bootstrap", () => {
+		const base = JSON.parse(
+			dump({
+				m1: moduleNode("CatsModule"),
+				c1: classNode("CatsService", "m1", 3),
+			})
+		);
+		base.createMs = 100;
+		base.initMs = 300;
+		base.startupMs = 320;
+		base.hookTimings = [
+			{ className: "CatsService", hook: "onModuleInit", ms: 20, startMs: 150 },
+		];
+		const { phases } = parseBootstrapTimings(JSON.stringify(base));
+		expect(phases?.moduleInitMs).toBe(170);
+	});
+
+	it("keeps an explicit moduleInitMs over the derived one", () => {
+		const base = JSON.parse(
+			dump({
+				m1: moduleNode("CatsModule"),
+				c1: classNode("CatsService", "m1", 3),
+			})
+		);
+		base.createMs = 100;
+		base.moduleInitMs = 200;
+		base.initMs = 300;
+		base.hookTimings = [
+			{
+				className: "CatsService",
+				hook: "onApplicationBootstrap",
+				ms: 10,
+				startMs: 256.5,
+			},
+		];
+		const { phases } = parseBootstrapTimings(JSON.stringify(base));
+		expect(phases?.moduleInitMs).toBe(200);
+	});
+
+	it("drops a derived boundary that would sit outside its neighbours", () => {
+		const base = JSON.parse(
+			dump({
+				m1: moduleNode("CatsModule"),
+				c1: classNode("CatsService", "m1", 3),
+			})
+		);
+		base.createMs = 100;
+		base.initMs = 300;
+		base.hookTimings = [
+			{
+				className: "CatsService",
+				hook: "onApplicationBootstrap",
+				ms: 10,
+				startMs: 50,
+			},
+		];
+		const { phases, warnings } = parseBootstrapTimings(JSON.stringify(base));
+		expect(phases?.moduleInitMs).toBeUndefined();
+		expect(warnings).toEqual([]);
+	});
+
+	it("leaves middleware out of the trace", () => {
+		const { modules, trace } = parseBootstrapTimings(
+			dump({
+				m1: moduleNode("CatsModule"),
+				c1: classNode("CatsService", "m1", 3),
+				c2: classNode("LoggerMiddleware", "m1", 2, "middleware"),
+			})
+		);
+		expect(trace.tc2).toBeUndefined();
+		expect(trace.tc1).toBeDefined();
+		expect(modules.get("CatsModule")).toHaveLength(1);
+	});
+
 	it("keeps per-instance hook entries separate and joins module-class hooks", () => {
 		const base = JSON.parse(
 			dump({

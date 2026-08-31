@@ -163,6 +163,10 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 			continue;
 		}
 		const type = typeof meta.type === "string" ? meta.type : "provider";
+		// Middleware is constructed during app.init(), on a later clock.
+		if (type === "middleware") {
+			continue;
+		}
 		const id = `t${rawId}`;
 		const via = viaOf(node.parent);
 		trace[id] = {
@@ -214,6 +218,8 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 	}
 
 	const hooksByClass = new Map<string, HookTiming[]>();
+	let firstBootstrapStart: number | undefined;
+	let lastInitEnd: number | undefined;
 	const rawHooks = (data as { hookTimings?: unknown }).hookTimings;
 	if (Array.isArray(rawHooks)) {
 		let malformed = 0;
@@ -235,6 +241,20 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 			}
 			if (ms === 0) {
 				continue;
+			}
+			if (
+				typeof startMs === "number" &&
+				Number.isFinite(startMs) &&
+				startMs >= 0
+			) {
+				if (hook === "onApplicationBootstrap") {
+					firstBootstrapStart = Math.min(
+						firstBootstrapStart ?? Number.POSITIVE_INFINITY,
+						startMs
+					);
+				} else if (hook === "onModuleInit") {
+					lastInitEnd = Math.max(lastInitEnd ?? 0, startMs + ms);
+				}
 			}
 			if (labelCounts.get(className) !== 1) {
 				ambiguous++;
@@ -273,10 +293,23 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 
 	const startupMs = asPositiveMs((data as { startupMs?: unknown }).startupMs);
 	const createMs = asPositiveMs((data as { createMs?: unknown }).createMs);
-	const moduleInitMs = asPositiveMs(
+	let moduleInitMs = asPositiveMs(
 		(data as { moduleInitMs?: unknown }).moduleInitMs
 	);
 	const initMs = asPositiveMs((data as { initMs?: unknown }).initMs);
+	if (moduleInitMs === undefined) {
+		// The boundary sits where the first bootstrap hook starts, else where
+		// the last init hook ends.
+		const derived = firstBootstrapStart ?? lastInitEnd;
+		if (
+			derived !== undefined &&
+			derived > 0 &&
+			(createMs === undefined || derived >= createMs) &&
+			(initMs === undefined || derived <= initMs)
+		) {
+			moduleInitMs = derived;
+		}
+	}
 	const markers = [createMs, moduleInitMs, initMs, startupMs].filter(
 		(m): m is number => m !== undefined
 	);

@@ -10,6 +10,9 @@
 - A class that finishes within a millisecond of its slowest dependency keeps its own finish with no width, and a controller clocked from its module's later load start draws after that dependency instead of at boot start, so a shared slow dependency no longer paints its wait onto every consumer.
 - A module's hook total counts overlapping runs once instead of summing them.
 - A row whose spans sit entirely outside the zoom window shows a 2px edge tick instead of an empty track.
+- A phase whose bars cover less than 95% of it says so on its label (`building modules 130ms · 80ms in classes`) and on its tip, matching how tracers state self time.
+- The init and bootstrap segments split without a `moduleInitMs` marker: the parser derives the boundary from the first `onApplicationBootstrap` start, falling back to the last `onModuleInit` end.
+- Middleware nodes are timed during `app.init()`, so they no longer draw inside `building modules`; they are left out of the trace.
 
 ### Behavior changes
 

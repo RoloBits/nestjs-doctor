@@ -1034,7 +1034,7 @@ describe("lanes and axis", () => {
 		expect(html).toContain('data-from="0" data-to="100"');
 		expect(html).toContain("building modules");
 		expect(html).toContain(
-			'data-tip="100ms · create — NestFactory constructs every module, provider, and controller."'
+			'data-tip="100ms · create — NestFactory constructs every module, provider, and controller. · 50ms not covered by any class bar"'
 		);
 		expect(html).toContain('data-tip="100ms · listen — ');
 	});
@@ -1084,6 +1084,31 @@ describe("lanes and axis", () => {
 		expect(tags[2]?.classes).toBe(" boot-phase-empty");
 		const width = Number(PHASE_WIDTH_RE.exec(tags[2]?.style ?? "")?.[1]);
 		expect(width).toBeGreaterThanOrEqual(1.5);
+	});
+
+	it("says how much of a phase its bars cover, only when they fall short", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 100, initMs: 300 },
+				startupMs: 400,
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: traceNode(
+						80,
+						[],
+						[{ hook: "onModuleInit", ms: 190, startMs: 105 }]
+					),
+				},
+			})
+		) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+		const html = phaseLaneHtml(t);
+		expect(html).toContain(">100ms · 80ms in classes<");
+		expect(html).toContain(
+			"· 20ms not covered by any class bar&quot;".replace("&quot;", '"')
+		);
+		expect(html).toContain('boot-phase-ms">200ms</span>');
+		expect(html.split(" in classes").length - 1).toBe(1);
+		expect(html).toContain("nothing ran inside");
 	});
 
 	it("marks a row whose spans sit fully left or right of the window", () => {
