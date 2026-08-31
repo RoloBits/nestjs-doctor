@@ -173,7 +173,7 @@ export function phaseParts(graph: PhasedGraph): PhasePart[] {
 			tail = {
 				label: "bootstrap + listen",
 				gloss: "bootstrap + port",
-				owns: BOOTSTRAP_HOOKS,
+				owns: ALL_HOOKS,
 				tip: "bootstrap + listen — onApplicationBootstrap hooks and the server bind",
 			};
 		}

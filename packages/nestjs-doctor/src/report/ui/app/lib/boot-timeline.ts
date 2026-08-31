@@ -88,7 +88,6 @@ export interface BootWindow {
 	to: number;
 }
 
-// Drops the "<project>/" prefix from a module name.
 export function buildBootTimeline(
 	graph: SerializedModuleGraph
 ): BootTimeline | null {
