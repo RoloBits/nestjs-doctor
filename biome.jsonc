@@ -51,8 +51,6 @@
       "!!**/tests/fixtures",
       // Generated demo artifact served by the report viewer; stays minified.
       "!!**/public/demo-report.json",
-      // Exported marketing artwork, not UI.
-      "!!**/public/nestjs-doctor-og-banner.svg",
       "!!**/.changeset",
       // Hand-formatted stylesheet split into cascade-ordered sheets.
       // Formatting rewrites it; noDescendingSpecificity fixes reorder rules.

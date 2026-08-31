@@ -334,7 +334,6 @@ export function SchemaTab({ report }: { report: ReportArtifact }) {
 		}
 	};
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: the controller mounts once for the page's lifetime
 	useEffect(() => {
 		const canvas = canvasRef.current;
 		const tooltipEl = tooltipRef.current;
@@ -705,11 +704,7 @@ export function SchemaTab({ report }: { report: ReportArtifact }) {
 								schemaDiags.map((sd, index) => {
 									const entityName = diagEntity(sd.message);
 									return (
-										<div
-											className="sd-item"
-											// biome-ignore lint/suspicious/noArrayIndexKey: diagnostics have no stable identity beyond their order
-											key={`${sd.rule}:${index}`}
-										>
+										<div className="sd-item" key={`${sd.rule}:${index}`}>
 											<span
 												className="sev-dot"
 												style={{ background: SEV_VAR[sd.severity] }}

@@ -56,7 +56,6 @@ export function BootLanes({
 		}
 	}, [axisRef, timeline, win]);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: the handlers read the latest window, timeline, and callback through stable refs
 	useEffect(() => {
 		const lanes = lanesRef.current;
 		const overview = overviewRef.current;
