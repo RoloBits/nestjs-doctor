@@ -118,6 +118,15 @@ describe("BootTab", () => {
 		expect(rows?.innerHTML).toContain('data-id="tb"');
 	});
 
+	it("pads the lanes by the rows' scrollbar width", () => {
+		mount(TIMED_ARTIFACT);
+		expect(
+			container
+				.querySelector<HTMLElement>(".boot-main")
+				?.style.getPropertyValue("--boot-sbw")
+		).toBe("0px");
+	});
+
 	it("selects a row when it is clicked", () => {
 		mount(TIMED_ARTIFACT);
 		const row = container.querySelector<HTMLElement>(

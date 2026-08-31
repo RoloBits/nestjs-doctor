@@ -515,13 +515,13 @@ function guidesHtml(t: BootTimeline, win: BootWindow): string {
 			if (right < 0 || left > 100) {
 				continue;
 			}
-			html += `<span class="boot-guide boot-guide-zero" style="left:${left.toFixed(3)}%;width:${(right - left).toFixed(3)}%;border-color:rgba(${p.rgb},0.6)"></span>`;
+			html += `<span class="boot-guide boot-guide-zero" style="left:${left.toFixed(3)}%;width:${(right - left).toFixed(3)}%;border-color:rgba(${p.rgb},0.6)"><span class="boot-guide-ms" style="color:rgba(${p.rgb},0.95)">${formatMs(p.start)}</span></span>`;
 		} else {
 			const left = pct(u(s, p.start), win);
 			if (left < 0 || left > 100) {
 				continue;
 			}
-			html += `<span class="boot-guide" style="left:${left.toFixed(3)}%;border-color:rgba(${p.rgb},0.6)"></span>`;
+			html += `<span class="boot-guide" style="left:${left.toFixed(3)}%;border-color:rgba(${p.rgb},0.6)"><span class="boot-guide-ms" style="color:rgba(${p.rgb},0.95)">${formatMs(p.start)}</span></span>`;
 		}
 	}
 	return html ? `<span class="boot-guides">${html}</span>` : "";

@@ -80,6 +80,11 @@ function mod(
 
 const WIN: BootWindow = { from: 0, to: 100 };
 
+const GUIDE_MS_100_RE = /boot-guide-ms[^>]*>100ms</;
+const GUIDE_MS_250_RE = /boot-guide-ms[^>]*>250ms</;
+const GUIDE_MS_300_RE = /boot-guide-ms[^>]*>300ms</;
+const GUIDE_MS_200_RE = /boot-guide-ms[^>]*>200ms</;
+
 describe("buildBootTimeline", () => {
 	it("starts a class after its slowest dependency that finished before it", () => {
 		const t = buildBootTimeline(
@@ -798,6 +803,21 @@ describe("rowsHtml", () => {
 		expect(rowsHtml(ROW_TIMELINE, base)).not.toContain("data-tip");
 	});
 
+	it("labels each guide with its boundary time", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 100, initMs: 300, moduleInitMs: 250 },
+				startupMs: 400,
+				timingsAvailable: true,
+				timingsTrace: { ta: traceNode(50) },
+			})
+		)!;
+		const html = rowsHtml(t, { ...base, win: { from: 0, to: 400 } });
+		expect(html).toMatch(GUIDE_MS_100_RE);
+		expect(html).toMatch(GUIDE_MS_250_RE);
+		expect(html).toMatch(GUIDE_MS_300_RE);
+	});
+
 	it("draws a dotted guide where each phase hands over", () => {
 		const t = buildBootTimeline(
 			graph({
@@ -1395,6 +1415,24 @@ describe("lanes and axis", () => {
 			expect(html).toContain(
 				'class="boot-guide boot-guide-zero" style="left:18.291%;width:8.000%'
 			);
+		});
+
+		it("labels the zero band with its instant", () => {
+			const t = buildBootTimeline(
+				graph({
+					phases: { createMs: 200, initMs: 600, moduleInitMs: 200 },
+					startupMs: 1000,
+					timingsAvailable: true,
+					timingsTrace: { ta: traceNode(600, ["tb"]), tb: traceNode(200) },
+				})
+			) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+			const html = rowsHtml(t, {
+				expandedModules: new Set([UNATTRIBUTED_MODULE]),
+				query: "",
+				selectedId: null,
+				win: { from: 0, to: 1000 },
+			});
+			expect(html).toMatch(GUIDE_MS_200_RE);
 		});
 
 		it("marks the widened stretch on the axis and warps the ticks", () => {

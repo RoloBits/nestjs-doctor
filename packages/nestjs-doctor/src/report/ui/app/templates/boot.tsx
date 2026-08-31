@@ -180,6 +180,14 @@ export function BootView({
 			selectedModule: compact ? focusModule : null,
 			win,
 		});
+		const scroll = scrollRef.current;
+		if (scroll && mainRef.current) {
+			// The lanes pad their right edge by the rows' scrollbar width.
+			mainRef.current.style.setProperty(
+				"--boot-sbw",
+				`${scroll.offsetWidth - scroll.clientWidth}px`
+			);
+		}
 		const pending = pendingScrollRef.current;
 		if (pending) {
 			pendingScrollRef.current = null;

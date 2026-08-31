@@ -30,6 +30,13 @@ describe("report styles", () => {
 		);
 	});
 
+	it("aligns the lanes with the scrolled rows and labels the guides", () => {
+		expect(css).toContain("calc(14px + var(--boot-sbw, 0px))");
+		expect(css).toContain("border-left: 2px dotted;");
+		expect(css).toContain(".boot-guide-ms {");
+		expect(css).toContain("position: sticky");
+	});
+
 	it("concatenates every sheet", () => {
 		for (const marker of [
 			":root {",
