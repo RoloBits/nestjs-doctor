@@ -83,6 +83,39 @@ describe("parseBootstrapTimings", () => {
 		expect(rootModule).toBeUndefined();
 	});
 
+	it("derives the boundary from the last init end when the first bootstrap start is past initMs", () => {
+		const { phases, warnings } = parseBootstrapTimings(
+			JSON.stringify({
+				createMs: 60.4,
+				edges: {},
+				entrypoints: {},
+				hookTimings: [
+					{
+						className: "JobsService",
+						hook: "onModuleInit",
+						ms: 18.2,
+						startMs: 61.1,
+					},
+					{
+						className: "SyncService",
+						hook: "onApplicationBootstrap",
+						ms: 6.8,
+						startMs: 85,
+					},
+				],
+				initMs: 84.2,
+				nodes: {
+					c1: classNode("JobsService", "m1", 5),
+					c2: classNode("SyncService", "m1", 3),
+					m1: moduleNode("WorkerModule"),
+				},
+				startupMs: 92.7,
+			})
+		);
+		expect(warnings).toEqual([]);
+		expect(phases?.moduleInitMs).toBeCloseTo(79.3, 5);
+	});
+
 	it("keeps a hooks-only dump without a phase breakdown", () => {
 		const { phases, warnings } = parseBootstrapTimings(
 			JSON.stringify({

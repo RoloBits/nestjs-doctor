@@ -308,17 +308,19 @@ export function parseBootstrapTimings(jsonText: string): ParsedTimings {
 		moduleInitMs === undefined &&
 		(createMs ?? initMs ?? startupMs) !== undefined
 	) {
-		// The boundary sits where the first bootstrap hook starts, else where
-		// the last init hook ends.
-		const derived = firstBootstrapStart ?? lastInitEnd;
-		if (
-			derived !== undefined &&
-			derived > 0 &&
-			(createMs === undefined || derived >= createMs) &&
-			(initMs === undefined || derived <= initMs) &&
-			(startupMs === undefined || derived <= startupMs)
-		) {
-			moduleInitMs = derived;
+		// The boundary is the first bootstrap start, else the last init end;
+		// the first candidate that fits between the markers wins.
+		for (const derived of [firstBootstrapStart, lastInitEnd]) {
+			if (
+				derived !== undefined &&
+				derived > 0 &&
+				(createMs === undefined || derived >= createMs) &&
+				(initMs === undefined || derived <= initMs) &&
+				(startupMs === undefined || derived <= startupMs)
+			) {
+				moduleInitMs = derived;
+				break;
+			}
 		}
 	}
 	const markers = [createMs, moduleInitMs, initMs, startupMs].filter(
