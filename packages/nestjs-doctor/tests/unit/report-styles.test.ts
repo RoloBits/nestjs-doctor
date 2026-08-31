@@ -30,6 +30,11 @@ describe("report styles", () => {
 		);
 	});
 
+	it("styles the trace picker and the dock's empty note", () => {
+		expect(css).toContain(".boot-trace-picker {");
+		expect(css).toContain(".boot-dock-empty {");
+	});
+
 	it("aligns the lanes with the scrolled rows and labels the guides", () => {
 		expect(css).toContain(
 			".boot-scroll { flex: 1; overflow: auto; min-height: 0; outline: none; scrollbar-gutter: stable; }"

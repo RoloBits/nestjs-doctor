@@ -864,3 +864,59 @@ export function phaseLaneHtml(t: BootTimeline): string {
 	});
 	return html;
 }
+
+export interface BootTraceView {
+	graph: SerializedModuleGraph;
+	label: string;
+	project?: string;
+}
+
+/** One renderable view per boot trace; a legacy graph is its own single view. */
+export function traceViews(graph: SerializedModuleGraph): BootTraceView[] {
+	if (graph.traces?.length) {
+		return graph.traces.map((t) => ({
+			graph: {
+				...graph,
+				phases: t.phases,
+				startupMs: t.startupMs,
+				timingsAvailable: true,
+				timingsTrace: t.trace,
+			},
+			label: t.label,
+			project: t.project,
+		}));
+	}
+	return [{ graph, label: "boot" }];
+}
+
+/** The view a module may show: its project's, else the only one naming it. */
+export function traceIndexForModule(
+	views: BootTraceView[],
+	m: { name: string; project?: string }
+): number {
+	const byProject = views.findIndex(
+		(v) => v.project !== undefined && v.project === m.project
+	);
+	if (byProject !== -1) {
+		return byProject;
+	}
+	const bare = bareName(m);
+	const holders = views
+		.map((_, i) => i)
+		.filter((i) =>
+			Object.values(views[i]?.graph.timingsTrace ?? {}).some(
+				(n) => n.module === bare
+			)
+		);
+	if (holders.length === 1) {
+		return holders[0] ?? -1;
+	}
+	if (
+		views.length === 1 &&
+		views[0]?.project === undefined &&
+		m.project === undefined
+	) {
+		return 0;
+	}
+	return -1;
+}

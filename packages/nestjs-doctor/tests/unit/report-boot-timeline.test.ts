@@ -22,6 +22,8 @@ import {
 	slowestSpanId,
 	spanMatches,
 	tOf,
+	traceIndexForModule,
+	traceViews,
 	UNATTRIBUTED_MODULE,
 	windowAround,
 	windowTicks,
@@ -1520,5 +1522,87 @@ describe("lanes and axis", () => {
 		expect(html).toContain("boot-axis-zero");
 		expect(html).toContain("boot-axis-tick");
 		expect(html).toContain("boot-axis-end");
+	});
+});
+
+describe("trace views", () => {
+	it("normalizes a legacy graph into one view", () => {
+		const g = graph({
+			startupMs: 100,
+			timingsAvailable: true,
+			timingsTrace: { ta: traceNode(50) },
+		});
+		const views = traceViews(g);
+		expect(views).toHaveLength(1);
+		expect(views[0]?.label).toBe("boot");
+		expect(views[0]?.graph.timingsTrace).toBe(g.timingsTrace);
+	});
+
+	it("builds one view per serialized trace with its own clock", () => {
+		const g = graph({
+			startupMs: 300,
+			timingsAvailable: true,
+			timingsTrace: { ta: traceNode(50) },
+			traces: [
+				{
+					label: "api",
+					project: "api",
+					startupMs: 300,
+					trace: { ta: traceNode(50) },
+				},
+				{
+					label: "worker",
+					project: "worker",
+					startupMs: 120,
+					trace: { tb: traceNode(20) },
+				},
+			],
+		});
+		const views = traceViews(g);
+		expect(views.map((v) => [v.label, v.project])).toEqual([
+			["api", "api"],
+			["worker", "worker"],
+		]);
+		expect(views[1]?.graph.startupMs).toBe(120);
+		expect(buildBootTimeline(views[1]?.graph ?? g)?.maxMs).toBe(120);
+	});
+
+	it("locks a module to its own project's view and to none when absent", () => {
+		const g = graph({
+			timingsAvailable: true,
+			traces: [
+				{
+					label: "api",
+					project: "api",
+					startupMs: 300,
+					trace: { ta: traceNode(50) },
+				},
+				{
+					label: "worker",
+					project: "worker",
+					startupMs: 120,
+					trace: {
+						tb: traceNode(20, [], undefined, { module: "SharedModule" }),
+					},
+				},
+			],
+		});
+		const views = traceViews(g);
+		expect(traceIndexForModule(views, mod("worker/JobsModule"))).toBe(1);
+		expect(traceIndexForModule(views, mod("api/AppModule"))).toBe(0);
+		expect(traceIndexForModule(views, mod("shared/SharedModule"))).toBe(1);
+		expect(traceIndexForModule(views, mod("ghost/GhostModule"))).toBe(-1);
+	});
+
+	it("keeps a legacy single view for its own single project only", () => {
+		const g = graph({
+			timingsAvailable: true,
+			timingsTrace: {
+				ta: traceNode(50, [], undefined, { module: "AppModule" }),
+			},
+		});
+		const views = traceViews(g);
+		expect(traceIndexForModule(views, mod("AppModule"))).toBe(0);
+		expect(traceIndexForModule(views, mod("worker/JobsModule"))).toBe(-1);
 	});
 });
