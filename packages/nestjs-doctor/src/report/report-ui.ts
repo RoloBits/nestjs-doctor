@@ -12,5 +12,6 @@ export {
 	sharedReportToArtifact,
 } from "./shared-view.js";
 export * from "./ui/app/entry.js";
+export { Modal } from "./ui/app/molecules/modal.js";
 export { getReportHtml } from "./ui/html.js";
 export { getReportStyles } from "./ui/styles.js";

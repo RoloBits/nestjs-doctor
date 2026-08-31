@@ -5,6 +5,7 @@ import {
 	getReportStyles,
 	initialTab,
 	labOpened,
+	Modal,
 	parseReportFile,
 	type ReportArtifact,
 	renderBoot,
@@ -217,200 +218,152 @@ function PickerModal({
 	onClose?: () => void;
 	onFile: (file: File) => void;
 }) {
-	useEffect(() => {
-		if (!onClose) {
-			return;
-		}
-		const onKey = (e: KeyboardEvent) => {
-			if (e.key === "Escape") {
-				onClose();
-			}
-		};
-		document.addEventListener("keydown", onKey);
-		return () => document.removeEventListener("keydown", onKey);
-	}, [onClose]);
-
 	return (
-		// The report page's own stylesheet resets margins on every element, so
-		// the modal styles itself inline to stay independent of it.
-		// biome-ignore lint/a11y/noStaticElementInteractions: clicking the backdrop reveals the example
-		// biome-ignore lint/a11y/noNoninteractiveElementInteractions: clicking the backdrop reveals the example
-		// biome-ignore lint/a11y/useKeyWithClickEvents: Escape already closes the overlay
-		<div
-			onClick={(e) => {
-				if (e.target === e.currentTarget) {
-					onClose?.();
-				}
-			}}
-			style={{
-				alignItems: "center",
-				backdropFilter: "blur(2px)",
-				background: "rgba(0,0,0,0.7)",
-				display: "flex",
-				fontFamily:
-					'"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
-				inset: 0,
-				justifyContent: "center",
-				padding: 24,
-				position: "fixed",
-				zIndex: 9999,
-			}}
+		<Modal
+			onClose={onClose}
+			panelStyle={{ maxWidth: 576, padding: 32, width: "100%" }}
 		>
-			<div
+			<p style={{ color: "#737373", fontSize: 12, marginBottom: 24 }}>
+				<a href="/" style={{ color: "#737373", textDecoration: "none" }}>
+					nestjs.doctor
+				</a>
+				<span style={{ margin: "0 8px" }}>/</span>
+				<span style={{ color: "#d4d4d4" }}>report viewer</span>
+			</p>
+			<h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 12 }}>
+				Open a report
+			</h1>
+			<p
 				style={{
-					background: "#000",
-					border: "1px solid #404040",
-					boxShadow: "0 25px 50px -12px rgba(0,0,0,0.9)",
-					color: "#fff",
-					maxWidth: 576,
-					padding: 32,
-					width: "100%",
+					color: "#a3a3a3",
+					fontSize: 14,
+					lineHeight: 1.6,
+					marginBottom: 8,
 				}}
 			>
-				<p style={{ color: "#737373", fontSize: 12, marginBottom: 24 }}>
-					<a href="/" style={{ color: "#737373", textDecoration: "none" }}>
-						nestjs.doctor
-					</a>
-					<span style={{ margin: "0 8px" }}>/</span>
-					<span style={{ color: "#d4d4d4" }}>report viewer</span>
-				</p>
-				<h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 12 }}>
-					Open a report
-				</h1>
-				<p
+				Drop the shared file a teammate sent you.
+			</p>
+			<p
+				style={{
+					color: "#a3a3a3",
+					fontSize: 14,
+					lineHeight: 1.6,
+					marginBottom: 16,
+				}}
+			>
+				You can download it from a report&apos;s{" "}
+				<span style={{ color: "#e5e5e5" }}>share</span> button, or generate the
+				report locally with the command:
+			</p>
+			<pre
+				style={{
+					background: "#0a0a0a",
+					border: "1px solid #262626",
+					color: "#d4d4d4",
+					fontSize: 12,
+					marginBottom: 24,
+					overflowX: "auto",
+					padding: "12px 16px",
+				}}
+			>
+				npx nestjs-doctor@latest .
+			</pre>
+			{/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: the label wraps the file input and takes drops */}
+			<label
+				onDragOver={(e) => e.preventDefault()}
+				onDrop={(e) => {
+					e.preventDefault();
+					const file = e.dataTransfer.files[0];
+					if (file) {
+						onFile(file);
+					}
+				}}
+				style={{
+					border: "1px dashed #404040",
+					cursor: "pointer",
+					display: "block",
+					padding: "40px 24px",
+					textAlign: "center",
+				}}
+			>
+				<span style={{ color: "#d4d4d4", display: "block", fontSize: 14 }}>
+					Drop a report file here
+				</span>
+				<span
 					style={{
-						color: "#a3a3a3",
-						fontSize: 14,
-						lineHeight: 1.6,
-						marginBottom: 8,
-					}}
-				>
-					Drop the shared file a teammate sent you.
-				</p>
-				<p
-					style={{
-						color: "#a3a3a3",
-						fontSize: 14,
-						lineHeight: 1.6,
-						marginBottom: 16,
-					}}
-				>
-					You can download it from a report&apos;s{" "}
-					<span style={{ color: "#e5e5e5" }}>share</span> button, or generate
-					the report locally with the command:
-				</p>
-				<pre
-					style={{
-						background: "#0a0a0a",
-						border: "1px solid #262626",
-						color: "#d4d4d4",
+						color: "#737373",
+						display: "block",
 						fontSize: 12,
-						marginBottom: 24,
-						overflowX: "auto",
-						padding: "12px 16px",
+						marginTop: 8,
 					}}
 				>
-					npx nestjs-doctor@latest .
-				</pre>
-				{/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: the label wraps the file input and takes drops */}
-				<label
-					onDragOver={(e) => e.preventDefault()}
-					onDrop={(e) => {
-						e.preventDefault();
-						const file = e.dataTransfer.files[0];
+					or click to choose one
+				</span>
+				<input
+					accept=".json,application/json"
+					onChange={(e) => {
+						const file = e.target.files?.[0];
 						if (file) {
 							onFile(file);
 						}
+						e.target.value = "";
 					}}
 					style={{
-						border: "1px dashed #404040",
+						height: 1,
+						opacity: 0,
+						overflow: "hidden",
+						position: "absolute",
+						width: 1,
+					}}
+					type="file"
+				/>
+			</label>
+			{error && (
+				<p style={{ color: "#f87171", fontSize: 14, marginTop: 16 }}>{error}</p>
+			)}
+			{onClose && (
+				<button
+					onClick={onClose}
+					style={{
+						background: "transparent",
+						border: "1px solid #404040",
+						color: "#d4d4d4",
 						cursor: "pointer",
 						display: "block",
-						padding: "40px 24px",
-						textAlign: "center",
-					}}
-				>
-					<span style={{ color: "#d4d4d4", display: "block", fontSize: 14 }}>
-						Drop a report file here
-					</span>
-					<span
-						style={{
-							color: "#737373",
-							display: "block",
-							fontSize: 12,
-							marginTop: 8,
-						}}
-					>
-						or click to choose one
-					</span>
-					<input
-						accept=".json,application/json"
-						onChange={(e) => {
-							const file = e.target.files?.[0];
-							if (file) {
-								onFile(file);
-							}
-							e.target.value = "";
-						}}
-						style={{
-							height: 1,
-							opacity: 0,
-							overflow: "hidden",
-							position: "absolute",
-							width: 1,
-						}}
-						type="file"
-					/>
-				</label>
-				{error && (
-					<p style={{ color: "#f87171", fontSize: 14, marginTop: 16 }}>
-						{error}
-					</p>
-				)}
-				{onClose && (
-					<button
-						onClick={onClose}
-						style={{
-							background: "transparent",
-							border: "1px solid #404040",
-							color: "#d4d4d4",
-							cursor: "pointer",
-							display: "block",
-							fontFamily: "inherit",
-							fontSize: 14,
-							marginTop: 24,
-							padding: "10px 16px",
-							textAlign: "center",
-							width: "100%",
-						}}
-						type="button"
-					>
-						or explore the example report behind this window
-					</button>
-				)}
-				<p
-					style={{
-						color: "#525252",
-						fontSize: 12,
-						lineHeight: 1.6,
+						fontFamily: "inherit",
+						fontSize: 14,
 						marginTop: 24,
+						padding: "10px 16px",
+						textAlign: "center",
+						width: "100%",
 					}}
+					type="button"
 				>
-					Everything is read in your browser and never uploaded.
-				</p>
-				<p
-					style={{
-						color: "#525252",
-						fontSize: 11,
-						lineHeight: 1.6,
-						marginTop: 6,
-					}}
-				>
-					The full report as a file:{" "}
-					<code style={{ color: "#737373" }}>--format report-json</code>
-				</p>
-			</div>
-		</div>
+					or explore the example report behind this window
+				</button>
+			)}
+			<p
+				style={{
+					color: "#525252",
+					fontSize: 12,
+					lineHeight: 1.6,
+					marginTop: 24,
+				}}
+			>
+				Everything is read in your browser and never uploaded.
+			</p>
+			<p
+				style={{
+					color: "#525252",
+					fontSize: 11,
+					lineHeight: 1.6,
+					marginTop: 6,
+				}}
+			>
+				The full report as a file:{" "}
+				<code style={{ color: "#737373" }}>--format report-json</code>
+			</p>
+		</Modal>
 	);
 }
 

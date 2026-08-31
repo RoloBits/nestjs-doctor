@@ -36,16 +36,7 @@
 #header-row1 .nav-btn:hover { background: var(--white); border-color: var(--white); color: #000; }
 
 /* ── Share dialog ── */
-.share-overlay {
-  position: fixed; inset: 0; z-index: 9999;
-  background: rgba(0,0,0,0.7);
-  display: flex; align-items: center; justify-content: center;
-}
-.share-panel {
-  background: var(--surface); border: 1px solid var(--border-strong);
-  padding: 20px 22px; width: 360px; max-width: 90vw; max-height: 80vh; overflow: auto;
-  color: var(--text); font-family: var(--font);
-}
+.share-panel { padding: 20px 22px; width: 360px; }
 .share-title {
   font-size: 12px; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.08em; margin-bottom: 14px; color: var(--text);
