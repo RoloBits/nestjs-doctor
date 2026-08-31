@@ -215,3 +215,8 @@
   flex: 1; display: flex; align-items: center; justify-content: center;
   color: var(--text-dim); font-size: 12px;
 }
+
+/* A hook whose recorded offset lies outside the phase its kind names. */
+.boot-hook-stray {
+  background-image: repeating-linear-gradient(135deg, rgba(0,0,0,0.4) 0 3px, transparent 3px 6px);
+}

@@ -38,7 +38,7 @@ export interface BootSpan {
 	end: number;
 	/** The class lives in a package module, one the scanned graph never saw. */
 	external?: boolean;
-	hooks?: HookTiming[];
+	hooks?: (HookTiming & { stray?: boolean })[];
 	id: string;
 	module: string;
 	name: string;
@@ -218,6 +218,20 @@ export function buildBootTimeline(
 		prev += p.ms;
 	}
 	const spans = [...byId.values()];
+	// A positioned hook outside the phase its kind names wears a marker.
+	for (const s of spans) {
+		s.hooks = s.hooks?.map((h) => {
+			if (typeof h.startMs !== "number") {
+				return h;
+			}
+			const own = phases.find((p) => hookBelongs(h.hook, p.label));
+			if (!own || own.end <= own.start) {
+				return h;
+			}
+			const stray = h.startMs >= own.end || h.startMs + h.ms <= own.start;
+			return stray ? { ...h, stray: true } : h;
+		});
+	}
 	for (const ph of phases) {
 		// A zero-width phase is empty even when an offsetless hook names it.
 		ph.empty = ph.end <= ph.start || !spans.some((s) => spanTouches(s, ph));
@@ -459,7 +473,7 @@ function classBarHtml(span: BootSpan, win: BootWindow, sc: TimeScale): string {
 		segs.push([from, to]);
 		const meta = hookMeta(h.hook);
 		hookHtml +=
-			`<span class="boot-hook-span" data-hook="${index}"` +
+			`<span class="boot-hook-span${h.stray ? " boot-hook-stray" : ""}" data-hook="${index}"` +
 			` style="${barStyle(from, to, win, 0.12)};background:rgb(${fillOf(meta.rgb)})">` +
 			`${escapeHtml(`+${formatMs(h.ms)} ${meta.label}`)}</span>`;
 	});

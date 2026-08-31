@@ -33,6 +33,7 @@ describe("report styles", () => {
 	it("styles the trace picker and the dock's empty note", () => {
 		expect(css).toContain(".boot-trace-picker {");
 		expect(css).toContain(".boot-dock-empty {");
+		expect(css).toContain(".boot-hook-stray {");
 	});
 
 	it("aligns the lanes with the scrolled rows and labels the guides", () => {

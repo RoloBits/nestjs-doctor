@@ -37,10 +37,11 @@ export function hoverCardData(
 		const meta = hookMeta(hook.hook);
 		const at =
 			typeof hook.startMs === "number" ? ` · at ${formatMs(hook.startMs)}` : "";
+		const stray = hook.stray ? " · past its phase" : "";
 		return {
 			context,
 			detail: {
-				dim: `(${share(hook.ms, t.maxMs)})${at}`,
+				dim: `(${share(hook.ms, t.maxMs)})${at}${stray}`,
 				main: formatMs(hook.ms),
 			},
 			from,

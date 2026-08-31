@@ -5,6 +5,7 @@ import type {
 } from "../../src/common/artifact.js";
 import type { ClassTiming } from "../../src/common/timings.js";
 import { parseBootstrapTimings } from "../../src/report/timings.js";
+import { hoverCardData } from "../../src/report/ui/app/lib/boot-hover.js";
 import {
 	axisHtml,
 	type BootWindow,
@@ -818,6 +819,31 @@ describe("rowsHtml", () => {
 		expect(html).toMatch(GUIDE_MS_100_RE);
 		expect(html).toMatch(GUIDE_MS_250_RE);
 		expect(html).toMatch(GUIDE_MS_300_RE);
+	});
+
+	it("stripes a hook that ran outside the phase its kind names", () => {
+		const t = buildBootTimeline(
+			graph({
+				phases: { createMs: 60.4, initMs: 84.2, moduleInitMs: 79.3 },
+				startupMs: 92.7,
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: traceNode(
+						5,
+						[],
+						[{ hook: "onApplicationBootstrap", ms: 6.8, startMs: 85 }]
+					),
+					tb: traceNode(4, [], [{ hook: "onModuleInit", ms: 3, startMs: 62 }]),
+				},
+			})
+		)!;
+		const html = rowsHtml(t, { ...base, win: { from: 0, to: 92.7 } });
+		expect(html.split("boot-hook-stray").length - 1).toBe(1);
+		expect(html).toContain("boot-hook-span boot-hook-stray");
+		const card = hoverCardData(t, t.byId.get("ta") as never, 0);
+		expect(card.detail.dim).toContain("past its phase");
+		const tame = hoverCardData(t, t.byId.get("tb") as never, 0);
+		expect(tame.detail.dim).not.toContain("past its phase");
 	});
 
 	it("marks offscreen content on both sides of the window", () => {
