@@ -92,6 +92,16 @@
 }
 #mg-sidebar.mg-detail-open #mg-tree,
 #mg-sidebar.mg-detail-open .schema-sidebar-sticky { display: none; }
+@keyframes mg-panel-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+#mg-sidebar.mg-detail-open #detail,
+#mg-sidebar:not(.mg-detail-open) #mg-tree { animation: mg-panel-in 160ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  #mg-sidebar.mg-detail-open #detail,
+  #mg-sidebar:not(.mg-detail-open) #mg-tree { animation: none; }
+}
 #detail h2 { font-size: 15px; font-weight: 600; color: var(--white); margin-bottom: 4px; padding-right: 20px; word-break: break-word; }
 #detail .filepath { font-size: 11px; color: var(--text-muted); word-break: break-all; margin-bottom: 12px; }
 #detail h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin: 14px 0 4px; }

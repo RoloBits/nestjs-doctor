@@ -42,7 +42,7 @@ import { SearchField } from "../molecules/search-field.js";
 import { SidebarHeader, TreeToolbar } from "../molecules/sidebar-header.js";
 import { TreeRow } from "../molecules/tree-row.js";
 import { ZoomBar } from "../molecules/zoom-bar.js";
-import { BootView, focusBootTrace } from "./boot.js";
+import { BootView } from "./boot.js";
 
 const MG_DYNAMIC_TIPS: Record<string, string> = {
 	forRoot: "Configures the module once for the whole app",
@@ -70,10 +70,6 @@ const PROVIDER_NAME_RE = /Provider '([^']+)'/;
 
 function track(event: string): void {
 	(globalThis as { __ndTrack?: (e: string) => void }).__ndTrack?.(event);
-}
-
-function switchTab(name: string): void {
-	(globalThis as { switchTab?: (name: string) => void }).switchTab?.(name);
 }
 
 interface ModulesRegistry {
@@ -1294,8 +1290,9 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 						id="detail-badges"
 						onClick={(ev) => {
 							if ((ev.target as Element).closest("#detail-timings-btn")) {
-								switchTab("boot");
-								focusBootTrace(selected?.initTimings?.[0]?.name);
+								setDockActive("trace");
+								setDockOpen(true);
+								controllerRef.current?.resize();
 							}
 						}}
 					>
