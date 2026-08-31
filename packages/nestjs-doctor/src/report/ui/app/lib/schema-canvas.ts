@@ -297,15 +297,21 @@ export class SchemaCanvas {
 
 	clearFocus(): void {
 		this.selectedEntity = null;
-		this.setVisibleSubset(null);
+		this.focusRoots.clear();
+		if (this.focusedMode) {
+			this.applyFocusRoots();
+		} else {
+			this.scheduleRedraw();
+		}
 	}
 
 	// ── State entry points driven by React ──
 
 	selectFromSidebar(name: string): void {
 		this.selectedEntity = name;
+		this.focusRoots.add(name);
 		if (this.focusedMode) {
-			this.setVisibleSubset(name);
+			this.applyFocusRoots();
 		} else {
 			this.panToEntity(name);
 			this.scheduleRedraw();
@@ -314,8 +320,9 @@ export class SchemaCanvas {
 
 	selectFromDrawer(name: string): void {
 		this.selectedEntity = name;
+		this.focusRoots.add(name);
 		if (this.focusedMode) {
-			this.setVisibleSubset(name);
+			this.applyFocusRoots();
 		} else {
 			this.panToEntity(name);
 			this.scheduleRedraw();
@@ -462,6 +469,23 @@ export class SchemaCanvas {
 			}
 		}
 		return null;
+	}
+
+	highlightedEntities(): Set<string> | null {
+		const roots = new Set(this.focusRoots);
+		if (this.selectedEntity) {
+			roots.add(this.selectedEntity);
+		}
+		if (roots.size === 0) {
+			return null;
+		}
+		const related = new Set<string>();
+		for (const root of roots) {
+			for (const name of this.getRelatedEntities(root)) {
+				related.add(name);
+			}
+		}
+		return related;
 	}
 
 	private getRelatedEntities(entityName: string): Set<string> {
@@ -951,21 +975,22 @@ export class SchemaCanvas {
 						? null
 						: this.dragging.name;
 				this.callbacks.onSelect(this.selectedEntity);
+				if (this.selectedEntity === null) {
+					this.focusRoots.delete(this.dragging.name);
+				} else {
+					this.focusRoots.add(this.selectedEntity);
+				}
 				if (this.focusedMode) {
-					if (this.selectedEntity === null) {
-						this.focusRoots.delete(this.dragging.name);
-						this.applyFocusRoots();
-					} else {
-						this.setVisibleSubset(this.selectedEntity);
-					}
+					this.applyFocusRoots();
 				} else {
 					this.scheduleRedraw();
 				}
 			} else if (this.panning && !this.dragMoved && this.selectedEntity) {
 				this.selectedEntity = null;
 				this.callbacks.onSelect(null);
+				this.focusRoots.clear();
 				if (this.focusedMode) {
-					this.setVisibleSubset(null);
+					this.applyFocusRoots();
 				} else {
 					this.scheduleRedraw();
 				}
@@ -1225,9 +1250,7 @@ export class SchemaCanvas {
 		ctx.scale(this.zoom, this.zoom);
 		ctx.translate(-this.w / 2 + this.camX, -this.h / 2 + this.camY);
 
-		const selectedRelated = this.selectedEntity
-			? this.getRelatedEntities(this.selectedEntity)
-			: null;
+		const selectedRelated = this.highlightedEntities();
 
 		this.drawRelations(ctx, selectedRelated);
 

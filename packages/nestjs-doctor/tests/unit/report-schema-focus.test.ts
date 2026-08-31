@@ -21,9 +21,9 @@ function stubCanvas(): HTMLCanvasElement {
 	return canvas;
 }
 
-function schemaOf(): SerializedSchemaGraph {
+function schemaOf(count = 10): SerializedSchemaGraph {
 	const entities: SerializedSchemaGraph["entities"] = [];
-	for (let i = 0; i < 10; i++) {
+	for (let i = 0; i < count; i++) {
 		entities.push({
 			columns: [],
 			filePath: `e${i}.ts`,
@@ -42,12 +42,12 @@ function schemaOf(): SerializedSchemaGraph {
 	};
 }
 
-function canvasOf(): SchemaCanvas {
+function canvasOf(count = 10): SchemaCanvas {
 	return new SchemaCanvas({
 		callbacks: { onSelect: () => undefined, onZoom: () => undefined },
 		canvas: stubCanvas(),
 		relBadgeEl: document.createElement("div"),
-		schema: schemaOf(),
+		schema: schemaOf(count),
 		tooltipEl: document.createElement("div"),
 	});
 }
@@ -78,4 +78,16 @@ it("clearing the selection empties the focused canvas", () => {
 	c.selectFromSidebar("e2");
 	c.clearFocus();
 	expect(c.visibleEntities()).toEqual([]);
+});
+
+it("show-all mode highlights the union of every opened table", () => {
+	const c = canvasOf(5);
+	c.init();
+	expect(c.focusedMode).toBe(false);
+	c.selectFromSidebar("e0");
+	c.selectFromSidebar("e2");
+	const lit = c.highlightedEntities();
+	expect(lit && [...lit].sort()).toEqual(["e0", "e1", "e2", "e3"]);
+	c.clearFocus();
+	expect(c.highlightedEntities()).toBeNull();
 });
