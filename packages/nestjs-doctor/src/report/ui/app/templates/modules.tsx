@@ -953,6 +953,11 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 	const treeRef = useRef<HTMLDivElement>(null);
 	const infoPopRef = useRef<HTMLDivElement>(null);
 	const controllerRef = useRef<ModulesCanvas | null>(null);
+	// The dock's height lands after commit, so measure the canvas then.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the dock state changes the layout the resize measures
+	useLayoutEffect(() => {
+		controllerRef.current?.resize();
+	}, [dockOpen, dockActive]);
 	const resizerRef = useResizer(sidebarRef, controllerRef);
 
 	const unusedProviders = useRef<Record<string, boolean> | null>(null);
@@ -1292,7 +1297,6 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 							if ((ev.target as Element).closest("#detail-timings-btn")) {
 								setDockActive("trace");
 								setDockOpen(true);
-								controllerRef.current?.resize();
 							}
 						}}
 					>
@@ -1553,11 +1557,9 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 							) {
 								setDockActive(tabEl.dataset.dockTab as string);
 								setDockOpen(true);
-								controllerRef.current?.resize();
 								return;
 							}
 							setDockOpen((prev) => !prev);
-							controllerRef.current?.resize();
 						}}
 					>
 						<span
