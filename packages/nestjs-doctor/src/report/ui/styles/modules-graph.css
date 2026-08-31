@@ -2,15 +2,10 @@
 #mg-info-pop {
   position: absolute; top: 48px; right: 12px;
   width: 340px; max-height: calc(100% - 60px);
-  background: rgba(17,17,17,0.97);
-  border: 1px solid var(--border); border-radius: 8px;
   padding: 16px;
   font-size: 12px;
   z-index: 20;
-  overflow-y: auto;
-  backdrop-filter: blur(8px);
   display: none;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.5);
 }
 #mg-info-pop.visible{ display: block; }
 #mg-info-pop h3{ font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 8px; }
@@ -90,7 +85,18 @@
   display: none;
   overflow-y: auto;
 }
-#mg-sidebar.mg-detail-open #mg-tree { display: none; }
+#mg-sidebar.mg-detail-open #mg-tree,
+#mg-sidebar.mg-detail-open .schema-sidebar-sticky { display: none; }
+@keyframes mg-panel-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+#mg-sidebar.mg-detail-open #detail,
+#mg-sidebar:not(.mg-detail-open) #mg-tree { animation: mg-panel-in 160ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  #mg-sidebar.mg-detail-open #detail,
+  #mg-sidebar:not(.mg-detail-open) #mg-tree { animation: none; }
+}
 #detail h2 { font-size: 15px; font-weight: 600; color: var(--white); margin-bottom: 4px; padding-right: 20px; word-break: break-word; }
 #detail .filepath { font-size: 11px; color: var(--text-muted); word-break: break-all; margin-bottom: 12px; }
 #detail h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin: 14px 0 4px; }

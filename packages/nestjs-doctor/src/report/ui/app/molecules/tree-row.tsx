@@ -33,7 +33,7 @@ export function TreeRow({
 	const rowClasses = ["st-row", classes].filter(Boolean).join(" ");
 	const indents: ReactNode[] = [];
 	for (let i = 0; i < depth; i++) {
-		indents.push(<span className="st-indent" key={i} />);
+		indents.push(<span className="st-indent st-guide" key={i} />);
 	}
 	return (
 		// biome-ignore lint/a11y/noStaticElementInteractions: the whole row is the click target, as in the report's CSS

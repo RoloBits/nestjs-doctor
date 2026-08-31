@@ -212,6 +212,7 @@ export class SchemaCanvas {
 	private hoveredEntity: SNode | null = null;
 	private hoveredRelation: SchemaRelation | null = null;
 	selectedEntity: string | null = null;
+	private readonly focusRoots = new Set<string>();
 	private nodes: SNode[] = [];
 	private nodeMap: Record<string, SNode> = {};
 	private edgeRoutes: Record<string, Point[]> = {};
@@ -290,12 +291,27 @@ export class SchemaCanvas {
 		return this.nodes.length > 0;
 	}
 
+	visibleEntities(): string[] {
+		return this.nodes.map((node) => node.name);
+	}
+
+	clearFocus(): void {
+		this.selectedEntity = null;
+		this.focusRoots.clear();
+		if (this.focusedMode) {
+			this.applyFocusRoots();
+		} else {
+			this.scheduleRedraw();
+		}
+	}
+
 	// ── State entry points driven by React ──
 
 	selectFromSidebar(name: string): void {
 		this.selectedEntity = name;
+		this.focusRoots.add(name);
 		if (this.focusedMode) {
-			this.setVisibleSubset(name);
+			this.applyFocusRoots();
 		} else {
 			this.panToEntity(name);
 			this.scheduleRedraw();
@@ -304,8 +320,9 @@ export class SchemaCanvas {
 
 	selectFromDrawer(name: string): void {
 		this.selectedEntity = name;
+		this.focusRoots.add(name);
 		if (this.focusedMode) {
-			this.setVisibleSubset(name);
+			this.applyFocusRoots();
 		} else {
 			this.panToEntity(name);
 			this.scheduleRedraw();
@@ -324,6 +341,7 @@ export class SchemaCanvas {
 
 	focusOneTable(): void {
 		this.focusedMode = true;
+		this.focusRoots.clear();
 		this.setVisibleSubset(this.selectedEntity);
 		this.scheduleRedraw();
 	}
@@ -339,8 +357,8 @@ export class SchemaCanvas {
 	setShowCols(showCols: boolean): void {
 		this.showCols = showCols;
 		this.applyNodeSizes(this.nodes);
-		if (this.focusedMode && this.selectedEntity) {
-			this.setVisibleSubset(this.selectedEntity);
+		if (this.focusedMode && this.focusRoots.size > 0) {
+			this.applyFocusRoots();
 		} else {
 			this.computeOverview();
 			this.centerCamera();
@@ -387,10 +405,8 @@ export class SchemaCanvas {
 		this.canvas.style.width = `${this.w}px`;
 		this.canvas.style.height = `${this.h}px`;
 		this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-		if (this.focusedMode && this.selectedEntity && this.nodes.length > 0) {
-			computeStarLayout(this.nodes, this.selectedEntity, this.w, this.h);
-			this.routeAllEdges();
-			this.centerCamera();
+		if (this.focusedMode && this.focusRoots.size > 0 && this.nodes.length > 0) {
+			this.applyFocusRoots();
 		}
 		this.scheduleRedraw();
 	}
@@ -453,6 +469,23 @@ export class SchemaCanvas {
 			}
 		}
 		return null;
+	}
+
+	highlightedEntities(): Set<string> | null {
+		const roots = new Set(this.focusRoots);
+		if (this.selectedEntity) {
+			roots.add(this.selectedEntity);
+		}
+		if (roots.size === 0) {
+			return null;
+		}
+		const related = new Set<string>();
+		for (const root of roots) {
+			for (const name of this.getRelatedEntities(root)) {
+				related.add(name);
+			}
+		}
+		return related;
 	}
 
 	private getRelatedEntities(entityName: string): Set<string> {
@@ -657,8 +690,8 @@ export class SchemaCanvas {
 
 	private relayoutForSizeChange(): void {
 		this.applyNodeSizes(this.nodes);
-		if (this.focusedMode && this.selectedEntity) {
-			this.setVisibleSubset(this.selectedEntity);
+		if (this.focusedMode && this.focusRoots.size > 0) {
+			this.applyFocusRoots();
 		} else if (!this.focusedMode) {
 			this.computeOverview();
 			this.centerCamera();
@@ -670,19 +703,40 @@ export class SchemaCanvas {
 		if (!this.focusedMode) {
 			return;
 		}
+		if (entityName === null) {
+			this.focusRoots.clear();
+		} else {
+			this.focusRoots.add(entityName);
+		}
+		this.applyFocusRoots();
+	}
+
+	// Every focused table stays visible: the canvas shows the union of each
+	// root's related set, as a star for one root and the overview for more.
+	private applyFocusRoots(): void {
 		this.compGrids = null;
-		if (!entityName) {
+		const roots = [...this.focusRoots];
+		if (roots.length === 0) {
 			this.nodes = [];
 			this.nodeMap = {};
 			this.edgeRoutes = {};
 			this.edgeKeys = [];
 			return;
 		}
-		const related = this.getRelatedEntities(entityName);
-		this.nodes = this.allNodes.filter((node) => related.has(node.name));
+		const visible = new Set<string>();
+		for (const root of roots) {
+			for (const name of this.getRelatedEntities(root)) {
+				visible.add(name);
+			}
+		}
+		this.nodes = this.allNodes.filter((node) => visible.has(node.name));
 		this.rebuildNodeMap();
 		this.applyNodeSizes(this.nodes);
-		computeStarLayout(this.nodes, entityName, this.w, this.h);
+		if (roots.length === 1) {
+			computeStarLayout(this.nodes, roots[0] as string, this.w, this.h);
+		} else {
+			this.computeOverview();
+		}
 		this.routeAllEdges();
 		this.centerCamera();
 		this.scheduleRedraw();
@@ -921,16 +975,22 @@ export class SchemaCanvas {
 						? null
 						: this.dragging.name;
 				this.callbacks.onSelect(this.selectedEntity);
+				if (this.selectedEntity === null) {
+					this.focusRoots.delete(this.dragging.name);
+				} else {
+					this.focusRoots.add(this.selectedEntity);
+				}
 				if (this.focusedMode) {
-					this.setVisibleSubset(this.selectedEntity);
+					this.applyFocusRoots();
 				} else {
 					this.scheduleRedraw();
 				}
 			} else if (this.panning && !this.dragMoved && this.selectedEntity) {
 				this.selectedEntity = null;
 				this.callbacks.onSelect(null);
+				this.focusRoots.clear();
 				if (this.focusedMode) {
-					this.setVisibleSubset(null);
+					this.applyFocusRoots();
 				} else {
 					this.scheduleRedraw();
 				}
@@ -1190,9 +1250,7 @@ export class SchemaCanvas {
 		ctx.scale(this.zoom, this.zoom);
 		ctx.translate(-this.w / 2 + this.camX, -this.h / 2 + this.camY);
 
-		const selectedRelated = this.selectedEntity
-			? this.getRelatedEntities(this.selectedEntity)
-			: null;
+		const selectedRelated = this.highlightedEntities();
 
 		this.drawRelations(ctx, selectedRelated);
 

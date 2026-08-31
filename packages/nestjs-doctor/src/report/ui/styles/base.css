@@ -46,5 +46,17 @@ html { scrollbar-color: #333 transparent; scrollbar-width: thin; }
 .playground-results::-webkit-scrollbar,
 .cm-scroller::-webkit-scrollbar { width: 6px; height: 6px; }
 body { background: var(--bg); color: var(--text); font-family: var(--font); overflow: hidden; }
+
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 9999; padding: 24px;
+  background: rgba(0,0,0,0.7); backdrop-filter: blur(2px);
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-panel {
+  background: var(--surface); border: 1px solid var(--border-strong);
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.9);
+  max-width: 90vw; max-height: 85vh; overflow: auto;
+  color: var(--text); font-family: var(--font);
+}
 canvas { display: block; cursor: grab; }
 canvas:active { cursor: grabbing; }

@@ -3,6 +3,7 @@ import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import type { ReportArtifact } from "../../../common/artifact.js";
 import { HeaderRow } from "./organisms/header.js";
+
 import {
 	setActiveTab as setActiveTabImpl,
 	setDiagnosisBadge as setDiagnosisBadgeImpl,

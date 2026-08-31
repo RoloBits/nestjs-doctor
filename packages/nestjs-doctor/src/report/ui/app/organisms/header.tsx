@@ -3,6 +3,7 @@ import type { ReportArtifact } from "../../../../common/artifact.js";
 import { TextButton } from "../atoms/button.js";
 import { installFloatTip } from "../lib/float-tip.js";
 import { buildSharedJson, scoredCount } from "../lib/share-payload.js";
+import { Modal } from "../molecules/modal.js";
 
 function downloadSharedJson(data: unknown): void {
 	const blob = new Blob([JSON.stringify(data, null, 2)], {
@@ -35,90 +36,69 @@ function ShareDialog({
 		})
 		.filter((row) => row.count !== 0);
 	const [picked, setPicked] = useState<ReadonlySet<string>>(
-		new Set(visibleSections.map((row) => row.section.id))
+		() => new Set(visibleSections.map((row) => row.section.id))
 	);
 	const [includeCode, setIncludeCode] = useState(false);
 
-	useEffect(() => {
-		const onKey = (e: KeyboardEvent) => {
-			if (e.key === "Escape") {
-				onClose();
-			}
-		};
-		document.addEventListener("keydown", onKey);
-		return () => document.removeEventListener("keydown", onKey);
-	}, [onClose]);
-
 	return (
-		// biome-ignore lint/a11y/noStaticElementInteractions: clicking the backdrop closes, as in the report's CSS
-		// biome-ignore lint/a11y/noNoninteractiveElementInteractions: clicking the backdrop closes, as in the report's CSS
-		// biome-ignore lint/a11y/useKeyWithClickEvents: Escape already closes the overlay
-		<div
-			className="share-overlay"
-			id="share-overlay"
-			onClick={(e) => {
-				if (e.target === e.currentTarget) {
-					onClose();
-				}
-			}}
+		<Modal
+			onClose={onClose}
+			overlayId="share-overlay"
+			panelClasses="share-panel"
+			panelId="share-panel"
 		>
-			<div className="share-panel" id="share-panel">
-				<div className="share-title">Share the report</div>
-				{visibleSections.map(({ section, count }) => (
-					<label className="share-row" key={section.id}>
-						<input
-							checked={picked.has(section.id)}
-							className="share-section"
-							onChange={(e) =>
-								setPicked((prev) => {
-									const next = new Set(prev);
-									if (e.target.checked) {
-										next.add(section.id);
-									} else {
-										next.delete(section.id);
-									}
-									return next;
-								})
-							}
-							type="checkbox"
-							value={section.id}
-						/>{" "}
-						{section.label} ({count})
-					</label>
-				))}
-				<label className="share-row" style={{ marginTop: 4 }}>
+			<div className="share-title">Share the report</div>
+			{visibleSections.map(({ section, count }) => (
+				<label className="share-row" key={section.id}>
 					<input
-						checked={includeCode}
-						id="share-code"
-						onChange={(e) => setIncludeCode(e.target.checked)}
+						checked={picked.has(section.id)}
+						className="share-section"
+						onChange={(e) =>
+							setPicked((prev) => {
+								const next = new Set(prev);
+								if (e.target.checked) {
+									next.add(section.id);
+								} else {
+									next.delete(section.id);
+								}
+								return next;
+							})
+						}
 						type="checkbox"
+						value={section.id}
 					/>{" "}
-					Include code snippets{" "}
-					<span className="share-hint">a few lines around each finding</span>
+					{section.label} ({count})
 				</label>
-				<div className="share-actions">
-					<TextButton
-						classes="share-download"
-						id="share-download"
-						onClick={() => {
-							if (picked.size === 0) {
-								return;
-							}
-							const data = buildSharedJson(
-								share,
-								report.generator,
-								includeCode,
-								[...picked]
-							);
-							downloadSharedJson(data);
-							onClose();
-						}}
-					>
-						Download .json
-					</TextButton>
-				</div>
+			))}
+			<label className="share-row" style={{ marginTop: 4 }}>
+				<input
+					checked={includeCode}
+					id="share-code"
+					onChange={(e) => setIncludeCode(e.target.checked)}
+					type="checkbox"
+				/>{" "}
+				Include code snippets{" "}
+				<span className="share-hint">a few lines around each finding</span>
+			</label>
+			<div className="share-actions">
+				<TextButton
+					classes="share-download"
+					id="share-download"
+					onClick={() => {
+						if (picked.size === 0) {
+							return;
+						}
+						const data = buildSharedJson(share, report.generator, includeCode, [
+							...picked,
+						]);
+						downloadSharedJson(data);
+						onClose();
+					}}
+				>
+					Download .json
+				</TextButton>
 			</div>
-		</div>
+		</Modal>
 	);
 }
 

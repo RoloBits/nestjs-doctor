@@ -118,6 +118,16 @@ it("renders every tab into a DOM", () => {
 	]) {
 		expect(detail).toContain(variant);
 	}
+
+	// Selecting covers the sidebar list with the detail panel; closing restores it.
+	win.eval(
+		"REPORT_APP.openModule(" +
+			"document.querySelector('#mg-tree [data-module]').dataset.module)"
+	);
+	const sidebar = win.document.getElementById("mg-sidebar") as HTMLElement;
+	expect(sidebar.className).toContain("mg-detail-open");
+	win.eval("REPORT_APP.openModule(null)");
+	expect(sidebar.className).not.toContain("mg-detail-open");
 });
 
 it("renderChrome host options hide tabs and share and add load file", () => {

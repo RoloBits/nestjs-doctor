@@ -268,6 +268,12 @@ export class ModulesCanvas {
 			this.scheduleRedraw();
 			return;
 		}
+		// The draw transform scales around the canvas centre, so shift the
+		// camera to keep every world point at its screen position.
+		if (this.w > 0 && this.h > 0) {
+			this.camX += ((w - this.w) / 2) * (1 - 1 / this.zoom);
+			this.camY += ((h - this.h) / 2) * (1 - 1 / this.zoom);
+		}
 		this.w = w;
 		this.h = h;
 		this.canvas.width = this.w * this.dpr;

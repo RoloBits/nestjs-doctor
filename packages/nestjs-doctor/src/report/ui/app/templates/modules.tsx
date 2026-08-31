@@ -42,7 +42,7 @@ import { SearchField } from "../molecules/search-field.js";
 import { SidebarHeader, TreeToolbar } from "../molecules/sidebar-header.js";
 import { TreeRow } from "../molecules/tree-row.js";
 import { ZoomBar } from "../molecules/zoom-bar.js";
-import { BootView, focusBootTrace } from "./boot.js";
+import { BootView } from "./boot.js";
 
 const MG_DYNAMIC_TIPS: Record<string, string> = {
 	forRoot: "Configures the module once for the whole app",
@@ -70,10 +70,6 @@ const PROVIDER_NAME_RE = /Provider '([^']+)'/;
 
 function track(event: string): void {
 	(globalThis as { __ndTrack?: (e: string) => void }).__ndTrack?.(event);
-}
-
-function switchTab(name: string): void {
-	(globalThis as { switchTab?: (name: string) => void }).switchTab?.(name);
 }
 
 interface ModulesRegistry {
@@ -957,20 +953,25 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 	const treeRef = useRef<HTMLDivElement>(null);
 	const infoPopRef = useRef<HTMLDivElement>(null);
 	const controllerRef = useRef<ModulesCanvas | null>(null);
+	// The dock's height lands after commit, so measure the canvas then.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the dock state changes the layout the resize measures
+	useLayoutEffect(() => {
+		controllerRef.current?.resize();
+	}, [dockOpen, dockActive]);
 	const resizerRef = useResizer(sidebarRef, controllerRef);
 
-	const unusedProviders = useRef<Record<string, boolean> | null>(null);
-	if (unusedProviders.current === null) {
-		unusedProviders.current = {};
+	const unusedProviders = useMemo(() => {
+		const map: Record<string, boolean> = {};
 		for (const d of report.diagnostics) {
 			if (d.rule === "performance/no-unused-providers") {
 				const um = (d.message || "").match(PROVIDER_NAME_RE);
 				if (um) {
-					unusedProviders.current[um[1] as string] = true;
+					map[um[1] as string] = true;
 				}
 			}
 		}
-	}
+		return map;
+	}, [report]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: the controller mounts once for the page's lifetime
 	useLayoutEffect(() => {
@@ -1069,7 +1070,8 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 		}
 		const onDocClick = (ev: Event) => {
 			const pop = infoPopRef.current;
-			if (pop && !pop.contains(ev.target as Node)) {
+			const target = ev.target as Element;
+			if (pop && !(pop.contains(target) || target.closest("#mg-info"))) {
 				setInfoOpen(false);
 			}
 		};
@@ -1135,7 +1137,11 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 
 	return (
 		<>
-			<div id="mg-sidebar" ref={sidebarRef}>
+			<div
+				className={selected ? "mg-detail-open" : undefined}
+				id="mg-sidebar"
+				ref={sidebarRef}
+			>
 				<div className="schema-sidebar-sticky">
 					<SidebarHeader
 						count={projectNames.length}
@@ -1290,8 +1296,8 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 						id="detail-badges"
 						onClick={(ev) => {
 							if ((ev.target as Element).closest("#detail-timings-btn")) {
-								switchTab("boot");
-								focusBootTrace(selected?.initTimings?.[0]?.name);
+								setDockActive("trace");
+								setDockOpen(true);
 							}
 						}}
 					>
@@ -1369,7 +1375,7 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 								<ProvidersSection
 									n={selected}
 									report={report}
-									unusedProviders={unusedProviders.current}
+									unusedProviders={unusedProviders}
 								/>
 								{selected.imports.length > 0 && (
 									<>
@@ -1552,11 +1558,9 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 							) {
 								setDockActive(tabEl.dataset.dockTab as string);
 								setDockOpen(true);
-								controllerRef.current?.resize();
 								return;
 							}
 							setDockOpen((prev) => !prev);
-							controllerRef.current?.resize();
 						}}
 					>
 						<span
@@ -1638,7 +1642,7 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 					</div>
 				</div>
 				<div
-					className={infoOpen ? "visible" : undefined}
+					className={infoOpen ? "modal-panel visible" : "modal-panel"}
 					id="mg-info-pop"
 					ref={infoPopRef}
 				>
