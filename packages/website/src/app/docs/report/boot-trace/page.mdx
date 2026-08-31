@@ -181,6 +181,10 @@ class.
 - An unreadable, malformed, or unrecognized dump degrades to a stderr warning,
   and the report renders without timings.
 - Out-of-order phase markers drop the lifecycle strip, also with a warning.
+- Bars sit on Nest's load clock, which starts after the module scan: the
+  first stretch of `building modules` has no bars under it.
+- A controller or injectable is clocked from its module's later load start;
+  its bar draws after its slowest dependency instead.
 - A class joins a graph module only when that module's class name is unique,
   inside the dump and across a monorepo's projects. Otherwise it sits under
   the name the dump gives it. A package module such as `TypeOrmModule` shows

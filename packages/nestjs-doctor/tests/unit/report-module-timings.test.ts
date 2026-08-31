@@ -1,24 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatMs, hookChipHtml } from "../../src/report/ui/app/lib/trace.js";
-
-describe("hookChipHtml", () => {
-	it("renders a chip with the hook label and duration", () => {
-		const html = hookChipHtml([{ hook: "onModuleInit", ms: 120.4 }]);
-		expect(html).toContain("mg-trace-hook");
-		expect(html).toContain("120ms init");
-	});
-
-	it("marks per-instance totals with a count", () => {
-		const html = hookChipHtml([{ hook: "onModuleInit", ms: 39, count: 2 }]);
-		expect(html).toContain("×2");
-		expect(html).toContain("across 2 instances");
-	});
-
-	it("renders nothing without hooks", () => {
-		expect(hookChipHtml(undefined)).toBe("");
-		expect(hookChipHtml([])).toBe("");
-	});
-});
+import { formatMs } from "../../src/report/ui/app/lib/trace.js";
 
 describe("formatMs", () => {
 	it("rounds to the nearest millisecond at 10ms and above", () => {

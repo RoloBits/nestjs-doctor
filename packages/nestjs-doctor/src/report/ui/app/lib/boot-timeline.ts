@@ -14,6 +14,9 @@ import {
 /** Group for trace nodes written before the dump's module label was kept. */
 export const UNATTRIBUTED_MODULE = "unattributed";
 
+// Largest gap a dependency can finish past its consumer before the bar moves.
+const SKEW_MS = 1;
+
 const SPAN_COLORS: Record<string, string> = {
 	controller: PALETTE.violet,
 	injectable: PALETTE.green,
@@ -106,16 +109,35 @@ export function buildBootTimeline(
 		// Deps are sorted slowest first; the slowest one that finished before this
 		// class sets its start, otherwise the class starts at boot.
 		let start = 0;
+		let end = node.initTime;
 		let waitedOn: string | undefined;
-		for (const d of node.deps) {
-			if (!Object.hasOwn(trace, d)) {
-				continue;
+		const slowestId = node.deps.find((d) => Object.hasOwn(trace, d));
+		const slowest = slowestId === undefined ? undefined : trace[slowestId];
+		if (slowest && slowest.initTime > node.initTime) {
+			if (slowest.initTime - node.initTime <= SKEW_MS) {
+				// A near-tie past its dependency is wrapper clock skew; the class
+				// keeps its own finish with no width.
+				start = node.initTime;
+				waitedOn = slowestId;
+			} else if (node.initTime * 2 < slowest.initTime) {
+				// A small own time under a slower dependency is a class clocked
+				// from its module's later load start; the bar follows the dep.
+				start = slowest.initTime;
+				end = slowest.initTime + node.initTime;
+				waitedOn = slowestId;
 			}
-			const dep = trace[d];
-			if (dep.initTime <= node.initTime) {
-				start = dep.initTime;
-				waitedOn = d;
-				break;
+		}
+		if (waitedOn === undefined) {
+			for (const d of node.deps) {
+				if (!Object.hasOwn(trace, d)) {
+					continue;
+				}
+				const dep = trace[d];
+				if (dep.initTime <= node.initTime) {
+					start = dep.initTime;
+					waitedOn = d;
+					break;
+				}
 			}
 		}
 		const attributed = moduleOfId.get(id);
@@ -127,7 +149,7 @@ export function buildBootTimeline(
 		byId.set(id, {
 			...(ambiguous ? { ambiguous: true } : {}),
 			deps: node.deps,
-			end: node.initTime,
+			end,
 			...(external ? { external: true } : {}),
 			hooks: node.hooks,
 			id,
@@ -205,8 +227,8 @@ export function buildBootTimeline(
 	return { byId, groups, maxMs, phases };
 }
 
-// A chip has no offset, so it counts toward the phase named for its hook.
-function chipBelongs(hook: string, phaseLabel: string): boolean {
+// A hook without an offset counts toward the phase named for its kind.
+function hookBelongs(hook: string, phaseLabel: string): boolean {
 	if (
 		phaseLabel === "onModuleInit" ||
 		phaseLabel === "onApplicationBootstrap"
@@ -224,7 +246,7 @@ function spanTouches(s: BootSpan, ph: BootPhase): boolean {
 	return (s.hooks ?? []).some((h) =>
 		typeof h.startMs === "number"
 			? inside(h.startMs, h.startMs + h.ms)
-			: chipBelongs(h.hook, ph.label)
+			: hookBelongs(h.hook, ph.label)
 	);
 }
 
@@ -242,6 +264,18 @@ export interface ModuleTiming {
 	hooks: { label: string; ms: number }[];
 }
 
+// Total covered length of possibly overlapping [start, end] intervals.
+function unionMs(intervals: [number, number][]): number {
+	intervals.sort((a, b) => a[0] - b[0]);
+	let total = 0;
+	let coveredTo = Number.NEGATIVE_INFINITY;
+	for (const [from, to] of intervals) {
+		total += Math.max(0, to - Math.max(from, coveredTo));
+		coveredTo = Math.max(coveredTo, to);
+	}
+	return total;
+}
+
 /** What a module cost: its slowest class's own build, plus its classes' hooks. */
 export function moduleTimings(
 	graph: SerializedModuleGraph
@@ -253,17 +287,30 @@ export function moduleTimings(
 	}
 	for (const g of t.groups) {
 		let buildMs = 0;
-		const hooks = new Map<string, number>();
+		// Overlapping runs count once; hooks without an offset add their ms.
+		const hooks = new Map<
+			string,
+			{ loose: number; runs: [number, number][] }
+		>();
 		for (const s of g.spans) {
 			buildMs = Math.max(buildMs, s.end - s.start);
 			for (const h of s.hooks ?? []) {
 				const label = hookMeta(h.hook).label;
-				hooks.set(label, (hooks.get(label) ?? 0) + h.ms);
+				const entry = hooks.get(label) ?? { loose: 0, runs: [] };
+				if (typeof h.startMs === "number") {
+					entry.runs.push([h.startMs, h.startMs + h.ms]);
+				} else {
+					entry.loose += h.ms;
+				}
+				hooks.set(label, entry);
 			}
 		}
 		out.set(g.module, {
 			buildMs,
-			hooks: [...hooks].map(([label, ms]) => ({ label, ms })),
+			hooks: [...hooks].map(([label, e]) => ({
+				label,
+				ms: e.loose + unionMs(e.runs),
+			})),
 		});
 	}
 	return out;
@@ -392,7 +439,17 @@ function barStyle(
 
 // Every bar carries the time it took, inside it; narrow bars clip the text.
 function classBarHtml(span: BootSpan, win: BootWindow): string {
-	let html =
+	const hookEnds = (span.hooks ?? [])
+		.filter((h) => typeof h.startMs === "number")
+		.map((h) => (h.startMs as number) + h.ms);
+	const rowEnd = Math.max(span.end, ...hookEnds);
+	let html = "";
+	if (pct(rowEnd, win) < 0) {
+		html += '<span class="boot-offscreen boot-offscreen-l"></span>';
+	} else if (pct(span.start, win) > 100) {
+		html += '<span class="boot-offscreen boot-offscreen-r"></span>';
+	}
+	html +=
 		`<span class="boot-bar" style="${barStyle(span.start, span.end, win, 0.12)};background:rgb(${fillOf(spanColor(span.type))})">` +
 		`${escapeHtml(formatMs(span.end - span.start))}</span>`;
 	(span.hooks ?? []).forEach((h, index) => {

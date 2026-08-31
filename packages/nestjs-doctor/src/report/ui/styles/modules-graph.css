@@ -56,7 +56,6 @@
 }
 #detail-timings-btn { cursor: pointer; }
 #detail-timings-btn:hover { text-decoration: underline; }
-.mg-trace-hook { font-size: 9px; padding: 0 4px; border-radius: 3px; flex-shrink: 0; }
 
 .mg-problems-chevron {
   color: var(--text-dim); font-size: 12px;

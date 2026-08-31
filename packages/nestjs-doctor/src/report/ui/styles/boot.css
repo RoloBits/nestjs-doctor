@@ -72,6 +72,10 @@
   text-overflow: ellipsis; letter-spacing: 0.02em;
 }
 .boot-phase-ms { color: rgba(255,255,255,0.55); }
+/* A 2px tick when the row's spans sit entirely outside the window. */
+.boot-offscreen { position: absolute; top: 25%; height: 50%; width: 2px; background: var(--text-dim); opacity: 0.7; }
+.boot-offscreen-l { left: 0; }
+.boot-offscreen-r { right: 0; }
 .boot-guides { position: absolute; top: 0; bottom: 0; left: 0; right: 0; display: block; pointer-events: none; }
 .boot-rows .boot-guides { left: calc(var(--boot-label-w) + 14px); right: 14px; }
 .boot-guide { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dotted; }

@@ -1,11 +1,3 @@
-import { escapeHtml } from "./escape.js";
-
-interface TraceHook {
-	count?: number;
-	hook: string;
-	ms: number;
-}
-
 /** The report's category colors as `r,g,b` triples, for rgb()/rgba(). */
 export const PALETTE = {
 	amber: "245,158,11",
@@ -143,23 +135,6 @@ export function formatMs(ms: number): string {
 		return `${r.toFixed(1)}ms`;
 	}
 	return `${Math.round(ms)}ms`;
-}
-
-export function hookChipHtml(hooks: TraceHook[] | undefined): string {
-	if (!hooks || hooks.length === 0) {
-		return "";
-	}
-	let html = "";
-	for (const h of hooks) {
-		const meta = hookMeta(h.hook);
-		const times = h.count && h.count > 1 ? ` across ${h.count} instances` : "";
-		html +=
-			`<span class="mg-trace-hook" style="color:rgb(${meta.rgb});background:rgba(${meta.rgb},0.12)"` +
-			` data-tip="${escapeHtml(`${h.hook} took ${formatMs(h.ms)}${times}`)}">+` +
-			`${escapeHtml(formatMs(h.ms))} ${escapeHtml(meta.label)}` +
-			`${h.count && h.count > 1 ? ` ×${h.count}` : ""}</span>`;
-	}
-	return html;
 }
 
 // Round tick spacing so axis cuts land on 1/2/5-style values.

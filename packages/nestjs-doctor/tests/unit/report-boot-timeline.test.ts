@@ -98,17 +98,37 @@ describe("buildBootTimeline", () => {
 		});
 	});
 
-	it("skips a dependency that finished after its consumer and starts from boot", () => {
+	it("keeps its own finish when a dependency ties past it", () => {
+		const t = buildBootTimeline(
+			graph({
+				timingsAvailable: true,
+				timingsTrace: {
+					tb: traceNode(70.05),
+					td: traceNode(70, ["tb"]),
+				},
+			})
+		);
+		expect(t?.byId.get("td")).toMatchObject({
+			end: 70,
+			start: 70,
+			waitedOn: "tb",
+		});
+	});
+
+	it("moves a class clocked from a later load start after its slowest dependency", () => {
 		const t = buildBootTimeline(
 			graph({
 				timingsAvailable: true,
 				timingsTrace: {
 					tb: traceNode(70),
-					td: traceNode(40, ["tb"]),
+					td: traceNode(0.5, ["tb"]),
 				},
 			})
 		);
-		expect(t?.byId.get("td")).toMatchObject({ end: 40, start: 0 });
+		const td = t?.byId.get("td");
+		expect(td?.start).toBe(70);
+		expect(td?.end).toBeCloseTo(70.5, 6);
+		expect(td?.waitedOn).toBe("tb");
 	});
 
 	it("groups spans by module and sorts groups by their first construction", () => {
@@ -246,6 +266,30 @@ describe("buildBootTimeline", () => {
 		expect(t?.groups[0]?.spans.map((s) => s.id)).toEqual(["tb", "ta"]);
 		expect(t?.byId.get("ta")?.via).toBe("UsersModule");
 		expect(t?.byId.get("tb")?.via).toBe("CatalogModule");
+	});
+
+	it("unions overlapping hook runs and adds offsetless ones", () => {
+		const timings = moduleTimings(
+			graph({
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: traceNode(
+						1,
+						[],
+						[
+							{ hook: "onModuleInit", ms: 5.72, startMs: 133.19 },
+							{ hook: "onModuleInit", ms: 5.72, startMs: 133.21 },
+							{ hook: "onModuleInit", ms: 3 },
+						],
+						{ module: "SharedModule", name: "MetricsService" }
+					),
+				},
+			})
+		);
+		const shared = timings.get("SharedModule");
+		expect(shared?.hooks).toHaveLength(1);
+		expect(shared?.hooks[0]?.label).toBe("init");
+		expect(shared?.hooks[0]?.ms).toBeCloseTo(8.74, 2);
 	});
 
 	it("finds an external span by its third-party module label", () => {
@@ -597,9 +641,10 @@ describe("external modules from a real dump", () => {
 
 		const timings = moduleTimings(g);
 		expect(timings.get("TypeOrmCoreModule")?.buildMs).toBeCloseTo(152.53, 2);
-		expect(timings.get("BullModule")?.hooks).toEqual([
-			{ label: "init", ms: 0.48 },
-		]);
+		const bull = timings.get("BullModule")?.hooks;
+		expect(bull).toHaveLength(1);
+		expect(bull?.[0]?.label).toBe("init");
+		expect(bull?.[0]?.ms).toBeCloseTo(0.48, 6);
 	});
 });
 
@@ -927,7 +972,7 @@ describe("cascadeChildrenHtml", () => {
 			graph({
 				timingsAvailable: true,
 				timingsTrace: {
-					tc: traceNode(30, ["ta"]),
+					tc: traceNode(60, ["ta"]),
 					tb: traceNode(70, ["tc"]),
 					ta: traceNode(100, ["tb"]),
 				},
@@ -1039,6 +1084,32 @@ describe("lanes and axis", () => {
 		expect(tags[2]?.classes).toBe(" boot-phase-empty");
 		const width = Number(PHASE_WIDTH_RE.exec(tags[2]?.style ?? "")?.[1]);
 		expect(width).toBeGreaterThanOrEqual(1.5);
+	});
+
+	it("marks a row whose spans sit fully left or right of the window", () => {
+		const t = buildBootTimeline(
+			graph({
+				startupMs: 400,
+				timingsAvailable: true,
+				timingsTrace: {
+					ta: traceNode(80, ["tb"], undefined, { name: "A" }),
+					tb: traceNode(50, [], undefined, { name: "B" }),
+				},
+			})
+		) as NonNullable<ReturnType<typeof buildBootTimeline>>;
+		const opts = {
+			expandedModules: new Set([UNATTRIBUTED_MODULE]),
+			query: "",
+			selectedId: null,
+		};
+		const leftHtml = rowsHtml(t, { ...opts, win: { from: 200, to: 400 } });
+		expect(leftHtml).toContain("boot-offscreen-l");
+		expect(leftHtml).not.toContain("boot-offscreen-r");
+		const rightHtml = rowsHtml(t, { ...opts, win: { from: 0, to: 10 } });
+		const rightTicks = rightHtml.split("boot-offscreen-r").length - 1;
+		expect(rightTicks).toBe(1);
+		const inside = rowsHtml(t, { ...opts, win: { from: 0, to: 400 } });
+		expect(inside).not.toContain("boot-offscreen");
 	});
 
 	it("renders the windowed axis with edge labels", () => {

@@ -80,5 +80,6 @@ describe("report scripts", () => {
 		expect(scripts).toContain("lifecycle hooks");
 		expect(scripts).toContain("boot-hook-span");
 		expect(scripts).not.toContain("boot-hook-chip");
+		expect(scripts).not.toContain("mg-trace-hook");
 	});
 });
