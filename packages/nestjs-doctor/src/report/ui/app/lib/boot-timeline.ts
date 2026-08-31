@@ -889,7 +889,7 @@ export function traceViews(graph: SerializedModuleGraph): BootTraceView[] {
 	return [{ graph, label: "boot" }];
 }
 
-/** The view a module may show: its project's, else the only one naming it. */
+/** The view a module may show: its project's, else the first one naming it. */
 export function traceIndexForModule(
 	views: BootTraceView[],
 	m: { name: string; project?: string }
@@ -908,7 +908,7 @@ export function traceIndexForModule(
 				(n) => n.module === bare
 			)
 		);
-	if (holders.length === 1) {
+	if (holders.length > 0) {
 		return holders[0] ?? -1;
 	}
 	if (

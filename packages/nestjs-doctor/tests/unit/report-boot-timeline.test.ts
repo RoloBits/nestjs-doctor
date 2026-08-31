@@ -1591,6 +1591,28 @@ describe("trace views", () => {
 		expect(traceIndexForModule(views, mod("worker/JobsModule"))).toBe(1);
 		expect(traceIndexForModule(views, mod("api/AppModule"))).toBe(0);
 		expect(traceIndexForModule(views, mod("shared/SharedModule"))).toBe(1);
+		const both = traceViews(
+			graph({
+				timingsAvailable: true,
+				traces: [
+					{
+						label: "api",
+						project: "api",
+						trace: {
+							ta: traceNode(5, [], undefined, { module: "SharedModule" }),
+						},
+					},
+					{
+						label: "worker",
+						project: "worker",
+						trace: {
+							tb: traceNode(3, [], undefined, { module: "SharedModule" }),
+						},
+					},
+				],
+			})
+		);
+		expect(traceIndexForModule(both, mod("shared/SharedModule"))).toBe(0);
 		expect(traceIndexForModule(views, mod("ghost/GhostModule"))).toBe(-1);
 	});
 

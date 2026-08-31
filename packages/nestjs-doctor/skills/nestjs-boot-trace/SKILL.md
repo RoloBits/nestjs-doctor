@@ -80,6 +80,8 @@ environment check or a separate entry point rather than shipping it.
 npx nestjs-doctor@latest . --report --timings nestjs-doctor-timings.json
 ```
 
+A monorepo boots once per entry point. Instrument each `main.ts`, keep one dump per app, and pass them together, labelled when a name helps: `--timings nestjs-doctor-timings.json,worker=worker-timings.json`. Each dump becomes its own trace in the report.
+
 Relative paths resolve against the scanned directory. Without `--report` the
 flag is ignored, with a warning. A missing file, invalid JSON, or a dump
 without `initTime` each warn on stderr and still render the report, so check
