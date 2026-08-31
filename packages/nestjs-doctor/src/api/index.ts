@@ -139,6 +139,7 @@ export {
 export type { SarifLog } from "../formatters/sarif-report.js";
 export { buildSarifLog } from "../formatters/sarif-report.js";
 export { buildReportArtifact } from "../report/artifact.js";
+export type { LoadedBootTrace } from "../report/timings.js";
 
 function validatePath(path: string): string {
 	if (!path || path.trim() === "") {
@@ -225,4 +226,3 @@ export async function diagnoseMonorepo(
 	const { result } = await scanMonorepo(targetPath, scanConfig, monorepo);
 	return result;
 }
-export type { LoadedBootTrace } from "../report/timings.js";
