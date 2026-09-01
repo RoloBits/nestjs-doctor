@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { ImageResponse } from "next/og";
 
 export const dynamic = "force-static";
@@ -29,7 +31,12 @@ async function plexMono(weight: number): Promise<ArrayBuffer | null> {
 }
 
 export default async function Image() {
-	const [regular, semibold] = await Promise.all([plexMono(400), plexMono(600)]);
+	const [regular, semibold, logo] = await Promise.all([
+		plexMono(400),
+		plexMono(600),
+		readFile(join(process.cwd(), "public/logo.png")),
+	]);
+	const logoSrc = `data:image/png;base64,${logo.toString("base64")}`;
 	const fonts: { data: ArrayBuffer; name: string; weight: 400 | 600 }[] = [];
 	if (regular) {
 		fonts.push({ name: "IBM Plex Mono", data: regular, weight: 400 as const });
@@ -53,44 +60,14 @@ export default async function Image() {
 			}}
 		>
 			<div style={{ display: "flex", alignItems: "center", gap: 32 }}>
-				<div
-					style={{
-						display: "flex",
-						alignItems: "center",
-						justifyContent: "center",
-						gap: 12,
-						width: 120,
-						height: 88,
-						borderRadius: 10,
-						border: "3px solid #ea2845",
-						background: "#140507",
-					}}
-				>
-					<div
-						style={{
-							width: 14,
-							height: 14,
-							borderRadius: 7,
-							background: "#ea2845",
-						}}
-					/>
-					<div
-						style={{
-							width: 14,
-							height: 14,
-							borderRadius: 7,
-							background: "#ea2845",
-						}}
-					/>
-					<div
-						style={{
-							width: 14,
-							height: 14,
-							borderRadius: 7,
-							background: "#ea2845",
-						}}
-					/>
-				</div>
+				{/* biome-ignore lint/performance/noImgElement: satori renders plain img tags */}
+				<img
+					alt=""
+					height={110}
+					src={logoSrc}
+					style={{ borderRadius: 14 }}
+					width={110}
+				/>
 				<div
 					style={{
 						display: "flex",
