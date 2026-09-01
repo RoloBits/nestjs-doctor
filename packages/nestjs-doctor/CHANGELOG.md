@@ -1,84 +1,25 @@
 # nestjs-doctor
 
+## 0.9.5
+
+### Patch Changes
+
+- Print one summary line instead of one warning per module when several `@Module` class names are each declared in more than one file; `--verbose` restores the per-module detail, and the Node API's warnings stay complete.
+
 ## 0.9.4
 
 ### Patch Changes
 
-- e5eb959: ### Fixed
-
-  - A transient provider's lifecycle hooks were merged into one offsetless total and drew as a `+11ms init ×2` chip beside the class name. Each run now keeps its own `startMs` and draws as its own span on the timeline. The chip rendering is gone.
-
-  - The module detail panel's hook chips are gone too; the panel keeps its `build · init` summary line.
-  - A class that finishes within a millisecond of its slowest dependency keeps its own finish with no width, and a controller clocked from its module's later load start draws after that dependency instead of at boot start, so a shared slow dependency no longer paints its wait onto every consumer.
-  - A module's hook total counts overlapping runs once instead of summing them.
-  - A row whose spans sit entirely outside the zoom window shows a 2px edge tick instead of an empty track.
-  - A phase whose bars cover less than 95% of it says so on its label (`building modules 130ms · 80ms in classes`) and on its tip, matching how tracers state self time.
-  - The init and bootstrap segments split without a `moduleInitMs` marker: the parser derives the boundary from the first `onApplicationBootstrap` start, falling back to the last `onModuleInit` end.
-  - Middleware nodes are timed during `app.init()`, so they no longer draw inside `building modules`; they are left out of the trace.
-  - A phase between two coincident markers (`createMs === moduleInitMs`) had no width, so the next segment painted over it: invisible, no tip, dead click. The overview lane now tiles the boot instead of positioning each segment independently — no segment overlaps its neighbour, the last one ends where its marker ends, and a segment widened past its true share carries dashed edges and says so on its tip. A zero-length phase reads `0ms`, draws as a weave, and zooms to its column when clicked; the rows echo it with a woven band in place of the dotted guide at that instant.
-  - The whole timeline shares one piecewise scale. When a column is widened, the bars, hook spans, guides, axis ticks, and the minimap window move with it, so a widened `<1ms` column no longer sits over 16ms of linear axis. The axis marks each widened stretch with the same dashed weave, the crosshair chip inverts the scale so it always reads true time, and every printed label stays a real time; only the distance between labels bends, by roughly 8% on the demo boot and never by more than the widened columns' minimum shares.
-
-  ### Behavior changes
-
-  - A hook the dump gives no offset no longer renders on the class row; it still counts in its module's totals. Hook entries no longer carry `count`.
-  - Review-pass fixes: a row whose bar sits left of the window and its hooks right of it shows both offscreen ticks; a reclocked bar stops at the create boundary instead of claiming time in the next phase; warped axis ticks keep clear of the edge labels; a dump carrying only hook timings no longer surfaces an empty Boot tab.
-
-- 2dc1d2b: ### Added
-
-  - **One boot trace per entry point.** `--timings` takes a comma list of SerializedGraph dumps, each optionally labelled (`--timings api.json,worker=worker.json`). Every dump becomes its own trace on the Boot tab with a picker, keeping its own clock; the report attributes each dump to a monorepo project by its label, its root module against the bootstrap roots, or the modules only one project owns. The artifact gains an additive `graph.traces` array while the old singular fields keep mirroring the primary trace, so existing consumers read unchanged. In the modules graph, the trace dock is pinned to the selected module's own app and says so instead of showing another app's boot when none covers it; per-module timings attach per project, so two projects sharing a module class name no longer lose their timings.
-
-  ### Behavior changes
-
-  - Node API: `buildReportArtifact` takes `traces` (`LoadedBootTrace[]`, exported from the api barrel) instead of the old `timings` input.
-
-- e264d84: ### Fixed
-
-  - A phase in the boot trace's overview lane shorter than its label had no name: a 0.7ms `opening the port` drew as a 2px sliver, so the lane read as ending with the hooks. Every phase now carries a hover tip with its time and meaning, and no phase draws narrower than 0.6% of the lane. A phase nothing ran inside draws as a black weave, at least 8% of the lane wide, so an empty `bootstrap hooks` or a sub-millisecond `listen` still reads as a section. Both floors scale down together on a lane too narrow to fit them. Each phase label stacks the name over the time, so both stay readable inside a narrow column.
-  - The overview lane and the axis spanned the rows' scrollbar, so a phase edge sat a few pixels right of its guide in the rows; the lanes now reserve the same scrollbar gutter as the rows (`scrollbar-gutter: stable` on both), so the two stay aligned in every context, including the modules graph's trace dock, which mounts hidden. Each handover guide is 2px wide and carries the boundary's time in the phase's color, pinned near the top while the rows scroll.
-
-- 2dc1d2b: ### Fixed
-
-  - A lifecycle hook whose recorded offset falls outside the phase its kind names kept blending in as if nothing were wrong. It keeps its measured position and the range sums it sits in, and now wears a striped marker with `past its phase` on its hover card. A framework-driven boot cannot produce this ordering (`app.init()` awaits every hook before resolving); it appears when user code re-invokes a hook after init.
-
-- 9d7dd63: ### Changed
-
-  - **Selecting a module gives its detail panel the whole sidebar.** The projects list, search, and toggles hide while a module is selected and return when the panel closes, instead of stacking above the detail, with a short fade-in either way. The trace badge in the panel now opens the boot-trace drawer at the bottom of the graph instead of switching to the Boot tab.
-
-- 9d7dd63: ### Fixed
-
-  - **Graph no longer drifts when the bottom drawer opens or closes.** The draw transform scales around the canvas centre, so any height change shifted content by half the delta times the zoom factor. The camera now compensates on resize and every node keeps its screen position.
-
-- 9d7dd63: ### Fixed
-
-  - **Graph no longer cut after closing the bottom drawer.** The canvas measured its size before the drawer's open or close landed in the DOM, so closing left the graph painted at the shrunken height. It now resizes after the state commits.
-
-- 632699d: ### Fixed
-
-  - **Module graph arrows no longer flip when a module is selected.** Edges always point from the importer to the module it imports; selecting a node used to reverse the arrowheads on its highlighted edges and on the hovered detail-panel row.
-
-- 9d7dd63: ### Changed
-
-  - **The Modules Graph legend popover matches the panel style.** It reuses the shared modal panel look — square corners, surface background, strong border, and shadow — instead of its own rounded translucent box.
-
-- 9d7dd63: ### Fixed
-
-  - **The legend button on the Modules Graph opens its popover again.** The click that opened it also reached the document-level outside-click closer, which shut the popover in the same instant; the closer now ignores clicks on the button.
-
-- 9d7dd63: ### Changed
-
-  - **Indent guides in the module tree.** Hovering the Projects list on the Modules Graph tab or the entity list on the Relational Schema tab shows the same vertical guide lines the findings file tree draws.
-
-- 9d7dd63: ### Changed
-
-  - **Two react-doctor findings fixed in the report app.** The share dialog's section set now uses a lazy state initializer instead of rebuilding a Set every render, and the Modules tab derives its unused-provider map with `useMemo` instead of mutating a ref during render.
-
-- 9d7dd63: ### Changed
-
-  - **Focused schema view keeps every table you open.** Selecting a second entity from the Relational Schema sidebar adds its related tables to the canvas instead of replacing the first; one table draws as a star, several draw with the overview layout. In the show-all view the highlight works the same way: every opened table's group stays lit instead of dimming when the next one is selected. Clicking a selected table removes its group, clicking empty canvas clears them all.
-
-- 9d7dd63: ### Changed
-
-  - **One modal component.** The share dialog and the report viewer's open-a-report window render through the same `Modal` molecule, so both get the dimmed, blurred backdrop and shadowed panel; `Modal` is exported from `nestjs-doctor/report-ui`.
+- Show one boot trace per entry point: `--timings` takes a labelled comma list of dumps (`api.json,worker=worker.json`), each trace keeps its own clock behind a picker, dumps attribute to monorepo projects, and the artifact gains an additive `graph.traces` while the old singular fields keep mirroring the primary trace.
+- Give the whole boot timeline one piecewise time scale, so widened sub-millisecond columns stay readable while bars, hook spans, guides, axis ticks, and the minimap move together and every printed label reads true time.
+- Render every boot phase as a legible section: hover tips with time and meaning, minimum widths, a woven fill for empty phases, stacked name-over-time labels, and self-time on labels when bars cover less than 95% of a phase.
+- Draw each lifecycle-hook run as its own positioned span instead of a merged offsetless chip, count overlapping runs once in module totals, and mark hooks recorded outside their phase with a striped `past its phase` marker.
+- Stop the timeline lying at the edges: reclocked consumers no longer inherit a shared dependency's wait, offscreen rows show edge ticks, the init/bootstrap boundary derives from hook starts when the dump lacks a marker, and middleware timed during `app.init()` stays out of the trace.
+- Align the overview lane and axis with the rows by reserving the same scrollbar gutter, everywhere including the modules graph's trace dock.
+- Polish the Modules Graph: the detail panel takes the whole sidebar with a short fade, the trace badge opens the boot drawer in place, the canvas resizes after the drawer commits and keeps every node's screen position, arrows keep the import direction on selection, the legend popover opens again and wears the shared panel style, and the projects tree shows hover indent guides.
+- Keep every focused table on the Relational Schema canvas: selections accumulate (star layout for one root, overview for several), the show-all view keeps opened groups lit, and the entity tree gains the same hover indent guides.
+- Render the share dialog and the viewer's open-a-report window through one `Modal` molecule, exported from `nestjs-doctor/report-ui`.
+- Behavior changes: `buildReportArtifact` takes `traces` (`LoadedBootTrace[]`) instead of `timings`; a hook the dump gives no offset no longer renders on its class row and hook entries drop `count`; a dump carrying only hook timings no longer surfaces an empty Boot tab.
 
 ## 0.9.3
 
