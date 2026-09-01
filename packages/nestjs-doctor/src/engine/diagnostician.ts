@@ -118,6 +118,22 @@ function processResults(
 
 const MODULE_FILE_RE = /\.module\.[mc]?ts$/;
 
+// True when the file calls `.useGlobalGuards(...)`, which binds a guard app-wide.
+function usesGlobalGuards(sourceFile: SourceFile): boolean {
+	if (!sourceFile.getFullText().includes("useGlobalGuards")) {
+		return false;
+	}
+	return sourceFile
+		.getDescendantsOfKind(SyntaxKind.CallExpression)
+		.some(
+			(call) =>
+				call
+					.getExpression()
+					.asKind(SyntaxKind.PropertyAccessExpression)
+					?.getName() === "useGlobalGuards"
+		);
+}
+
 /** Project-wide facts for the file rules, gathered once per run. */
 function fileRuleFacts(context: AnalysisContext): FileRuleFacts {
 	const modules = [...context.moduleGraph.modules.values()];
@@ -148,23 +164,32 @@ function fileRuleFacts(context: AnalysisContext): FileRuleFacts {
 
 	const composedDecorators = guardDecoratorNames(context.guardDecorators);
 	const guardedBaseClasses = new Set<string>();
+	const guardedClasses = new Set<string>();
+	let callsUseGlobalGuards = false;
 	for (const filePath of context.files) {
 		const sourceFile = context.astProject.getSourceFile(filePath);
 		if (!sourceFile) {
 			continue;
 		}
+		if (!callsUseGlobalGuards && usesGlobalGuards(sourceFile)) {
+			callsUseGlobalGuards = true;
+		}
 		for (const cls of sourceFile.getClasses()) {
-			const base = cls.getExtends()?.getExpression().getText();
-			if (!base) {
-				continue;
-			}
 			const guarded = cls
 				.getDecorators()
 				.some(
 					(d) =>
 						d.getName() === "UseGuards" || composedDecorators.has(d.getName())
 				);
-			if (guarded) {
+			if (!guarded) {
+				continue;
+			}
+			const name = cls.getName();
+			if (name) {
+				guardedClasses.add(name);
+			}
+			const base = cls.getExtends()?.getExpression().getText();
+			if (base) {
 				guardedBaseClasses.add(base.split("<")[0].split(".").pop() ?? base);
 			}
 		}
@@ -174,10 +199,11 @@ function fileRuleFacts(context: AnalysisContext): FileRuleFacts {
 		diProviders,
 		guards: {
 			composedDecorators,
-			globallyRegistered: modules.some((module) =>
-				module.providerTokens.includes("APP_GUARD")
-			),
+			globallyRegistered:
+				callsUseGlobalGuards ||
+				modules.some((module) => module.providerTokens.includes("APP_GUARD")),
 			guardedBaseClasses,
+			guardedClasses,
 		},
 		moduleDirectories,
 	};
