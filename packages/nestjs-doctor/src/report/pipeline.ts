@@ -20,7 +20,7 @@ import {
 	resolveScanConfig,
 	type ScanConfig,
 } from "../engine/scanner.js";
-import { scanTelemetryEnabled } from "../telemetry/send.js";
+import { reportTelemetryEnabled } from "../telemetry/send.js";
 import { spinner } from "../ui/spinner.js";
 import { buildReportArtifact, collectScanFacts } from "./artifact.js";
 import { buildHtmlReport } from "./html-report.js";
@@ -62,11 +62,7 @@ abstract class ReportPipeline {
 	 * each disable the beacon on their own.
 	 */
 	protected get telemetryEnabled(): boolean {
-		const config = this.scanConfig?.config;
-		return (
-			scanTelemetryEnabled(this.telemetry, config, process.env, "always") &&
-			config?.report?.telemetry !== false
-		);
+		return reportTelemetryEnabled(this.telemetry, this.scanConfig?.config);
 	}
 
 	abstract buildContext(): this;

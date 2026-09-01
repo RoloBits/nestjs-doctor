@@ -7,7 +7,10 @@ import {
 	buildScanPayload,
 	type ScanFacts,
 } from "../../src/telemetry/scan-telemetry.js";
-import { scanTelemetryEnabled } from "../../src/telemetry/send.js";
+import {
+	reportTelemetryEnabled,
+	scanTelemetryEnabled,
+} from "../../src/telemetry/send.js";
 
 const code = (overrides: Partial<CodeDiagnostic>): CodeDiagnostic => ({
 	rule: "performance/no-unused-providers",
@@ -320,5 +323,23 @@ describe("scan telemetry gating", () => {
 		expect(on(true, undefined, { DO_NOT_TRACK: "1" })).toBe(false);
 		// Set-but-off is not a request to stop.
 		expect(on(true, undefined, { DO_NOT_TRACK: "0" })).toBe(true);
+	});
+});
+
+describe("report telemetry gating", () => {
+	it("follows the scan gate and adds the report.telemetry key", () => {
+		expect(reportTelemetryEnabled(true, undefined, {})).toBe(true);
+		expect(reportTelemetryEnabled(false, undefined, {})).toBe(false);
+		expect(reportTelemetryEnabled(true, { telemetry: false }, {})).toBe(false);
+		expect(
+			reportTelemetryEnabled(true, { report: { telemetry: false } }, {})
+		).toBe(false);
+		expect(reportTelemetryEnabled(true, undefined, { DO_NOT_TRACK: "1" })).toBe(
+			false
+		);
+	});
+
+	it("does not need a compiled key: the beacon has its own", () => {
+		expect(reportTelemetryEnabled(true, { telemetry: true }, {})).toBe(true);
 	});
 });

@@ -40,6 +40,10 @@ npx nestjs-doctor@latest .
 
 ![nestjs-doctor scoring a project 35 out of 100, an agent fixing the findings, and a rescan scoring 100](https://nestjs.doctor/demo.gif)
 
+A clean scan prints the score and nothing else. That is the expected result on
+a project the rules already agree with, and `--report` still draws the module
+graph, the traced endpoints and the schema diagram.
+
 Add `--verbose` for file paths and line numbers.
 
 ### 2. Open the report
