@@ -193,19 +193,8 @@ function LoadedReport({
 	}, [artifact, hiddenTabs, shared, demo, onLoadAnother]);
 
 	return (
-		<>
-			<link href="https://fonts.googleapis.com" rel="preconnect" />
-			<link crossOrigin="" href="https://fonts.gstatic.com" rel="preconnect" />
-			<link
-				href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@200;400;500;600;700&display=swap"
-				precedence="default"
-				rel="stylesheet"
-			/>
-			{/* biome-ignore lint/security/noDangerouslySetInnerHtml: the report's own stylesheet */}
-			<style dangerouslySetInnerHTML={{ __html: getReportStyles() }} />
-			{/* biome-ignore lint/security/noDangerouslySetInnerHtml: the report's static mount skeleton */}
-			<div dangerouslySetInnerHTML={{ __html: getReportHtml() }} />
-		</>
+		// biome-ignore lint/security/noDangerouslySetInnerHtml: the report's static mount skeleton
+		<div dangerouslySetInnerHTML={{ __html: getReportHtml() }} />
 	);
 }
 
@@ -416,6 +405,15 @@ export function ReportViewer() {
 
 	return (
 		<div className="min-h-dvh bg-black">
+			<link href="https://fonts.googleapis.com" rel="preconnect" />
+			<link crossOrigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+			<link
+				href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@200;400;500;600;700&display=swap"
+				precedence="default"
+				rel="stylesheet"
+			/>
+			{/* biome-ignore lint/security/noDangerouslySetInnerHtml: the report's own stylesheet */}
+			<style dangerouslySetInnerHTML={{ __html: getReportStyles() }} />
 			{state.phase === "loaded" ? (
 				<LoadedReport
 					artifact={state.artifact}
