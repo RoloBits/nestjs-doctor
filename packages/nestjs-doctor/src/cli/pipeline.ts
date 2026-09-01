@@ -38,6 +38,7 @@ import {
 	printConsoleReport,
 	printMonorepoReport,
 } from "./formatters/console-reporter.js";
+import { summarizeWarnings } from "./formatters/warning-summary.js";
 import { resolveMinScore } from "./min-score.js";
 import {
 	getCliVersion,
@@ -88,12 +89,13 @@ export interface InteractiveArtifacts {
 
 const displayCustomRuleWarnings = (
 	warnings: string[],
-	isMachineReadable: boolean
+	isMachineReadable: boolean,
+	verbose: boolean
 ): void => {
 	if (isMachineReadable) {
 		return;
 	}
-	for (const warning of warnings) {
+	for (const warning of summarizeWarnings(warnings, verbose)) {
 		logger.warn(warning);
 	}
 };
@@ -183,7 +185,8 @@ abstract class ScanPipeline {
 			this.stopProgress();
 			displayCustomRuleWarnings(
 				this.scanConfig.customRuleWarnings,
-				this.options.isMachineReadable
+				this.options.isMachineReadable,
+				this.options.verbose
 			);
 		});
 		return this;
@@ -336,7 +339,8 @@ abstract class ScanPipeline {
 				this.stopProgress();
 				displayCustomRuleWarnings(
 					this.workerWarnings,
-					this.options.isMachineReadable
+					this.options.isMachineReadable,
+					this.options.verbose
 				);
 				await this.outputStep?.();
 				return;
