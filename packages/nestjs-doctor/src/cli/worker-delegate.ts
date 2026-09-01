@@ -32,6 +32,7 @@ export type ScanOutcome =
 			bootstrapRoots: string[];
 			allFiles: string[];
 			subProjectOptOut: boolean;
+			reportTelemetry: boolean;
 			scopeWarnings: string[];
 			resolvedMinimumScore?: number;
 	  }
@@ -43,6 +44,7 @@ export type ScanOutcome =
 			reportProviders: ReportProvider[];
 			bootstrapRoots: string[];
 			result: DiagnoseResult;
+			reportTelemetry: boolean;
 			schemaGraph: EngineResult["schemaGraph"];
 			scopeWarnings: string[];
 			resolvedMinimumScore?: number;

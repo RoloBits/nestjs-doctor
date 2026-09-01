@@ -33,6 +33,7 @@ import {
 import { buildReportArtifact, collectScanFacts } from "../report/artifact.js";
 import { buildHtmlReport } from "../report/html-report.js";
 import { resetEcosystem } from "../telemetry/ecosystem.js";
+import { reportTelemetryEnabled } from "../telemetry/send.js";
 import { logger } from "../ui/logger.js";
 import {
 	printConsoleReport,
@@ -122,6 +123,8 @@ abstract class ScanPipeline {
 	protected workerWarnings: string[] = [];
 	/** Set when any scanned sub-project declares its own opt-out. */
 	protected subProjectOptOut = false;
+	/** Whether a report built from the menu may embed its beacon; decided with the config. */
+	protected reportTelemetry = false;
 	/** Warnings raised while narrowing the scope; surfaced alongside the report. */
 	protected scopeWarnings: string[] = [];
 	protected readonly steps: PipelineStep[] = [];
@@ -154,6 +157,9 @@ abstract class ScanPipeline {
 			subProjectOptOut: this.subProjectOptOut,
 			targetPath: this.targetPath,
 		});
+		this.reportTelemetry =
+			reportTelemetryEnabled(this.options.telemetry, this.scanConfig.config) &&
+			!this.subProjectOptOut;
 	}
 
 	abstract applyScope(): this;
@@ -408,7 +414,10 @@ export class MonorepoPipeline extends ScanPipeline {
 	/** What the post-scan menu needs, without re-scanning. */
 	get interactiveArtifacts(): InteractiveArtifacts {
 		return {
-			buildReportHtml: () => buildHtmlReport(this.reportArtifact),
+			buildReportHtml: () =>
+				buildHtmlReport(this.reportArtifact, {
+					telemetry: this.reportTelemetry,
+				}),
 			moduleGraph: () => this.reportArtifact.graph,
 			printSummary: () => {
 				printMonorepoReport(this.result.result, this.options.verbose, true);
@@ -521,6 +530,7 @@ export class MonorepoPipeline extends ScanPipeline {
 				this.allProviders.push(...outcome.reportProviders);
 				this.bootstrapRoots.push(...outcome.bootstrapRoots);
 				this.subProjectOptOut = outcome.subProjectOptOut;
+				this.reportTelemetry = outcome.reportTelemetry;
 				this.scopeWarnings.push(...outcome.scopeWarnings);
 				this.resolvedMinimumScore = outcome.resolvedMinimumScore;
 			}
@@ -538,6 +548,7 @@ export class MonorepoPipeline extends ScanPipeline {
 			bootstrapRoots: this.bootstrapRoots,
 			allFiles: this.allFiles,
 			subProjectOptOut: this.subProjectOptOut,
+			reportTelemetry: this.reportTelemetry,
 			scopeWarnings: this.scopeWarnings,
 			resolvedMinimumScore: this.resolvedMinimumScore,
 		};
@@ -621,7 +632,10 @@ export class SingleProjectPipeline extends ScanPipeline {
 	/** What the post-scan menu needs, without re-scanning. */
 	get interactiveArtifacts(): InteractiveArtifacts {
 		return {
-			buildReportHtml: () => buildHtmlReport(this.reportArtifact),
+			buildReportHtml: () =>
+				buildHtmlReport(this.reportArtifact, {
+					telemetry: this.reportTelemetry,
+				}),
 			moduleGraph: () => this.reportArtifact.graph,
 			printSummary: () => {
 				printConsoleReport(this.result.result, this.options.verbose, true);
@@ -654,6 +668,7 @@ export class SingleProjectPipeline extends ScanPipeline {
 				};
 				this.reportProviders = outcome.reportProviders;
 				this.bootstrapRoots = outcome.bootstrapRoots;
+				this.reportTelemetry = outcome.reportTelemetry;
 				this.scopeWarnings.push(...outcome.scopeWarnings);
 				this.resolvedMinimumScore = outcome.resolvedMinimumScore;
 			}
@@ -670,6 +685,7 @@ export class SingleProjectPipeline extends ScanPipeline {
 			reportProviders: this.reportProviders,
 			bootstrapRoots: this.bootstrapRoots,
 			result: this.result.result,
+			reportTelemetry: this.reportTelemetry,
 			schemaGraph: this.result.schemaGraph,
 			scopeWarnings: this.scopeWarnings,
 			resolvedMinimumScore: this.resolvedMinimumScore,

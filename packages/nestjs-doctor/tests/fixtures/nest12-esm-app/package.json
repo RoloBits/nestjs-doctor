@@ -1,0 +1,15 @@
+{
+  "name": "nest12-esm-app",
+  "version": "1.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "dependencies": {
+    "@nestjs/common": "^12.0.1",
+    "@nestjs/core": "^12.0.1",
+    "@nestjs/observe": "^12.0.1",
+    "@nestjs/platform-express": "^12.0.1",
+    "zod": "^4.1.0"
+  }
+}

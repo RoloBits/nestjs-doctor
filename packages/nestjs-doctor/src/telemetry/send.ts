@@ -27,6 +27,18 @@ export function scanTelemetryEnabled(
 	return config?.telemetry !== false;
 }
 
+/** Whether a generated report may embed its beacon: the scan gate plus `report.telemetry`. */
+export function reportTelemetryEnabled(
+	flag: boolean,
+	config: NestjsDoctorConfig | undefined,
+	env: NodeJS.ProcessEnv = process.env
+): boolean {
+	return (
+		scanTelemetryEnabled(flag, config, env, "always") &&
+		config?.report?.telemetry !== false
+	);
+}
+
 /** Runs in a detached child, so a stalled network cannot hold the scan open. */
 const CHILD_SCRIPT = `
 const body = process.argv[1];
