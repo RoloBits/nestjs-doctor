@@ -1,5 +1,8 @@
-import { type Node, SyntaxKind } from "ts-morph";
+import { Node, SyntaxKind } from "ts-morph";
 import type { Rule } from "../../types.js";
+
+// A digest/hash is far more often a fixture or migration id than a real key.
+const HEX_SECRET_PATTERN = /^[a-f0-9]{64}$/;
 
 const SECRET_PATTERNS = [
 	{ pattern: /^sk[-_][a-zA-Z0-9]{20,}$/, name: "Secret key" },
@@ -27,7 +30,7 @@ const SECRET_PATTERNS = [
 	},
 	{ pattern: /^AKIA[0-9A-Z]{16}$/, name: "AWS Access Key ID" },
 	{
-		pattern: /^[a-f0-9]{64}$/,
+		pattern: HEX_SECRET_PATTERN,
 		name: "Hex-encoded secret (64 chars)",
 	},
 ];
@@ -94,6 +97,26 @@ function isWordSequence(value: string): boolean {
 	);
 }
 
+const IDENTIFIER_SHAPE = /^[A-Za-z][A-Za-z0-9]*(?:[-_:./][A-Za-z0-9]+)+$/;
+const SINGLE_CAPITALIZED_WORD = /^[A-Z][a-z]+$/;
+const REGEX_METACHARACTER = /[\\^$*+?()[\]{}|]/;
+const HAS_DIGIT = /\d/;
+const VERSION_SEGMENT = /^v\d{1,3}$/i;
+
+// True for a config/identifier key or a regex pattern, not a secret value.
+// A digit-bearing segment still counts as a secret unless it is a version tag.
+function isIdentifierShapedValue(value: string): boolean {
+	if (REGEX_METACHARACTER.test(value) || SINGLE_CAPITALIZED_WORD.test(value)) {
+		return true;
+	}
+	if (!IDENTIFIER_SHAPE.test(value)) {
+		return false;
+	}
+	return value
+		.split(SEGMENT_SPLIT)
+		.every((part) => !HAS_DIGIT.test(part) || VERSION_SEGMENT.test(part));
+}
+
 const NON_ALNUM = /[^a-z0-9]/g;
 
 // True when the value only restates the name, as a config key does.
@@ -120,6 +143,19 @@ function echoesName(name: string, value: string): boolean {
 // A string handed to `throw` is a message or a field name.
 function isThrownMessage(node: Node): boolean {
 	return node.getFirstAncestorByKind(SyntaxKind.ThrowStatement) !== undefined;
+}
+
+// The name of the variable/property a string literal is directly assigned to, if any.
+function getBindingName(literal: Node): string | undefined {
+	const parent = literal.getParent();
+	if (
+		Node.isVariableDeclaration(parent) ||
+		Node.isPropertyAssignment(parent) ||
+		Node.isPropertyDeclaration(parent)
+	) {
+		return parent.getName();
+	}
+	return undefined;
 }
 
 export const noHardcodedSecrets: Rule = {
@@ -150,16 +186,23 @@ export const noHardcodedSecrets: Rule = {
 			}
 
 			for (const { pattern, name } of SECRET_PATTERNS) {
-				if (pattern.test(value)) {
-					context.report({
-						filePath: context.filePath,
-						message: `Possible hardcoded ${name} detected.`,
-						help: this.meta.help,
-						line: literal.getStartLineNumber(),
-						column: 1,
-					});
-					break;
+				if (!pattern.test(value)) {
+					continue;
 				}
+				if (pattern === HEX_SECRET_PATTERN) {
+					const bindingName = getBindingName(literal);
+					if (!(bindingName && hasSuspiciousName(bindingName))) {
+						continue;
+					}
+				}
+				context.report({
+					filePath: context.filePath,
+					message: `Possible hardcoded ${name} detected.`,
+					help: this.meta.help,
+					line: literal.getStartLineNumber(),
+					column: 1,
+				});
+				break;
 			}
 		}
 
@@ -189,6 +232,7 @@ export const noHardcodedSecrets: Rule = {
 				if (
 					isPermissionScope(name, value) ||
 					echoesName(name, value) ||
+					isIdentifierShapedValue(value) ||
 					(isThrownMessage(node) && isWordSequence(value))
 				) {
 					continue;

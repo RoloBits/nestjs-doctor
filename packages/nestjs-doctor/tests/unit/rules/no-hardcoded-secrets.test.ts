@@ -27,8 +27,8 @@ function runRule(code: string, filePath = "test.ts"): Diagnostic[] {
 describe("no-hardcoded-secrets", () => {
 	it("flags a colon value that does not name the binding", () => {
 		const diags = runRule(`
-      export const authToken = "admin:supersecret";
-      export const dbPassword = "root:hunter";
+      export const authToken = "admin:supersecret1";
+      export const dbPassword = "root:hunter2";
     `);
 		expect(diags).toHaveLength(2);
 	});
@@ -99,7 +99,7 @@ describe("no-hardcoded-secrets", () => {
 	it("flags property assignments with suspicious names", () => {
 		const diags = runRule(`
       const config = {
-        secret: 'my-jwt-secret-that-should-be-in-env',
+        secret: 'my-jwt-secret-that-should-be-in-env-2024',
       };
     `);
 		expect(diags.length).toBeGreaterThan(0);
@@ -197,14 +197,16 @@ describe("no-hardcoded-secrets", () => {
 
 	it("still flags a word-shaped credential outside a throw", () => {
 		const diags = runRule(`
-      const config = { password: 'correct-horse-battery-staple' };
+      const config = { password: 'correct-horse-battery-staple-2024' };
     `);
 		expect(diags).toHaveLength(1);
 	});
 
 	it("still flags a credential pair and a hyphenated secret", () => {
-		expect(runRule("const password = 'admin/administrator';")).toHaveLength(1);
-		expect(runRule("const apiKey = 'super-secret-key-value';")).toHaveLength(1);
+		expect(runRule("const password = 'admin/administrator2';")).toHaveLength(1);
+		expect(
+			runRule("const apiKey = 'super-secret-key-value-2024';")
+		).toHaveLength(1);
 	});
 
 	it("still flags a real secret assigned inside a throw", () => {
@@ -252,5 +254,79 @@ describe("no-hardcoded-secrets", () => {
 		]) {
 			expect(runRule(`const name = '${value}';`)).toHaveLength(0);
 		}
+	});
+
+	describe("2026-09 false-positive fixes", () => {
+		it("does not flag realistic non-secret identifiers and messages", () => {
+			const cases = [
+				"const API_KEY_HEADER = 'x-api-key';",
+				"const config = { apiKeyName: 'x-tenant-api-key' };",
+				"const passwordRegex = '^(?=.*[a-z])(?=.*[A-Z]).{8,}$';",
+				"const passwordResetTemplate = 'password-reset-email';",
+				"const AUTH_TOKEN_KEY = 'auth_token_storage';",
+				"const secretName = 'my-app/prod/db-credentials';",
+				`class Cache {
+					private readonly apiKeyCachePrefix = 'apikey:lookup:v2';
+				}`,
+				"const JWT_SECRET_TOKEN = 'JWT_SECRET_TOKEN_PROVIDER';",
+				"const secretEnvVar = 'DATABASE_PASSWORD';",
+				"const secretRotationQueue = 'secret-rotation-queue';",
+				"const passwordMessage = 'errors.password.tooShort';",
+				`class CreateUserDto {
+					@IsString({ message: 'password must be stronger' })
+					password: string;
+				}`,
+			];
+			for (const code of cases) {
+				expect(runRule(code)).toHaveLength(0);
+			}
+		});
+
+		it("still flags real credentials", () => {
+			const cases = [
+				"const password = 'Tr0ub4dor&3xyz';",
+				"const stripeKey = 'sk_live_51H8xQ2LmNpQrStUvWxYz0123456789';",
+				"const password = 'P@ssw0rd!2024';",
+				"const password = 'hunter2hunter2';",
+				"const password = 'correcthorsebatterystaple';",
+				"const password = 'admin_password_123';",
+			];
+			for (const code of cases) {
+				expect(runRule(code).length).toBeGreaterThan(0);
+			}
+		});
+
+		it("does not flag a 64-hex digest with no suspicious binding name", () => {
+			const hex =
+				"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
+			const cases = [
+				`const expectedDigest = '${hex}';`,
+				`class Migration1699999999999 implements MigrationInterface {
+					name = '${hex}';
+				}`,
+				`const sha256Hash = '${hex}';`,
+			];
+			for (const code of cases) {
+				expect(runRule(code)).toHaveLength(0);
+			}
+		});
+
+		it("still flags a 64-hex value bound to a suspicious name", () => {
+			const hex =
+				"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
+			expect(runRule(`const apiSecret = '${hex}';`).length).toBeGreaterThan(0);
+		});
+
+		// Accepted false negatives: purely alphabetic, multi-word values look
+		// like identifiers, not secrets. Vendor-format patterns still catch a
+		// real credential regardless of what it is assigned to.
+		it("accepts two false negatives for low-entropy alphabetic placeholders", () => {
+			expect(runRule("const secretValue = 'SuperSecret_Value';")).toHaveLength(
+				0
+			);
+			expect(
+				runRule("const jwtSecret = 'my-super-secret-jwt-key';")
+			).toHaveLength(0);
+		});
 	});
 });
