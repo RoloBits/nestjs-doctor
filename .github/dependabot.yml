@@ -18,6 +18,9 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # Must not exceed the extension's engines.vscode; vsce rejects the publish.
+      - dependency-name: "@types/vscode"
     groups:
       dev-dependencies:
         dependency-type: development
