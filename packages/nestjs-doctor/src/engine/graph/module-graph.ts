@@ -73,6 +73,8 @@ export interface ModuleNode {
 	filePaths?: string[];
 	forwardRefImports: Set<string>;
 	imports: string[];
+	/** Declaration file → the imports of that declaration, when unioned. */
+	importsByFile?: Record<string, string[]>;
 	isGlobal: boolean;
 	/** Line of the class declaration. Absent when the graph was built without one. */
 	line?: number;
@@ -219,6 +221,10 @@ function mergeSameNameModules(a: ModuleNode, b: ModuleNode): ModuleNode {
 		]),
 		isGlobal: a.isGlobal || b.isGlobal,
 		filePaths: [...new Set([...(a.filePaths ?? [a.filePath]), b.filePath])],
+		importsByFile: {
+			...(a.importsByFile ?? { [a.filePath]: a.imports }),
+			...(b.importsByFile ?? { [b.filePath]: b.imports }),
+		},
 	};
 	if (a.dynamicImports || b.dynamicImports) {
 		merged.dynamicImports = { ...a.dynamicImports, ...b.dynamicImports };
@@ -1003,6 +1009,15 @@ export function mergeModuleGraphs(
 					dynamicImports[resolve(graph, projectName, imp, node)] = method;
 				}
 			}
+			let importsByFile: Record<string, string[]> | undefined;
+			if (node.importsByFile) {
+				importsByFile = {};
+				for (const [file, imports] of Object.entries(node.importsByFile)) {
+					importsByFile[file] = imports.map((imp) =>
+						resolve(graph, projectName, imp, node)
+					);
+				}
+			}
 			const mergedNode: ModuleNode = {
 				...node,
 				name: prefixed,
@@ -1015,6 +1030,7 @@ export function mergeModuleGraphs(
 					resolve(graph, projectName, exp, node)
 				),
 				...(dynamicImports ? { dynamicImports } : {}),
+				...(importsByFile ? { importsByFile } : {}),
 			};
 			modules.set(prefixed, mergedNode);
 		}
@@ -1042,35 +1058,112 @@ export function mergeModuleGraphs(
 	return { modules, edges, providerToModule };
 }
 
-export function findCircularDeps(graph: ModuleGraph): string[][] {
-	const cycles: string[][] = [];
-	const visited = new Set<string>();
-	const recursionStack = new Set<string>();
+interface ModuleDeclaration {
+	filePath: string;
+	imports: string[];
+	name: string;
+}
 
-	function dfs(node: string, path: string[]): void {
+interface DeclarationGraph {
+	declarations: ModuleDeclaration[];
+	idByFileAndName: Map<string, number>;
+	idsByName: Map<string, number[]>;
+}
+
+const declarationKey = (filePath: string, name: string): string =>
+	`${filePath} ${name}`;
+
+/** One node per `@Module()` declaration, so a union node splits back into its files. */
+function indexDeclarations(graph: ModuleGraph): DeclarationGraph {
+	const declarations: ModuleDeclaration[] = [];
+	const idByFileAndName = new Map<string, number>();
+	const idsByName = new Map<string, number[]>();
+
+	for (const [name, node] of graph.modules) {
+		const byFile = node.importsByFile ?? { [node.filePath]: node.imports };
+		for (const [filePath, imports] of Object.entries(byFile)) {
+			const id = declarations.length;
+			declarations.push({ filePath, imports, name });
+			idByFileAndName.set(declarationKey(filePath, name), id);
+			const ids = idsByName.get(name);
+			if (ids) {
+				ids.push(id);
+			} else {
+				idsByName.set(name, [id]);
+			}
+		}
+	}
+
+	return { declarations, idByFileAndName, idsByName };
+}
+
+/**
+ * A name declared in the importing file resolves to that declaration; any other
+ * name resolves to every declaration carrying it.
+ */
+function declarationTargets(graph: DeclarationGraph, id: number): number[] {
+	const { filePath, imports } = graph.declarations[id];
+	const targets: number[] = [];
+	for (const imported of imports) {
+		const local = graph.idByFileAndName.get(declarationKey(filePath, imported));
+		if (local === undefined) {
+			targets.push(...(graph.idsByName.get(imported) ?? []));
+		} else {
+			targets.push(local);
+		}
+	}
+	return targets;
+}
+
+/** The rotation of a cycle that sorts first, so equivalent cycles share a key. */
+function cycleKey(names: string[]): string {
+	let key = names.join(">");
+	for (let i = 1; i < names.length; i++) {
+		const rotated = [...names.slice(i), ...names.slice(0, i)].join(">");
+		if (rotated < key) {
+			key = rotated;
+		}
+	}
+	return key;
+}
+
+export function findCircularDeps(graph: ModuleGraph): string[][] {
+	const declarationGraph = indexDeclarations(graph);
+	const cycles: string[][] = [];
+	const reported = new Set<string>();
+	const visited = new Set<number>();
+	const recursionStack = new Set<number>();
+
+	function record(path: number[]): void {
+		const names = path.map((id) => declarationGraph.declarations[id].name);
+		const key = cycleKey(names);
+		if (!reported.has(key)) {
+			reported.add(key);
+			cycles.push(names);
+		}
+	}
+
+	function dfs(node: number, path: number[]): void {
 		visited.add(node);
 		recursionStack.add(node);
 
-		const neighbors = graph.edges.get(node) ?? new Set();
-		for (const neighbor of neighbors) {
+		for (const neighbor of declarationTargets(declarationGraph, node)) {
 			if (!visited.has(neighbor)) {
 				dfs(neighbor, [...path, neighbor]);
 			} else if (recursionStack.has(neighbor)) {
 				const cycleStart = path.indexOf(neighbor);
-				if (cycleStart === -1) {
-					cycles.push([...path, neighbor]);
-				} else {
-					cycles.push(path.slice(cycleStart));
-				}
+				record(
+					cycleStart === -1 ? [...path, neighbor] : path.slice(cycleStart)
+				);
 			}
 		}
 
 		recursionStack.delete(node);
 	}
 
-	for (const moduleName of graph.modules.keys()) {
-		if (!visited.has(moduleName)) {
-			dfs(moduleName, [moduleName]);
+	for (let id = 0; id < declarationGraph.declarations.length; id++) {
+		if (!visited.has(id)) {
+			dfs(id, [id]);
 		}
 	}
 

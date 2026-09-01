@@ -99,6 +99,51 @@ describe("no-circular-module-deps", () => {
 		expect(diags[0].help).toContain("feature-b/shared.module.ts");
 	});
 
+	it("does not flag same-name declarations that are each acyclic", () => {
+		const diags = runProjectRule(noCircularModuleDeps, {
+			"/x/core.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ imports: [UsersModule] })
+        export class CoreModule {}
+        @Module({})
+        export class UsersModule {}
+      `,
+			"/y/core.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class CoreModule {}
+        @Module({ imports: [CoreModule] })
+        export class UsersModule {}
+      `,
+		});
+		expect(diags).toEqual([]);
+	});
+
+	it("anchors a cycle to a declaration file that contains it", () => {
+		const diags = runProjectRule(noCircularModuleDeps, {
+			"feature-a/a.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { BModule } from './b.module';
+        @Module({ imports: [BModule] })
+        export class AModule {}
+      `,
+			"feature-a/b.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { AModule } from './a.module';
+        @Module({ imports: [AModule] })
+        export class BModule {}
+      `,
+			"feature-b/b.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class BModule {}
+      `,
+		});
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("Circular");
+		expect(diags[0].filePath).toBe("feature-a/a.module.ts");
+	});
+
 	it("does not flag acyclic imports", () => {
 		const diags = runProjectRule(noCircularModuleDeps, {
 			"app.module.ts": `
