@@ -272,6 +272,7 @@ describe("no-hardcoded-secrets", () => {
 				"const secretEnvVar = 'DATABASE_PASSWORD';",
 				"const secretRotationQueue = 'secret-rotation-queue';",
 				"const passwordMessage = 'errors.password.tooShort';",
+				"const AUTH_TOKEN_HEADER = 'Authorization';",
 				`class CreateUserDto {
 					@IsString({ message: 'password must be stronger' })
 					password: string;
@@ -290,6 +291,8 @@ describe("no-hardcoded-secrets", () => {
 				"const password = 'hunter2hunter2';",
 				"const password = 'correcthorsebatterystaple';",
 				"const password = 'admin_password_123';",
+				"const dbPassword = 'Hunter2$tr0ng';",
+				"const apiKey = 'a1b2|c3d4e5f6';",
 			];
 			for (const code of cases) {
 				expect(runRule(code).length).toBeGreaterThan(0);

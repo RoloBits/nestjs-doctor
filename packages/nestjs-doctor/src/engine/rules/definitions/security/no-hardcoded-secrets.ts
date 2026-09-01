@@ -1,7 +1,7 @@
 import { Node, SyntaxKind } from "ts-morph";
 import type { Rule } from "../../types.js";
 
-// A digest/hash is far more often a fixture or migration id than a real key.
+// Matches a 64-character lowercase hex digest.
 const HEX_SECRET_PATTERN = /^[a-f0-9]{64}$/;
 
 const SECRET_PATTERNS = [
@@ -99,14 +99,22 @@ function isWordSequence(value: string): boolean {
 
 const IDENTIFIER_SHAPE = /^[A-Za-z][A-Za-z0-9]*(?:[-_:./][A-Za-z0-9]+)+$/;
 const SINGLE_CAPITALIZED_WORD = /^[A-Z][a-z]+$/;
-const REGEX_METACHARACTER = /[\\^$*+?()[\]{}|]/;
+const REGEX_METACHARACTER = /[\\^$*+?()[\]{}|]/g;
 const HAS_DIGIT = /\d/;
 const VERSION_SEGMENT = /^v\d{1,3}$/i;
+
+// True when a value reads as a regex source rather than a literal secret.
+function looksLikeRegexSource(value: string): boolean {
+	if (value.startsWith("^") || value.endsWith("$")) {
+		return true;
+	}
+	return (value.match(REGEX_METACHARACTER)?.length ?? 0) >= 2;
+}
 
 // True for a config/identifier key or a regex pattern, not a secret value.
 // A digit-bearing segment still counts as a secret unless it is a version tag.
 function isIdentifierShapedValue(value: string): boolean {
-	if (REGEX_METACHARACTER.test(value) || SINGLE_CAPITALIZED_WORD.test(value)) {
+	if (looksLikeRegexSource(value) || SINGLE_CAPITALIZED_WORD.test(value)) {
 		return true;
 	}
 	if (!IDENTIFIER_SHAPE.test(value)) {
