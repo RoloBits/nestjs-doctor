@@ -542,7 +542,6 @@ export function DiagnosisTab({
 		}
 	}, [activePath, activeVisible]);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: scroll position resets whenever the shown file re-renders, matching the old showFile
 	useLayoutEffect(() => {
 		const pending = pendingScrollRef.current;
 		pendingScrollRef.current = null;
@@ -786,7 +785,6 @@ export function DiagnosisTab({
 							groupByRule(sorted).map((group, index) => (
 								<DiagInfoItem
 									group={group}
-									// biome-ignore lint/suspicious/noArrayIndexKey: groups have no stable identity beyond their order
 									key={`${group.rule}:${index}`}
 									report={report}
 								/>

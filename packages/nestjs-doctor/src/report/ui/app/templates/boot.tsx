@@ -167,7 +167,6 @@ export function BootView({
 	};
 	const focusRef = useLatest(focusSpan);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: focusRef is a stable useLatest ref; the handler must read the latest focus
 	useEffect(() => {
 		if (compact) {
 			return;
@@ -180,7 +179,6 @@ export function BootView({
 	}, [compact]);
 
 	// A view switch gets a fresh window, selection, and open groups.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: focusRef is a stable useLatest ref
 	useEffect(() => {
 		setWin({ from: 0, to: timeline?.maxMs ?? 1 });
 		setSelectedId(null);
@@ -242,7 +240,6 @@ export function BootView({
 	]);
 
 	// Clicks: group headers collapse, carets cascade, rows select.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: the handler reads the latest selection and timeline through stable useLatest refs
 	useEffect(() => {
 		const rows = rowsRef.current;
 		if (!rows) {
@@ -409,7 +406,6 @@ export function BootView({
 
 	// Crosshair: a vertical line under the mouse with its time on a chip
 	// riding the axis, like an APM trace waterfall.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reads the latest window and axis through stable refs
 	useEffect(() => {
 		const main = mainRef.current;
 		const axis = axisRef.current;

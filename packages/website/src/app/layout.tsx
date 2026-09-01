@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono } from "next/font/google";
 import { SiteAnalytics } from "@/components/site-analytics";
-import { OG_IMAGE_ALT, OG_IMAGE_PATH, SITE_NAME, SITE_URL } from "@/lib/site";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 const ibmPlexMono = IBM_Plex_Mono({
@@ -27,20 +27,11 @@ export const metadata: Metadata = {
 		url: SITE_URL,
 		siteName: SITE_NAME,
 		type: "website",
-		images: [
-			{
-				url: OG_IMAGE_PATH,
-				width: 1200,
-				height: 630,
-				alt: OG_IMAGE_ALT,
-			},
-		],
 	},
 	twitter: {
 		card: "summary_large_image",
 		title: HOME_TITLE,
 		description: HOME_DESCRIPTION,
-		images: [OG_IMAGE_PATH],
 	},
 	icons: {
 		icon: [{ url: "/favicon.png", type: "image/png" }],

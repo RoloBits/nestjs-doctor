@@ -551,7 +551,6 @@ function WiringTree({
 				const sub = wiringChildren(d.dependencies);
 				return (
 					<li
-						// biome-ignore lint/suspicious/noArrayIndexKey: rows have no stable identity beyond their order
 						key={`${d.className}:${index}`}
 						style={{ paddingLeft: depth * 12 }}
 					>
@@ -954,7 +953,6 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 	const infoPopRef = useRef<HTMLDivElement>(null);
 	const controllerRef = useRef<ModulesCanvas | null>(null);
 	// The dock's height lands after commit, so measure the canvas then.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: the dock state changes the layout the resize measures
 	useLayoutEffect(() => {
 		controllerRef.current?.resize();
 	}, [dockOpen, dockActive]);
@@ -973,7 +971,6 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 		return map;
 	}, [report]);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: the controller mounts once for the page's lifetime
 	useLayoutEffect(() => {
 		const canvas = canvasRef.current;
 		const tooltipEl = tooltipRef.current;
@@ -1604,7 +1601,6 @@ export function ModulesTab({ report }: { report: ReportArtifact }) {
 								<div
 									className="mg-problem-row mg-problem-linked"
 									data-module={row.module}
-									// biome-ignore lint/suspicious/noArrayIndexKey: findings have no stable identity beyond their order
 									key={`${row.diag.rule}:${index}`}
 									onClick={() => {
 										track("module_opened_from_finding");

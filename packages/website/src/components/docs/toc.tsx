@@ -22,7 +22,6 @@ export const Toc = () => {
 	const listRef = useRef<HTMLUListElement>(null);
 
 	// Re-reads the headings on every docs route.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: pathname is the trigger
 	useEffect(() => {
 		const found: Heading[] = [];
 		for (const node of document.querySelectorAll<HTMLElement>(
@@ -82,7 +81,6 @@ export const Toc = () => {
 		};
 	}, [pathname]);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: headings re-renders the rows this measures
 	useEffect(() => {
 		const list = listRef.current;
 		if (!(list && activeId)) {
