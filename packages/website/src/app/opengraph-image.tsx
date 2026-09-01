@@ -14,9 +14,13 @@ const FONT_URL_RE = /url\((https:[^)]+)\)/;
 /** Downloads one weight of IBM Plex Mono through the same host next/font uses. */
 async function plexMono(weight: number): Promise<ArrayBuffer | null> {
 	try {
-		const css = await (
-			await fetch(`${FONT_CSS}`, { headers: { "User-Agent": "Mozilla/5.0" } })
-		).text();
+		const cssRes = await fetch(FONT_CSS, {
+			headers: { "User-Agent": "Mozilla/5.0" },
+		});
+		if (!cssRes.ok) {
+			return null;
+		}
+		const css = await cssRes.text();
 		const block = css
 			.split("@font-face")
 			.find((part) => part.includes(`font-weight: ${weight}`));
@@ -24,7 +28,11 @@ async function plexMono(weight: number): Promise<ArrayBuffer | null> {
 		if (!url) {
 			return null;
 		}
-		return await (await fetch(url)).arrayBuffer();
+		const fontRes = await fetch(url);
+		if (!fontRes.ok) {
+			return null;
+		}
+		return await fontRes.arrayBuffer();
 	} catch {
 		return null;
 	}
