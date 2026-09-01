@@ -282,7 +282,7 @@ Detects controller endpoints that are not protected by `@UseGuards()` at the cla
 
 **Why:** Unguarded endpoints are accessible to anyone. Controllers or individual routes can opt out with `@Public()`, `@AllowAnonymous()`, `@SkipAuth()`, or `@IsPublic()` at the class or method level.
 
-**Note:** A guard registered globally through `APP_GUARD` already protects every endpoint, and the rule reports nothing for the whole project. The token has to be written as `APP_GUARD`; an aliased import is not matched.
+**Note:** A guard registered globally, either through `APP_GUARD` or with `app.useGlobalGuards()` in `main.ts`, already protects every endpoint, and the rule reports nothing for the whole project. The `APP_GUARD` token has to be written as `APP_GUARD`; an aliased import is not matched.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript

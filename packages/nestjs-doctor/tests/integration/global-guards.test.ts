@@ -41,6 +41,14 @@ describe("global guard detection", () => {
 		expect(guardFindings).toEqual([]);
 	});
 
+	it("reports no unguarded endpoint when the base class carries the guard", async () => {
+		const { output } = await scan("inherited-guard-app/src");
+		const guardFindings = output.diagnostics.filter(
+			(diagnostic) => diagnostic.rule === GUARD_RULE
+		);
+		expect(guardFindings).toEqual([]);
+	});
+
 	it("still reports an unguarded endpoint in a project with no global guard", async () => {
 		const { output } = await scan("bad-security/src");
 		const guardFindings = output.diagnostics.filter(
