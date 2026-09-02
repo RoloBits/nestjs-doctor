@@ -204,6 +204,90 @@ describe("module-graph", () => {
 		expect(findCircularDeps(graph)).toEqual([]);
 	});
 
+	// Same-name modules one per file: each import statement points at one of them
+	it("returns no cycles when same-name modules are declared one per file", () => {
+		const { project, paths } = createProject({
+			"/x/core.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { UsersModule } from './users.module';
+        @Module({ imports: [UsersModule] })
+        export class CoreModule {}
+      `,
+			"/x/users.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class UsersModule {}
+      `,
+			"/y/core.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class CoreModule {}
+      `,
+			"/y/users.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { CoreModule } from './core.module';
+        @Module({ imports: [CoreModule] })
+        export class UsersModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		expect(findCircularDeps(graph)).toEqual([]);
+	});
+
+	it("follows the import statement when two same-name modules collide", () => {
+		const { project, paths } = createProject({
+			"/feature-a/shared.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class SharedModule {}
+      `,
+			"/feature-b/shared.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { UsersModule } from '../users.module';
+        @Module({ imports: [UsersModule] })
+        export class SharedModule {}
+      `,
+			"/users.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { SharedModule } from './feature-a/shared.module';
+        @Module({ imports: [SharedModule] })
+        export class UsersModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		expect(findCircularDeps(graph)).toEqual([]);
+	});
+
+	it("reports the cycle when the import reaches the cyclic same-name module", () => {
+		const { project, paths } = createProject({
+			"/feature-a/shared.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class SharedModule {}
+      `,
+			"/feature-b/shared.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { UsersModule } from '../users.module';
+        @Module({ imports: [UsersModule] })
+        export class SharedModule {}
+      `,
+			"/users.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { SharedModule } from './feature-b/shared.module';
+        @Module({ imports: [SharedModule] })
+        export class UsersModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		const cycles = findCircularDeps(graph);
+
+		expect(cycles).toHaveLength(1);
+		expect([...cycles[0]].sort()).toEqual(["SharedModule", "UsersModule"]);
+	});
+
 	// A real cycle stays visible when one of its members shares a name elsewhere
 	it("detects a cycle whose member is also declared in an unrelated file", () => {
 		const { project, paths } = createProject({

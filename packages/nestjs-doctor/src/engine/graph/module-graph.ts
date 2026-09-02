@@ -75,6 +75,8 @@ export interface ModuleNode {
 	imports: string[];
 	/** Declaration file → the imports of that declaration, when unioned. */
 	importsByFile?: Record<string, string[]>;
+	/** Declaration file → import name → the file that import statement resolves to. */
+	importTargetsByFile?: Record<string, Record<string, string>>;
 	isGlobal: boolean;
 	/** Line of the class declaration. Absent when the graph was built without one. */
 	line?: number;
@@ -192,6 +194,17 @@ function extractModulesFromFile(
 			}
 		}
 
+		const importTargets: Record<string, string> = {};
+		for (const imp of node.imports) {
+			const resolved = resolveImportedSourceFile(imp, sourceFile, pathAliases);
+			if (resolved) {
+				importTargets[imp] = resolved.sourceFile.getFilePath();
+			}
+		}
+		if (Object.keys(importTargets).length > 0) {
+			node.importTargetsByFile = { [filePath]: importTargets };
+		}
+
 		const pkgImports = node.imports.filter((imp) => packageNames.has(imp));
 		if (pkgImports.length > 0) {
 			node.packageImports = {};
@@ -226,6 +239,12 @@ function mergeSameNameModules(a: ModuleNode, b: ModuleNode): ModuleNode {
 			...(b.importsByFile ?? { [b.filePath]: b.imports }),
 		},
 	};
+	if (a.importTargetsByFile || b.importTargetsByFile) {
+		merged.importTargetsByFile = {
+			...a.importTargetsByFile,
+			...b.importTargetsByFile,
+		};
+	}
 	if (a.dynamicImports || b.dynamicImports) {
 		merged.dynamicImports = { ...a.dynamicImports, ...b.dynamicImports };
 	}
@@ -1018,6 +1037,22 @@ export function mergeModuleGraphs(
 					);
 				}
 			}
+			let importTargetsByFile:
+				| Record<string, Record<string, string>>
+				| undefined;
+			if (node.importTargetsByFile) {
+				importTargetsByFile = {};
+				for (const [file, targets] of Object.entries(
+					node.importTargetsByFile
+				)) {
+					const prefixedTargets: Record<string, string> = {};
+					for (const [imp, targetFile] of Object.entries(targets)) {
+						prefixedTargets[resolve(graph, projectName, imp, node)] =
+							targetFile;
+					}
+					importTargetsByFile[file] = prefixedTargets;
+				}
+			}
 			const mergedNode: ModuleNode = {
 				...node,
 				name: prefixed,
@@ -1031,6 +1066,7 @@ export function mergeModuleGraphs(
 				),
 				...(dynamicImports ? { dynamicImports } : {}),
 				...(importsByFile ? { importsByFile } : {}),
+				...(importTargetsByFile ? { importTargetsByFile } : {}),
 			};
 			modules.set(prefixed, mergedNode);
 		}
@@ -1061,6 +1097,8 @@ export function mergeModuleGraphs(
 interface ModuleDeclaration {
 	filePath: string;
 	imports: string[];
+	/** Import name → the file its import statement resolves to. */
+	importTargets: Record<string, string>;
 	name: string;
 }
 
@@ -1071,7 +1109,7 @@ interface DeclarationGraph {
 }
 
 const declarationKey = (filePath: string, name: string): string =>
-	`${filePath} ${name}`;
+	`${filePath}::${name}`;
 
 /** One node per `@Module()` declaration, so a union node splits back into its files. */
 function indexDeclarations(graph: ModuleGraph): DeclarationGraph {
@@ -1083,7 +1121,12 @@ function indexDeclarations(graph: ModuleGraph): DeclarationGraph {
 		const byFile = node.importsByFile ?? { [node.filePath]: node.imports };
 		for (const [filePath, imports] of Object.entries(byFile)) {
 			const id = declarations.length;
-			declarations.push({ filePath, imports, name });
+			declarations.push({
+				filePath,
+				importTargets: node.importTargetsByFile?.[filePath] ?? {},
+				imports,
+				name,
+			});
 			idByFileAndName.set(declarationKey(filePath, name), id);
 			const ids = idsByName.get(name);
 			if (ids) {
@@ -1098,13 +1141,22 @@ function indexDeclarations(graph: ModuleGraph): DeclarationGraph {
 }
 
 /**
- * A name declared in the importing file resolves to that declaration; any other
- * name resolves to every declaration carrying it.
+ * A name resolves to the declaration in the file its import statement reaches,
+ * then to one in the importing file, then to every declaration carrying it.
  */
 function declarationTargets(graph: DeclarationGraph, id: number): number[] {
-	const { filePath, imports } = graph.declarations[id];
+	const { filePath, importTargets, imports } = graph.declarations[id];
 	const targets: number[] = [];
 	for (const imported of imports) {
+		const targetFile = importTargets[imported];
+		const resolved =
+			targetFile === undefined
+				? undefined
+				: graph.idByFileAndName.get(declarationKey(targetFile, imported));
+		if (resolved !== undefined) {
+			targets.push(resolved);
+			continue;
+		}
 		const local = graph.idByFileAndName.get(declarationKey(filePath, imported));
 		if (local === undefined) {
 			targets.push(...(graph.idsByName.get(imported) ?? []));

@@ -119,6 +119,34 @@ describe("no-circular-module-deps", () => {
 		expect(diags).toEqual([]);
 	});
 
+	it("does not flag same-name modules declared one per file", () => {
+		const diags = runProjectRule(noCircularModuleDeps, {
+			"/x/core.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { UsersModule } from './users.module';
+        @Module({ imports: [UsersModule] })
+        export class CoreModule {}
+      `,
+			"/x/users.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class UsersModule {}
+      `,
+			"/y/core.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class CoreModule {}
+      `,
+			"/y/users.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { CoreModule } from './core.module';
+        @Module({ imports: [CoreModule] })
+        export class UsersModule {}
+      `,
+		});
+		expect(diags).toEqual([]);
+	});
+
 	it("anchors a cycle to a declaration file that contains it", () => {
 		const diags = runProjectRule(noCircularModuleDeps, {
 			"feature-a/a.module.ts": `
