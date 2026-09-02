@@ -783,6 +783,59 @@ describe("no-unused-module-exports", () => {
 		expect(diags).toHaveLength(1);
 		expect(diags[0].message).toContain("HelperService");
 	});
+
+	it("counts a consumer registered as an object-literal useClass provider", () => {
+		const diags = runProjectRule(noUnusedModuleExports, {
+			"mail.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ providers: [MailService], exports: [MailService] })
+        export class MailModule {}
+      `,
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({
+          imports: [MailModule],
+          providers: [{ provide: 'NOTIFIER', useClass: Notifier }],
+        })
+        export class AppModule {}
+      `,
+			"notifier.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class Notifier {
+          constructor(private readonly mail: MailService) {}
+        }
+      `,
+		});
+		expect(diags).toHaveLength(0);
+	});
+
+	it("still flags the export when the useClass target injects something else", () => {
+		const diags = runProjectRule(noUnusedModuleExports, {
+			"mail.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ providers: [MailService], exports: [MailService] })
+        export class MailModule {}
+      `,
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({
+          imports: [MailModule],
+          providers: [{ provide: 'NOTIFIER', useClass: Notifier }],
+        })
+        export class AppModule {}
+      `,
+			"notifier.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class Notifier {
+          constructor(private readonly other: SomethingElse) {}
+        }
+      `,
+		});
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("MailService");
+	});
 });
 
 describe("project rules on a detached graph", () => {

@@ -1,4 +1,5 @@
 import type { ClassDeclaration } from "ts-morph";
+import { collectCustomProviderClasses } from "../../../graph/custom-providers.js";
 import type { ModuleNode } from "../../../graph/module-graph.js";
 import { hasDecorator } from "../../../nest-class-inspector.js";
 import type { ProjectRule, ProjectRuleContext } from "../../types.js";
@@ -92,6 +93,19 @@ export const noUnusedModuleExports: ProjectRule = {
 						classesByName.get(name);
 					if (cls) {
 						collectInjectedNames(cls, usedProviders);
+					}
+				}
+
+				// An object-literal provider (`{ provide, useClass }`) keeps its source
+				// text, not a class name, so it needs its own resolution pass here.
+				const { implementationNames } = collectCustomProviderClasses(
+					context.project,
+					[consumer.filePath]
+				);
+				for (const implName of implementationNames) {
+					const implClass = classesByName.get(implName);
+					if (implClass) {
+						collectInjectedNames(implClass, usedProviders);
 					}
 				}
 
