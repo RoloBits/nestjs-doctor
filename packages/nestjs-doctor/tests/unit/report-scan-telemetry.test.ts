@@ -181,6 +181,8 @@ describe("report scan telemetry", () => {
 	});
 
 	it("sends nothing when a sub-project opted out", async () => {
+		// Without this the beacon is blocked by vitest's env, not by the opt-out.
+		allowBeacon();
 		const configPath = join(tempRoot, "opted-out.json");
 		writeFileSync(configPath, JSON.stringify({ telemetry: false }));
 		const targetPath = resolve(FIXTURES, "monorepo-app");
@@ -206,6 +208,7 @@ describe("report scan telemetry", () => {
 			.run();
 
 		expect(send).not.toHaveBeenCalled();
+		expect(pipeline.generatedHtml).not.toContain("var SCAN");
 	});
 });
 

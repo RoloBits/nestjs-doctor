@@ -29,8 +29,8 @@ The payload is built from rule metadata, counts, and a fixed set of environment 
 | `duration_ms` | The rule loop on a single project, the whole scan on a monorepo, rounded |
 | `total_ms` | How long the whole run took, rounded |
 | `score` | The 0-100 health score |
-| `scope_requested` | The `--scope` mode asked for: `full`, `files`, `lines` or `changed` |
-| `blocking` | The `--blocking` level: `none`, `warning` or `error` |
+| `scope_requested` | The `--scope` mode asked for: `full`, `files`, `lines` or `changed`. A `--report` run has no `--scope` flag and sends `full`. |
+| `blocking` | The `--blocking` level: `none`, `warning` or `error`. A `--report` run has no `--blocking` flag and sends `error`. |
 | `output_format` | The `--format` value: `console`, `json`, `report-json`, `sarif`, `gitlab`, `markdown` or `github`, plus `report` for a `--report` run |
 | `report_requested` | Whether the run was a `--report` run |
 | `findings` | Built-in rule id, then severity, then a count |

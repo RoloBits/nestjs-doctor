@@ -79,7 +79,10 @@ abstract class ReportPipeline {
 	 * each disable the beacon on their own.
 	 */
 	protected get telemetryEnabled(): boolean {
-		return reportTelemetryEnabled(this.telemetry, this.scanConfig?.config);
+		return (
+			reportTelemetryEnabled(this.telemetry, this.scanConfig?.config) &&
+			!this.subProjectOptOut
+		);
 	}
 
 	/**

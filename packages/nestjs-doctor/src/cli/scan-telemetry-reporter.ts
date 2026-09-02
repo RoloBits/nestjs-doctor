@@ -76,7 +76,7 @@ export const reportScanTelemetry = (input: ScanTelemetryInput): boolean => {
 		);
 		sent = (input.send ?? sendScanTelemetry)(
 			buildScanPayload({
-				action: actionContext(),
+				action: actionContext(env),
 				blocking: input.blocking,
 				config: readConfigFacts(scanConfig.config),
 				customRulesLoaded: scanConfig.combinedRules.filter((rule) =>
