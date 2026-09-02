@@ -86,6 +86,12 @@ A client that never answers the `workspace/configuration` request leaves the
 server waiting, and no scan runs. Answering with `null` is fine and the defaults
 apply.
 
+## Telemetry
+
+A started session reports one `lsp_session_started` event, under the same
+install id the CLI uses and with the same opt-outs. See
+[Telemetry](/docs/telemetry#the-language-server).
+
 ## Troubleshooting
 
 When `nestjs-doctor` is missing from the project you opened, the server sends

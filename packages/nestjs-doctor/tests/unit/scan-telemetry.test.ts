@@ -21,6 +21,8 @@ vi.mock("node:child_process", () => ({
 
 const TELEMETRY_INPUT = /^ {2}telemetry:$/m;
 const NEXT_INPUT = /^ {2}\S/m;
+/** The retired promise that no part of the repository is sent. */
+const NEVER_THE_REPOSITORY = /Never[^.]*\brepository\b(?! name)/;
 
 const code = (overrides: Partial<CodeDiagnostic>): CodeDiagnostic => ({
 	rule: "performance/no-unused-providers",
@@ -319,7 +321,7 @@ describe("scan telemetry payload", () => {
 			?.split(NEXT_INPUT)[0];
 
 		expect(description).toBeTruthy();
-		expect(description).not.toContain("repository, or organization");
+		expect(description).not.toMatch(NEVER_THE_REPOSITORY);
 		expect(description).toContain("one-way hash of your repository id");
 	});
 });

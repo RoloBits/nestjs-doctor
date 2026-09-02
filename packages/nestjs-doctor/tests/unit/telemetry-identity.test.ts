@@ -116,18 +116,12 @@ describe("install identity", () => {
 		expect(pull.anonymousId).toBe(push.anonymousId);
 	});
 
-	it("falls back to the repository name, spelled either way", () => {
-		const upper = resolveIdentity(
-			"/repo/a",
-			runnerEnv({ GITHUB_REPOSITORY: "Acme/API" })
-		).anonymousId;
-		const lower = resolveIdentity(
-			"/repo/a",
-			runnerEnv({ GITHUB_REPOSITORY: " acme/api " })
-		).anonymousId;
-
-		expect(upper).toMatch(CI_GITHUB_REPO);
-		expect(lower).toBe(upper);
+	it("keeps the shared id when the runner names only the repository", () => {
+		// The repository name is an enumerable dictionary, so it is never hashed.
+		expect(
+			resolveIdentity("/repo/a", runnerEnv({ GITHUB_REPOSITORY: "acme/api" }))
+				.anonymousId
+		).toBe("ci.github");
 	});
 
 	it("keeps the repository, the id and the checkout path out of the CI id", () => {

@@ -42,9 +42,9 @@ export function configDir(env: NodeJS.ProcessEnv = process.env): string {
 
 const CI_REPO_SALT = "nestjs-doctor.ci.v1";
 
-/** The variables each provider uses to name a repository, in priority order. */
+/** The variables each provider uses for its numeric repository id. */
 const CI_REPO_VARS: Record<string, readonly string[]> = {
-	github: ["GITHUB_REPOSITORY_ID", "GITHUB_REPOSITORY"],
+	github: ["GITHUB_REPOSITORY_ID"],
 	gitlab: ["CI_PROJECT_ID"],
 };
 
