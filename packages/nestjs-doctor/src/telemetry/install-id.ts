@@ -123,13 +123,6 @@ export function markHint(
 	}
 }
 
-/** Whether this install has stored an id, without creating one. */
-export function hasStoredIdentity(
-	env: NodeJS.ProcessEnv = process.env
-): boolean {
-	return readConfig(join(configDir(env), "telemetry.json")) !== undefined;
-}
-
 /** Reads the install id and salt, creating them on first run. */
 export function resolveIdentity(
 	projectRoot: string,

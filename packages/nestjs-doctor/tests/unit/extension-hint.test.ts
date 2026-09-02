@@ -77,13 +77,6 @@ describe("where the extension hint prints", () => {
 		expect(site({ hints: { lsp: "2026-09-02" } })).toBe("none");
 	});
 
-	it("prints on the first qualifying run", () => {
-		const env = isolated();
-
-		expect(readHints(env)).toEqual({});
-		expect(site({ hints: readHints(env) })).toBe("run");
-	});
-
 	it("prints on run 1 and nowhere on run 2", () => {
 		const env = isolated();
 
