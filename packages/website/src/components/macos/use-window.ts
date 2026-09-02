@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { prefersReducedMotion } from "@/lib/motion";
 import type { WindowState } from "./terminal-window";
 import { useWindowAnimations } from "./use-window-animations";
 
@@ -12,12 +13,6 @@ export type AnimationState =
 	| "closing";
 
 type AnimationFn = (element: HTMLElement) => { finished: Promise<unknown> };
-
-/** Someone who asked for less motion gets the state change and no keyframes. */
-const prefersReducedMotion = (): boolean =>
-	typeof window !== "undefined" &&
-	typeof window.matchMedia === "function" &&
-	window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 interface RunAnimationParams {
 	animationFn: AnimationFn;

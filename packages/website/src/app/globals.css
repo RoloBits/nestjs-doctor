@@ -3,6 +3,7 @@
 
 @theme {
 	--font-mono: var(--font-mono), ui-monospace, monospace;
+	--font-blocks: ui-monospace, Menlo, Consolas, "DejaVu Sans Mono", monospace;
 	--animate-fade-in: fade-in 200ms ease-out both;
 	--color-nest-red: #ea2845;
 	--color-nest-red-light: #f25672;

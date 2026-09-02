@@ -39,7 +39,7 @@ export const MenuBar = ({ section }: { section: string }) => {
 	}, []);
 
 	return (
-		<div className="flex h-6 shrink-0 items-center gap-4 bg-black/40 px-4 text-[11px] text-white/80 backdrop-blur-xl">
+		<div className="flex h-6 shrink-0 items-center gap-4 whitespace-nowrap bg-black/40 px-4 text-[11px] text-white/80 backdrop-blur-xl">
 			<Link className="flex items-center" href="/">
 				<AppleGlyph />
 			</Link>
@@ -47,11 +47,11 @@ export const MenuBar = ({ section }: { section: string }) => {
 				nestjs-doctor
 			</Link>
 			<span>{section}</span>
-			<Link className="hover:text-white" href="/docs">
+			<Link className="hidden hover:text-white sm:inline" href="/docs">
 				Docs
 			</Link>
 			<a
-				className="hover:text-white"
+				className="hidden hover:text-white sm:inline"
 				href="https://github.com/RoloBits/nestjs-doctor"
 				rel="noreferrer"
 				target="_blank"
@@ -59,7 +59,7 @@ export const MenuBar = ({ section }: { section: string }) => {
 				GitHub
 			</a>
 			<div className="ml-auto flex items-center gap-4">
-				<span>{now ? formatDate(now) : ""}</span>
+				<span className="hidden sm:inline">{now ? formatDate(now) : ""}</span>
 				<span>{now ? formatClock(now) : CLOCK_PLACEHOLDER}</span>
 			</div>
 		</div>

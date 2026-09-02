@@ -275,7 +275,7 @@ export const LeaderboardScreen = ({
 		<div className={FRAME_CLASS} ref={frameRef} style={{ color: palette.text }}>
 			<div className="flex flex-row gap-4">
 				<pre
-					className="m-0 leading-tight"
+					className="m-0 font-blocks leading-tight"
 					style={{ color: scoreColor(entry.score) }}
 				>
 					{`┌───────┐\n│ ${birds[0]} │\n│ ${birds[1]} │\n└───────┘`}

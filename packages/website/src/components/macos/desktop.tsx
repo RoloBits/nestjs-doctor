@@ -19,13 +19,18 @@ const WINDOW_FULLSCREEN_CLASS = "w-full max-w-none self-stretch";
  * children. The window stays mounted while minimised or closed. */
 export const Desktop = ({
 	children,
+	className = "h-dvh",
 	reopenLabel,
 	section,
+	stretch = false,
 	title,
 }: {
 	children: ReactNode;
+	className?: string;
 	reopenLabel: string;
 	section: string;
+	/** Fill the stage's height instead of hugging the content. */
+	stretch?: boolean;
 	title: string;
 }) => {
 	const {
@@ -43,10 +48,12 @@ export const Desktop = ({
 	const isPutAway = isAway && isIdle;
 	const isFullscreen = windowState === "fullscreen";
 
-	const windowClassName = `${WINDOW_BASE_CLASS} ${isFullscreen ? WINDOW_FULLSCREEN_CLASS : WINDOW_NORMAL_CLASS}`;
+	const windowClassName = `${WINDOW_BASE_CLASS} ${isFullscreen ? WINDOW_FULLSCREEN_CLASS : WINDOW_NORMAL_CLASS}${stretch ? " self-stretch" : ""}`;
 
 	return (
-		<section className="relative flex h-dvh flex-col overflow-hidden font-mono">
+		<section
+			className={`relative flex flex-col overflow-hidden font-mono ${className}`}
+		>
 			<MacOSWallpaper className="absolute inset-0 h-full w-full" />
 			<div className="absolute inset-0 bg-black/30" />
 
