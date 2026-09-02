@@ -1,0 +1,84 @@
+name: Score badge
+
+# Rescans nestjs/nest at a pinned ref and rewrites packages/website/public/badge.json,
+# which shields.io reads through its endpoint API.
+#
+# Three layers keep the push from re-triggering this workflow:
+#   1. The push uses the default GITHUB_TOKEN, and GitHub raises no workflow
+#      events for commits pushed with it. Replacing it with a PAT removes this.
+#   2. `paths-ignore` drops a push that only touches badge.json.
+#   3. The badge is compared against the committed file and the job exits
+#      before committing when the score is unchanged.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - packages/website/public/badge.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: badge
+  cancel-in-progress: false
+
+env:
+  DO_NOT_TRACK: "1"
+
+jobs:
+  badge:
+    name: Scan nestjs/nest and write the badge
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      # Pinned: an unpinned ref moves the badge when nestjs/nest pushes.
+      # Scanned as it is cloned, with no dependencies installed.
+      - uses: actions/checkout@v7
+        with:
+          repository: nestjs/nest
+          ref: 39fbddae51281ca56bf2fed9123d98e61509066c
+          path: nest-scan-target
+
+      - uses: pnpm/action-setup@v6.0.10
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter nestjs-doctor build
+
+      # Run from inside the clone: the score is resolved against the scanned
+      # project's own working directory.
+      - name: Scan nestjs/nest
+        working-directory: nest-scan-target
+        run: node ../packages/nestjs-doctor/dist/cli/index.mjs . --no-telemetry --format json > ../scan.json
+
+      - name: Write the badge
+        run: |
+          node -e '
+          const { score } = require("./scan.json");
+          const badge = { schemaVersion: 1, label: "nestjs/nest", message: String(score.value), color: "18181b" };
+          require("node:fs").writeFileSync("packages/website/public/badge.json", `${JSON.stringify(badge, null, 2)}\n`);
+          '
+
+      - name: Check the badge shape
+        run: |
+          node -e '
+          const b = require("./packages/website/public/badge.json");
+          const keys = Object.keys(b).join(",");
+          if (keys !== "schemaVersion,label,message,color") throw new Error(`bad keys: ${keys}`);
+          if (b.schemaVersion !== 1 || typeof b.message !== "string") throw new Error("bad shape");
+          '
+
+      - name: Commit the badge when the score changed
+        run: |
+          set -eu
+          git diff --quiet -- packages/website/public/badge.json && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "ci: score badge for nestjs/nest" -- packages/website/public/badge.json
+          git push

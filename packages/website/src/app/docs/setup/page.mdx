@@ -28,6 +28,10 @@ The score is weighted by severity and category, then normalized by project
 size. A small project with three errors scores worse than a large one with three.
 It always covers the whole project, whatever you scope the report to.
 
+The score badge on the README is regenerated on every push to `main` by
+scanning [`nestjs/nest`](/leaderboard) at a pinned ref, so it moves when the
+rules move, not when the badge is edited.
+
 Findings are grouped by rule, worst first. Rules that do not move the score
 print last, under a `Not scored` heading.
 
