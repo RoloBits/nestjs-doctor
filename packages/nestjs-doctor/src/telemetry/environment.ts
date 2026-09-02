@@ -160,7 +160,6 @@ const TRIGGERS = [
 	"script",
 	"npx",
 	"global",
-	"skill",
 ] as const;
 export type Trigger = (typeof TRIGGERS)[number];
 

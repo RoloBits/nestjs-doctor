@@ -23,7 +23,7 @@ The payload is built from rule metadata, counts, and a fixed set of environment 
 | `version` | The nestjs-doctor version that ran |
 | `scan_id` | A random UUID for this run, generated fresh on every scan |
 | `generated_in` | `cli` or `ci` |
-| `trigger` | How the run started: `action`, `ci`, `hook`, `agent`, `script`, `npx`, `global` or `skill` |
+| `trigger` | How the run started: `action`, `ci`, `hook`, `agent`, `script`, `npx` or `global` |
 | `platform` | The Node platform string, such as `darwin` |
 | `node_major` | The Node major version, such as `24` |
 | `duration_ms` | The rule loop on a single project, the whole scan on a monorepo, rounded |
@@ -38,7 +38,7 @@ The payload is built from rule metadata, counts, and a fixed set of environment 
 | `suppressed_inline` | Built-in rule id, then how many findings an inline `nestjs-doctor-ignore` comment silenced |
 | `rule_errors` | Built-in rule ids that threw during the scan |
 
-`NESTJS_DOCTOR_TRIGGER` overrides the detected `trigger` when set to one of the eight values above. Any other value is ignored.
+`NESTJS_DOCTOR_TRIGGER` overrides the detected `trigger` when set to one of the seven values above. Any other value is ignored.
 
 ### The project
 

@@ -330,10 +330,10 @@ describe("scan telemetry payload", () => {
 
 	it("takes a known NESTJS_DOCTOR_TRIGGER over the hook it's running under", () => {
 		const env = {
-			NESTJS_DOCTOR_TRIGGER: "skill",
+			NESTJS_DOCTOR_TRIGGER: "agent",
 			GIT_DIR: "/repo/.git",
 		};
-		expect(detectTrigger(env)).toBe("skill");
+		expect(detectTrigger(env)).toBe("agent");
 	});
 
 	it("still reads a hook after git has run", () => {
@@ -358,26 +358,6 @@ describe("scan telemetry payload", () => {
 					delete process.env[name];
 				} else {
 					process.env[name] = value;
-				}
-			}
-		}
-	});
-
-	it("stamps the skill trigger on every shipped npx line", () => {
-		const skillFiles = [
-			new URL("../../skills/nestjs-doctor/SKILL.md", import.meta.url),
-			new URL("../../skills/nestjs-boot-trace/SKILL.md", import.meta.url),
-			new URL(
-				"../../skills/nestjs-doctor-create-rule/SKILL.md",
-				import.meta.url
-			),
-		];
-
-		for (const file of skillFiles) {
-			const lines = readFileSync(file, "utf8").split("\n");
-			for (const line of lines) {
-				if (line.includes("npx nestjs-doctor")) {
-					expect(line).toContain("NESTJS_DOCTOR_TRIGGER=skill");
 				}
 			}
 		}

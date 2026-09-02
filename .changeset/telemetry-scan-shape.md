@@ -8,7 +8,7 @@ Six fields on the `scan_completed` payload:
 
 | Field | Value |
 |---|---|
-| `trigger` | How the run started: `action`, `ci`, `hook`, `agent`, `script`, `npx`, `global` or `skill` |
+| `trigger` | How the run started: `action`, `ci`, `hook`, `agent`, `script`, `npx` or `global` |
 | `scan_id` | A random UUID per run, shared with the HTML report's beacon |
 | `output_format` | The `--format` value, plus `report` for a `--report` run |
 | `report_requested` | Whether the run was a `--report` run |
