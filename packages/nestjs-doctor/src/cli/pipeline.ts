@@ -33,12 +33,15 @@ import {
 import { buildReportArtifact, collectScanFacts } from "../report/artifact.js";
 import { buildHtmlReport } from "../report/html-report.js";
 import { resetEcosystem } from "../telemetry/ecosystem.js";
+import { markHint, readHints } from "../telemetry/install-id.js";
 import {
 	reportTelemetryEnabled,
 	TELEMETRY_NOTICE,
 	telemetryNoticeSite,
 } from "../telemetry/send.js";
+import { highlighter } from "../ui/highlighter.js";
 import { logger } from "../ui/logger.js";
+import { EXTENSION_HINT, extensionHintSite } from "./extension-hint.js";
 import {
 	printConsoleReport,
 	printMonorepoReport,
@@ -278,6 +281,21 @@ abstract class ScanPipeline {
 		}
 	}
 
+	/** One line, once per install, pointing at the editor extension. */
+	protected printExtensionHint(site: "menu" | "run"): void {
+		const target = extensionHintSite({
+			firstSend: this.firstTelemetrySend,
+			hints: readHints(),
+			interactive: this.options.interactive,
+			isMachineReadable: this.options.isMachineReadable,
+			tty: process.stderr.isTTY === true,
+		});
+		if (target === site) {
+			console.error(highlighter.dim(EXTENSION_HINT));
+			markHint("extension");
+		}
+	}
+
 	/** Ends the spinner so nothing prints through an active frame. */
 	protected stopProgress(): void {
 		this.progress?.succeed("Scan complete");
@@ -388,6 +406,7 @@ abstract class ScanPipeline {
 			stopWatching();
 			this.stopProgress();
 			this.printTelemetryNotice("run");
+			this.printExtensionHint("run");
 		}
 	}
 }
@@ -452,6 +471,7 @@ export class MonorepoPipeline extends ScanPipeline {
 			printSummary: () => {
 				printMonorepoReport(this.result.result, this.options.verbose, true);
 				this.printTelemetryNotice("menu");
+				this.printExtensionHint("menu");
 			},
 			result: this.result.result.combined,
 			subProjects: this.result.result.subProjects.map(({ name, result }) => ({
@@ -679,6 +699,7 @@ export class SingleProjectPipeline extends ScanPipeline {
 			printSummary: () => {
 				printConsoleReport(this.result.result, this.options.verbose, true);
 				this.printTelemetryNotice("menu");
+				this.printExtensionHint("menu");
 			},
 			result: this.result.result,
 		};
