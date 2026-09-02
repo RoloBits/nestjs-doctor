@@ -35,6 +35,10 @@ export const DOCS_NAV: NavSection[] = [
 				title: "NestJS Doctor vs Nest Devtools",
 				href: "/docs/nest-devtools-alternative",
 			},
+			{
+				title: "NestJS Doctor vs ESLint plugins",
+				href: "/docs/nestjs-eslint-plugins",
+			},
 		],
 	},
 	{

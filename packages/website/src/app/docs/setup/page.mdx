@@ -14,7 +14,7 @@ npx nestjs-doctor@latest .
 
 No config file, nothing to set up. It reads your TypeScript, runs 52 rules, and
 prints a score out of 100. Your code never leaves the machine; what the scan
-itself reports is listed on [Telemetry](/docs/telemetry).
+itself reports appears on [Telemetry](/docs/telemetry).
 
 A clean scan prints the score and nothing else. That is the expected result on
 a project the rules already agree with, and [the report](/docs/report) still
@@ -47,6 +47,37 @@ npm install -D nestjs-doctor
 
 `npx` is enough for a one-off. The VS Code extension needs the install, because
 it loads nestjs-doctor from your workspace.
+
+## Requirements
+
+nestjs-doctor needs Node 20.19 or newer, whatever version your project targets.
+
+It does not use your project's TypeScript. It parses your source with the
+compiler bundled in `ts-morph`.
+
+It reads `tsconfig.json` only for `baseUrl` and `paths`, and adds no files from
+it. It resolves no dependencies, so a scan works on a checkout with no
+`node_modules` installed.
+
+These three TypeScript versions scan:
+
+| Your project's TypeScript | Scans | Version checked on 2026-09-02 |
+|---|---|---|
+| 5.x | Yes | 5.9.3 |
+| 6.x | Yes | 6.0.3 |
+| 7.0 | Yes | 7.0.2, with `nodenext` and `verbatimModuleSyntax` |
+
+The same NestJS 11 app scored the same on all three TypeScript versions, with
+the same file count, the same traced endpoints and no rule errors.
+
+The limit is syntax, not the version number. nestjs-doctor bundles TypeScript
+6.0.2 through `ts-morph` 28. TypeScript 7.0 introduced no syntax that compiler
+cannot parse.
+
+Syntax nestjs-doctor cannot parse does not fail the scan. The TypeScript parser
+recovers from the error and returns a partial tree, so nestjs-doctor still
+counts and analyzes the file. It reports nothing that the parser could not
+recover, and nothing marks the file as partly read.
 
 ## Exit codes
 
