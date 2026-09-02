@@ -62,18 +62,27 @@ function hasTimestampColumns(entity: SchemaEntity, orm: string): boolean {
 	return false;
 }
 
+// Every column is a primary key or a relation's own column.
+function isKeyOnlyEntity(entity: SchemaEntity): boolean {
+	const relationProps = new Set(entity.relations.map((r) => r.propertyName));
+	return entity.columns.every((c) => c.isPrimary || relationProps.has(c.name));
+}
+
 export const requireTimestamps: SchemaRule = {
 	meta: {
 		id: "schema/require-timestamps",
 		category: "schema",
 		scope: "schema",
-		severity: "warning",
+		severity: "info",
 		description: "Entities should have timestamp columns (createdAt/updatedAt)",
 		help: "Add createdAt/updatedAt columns to track when records are created and modified.",
 	},
 
 	check(context) {
 		for (const entity of context.schemaGraph.entities.values()) {
+			if (isKeyOnlyEntity(entity)) {
+				continue;
+			}
 			if (!hasTimestampColumns(entity, context.orm)) {
 				context.report({
 					filePath: entity.filePath,

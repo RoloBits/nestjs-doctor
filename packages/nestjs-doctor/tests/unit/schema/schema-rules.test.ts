@@ -211,7 +211,10 @@ describe("require-primary-key with MikroORM relation primary keys (issue #294)",
 describe("schema/require-timestamps", () => {
 	it("should report entity without timestamp columns", () => {
 		const entity = makeEntity({
-			columns: [makeColumn({ name: "id", isPrimary: true })],
+			columns: [
+				makeColumn({ name: "id", isPrimary: true }),
+				makeColumn({ name: "email" }),
+			],
 		});
 		const graph = makeGraph([entity]);
 		const diagnostics = runSchemaRule(requireTimestamps, graph);
@@ -393,6 +396,122 @@ describe("schema/require-timestamps", () => {
 		const diagnostics = runSchemaRule(requireTimestamps, graph);
 
 		expect(diagnostics).toHaveLength(1);
+	});
+
+	it("skips a Prisma join table whose columns are all composite-@@id FKs", () => {
+		const entity = makeEntity({
+			name: "PostTag",
+			columns: [
+				makeColumn({ name: "postId", isPrimary: true }),
+				makeColumn({ name: "tagId", isPrimary: true }),
+			],
+			relations: [
+				makeRelation({ propertyName: "post", toEntity: "Post" }),
+				makeRelation({ propertyName: "tag", toEntity: "Tag" }),
+			],
+		});
+		const graph = makeGraph([entity], "prisma");
+		const diagnostics = runSchemaRule(requireTimestamps, graph);
+
+		expect(diagnostics).toHaveLength(0);
+	});
+
+	it("skips a TypeORM join entity with only @PrimaryColumn FKs", () => {
+		const entity = makeEntity({
+			name: "PostTag",
+			columns: [
+				makeColumn({ name: "postId", isPrimary: true }),
+				makeColumn({ name: "tagId", isPrimary: true }),
+			],
+			relations: [
+				makeRelation({ propertyName: "post", toEntity: "Post" }),
+				makeRelation({ propertyName: "tag", toEntity: "Tag" }),
+			],
+		});
+		const graph = makeGraph([entity], "typeorm");
+		const diagnostics = runSchemaRule(requireTimestamps, graph);
+
+		expect(diagnostics).toHaveLength(0);
+	});
+
+	it("skips a Drizzle join table whose only columns are references()", () => {
+		const entity = makeEntity({
+			name: "PostTag",
+			columns: [
+				makeColumn({ name: "postId", isPrimary: false }),
+				makeColumn({ name: "tagId", isPrimary: false }),
+			],
+			relations: [
+				makeRelation({ propertyName: "postId", toEntity: "Post" }),
+				makeRelation({ propertyName: "tagId", toEntity: "Tag" }),
+			],
+		});
+		const graph = makeGraph([entity], "drizzle");
+		const diagnostics = runSchemaRule(requireTimestamps, graph);
+
+		expect(diagnostics).toHaveLength(0);
+	});
+
+	it("skips a MikroORM entity whose only column is a primary: true relation FK", () => {
+		const entity = makeEntity({
+			name: "PostTag",
+			columns: [makeColumn({ name: "user", isPrimary: true })],
+			relations: [makeRelation({ propertyName: "user", toEntity: "User" })],
+		});
+		const graph = makeGraph([entity], "mikro-orm");
+		const diagnostics = runSchemaRule(requireTimestamps, graph);
+
+		expect(diagnostics).toHaveLength(0);
+	});
+
+	it("still reports a join table that carries a payload column", () => {
+		const entity = makeEntity({
+			name: "PostTag",
+			columns: [
+				makeColumn({ name: "postId", isPrimary: false }),
+				makeColumn({ name: "tagId", isPrimary: false }),
+				makeColumn({ name: "role", type: "text" }),
+			],
+			relations: [
+				makeRelation({ propertyName: "postId", toEntity: "Post" }),
+				makeRelation({ propertyName: "tagId", toEntity: "Tag" }),
+			],
+		});
+		const graph = makeGraph([entity], "drizzle");
+		const diagnostics = runSchemaRule(requireTimestamps, graph);
+
+		expect(diagnostics).toHaveLength(1);
+		expect(diagnostics[0].entity).toBe("PostTag");
+	});
+
+	it("still reports an ordinary entity with a FK and a data column", () => {
+		const entity = makeEntity({
+			name: "Post",
+			columns: [
+				makeColumn({ name: "id", isPrimary: true }),
+				makeColumn({ name: "title", type: "text" }),
+				makeColumn({ name: "authorId" }),
+			],
+			relations: [makeRelation({ propertyName: "author", toEntity: "User" })],
+		});
+		const graph = makeGraph([entity], "typeorm");
+		const diagnostics = runSchemaRule(requireTimestamps, graph);
+
+		expect(diagnostics).toHaveLength(1);
+		expect(diagnostics[0].entity).toBe("Post");
+	});
+
+	it("reports at info severity", () => {
+		const entity = makeEntity({
+			columns: [
+				makeColumn({ name: "id", isPrimary: true }),
+				makeColumn({ name: "email" }),
+			],
+		});
+		const graph = makeGraph([entity]);
+		const diagnostics = runSchemaRule(requireTimestamps, graph);
+
+		expect(diagnostics[0].severity).toBe("info");
 	});
 });
 
