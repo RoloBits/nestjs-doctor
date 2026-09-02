@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { getCliVersion } from "../../src/cli/output.js";
-import { telemetryNoticeSite } from "../../src/cli/pipeline.js";
 import {
 	reportScanTelemetry,
 	type ScanTelemetryInput,
 } from "../../src/cli/scan-telemetry-reporter.js";
 import type { Rule } from "../../src/engine/rules/types.js";
 import type { ScanConfig } from "../../src/engine/scanner.js";
+import { telemetryNoticeSite } from "../../src/telemetry/send.js";
 import { emptyResult } from "./report-artifact-fixture.js";
 
 const ruleWithId = (id: string): Rule => ({ meta: { id } }) as unknown as Rule;

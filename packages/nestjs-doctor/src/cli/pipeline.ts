@@ -33,7 +33,11 @@ import {
 import { buildReportArtifact, collectScanFacts } from "../report/artifact.js";
 import { buildHtmlReport } from "../report/html-report.js";
 import { resetEcosystem } from "../telemetry/ecosystem.js";
-import { reportTelemetryEnabled } from "../telemetry/send.js";
+import {
+	reportTelemetryEnabled,
+	TELEMETRY_NOTICE,
+	telemetryNoticeSite,
+} from "../telemetry/send.js";
 import { logger } from "../ui/logger.js";
 import {
 	printConsoleReport,
@@ -65,22 +69,6 @@ import { type PipelineOptions, toScanOptions } from "./setup.js";
 import { createAnimatedProgress } from "./ui/animated-progress.js";
 
 type PipelineStep = () => void | Promise<void>;
-
-const TELEMETRY_NOTICE =
-	'nestjs-doctor reported this scan anonymously: which built-in rules fired, the score, well-known dependencies, and the shape of your config — never your code, paths, or project name. Turn it off with --no-telemetry, "telemetry": false in your config, or DO_NOT_TRACK=1. https://nestjs.doctor/docs/telemetry';
-
-/** Where the one-per-install notice prints: after the menu closes on an
- * interactive run, after the run otherwise. */
-export const telemetryNoticeSite = (input: {
-	firstSend: boolean;
-	interactive: boolean;
-	isMachineReadable: boolean;
-}): "menu" | "none" | "run" => {
-	if (!input.firstSend || input.isMachineReadable) {
-		return "none";
-	}
-	return input.interactive ? "menu" : "run";
-};
 
 const analysisLabel = (phase: AnalysisPhase): string => {
 	if (phase === "collecting") {

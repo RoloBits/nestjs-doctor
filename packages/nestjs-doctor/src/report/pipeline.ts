@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
+import {
+	reportScanTelemetry,
+	type ScanTelemetryInput,
+} from "../cli/scan-telemetry-reporter.js";
 import type { ReportProvider, SourceInclusion } from "../common/artifact.js";
+import type { Diagnostic } from "../common/diagnostic.js";
+import type { DiagnoseResult } from "../common/result.js";
 import {
 	detachModuleGraph,
 	type ModuleGraph,
@@ -37,6 +43,12 @@ abstract class ReportPipeline {
 	protected readonly scanId = randomUUID();
 	protected readonly sources: SourceInclusion;
 	protected readonly steps: PipelineStep[] = [];
+	/** Set when any scanned sub-project declares its own opt-out. */
+	protected subProjectOptOut = false;
+	/** Set when this scan was the first telemetry send from this install. */
+	protected firstTelemetrySend = false;
+	/** Injectables handed to `reportScanTelemetry`; tests replace the sender. */
+	protected telemetryOverrides: Partial<ScanTelemetryInput> = {};
 	protected readonly targetPath: string;
 	protected readonly telemetry: boolean;
 	protected readonly traces: LoadedBootTrace[] | undefined;
@@ -68,10 +80,41 @@ abstract class ReportPipeline {
 		return reportTelemetryEnabled(this.telemetry, this.scanConfig?.config);
 	}
 
+	/**
+	 * Reports the scan this report was built from, under the same id the
+	 * embedded beacon carries. A failure here leaves the report untouched.
+	 */
+	protected reportScan(
+		diagnostics: Diagnostic[],
+		result: DiagnoseResult,
+		fileCount: number,
+		monorepo: boolean
+	): void {
+		this.firstTelemetrySend = reportScanTelemetry({
+			blocking: "error",
+			diagnostics,
+			fileCount,
+			monorepo,
+			optionsTelemetry: this.telemetry,
+			outputFormat: "report",
+			result,
+			scanConfig: this.scanConfig,
+			scanId: this.scanId,
+			scopeRequested: "full",
+			subProjectOptOut: this.subProjectOptOut,
+			targetPath: this.targetPath,
+			...this.telemetryOverrides,
+		});
+	}
+
 	abstract buildContext(): this;
 	abstract runRules(): this;
 	abstract buildResult(): this;
 	abstract generateHtml(): this;
+
+	get firstSend(): boolean {
+		return this.firstTelemetrySend;
+	}
 
 	get generatedHtml(): string {
 		return this._html;
@@ -136,6 +179,12 @@ export class SingleProjectReportPipeline extends ReportPipeline {
 				this.context,
 				this.rawOutput,
 				this.scanConfig.customRuleWarnings
+			);
+			this.reportScan(
+				this.rawOutput.diagnostics,
+				this._scanResult.result,
+				this.context.files.length,
+				false
 			);
 		});
 		return this;
@@ -216,6 +265,9 @@ export class MonorepoReportPipeline extends ReportPipeline {
 				this.scanConfig,
 				this.monorepo,
 				async (name, context: AnalysisContext) => {
+					if (context.config?.telemetry === false) {
+						this.subProjectOptOut = true;
+					}
 					this.allFiles.push(...context.files);
 					const facts = collectScanFacts({ ...context, projectName: name });
 					this.bootstrapRoots.push(...facts.bootstrapRoots);
@@ -243,6 +295,13 @@ export class MonorepoReportPipeline extends ReportPipeline {
 				this.scanResults,
 				this.scanConfig.customRuleWarnings,
 				totalElapsedMs
+			);
+			const combined = this._monoResult.result.combined;
+			this.reportScan(
+				combined.diagnostics,
+				combined,
+				combined.project.fileCount,
+				true
 			);
 		});
 		return this;

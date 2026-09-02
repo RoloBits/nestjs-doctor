@@ -8,11 +8,11 @@ import { actionContext, generatedIn } from "../telemetry/environment.js";
 import { hasStoredIdentity, resolveIdentity } from "../telemetry/install-id.js";
 import {
 	buildScanPayload,
+	type PayloadOutputFormat,
 	readConfigFacts,
 } from "../telemetry/scan-telemetry.js";
 import { scanTelemetryEnabled, sendScanTelemetry } from "../telemetry/send.js";
 import type { BlockingLevel } from "./blocking.js";
-import type { OutputFormat } from "./formatters/render.js";
 import { getCliVersion } from "./output.js";
 
 export interface ScanTelemetryInput {
@@ -27,7 +27,7 @@ export interface ScanTelemetryInput {
 	isEnabled?: typeof scanTelemetryEnabled;
 	monorepo: boolean;
 	optionsTelemetry: boolean;
-	outputFormat: OutputFormat;
+	outputFormat: PayloadOutputFormat;
 	/** Injectable for tests; defaults to the real install-id resolver. */
 	resolveIdentityFn?: typeof resolveIdentity;
 	result: DiagnoseResult;
