@@ -34,7 +34,6 @@ const injected = (
 	extra: Partial<ScanTelemetryInput> = {}
 ): Partial<ScanTelemetryInput> => ({
 	env: {},
-	hasStoredIdentityFn: () => false,
 	isEnabled: (flag, config) => scanTelemetryEnabled(flag, config, {}),
 	resolveIdentityFn: () => ({
 		anonymousId: "anon-123",
@@ -214,87 +213,5 @@ describe("report scan telemetry", () => {
 
 		expect(send).not.toHaveBeenCalled();
 		expect(pipeline.generatedHtml).not.toContain("var SCAN");
-	});
-});
-
-describe("report first-run notice", () => {
-	const runWithFirstSend = async (
-		firstSend: boolean
-	): Promise<{ lines: string[] }> => {
-		vi.resetModules();
-		const lines: string[] = [];
-		vi.doMock("../../src/engine/project-detector.js", () => ({
-			detectMonorepo: () => Promise.resolve(null),
-		}));
-		vi.doMock("../../src/report/output.js", () => ({
-			logMonorepoSummary: () => undefined,
-			logSingleProjectSummary: () => undefined,
-			openReportInBrowser: () => lines.push("opened"),
-			writeReportFile: () => Promise.resolve("/repo/report.html"),
-		}));
-		vi.doMock("../../src/report/pipeline.js", () => ({
-			MonorepoReportPipeline: class {},
-			SingleProjectReportPipeline: class {
-				firstSend = firstSend;
-				generatedHtml = "<html>";
-				scanResult = {};
-				resolveConfig() {
-					return this;
-				}
-				buildContext() {
-					return this;
-				}
-				runRules() {
-					return this;
-				}
-				buildResult() {
-					return this;
-				}
-				generateHtml() {
-					return this;
-				}
-				run() {
-					return Promise.resolve();
-				}
-			},
-		}));
-
-		const { logger } = await import("../../src/ui/logger.js");
-		vi.spyOn(logger, "info").mockImplementation((...args) => {
-			lines.push(`info:${args.join(" ")}`);
-		});
-		vi.spyOn(logger, "warn").mockImplementation((...args) => {
-			lines.push(`warn:${args.join(" ")}`);
-		});
-
-		const { runReport } = await import("../../src/report/setup.js");
-		await runReport(
-			"/repo",
-			undefined,
-			undefined,
-			undefined,
-			true,
-			"all",
-			"9.9.9"
-		);
-		vi.doUnmock("../../src/engine/project-detector.js");
-		vi.doUnmock("../../src/report/output.js");
-		vi.doUnmock("../../src/report/pipeline.js");
-		return { lines };
-	};
-
-	it("prints the first-run notice after the report is written", async () => {
-		const { lines } = await runWithFirstSend(true);
-
-		expect(lines[0]).toContain("Report written to");
-		expect(lines[1]).toContain("reported this scan anonymously");
-		expect(lines[2]).toBe("opened");
-	});
-
-	it("prints nothing on a later run", async () => {
-		const { lines } = await runWithFirstSend(false);
-
-		expect(lines[0]).toContain("Report written to");
-		expect(lines.some((line) => line.startsWith("warn:"))).toBe(false);
 	});
 });

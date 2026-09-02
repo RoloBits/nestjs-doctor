@@ -38,8 +38,6 @@ type PipelineStep = () => void | Promise<void>;
 /** Abstract base for report pipelines — shared step queue and config */
 abstract class ReportPipeline {
 	protected _html!: string;
-	/** Set when this scan was the first telemetry send from this install. */
-	protected firstTelemetrySend = false;
 	protected scanConfig!: ScanConfig;
 	/** One id per report, shared by the artifact and the beacon it embeds. */
 	protected readonly scanId = randomUUID();
@@ -97,7 +95,7 @@ abstract class ReportPipeline {
 		totalMs: number,
 		suppressed: Record<string, number>
 	): void {
-		this.firstTelemetrySend = reportScanTelemetry({
+		reportScanTelemetry({
 			blocking: "error",
 			diagnostics,
 			fileCount,
@@ -120,10 +118,6 @@ abstract class ReportPipeline {
 	abstract runRules(): this;
 	abstract buildResult(): this;
 	abstract generateHtml(): this;
-
-	get firstSend(): boolean {
-		return this.firstTelemetrySend;
-	}
 
 	get generatedHtml(): string {
 		return this._html;

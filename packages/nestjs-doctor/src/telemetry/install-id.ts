@@ -84,11 +84,43 @@ const readConfig = (file: string): StoredConfig | undefined => {
 	}
 };
 
-/** Whether this install has stored an id, without creating one. */
-export function hasStoredIdentity(
+/** One-time notices this install has already seen, keyed by name. */
+export function readHints(
+	env: NodeJS.ProcessEnv = process.env
+): Record<string, string> {
+	try {
+		const parsed: unknown = JSON.parse(
+			readFileSync(join(configDir(env), "hints.json"), "utf-8")
+		);
+		return typeof parsed === "object" &&
+			parsed !== null &&
+			!Array.isArray(parsed)
+			? (parsed as Record<string, string>)
+			: {};
+	} catch {
+		// A missing or corrupt store means no hints.
+		return {};
+	}
+}
+
+/** Records a one-time notice. Returns whether the write landed: false on a read-only home. */
+export function markHint(
+	name: "extension" | "lsp",
 	env: NodeJS.ProcessEnv = process.env
 ): boolean {
-	return readConfig(join(configDir(env), "telemetry.json")) !== undefined;
+	const file = join(configDir(env), "hints.json");
+	const hints = {
+		...readHints(env),
+		[name]: new Date().toISOString().slice(0, 10),
+	};
+	try {
+		mkdirSync(dirname(file), { recursive: true });
+		writeFileSync(file, `${JSON.stringify(hints, null, 2)}\n`, "utf-8");
+		return true;
+	} catch {
+		// A read-only home keeps no hints.
+		return false;
+	}
 }
 
 /** Reads the install id and salt, creating them on first run. */

@@ -99,6 +99,34 @@ export interface LspIdentity {
 	projectId?: string;
 }
 
+/** Records that the extension has run, so the CLI stops pointing at it. */
+export function markLspSeen(env: NodeJS.ProcessEnv = process.env): void {
+	const file = join(configDir(env), "hints.json");
+	let existing: Record<string, string> = {};
+	try {
+		const parsed: unknown = JSON.parse(readFileSync(file, "utf-8"));
+		if (
+			typeof parsed === "object" &&
+			parsed !== null &&
+			!Array.isArray(parsed)
+		) {
+			existing = parsed as Record<string, string>;
+		}
+	} catch {
+		// A missing or corrupt store means no hints.
+	}
+	try {
+		mkdirSync(dirname(file), { recursive: true });
+		writeFileSync(
+			file,
+			`${JSON.stringify({ ...existing, lsp: new Date().toISOString().slice(0, 10) }, null, 2)}\n`,
+			"utf-8"
+		);
+	} catch {
+		// A read-only home keeps no hints.
+	}
+}
+
 /** Reads the id the CLI wrote, creating it when this is the first tool to run. */
 export function resolveIdentity(
 	projectRoot: string,

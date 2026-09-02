@@ -16,6 +16,7 @@ import { groupByFile } from "./convert.js";
 import { publishDiagnostics } from "./publish.js";
 import {
 	lspTelemetryEnabled,
+	markLspSeen,
 	resolveIdentity,
 	sendLspEvent,
 } from "./telemetry.js";
@@ -161,6 +162,7 @@ function terminateWorker() {
  * One event per session, naming the editor.
  */
 function reportSession(params: InitializeParams): void {
+	markLspSeen();
 	const options = params.initializationOptions as
 		| { telemetry?: boolean }
 		| undefined;

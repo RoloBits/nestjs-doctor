@@ -15,4 +15,4 @@ Six fields on the `scan_completed` payload:
 | `total_ms` | Wall time for the whole run; `duration_ms` still covers the rules on a single project and the whole scan on a monorepo |
 | `suppressed_inline` | Built-in rule id to a count of findings silenced by an inline comment |
 
-A `--report` run now reports `scan_completed`, where it previously sent nothing, and prints the first-run notice after the path to the written report.
+A `--report` run now reports `scan_completed`, where it previously sent nothing.

@@ -1,12 +1,14 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+	existsSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import {
-	configDir,
-	hasStoredIdentity,
-	resolveIdentity,
-} from "../../src/telemetry/install-id.js";
+import { configDir, resolveIdentity } from "../../src/telemetry/install-id.js";
 import { scanTelemetryEnabled } from "../../src/telemetry/send.js";
 
 const SHA256_HEX = /^[a-f0-9]{64}$/;
@@ -236,7 +238,9 @@ describe("install identity", () => {
 		const env = isolated({ NESTJS_DOCTOR_TELEMETRY_DEBUG: "1" });
 
 		expect(resolveIdentity("/repo/a", env).stored).toBe(false);
-		expect(hasStoredIdentity(env)).toBe(false);
+		expect(
+			existsSync(join(env.NESTJS_DOCTOR_CONFIG_DIR as string, "telemetry.json"))
+		).toBe(false);
 	});
 
 	it("stores nothing in CI", () => {
@@ -256,22 +260,6 @@ describe("install identity", () => {
 		);
 
 		expect(gitlab.anonymousId).toBe("ci.gitlab");
-	});
-
-	it("knows whether this install has ever stored an id", () => {
-		const env = isolated();
-
-		expect(hasStoredIdentity(env)).toBe(false);
-		resolveIdentity("/repo/a", env);
-		expect(hasStoredIdentity(env)).toBe(true);
-	});
-
-	it("reads the store without creating one", () => {
-		const env = isolated();
-
-		hasStoredIdentity(env);
-
-		expect(hasStoredIdentity(env)).toBe(false);
 	});
 });
 

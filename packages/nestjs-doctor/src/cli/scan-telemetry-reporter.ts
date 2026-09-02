@@ -5,7 +5,7 @@ import { allRules } from "../engine/rules/index.js";
 import type { ScanConfig } from "../engine/scanner.js";
 import { getEcosystem } from "../telemetry/ecosystem.js";
 import { actionContext, generatedIn } from "../telemetry/environment.js";
-import { hasStoredIdentity, resolveIdentity } from "../telemetry/install-id.js";
+import { resolveIdentity } from "../telemetry/install-id.js";
 import {
 	buildScanPayload,
 	type PayloadOutputFormat,
@@ -21,8 +21,6 @@ export interface ScanTelemetryInput {
 	/** Injectable for tests; defaults to the real environment. */
 	env?: NodeJS.ProcessEnv;
 	fileCount: number;
-	/** Injectable for tests; defaults to the read-only store check. */
-	hasStoredIdentityFn?: typeof hasStoredIdentity;
 	/** Injectable for tests; defaults to the compiled-in gating. */
 	isEnabled?: typeof scanTelemetryEnabled;
 	monorepo: boolean;
@@ -44,28 +42,23 @@ export interface ScanTelemetryInput {
 }
 
 /**
- * Reports the scan anonymously from a detached child and returns whether that
- * was this install's first send. A failure here leaves the scan untouched.
+ * Reports the scan anonymously from a detached child. A failure here leaves the
+ * scan untouched.
  */
-export const reportScanTelemetry = (input: ScanTelemetryInput): boolean => {
+export const reportScanTelemetry = (input: ScanTelemetryInput): void => {
 	const isEnabled = input.isEnabled ?? scanTelemetryEnabled;
 	if (
 		input.subProjectOptOut ||
 		!isEnabled(input.optionsTelemetry, input.scanConfig?.config)
 	) {
-		return false;
+		return;
 	}
-	// Read before resolveIdentity, which writes the store.
 	const env = input.env ?? process.env;
-	const hadStore = (input.hasStoredIdentityFn ?? hasStoredIdentity)(env);
-	let stored = false;
-	let sent = false;
 	try {
 		const identity = (input.resolveIdentityFn ?? resolveIdentity)(
 			input.targetPath,
 			env
 		);
-		stored = identity.stored;
 		const scanConfig = input.scanConfig as ScanConfig;
 		const enabled = new Set(
 			[
@@ -74,7 +67,7 @@ export const reportScanTelemetry = (input: ScanTelemetryInput): boolean => {
 				...scanConfig.schemaRules,
 			].map((rule) => rule.meta.id)
 		);
-		sent = (input.send ?? sendScanTelemetry)(
+		(input.send ?? sendScanTelemetry)(
 			buildScanPayload({
 				action: actionContext(env),
 				blocking: input.blocking,
@@ -108,7 +101,5 @@ export const reportScanTelemetry = (input: ScanTelemetryInput): boolean => {
 		);
 	} catch {
 		// Reporting never breaks a scan.
-		return false;
 	}
-	return generatedIn(env) === "cli" && !hadStore && stored && sent;
 };

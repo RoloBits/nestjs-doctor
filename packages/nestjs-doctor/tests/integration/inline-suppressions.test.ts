@@ -150,7 +150,6 @@ describe("inline suppression (integration)", () => {
 				diagnostics: scanResult.result.diagnostics,
 				env: {},
 				fileCount: context.files.length,
-				hasStoredIdentityFn: () => true,
 				isEnabled: () => true,
 				monorepo: false,
 				optionsTelemetry: true,

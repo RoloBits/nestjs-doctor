@@ -1,6 +1,5 @@
 import type { SourceInclusion } from "../common/artifact.js";
 import { detectMonorepo } from "../engine/project-detector.js";
-import { TELEMETRY_NOTICE, telemetryNoticeSite } from "../telemetry/send.js";
 import { highlighter } from "../ui/highlighter.js";
 import { logger } from "../ui/logger.js";
 import {
@@ -28,20 +27,9 @@ export const runReport = async (
 ): Promise<void> => {
 	const monorepo = await detectMonorepo(targetPath);
 
-	const writeAndOpen = async (
-		html: string,
-		firstSend: boolean
-	): Promise<void> => {
+	const writeAndOpen = async (html: string): Promise<void> => {
 		const outPath = await writeReportFile(targetPath, html, outputPath);
 		logger.info(`Report written to ${highlighter.info(outPath)}`);
-		const site = telemetryNoticeSite({
-			firstSend,
-			interactive: false,
-			isMachineReadable: false,
-		});
-		if (site === "run") {
-			logger.warn(TELEMETRY_NOTICE);
-		}
 		openReportInBrowser(outPath);
 	};
 
@@ -72,7 +60,7 @@ export const runReport = async (
 			.generateHtml()
 			.run();
 		logMonorepoSummary(pipeline.monoResult, pipeline.mergedGraph);
-		await writeAndOpen(pipeline.generatedHtml, pipeline.firstSend);
+		await writeAndOpen(pipeline.generatedHtml);
 		return;
 	}
 
@@ -92,5 +80,5 @@ export const runReport = async (
 		.generateHtml()
 		.run();
 	logSingleProjectSummary(pipeline.scanResult);
-	await writeAndOpen(pipeline.generatedHtml, pipeline.firstSend);
+	await writeAndOpen(pipeline.generatedHtml);
 };
