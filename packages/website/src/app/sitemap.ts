@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { LEADERBOARD_ENTRIES } from "@/app/leaderboard/leaderboard-entries";
 import { DOCS_NAV } from "@/lib/docs-navigation";
 import { SITE_URL } from "@/lib/site";
 
@@ -12,6 +13,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
 			priority: 0.7,
 		}))
 	);
+
+	const certificateRoutes = LEADERBOARD_ENTRIES.map((entry) => ({
+		url: `${SITE_URL}${entry.shareUrl}`,
+		changeFrequency: "weekly" as const,
+		priority: 0.6,
+	}));
 
 	return [
 		{
@@ -30,5 +37,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
 			priority: 0.8,
 		},
 		...docRoutes,
+		...certificateRoutes,
 	];
 }

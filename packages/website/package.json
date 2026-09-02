@@ -23,6 +23,7 @@
     "codemirror": "6.0.2",
     "dagre": "0.8.5",
     "lucide-react": "^1.35.0",
+    "motion": "12.23.24",
     "nestjs-doctor": "workspace:^",
     "next": "16.3.3",
     "posthog-js": "^1.422.5",

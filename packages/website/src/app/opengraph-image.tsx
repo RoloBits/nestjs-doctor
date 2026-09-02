@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
+import { loadPlexMono } from "@/lib/og-font";
 
 export const dynamic = "force-static";
 export const alt =
@@ -8,51 +9,12 @@ export const alt =
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const FONT_CSS =
-	"https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap";
-const FONT_URL_RE = /url\((https:[^)]+)\)/;
-
-/** Downloads one weight of IBM Plex Mono through the same host next/font uses. */
-async function plexMono(weight: number): Promise<ArrayBuffer | null> {
-	try {
-		const cssRes = await fetch(FONT_CSS, {
-			headers: { "User-Agent": "Mozilla/5.0" },
-		});
-		if (!cssRes.ok) {
-			return null;
-		}
-		const css = await cssRes.text();
-		const block = css
-			.split("@font-face")
-			.find((part) => part.includes(`font-weight: ${weight}`));
-		const url = block?.match(FONT_URL_RE)?.[1];
-		if (!url) {
-			return null;
-		}
-		const fontRes = await fetch(url);
-		if (!fontRes.ok) {
-			return null;
-		}
-		return await fontRes.arrayBuffer();
-	} catch {
-		return null;
-	}
-}
-
 export default async function Image() {
-	const [regular, semibold, logo] = await Promise.all([
-		plexMono(400),
-		plexMono(600),
+	const [fonts, logo] = await Promise.all([
+		loadPlexMono(),
 		readFile(join(process.cwd(), "public/logo.png")),
 	]);
 	const logoSrc = `data:image/png;base64,${logo.toString("base64")}`;
-	const fonts: { data: ArrayBuffer; name: string; weight: 400 | 600 }[] = [];
-	if (regular) {
-		fonts.push({ name: "IBM Plex Mono", data: regular, weight: 400 as const });
-	}
-	if (semibold) {
-		fonts.push({ name: "IBM Plex Mono", data: semibold, weight: 600 as const });
-	}
 
 	return new ImageResponse(
 		<div
@@ -146,6 +108,6 @@ export default async function Image() {
 				</div>
 			</div>
 		</div>,
-		{ ...size, fonts: fonts.length > 0 ? fonts : undefined }
+		{ ...size, fonts }
 	);
 }
