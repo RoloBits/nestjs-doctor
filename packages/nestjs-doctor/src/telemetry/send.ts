@@ -52,14 +52,14 @@ req.on("timeout", () => req.destroy());
 req.end(body);
 `;
 
-/** Hands the payload to a detached child, so the scan never waits on the network. */
+/** Hands the payload to a detached child and returns whether one was started. */
 export function sendScanTelemetry(
 	payload: ScanPayload,
 	distinctId: string,
 	env: NodeJS.ProcessEnv = process.env
-): void {
+): boolean {
 	if (!POSTHOG_KEY) {
-		return;
+		return false;
 	}
 
 	const body = {
@@ -69,7 +69,7 @@ export function sendScanTelemetry(
 	};
 	if (isSet(env.NESTJS_DOCTOR_TELEMETRY_DEBUG)) {
 		process.stderr.write(`${JSON.stringify(body, null, 2)}\n`);
-		return;
+		return false;
 	}
 
 	try {
@@ -82,7 +82,9 @@ export function sendScanTelemetry(
 			// Best-effort; a scan never fails because of it.
 		});
 		child.unref();
+		return true;
 	} catch {
 		// Same for an environment that cannot spawn.
+		return false;
 	}
 }

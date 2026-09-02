@@ -43,7 +43,7 @@ const buildInput = (
 	result: { ...emptyResult(), elapsedMs: 12.7 },
 	scanConfig: scanConfigFixture(),
 	scopeRequested: "full",
-	send: vi.fn(),
+	send: vi.fn(() => true),
 	subProjectOptOut: false,
 	targetPath: "/repo/app",
 	...overrides,
@@ -55,7 +55,10 @@ describe("scan telemetry reporter", () => {
 
 		reportScanTelemetry(input);
 
-		expect(input.resolveIdentityFn).toHaveBeenCalledWith("/repo/app");
+		expect(input.resolveIdentityFn).toHaveBeenCalledWith(
+			"/repo/app",
+			input.env ?? process.env
+		);
 		expect(input.send).toHaveBeenCalledTimes(1);
 		expect(input.send).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -140,6 +143,15 @@ describe("scan telemetry reporter", () => {
 		).toBe(false);
 	});
 
+	it("hands the identity resolver the same environment it read the store from", () => {
+		const env = { NESTJS_DOCTOR_CONFIG_DIR: "/nowhere" };
+		const input = buildInput({ env });
+
+		reportScanTelemetry(input);
+
+		expect(input.resolveIdentityFn).toHaveBeenCalledWith("/repo/app", env);
+	});
+
 	it("reads the store before the identity resolver writes one", () => {
 		const order: string[] = [];
 		const input = buildInput({
@@ -177,6 +189,13 @@ describe("scan telemetry reporter", () => {
 		expect(reportScanTelemetry(buildInput({ subProjectOptOut: true }))).toBe(
 			false
 		);
+	});
+
+	it("announces no first send when the sender only printed the payload", () => {
+		const input = buildInput({ send: vi.fn(() => false) });
+
+		expect(reportScanTelemetry(input)).toBe(false);
+		expect(input.send).toHaveBeenCalledTimes(1);
 	});
 
 	it("announces no first send from CI, which stores no id", () => {

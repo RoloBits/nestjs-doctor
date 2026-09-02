@@ -38,9 +38,8 @@ export interface ScanTelemetryInput {
 }
 
 /**
- * Reports the scan anonymously and returns whether that was this install's
- * first send. A failure here leaves the scan untouched, and the network call
- * runs in a detached child.
+ * Reports the scan anonymously from a detached child and returns whether that
+ * was this install's first send. A failure here leaves the scan untouched.
  */
 export const reportScanTelemetry = (input: ScanTelemetryInput): boolean => {
 	const isEnabled = input.isEnabled ?? scanTelemetryEnabled;
@@ -54,9 +53,11 @@ export const reportScanTelemetry = (input: ScanTelemetryInput): boolean => {
 	const env = input.env ?? process.env;
 	const hadStore = (input.hasStoredIdentityFn ?? hasStoredIdentity)(env);
 	let stored = false;
+	let sent = false;
 	try {
 		const identity = (input.resolveIdentityFn ?? resolveIdentity)(
-			input.targetPath
+			input.targetPath,
+			env
 		);
 		stored = identity.stored;
 		const scanConfig = input.scanConfig as ScanConfig;
@@ -67,7 +68,7 @@ export const reportScanTelemetry = (input: ScanTelemetryInput): boolean => {
 				...scanConfig.schemaRules,
 			].map((rule) => rule.meta.id)
 		);
-		(input.send ?? sendScanTelemetry)(
+		sent = (input.send ?? sendScanTelemetry)(
 			buildScanPayload({
 				action: actionContext(),
 				blocking: input.blocking,
@@ -99,5 +100,5 @@ export const reportScanTelemetry = (input: ScanTelemetryInput): boolean => {
 		// Reporting never breaks a scan.
 		return false;
 	}
-	return generatedIn(env) === "cli" && !hadStore && stored;
+	return generatedIn(env) === "cli" && !hadStore && stored && sent;
 };

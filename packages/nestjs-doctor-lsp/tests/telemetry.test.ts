@@ -30,10 +30,10 @@ const workspace = (config?: Record<string, unknown>): string => {
 	return dir;
 };
 
-const home = (): NodeJS.ProcessEnv => {
+const home = (extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv => {
 	const dir = mkdtempSync(join(tmpdir(), "nd-lsp-home-"));
 	dirs.push(dir);
-	return { NESTJS_DOCTOR_CONFIG_DIR: dir };
+	return { NESTJS_DOCTOR_CONFIG_DIR: dir, ...extra };
 };
 
 afterAll(() => {
@@ -98,6 +98,14 @@ describe("lsp identity", () => {
 
 		expect(resolveIdentity("/repo/a", env).anonymousId).toBe(
 			resolveIdentity("/repo/b", env).anonymousId
+		);
+	});
+
+	it("stores nothing under the debug switch", () => {
+		const env = home({ NESTJS_DOCTOR_TELEMETRY_DEBUG: "1" });
+
+		expect(resolveIdentity("/repo/a", env).anonymousId).not.toBe(
+			resolveIdentity("/repo/a", env).anonymousId
 		);
 	});
 

@@ -232,6 +232,13 @@ describe("install identity", () => {
 		expect(resolveIdentity("/repo/a", env).stored).toBe(false);
 	});
 
+	it("stores nothing under the debug switch", () => {
+		const env = isolated({ NESTJS_DOCTOR_TELEMETRY_DEBUG: "1" });
+
+		expect(resolveIdentity("/repo/a", env).stored).toBe(false);
+		expect(hasStoredIdentity(env)).toBe(false);
+	});
+
 	it("stores nothing in CI", () => {
 		expect(
 			resolveIdentity(

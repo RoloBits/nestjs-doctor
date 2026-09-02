@@ -104,7 +104,7 @@ Outside CI the event carries two ids. `telemetry.json` holds an install id and a
 - **`distinct_id`:** a random UUID, stable for this install.
 - **`project_id`:** a SHA-256 over a second random UUID and the resolved project path.
 
-The salt never leaves the machine. A hash built with it cannot be reversed against a constant shipped in the package. If the config directory cannot be written, the scan reports a fresh id and stores nothing.
+The salt never leaves the machine, so neither hash can be rebuilt from anything shipped in the package. If the config directory cannot be written, the scan reports a fresh id and stores nothing.
 
 The store lives where the platform expects a CLI to keep its own config:
 
@@ -116,7 +116,7 @@ The store lives where the platform expects a CLI to keep its own config:
 
 Under a recognized CI provider nothing is written and `project_id` is absent. `distinct_id` becomes `ci.<provider>.<hash>` instead, where the hash is the first 16 hex characters of a SHA-256 over a constant salt and the repository id. GitHub supplies `GITHUB_REPOSITORY_ID`, GitLab supplies `CI_PROJECT_ID`, and a provider that supplies no repository id keeps a shared `ci.<provider>`. The repository name is never read: it is a short enumerable string, and the salt ships in the package.
 
-The CI id is pseudonymous rather than anonymous. It is a one-way hash, so it groups repeated runs of one repository without naming it. It is not reversible to a repository name, and no path, remote URL or commit sha goes into it.
+The CI id is pseudonymous rather than anonymous. Repository ids are sequential integers and the salt ships in the package, so anyone holding both the package and the data can hash every id and match one back to a repository. No path, remote URL or commit sha goes into it.
 
 ## Turning it off
 
@@ -204,7 +204,9 @@ The payload goes to stderr and no child process is spawned, so nothing is sent. 
 }
 ```
 
-The printed body and the sent body are built from the same values, so what is printed is what would have been sent. It prints only when the scan would otherwise have reported: with `--no-telemetry`, `"telemetry": false`, `DO_NOT_TRACK` set, or a build with no compiled key, there is no payload to print. The variable covers the scan event only. A generated report's own beacon is not affected by it.
+The printed body and the sent body are built from the same values, so what is printed is what would have been sent. It prints only when the scan would otherwise have reported. With `--no-telemetry`, `"telemetry": false`, `DO_NOT_TRACK` set, or a build with no compiled key, there is no payload to print.
+
+A debug run sends nothing and stores no id, so it never counts as the first send and never prints the notice below. The variable covers the scan event only. A generated report's own beacon is not affected by it.
 
 ## The first-run notice
 

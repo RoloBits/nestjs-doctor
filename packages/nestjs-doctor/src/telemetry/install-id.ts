@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { homedir, platform } from "node:os";
 import { dirname, join } from "node:path";
-import { detectKnownCiProvider } from "./environment.js";
+import { detectKnownCiProvider, isSet } from "./environment.js";
 
 interface TelemetryIdentity {
 	/** Stable per-install id, or a shared one per provider in CI. */
@@ -132,12 +132,15 @@ export function resolveIdentity(
 	};
 
 	let stored = false;
-	try {
-		mkdirSync(dirname(file), { recursive: true });
-		writeFileSync(file, `${JSON.stringify(created, null, 2)}\n`, "utf-8");
-		stored = true;
-	} catch {
-		// A read-only home reports a per-run id.
+	// A debug run sends nothing, so it leaves no store behind either.
+	if (!isSet(env.NESTJS_DOCTOR_TELEMETRY_DEBUG)) {
+		try {
+			mkdirSync(dirname(file), { recursive: true });
+			writeFileSync(file, `${JSON.stringify(created, null, 2)}\n`, "utf-8");
+			stored = true;
+		} catch {
+			// A read-only home reports a per-run id.
+		}
 	}
 
 	return {

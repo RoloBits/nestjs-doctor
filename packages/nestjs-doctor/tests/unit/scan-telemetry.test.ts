@@ -388,11 +388,12 @@ describe("telemetry debug switch", () => {
 	it("prints the payload instead of spawning a sender", () => {
 		const stderr = captureStderr();
 
-		sendScanTelemetry(payload, "anon-1", {
+		const sent = sendScanTelemetry(payload, "anon-1", {
 			NESTJS_DOCTOR_TELEMETRY_DEBUG: "1",
 		});
 		stderr.mockRestore();
 
+		expect(sent).toBe(false);
 		expect(spawn).not.toHaveBeenCalled();
 		expect(JSON.parse(written.join(""))).toEqual({
 			event: "scan_completed",
@@ -420,10 +421,11 @@ describe("telemetry debug switch", () => {
 	});
 
 	it("treats the shell's own off spellings as off", () => {
-		sendScanTelemetry(payload, "anon-1", {
+		const sent = sendScanTelemetry(payload, "anon-1", {
 			NESTJS_DOCTOR_TELEMETRY_DEBUG: "0",
 		});
 
+		expect(sent).toBe(true);
 		expect(spawn).toHaveBeenCalledTimes(1);
 	});
 });

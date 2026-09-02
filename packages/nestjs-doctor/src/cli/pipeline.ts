@@ -69,8 +69,8 @@ type PipelineStep = () => void | Promise<void>;
 const TELEMETRY_NOTICE =
 	'nestjs-doctor reported this scan anonymously: which built-in rules fired, the score, well-known dependencies, and the shape of your config — never your code, paths, or project name. Turn it off with --no-telemetry, "telemetry": false in your config, or DO_NOT_TRACK=1. https://nestjs.doctor/docs/telemetry';
 
-/** Where the one-per-install notice prints. A menu draws in the alternate
- * screen, so an interactive run waits for it to close. */
+/** Where the one-per-install notice prints: after the menu closes on an
+ * interactive run, after the run otherwise. */
 export const telemetryNoticeSite = (input: {
 	firstSend: boolean;
 	interactive: boolean;

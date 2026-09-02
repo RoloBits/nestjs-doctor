@@ -135,11 +135,14 @@ export function resolveIdentity(
 		anonymousId: randomUUID(),
 		salt: randomUUID(),
 	};
-	try {
-		mkdirSync(dirname(file), { recursive: true });
-		writeFileSync(file, `${JSON.stringify(created, null, 2)}\n`, "utf-8");
-	} catch {
-		// A read-only home reports a per-run id.
+	// A debug run sends nothing, so it leaves no store behind either.
+	if (!isSet(env.NESTJS_DOCTOR_TELEMETRY_DEBUG)) {
+		try {
+			mkdirSync(dirname(file), { recursive: true });
+			writeFileSync(file, `${JSON.stringify(created, null, 2)}\n`, "utf-8");
+		} catch {
+			// A read-only home reports a per-run id.
+		}
 	}
 
 	return {
