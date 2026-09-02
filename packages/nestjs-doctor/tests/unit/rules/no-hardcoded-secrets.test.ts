@@ -293,6 +293,10 @@ describe("no-hardcoded-secrets", () => {
 				"const password = 'admin_password_123';",
 				"const dbPassword = 'Hunter2$tr0ng';",
 				"const apiKey = 'a1b2|c3d4e5f6';",
+				"const dbPassword = 'P@ssw0rd(2024)!';",
+				"const dbPassword = 'Xk9*mQ2*vL7wRt4z';",
+				"const apiKey = 'a7Fk92Lm3Qp0Zx8w$';",
+				"const password = 'S3cure[Pass]word';",
 			];
 			for (const code of cases) {
 				expect(runRule(code).length).toBeGreaterThan(0);
@@ -314,10 +318,10 @@ describe("no-hardcoded-secrets", () => {
 			}
 		});
 
-		it("still flags a 64-hex value bound to a suspicious name", () => {
+		it("flags a 64-hex value bound to a suspicious name once", () => {
 			const hex =
 				"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
-			expect(runRule(`const apiSecret = '${hex}';`).length).toBeGreaterThan(0);
+			expect(runRule(`const apiSecret = '${hex}';`)).toHaveLength(1);
 		});
 
 		// Accepted false negatives: purely alphabetic, multi-word values look

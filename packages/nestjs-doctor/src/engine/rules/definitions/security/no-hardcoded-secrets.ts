@@ -1,8 +1,5 @@
-import { Node, SyntaxKind } from "ts-morph";
+import { type Node, SyntaxKind } from "ts-morph";
 import type { Rule } from "../../types.js";
-
-// Matches a 64-character lowercase hex digest.
-const HEX_SECRET_PATTERN = /^[a-f0-9]{64}$/;
 
 const SECRET_PATTERNS = [
 	{ pattern: /^sk[-_][a-zA-Z0-9]{20,}$/, name: "Secret key" },
@@ -29,10 +26,6 @@ const SECRET_PATTERNS = [
 		name: "JWT token",
 	},
 	{ pattern: /^AKIA[0-9A-Z]{16}$/, name: "AWS Access Key ID" },
-	{
-		pattern: HEX_SECRET_PATTERN,
-		name: "Hex-encoded secret (64 chars)",
-	},
 ];
 
 const VARIABLE_NAME_PATTERNS = [
@@ -99,16 +92,13 @@ function isWordSequence(value: string): boolean {
 
 const IDENTIFIER_SHAPE = /^[A-Za-z][A-Za-z0-9]*(?:[-_:./][A-Za-z0-9]+)+$/;
 const SINGLE_CAPITALIZED_WORD = /^[A-Z][a-z]+$/;
-const REGEX_METACHARACTER = /[\\^$*+?()[\]{}|]/g;
 const HAS_DIGIT = /\d/;
 const VERSION_SEGMENT = /^v\d{1,3}$/i;
 
-// True when a value reads as a regex source rather than a literal secret.
+// True when a value reads as a regex source rather than a literal secret:
+// anchored with `^`, or carrying a group modifier or a backslash escape.
 function looksLikeRegexSource(value: string): boolean {
-	if (value.startsWith("^") || value.endsWith("$")) {
-		return true;
-	}
-	return (value.match(REGEX_METACHARACTER)?.length ?? 0) >= 2;
+	return value.startsWith("^") || value.includes("(?") || value.includes("\\");
 }
 
 // True for a config/identifier key or a regex pattern, not a secret value.
@@ -153,19 +143,6 @@ function isThrownMessage(node: Node): boolean {
 	return node.getFirstAncestorByKind(SyntaxKind.ThrowStatement) !== undefined;
 }
 
-// The name of the variable/property a string literal is directly assigned to, if any.
-function getBindingName(literal: Node): string | undefined {
-	const parent = literal.getParent();
-	if (
-		Node.isVariableDeclaration(parent) ||
-		Node.isPropertyAssignment(parent) ||
-		Node.isPropertyDeclaration(parent)
-	) {
-		return parent.getName();
-	}
-	return undefined;
-}
-
 export const noHardcodedSecrets: Rule = {
 	meta: {
 		id: "security/no-hardcoded-secrets",
@@ -196,12 +173,6 @@ export const noHardcodedSecrets: Rule = {
 			for (const { pattern, name } of SECRET_PATTERNS) {
 				if (!pattern.test(value)) {
 					continue;
-				}
-				if (pattern === HEX_SECRET_PATTERN) {
-					const bindingName = getBindingName(literal);
-					if (!(bindingName && hasSuspiciousName(bindingName))) {
-						continue;
-					}
 				}
 				context.report({
 					filePath: context.filePath,
