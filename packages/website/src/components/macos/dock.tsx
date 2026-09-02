@@ -17,6 +17,8 @@ export const Dock = ({
 		<div className={DOCK_CLASS}>
 			<button
 				className="group relative cursor-pointer p-0 transition-transform hover:scale-105"
+				data-cuelume-press="press"
+				data-cuelume-release="release"
 				onClick={onRestore}
 				type="button"
 			>

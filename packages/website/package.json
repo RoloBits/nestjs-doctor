@@ -21,6 +21,7 @@
     "@vercel/speed-insights": "^2.0.0",
     "@xyflow/react": "12.11.5",
     "codemirror": "6.0.2",
+    "cuelume": "^0.2.2",
     "dagre": "0.8.5",
     "lucide-react": "^1.35.0",
     "motion": "12.23.24",

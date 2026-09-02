@@ -1,6 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
+import { bindSounds } from "@/lib/sounds";
 import { Dock } from "./dock";
 import { MenuBar } from "./menu-bar";
 import { ReopenCard } from "./reopen";
@@ -42,6 +43,10 @@ export const Desktop = ({
 		windowRef,
 		windowState,
 	} = useWindow();
+
+	useEffect(() => {
+		bindSounds();
+	}, []);
 
 	const isIdle = animationState === "idle";
 	const isAway = windowState === "minimized" || windowState === "closed";

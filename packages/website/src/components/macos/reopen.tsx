@@ -11,7 +11,13 @@ export const ReopenCard = ({
 	label: string;
 	onReopen: () => void;
 }) => (
-	<button className={CARD_CLASS} onClick={onReopen} type="button">
+	<button
+		className={CARD_CLASS}
+		data-cuelume-press="press"
+		data-cuelume-release="release"
+		onClick={onReopen}
+		type="button"
+	>
 		<span className={THUMBNAIL_CLASS}>
 			<span className="flex items-center gap-1 bg-[#2a2a2c] px-2 py-1">
 				<span className="h-1.5 w-1.5 rounded-full bg-[#FF5F57]" />
