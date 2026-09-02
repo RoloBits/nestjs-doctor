@@ -9,6 +9,7 @@ import {
 	isInteractiveTarget,
 	isTypingTarget,
 } from "@/lib/keyboard";
+import { play } from "@/lib/sounds";
 import {
 	getNestBirds,
 	MENU_CLASS,
@@ -180,6 +181,7 @@ export const LeaderboardScreen = ({
 		try {
 			await navigator.clipboard.writeText(command);
 			track("command_copied", { command, surface: "leaderboard" });
+			play("success");
 			setToast(`Copied ${command}`);
 			setTimeout(() => setToast(null), COPIED_RESET_MS);
 		} catch {
@@ -217,6 +219,7 @@ export const LeaderboardScreen = ({
 
 			if (event.key === "ArrowDown" || event.key === "j") {
 				event.preventDefault();
+				play("tick");
 				if (focus === "list") {
 					setSelected((current) => Math.min(current + 1, projectCount - 1));
 				} else {
@@ -228,6 +231,7 @@ export const LeaderboardScreen = ({
 			}
 			if (event.key === "ArrowUp" || event.key === "k") {
 				event.preventDefault();
+				play("tick");
 				if (focus === "list") {
 					setSelected((current) => Math.max(current - 1, 0));
 				} else {
@@ -245,6 +249,7 @@ export const LeaderboardScreen = ({
 				event.key === "h"
 			) {
 				event.preventDefault();
+				play("tick");
 				if (focus === "list") {
 					setFocus("menu");
 					menuRefs.current[menuIndex]?.focus();
@@ -359,6 +364,9 @@ export const LeaderboardScreen = ({
 								<button
 									aria-selected={active}
 									className={ROW_CLASS}
+									data-cuelume-hover="tick"
+									data-cuelume-press="press"
+									data-cuelume-release="release"
 									id={optionId(index)}
 									key={row.name}
 									onClick={() => {
@@ -506,6 +514,9 @@ export const LeaderboardScreen = ({
 						return (
 							<Link
 								className={MENU_ROW_CLASS}
+								data-cuelume-hover="tick"
+								data-cuelume-press="press"
+								data-cuelume-release="release"
 								href={item.href}
 								key={item.label}
 								onFocus={() => {
@@ -527,6 +538,9 @@ export const LeaderboardScreen = ({
 						return (
 							<a
 								className={MENU_ROW_CLASS}
+								data-cuelume-hover="tick"
+								data-cuelume-press="press"
+								data-cuelume-release="release"
 								href={item.href}
 								key={item.label}
 								onFocus={() => {
@@ -549,6 +563,9 @@ export const LeaderboardScreen = ({
 					return (
 						<button
 							className={MENU_ROW_CLASS}
+							data-cuelume-hover="tick"
+							data-cuelume-press="press"
+							data-cuelume-release="release"
 							key={item.label}
 							onClick={() => item.copy && handleCopy(item.copy)}
 							onFocus={() => {

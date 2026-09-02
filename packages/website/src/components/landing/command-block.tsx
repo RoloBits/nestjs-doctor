@@ -3,6 +3,7 @@
 import { Check, Copy } from "lucide-react";
 import { useCallback, useState } from "react";
 import { track } from "@/lib/analytics";
+import { play } from "@/lib/sounds";
 
 const COPIED_RESET_MS = 1600;
 
@@ -13,6 +14,7 @@ export const CommandBlock = ({ command }: { command: string }) => {
 		try {
 			await navigator.clipboard.writeText(command);
 			track("command_copied", { command, surface: "landing" });
+			play("success");
 			setCopied(true);
 			setTimeout(() => setCopied(false), COPIED_RESET_MS);
 		} catch {
@@ -31,6 +33,8 @@ export const CommandBlock = ({ command }: { command: string }) => {
 			<button
 				aria-label={`Copy: ${command}`}
 				className="flex items-center border-white/30 border-l px-4 text-white/70 transition-colors hover:bg-white hover:text-black"
+				data-cuelume-press="press"
+				data-cuelume-release="release"
 				onClick={handleCopy}
 				type="button"
 			>

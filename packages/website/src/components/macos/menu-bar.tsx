@@ -1,7 +1,9 @@
 "use client";
 
+import { Volume2, VolumeX } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { play, setSoundsEnabled, soundsEnabled } from "@/lib/sounds";
 
 /** Rendered until the client mounts, so the server and the browser agree. */
 const CLOCK_PLACEHOLDER = "--:--";
@@ -31,6 +33,23 @@ const AppleGlyph = () => (
 /** The strip along the top of the desktop. The clock is the only live part. */
 export const MenuBar = ({ section }: { section: string }) => {
 	const [now, setNow] = useState<Date | null>(null);
+	const [sounds, setSounds] = useState(true);
+
+	useEffect(() => {
+		setSounds(soundsEnabled());
+	}, []);
+
+	const toggleSounds = () => {
+		const next = !sounds;
+		setSounds(next);
+		if (next) {
+			setSoundsEnabled(true);
+			play("toggle");
+		} else {
+			play("toggle");
+			setSoundsEnabled(false);
+		}
+	};
 
 	useEffect(() => {
 		setNow(new Date());
@@ -43,15 +62,20 @@ export const MenuBar = ({ section }: { section: string }) => {
 			<Link className="flex items-center" href="/">
 				<AppleGlyph />
 			</Link>
-			<Link className="font-bold text-white" href="/">
+			<Link className="font-bold text-white" data-cuelume-hover="tick" href="/">
 				nestjs-doctor
 			</Link>
 			<span>{section}</span>
-			<Link className="hidden hover:text-white sm:inline" href="/docs">
+			<Link
+				className="hidden hover:text-white sm:inline"
+				data-cuelume-hover="tick"
+				href="/docs"
+			>
 				Docs
 			</Link>
 			<a
 				className="hidden hover:text-white sm:inline"
+				data-cuelume-hover="tick"
 				href="https://github.com/RoloBits/nestjs-doctor"
 				rel="noreferrer"
 				target="_blank"
@@ -59,6 +83,15 @@ export const MenuBar = ({ section }: { section: string }) => {
 				GitHub
 			</a>
 			<div className="ml-auto flex items-center gap-4">
+				<button
+					aria-label="Sounds"
+					aria-pressed={sounds}
+					className="flex cursor-pointer items-center hover:text-white"
+					onClick={toggleSounds}
+					type="button"
+				>
+					{sounds ? <Volume2 size={12} /> : <VolumeX size={12} />}
+				</button>
 				<span className="hidden sm:inline">{now ? formatDate(now) : ""}</span>
 				<span>{now ? formatClock(now) : CLOCK_PLACEHOLDER}</span>
 			</div>

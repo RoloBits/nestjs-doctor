@@ -10,6 +10,7 @@ import {
 	isTypingTarget,
 } from "@/lib/keyboard";
 import { SITE_URL } from "@/lib/site";
+import { play } from "@/lib/sounds";
 import {
 	getNestBirds,
 	MENU_CLASS,
@@ -227,6 +228,7 @@ export const CertificateScreen = ({
 		try {
 			await navigator.clipboard.writeText(value);
 			track("command_copied", { command: value, surface: "certificate" });
+			play("success");
 			setToast(`Copied ${label}`);
 			setTimeout(() => setToast(null), COPIED_RESET_MS);
 		} catch {
@@ -273,6 +275,7 @@ export const CertificateScreen = ({
 			}
 			if (event.key === "ArrowDown" || event.key === "j") {
 				event.preventDefault();
+				play("tick");
 				const next = (menuIndex + 1) % menuCount;
 				setMenuIndex(next);
 				menuRefs.current[next]?.focus();
@@ -280,6 +283,7 @@ export const CertificateScreen = ({
 			}
 			if (event.key === "ArrowUp" || event.key === "k") {
 				event.preventDefault();
+				play("tick");
 				const next = menuIndex === 0 ? menuCount - 1 : menuIndex - 1;
 				setMenuIndex(next);
 				menuRefs.current[next]?.focus();
@@ -432,6 +436,9 @@ export const CertificateScreen = ({
 						return (
 							<Link
 								className={MENU_ROW_CLASS}
+								data-cuelume-hover="tick"
+								data-cuelume-press="press"
+								data-cuelume-release="release"
 								href={item.href}
 								key={item.label}
 								onFocus={() => setMenuIndex(index)}
@@ -450,6 +457,9 @@ export const CertificateScreen = ({
 						return (
 							<a
 								className={MENU_ROW_CLASS}
+								data-cuelume-hover="tick"
+								data-cuelume-press="press"
+								data-cuelume-release="release"
 								href={item.href}
 								key={item.label}
 								onFocus={() => setMenuIndex(index)}
@@ -469,6 +479,9 @@ export const CertificateScreen = ({
 					return (
 						<button
 							className={MENU_ROW_CLASS}
+							data-cuelume-hover="tick"
+							data-cuelume-press="press"
+							data-cuelume-release="release"
 							key={item.label}
 							onClick={() => item.copy && handleCopy(item.copy, item.copy)}
 							onFocus={() => setMenuIndex(index)}

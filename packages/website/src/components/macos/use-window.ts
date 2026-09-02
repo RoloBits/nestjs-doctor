@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { prefersReducedMotion } from "@/lib/motion";
+import { type Cue, play } from "@/lib/sounds";
 import type { WindowState } from "./terminal-window";
 import { useWindowAnimations } from "./use-window-animations";
 
@@ -22,10 +23,11 @@ interface RunAnimationParams {
 	isMountedRef: { current: boolean };
 	setAnimationState: (state: AnimationState) => void;
 	setWindowState: (state: WindowState) => void;
+	sound: Cue;
 	successState: WindowState;
 }
 
-/** Plays one animation, then commits the state it was leading to. */
+/** Plays one sound and one animation, then commits the state it was leading to. */
 const runWindowAnimation = async ({
 	animationFn,
 	animationState,
@@ -34,12 +36,14 @@ const runWindowAnimation = async ({
 	isMountedRef,
 	setAnimationState,
 	setWindowState,
+	sound,
 	successState,
 }: RunAnimationParams): Promise<void> => {
 	if (!element || busyRef.current) {
 		return;
 	}
 	busyRef.current = true;
+	play(sound);
 	try {
 		if (prefersReducedMotion()) {
 			setWindowState(successState);
@@ -93,6 +97,7 @@ export const useWindow = () => {
 				isMountedRef,
 				setAnimationState,
 				setWindowState,
+				sound: "close",
 				successState: "closed",
 			}),
 		[animations]
@@ -108,6 +113,7 @@ export const useWindow = () => {
 				isMountedRef,
 				setAnimationState,
 				setWindowState,
+				sound: "minimize",
 				successState: "minimized",
 			}),
 		[animations]
@@ -123,6 +129,7 @@ export const useWindow = () => {
 			isMountedRef,
 			setAnimationState,
 			setWindowState,
+			sound: isFullscreen ? "minimize" : "maximize",
 			successState: isFullscreen ? "normal" : "fullscreen",
 		});
 	}, [animations, windowState]);
@@ -137,6 +144,7 @@ export const useWindow = () => {
 				isMountedRef,
 				setAnimationState,
 				setWindowState,
+				sound: "open",
 				successState: "normal",
 			});
 		}
@@ -149,6 +157,7 @@ export const useWindow = () => {
 				isMountedRef,
 				setAnimationState,
 				setWindowState,
+				sound: "open",
 				successState: "normal",
 			});
 		}
