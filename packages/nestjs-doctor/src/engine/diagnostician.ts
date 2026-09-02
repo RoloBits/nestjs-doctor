@@ -8,7 +8,7 @@ import { filterIgnoredDiagnostics } from "./filter-diagnostics.js";
 import { guardDecoratorNames } from "./graph/guard-decorators.js";
 import { posixDirname } from "./graph/module-graph.js";
 import { filterSuppressedDiagnostics } from "./inline-suppressions.js";
-import { isInjectable } from "./nest-class-inspector.js";
+import { baseClassName, isInjectable } from "./nest-class-inspector.js";
 import type { FileRuleFacts } from "./rule-runner.js";
 import {
 	type RunRulesOptions,
@@ -202,9 +202,7 @@ function fileRuleFacts(context: AnalysisContext): FileRuleFacts {
 		if (!sourceFile) {
 			continue;
 		}
-		if (!callsUseGlobalGuards && usesGlobalGuards(sourceFile)) {
-			callsUseGlobalGuards = true;
-		}
+		callsUseGlobalGuards ||= usesGlobalGuards(sourceFile);
 		for (const cls of sourceFile.getClasses()) {
 			const guarded = cls
 				.getDecorators()
@@ -219,9 +217,9 @@ function fileRuleFacts(context: AnalysisContext): FileRuleFacts {
 			if (name) {
 				guardedClasses.add(name);
 			}
-			const base = cls.getExtends()?.getExpression().getText();
+			const base = baseClassName(cls);
 			if (base) {
-				guardedBaseClasses.add(base.split("<")[0].split(".").pop() ?? base);
+				guardedBaseClasses.add(base);
 			}
 		}
 	}
