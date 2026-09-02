@@ -39,7 +39,7 @@ import { useDemoClock } from "./use-demo-clock";
 
 const CLAY = "#d97757";
 const LABEL =
-	"A terminal recording: nestjs-doctor scores a project 35 out of 100, an agent fixes the findings, and a rescan scores 100";
+	"A terminal demo: nestjs-doctor scores a project 35 out of 100, an agent fixes the findings, and a rescan scores 100";
 
 const Dim = ({ children }: { children: string }) => (
 	<span style={{ color: palette.dim }}>{children}</span>

@@ -34,7 +34,7 @@ export const Hero = () => (
 		</div>
 
 		<Figure
-			caption="Fig. 01 — Examination recording"
+			caption="Fig. 01 — Examination demo"
 			className="min-h-0 min-w-0 lg:self-center"
 			meta={`$ ${COMMAND}`}
 		>

@@ -59,7 +59,7 @@ const NestFace = ({ score }: { score: number | null }) => {
 	return (
 		<pre
 			aria-hidden="true"
-			className="m-0 leading-tight"
+			className="m-0 font-blocks leading-tight"
 			style={{ color: scoreTone(score) }}
 		>
 			{`┌───────┐\n│ ${eyes} │\n│ ${mouth} │\n└───────┘`}

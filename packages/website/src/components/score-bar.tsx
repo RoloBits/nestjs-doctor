@@ -5,7 +5,7 @@ import {
 	scoreColor,
 } from "@/lib/tui-theme";
 
-/** The block/shade score gauge shared by the leaderboard and the share screen. */
+/** The block/shade score gauge. */
 export const ScoreBar = ({ score }: { score: number }) => {
 	const safeScore = Math.max(0, Math.min(PERFECT_SCORE, score));
 	const filled = Math.round((safeScore / PERFECT_SCORE) * SCORE_BAR_WIDTH);

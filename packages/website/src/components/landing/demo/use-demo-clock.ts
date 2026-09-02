@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-
-const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+import { prefersReducedMotion } from "@/lib/motion";
 
 /** A looping ms clock that runs only while the element is shown on a visible
  * tab, restarts after its window was put away, and pins to `endMs` on reduced motion. */
@@ -11,7 +10,7 @@ export const useDemoClock = (totalMs: number, endMs: number) => {
 	const [elapsed, setElapsed] = useState(0);
 
 	useEffect(() => {
-		if (window.matchMedia(REDUCED_MOTION_QUERY).matches) {
+		if (prefersReducedMotion()) {
 			setElapsed(endMs);
 			return;
 		}

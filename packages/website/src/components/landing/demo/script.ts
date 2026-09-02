@@ -1,6 +1,7 @@
 import { easeOutCubic } from "@/lib/easing";
 
-/** Everything printed is real output from scanning the bad-practices fixture. */
+/** Recorded from a scan of the bad-practices fixture, the same run as
+ * demo/animate-scan.mjs. */
 export const COMMAND = "npx -y nestjs-doctor@latest .";
 export const AGENT_COMMAND = "claude";
 export const PROMPT_TEXT = "Fix nestjs-doctor errors and warnings";
