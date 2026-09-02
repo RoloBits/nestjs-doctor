@@ -6,7 +6,6 @@ import {
 } from "../../src/cli/scan-telemetry-reporter.js";
 import type { Rule } from "../../src/engine/rules/types.js";
 import type { ScanConfig } from "../../src/engine/scanner.js";
-import { telemetryNoticeSite } from "../../src/telemetry/send.js";
 import { emptyResult } from "./report-artifact-fixture.js";
 
 const ruleWithId = (id: string): Rule => ({ meta: { id } }) as unknown as Rule;
@@ -31,7 +30,6 @@ const buildInput = (
 	diagnostics: [],
 	env: {},
 	fileCount: 4,
-	hasStoredIdentityFn: () => false,
 	isEnabled: () => true,
 	monorepo: false,
 	optionsTelemetry: true,
@@ -149,20 +147,10 @@ describe("scan telemetry reporter", () => {
 			}),
 		});
 
-		expect(reportScanTelemetry(input)).toBe(false);
+		expect(() => reportScanTelemetry(input)).not.toThrow();
 	});
 
-	it("reports the first send an install ever makes", () => {
-		expect(reportScanTelemetry(buildInput())).toBe(true);
-	});
-
-	it("reports nothing new once the install has a stored id", () => {
-		expect(
-			reportScanTelemetry(buildInput({ hasStoredIdentityFn: () => true }))
-		).toBe(false);
-	});
-
-	it("hands the identity resolver the same environment it read the store from", () => {
+	it("hands the identity resolver the environment it was given", () => {
 		const env = { NESTJS_DOCTOR_CONFIG_DIR: "/nowhere" };
 		const input = buildInput({ env });
 
@@ -171,59 +159,67 @@ describe("scan telemetry reporter", () => {
 		expect(input.resolveIdentityFn).toHaveBeenCalledWith("/repo/app", env);
 	});
 
-	it("reads the store before the identity resolver writes one", () => {
-		const order: string[] = [];
-		const input = buildInput({
-			hasStoredIdentityFn: vi.fn(() => {
-				order.push("read");
-				return false;
-			}),
-			resolveIdentityFn: vi.fn(() => {
-				order.push("resolve");
-				return { anonymousId: "anon-123", stored: true };
-			}),
-		});
+	it("sends one payload carrying every field, on a run that stores its first id", () => {
+		// Pins the payload against the removal of the first-run notice: the same
+		// 50 fields go out, in one send, on the run that used to print it.
+		const input = buildInput();
 
 		reportScanTelemetry(input);
 
-		expect(order).toEqual(["read", "resolve"]);
-	});
-
-	it("announces no first send when the id could not be stored", () => {
-		const input = buildInput({
-			resolveIdentityFn: vi.fn(() => ({
-				anonymousId: "anon-123",
-				stored: false,
-			})),
-		});
-
-		expect(reportScanTelemetry(input)).toBe(false);
 		expect(input.send).toHaveBeenCalledTimes(1);
-	});
-
-	it("announces no first send when nothing was sent", () => {
-		expect(reportScanTelemetry(buildInput({ isEnabled: () => false }))).toBe(
-			false
-		);
-		expect(reportScanTelemetry(buildInput({ subProjectOptOut: true }))).toBe(
-			false
-		);
-	});
-
-	it("announces no first send when the sender only printed the payload", () => {
-		const input = buildInput({ send: vi.fn(() => false) });
-
-		expect(reportScanTelemetry(input)).toBe(false);
-		expect(input.send).toHaveBeenCalledTimes(1);
-	});
-
-	it("announces no first send from CI, which stores no id", () => {
-		expect(reportScanTelemetry(buildInput({ env: { CI: "true" } }))).toBe(
-			false
-		);
-		expect(
-			reportScanTelemetry(buildInput({ env: { GITHUB_ACTIONS: "true" } }))
-		).toBe(false);
+		expect(input.send).toHaveBeenCalledWith(expect.anything(), "anon-123");
+		expect(Object.keys(input.send.mock.calls[0]?.[0] ?? {}).sort()).toEqual([
+			"action_comment",
+			"action_commit_status",
+			"action_ref",
+			"action_review_comments",
+			"action_sarif",
+			"action_version_pin",
+			"actor_association",
+			"blocking",
+			"categories_disabled",
+			"ci_event",
+			"ci_provider",
+			"cloud",
+			"cloud_services",
+			"config_exclude_count",
+			"config_include_count",
+			"config_min_score",
+			"custom_rules_dir",
+			"custom_rules_loaded",
+			"databases",
+			"duration_ms",
+			"file_count",
+			"findings",
+			"framework",
+			"frontend",
+			"generated_in",
+			"ignored_file_count",
+			"ignored_rules",
+			"messaging",
+			"monorepo",
+			"nest_version",
+			"nestjs_packages",
+			"node_major",
+			"orm",
+			"output_format",
+			"platform",
+			"project_id",
+			"report_requested",
+			"rule_errors",
+			"rule_overrides",
+			"rules_disabled",
+			"rules_turned_off",
+			"rules_with_findings",
+			"scan_id",
+			"scope_requested",
+			"score",
+			"suppressed_inline",
+			"total_ms",
+			"trigger",
+			"version",
+			"via_action",
+		]);
 	});
 
 	it("swallows a throw from resolving the identity", () => {
@@ -233,34 +229,7 @@ describe("scan telemetry reporter", () => {
 			}),
 		});
 
-		expect(reportScanTelemetry(input)).toBe(false);
+		expect(() => reportScanTelemetry(input)).not.toThrow();
 		expect(input.send).not.toHaveBeenCalled();
-	});
-});
-
-describe("where the first-run notice prints", () => {
-	const site = (overrides: Parameters<typeof telemetryNoticeSite>[0]) =>
-		telemetryNoticeSite(overrides);
-
-	it("waits for the menu to close on an interactive run", () => {
-		// A line printed before the TUI is lost with the alternate screen.
-		expect(
-			site({ firstSend: true, interactive: true, isMachineReadable: false })
-		).toBe("menu");
-	});
-
-	it("prints at the end of a run with no menu", () => {
-		expect(
-			site({ firstSend: true, interactive: false, isMachineReadable: false })
-		).toBe("run");
-	});
-
-	it("prints nowhere for a machine-readable run or a later scan", () => {
-		expect(
-			site({ firstSend: true, interactive: true, isMachineReadable: true })
-		).toBe("none");
-		expect(
-			site({ firstSend: false, interactive: false, isMachineReadable: false })
-		).toBe("none");
 	});
 });

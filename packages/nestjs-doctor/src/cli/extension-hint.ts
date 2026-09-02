@@ -1,19 +1,18 @@
 import { isNonInteractiveEnvironment } from "./ui/environment.js";
 
 export const EXTENSION_HINT =
-	"These findings can appear as you type: the VS Code extension rolobits.nestjs-doctor-vscode";
+	"Get these as you type: VS Code extension rolobits.nestjs-doctor-vscode, or nestjs-doctor-lsp.";
 
-/** Where the one-per-install extension line prints, mirroring `telemetryNoticeSite`. */
+/** Where the one-per-install extension line prints: after the menu closes on an
+ * interactive run, after the run otherwise. */
 export const extensionHintSite = (input: {
 	env?: NodeJS.ProcessEnv;
-	firstSend: boolean;
 	hints: Record<string, string>;
 	interactive: boolean;
 	isMachineReadable: boolean;
 	tty: boolean;
 }): "menu" | "none" | "run" => {
 	if (
-		input.firstSend ||
 		input.isMachineReadable ||
 		!input.tty ||
 		input.hints.extension ||

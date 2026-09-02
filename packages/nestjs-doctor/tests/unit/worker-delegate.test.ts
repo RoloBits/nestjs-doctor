@@ -56,12 +56,7 @@ const outcomeFixture = (): ScanOutcome =>
 	({
 		kind: "single",
 		customRuleWarnings: [],
-		firstTelemetrySend: true,
 	}) as unknown as ScanOutcome;
-
-/** Fails to compile if the outcome stops carrying the notice decision. */
-const firstSendOf = (outcome: ScanOutcome): boolean =>
-	outcome.firstTelemetrySend;
 
 const delegateInput = (
 	overrides: Partial<CanDelegateInput> = {}
@@ -159,8 +154,6 @@ describe("worker delegate — runInWorker", () => {
 		await expect(promise).resolves.toBeUndefined();
 		expect(createWorker).toHaveBeenCalledWith(workerUrl, requestFixture());
 		expect(apply).toHaveBeenCalledWith(outcome);
-		// The reporter runs in the worker; the notice is printed on main.
-		expect(firstSendOf(apply.mock.calls[0]?.[0] as ScanOutcome)).toBe(true);
 		expect(worker.terminateCalls).toBe(1);
 	});
 

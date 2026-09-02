@@ -34,11 +34,7 @@ import { buildReportArtifact, collectScanFacts } from "../report/artifact.js";
 import { buildHtmlReport } from "../report/html-report.js";
 import { resetEcosystem } from "../telemetry/ecosystem.js";
 import { markHint, readHints } from "../telemetry/install-id.js";
-import {
-	reportTelemetryEnabled,
-	TELEMETRY_NOTICE,
-	telemetryNoticeSite,
-} from "../telemetry/send.js";
+import { reportTelemetryEnabled } from "../telemetry/send.js";
 import { highlighter } from "../ui/highlighter.js";
 import { logger } from "../ui/logger.js";
 import { EXTENSION_HINT, extensionHintSite } from "./extension-hint.js";
@@ -130,8 +126,6 @@ abstract class ScanPipeline {
 	protected workerWarnings: string[] = [];
 	/** Set when any scanned sub-project declares its own opt-out. */
 	protected subProjectOptOut = false;
-	/** Set when this scan was the first telemetry send from this install. */
-	protected firstTelemetrySend = false;
 	/** Whether a report built from the menu may embed its beacon; decided with the config. */
 	protected reportTelemetry = false;
 	/** Warnings raised while narrowing the scope; surfaced alongside the report. */
@@ -158,7 +152,7 @@ abstract class ScanPipeline {
 		totalMs: number,
 		suppressed: Record<string, number>
 	): void {
-		this.firstTelemetrySend = reportScanTelemetry({
+		reportScanTelemetry({
 			blocking: this.options.blocking,
 			diagnostics,
 			fileCount,
@@ -269,22 +263,9 @@ abstract class ScanPipeline {
 		);
 	}
 
-	/** One line, once per install, saying what this scan reported and how to stop it. */
-	protected printTelemetryNotice(site: "menu" | "run"): void {
-		const target = telemetryNoticeSite({
-			firstSend: this.firstTelemetrySend,
-			interactive: this.options.interactive,
-			isMachineReadable: this.options.isMachineReadable,
-		});
-		if (target === site) {
-			logger.warn(TELEMETRY_NOTICE);
-		}
-	}
-
 	/** One line, once per install, pointing at the editor extension. */
 	protected printExtensionHint(site: "menu" | "run"): void {
 		const target = extensionHintSite({
-			firstSend: this.firstTelemetrySend,
 			hints: readHints(),
 			interactive: this.options.interactive,
 			isMachineReadable: this.options.isMachineReadable,
@@ -404,7 +385,6 @@ abstract class ScanPipeline {
 		} finally {
 			stopWatching();
 			this.stopProgress();
-			this.printTelemetryNotice("run");
 			this.printExtensionHint("run");
 		}
 	}
@@ -469,7 +449,6 @@ export class MonorepoPipeline extends ScanPipeline {
 			moduleGraph: () => this.reportArtifact.graph,
 			printSummary: () => {
 				printMonorepoReport(this.result.result, this.options.verbose, true);
-				this.printTelemetryNotice("menu");
 				this.printExtensionHint("menu");
 			},
 			result: this.result.result.combined,
@@ -585,7 +564,6 @@ export class MonorepoPipeline extends ScanPipeline {
 				this.allProviders.push(...outcome.reportProviders);
 				this.bootstrapRoots.push(...outcome.bootstrapRoots);
 				this.subProjectOptOut = outcome.subProjectOptOut;
-				this.firstTelemetrySend = outcome.firstTelemetrySend;
 				this.reportTelemetry = outcome.reportTelemetry;
 				this.scopeWarnings.push(...outcome.scopeWarnings);
 				this.resolvedMinimumScore = outcome.resolvedMinimumScore;
@@ -603,7 +581,6 @@ export class MonorepoPipeline extends ScanPipeline {
 			reportProviders: this.allProviders,
 			bootstrapRoots: this.bootstrapRoots,
 			allFiles: this.allFiles,
-			firstTelemetrySend: this.firstTelemetrySend,
 			subProjectOptOut: this.subProjectOptOut,
 			reportTelemetry: this.reportTelemetry,
 			scopeWarnings: this.scopeWarnings,
@@ -697,7 +674,6 @@ export class SingleProjectPipeline extends ScanPipeline {
 			moduleGraph: () => this.reportArtifact.graph,
 			printSummary: () => {
 				printConsoleReport(this.result.result, this.options.verbose, true);
-				this.printTelemetryNotice("menu");
 				this.printExtensionHint("menu");
 			},
 			result: this.result.result,
@@ -728,7 +704,6 @@ export class SingleProjectPipeline extends ScanPipeline {
 				};
 				this.reportProviders = outcome.reportProviders;
 				this.bootstrapRoots = outcome.bootstrapRoots;
-				this.firstTelemetrySend = outcome.firstTelemetrySend;
 				this.reportTelemetry = outcome.reportTelemetry;
 				this.scopeWarnings.push(...outcome.scopeWarnings);
 				this.resolvedMinimumScore = outcome.resolvedMinimumScore;
@@ -745,7 +720,6 @@ export class SingleProjectPipeline extends ScanPipeline {
 			moduleGraph: this.result.moduleGraph,
 			reportProviders: this.reportProviders,
 			bootstrapRoots: this.bootstrapRoots,
-			firstTelemetrySend: this.firstTelemetrySend,
 			result: this.result.result,
 			reportTelemetry: this.reportTelemetry,
 			schemaGraph: this.result.schemaGraph,

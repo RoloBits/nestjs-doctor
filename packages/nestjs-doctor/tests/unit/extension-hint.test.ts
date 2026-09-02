@@ -5,7 +5,6 @@ import { afterAll, describe, expect, it } from "vitest";
 import { extensionHintSite } from "../../src/cli/extension-hint.js";
 import { AGENT_ENV_VARS } from "../../src/telemetry/environment.js";
 import { markHint, readHints } from "../../src/telemetry/install-id.js";
-import { telemetryNoticeSite } from "../../src/telemetry/send.js";
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -24,7 +23,6 @@ const site = (
 ): "menu" | "none" | "run" =>
 	extensionHintSite({
 		env: {},
-		firstSend: false,
 		hints: {},
 		interactive: false,
 		isMachineReadable: false,
@@ -46,10 +44,6 @@ describe("where the extension hint prints", () => {
 	it("waits for the menu to close on an interactive run", () => {
 		// A line printed before the TUI is lost with the alternate screen.
 		expect(site({ interactive: true })).toBe("menu");
-	});
-
-	it("prints nowhere on the run that sends telemetry first", () => {
-		expect(site({ firstSend: true })).toBe("none");
 	});
 
 	it("prints nowhere for a machine-readable run", () => {
@@ -83,30 +77,15 @@ describe("where the extension hint prints", () => {
 		expect(site({ hints: { lsp: "2026-09-02" } })).toBe("none");
 	});
 
-	it("uses the same two sites as the telemetry notice", () => {
-		for (const interactive of [true, false]) {
-			expect(site({ interactive })).toBe(
-				telemetryNoticeSite({
-					firstSend: true,
-					interactive,
-					isMachineReadable: false,
-				})
-			);
-		}
-	});
-
-	it("lands on the first --no-telemetry run, since firstSend never turns true", () => {
-		// --no-telemetry keeps firstSend false forever; the hint can't wait on a
-		// signal that will never come.
-		expect(site({ firstSend: false, hints: {} })).toBe("run");
-	});
-
-	it("prints on run 2 and nowhere on run 3", () => {
+	it("prints on the first qualifying run", () => {
 		const env = isolated();
 
-		// Run 1 sends telemetry for the first time and marks nothing.
-		expect(site({ firstSend: true })).toBe("none");
 		expect(readHints(env)).toEqual({});
+		expect(site({ hints: readHints(env) })).toBe("run");
+	});
+
+	it("prints on run 1 and nowhere on run 2", () => {
+		const env = isolated();
 
 		expect(site({ hints: readHints(env) })).toBe("run");
 		markHint("extension", env);
