@@ -1,7 +1,6 @@
-"use client";
-
-import { useEffect, useRef } from "react";
+import { Desktop } from "@/components/macos/desktop";
 import { CommandBlock } from "./command-block";
+import { DemoTerminal } from "./demo/demo-terminal";
 import { Figure } from "./primitives";
 
 const COMMAND = "npx -y nestjs-doctor@latest .";
@@ -12,43 +11,6 @@ const POINTS = [
 	"Maps your modules, database, and boot in a visual report.",
 	"Extends with rules you write yourself.",
 ];
-/** Some browsers defer autoplay until the element is ready. */
-const Recording = () => {
-	const ref = useRef<HTMLVideoElement>(null);
-
-	useEffect(() => {
-		const video = ref.current;
-		if (!video) {
-			return;
-		}
-		const start = () => {
-			video.play().catch(() => {
-				// Autoplay refused; the poster frame stays.
-			});
-		};
-		start();
-		video.addEventListener("canplay", start, { once: true });
-		document.addEventListener("visibilitychange", start);
-		return () => {
-			video.removeEventListener("canplay", start);
-			document.removeEventListener("visibilitychange", start);
-		};
-	}, []);
-
-	return (
-		<video
-			aria-label="A terminal recording: nestjs-doctor scores a project 35 out of 100, an agent fixes the findings, and a rescan scores 100"
-			autoPlay
-			className="min-h-0 flex-1 bg-black object-contain"
-			loop
-			muted
-			playsInline
-			ref={ref}
-		>
-			<source src="/demo.mp4" type="video/mp4" />
-		</video>
-	);
-};
 
 export const Hero = () => (
 	<section className="grid min-h-0 flex-1 gap-12 border-white/15 border-b py-6 lg:grid-cols-[52fr_48fr]">
@@ -73,12 +35,20 @@ export const Hero = () => (
 
 		<Figure
 			caption="Fig. 01 — Examination recording"
-			className="min-h-0"
-			meta="$ npx -y nestjs-doctor@latest ."
+			className="min-h-0 min-w-0"
+			meta={`$ ${COMMAND}`}
 		>
-			<Recording />
+			<Desktop
+				className="h-[560px] lg:h-auto lg:min-h-[440px] lg:flex-1"
+				reopenLabel="Replay demo"
+				section="Demo"
+				stretch
+				title="Terminal — nestjs-doctor"
+			>
+				<DemoTerminal />
+			</Desktop>
 			<div className="border-white/30 border-t px-4 py-2 font-bold text-[11px] text-white/75 uppercase tracking-[0.08em]">
-				Recording · real scan, real findings · loops
+				Replay · real scan, real findings · loops
 			</div>
 		</Figure>
 	</section>

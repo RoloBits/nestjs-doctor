@@ -2,13 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { ScoreBar } from "@/components/score-bar";
+import { easeOutCubic } from "@/lib/easing";
 import { PERFECT_SCORE, palette, scoreColor, scoreTier } from "@/lib/tui-theme";
 
 const SCORE_FRAME_COUNT = 20;
 const SCORE_FRAME_DELAY_MS = 30;
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
-
-const easeOutCubic = (progress: number) => 1 - (1 - progress) ** 3;
 
 /** The console reporter's score line, counted up unless motion is reduced.
  * A null target means the link carried no usable score. */

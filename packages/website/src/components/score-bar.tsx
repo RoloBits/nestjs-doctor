@@ -10,7 +10,7 @@ export const ScoreBar = ({ score }: { score: number }) => {
 	const safeScore = Math.max(0, Math.min(PERFECT_SCORE, score));
 	const filled = Math.round((safeScore / PERFECT_SCORE) * SCORE_BAR_WIDTH);
 	return (
-		<div className="whitespace-pre">
+		<div className="whitespace-pre font-blocks">
 			<span style={{ color: scoreColor(safeScore) }}>{"█".repeat(filled)}</span>
 			<span style={{ color: palette.dim }}>
 				{"░".repeat(SCORE_BAR_WIDTH - filled)}
