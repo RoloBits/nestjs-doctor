@@ -27,7 +27,8 @@ interface RunAnimationParams {
 	successState: WindowState;
 }
 
-/** Plays one sound and one animation, then commits the state it was leading to. */
+/** Plays one sound, then the animation unless motion is reduced, then commits
+ * the state it was leading to. */
 const runWindowAnimation = async ({
 	animationFn,
 	animationState,
@@ -129,7 +130,7 @@ export const useWindow = () => {
 			isMountedRef,
 			setAnimationState,
 			setWindowState,
-			sound: isFullscreen ? "minimize" : "maximize",
+			sound: isFullscreen ? "unmaximize" : "maximize",
 			successState: isFullscreen ? "normal" : "fullscreen",
 		});
 	}, [animations, windowState]);

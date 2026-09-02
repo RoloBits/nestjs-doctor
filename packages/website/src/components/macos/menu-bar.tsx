@@ -2,8 +2,13 @@
 
 import { Volume2, VolumeX } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { play, setSoundsEnabled, soundsEnabled } from "@/lib/sounds";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import {
+	play,
+	setSoundsEnabled,
+	soundsEnabled,
+	subscribeSounds,
+} from "@/lib/sounds";
 
 /** Rendered until the client mounts, so the server and the browser agree. */
 const CLOCK_PLACEHOLDER = "--:--";
@@ -30,24 +35,22 @@ const AppleGlyph = () => (
 	</svg>
 );
 
-/** The strip along the top of the desktop. The clock is the only live part. */
+/** The strip along the top of the desktop: a clock and a mute switch. */
 export const MenuBar = ({ section }: { section: string }) => {
 	const [now, setNow] = useState<Date | null>(null);
-	const [sounds, setSounds] = useState(true);
-
-	useEffect(() => {
-		setSounds(soundsEnabled());
-	}, []);
+	const sounds = useSyncExternalStore(
+		subscribeSounds,
+		soundsEnabled,
+		() => true
+	);
 
 	const toggleSounds = () => {
-		const next = !sounds;
-		setSounds(next);
-		if (next) {
-			setSoundsEnabled(true);
-			play("toggle");
-		} else {
+		if (sounds) {
 			play("toggle");
 			setSoundsEnabled(false);
+		} else {
+			setSoundsEnabled(true);
+			play("toggle");
 		}
 	};
 

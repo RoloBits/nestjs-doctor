@@ -1,6 +1,12 @@
 import { bind, play as cuelume, type SoundName, setEnabled } from "cuelume";
 
-export type Cue = SoundName | "open" | "maximize" | "minimize" | "close";
+export type Cue =
+	| SoundName
+	| "open"
+	| "maximize"
+	| "unmaximize"
+	| "minimize"
+	| "close";
 
 const STORAGE_KEY = "nestjs-doctor:sounds";
 const SILENT = 0.0001;
@@ -8,6 +14,7 @@ const SILENT = 0.0001;
 let context: AudioContext | null = null;
 let noise: AudioBuffer | null = null;
 let enabled: boolean | null = null;
+const listeners = new Set<() => void>();
 
 /** The stored preference; unknown or unreadable storage counts as on. */
 export const soundsEnabled = (): boolean => {
@@ -27,9 +34,19 @@ export const bindSounds = () => {
 	setEnabled(soundsEnabled());
 };
 
+export const subscribeSounds = (listener: () => void) => {
+	listeners.add(listener);
+	return () => {
+		listeners.delete(listener);
+	};
+};
+
 export const setSoundsEnabled = (on: boolean) => {
 	enabled = on;
 	setEnabled(on);
+	for (const listener of listeners) {
+		listener();
+	}
 	try {
 		localStorage.setItem(STORAGE_KEY, on ? "on" : "off");
 	} catch {
@@ -41,7 +58,7 @@ const audio = (): AudioContext => {
 	if (!context) {
 		context = new AudioContext();
 	}
-	if (context.state === "suspended") {
+	if (context.state !== "running") {
 		context.resume().catch(() => undefined);
 	}
 	return context;
@@ -115,7 +132,8 @@ const WINDOW_CUES: Record<
 	(c: AudioContext) => void
 > = {
 	open: (c) => whoosh(c, 320, 1900, 230, 0.6),
-	maximize: (c) => whoosh(c, 500, 2400, 170, 0.5),
+	maximize: (c) => whoosh(c, 600, 2600, 90, 0.5),
+	unmaximize: (c) => whoosh(c, 2600, 600, 90, 0.5),
 	minimize: (c) => whoosh(c, 1900, 280, 260, 0.45),
 	close: (c) => {
 		whoosh(c, 1300, 140, 210, 0.5);
@@ -128,14 +146,14 @@ const isWindowCue = (cue: Cue): cue is keyof typeof WINDOW_CUES =>
 
 /** Plays one cue now; a silent no-op without Web Audio or when muted. */
 export const play = (cue: Cue) => {
+	if (typeof window === "undefined" || !soundsEnabled()) {
+		return;
+	}
 	if (!isWindowCue(cue)) {
 		cuelume(cue);
 		return;
 	}
-	if (typeof window === "undefined" || !("AudioContext" in window)) {
-		return;
-	}
-	if (!soundsEnabled()) {
+	if (!("AudioContext" in window)) {
 		return;
 	}
 	try {

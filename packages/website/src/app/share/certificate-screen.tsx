@@ -275,7 +275,9 @@ export const CertificateScreen = ({
 			}
 			if (event.key === "ArrowDown" || event.key === "j") {
 				event.preventDefault();
-				play("tick");
+				if (!event.repeat) {
+					play("tick");
+				}
 				const next = (menuIndex + 1) % menuCount;
 				setMenuIndex(next);
 				menuRefs.current[next]?.focus();
@@ -283,7 +285,9 @@ export const CertificateScreen = ({
 			}
 			if (event.key === "ArrowUp" || event.key === "k") {
 				event.preventDefault();
-				play("tick");
+				if (!event.repeat) {
+					play("tick");
+				}
 				const next = menuIndex === 0 ? menuCount - 1 : menuIndex - 1;
 				setMenuIndex(next);
 				menuRefs.current[next]?.focus();

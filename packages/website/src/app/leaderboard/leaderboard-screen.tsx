@@ -104,6 +104,13 @@ const scrollWindow = (
 
 const optionId = (index: number): string => `leaderboard-project-${index}`;
 
+/** A key tick, once per press; held keys stay quiet. */
+const tick = (event: globalThis.KeyboardEvent) => {
+	if (!event.repeat) {
+		play("tick");
+	}
+};
+
 /** Pluralises like the TUI's countLabel. */
 const countLabel = (count: number, singular: string): string =>
 	`${count} ${singular}${count === 1 ? "" : "s"}`;
@@ -219,11 +226,15 @@ export const LeaderboardScreen = ({
 
 			if (event.key === "ArrowDown" || event.key === "j") {
 				event.preventDefault();
-				play("tick");
 				if (focus === "list") {
-					setSelected((current) => Math.min(current + 1, projectCount - 1));
+					const next = Math.min(selected + 1, projectCount - 1);
+					if (next !== selected) {
+						tick(event);
+						setSelected(next);
+					}
 				} else {
 					const next = (menuIndex + 1) % menuCount;
+					tick(event);
 					setMenuIndex(next);
 					menuRefs.current[next]?.focus();
 				}
@@ -231,11 +242,15 @@ export const LeaderboardScreen = ({
 			}
 			if (event.key === "ArrowUp" || event.key === "k") {
 				event.preventDefault();
-				play("tick");
 				if (focus === "list") {
-					setSelected((current) => Math.max(current - 1, 0));
+					const next = Math.max(selected - 1, 0);
+					if (next !== selected) {
+						tick(event);
+						setSelected(next);
+					}
 				} else {
 					const next = menuIndex === 0 ? menuCount - 1 : menuIndex - 1;
+					tick(event);
 					setMenuIndex(next);
 					menuRefs.current[next]?.focus();
 				}
@@ -249,7 +264,7 @@ export const LeaderboardScreen = ({
 				event.key === "h"
 			) {
 				event.preventDefault();
-				play("tick");
+				tick(event);
 				if (focus === "list") {
 					setFocus("menu");
 					menuRefs.current[menuIndex]?.focus();
@@ -274,7 +289,7 @@ export const LeaderboardScreen = ({
 
 		window.addEventListener("keydown", onKeyDown);
 		return () => window.removeEventListener("keydown", onKeyDown);
-	}, [focus, projectCount, menuCount, menuIndex]);
+	}, [focus, projectCount, menuCount, menuIndex, selected]);
 
 	return (
 		<div className={FRAME_CLASS} ref={frameRef} style={{ color: palette.text }}>
