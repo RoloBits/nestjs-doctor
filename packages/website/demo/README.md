@@ -1,10 +1,24 @@
 # README recording
 
 The landing page renders the demo live from
-`src/components/landing/demo/script.ts`. This directory records the same three
-acts as a video for the README GIF (`public/demo.gif`), because GitHub strips
-`<video>` from READMEs. The two scripts carry the same scores, findings and
-timings; change them together. To regenerate the GIF:
+`src/components/landing/demo/script.ts`. The README shows the same desktop as
+an animated SVG, `public/demo.svg`, because GitHub and npm strip `<video>` and
+scripts from READMEs but play CSS animations inside an `<img>`. To regenerate
+it after changing the script:
+
+```bash
+cd packages/website
+bun demo/render-svg.ts
+```
+
+`render-svg.ts` imports the script's timeline, so scores, findings and timings
+cannot drift. The chrome is SVG shapes, the text is real text in the viewer's
+monospace font, and reduced-motion viewers get the finished frame.
+
+## The GIF
+
+`public/demo.gif` stays published because READMEs of already-released versions
+point at it. It is recorded as a video from the same three acts:
 
 ```bash
 cd packages/website/demo
@@ -20,8 +34,6 @@ show a fix landing in place.
 
 `encode-web.sh` drops tcut's 1832x1600 @60fps output to 30fps and writes
 `demo.mp4` next to it. Both mp4 files are intermediates and stay out of git.
-
-## The GIF
 
 Build it from the encoded mp4:
 

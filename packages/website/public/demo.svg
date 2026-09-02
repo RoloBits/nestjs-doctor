@@ -1,0 +1,342 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="560" viewBox="0 0 760 560" xml:space="preserve" role="img" aria-labelledby="title">
+<title id="title">nestjs-doctor scores a project 35 out of 100, an agent fixes the findings, and a rescan scores 100</title>
+<style>
+svg{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"DejaVu Sans Mono","Liberation Mono",monospace;font-size:13px;white-space:pre}
+text{fill:#e8e8e8}
+@keyframes t0{0%,2.127%{transform:translateX(0);animation-timing-function:steps(29,end)}6.752%,100%{transform:translateX(232px)}}
+#t0{transform:translateX(232px);animation:t0 18808ms linear infinite}
+@keyframes v1{0%{visibility:visible}6.752%{visibility:hidden}}
+#v1{visibility:hidden;animation:v1 18808ms steps(1,end) infinite,blink 1s steps(1,end) infinite}
+@keyframes v2{0%{visibility:hidden}8.028%{visibility:visible}}
+#v2{visibility:visible;animation:v2 18808ms steps(1,end) infinite}
+@keyframes v3{0%{visibility:hidden}8.028%{visibility:visible}}
+#v3{visibility:visible;animation:v3 18808ms steps(1,end) infinite}
+@keyframes v4{0%{visibility:hidden}8.028%{visibility:visible}}
+#v4{visibility:visible;animation:v4 18808ms steps(1,end) infinite}
+@keyframes v5{0%{visibility:hidden}8.028%{visibility:visible}8.348%{visibility:hidden}}
+#v5{visibility:hidden;animation:v5 18808ms steps(1,end) infinite}
+@keyframes v6{0%{visibility:hidden}8.028%{visibility:visible}8.348%{visibility:hidden}}
+#v6{visibility:hidden;animation:v6 18808ms steps(1,end) infinite}
+@keyframes v7{0%{visibility:hidden}8.028%{visibility:visible}8.348%{visibility:hidden}}
+#v7{visibility:hidden;animation:v7 18808ms steps(1,end) infinite}
+@keyframes v8{0%{visibility:hidden}8.028%{visibility:visible}8.348%{visibility:hidden}}
+#v8{visibility:hidden;animation:v8 18808ms steps(1,end) infinite}
+@keyframes v9{0%{visibility:hidden}8.028%{visibility:visible}8.348%{visibility:hidden}}
+#v9{visibility:hidden;animation:v9 18808ms steps(1,end) infinite}
+@keyframes v10{0%{visibility:hidden}8.028%{visibility:visible}8.348%{visibility:hidden}}
+#v10{visibility:hidden;animation:v10 18808ms steps(1,end) infinite}
+@keyframes v11{0%{visibility:hidden}8.348%{visibility:visible}8.667%{visibility:hidden}}
+#v11{visibility:hidden;animation:v11 18808ms steps(1,end) infinite}
+@keyframes v12{0%{visibility:hidden}8.348%{visibility:visible}8.667%{visibility:hidden}}
+#v12{visibility:hidden;animation:v12 18808ms steps(1,end) infinite}
+@keyframes v13{0%{visibility:hidden}8.348%{visibility:visible}8.667%{visibility:hidden}}
+#v13{visibility:hidden;animation:v13 18808ms steps(1,end) infinite}
+@keyframes v14{0%{visibility:hidden}8.348%{visibility:visible}8.667%{visibility:hidden}}
+#v14{visibility:hidden;animation:v14 18808ms steps(1,end) infinite}
+@keyframes v15{0%{visibility:hidden}8.348%{visibility:visible}8.667%{visibility:hidden}}
+#v15{visibility:hidden;animation:v15 18808ms steps(1,end) infinite}
+@keyframes v16{0%{visibility:hidden}8.348%{visibility:visible}8.667%{visibility:hidden}}
+#v16{visibility:hidden;animation:v16 18808ms steps(1,end) infinite}
+@keyframes v17{0%{visibility:hidden}8.667%{visibility:visible}8.986%{visibility:hidden}}
+#v17{visibility:hidden;animation:v17 18808ms steps(1,end) infinite}
+@keyframes v18{0%{visibility:hidden}8.667%{visibility:visible}8.986%{visibility:hidden}}
+#v18{visibility:hidden;animation:v18 18808ms steps(1,end) infinite}
+@keyframes v19{0%{visibility:hidden}8.667%{visibility:visible}8.986%{visibility:hidden}}
+#v19{visibility:hidden;animation:v19 18808ms steps(1,end) infinite}
+@keyframes v20{0%{visibility:hidden}8.667%{visibility:visible}8.986%{visibility:hidden}}
+#v20{visibility:hidden;animation:v20 18808ms steps(1,end) infinite}
+@keyframes v21{0%{visibility:hidden}8.667%{visibility:visible}8.986%{visibility:hidden}}
+#v21{visibility:hidden;animation:v21 18808ms steps(1,end) infinite}
+@keyframes v22{0%{visibility:hidden}8.667%{visibility:visible}8.986%{visibility:hidden}}
+#v22{visibility:hidden;animation:v22 18808ms steps(1,end) infinite}
+@keyframes v23{0%{visibility:hidden}8.986%{visibility:visible}9.305%{visibility:hidden}}
+#v23{visibility:hidden;animation:v23 18808ms steps(1,end) infinite}
+@keyframes v24{0%{visibility:hidden}8.986%{visibility:visible}9.305%{visibility:hidden}}
+#v24{visibility:hidden;animation:v24 18808ms steps(1,end) infinite}
+@keyframes v25{0%{visibility:hidden}8.986%{visibility:visible}9.305%{visibility:hidden}}
+#v25{visibility:hidden;animation:v25 18808ms steps(1,end) infinite}
+@keyframes v26{0%{visibility:hidden}8.986%{visibility:visible}9.305%{visibility:hidden}}
+#v26{visibility:hidden;animation:v26 18808ms steps(1,end) infinite}
+@keyframes v27{0%{visibility:hidden}8.986%{visibility:visible}9.305%{visibility:hidden}}
+#v27{visibility:hidden;animation:v27 18808ms steps(1,end) infinite}
+@keyframes v28{0%{visibility:hidden}8.986%{visibility:visible}9.305%{visibility:hidden}}
+#v28{visibility:hidden;animation:v28 18808ms steps(1,end) infinite}
+@keyframes v29{0%{visibility:hidden}9.305%{visibility:visible}9.624%{visibility:hidden}}
+#v29{visibility:hidden;animation:v29 18808ms steps(1,end) infinite}
+@keyframes v30{0%{visibility:hidden}9.305%{visibility:visible}9.624%{visibility:hidden}}
+#v30{visibility:hidden;animation:v30 18808ms steps(1,end) infinite}
+@keyframes v31{0%{visibility:hidden}9.305%{visibility:visible}9.624%{visibility:hidden}}
+#v31{visibility:hidden;animation:v31 18808ms steps(1,end) infinite}
+@keyframes v32{0%{visibility:hidden}9.305%{visibility:visible}9.624%{visibility:hidden}}
+#v32{visibility:hidden;animation:v32 18808ms steps(1,end) infinite}
+@keyframes v33{0%{visibility:hidden}9.305%{visibility:visible}9.624%{visibility:hidden}}
+#v33{visibility:hidden;animation:v33 18808ms steps(1,end) infinite}
+@keyframes v34{0%{visibility:hidden}9.305%{visibility:visible}9.624%{visibility:hidden}}
+#v34{visibility:hidden;animation:v34 18808ms steps(1,end) infinite}
+@keyframes v35{0%{visibility:hidden}9.624%{visibility:visible}9.943%{visibility:hidden}}
+#v35{visibility:hidden;animation:v35 18808ms steps(1,end) infinite}
+@keyframes v36{0%{visibility:hidden}9.624%{visibility:visible}9.943%{visibility:hidden}}
+#v36{visibility:hidden;animation:v36 18808ms steps(1,end) infinite}
+@keyframes v37{0%{visibility:hidden}9.624%{visibility:visible}9.943%{visibility:hidden}}
+#v37{visibility:hidden;animation:v37 18808ms steps(1,end) infinite}
+@keyframes v38{0%{visibility:hidden}9.624%{visibility:visible}9.943%{visibility:hidden}}
+#v38{visibility:hidden;animation:v38 18808ms steps(1,end) infinite}
+@keyframes v39{0%{visibility:hidden}9.624%{visibility:visible}9.943%{visibility:hidden}}
+#v39{visibility:hidden;animation:v39 18808ms steps(1,end) infinite}
+@keyframes v40{0%{visibility:hidden}9.624%{visibility:visible}9.943%{visibility:hidden}}
+#v40{visibility:hidden;animation:v40 18808ms steps(1,end) infinite}
+@keyframes v41{0%{visibility:hidden}9.943%{visibility:visible}}
+#v41{visibility:visible;animation:v41 18808ms steps(1,end) infinite}
+@keyframes v42{0%{visibility:hidden}9.943%{visibility:visible}}
+#v42{visibility:visible;animation:v42 18808ms steps(1,end) infinite}
+@keyframes v43{0%{visibility:hidden}9.943%{visibility:visible}}
+#v43{visibility:visible;animation:v43 18808ms steps(1,end) infinite}
+@keyframes v44{0%{visibility:hidden}9.943%{visibility:visible}}
+#v44{visibility:visible;animation:v44 18808ms steps(1,end) infinite}
+@keyframes v45{0%{visibility:hidden}9.943%{visibility:visible}}
+#v45{visibility:visible;animation:v45 18808ms steps(1,end) infinite}
+@keyframes v46{0%{visibility:hidden}9.943%{visibility:visible}}
+#v46{visibility:visible;animation:v46 18808ms steps(1,end) infinite}
+@keyframes v47{0%{visibility:hidden}11.803%{visibility:visible}}
+#v47{visibility:visible;animation:v47 18808ms steps(1,end) infinite}
+@keyframes v48{0%{visibility:hidden}12.442%{visibility:visible}}
+#v48{visibility:visible;animation:v48 18808ms steps(1,end) infinite}
+@keyframes v49{0%{visibility:hidden}13.452%{visibility:visible}}
+#v49{visibility:visible;animation:v49 18808ms steps(1,end) infinite}
+@keyframes v50{0%{visibility:hidden}13.452%{visibility:visible}}
+#v50{visibility:visible;animation:v50 18808ms steps(1,end) infinite}
+@keyframes v51{0%{visibility:hidden}14.462%{visibility:visible}}
+#v51{visibility:visible;animation:v51 18808ms steps(1,end) infinite}
+@keyframes v52{0%{visibility:hidden}15.472%{visibility:visible}}
+#v52{visibility:visible;animation:v52 18808ms steps(1,end) infinite}
+@keyframes v53{0%{visibility:hidden}16.482%{visibility:visible}}
+#v53{visibility:visible;animation:v53 18808ms steps(1,end) infinite}
+@keyframes v54{0%{visibility:hidden}20.683%{visibility:visible}}
+#v54{visibility:visible;animation:v54 18808ms steps(1,end) infinite}
+@keyframes t55{0%,23.341%{transform:translateX(0);animation-timing-function:steps(6,end)}24.298%,100%{transform:translateX(48px)}}
+#t55{transform:translateX(48px);animation:t55 18808ms linear infinite}
+@keyframes v56{0%{visibility:hidden}20.683%{visibility:visible}24.298%{visibility:hidden}}
+#v56{visibility:hidden;animation:v56 18808ms steps(1,end) infinite,blink 1s steps(1,end) infinite}
+@keyframes v57{0%{visibility:hidden}24.298%{visibility:visible}}
+#v57{visibility:visible;animation:v57 18808ms steps(1,end) infinite}
+@keyframes v58{0%{visibility:hidden}24.298%{visibility:visible}}
+#v58{visibility:visible;animation:v58 18808ms steps(1,end) infinite}
+@keyframes v59{0%{visibility:hidden}24.617%{visibility:visible}}
+#v59{visibility:visible;animation:v59 18808ms steps(1,end) infinite}
+@keyframes v60{0%{visibility:hidden}24.617%{visibility:visible}}
+#v60{visibility:visible;animation:v60 18808ms steps(1,end) infinite}
+@keyframes v61{0%{visibility:hidden}24.936%{visibility:visible}}
+#v61{visibility:visible;animation:v61 18808ms steps(1,end) infinite}
+@keyframes v62{0%{visibility:hidden}24.936%{visibility:visible}}
+#v62{visibility:visible;animation:v62 18808ms steps(1,end) infinite}
+@keyframes v63{0%{visibility:hidden}25.255%{visibility:visible}}
+#v63{visibility:visible;animation:v63 18808ms steps(1,end) infinite}
+@keyframes v64{0%{visibility:hidden}25.255%{visibility:visible}}
+#v64{visibility:visible;animation:v64 18808ms steps(1,end) infinite}
+@keyframes v65{0%{visibility:hidden}25.574%{visibility:visible}}
+#v65{visibility:visible;animation:v65 18808ms steps(1,end) infinite}
+@keyframes v66{0%{visibility:hidden}25.574%{visibility:visible}}
+#v66{visibility:visible;animation:v66 18808ms steps(1,end) infinite}
+@keyframes v67{0%{visibility:hidden}29.190%{visibility:visible}44.811%{visibility:hidden}}
+#v67{visibility:hidden;animation:v67 18808ms steps(1,end) infinite}
+@keyframes v68{0%{visibility:hidden}29.190%{visibility:visible}44.811%{visibility:hidden}}
+#v68{visibility:hidden;animation:v68 18808ms steps(1,end) infinite}
+@keyframes t69{0%,31.423%{transform:translateX(0);animation-timing-function:steps(37,end)}42.046%,100%{transform:translateX(296px)}}
+#t69{transform:translateX(296px);animation:t69 18808ms linear infinite}
+@keyframes v70{0%{visibility:hidden}29.190%{visibility:visible}44.811%{visibility:hidden}}
+#v70{visibility:hidden;animation:v70 18808ms steps(1,end) infinite}
+@keyframes v71{0%{visibility:hidden}44.811%{visibility:visible}}
+#v71{visibility:visible;animation:v71 18808ms steps(1,end) infinite}
+@keyframes v72{0%{visibility:hidden}47.044%{visibility:visible}48.107%{visibility:hidden}}
+#v72{visibility:hidden;animation:v72 18808ms steps(1,end) infinite}
+@keyframes v73{0%{visibility:hidden}48.107%{visibility:visible}49.171%{visibility:hidden}}
+#v73{visibility:hidden;animation:v73 18808ms steps(1,end) infinite}
+@keyframes v74{0%{visibility:hidden}49.171%{visibility:visible}50.234%{visibility:hidden}}
+#v74{visibility:hidden;animation:v74 18808ms steps(1,end) infinite}
+@keyframes v75{0%{visibility:hidden}50.234%{visibility:visible}51.297%{visibility:hidden}}
+#v75{visibility:hidden;animation:v75 18808ms steps(1,end) infinite}
+@keyframes v76{0%{visibility:hidden}51.297%{visibility:visible}52.361%{visibility:hidden}}
+#v76{visibility:hidden;animation:v76 18808ms steps(1,end) infinite}
+@keyframes v77{0%{visibility:hidden}52.361%{visibility:visible}53.424%{visibility:hidden}}
+#v77{visibility:hidden;animation:v77 18808ms steps(1,end) infinite}
+@keyframes v78{0%{visibility:hidden}53.424%{visibility:visible}54.487%{visibility:hidden}}
+#v78{visibility:hidden;animation:v78 18808ms steps(1,end) infinite}
+@keyframes v79{0%{visibility:hidden}54.487%{visibility:visible}55.551%{visibility:hidden}}
+#v79{visibility:hidden;animation:v79 18808ms steps(1,end) infinite}
+@keyframes v80{0%{visibility:hidden}55.551%{visibility:visible}56.614%{visibility:hidden}}
+#v80{visibility:hidden;animation:v80 18808ms steps(1,end) infinite}
+@keyframes v81{0%{visibility:hidden}56.614%{visibility:visible}57.678%{visibility:hidden}}
+#v81{visibility:hidden;animation:v81 18808ms steps(1,end) infinite}
+@keyframes v82{0%{visibility:hidden}57.678%{visibility:visible}58.741%{visibility:hidden}}
+#v82{visibility:hidden;animation:v82 18808ms steps(1,end) infinite}
+@keyframes v83{0%{visibility:hidden}58.741%{visibility:visible}59.804%{visibility:hidden}}
+#v83{visibility:hidden;animation:v83 18808ms steps(1,end) infinite}
+@keyframes v84{0%{visibility:hidden}59.804%{visibility:visible}60.868%{visibility:hidden}}
+#v84{visibility:hidden;animation:v84 18808ms steps(1,end) infinite}
+@keyframes v85{0%{visibility:hidden}60.868%{visibility:visible}}
+#v85{visibility:visible;animation:v85 18808ms steps(1,end) infinite}
+@keyframes v86{0%{visibility:hidden}62.250%{visibility:visible}}
+#v86{visibility:visible;animation:v86 18808ms steps(1,end) infinite}
+@keyframes v87{0%{visibility:hidden}63.632%{visibility:visible}}
+#v87{visibility:visible;animation:v87 18808ms steps(1,end) infinite}
+@keyframes v88{0%{visibility:hidden}65.015%{visibility:visible}}
+#v88{visibility:visible;animation:v88 18808ms steps(1,end) infinite}
+@keyframes v89{0%{visibility:hidden}69.056%{visibility:visible}}
+#v89{visibility:visible;animation:v89 18808ms steps(1,end) infinite}
+@keyframes v90{0%{visibility:hidden}73.841%{visibility:visible}}
+#v90{visibility:visible;animation:v90 18808ms steps(1,end) infinite}
+@keyframes t91{0%,77.563%{transform:translateX(0);animation-timing-function:steps(29,end)}82.188%,100%{transform:translateX(232px)}}
+#t91{transform:translateX(232px);animation:t91 18808ms linear infinite}
+@keyframes v92{0%{visibility:hidden}73.841%{visibility:visible}82.188%{visibility:hidden}}
+#v92{visibility:hidden;animation:v92 18808ms steps(1,end) infinite,blink 1s steps(1,end) infinite}
+@keyframes v93{0%{visibility:hidden}83.464%{visibility:visible}}
+#v93{visibility:visible;animation:v93 18808ms steps(1,end) infinite}
+@keyframes v94{0%{visibility:hidden}83.464%{visibility:visible}}
+#v94{visibility:visible;animation:v94 18808ms steps(1,end) infinite}
+@keyframes v95{0%{visibility:hidden}83.464%{visibility:visible}}
+#v95{visibility:visible;animation:v95 18808ms steps(1,end) infinite}
+@keyframes v96{0%{visibility:hidden}83.464%{visibility:visible}83.783%{visibility:hidden}}
+#v96{visibility:hidden;animation:v96 18808ms steps(1,end) infinite}
+@keyframes v97{0%{visibility:hidden}83.464%{visibility:visible}83.783%{visibility:hidden}}
+#v97{visibility:hidden;animation:v97 18808ms steps(1,end) infinite}
+@keyframes v98{0%{visibility:hidden}83.464%{visibility:visible}83.783%{visibility:hidden}}
+#v98{visibility:hidden;animation:v98 18808ms steps(1,end) infinite}
+@keyframes v99{0%{visibility:hidden}83.464%{visibility:visible}83.783%{visibility:hidden}}
+#v99{visibility:hidden;animation:v99 18808ms steps(1,end) infinite}
+@keyframes v100{0%{visibility:hidden}83.464%{visibility:visible}83.783%{visibility:hidden}}
+#v100{visibility:hidden;animation:v100 18808ms steps(1,end) infinite}
+@keyframes v101{0%{visibility:hidden}83.464%{visibility:visible}83.783%{visibility:hidden}}
+#v101{visibility:hidden;animation:v101 18808ms steps(1,end) infinite}
+@keyframes v102{0%{visibility:hidden}83.783%{visibility:visible}84.103%{visibility:hidden}}
+#v102{visibility:hidden;animation:v102 18808ms steps(1,end) infinite}
+@keyframes v103{0%{visibility:hidden}83.783%{visibility:visible}84.103%{visibility:hidden}}
+#v103{visibility:hidden;animation:v103 18808ms steps(1,end) infinite}
+@keyframes v104{0%{visibility:hidden}83.783%{visibility:visible}84.103%{visibility:hidden}}
+#v104{visibility:hidden;animation:v104 18808ms steps(1,end) infinite}
+@keyframes v105{0%{visibility:hidden}83.783%{visibility:visible}84.103%{visibility:hidden}}
+#v105{visibility:hidden;animation:v105 18808ms steps(1,end) infinite}
+@keyframes v106{0%{visibility:hidden}83.783%{visibility:visible}84.103%{visibility:hidden}}
+#v106{visibility:hidden;animation:v106 18808ms steps(1,end) infinite}
+@keyframes v107{0%{visibility:hidden}83.783%{visibility:visible}84.103%{visibility:hidden}}
+#v107{visibility:hidden;animation:v107 18808ms steps(1,end) infinite}
+@keyframes v108{0%{visibility:hidden}84.103%{visibility:visible}84.422%{visibility:hidden}}
+#v108{visibility:hidden;animation:v108 18808ms steps(1,end) infinite}
+@keyframes v109{0%{visibility:hidden}84.103%{visibility:visible}84.422%{visibility:hidden}}
+#v109{visibility:hidden;animation:v109 18808ms steps(1,end) infinite}
+@keyframes v110{0%{visibility:hidden}84.103%{visibility:visible}84.422%{visibility:hidden}}
+#v110{visibility:hidden;animation:v110 18808ms steps(1,end) infinite}
+@keyframes v111{0%{visibility:hidden}84.103%{visibility:visible}84.422%{visibility:hidden}}
+#v111{visibility:hidden;animation:v111 18808ms steps(1,end) infinite}
+@keyframes v112{0%{visibility:hidden}84.103%{visibility:visible}84.422%{visibility:hidden}}
+#v112{visibility:hidden;animation:v112 18808ms steps(1,end) infinite}
+@keyframes v113{0%{visibility:hidden}84.103%{visibility:visible}84.422%{visibility:hidden}}
+#v113{visibility:hidden;animation:v113 18808ms steps(1,end) infinite}
+@keyframes v114{0%{visibility:hidden}84.422%{visibility:visible}84.741%{visibility:hidden}}
+#v114{visibility:hidden;animation:v114 18808ms steps(1,end) infinite}
+@keyframes v115{0%{visibility:hidden}84.422%{visibility:visible}84.741%{visibility:hidden}}
+#v115{visibility:hidden;animation:v115 18808ms steps(1,end) infinite}
+@keyframes v116{0%{visibility:hidden}84.422%{visibility:visible}84.741%{visibility:hidden}}
+#v116{visibility:hidden;animation:v116 18808ms steps(1,end) infinite}
+@keyframes v117{0%{visibility:hidden}84.422%{visibility:visible}84.741%{visibility:hidden}}
+#v117{visibility:hidden;animation:v117 18808ms steps(1,end) infinite}
+@keyframes v118{0%{visibility:hidden}84.422%{visibility:visible}84.741%{visibility:hidden}}
+#v118{visibility:hidden;animation:v118 18808ms steps(1,end) infinite}
+@keyframes v119{0%{visibility:hidden}84.422%{visibility:visible}84.741%{visibility:hidden}}
+#v119{visibility:hidden;animation:v119 18808ms steps(1,end) infinite}
+@keyframes v120{0%{visibility:hidden}84.741%{visibility:visible}85.060%{visibility:hidden}}
+#v120{visibility:hidden;animation:v120 18808ms steps(1,end) infinite}
+@keyframes v121{0%{visibility:hidden}84.741%{visibility:visible}85.060%{visibility:hidden}}
+#v121{visibility:hidden;animation:v121 18808ms steps(1,end) infinite}
+@keyframes v122{0%{visibility:hidden}84.741%{visibility:visible}85.060%{visibility:hidden}}
+#v122{visibility:hidden;animation:v122 18808ms steps(1,end) infinite}
+@keyframes v123{0%{visibility:hidden}84.741%{visibility:visible}85.060%{visibility:hidden}}
+#v123{visibility:hidden;animation:v123 18808ms steps(1,end) infinite}
+@keyframes v124{0%{visibility:hidden}84.741%{visibility:visible}85.060%{visibility:hidden}}
+#v124{visibility:hidden;animation:v124 18808ms steps(1,end) infinite}
+@keyframes v125{0%{visibility:hidden}84.741%{visibility:visible}85.060%{visibility:hidden}}
+#v125{visibility:hidden;animation:v125 18808ms steps(1,end) infinite}
+@keyframes v126{0%{visibility:hidden}85.060%{visibility:visible}85.379%{visibility:hidden}}
+#v126{visibility:hidden;animation:v126 18808ms steps(1,end) infinite}
+@keyframes v127{0%{visibility:hidden}85.060%{visibility:visible}85.379%{visibility:hidden}}
+#v127{visibility:hidden;animation:v127 18808ms steps(1,end) infinite}
+@keyframes v128{0%{visibility:hidden}85.060%{visibility:visible}85.379%{visibility:hidden}}
+#v128{visibility:hidden;animation:v128 18808ms steps(1,end) infinite}
+@keyframes v129{0%{visibility:hidden}85.060%{visibility:visible}85.379%{visibility:hidden}}
+#v129{visibility:hidden;animation:v129 18808ms steps(1,end) infinite}
+@keyframes v130{0%{visibility:hidden}85.060%{visibility:visible}85.379%{visibility:hidden}}
+#v130{visibility:hidden;animation:v130 18808ms steps(1,end) infinite}
+@keyframes v131{0%{visibility:hidden}85.060%{visibility:visible}85.379%{visibility:hidden}}
+#v131{visibility:hidden;animation:v131 18808ms steps(1,end) infinite}
+@keyframes v132{0%{visibility:hidden}85.379%{visibility:visible}85.698%{visibility:hidden}}
+#v132{visibility:hidden;animation:v132 18808ms steps(1,end) infinite}
+@keyframes v133{0%{visibility:hidden}85.379%{visibility:visible}85.698%{visibility:hidden}}
+#v133{visibility:hidden;animation:v133 18808ms steps(1,end) infinite}
+@keyframes v134{0%{visibility:hidden}85.379%{visibility:visible}85.698%{visibility:hidden}}
+#v134{visibility:hidden;animation:v134 18808ms steps(1,end) infinite}
+@keyframes v135{0%{visibility:hidden}85.379%{visibility:visible}85.698%{visibility:hidden}}
+#v135{visibility:hidden;animation:v135 18808ms steps(1,end) infinite}
+@keyframes v136{0%{visibility:hidden}85.379%{visibility:visible}85.698%{visibility:hidden}}
+#v136{visibility:hidden;animation:v136 18808ms steps(1,end) infinite}
+@keyframes v137{0%{visibility:hidden}85.379%{visibility:visible}85.698%{visibility:hidden}}
+#v137{visibility:hidden;animation:v137 18808ms steps(1,end) infinite}
+@keyframes v138{0%{visibility:hidden}85.698%{visibility:visible}}
+#v138{visibility:visible;animation:v138 18808ms steps(1,end) infinite}
+@keyframes v139{0%{visibility:hidden}85.698%{visibility:visible}}
+#v139{visibility:visible;animation:v139 18808ms steps(1,end) infinite}
+@keyframes v140{0%{visibility:hidden}85.698%{visibility:visible}}
+#v140{visibility:visible;animation:v140 18808ms steps(1,end) infinite}
+@keyframes v141{0%{visibility:hidden}85.698%{visibility:visible}}
+#v141{visibility:visible;animation:v141 18808ms steps(1,end) infinite}
+@keyframes v142{0%{visibility:hidden}85.698%{visibility:visible}}
+#v142{visibility:visible;animation:v142 18808ms steps(1,end) infinite}
+@keyframes v143{0%{visibility:hidden}85.698%{visibility:visible}}
+#v143{visibility:visible;animation:v143 18808ms steps(1,end) infinite}
+@keyframes v144{0%{visibility:hidden}87.239%{visibility:visible}}
+#v144{visibility:visible;animation:v144 18808ms steps(1,end) infinite}
+@keyframes v145{0%{visibility:hidden}90.430%{visibility:visible}}
+#v145{visibility:visible;animation:v145 18808ms steps(1,end) infinite}
+@keyframes v146{0%{visibility:hidden}90.430%{visibility:visible}}
+#v146{visibility:visible;animation:v146 18808ms steps(1,end) infinite,blink 1s steps(1,end) infinite}
+@keyframes scroll{0%{transform:translateY(0)}24.936%{transform:translateY(-15.75px)}25.255%{transform:translateY(-32px)}25.574%{transform:translateY(-48.25px)}29.190%{transform:translateY(-80.75px)}47.044%{transform:translateY(-113.25px)}62.250%{transform:translateY(-132.75px)}63.632%{transform:translateY(-152.25px)}65.015%{transform:translateY(-171.75px)}69.056%{transform:translateY(-199.25px)}73.841%{transform:translateY(-230.75px)}83.464%{transform:translateY(-293px)}83.464%{transform:translateY(-398.25px)}83.464%{transform:translateY(-410.25px)}87.239%{transform:translateY(-437.75px)}90.430%{transform:translateY(-469.25px)}}
+#scroll{transform:translateY(-469.25px);animation:scroll 18808ms steps(1,end) infinite}
+@keyframes blink{0%{opacity:1}50%{opacity:0}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+
+<svg x="0" y="0" width="760" height="560" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid slice">
+<defs><linearGradient id="sky" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#c9e4f6"/><stop offset="1" stop-color="#e6f0f7"/></linearGradient></defs>
+<rect width="1000" height="600" fill="url(#sky)"/>
+<path d="M0,180 Q150,120 350,160 T700,140 T1000,170 V600 H0 Z" fill="#a8d4e6"/>
+<path d="M0,220 Q200,170 400,210 T750,190 T1000,220 V600 H0 Z" fill="#8ec4d6"/>
+<path d="M0,280 Q180,230 380,260 T720,240 T1000,270 V600 H0 Z" fill="#7cb5aa"/>
+<path d="M0,330 Q220,290 420,320 T780,300 T1000,330 V600 H0 Z" fill="#9cc98e"/>
+<path d="M0,380 Q160,340 360,370 T700,350 T1000,380 V600 H0 Z" fill="#e8d17d"/>
+<path d="M0,430 Q200,400 400,420 T750,400 T1000,430 V600 H0 Z" fill="#df9255"/>
+<path d="M0,480 Q180,450 380,470 T720,455 T1000,480 V600 H0 Z" fill="#d97046"/>
+<path d="M0,530 Q220,500 420,520 T780,505 T1000,530 V600 H0 Z" fill="#c65d3b"/>
+</svg>
+<rect width="760" height="560" fill="rgba(0,0,0,0.3)"/>
+<rect width="760" height="24" fill="rgba(0,0,0,0.4)"/>
+<g transform="translate(16,5) scale(0.583)"><path d="M17.05 12.54c-.02-2.4 1.96-3.55 2.05-3.61-1.12-1.63-2.86-1.86-3.48-1.89-1.48-.15-2.89.87-3.64.87-.75 0-1.91-.85-3.14-.83-1.61.02-3.1.94-3.93 2.38-1.68 2.91-.43 7.21 1.2 9.57.8 1.15 1.75 2.45 3 2.4 1.21-.05 1.66-.78 3.12-.78 1.46 0 1.87.78 3.14.75 1.3-.02 2.12-1.17 2.91-2.33.92-1.34 1.3-2.64 1.32-2.7-.03-.01-2.53-.97-2.55-3.85M14.7 5.4c.66-.8 1.11-1.92.99-3.03-.95.04-2.11.63-2.79 1.43-.61.71-1.15 1.85-1 2.94 1.06.08 2.14-.54 2.8-1.34" fill="rgba(255,255,255,0.9)"/></g>
+<text x="46" y="16" font-size="11" font-weight="bold" fill="#ffffff">nestjs-doctor</text><text x="147.8" y="16" font-size="11" fill="rgba(255,255,255,0.8)">Demo</text><text x="190.20000000000002" y="16" font-size="11" fill="rgba(255,255,255,0.8)">Docs</text><text x="232.60000000000002" y="16" font-size="11" fill="rgba(255,255,255,0.8)">GitHub</text>
+<text x="744" y="16" font-size="11" fill="rgba(255,255,255,0.8)" text-anchor="end">Wed Sep 2   9:41 AM</text>
+
+<defs>
+<clipPath id="win"><rect x="24" y="48" width="712" height="488" rx="10"/></clipPath>
+<clipPath id="body"><rect x="24" y="88" width="712" height="448"/></clipPath>
+<linearGradient id="bar" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#3a3a3c"/><stop offset="1" stop-color="#2a2a2c"/></linearGradient>
+<filter id="shadow" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="25" stdDeviation="20" flood-color="#000" flood-opacity="0.35"/></filter>
+</defs>
+<rect x="24" y="48" width="712" height="488" rx="10" fill="#000" filter="url(#shadow)"/>
+<rect x="24" y="48" width="712" height="488" rx="10" fill="#0a0a0a"/>
+<g clip-path="url(#win)">
+<rect x="24" y="48" width="712" height="40" fill="url(#bar)"/>
+<line x1="24" x2="736" y1="88.5" y2="88.5" stroke="rgba(255,255,255,0.1)"/>
+<circle cx="46" cy="68" r="6" fill="#FF5F57"/>
+<circle cx="66" cy="68" r="6" fill="#FFBD2E"/>
+<circle cx="86" cy="68" r="6" fill="#28CA41"/>
+<text x="380" y="72" font-size="12" fill="rgba(255,255,255,0.7)" text-anchor="middle">Terminal — nestjs-doctor</text>
+<g clip-path="url(#body)"><g transform="translate(40,100)"><g id="scroll"><text x="0" y="14" textLength="248" lengthAdjust="spacing"><tspan fill="#666666">$ </tspan><tspan>npx -y nestjs-doctor@latest .</tspan></text><g transform="translate(16,0)"><g id="t0"><rect x="0" y="0" width="712" height="19.5" fill="#0a0a0a"/><rect id="v1" x="0" y="3" width="8" height="13.5" fill="#e8e8e8"/></g></g><rect id="v2" x="0.5" y="28" width="432" height="171.5" fill="none" stroke="rgba(255,255,255,0.15)"/><text id="v3" x="96" y="76.25" textLength="104" lengthAdjust="spacing"><tspan fill="#f2f1ef">NestJS Doctor</tspan></text><text id="v4" x="12" y="181.5" textLength="408" lengthAdjust="spacing"><tspan fill="#ef4444">✗ 5 errors</tspan><tspan>  </tspan><tspan fill="#f59e0b">⚠ 6 warnings</tspan><tspan fill="#666666">  across 3/5 files  in 21ms</tspan></text><text id="v5" x="12" y="53.5" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">┌───────┐</tspan></text><text id="v6" x="12" y="69.75" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">│ x x x │</tspan></text><text id="v7" x="12" y="86" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">│ ╰───╯ │</tspan></text><text id="v8" x="12" y="102.25" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">└───────┘</tspan></text><text id="v9" x="12" y="126.5" textLength="192" lengthAdjust="spacing"><tspan fill="#ef4444" font-weight="bold">0</tspan><tspan fill="#666666"> / 100  </tspan><tspan fill="#ef4444">★☆☆☆☆  Critical</tspan></text><text id="v10" x="12" y="154" textLength="240" lengthAdjust="spacingAndGlyphs"><tspan fill="#ef4444"></tspan><tspan fill="#666666">░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░</tspan></text><text id="v11" x="12" y="53.5" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">┌───────┐</tspan></text><text id="v12" x="12" y="69.75" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">│ x x x │</tspan></text><text id="v13" x="12" y="86" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">│ ╰───╯ │</tspan></text><text id="v14" x="12" y="102.25" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">└───────┘</tspan></text><text id="v15" x="12" y="126.5" textLength="200" lengthAdjust="spacing"><tspan fill="#ef4444" font-weight="bold">12</tspan><tspan fill="#666666"> / 100  </tspan><tspan fill="#ef4444">★☆☆☆☆  Critical</tspan></text><text id="v16" x="12" y="154" textLength="240" lengthAdjust="spacingAndGlyphs"><tspan fill="#ef4444">████</tspan><tspan fill="#666666">░░░░░░░░░░░░░░░░░░░░░░░░░░</tspan></text><text id="v17" x="12" y="53.5" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">┌───────┐</tspan></text><text id="v18" x="12" y="69.75" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">│ x x x │</tspan></text><text id="v19" x="12" y="86" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">│ ╰───╯ │</tspan></text><text id="v20" x="12" y="102.25" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">└───────┘</tspan></text><text id="v21" x="12" y="126.5" textLength="200" lengthAdjust="spacing"><tspan fill="#ef4444" font-weight="bold">21</tspan><tspan fill="#666666"> / 100  </tspan><tspan fill="#ef4444">★☆☆☆☆  Critical</tspan></text><text id="v22" x="12" y="154" textLength="240" lengthAdjust="spacingAndGlyphs"><tspan fill="#ef4444">██████</tspan><tspan fill="#666666">░░░░░░░░░░░░░░░░░░░░░░░░</tspan></text><text id="v23" x="12" y="53.5" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">┌───────┐</tspan></text><text id="v24" x="12" y="69.75" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">│ x x x │</tspan></text><text id="v25" x="12" y="86" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">│ ╰───╯ │</tspan></text><text id="v26" x="12" y="102.25" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">└───────┘</tspan></text><text id="v27" x="12" y="126.5" textLength="168" lengthAdjust="spacing"><tspan fill="#ef4444" font-weight="bold">27</tspan><tspan fill="#666666"> / 100  </tspan><tspan fill="#ef4444">★★☆☆☆  Poor</tspan></text><text id="v28" x="12" y="154" textLength="240" lengthAdjust="spacingAndGlyphs"><tspan fill="#ef4444">████████</tspan><tspan fill="#666666">░░░░░░░░░░░░░░░░░░░░░░</tspan></text><text id="v29" x="12" y="53.5" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">┌───────┐</tspan></text><text id="v30" x="12" y="69.75" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">│ x x x │</tspan></text><text id="v31" x="12" y="86" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">│ ╰───╯ │</tspan></text><text id="v32" x="12" y="102.25" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">└───────┘</tspan></text><text id="v33" x="12" y="126.5" textLength="168" lengthAdjust="spacing"><tspan fill="#ef4444" font-weight="bold">31</tspan><tspan fill="#666666"> / 100  </tspan><tspan fill="#ef4444">★★☆☆☆  Poor</tspan></text><text id="v34" x="12" y="154" textLength="240" lengthAdjust="spacingAndGlyphs"><tspan fill="#ef4444">█████████</tspan><tspan fill="#666666">░░░░░░░░░░░░░░░░░░░░░</tspan></text><text id="v35" x="12" y="53.5" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">┌───────┐</tspan></text><text id="v36" x="12" y="69.75" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">│ x x x │</tspan></text><text id="v37" x="12" y="86" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">│ ╰───╯ │</tspan></text><text id="v38" x="12" y="102.25" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">└───────┘</tspan></text><text id="v39" x="12" y="126.5" textLength="168" lengthAdjust="spacing"><tspan fill="#ef4444" font-weight="bold">33</tspan><tspan fill="#666666"> / 100  </tspan><tspan fill="#ef4444">★★☆☆☆  Poor</tspan></text><text id="v40" x="12" y="154" textLength="240" lengthAdjust="spacingAndGlyphs"><tspan fill="#ef4444">██████████</tspan><tspan fill="#666666">░░░░░░░░░░░░░░░░░░░░</tspan></text><text id="v41" x="12" y="53.5" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">┌───────┐</tspan></text><text id="v42" x="12" y="69.75" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">│ x x x │</tspan></text><text id="v43" x="12" y="86" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">│ ╰───╯ │</tspan></text><text id="v44" x="12" y="102.25" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">└───────┘</tspan></text><text id="v45" x="12" y="126.5" textLength="168" lengthAdjust="spacing"><tspan fill="#ef4444" font-weight="bold">35</tspan><tspan fill="#666666"> / 100  </tspan><tspan fill="#ef4444">★★☆☆☆  Poor</tspan></text><text id="v46" x="12" y="154" textLength="240" lengthAdjust="spacingAndGlyphs"><tspan fill="#ef4444">███████████</tspan><tspan fill="#666666">░░░░░░░░░░░░░░░░░░░</tspan></text><text id="v47" x="0" y="221" textLength="376" lengthAdjust="spacing"><tspan fill="#666666">  Project: acme-api | NestJS 10.0.0 | 1 modules</tspan></text><text id="v48" x="8" y="248.5" textLength="360" lengthAdjust="spacing"><tspan fill="#ef4444">✗</tspan><tspan> </tspan><tspan>Possible hardcoded Secret key detected.</tspan><tspan fill="#666666"> (4)</tspan></text><text id="v49" x="8" y="268" textLength="632" lengthAdjust="spacing"><tspan fill="#ef4444">✗</tspan><tspan> </tspan><tspan>Controller injects repository 'UsersRepository' directly. Use a service layer</tspan></text><text id="v50" x="8" y="287.5" textLength="80" lengthAdjust="spacing"><tspan>  </tspan><tspan>instead.</tspan></text><text id="v51" x="8" y="307" textLength="496" lengthAdjust="spacing"><tspan fill="#f59e0b">⚠</tspan><tspan> </tspan><tspan>Constructor parameter 'usersService' should be readonly.</tspan><tspan fill="#666666"> (3)</tspan></text><text id="v52" x="8" y="326.5" textLength="560" lengthAdjust="spacing"><tspan fill="#f59e0b">⚠</tspan><tspan> </tspan><tspan>Endpoint 'findAll' has no @UseGuards() at class or method level.</tspan><tspan fill="#666666"> (2)</tspan></text><text id="v53" x="8" y="346" textLength="648" lengthAdjust="spacing"><tspan fill="#f59e0b">⚠</tspan><tspan> </tspan><tspan>Provider 'ConfigService' is never injected by any other provider or controller.</tspan></text><text id="v54" x="0" y="377.5" textLength="64" lengthAdjust="spacing"><tspan fill="#666666">$ </tspan><tspan>claude</tspan></text><g transform="translate(16,363.5)"><g id="t55"><rect x="0" y="0" width="712" height="19.5" fill="#0a0a0a"/><rect id="v56" x="0" y="3" width="8" height="13.5" fill="#e8e8e8"/></g></g><g id="v57" fill="#d97757"><rect x="24" y="391" width="96" height="16.25"/></g><text id="v58" x="148" y="405" textLength="8" lengthAdjust="spacing"><tspan> </tspan></text><g id="v59" fill="#d97757"><rect x="24" y="407.25" width="16" height="16.25"/><rect x="48" y="407.25" width="48" height="16.25"/><rect x="104" y="407.25" width="16" height="16.25"/></g><text id="v60" x="148" y="421.25" textLength="160" lengthAdjust="spacing"><tspan fill="#f2f1ef" font-weight="bold">Claude Code</tspan><tspan fill="#666666"> v2.1.238</tspan></text><g id="v61" fill="#d97757"><rect x="8" y="423.5" width="128" height="16.25"/></g><text id="v62" x="148" y="437.5" textLength="152" lengthAdjust="spacing"><tspan fill="#666666">Opus 5 (1M context)</tspan></text><g id="v63" fill="#d97757"><rect x="24" y="439.75" width="96" height="16.25"/></g><text id="v64" x="148" y="453.75" textLength="152" lengthAdjust="spacing"><tspan fill="#666666">~/projects/acme-api</tspan></text><g id="v65" fill="#d97757"><rect x="40" y="456" width="8" height="16.25"/><rect x="56" y="456" width="8" height="16.25"/><rect x="80" y="456" width="8" height="16.25"/><rect x="96" y="456" width="8" height="16.25"/></g><text id="v66" x="148" y="470" textLength="8" lengthAdjust="spacing"><tspan> </tspan></text><rect id="v67" x="0.5" y="480.75" width="328" height="29.5" rx="4" fill="none" stroke="rgba(255,255,255,0.25)"/><text id="v68" x="8" y="499.25" textLength="312" lengthAdjust="spacing"><tspan fill="#666666">&gt; </tspan><tspan>Fix nestjs-doctor errors and warnings</tspan></text><g id="v70" transform="translate(24,485.25)"><g id="t69"><rect x="0" y="0" width="304" height="19.5" fill="#0a0a0a"/><rect x="0" y="3" width="8" height="13.5" fill="#e8e8e8"/></g></g><text id="v71" x="8" y="499.25" textLength="312" lengthAdjust="spacing"><tspan fill="#666666">&gt; </tspan><tspan>Fix nestjs-doctor errors and warnings</tspan></text><text id="v72" x="8" y="531.75" textLength="448" lengthAdjust="spacing"><tspan fill="#d97757">✻</tspan><tspan> Fixing issues… </tspan><tspan fill="#666666">(2s · ↑ 1.2k tokens · esc to interrupt)</tspan></text><text id="v73" x="8" y="531.75" textLength="448" lengthAdjust="spacing"><tspan fill="#d97757">✽</tspan><tspan> Fixing issues… </tspan><tspan fill="#666666">(2s · ↑ 1.2k tokens · esc to interrupt)</tspan></text><text id="v74" x="8" y="531.75" textLength="448" lengthAdjust="spacing"><tspan fill="#d97757">✢</tspan><tspan> Fixing issues… </tspan><tspan fill="#666666">(3s · ↑ 1.2k tokens · esc to interrupt)</tspan></text><text id="v75" x="8" y="531.75" textLength="448" lengthAdjust="spacing"><tspan fill="#d97757">✳</tspan><tspan> Fixing issues… </tspan><tspan fill="#666666">(3s · ↑ 1.2k tokens · esc to interrupt)</tspan></text><text id="v76" x="8" y="531.75" textLength="448" lengthAdjust="spacing"><tspan fill="#d97757">∗</tspan><tspan> Fixing issues… </tspan><tspan fill="#666666">(4s · ↑ 1.2k tokens · esc to interrupt)</tspan></text><text id="v77" x="8" y="531.75" textLength="448" lengthAdjust="spacing"><tspan fill="#d97757">✢</tspan><tspan> Fixing issues… </tspan><tspan fill="#666666">(4s · ↑ 1.2k tokens · esc to interrupt)</tspan></text><text id="v78" x="8" y="531.75" textLength="448" lengthAdjust="spacing"><tspan fill="#d97757">✻</tspan><tspan> Fixing issues… </tspan><tspan fill="#666666">(5s · ↑ 1.2k tokens · esc to interrupt)</tspan></text><text id="v79" x="8" y="531.75" textLength="448" lengthAdjust="spacing"><tspan fill="#d97757">✽</tspan><tspan> Fixing issues… </tspan><tspan fill="#666666">(5s · ↑ 1.2k tokens · esc to interrupt)</tspan></text><text id="v80" x="8" y="531.75" textLength="448" lengthAdjust="spacing"><tspan fill="#d97757">✢</tspan><tspan> Fixing issues… </tspan><tspan fill="#666666">(6s · ↑ 1.2k tokens · esc to interrupt)</tspan></text><text id="v81" x="8" y="531.75" textLength="448" lengthAdjust="spacing"><tspan fill="#d97757">✳</tspan><tspan> Fixing issues… </tspan><tspan fill="#666666">(6s · ↑ 1.2k tokens · esc to interrupt)</tspan></text><text id="v82" x="8" y="531.75" textLength="448" lengthAdjust="spacing"><tspan fill="#d97757">∗</tspan><tspan> Fixing issues… </tspan><tspan fill="#666666">(7s · ↑ 1.2k tokens · esc to interrupt)</tspan></text><text id="v83" x="8" y="531.75" textLength="448" lengthAdjust="spacing"><tspan fill="#d97757">✢</tspan><tspan> Fixing issues… </tspan><tspan fill="#666666">(7s · ↑ 1.2k tokens · esc to interrupt)</tspan></text><text id="v84" x="8" y="531.75" textLength="448" lengthAdjust="spacing"><tspan fill="#d97757">✻</tspan><tspan> Fixing issues… </tspan><tspan fill="#666666">(8s · ↑ 1.2k tokens · esc to interrupt)</tspan></text><text id="v85" x="8" y="531.75" textLength="312" lengthAdjust="spacing"><tspan fill="#d97757">⏺</tspan><tspan> Update(</tspan><tspan font-weight="bold">src/users/users.controller.ts</tspan><tspan>)</tspan></text><text id="v86" x="8" y="551.25" textLength="208" lengthAdjust="spacing"><tspan fill="#666666">  ⎿  1 addition, 1 removal</tspan></text><text id="v87" x="8" y="570.75" textLength="456" lengthAdjust="spacing"><tspan fill="#ef4444">     - constructor(private usersRepo: UsersRepository) {}</tspan></text><text id="v88" x="8" y="590.25" textLength="472" lengthAdjust="spacing"><tspan fill="#4ade80">     + constructor(private readonly users: UsersService) {}</tspan></text><text id="v89" x="8" y="617.75" textLength="152" lengthAdjust="spacing"><tspan fill="#4ade80">✅ All issues fixed</tspan></text><text id="v90" x="0" y="649.25" textLength="248" lengthAdjust="spacing"><tspan fill="#666666">$ </tspan><tspan>npx -y nestjs-doctor@latest .</tspan></text><g transform="translate(16,635.25)"><g id="t91"><rect x="0" y="0" width="712" height="19.5" fill="#0a0a0a"/><rect id="v92" x="0" y="3" width="8" height="13.5" fill="#e8e8e8"/></g></g><rect id="v93" x="0.5" y="663.25" width="360" height="171.5" fill="none" stroke="rgba(255,255,255,0.15)"/><text id="v94" x="96" y="711.5" textLength="104" lengthAdjust="spacing"><tspan fill="#f2f1ef">NestJS Doctor</tspan></text><text id="v95" x="12" y="816.75" textLength="336" lengthAdjust="spacing"><tspan fill="#4ade80">No issues found!</tspan><tspan fill="#666666">  6 files scanned  in 15ms</tspan></text><text id="v96" x="12" y="688.75" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">┌───────┐</tspan></text><text id="v97" x="12" y="705" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">│ x x x │</tspan></text><text id="v98" x="12" y="721.25" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">│ ╰───╯ │</tspan></text><text id="v99" x="12" y="737.5" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">└───────┘</tspan></text><text id="v100" x="12" y="761.75" textLength="192" lengthAdjust="spacing"><tspan fill="#ef4444" font-weight="bold">0</tspan><tspan fill="#666666"> / 100  </tspan><tspan fill="#ef4444">★☆☆☆☆  Critical</tspan></text><text id="v101" x="12" y="789.25" textLength="240" lengthAdjust="spacingAndGlyphs"><tspan fill="#ef4444"></tspan><tspan fill="#666666">░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░</tspan></text><text id="v102" x="12" y="688.75" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">┌───────┐</tspan></text><text id="v103" x="12" y="705" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">│ x x x │</tspan></text><text id="v104" x="12" y="721.25" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">│ ╰───╯ │</tspan></text><text id="v105" x="12" y="737.5" textLength="72" lengthAdjust="spacing"><tspan fill="#ef4444">└───────┘</tspan></text><text id="v106" x="12" y="761.75" textLength="168" lengthAdjust="spacing"><tspan fill="#ef4444" font-weight="bold">34</tspan><tspan fill="#666666"> / 100  </tspan><tspan fill="#ef4444">★★☆☆☆  Poor</tspan></text><text id="v107" x="12" y="789.25" textLength="240" lengthAdjust="spacingAndGlyphs"><tspan fill="#ef4444">██████████</tspan><tspan fill="#666666">░░░░░░░░░░░░░░░░░░░░</tspan></text><text id="v108" x="12" y="688.75" textLength="72" lengthAdjust="spacing"><tspan fill="#f59e0b">┌───────┐</tspan></text><text id="v109" x="12" y="705" textLength="72" lengthAdjust="spacing"><tspan fill="#f59e0b">│ • • • │</tspan></text><text id="v110" x="12" y="721.25" textLength="72" lengthAdjust="spacing"><tspan fill="#f59e0b">│ ╰───╯ │</tspan></text><text id="v111" x="12" y="737.5" textLength="72" lengthAdjust="spacing"><tspan fill="#f59e0b">└───────┘</tspan></text><text id="v112" x="12" y="761.75" textLength="168" lengthAdjust="spacing"><tspan fill="#f59e0b" font-weight="bold">59</tspan><tspan fill="#666666"> / 100  </tspan><tspan fill="#f59e0b">★★★☆☆  Fair</tspan></text><text id="v113" x="12" y="789.25" textLength="240" lengthAdjust="spacingAndGlyphs"><tspan fill="#f59e0b">██████████████████</tspan><tspan fill="#666666">░░░░░░░░░░░░</tspan></text><text id="v114" x="12" y="688.75" textLength="72" lengthAdjust="spacing"><tspan fill="#4ade80">┌───────┐</tspan></text><text id="v115" x="12" y="705" textLength="72" lengthAdjust="spacing"><tspan fill="#4ade80">│ ◠ ◠ ◠ │</tspan></text><text id="v116" x="12" y="721.25" textLength="72" lengthAdjust="spacing"><tspan fill="#4ade80">│ ╰───╯ │</tspan></text><text id="v117" x="12" y="737.5" textLength="72" lengthAdjust="spacing"><tspan fill="#4ade80">└───────┘</tspan></text><text id="v118" x="12" y="761.75" textLength="168" lengthAdjust="spacing"><tspan fill="#4ade80" font-weight="bold">77</tspan><tspan fill="#666666"> / 100  </tspan><tspan fill="#4ade80">★★★★☆  Good</tspan></text><text id="v119" x="12" y="789.25" textLength="240" lengthAdjust="spacingAndGlyphs"><tspan fill="#4ade80">███████████████████████</tspan><tspan fill="#666666">░░░░░░░</tspan></text><text id="v120" x="12" y="688.75" textLength="72" lengthAdjust="spacing"><tspan fill="#4ade80">┌───────┐</tspan></text><text id="v121" x="12" y="705" textLength="72" lengthAdjust="spacing"><tspan fill="#4ade80">│ ◠ ◠ ◠ │</tspan></text><text id="v122" x="12" y="721.25" textLength="72" lengthAdjust="spacing"><tspan fill="#4ade80">│ ╰───╯ │</tspan></text><text id="v123" x="12" y="737.5" textLength="72" lengthAdjust="spacing"><tspan fill="#4ade80">└───────┘</tspan></text><text id="v124" x="12" y="761.75" textLength="168" lengthAdjust="spacing"><tspan fill="#4ade80" font-weight="bold">88</tspan><tspan fill="#666666"> / 100  </tspan><tspan fill="#4ade80">★★★★☆  Good</tspan></text><text id="v125" x="12" y="789.25" textLength="240" lengthAdjust="spacingAndGlyphs"><tspan fill="#4ade80">██████████████████████████</tspan><tspan fill="#666666">░░░░</tspan></text><text id="v126" x="12" y="688.75" textLength="72" lengthAdjust="spacing"><tspan fill="#4ade80">┌───────┐</tspan></text><text id="v127" x="12" y="705" textLength="72" lengthAdjust="spacing"><tspan fill="#4ade80">│ ◠ ◠ ◠ │</tspan></text><text id="v128" x="12" y="721.25" textLength="72" lengthAdjust="spacing"><tspan fill="#4ade80">│ ╰───╯ │</tspan></text><text id="v129" x="12" y="737.5" textLength="72" lengthAdjust="spacing"><tspan fill="#4ade80">└───────┘</tspan></text><text id="v130" x="12" y="761.75" textLength="208" lengthAdjust="spacing"><tspan fill="#4ade80" font-weight="bold">95</tspan><tspan fill="#666666"> / 100  </tspan><tspan fill="#4ade80">★★★★★  Excellent</tspan></text><text id="v131" x="12" y="789.25" textLength="240" lengthAdjust="spacingAndGlyphs"><tspan fill="#4ade80">█████████████████████████████</tspan><tspan fill="#666666">░</tspan></text><text id="v132" x="12" y="688.75" textLength="72" lengthAdjust="spacing"><tspan fill="#4ade80">┌───────┐</tspan></text><text id="v133" x="12" y="705" textLength="72" lengthAdjust="spacing"><tspan fill="#4ade80">│ ◠ ◠ ◠ │</tspan></text><text id="v134" x="12" y="721.25" textLength="72" lengthAdjust="spacing"><tspan fill="#4ade80">│ ╰───╯ │</tspan></text><text id="v135" x="12" y="737.5" textLength="72" lengthAdjust="spacing"><tspan fill="#4ade80">└───────┘</tspan></text><text id="v136" x="12" y="761.75" textLength="208" lengthAdjust="spacing"><tspan fill="#4ade80" font-weight="bold">99</tspan><tspan fill="#666666"> / 100  </tspan><tspan fill="#4ade80">★★★★★  Excellent</tspan></text><text id="v137" x="12" y="789.25" textLength="240" lengthAdjust="spacingAndGlyphs"><tspan fill="#4ade80">██████████████████████████████</tspan><tspan fill="#666666"></tspan></text><text id="v138" x="12" y="688.75" textLength="72" lengthAdjust="spacing"><tspan fill="#4ade80">┌───────┐</tspan></text><text id="v139" x="12" y="705" textLength="72" lengthAdjust="spacing"><tspan fill="#4ade80">│ ◠ ◠ ◠ │</tspan></text><text id="v140" x="12" y="721.25" textLength="72" lengthAdjust="spacing"><tspan fill="#4ade80">│ ╰───╯ │</tspan></text><text id="v141" x="12" y="737.5" textLength="72" lengthAdjust="spacing"><tspan fill="#4ade80">└───────┘</tspan></text><text id="v142" x="12" y="761.75" textLength="216" lengthAdjust="spacing"><tspan fill="#4ade80" font-weight="bold">100</tspan><tspan fill="#666666"> / 100  </tspan><tspan fill="#4ade80">★★★★★  Excellent</tspan></text><text id="v143" x="12" y="789.25" textLength="240" lengthAdjust="spacingAndGlyphs"><tspan fill="#4ade80">██████████████████████████████</tspan><tspan fill="#666666"></tspan></text><text id="v144" x="0" y="856.25" textLength="376" lengthAdjust="spacing"><tspan fill="#666666">  Project: acme-api | NestJS 10.0.0 | 1 modules</tspan></text><text id="v145" x="0" y="887.75" textLength="16" lengthAdjust="spacing"><tspan fill="#666666">$ </tspan></text><g transform="translate(16,873.75)"><rect id="v146" x="0" y="3" width="8" height="13.5" fill="#e8e8e8"/></g></g></g></g>
+</g>
+<rect x="24.5" y="48.5" width="711" height="487" rx="10" fill="none" stroke="rgba(255,255,255,0.1)"/>
+</svg>

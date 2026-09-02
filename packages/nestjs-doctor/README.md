@@ -38,7 +38,7 @@ Run this at your project root:
 npx nestjs-doctor@latest .
 ```
 
-![nestjs-doctor scoring a project 35 out of 100, an agent fixing the findings, and a rescan scoring 100](https://nestjs.doctor/demo.gif)
+[![nestjs-doctor scoring a project 35 out of 100, an agent fixing the findings, and a rescan scoring 100](https://nestjs.doctor/demo.svg)](https://nestjs.doctor)
 
 A clean scan prints the score and nothing else. That is the expected result on
 a project the rules already agree with, and `--report` still draws the module
