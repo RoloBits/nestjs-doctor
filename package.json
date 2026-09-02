@@ -11,7 +11,7 @@
     "knip": "knip",
     "prepare": "husky",
     "release": "pnpm build && changeset publish",
-    "test": "pnpm --filter nestjs-doctor --filter nestjs-doctor-lsp run test",
+    "test": "pnpm --filter nestjs-doctor --filter nestjs-doctor-lsp run --sequential test",
     "typecheck": "pnpm --filter nestjs-doctor --filter nestjs-doctor-lsp --filter nestjs-doctor-vscode run typecheck",
     "version": "changeset version && pnpm install --no-frozen-lockfile && node scripts/sync-skill-version.mjs"
   },
