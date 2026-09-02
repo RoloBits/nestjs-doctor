@@ -10,10 +10,7 @@ type ListRow =
 	| { kind: "category"; label: string }
 	| { groupIndex: number; kind: "group" };
 
-/**
- * One caption per category, wherever the category first appears. The first
- * not-scored group opens its own block and categories caption again inside it.
- */
+/** One caption per category; the not-scored block opens its own caption and re-captions inside. */
 export const buildListRows = (groups: RuleGroup[]): ListRow[] => {
 	const rows: ListRow[] = [];
 	let seen = new Set<string>();

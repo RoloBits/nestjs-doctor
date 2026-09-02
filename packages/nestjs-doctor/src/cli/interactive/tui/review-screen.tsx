@@ -13,7 +13,7 @@ import {
 	scrollWindow,
 } from "./navigate.js";
 import { buildPanelLines } from "./panel.js";
-import { NOT_SCORED_TAG, ruleNameBudget, truncate } from "./text.js";
+import { truncate } from "./text.js";
 import { palette, SEVERITY_MARK, severityColor } from "./theme.js";
 import type { Toast } from "./types.js";
 
@@ -186,14 +186,9 @@ export const ReviewScreen = ({
 							current !== undefined && row.groupIndex === current.groupIndex;
 						const count = entry.diagnostics.length;
 						const suffix = count > 1 ? ` (${count})` : "";
-						// The tag keeps its full width; a row too narrow for both drops it.
-						const budget = ruleNameBudget(
-							leftContent - 3,
-							entry.scored ? 0 : NOT_SCORED_TAG.length
-						);
 						const name = truncate(
 							`${shortRule(entry.rule)}${suffix}`,
-							budget.width
+							leftContent - 3
 						);
 						return (
 							<Box flexDirection="row" key={entry.rule}>
@@ -217,9 +212,6 @@ export const ReviewScreen = ({
 										>
 											{name}
 										</Text>
-										{budget.tag ? (
-											<Text color={palette.dim}>{NOT_SCORED_TAG}</Text>
-										) : null}
 									</Text>
 								</Box>
 							</Box>

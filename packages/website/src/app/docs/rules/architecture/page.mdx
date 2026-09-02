@@ -15,6 +15,8 @@ Run every rule on this page against a project:
 npx nestjs-doctor@latest . --verbose
 ```
 
+Without `--verbose` the console prints one line per rule; with it, every file and line.
+
 | Rule | Severity | What it catches |
 |------|----------|-----------------|
 | [`no-business-logic-in-controllers`](#no-business-logic-in-controllers) | error | Loops, `switch`, a second branch, or repeated array ops in handlers |
