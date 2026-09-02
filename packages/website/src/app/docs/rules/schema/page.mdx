@@ -12,7 +12,7 @@ export const metadata = docsMetadata["/docs/rules/schema"];
 | Rule | Severity | What it catches |
 |------|----------|-----------------|
 | `require-primary-key` | error | Entity without a primary key column |
-| `require-timestamps` | warning | Entity missing createdAt/updatedAt columns |
+| `require-timestamps` | info | Entity missing createdAt/updatedAt columns |
 | `require-cascade-rule` | info | Relation missing explicit onDelete behavior |
 
 ---
@@ -48,6 +48,8 @@ model Product {
 **Scope:** Schema
 
 Detects entities missing `createdAt`/`updatedAt` timestamp columns.
+
+Entities whose every column is a primary key or a relation's own column are skipped.
 
 **Why:** Timestamp columns are essential for auditing, debugging, and data integrity. Without them, there is no way to know when a record was created or last modified.
 

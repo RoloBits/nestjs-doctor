@@ -340,7 +340,7 @@ Docs: https://nestjs.doctor/docs/language-server
 ### Schema (3)
 
 - `require-primary-key` (error) — Entity with no primary key column
-- `require-timestamps` (warning) — Entity missing createdAt/updatedAt columns
+- `require-timestamps` (info) — Entity missing createdAt/updatedAt columns
 - `require-cascade-rule` (info) — Relation with no explicit onDelete behavior
 
 Schema rules run against entities extracted from Prisma, TypeORM, Drizzle, or MikroORM. They report against an entity, so their findings carry no line number.

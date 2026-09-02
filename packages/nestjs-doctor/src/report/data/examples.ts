@@ -507,7 +507,7 @@ export class OrderService {
 		"architecture/no-orm-in-services": {
 			bad: `@Injectable()
 export class UserService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly em: EntityManager) {}
 }`,
 			good: `@Injectable()
 export class UserService {

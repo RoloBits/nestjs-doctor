@@ -609,7 +609,7 @@ describe("no-orm-in-services", () => {
 		expect(diags).toHaveLength(0);
 	});
 
-	it("flags PrismaService injection in services", () => {
+	it("stays quiet on PrismaService injection — the official Nest recipe", () => {
 		const diags = runRule(
 			noOrmInServices,
 			`
@@ -620,7 +620,56 @@ describe("no-orm-in-services", () => {
       }
     `
 		);
-		expect(diags.length).toBeGreaterThan(0);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("stays quiet on PrismaClient injection", () => {
+		const diags = runRule(
+			noOrmInServices,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class UsersService {
+        constructor(private readonly prisma: PrismaClient) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("still flags EntityManager injection", () => {
+		const diags = runRule(
+			noOrmInServices,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class UsersService {
+        constructor(private readonly em: EntityManager) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("EntityManager");
+	});
+
+	it("still flags @InjectRepository() in a service using a TypeORM Repository", () => {
+		const diags = runRule(
+			noOrmInServices,
+			`
+      import { Injectable } from '@nestjs/common';
+      import { InjectRepository } from '@nestjs/typeorm';
+      import { Repository } from 'typeorm';
+      @Injectable()
+      export class UsersService {
+        constructor(
+          @InjectRepository(User)
+          private readonly users: Repository<User>,
+        ) {}
+      }
+    `
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("@InjectRepository");
 	});
 
 	it("skips classes named *Repository", () => {
@@ -630,7 +679,7 @@ describe("no-orm-in-services", () => {
       import { Injectable } from '@nestjs/common';
       @Injectable()
       export class UsersRepository {
-        constructor(private readonly prisma: PrismaService) {}
+        constructor(private readonly em: EntityManager) {}
       }
     `
 		);
@@ -1596,8 +1645,8 @@ describe("no-orm-in-services duplicates", () => {
       @Injectable()
       export class ReportService {
         constructor(
-          private readonly primary: PrismaService,
-          private readonly replica: PrismaService,
+          private readonly primary: EntityManager,
+          private readonly replica: EntityManager,
         ) {}
       }
     `
@@ -1613,7 +1662,7 @@ describe("no-orm-in-services duplicates", () => {
       @Injectable()
       export class ReportService {
         constructor(
-          private readonly prisma: PrismaService,
+          private readonly em: EntityManager,
           private readonly source: DataSource,
         ) {}
       }
@@ -1633,7 +1682,7 @@ describe("no-orm-in-services duplicates", () => {
           @InjectRepository(User) private a: Repository<User>,
           @InjectRepository(Role) private b: Repository<Role>,
           @InjectModel(Doc.name) private c: Model<Doc>,
-          private d: PrismaService,
+          private d: EntityManager,
         ) {}
       }
     `

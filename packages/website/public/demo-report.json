@@ -21,8 +21,8 @@
   "summary": {
     "total": 26,
     "errors": 4,
-    "warnings": 15,
-    "info": 7,
+    "warnings": 13,
+    "info": 9,
     "byCategory": {
       "security": 6,
       "performance": 6,
@@ -818,7 +818,7 @@
       "rule": "schema/require-timestamps",
       "category": "schema",
       "scope": "schema",
-      "severity": "warning"
+      "severity": "info"
     },
     {
       "filePath": "/demo/nest-shop/apps/api/src/payments/invoice.entity.ts",
@@ -828,7 +828,7 @@
       "rule": "schema/require-timestamps",
       "category": "schema",
       "scope": "schema",
-      "severity": "warning"
+      "severity": "info"
     },
     {
       "filePath": "/demo/nest-shop/apps/api/src/catalog/product.entity.ts",
@@ -8129,7 +8129,7 @@
             "rule": "schema/require-timestamps",
             "category": "schema",
             "scope": "schema",
-            "severity": "warning"
+            "severity": "info"
           },
           {
             "filePath": "apps/api/src/payments/invoice.entity.ts",
@@ -8139,7 +8139,7 @@
             "rule": "schema/require-timestamps",
             "category": "schema",
             "scope": "schema",
-            "severity": "warning"
+            "severity": "info"
           },
           {
             "filePath": "apps/api/src/catalog/product.entity.ts",
@@ -8165,8 +8165,8 @@
         "summary": {
           "total": 4,
           "errors": 0,
-          "warnings": 2,
-          "info": 2,
+          "warnings": 0,
+          "info": 4,
           "byCategory": {
             "security": 0,
             "performance": 0,

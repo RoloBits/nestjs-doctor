@@ -160,7 +160,7 @@ const SCHEMA_FINDINGS = [
 		text: "Entity 'Payment' has no primary key column.",
 	},
 	{
-		level: "warning" as const,
+		level: "info" as const,
 		rule: "schema/require-timestamps",
 		text: "Entity 'Order' has no timestamp columns.",
 	},
