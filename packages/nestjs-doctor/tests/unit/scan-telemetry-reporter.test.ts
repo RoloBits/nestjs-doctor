@@ -47,6 +47,7 @@ const buildInput = (
 	scopeRequested: "full",
 	send: vi.fn(() => true),
 	subProjectOptOut: false,
+	suppressed: {},
 	targetPath: "/repo/app",
 	...overrides,
 });

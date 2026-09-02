@@ -152,7 +152,8 @@ abstract class ScanPipeline {
 		result: DiagnoseResult,
 		fileCount: number,
 		monorepo: boolean,
-		totalMs: number
+		totalMs: number,
+		suppressed: Record<string, number>
 	): void {
 		this.firstTelemetrySend = reportScanTelemetry({
 			blocking: this.options.blocking,
@@ -166,6 +167,7 @@ abstract class ScanPipeline {
 			scanId: this.options.scanId,
 			scopeRequested: this.options.scope,
 			subProjectOptOut: this.subProjectOptOut,
+			suppressed,
 			targetPath: this.targetPath,
 			totalMs,
 		});
@@ -414,6 +416,8 @@ export class MonorepoPipeline extends ScanPipeline {
 	private result!: MonorepoEngineResult;
 	private scanStartTime!: number;
 	private cachedArtifact: ReportArtifact | undefined;
+	/** Inline-suppression counts summed across every sub-project. */
+	private readonly suppressedInline: Record<string, number> = {};
 
 	/** The scan as one serializable document, built once on demand. */
 	get reportArtifact(): ReportArtifact {
@@ -493,6 +497,9 @@ export class MonorepoPipeline extends ScanPipeline {
 					const rawOutput = await diagnose(context, (checked, total) => {
 						this.emitProgress(`${label} — running rules`, checked, total);
 					});
+					for (const [id, n] of Object.entries(rawOutput.suppressed)) {
+						this.suppressedInline[id] = (this.suppressedInline[id] ?? 0) + n;
+					}
 					const scanResult = buildResult(context, rawOutput);
 					return {
 						...scanResult,
@@ -528,7 +535,8 @@ export class MonorepoPipeline extends ScanPipeline {
 				combined,
 				combined.project.fileCount,
 				true,
-				performance.now() - this.startedAt
+				performance.now() - this.startedAt,
+				this.suppressedInline
 			);
 		});
 		return this;
@@ -774,7 +782,8 @@ export class SingleProjectPipeline extends ScanPipeline {
 				this.result.result,
 				this.context.files.length,
 				false,
-				performance.now() - this.startedAt
+				performance.now() - this.startedAt,
+				this.rawOutput.suppressed
 			);
 		});
 		return this;

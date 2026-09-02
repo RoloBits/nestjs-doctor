@@ -38,21 +38,21 @@ type PipelineStep = () => void | Promise<void>;
 /** Abstract base for report pipelines — shared step queue and config */
 abstract class ReportPipeline {
 	protected _html!: string;
+	/** Set when this scan was the first telemetry send from this install. */
+	protected firstTelemetrySend = false;
 	protected scanConfig!: ScanConfig;
 	/** One id per report, shared by the artifact and the beacon it embeds. */
 	protected readonly scanId = randomUUID();
 	protected readonly sources: SourceInclusion;
+	/** Marks when this pipeline was constructed, for the total wall time. */
+	protected readonly startedAt = performance.now();
 	protected readonly steps: PipelineStep[] = [];
 	/** Set when any scanned sub-project declares its own opt-out. */
 	protected subProjectOptOut = false;
-	/** Set when this scan was the first telemetry send from this install. */
-	protected firstTelemetrySend = false;
-	/** Marks when this pipeline was constructed, for the total wall time. */
-	protected readonly startedAt = performance.now();
-	/** Injectables handed to `reportScanTelemetry`; tests replace the sender. */
-	protected telemetryOverrides: Partial<ScanTelemetryInput> = {};
 	protected readonly targetPath: string;
 	protected readonly telemetry: boolean;
+	/** Injectables handed to `reportScanTelemetry`; tests replace the sender. */
+	protected telemetryOverrides: Partial<ScanTelemetryInput> = {};
 	protected readonly traces: LoadedBootTrace[] | undefined;
 	protected readonly version: string;
 
@@ -91,7 +91,8 @@ abstract class ReportPipeline {
 		result: DiagnoseResult,
 		fileCount: number,
 		monorepo: boolean,
-		totalMs: number
+		totalMs: number,
+		suppressed: Record<string, number>
 	): void {
 		this.firstTelemetrySend = reportScanTelemetry({
 			blocking: "error",
@@ -105,6 +106,7 @@ abstract class ReportPipeline {
 			scanId: this.scanId,
 			scopeRequested: "full",
 			subProjectOptOut: this.subProjectOptOut,
+			suppressed,
 			targetPath: this.targetPath,
 			totalMs,
 			...this.telemetryOverrides,
@@ -189,7 +191,8 @@ export class SingleProjectReportPipeline extends ReportPipeline {
 				this._scanResult.result,
 				this.context.files.length,
 				false,
-				performance.now() - this.startedAt
+				performance.now() - this.startedAt,
+				this.rawOutput.suppressed
 			);
 		});
 		return this;
@@ -234,6 +237,8 @@ export class MonorepoReportPipeline extends ReportPipeline {
 	private _monoResult!: MonorepoEngineResult;
 	private _mergedGraph?: ModuleGraph;
 	private scanStartTime!: number;
+	/** Inline-suppression counts summed across every sub-project. */
+	private readonly suppressedInline: Record<string, number> = {};
 
 	constructor(
 		targetPath: string,
@@ -277,7 +282,11 @@ export class MonorepoReportPipeline extends ReportPipeline {
 					const facts = collectScanFacts({ ...context, projectName: name });
 					this.bootstrapRoots.push(...facts.bootstrapRoots);
 					this.allProviders.push(...facts.providers);
-					const scanResult = buildResult(context, await diagnose(context));
+					const rawOutput = await diagnose(context);
+					for (const [id, n] of Object.entries(rawOutput.suppressed)) {
+						this.suppressedInline[id] = (this.suppressedInline[id] ?? 0) + n;
+					}
+					const scanResult = buildResult(context, rawOutput);
 					return {
 						...scanResult,
 						moduleGraph: detachModuleGraph(scanResult.moduleGraph),
@@ -307,7 +316,8 @@ export class MonorepoReportPipeline extends ReportPipeline {
 				combined,
 				combined.project.fileCount,
 				true,
-				performance.now() - this.startedAt
+				performance.now() - this.startedAt,
+				this.suppressedInline
 			);
 		});
 		return this;

@@ -37,6 +37,8 @@ export interface ScanTelemetryInput {
 	/** Injectable for tests; defaults to the detached-child sender. */
 	send?: typeof sendScanTelemetry;
 	subProjectOptOut: boolean;
+	/** Inline-directive suppression counts, keyed by rule id. */
+	suppressed: Record<string, number>;
 	targetPath: string;
 	totalMs: number;
 }
@@ -98,6 +100,7 @@ export const reportScanTelemetry = (input: ScanTelemetryInput): boolean => {
 				scopeRequested: input.scopeRequested,
 				score: input.result.score,
 				source: generatedIn(),
+				suppressed: input.suppressed,
 				totalMs: input.totalMs,
 				version: getCliVersion(),
 			}),

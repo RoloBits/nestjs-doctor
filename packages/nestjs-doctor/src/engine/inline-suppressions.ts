@@ -140,11 +140,13 @@ const isSuppressed = (
  *
  * `getSourceText` resolves a diagnostic's `filePath` to its source. Returning
  * `undefined` (e.g. the file is not in the AST project) leaves the diagnostic
- * untouched. Each file is parsed at most once.
+ * untouched. Each file is parsed at most once. `onSuppressed` receives the rule
+ * id of every diagnostic that is removed.
  */
 export const filterSuppressedDiagnostics = (
 	diagnostics: Diagnostic[],
-	getSourceText: (filePath: string) => string | undefined
+	getSourceText: (filePath: string) => string | undefined,
+	onSuppressed?: (ruleId: string) => void
 ): Diagnostic[] => {
 	if (diagnostics.length === 0) {
 		return diagnostics;
@@ -167,6 +169,10 @@ export const filterSuppressedDiagnostics = (
 		if (!suppressions) {
 			return true;
 		}
-		return !isSuppressed(diagnostic, suppressions);
+		if (isSuppressed(diagnostic, suppressions)) {
+			onSuppressed?.(diagnostic.rule);
+			return false;
+		}
+		return true;
 	});
 };

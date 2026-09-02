@@ -5,6 +5,7 @@ import { OUTPUT_FORMATS } from "../../src/cli/formatters/render.js";
 import type { CodeDiagnostic } from "../../src/common/diagnostic.js";
 import type { Score } from "../../src/common/result.js";
 import { runGit } from "../../src/engine/git.js";
+import { allRules } from "../../src/engine/rules/index.js";
 import {
 	ACTION_ENV,
 	actionContext,
@@ -30,6 +31,8 @@ const TELEMETRY_INPUT = /^ {2}telemetry:$/m;
 const NEXT_INPUT = /^ {2}\S/m;
 /** The retired promise that no part of the repository is sent. */
 const NEVER_THE_REPOSITORY = /Never[^.]*\brepository\b(?! name)/;
+
+const BUILT_IN_IDS = new Set(allRules.map((rule) => rule.meta.id));
 
 const code = (overrides: Partial<CodeDiagnostic>): CodeDiagnostic => ({
 	rule: "performance/no-unused-providers",
@@ -80,6 +83,7 @@ const facts = (overrides: Partial<ScanFacts> = {}): ScanFacts => ({
 	scanId: "8f1c4a2e-0b3d-4f56-9a71-2c5d8e0f3b64",
 	score: { value: 90, label: "Excellent" } as Score,
 	source: "cli",
+	suppressed: {},
 	totalMs: 15.3,
 	version: "1.2.3",
 	...overrides,
@@ -124,6 +128,38 @@ describe("scan telemetry payload", () => {
 		expect(payload.rule_errors).toEqual(["security/no-eval"]);
 		// The count still travels, so custom-rule adoption is measurable.
 		expect(payload.custom_rules_loaded).toBe(2);
+	});
+
+	it("never names a custom rule in the suppression counts", () => {
+		const payload = buildScanPayload(
+			facts({
+				suppressed: {
+					"custom/acme-no-legacy-billing-import": 3,
+					"security/no-eval": 2,
+				},
+			})
+		);
+
+		expect(payload.suppressed_inline).toEqual({ "security/no-eval": 2 });
+		expect(JSON.stringify(payload)).not.toContain("acme");
+	});
+
+	it("carries no path or directive text in the suppression counts", () => {
+		const payload = buildScanPayload(
+			facts({
+				suppressed: {
+					"/Users/someone/acme-billing/src/a.service.ts": 1,
+					"nestjs-doctor-ignore security/no-eval -- legacy sandbox": 1,
+					"security/no-eval": 1,
+				},
+			})
+		);
+
+		const serialized = JSON.stringify(payload.suppressed_inline);
+		expect(serialized).not.toContain("nestjs-doctor-ignore");
+		for (const key of Object.keys(payload.suppressed_inline)) {
+			expect(BUILT_IN_IDS.has(key)).toBe(true);
+		}
 	});
 
 	it("carries no path, message, or source text", () => {

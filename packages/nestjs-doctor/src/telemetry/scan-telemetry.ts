@@ -51,6 +51,8 @@ export interface ScanFacts {
 	scopeRequested: ScopeMode;
 	score: Score;
 	source: "ci" | "cli";
+	/** Inline-directive suppression counts, keyed by rule id. */
+	suppressed: Record<string, number>;
 	totalMs: number;
 	version: string;
 }
@@ -101,6 +103,7 @@ export interface ScanPayload {
 	scan_id: string;
 	scope_requested: ScopeMode;
 	score: number;
+	suppressed_inline: Record<string, number>;
 	total_ms: number;
 	trigger: Trigger;
 	version: string;
@@ -226,6 +229,11 @@ export function buildScanPayload(
 		scan_id: facts.scanId,
 		scope_requested: facts.scopeRequested,
 		score: facts.score.value,
+		suppressed_inline: Object.fromEntries(
+			Object.entries(facts.suppressed).filter(([id]) =>
+				BUILT_IN_RULE_IDS.has(id)
+			)
+		),
 		total_ms: Math.round(facts.totalMs),
 		trigger: facts.action.trigger,
 		version: facts.version,
