@@ -115,7 +115,7 @@ Outside CI the event carries two ids. `telemetry.json` holds an install id and a
 - **`distinct_id`:** a random UUID, stable for this install.
 - **`project_id`:** a SHA-256 over a second random UUID and the resolved project path.
 
-The salt never leaves the machine, so neither hash can be rebuilt from anything shipped in the package. If the config directory cannot be written, the scan reports a fresh id and stores nothing.
+The salt never leaves the machine, so neither hash can be rebuilt from anything shipped in the package. If the config directory cannot be written, the scan reports a fresh id and stores nothing. A local `hints.json` next to it records which one-time notices have already printed; it is never sent.
 
 The store lives where the platform expects a CLI to keep its own config:
 

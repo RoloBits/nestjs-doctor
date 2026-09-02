@@ -19,6 +19,8 @@ npm install -D nestjs-doctor
 
 The extension's LSP server loads `nestjs-doctor` from your workspace `node_modules`, so the dev dependency is required.
 
+The CLI mentions the extension on one scan per machine, never in CI, and stops for good once the extension has run.
+
 ## How it works
 
 The extension activates automatically when your workspace contains `@nestjs/core` in `node_modules` or when you open a TypeScript file. It starts a Language Server (LSP) that runs nestjs-doctor's analysis in the background using the [incremental scanning API](/docs/reference/node-api#incremental-scanning). That server also runs on its own, in [any other editor that speaks LSP](/docs/language-server).
