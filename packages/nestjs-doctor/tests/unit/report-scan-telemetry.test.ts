@@ -125,6 +125,8 @@ describe("report scan telemetry", () => {
 	});
 
 	it("sends nothing under --no-telemetry", async () => {
+		// Without this the beacon is blocked by vitest's env, not by the flag.
+		allowBeacon();
 		const send = vi.fn(() => true);
 		const pipeline = await runPipeline(
 			new TestSinglePipeline(
