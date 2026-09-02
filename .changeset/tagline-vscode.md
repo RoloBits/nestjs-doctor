@@ -2,4 +2,4 @@
 "nestjs-doctor-vscode": patch
 ---
 
-Extension description matches the tagline the rest of the project uses.
+The extension's marketplace description and its README both lead with the tagline the rest of the project uses.

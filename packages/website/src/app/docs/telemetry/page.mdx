@@ -99,12 +99,12 @@ Six things the payload has no field for, each decided in code rather than by con
 
 ## Identity
 
-Outside CI the event carries two ids, both generated on first run and stored in `telemetry.json`:
+Outside CI the event carries two ids. `telemetry.json` holds an install id and a salt, both created on first run. The project id is derived from that salt on every run and never stored:
 
 - **`distinct_id`:** a random UUID, stable for this install.
 - **`project_id`:** a SHA-256 over a second random UUID and the resolved project path.
 
-That second UUID is the salt, and it never leaves the machine. A hash built with it cannot be reversed against a constant shipped in the package. If the config directory cannot be written, the scan reports a fresh id and stores nothing.
+The salt never leaves the machine. A hash built with it cannot be reversed against a constant shipped in the package. If the config directory cannot be written, the scan reports a fresh id and stores nothing.
 
 The store lives where the platform expects a CLI to keep its own config:
 
@@ -128,7 +128,7 @@ The CI id is pseudonymous rather than anonymous. It is a one-way hash, so it gro
 
 Two consequences of how those checks are written:
 
-- **`DO_NOT_TRACK=0` and `DO_NOT_TRACK=false`:** neither opts out. One helper reads every switch on this page, and it treats an empty value, `0` and `false` as unset.
+- **`DO_NOT_TRACK=0` and `DO_NOT_TRACK=false`:** neither opts out. One helper reads the environment switches, and it treats an empty value, `0` and `false` as unset.
 - **A monorepo sub-project:** a sub-project config with `telemetry: false` opts out the whole scan, not its own package. The report returns before any payload is built.
 
 A generated HTML report carries its own beacon for how the report itself is used. All three controls above disable it, and so does `report.telemetry` set to `false`.

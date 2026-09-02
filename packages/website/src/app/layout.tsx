@@ -10,8 +10,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 	weight: ["200", "400", "500", "700"],
 });
 
-const HOME_TITLE =
-	"NestJS Doctor - The deterministic NestJS devtool that catches AI mistakes";
+const HOME_TITLE = "NestJS Doctor - Deterministic static analysis for NestJS";
 const HOME_DESCRIPTION =
 	"The deterministic NestJS devtool that catches AI mistakes. Static analysis for NestJS with a health score, diagnostics and a CI gate.";
 
