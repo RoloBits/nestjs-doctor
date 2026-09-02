@@ -76,7 +76,7 @@ export const telemetryNoticeSite = (input: {
 	interactive: boolean;
 	isMachineReadable: boolean;
 }): "menu" | "none" | "run" => {
-	if (!(input.firstSend && !input.isMachineReadable)) {
+	if (!input.firstSend || input.isMachineReadable) {
 		return "none";
 	}
 	return input.interactive ? "menu" : "run";
