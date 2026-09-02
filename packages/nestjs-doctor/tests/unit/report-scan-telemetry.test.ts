@@ -85,6 +85,7 @@ const runPipeline = async <T extends SingleProjectReportPipeline>(
 const allowBeacon = (): void => {
 	vi.stubEnv("VITEST", "");
 	vi.stubEnv("NODE_ENV", "development");
+	vi.stubEnv("DO_NOT_TRACK", "");
 };
 
 const sentPayload = (send: Send): ScanPayload =>
