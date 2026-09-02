@@ -24,6 +24,15 @@ The first one is the everyday skill. Its description tells the agent to reach
 for it after writing Nest code and before committing, so it runs without being
 asked.
 
+The everyday skill runs this after a change:
+
+```bash
+npx nestjs-doctor@latest . --scope changed --base origin/main --verbose
+```
+
+It needs a git repository with the base commit fetched; without one the scan
+reports everything and says why.
+
 It installs for Claude Code, Cursor, Codex, OpenCode, Windsurf, Amp,
 Antigravity, and Gemini CLI. Detection looks for each one's config directory or
 binary. Windsurf is the exception: it has no skills directory, so the content goes into

@@ -9,18 +9,24 @@ export const metadata = docsMetadata["/docs/rules/architecture"];
 
 10 rules that enforce clean layering, dependency injection patterns, and module boundaries.
 
+Run every rule on this page against a project:
+
+```bash
+npx nestjs-doctor@latest . --verbose
+```
+
 | Rule | Severity | What it catches |
 |------|----------|-----------------|
-| `no-business-logic-in-controllers` | error | Loops, `switch`, a second branch, or repeated array ops in handlers |
-| `no-repository-in-controllers` | error | Repository injection in controllers |
-| `no-orm-in-controllers` | error | ORM types or ORM-binding decorators injected into controllers |
-| `no-circular-module-deps` | error | Cycles in the `@Module()` import graph |
-| `no-manual-instantiation` | error | `new SomeService()` for a class registered as a provider |
-| `no-service-locator` | warning | `ModuleRef.get()`/`resolve()` usage |
-| `prefer-constructor-injection` | warning | `@Inject()` property injection |
-| `no-orm-in-services` | info | Services using ORM directly (should use repositories) |
-| `require-module-boundaries` | info | Relative imports into another module's internal directories |
-| `no-barrel-export-internals` | info | Re-exporting repositories from barrel files |
+| [`no-business-logic-in-controllers`](#no-business-logic-in-controllers) | error | Loops, `switch`, a second branch, or repeated array ops in handlers |
+| [`no-repository-in-controllers`](#no-repository-in-controllers) | error | Repository injection in controllers |
+| [`no-orm-in-controllers`](#no-orm-in-controllers) | error | ORM types or ORM-binding decorators injected into controllers |
+| [`no-circular-module-deps`](#no-circular-module-deps) | error | Cycles in the `@Module()` import graph |
+| [`no-manual-instantiation`](#no-manual-instantiation) | error | `new SomeService()` for a class registered as a provider |
+| [`no-service-locator`](#no-service-locator) | warning | `ModuleRef.get()`/`resolve()` usage |
+| [`prefer-constructor-injection`](#prefer-constructor-injection) | warning | `@Inject()` property injection |
+| [`no-orm-in-services`](#no-orm-in-services) | info | Services using ORM directly (should use repositories) |
+| [`require-module-boundaries`](#require-module-boundaries) | info | Relative imports into another module's internal directories |
+| [`no-barrel-export-internals`](#no-barrel-export-internals) | info | Re-exporting repositories from barrel files |
 
 ---
 

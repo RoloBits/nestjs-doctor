@@ -10,15 +10,9 @@ Both tools draw a NestJS module graph. They get there from opposite ends.
 
 Nest Devtools boots your application and introspects the graph Nest built.
 nestjs-doctor reads the `@Module()` decorators in your source and never runs
-anything. Neither approach contains the other, so this page covers what each
-one can see.
+anything. It is [free under MIT](#everything-is-free).
 
-## How each one gets the graph
-
-Nest Devtools takes a `DevtoolsModule` import plus a `snapshot` flag on
-`NestFactory.create`. The running app then exposes an extra HTTP server, on
-port 8000 by default, and the dashboard at devtools.nestjs.com reads the graph
-from it. Nest's own documentation says not to enable the module in production.
+Neither approach contains the other, so this page covers what each one can see.
 
 nestjs-doctor takes one command:
 
@@ -29,6 +23,13 @@ npx nestjs-doctor@latest . --report
 That writes a single HTML file and opens it. Nothing boots, so a module that
 cannot start, because a provider is missing, still shows up in the graph with
 the problem named.
+
+## How each one gets the graph
+
+Nest Devtools takes a `DevtoolsModule` import plus a `snapshot` flag on
+`NestFactory.create`. The running app then exposes an extra HTTP server, on
+port 8000 by default, and the dashboard at devtools.nestjs.com reads the graph
+from it. Nest's own documentation says not to enable the module in production.
 
 | | Nest Devtools | nestjs-doctor |
 |---|---|---|
