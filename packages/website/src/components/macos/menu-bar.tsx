@@ -79,7 +79,7 @@ export const MenuBar = ({ section }: { section: string }) => {
 	}, []);
 
 	return (
-		<div className="flex h-6 shrink-0 items-center gap-4 whitespace-nowrap bg-black/40 px-4 text-[11px] text-white/80 backdrop-blur-xl">
+		<div className="relative z-30 flex h-6 shrink-0 items-center gap-4 whitespace-nowrap bg-black/40 px-4 text-[11px] text-white/80 backdrop-blur-xl">
 			<Link className="flex items-center" href="/">
 				<AppleGlyph />
 			</Link>
@@ -109,7 +109,10 @@ export const MenuBar = ({ section }: { section: string }) => {
 						aria-expanded={volumeOpen}
 						aria-label="Volume"
 						className="flex cursor-pointer items-center hover:text-white"
-						onClick={() => setVolumeOpen((open) => !open)}
+						onClick={() => {
+							play("toggle");
+							setVolumeOpen((open) => !open);
+						}}
 						type="button"
 					>
 						{sounds && volume > 0 ? (
@@ -131,7 +134,7 @@ export const MenuBar = ({ section }: { section: string }) => {
 							</button>
 							<input
 								aria-label="Volume level"
-								className="h-1 w-20 cursor-pointer accent-white"
+								className="h-4 w-24 cursor-pointer accent-white"
 								max={100}
 								min={0}
 								onChange={(event) =>
