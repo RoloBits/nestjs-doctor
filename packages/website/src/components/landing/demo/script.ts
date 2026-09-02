@@ -8,7 +8,7 @@ export const PROJECT_LINE = "Project: acme-api | NestJS 10.0.0 | 1 modules";
 export const DIRTY_SCORE = 35;
 export const CLEAN_SCORE = 100;
 
-export interface Finding {
+interface Finding {
 	count?: number;
 	message: string;
 	severity: "error" | "warning";
@@ -61,61 +61,62 @@ export const DIFF = {
 
 export const CHAR_MS = 30;
 export const PROMPT_CHAR_MS = 54;
-export const SCORE_COUNT_MS = 470;
+const SCORE_COUNT_MS = 470;
 export const FINDING_GAP_MS = 190;
 export const BANNER_LINE_MS = 60;
 export const SPINNER_TICK_MS = 200;
-export const SPINNER_TICKS = 13;
+const SPINNER_TICKS = 13;
 export const DIFF_LINE_MS = 260;
 export const DIFF_LINES = 4;
 
-const schedule = <K extends string>(
-	steps: readonly (readonly [K, number])[]
-): { at: Record<K, number>; total: number } => {
-	const at = {} as Record<K, number>;
+const schedule = <T extends Record<string, number>>(
+	steps: T
+): { at: Record<keyof T, number>; total: number } => {
+	const at = {} as Record<keyof T, number>;
 	let total = 0;
-	for (const [name, duration] of steps) {
-		at[name] = total;
+	for (const [name, duration] of Object.entries(steps)) {
+		at[name as keyof T] = total;
 		total += duration;
 	}
 	return { at, total };
 };
 
 /** Each act's start time, in the order the recording plays them. */
-const TIMELINE = schedule([
-	["idle", 400],
-	["type1", COMMAND.length * CHAR_MS],
-	["run1", 240],
-	["scan1", SCORE_COUNT_MS + 240],
-	["project1", 120],
-	["findings", FINDINGS.length * FINDING_GAP_MS + 600],
-	["pause1", 500],
-	["type2", AGENT_COMMAND.length * CHAR_MS],
-	["banner", MASCOT.length * BANNER_LINE_MS + 620],
-	["box", 420],
-	["promptTyping", PROMPT_TEXT.length * PROMPT_CHAR_MS + 520],
-	["sent", 420],
-	["spinner", SPINNER_TICKS * SPINNER_TICK_MS],
-	["diff", DIFF_LINES * DIFF_LINE_MS + 500],
-	["done", 900],
-	["pause2", 700],
-	["type3", COMMAND.length * CHAR_MS],
-	["run3", 240],
-	["scan2", SCORE_COUNT_MS + 240],
-	["project2", 600],
-	["hold", 1800],
-] as const);
+const TIMELINE = schedule({
+	idle: 400,
+	type1: COMMAND.length * CHAR_MS,
+	run1: 240,
+	scan1: SCORE_COUNT_MS + 240,
+	project1: 120,
+	findings: FINDINGS.length * FINDING_GAP_MS + 600,
+	pause1: 500,
+	type2: AGENT_COMMAND.length * CHAR_MS,
+	banner: MASCOT.length * BANNER_LINE_MS + 620,
+	box: 420,
+	promptTyping: PROMPT_TEXT.length * PROMPT_CHAR_MS + 520,
+	sent: 420,
+	spinner: SPINNER_TICKS * SPINNER_TICK_MS,
+	diff: DIFF_LINES * DIFF_LINE_MS + 500,
+	done: 900,
+	pause2: 700,
+	type3: COMMAND.length * CHAR_MS,
+	run3: 240,
+	scan2: SCORE_COUNT_MS + 240,
+	project2: 600,
+	hold: 1800,
+});
 
 export const AT = TIMELINE.at;
 export const TOTAL_MS = TIMELINE.total;
 /** The frame reduced motion freezes on: every act finished, nothing cleared. */
 export const END_MS = AT.hold;
 
-export const typed = (t: number, start: number, text: string): string =>
-	text.slice(0, Math.max(0, Math.floor((t - start) / CHAR_MS)));
-
-export const promptTyped = (t: number, start: number): string =>
-	PROMPT_TEXT.slice(0, Math.max(0, Math.floor((t - start) / PROMPT_CHAR_MS)));
+export const typed = (
+	t: number,
+	start: number,
+	text: string,
+	charMs = CHAR_MS
+): string => text.slice(0, Math.max(0, Math.floor((t - start) / charMs)));
 
 export const countUp = (t: number, start: number, target: number): number =>
 	Math.round(

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { ScoreBar } from "@/components/score-bar";
 import {
 	getNestBirds,
@@ -29,7 +29,6 @@ import {
 	PROJECT_LINE,
 	PROMPT_CHAR_MS,
 	PROMPT_TEXT,
-	promptTyped,
 	revealed,
 	SPINNER,
 	SPINNER_TICK_MS,
@@ -65,7 +64,7 @@ const PromptLine = ({
 		<div className="whitespace-pre-wrap">
 			<Dim>$ </Dim>
 			{text}
-			{cursor ? <span style={{ color: palette.text }}>█</span> : null}
+			{cursor ? "█" : null}
 		</div>
 	);
 };
@@ -110,38 +109,39 @@ const ScoreCard = ({ clean, score }: { clean: boolean; score: number }) => {
 
 const Findings = ({ count }: { count: number }) => (
 	<div className="mt-2 flex flex-col">
-		{FINDINGS.slice(0, count).map((finding) => (
-			<div className="flex gap-2 pl-2" key={finding.message}>
-				<span
-					style={{
-						color:
-							finding.severity === "error" ? palette.error : palette.warning,
-					}}
-				>
-					{finding.severity === "error" ? "✗" : "⚠"}
-				</span>
-				<span>
-					{finding.message}
-					{finding.count ? <Dim>{` (${finding.count})`}</Dim> : null}
-				</span>
-			</div>
-		))}
+		{FINDINGS.slice(0, count).map((finding) => {
+			const isError = finding.severity === "error";
+			return (
+				<div className="flex gap-2 pl-2" key={finding.message}>
+					<span style={{ color: isError ? palette.error : palette.warning }}>
+						{isError ? "✗" : "⚠"}
+					</span>
+					<span>
+						{finding.message}
+						{finding.count ? <Dim>{` (${finding.count})`}</Dim> : null}
+					</span>
+				</div>
+			);
+		})}
 	</div>
 );
 
 const BANNER = [
-	null,
-	<span key="name">
+	<div key="top"> </div>,
+	<div key="name">
 		<span className="font-bold" style={{ color: palette.bright }}>
 			Claude Code
 		</span>
 		<Dim> v2.1.238</Dim>
-	</span>,
-	<Dim key="model">Opus 5 (1M context)</Dim>,
-	<Dim key="cwd">~/projects/acme-api</Dim>,
-	null,
+	</div>,
+	<div key="model">
+		<Dim>Opus 5 (1M context)</Dim>
+	</div>,
+	<div key="cwd">
+		<Dim>~/projects/acme-api</Dim>
+	</div>,
+	<div key="bottom"> </div>,
 ];
-const BANNER_KEYS = ["top", "name", "model", "cwd", "bottom"];
 
 const Banner = ({ rows }: { rows: number }) => (
 	<div className="my-2 flex gap-3 pl-2 leading-tight">
@@ -149,9 +149,7 @@ const Banner = ({ rows }: { rows: number }) => (
 			{MASCOT.slice(0, rows).join("\n")}
 		</pre>
 		<div className="flex flex-col whitespace-pre-wrap">
-			{BANNER.slice(0, rows).map((note, index) => (
-				<div key={BANNER_KEYS[index]}>{note ?? " "}</div>
-			))}
+			{BANNER.slice(0, rows)}
 		</div>
 	</div>
 );
@@ -166,7 +164,7 @@ const AgentSession = ({ t }: { t: number }) => {
 				<div className="flex gap-2 whitespace-pre-wrap rounded border border-white/25 px-2 py-1">
 					<Dim>&gt;</Dim>
 					<span>
-						{promptTyped(t, AT.promptTyping)}
+						{typed(t, AT.promptTyping, PROMPT_TEXT, PROMPT_CHAR_MS)}
 						{t < typingEnd ? "█" : null}
 					</span>
 				</div>
@@ -174,7 +172,7 @@ const AgentSession = ({ t }: { t: number }) => {
 			{t >= AT.sent ? (
 				<div className="whitespace-pre-wrap pl-2">
 					<Dim>&gt; </Dim>
-					{promptTyped(END_MS, AT.promptTyping)}
+					{PROMPT_TEXT}
 				</div>
 			) : null}
 			{t >= AT.spinner && t < AT.diff ? (
@@ -263,22 +261,33 @@ const Frame = ({ t }: { t: number }) => (
 	</>
 );
 
-/** The landing recording, replayed as live text: scan, fix, rescan, loop. */
+/** The landing demo as live text: scan, fix, rescan, loop. The root is the
+ * scroll container and follows new lines unless the reader scrolled up. */
 export const DemoTerminal = () => {
 	const { elapsed, ref } = useDemoClock(TOTAL_MS, END_MS);
 
+	const lastHeight = useRef(0);
+
 	useEffect(() => {
-		const body = ref.current?.parentElement;
+		const body = ref.current;
 		if (!body) {
 			return;
 		}
-		body.scrollTop = elapsed < AT.type1 + CHAR_MS ? 0 : body.scrollHeight;
+		const grew = body.scrollHeight !== lastHeight.current;
+		const wasAtBottom =
+			body.scrollTop + body.clientHeight >= lastHeight.current - 2;
+		if (elapsed < AT.type1 + CHAR_MS) {
+			body.scrollTop = 0;
+		} else if (grew && wasAtBottom) {
+			body.scrollTop = body.scrollHeight;
+		}
+		lastHeight.current = body.scrollHeight;
 	}, [elapsed, ref]);
 
 	return (
 		<div
 			aria-label={LABEL}
-			className="wrap-anywhere flex min-h-full flex-col px-3 py-3 text-[12px] leading-[1.5] sm:px-4 sm:text-[13px]"
+			className="wrap-anywhere flex h-full flex-col overflow-auto px-3 py-3 text-[12px] leading-[1.5] sm:px-4 sm:text-[13px]"
 			ref={ref}
 			role="img"
 			style={{ color: palette.text }}

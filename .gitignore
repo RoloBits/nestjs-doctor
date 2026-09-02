@@ -15,3 +15,4 @@ out/
 /.claude/
 /docs/
 packages/nestjs-doctor/src/report/ui/app/bundle.iife.js
+packages/website/demo/*.mp4

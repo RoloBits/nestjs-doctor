@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from "react";
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
 /** A looping millisecond clock that only runs while the element is on a
- * visible tab and on screen. Reduced motion pins it to `endMs`. */
+ * visible tab, on screen, and not hidden by its window. It restarts after
+ * the window was put away. Reduced motion pins it to `endMs`. */
 export const useDemoClock = (totalMs: number, endMs: number) => {
 	const ref = useRef<HTMLDivElement>(null);
 	const [elapsed, setElapsed] = useState(0);
@@ -22,12 +23,19 @@ export const useDemoClock = (totalMs: number, endMs: number) => {
 		let onScreen = true;
 
 		const tick = (now: number) => {
+			frame = requestAnimationFrame(tick);
+			const shown =
+				ref.current?.checkVisibility?.({ visibilityProperty: true }) ?? true;
+			if (!shown) {
+				accumulated = 0;
+				last = null;
+				return;
+			}
 			if (last !== null) {
 				accumulated = (accumulated + now - last) % totalMs;
 			}
 			last = now;
 			setElapsed(accumulated);
-			frame = requestAnimationFrame(tick);
 		};
 		const start = () => {
 			if (frame === null) {
@@ -42,30 +50,27 @@ export const useDemoClock = (totalMs: number, endMs: number) => {
 			}
 		};
 
-		const observer = new IntersectionObserver(([entry]) => {
-			onScreen = entry.isIntersecting;
+		const sync = () => {
 			if (onScreen && !document.hidden) {
 				start();
 			} else {
 				stop();
 			}
+		};
+
+		const observer = new IntersectionObserver(([entry]) => {
+			onScreen = entry.isIntersecting;
+			sync();
 		});
 		if (ref.current) {
 			observer.observe(ref.current);
 		}
-		const onVisibility = () => {
-			if (document.hidden) {
-				stop();
-			} else if (onScreen) {
-				start();
-			}
-		};
-		document.addEventListener("visibilitychange", onVisibility);
+		document.addEventListener("visibilitychange", sync);
 
 		return () => {
 			stop();
 			observer.disconnect();
-			document.removeEventListener("visibilitychange", onVisibility);
+			document.removeEventListener("visibilitychange", sync);
 		};
 	}, [totalMs, endMs]);
 

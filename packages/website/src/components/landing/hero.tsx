@@ -35,11 +35,11 @@ export const Hero = () => (
 
 		<Figure
 			caption="Fig. 01 — Examination recording"
-			className="min-h-0 min-w-0"
+			className="min-h-0 min-w-0 lg:self-center"
 			meta={`$ ${COMMAND}`}
 		>
 			<Desktop
-				className="h-[560px] lg:h-auto lg:min-h-[440px] lg:flex-1"
+				className="h-[560px] lg:h-[640px]"
 				reopenLabel="Replay demo"
 				section="Demo"
 				stretch

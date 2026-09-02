@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
-# Re-encode the tcut recording for the web. The raw output is 1832x1600 @60fps
-# H.264 High, which Chrome stalls on; this drops it to 30fps Main with the moov
-# atom up front so it streams.
+# Re-encode the tcut recording. The raw output is 1832x1600 @60fps H.264 High;
+# this drops it to 30fps Main with the moov atom up front.
 set -euo pipefail
 
 src="${1:-nestjs-doctor-demo.mp4}"
-dst="${2:-../public/demo.mp4}"
+dst="${2:-demo.mp4}"
 
 ffmpeg -y -i "$src" \
   -vf "scale=1232:-2:flags=lanczos,fps=30" \
