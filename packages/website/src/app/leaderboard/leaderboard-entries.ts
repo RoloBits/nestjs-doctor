@@ -28,37 +28,9 @@ interface LeaderboardEntry {
 export const SCANNED_WITH = "0.9.5";
 export const SCANNED_AT = "2026-09-02";
 
-const SHORT_COMMIT_LENGTH = 7;
-
-/** Builds the certificate URL from the scan facts and the scan stamp. */
-const buildShareUrl = (entry: LeaderboardEntry): string => {
-	const searchParams = new URLSearchParams({
-		p: entry.packageName,
-		s: String(entry.score),
-		e: String(entry.errorCount),
-		w: String(entry.warningCount),
-		f: String(entry.fileCount),
-		d: entry.scannedAt,
-		v: SCANNED_WITH,
-		r: entry.name,
-	});
-	if (entry.infoCount !== undefined) {
-		searchParams.set("i", String(entry.infoCount));
-	}
-	if (entry.moduleCount !== undefined) {
-		searchParams.set("m", String(entry.moduleCount));
-	}
-	if (entry.nestVersion) {
-		searchParams.set("n", entry.nestVersion);
-	}
-	if (entry.orm) {
-		searchParams.set("o", entry.orm);
-	}
-	if (entry.commit) {
-		searchParams.set("c", entry.commit.slice(0, SHORT_COMMIT_LENGTH));
-	}
-	return `/share?${searchParams.toString()}`;
-};
+/** The certificate page each entry links to and shares. */
+const buildShareUrl = (entry: LeaderboardEntry): string =>
+	`/share/${entry.name}`;
 
 const RAW_ENTRIES: LeaderboardEntry[] = [
 	{

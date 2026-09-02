@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { Desktop } from "@/components/macos/desktop";
-import { CertificateScreen } from "./certificate-screen";
+import { QueryCertificateScreen } from "./certificate-screen";
 
 const WINDOW_TITLE = "nestjs-doctor — certificate";
 
@@ -16,7 +16,7 @@ const SharePage = () => (
 			title={WINDOW_TITLE}
 		>
 			<Suspense>
-				<CertificateScreen />
+				<QueryCertificateScreen />
 			</Suspense>
 		</Desktop>
 	</div>

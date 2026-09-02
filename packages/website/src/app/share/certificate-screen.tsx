@@ -1,6 +1,7 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { track } from "@/lib/analytics";
 import {
@@ -18,9 +19,14 @@ import {
 	scoreColor,
 } from "@/lib/tui-theme";
 import AnimatedScore from "./animated-score";
+import {
+	type CertificateValues,
+	certificateFromQuery,
+	certificateTitle,
+} from "./certificate";
 
 const COMMAND = "npx -y nestjs-doctor@latest .";
-const SHARE_BASE_URL = `${SITE_URL}/share`;
+const LEADERBOARD_PATH = "/leaderboard";
 const COPIED_RESET_MS = 1600;
 const SEAL_SIZE = 96;
 const SEAL_LEGEND = "NESTJS-DOCTOR · DETERMINISTIC · SAME OUTPUT EVERY RUN";
@@ -130,70 +136,38 @@ interface MenuItem {
 	hint: string;
 	href?: string;
 	icon?: string;
+	internal?: boolean;
 	label: string;
 }
 
-export const CertificateScreen = () => {
-	const searchParams = useSearchParams();
+export const CertificateScreen = ({
+	certificate,
+}: {
+	certificate: CertificateValues;
+}) => {
+	const router = useRouter();
 	const [menuIndex, setMenuIndex] = useState(0);
 	const [toast, setToast] = useState<string | null>(null);
 	const menuRefs = useRef<(HTMLElement | null)[]>([]);
 	const frameRef = useRef<HTMLDivElement>(null);
 
-	const raw = (key: string): string | null =>
-		searchParams.get(key)?.trim() || null;
-	const count = (key: string): number | null => {
-		const value = raw(key);
-		if (value === null) {
-			return null;
-		}
-		const parsed = Number(value);
-		return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : null;
-	};
-
-	const parsedScore = count("s");
-	const score =
-		parsedScore === null ? null : Math.min(PERFECT_SCORE, parsedScore);
-	const errorCount = count("e");
-	const warningCount = count("w");
-	const infoCount = count("i");
-	const fileCount = count("f");
-	const moduleCount = count("m");
-	const packageName = raw("p");
-	const repoName = raw("r");
-	const nestVersion = raw("n");
-	const orm = raw("o");
-	const commit = raw("c");
-	const scanDate = raw("d");
-	const toolVersion = raw("v");
-	const displayName = repoName ?? packageName ?? "Your NestJS codebase";
-
-	/** Every parameter the certificate re-shares, in order, parsed values only. */
-	const shareValues: [string, number | string | null][] = [
-		["p", packageName],
-		["s", score],
-		["e", errorCount],
-		["w", warningCount],
-		["f", fileCount],
-		["i", infoCount],
-		["m", moduleCount],
-		["n", nestVersion],
-		["o", orm],
-		["c", commit],
-		["d", scanDate],
-		["v", toolVersion],
-		["r", repoName],
-	];
-	const shareSearchParams = new URLSearchParams();
-	for (const [key, value] of shareValues) {
-		if (value !== null) {
-			shareSearchParams.set(key, String(value));
-		}
-	}
-	const shareQuery = shareSearchParams.toString();
-	const shareUrl = shareQuery
-		? `${SHARE_BASE_URL}?${shareQuery}`
-		: SHARE_BASE_URL;
+	const {
+		score,
+		errorCount,
+		warningCount,
+		infoCount,
+		fileCount,
+		moduleCount,
+		packageName,
+		repoName,
+		nestVersion,
+		orm,
+		commit,
+		scanDate,
+		toolVersion,
+	} = certificate;
+	const displayName = certificateTitle(certificate);
+	const shareUrl = `${SITE_URL}${certificate.sharePath}`;
 
 	const tweetText =
 		score === null
@@ -275,6 +249,12 @@ export const CertificateScreen = () => {
 		},
 		{ label: "Copy link", hint: shareUrl, copy: shareUrl },
 		{ label: "Run it on your codebase", hint: COMMAND, copy: COMMAND },
+		{
+			label: "Back to the leaderboard",
+			hint: "Every project we measured",
+			href: LEADERBOARD_PATH,
+			internal: true,
+		},
 	];
 	const labelWidth = Math.max(...items.map((item) => item.label.length));
 	const menuCount = items.length;
@@ -305,6 +285,15 @@ export const CertificateScreen = () => {
 				menuRefs.current[next]?.focus();
 				return;
 			}
+			if (
+				event.key === "Escape" ||
+				event.key === "ArrowLeft" ||
+				event.key === "h"
+			) {
+				event.preventDefault();
+				router.push(LEADERBOARD_PATH);
+				return;
+			}
 			if (event.key === "Enter") {
 				const onMenuRow = menuRefs.current.some((node) => node === active);
 				if (!onMenuRow && isInteractiveTarget(active)) {
@@ -320,7 +309,7 @@ export const CertificateScreen = () => {
 
 		window.addEventListener("keydown", onKeyDown);
 		return () => window.removeEventListener("keydown", onKeyDown);
-	}, [menuIndex, menuCount]);
+	}, [menuIndex, menuCount, router]);
 
 	return (
 		<div className={FRAME_CLASS} ref={frameRef} style={{ color: palette.text }}>
@@ -439,6 +428,24 @@ export const CertificateScreen = () => {
 						</>
 					);
 
+					if (item.internal && item.href) {
+						return (
+							<Link
+								className={MENU_ROW_CLASS}
+								href={item.href}
+								key={item.label}
+								onFocus={() => setMenuIndex(index)}
+								onMouseEnter={() => setMenuIndex(index)}
+								ref={(node) => {
+									menuRefs.current[index] = node;
+								}}
+								style={rowStyle}
+							>
+								{body}
+							</Link>
+						);
+					}
+
 					if (item.href) {
 						return (
 							<a
@@ -482,8 +489,20 @@ export const CertificateScreen = () => {
 				{toast ? (
 					<div style={{ color: palette.success }}>{`✓ ${toast}`}</div>
 				) : null}
-				<div style={{ color: palette.dim }}>↑↓ move · enter open</div>
+				<div style={{ color: palette.dim }}>
+					↑↓ move · enter open · esc back
+				</div>
 			</div>
 		</div>
+	);
+};
+
+/** The certificate described by the query string. Needs a Suspense boundary. */
+export const QueryCertificateScreen = () => {
+	const searchParams = useSearchParams();
+	return (
+		<CertificateScreen
+			certificate={certificateFromQuery((key) => searchParams.get(key))}
+		/>
 	);
 };
