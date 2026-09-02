@@ -115,7 +115,7 @@ Outside CI the event carries two ids. `telemetry.json` holds an install id and a
 - **`distinct_id`:** a random UUID, stable for this install.
 - **`project_id`:** a SHA-256 over a second random UUID and the resolved project path.
 
-The salt never leaves the machine, so neither hash can be rebuilt from anything shipped in the package. If the config directory cannot be written, the scan reports a fresh id and stores nothing. A local `hints.json` next to it records which one-time notices have already printed; it is never sent.
+The salt never leaves the machine, so neither hash can be rebuilt from anything shipped in the package. If the config directory cannot be written, the scan reports a fresh id and stores nothing. A local `hints.json` next to it records whether the one-time editor line has printed; it is never sent.
 
 The store lives where the platform expects a CLI to keep its own config:
 
@@ -239,19 +239,7 @@ The payload goes to stderr and no child process is spawned, so nothing is sent. 
 
 The printed body and the sent body are built from the same values, so what is printed is what would have been sent. It prints only when the scan would otherwise have reported. With `--no-telemetry`, `"telemetry": false`, `DO_NOT_TRACK` set, or a build with no compiled key, there is no payload to print.
 
-A debug run sends nothing and stores no id, so it never counts as the first send and never prints the notice below. The variable covers the scan event only. A generated report's own beacon is not affected by it.
-
-## The first-run notice
-
-The first scan that reports on a machine prints one line to stderr, then never again:
-
-```text
-nestjs-doctor reported this scan anonymously: which built-in rules fired, the score, well-known dependencies, and the shape of your config — never your code, paths, or project name. Turn it off with --no-telemetry, "telemetry": false in your config, or DO_NOT_TRACK=1. https://nestjs.doctor/docs/telemetry
-```
-
-It prints once the scan has finished, and once the interactive menu has closed when one opened. A `--report` run prints it after the path to the written report.
-
-Machine-readable runs never print it, and neither does CI, which stores no id to remember the run by. A machine whose config directory cannot be written stores nothing either, so it stays quiet rather than repeating the notice on every scan.
+A debug run sends nothing and stores no id. The variable covers the scan event only. A generated report's own beacon is not affected by it.
 
 ## The language server
 
