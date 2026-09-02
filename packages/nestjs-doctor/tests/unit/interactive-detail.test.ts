@@ -38,6 +38,49 @@ describe("groupFindings", () => {
 		]);
 		expect(groups[1].diagnostics).toHaveLength(2);
 	});
+
+	it("keeps severity order inside the scored groups", () => {
+		const groups = groupFindings([
+			code({ rule: "security/b", severity: "warning" }),
+			code({ rule: "correctness/a", severity: "error" }),
+		]);
+		expect(groups.map((group) => group.rule)).toEqual([
+			"correctness/a",
+			"security/b",
+		]);
+	});
+
+	it("lists a not-scored warning group after a scored info group", () => {
+		const groups = groupFindings([
+			code({
+				rule: "correctness/prefer-readonly-injection",
+				severity: "warning",
+				surfaces: ["cli"],
+			}),
+			code({ rule: "performance/no-unused-providers", severity: "info" }),
+		]);
+		expect(groups[0].rule).toBe("performance/no-unused-providers");
+		expect(groups[1].rule).toBe("correctness/prefer-readonly-injection");
+	});
+
+	it("marks the group as not scored", () => {
+		const groups = groupFindings([
+			code({
+				rule: "correctness/prefer-readonly-injection",
+				surfaces: ["cli"],
+			}),
+			code({ rule: "performance/no-unused-providers" }),
+		]);
+		expect(
+			groups.find(
+				(group) => group.rule === "correctness/prefer-readonly-injection"
+			)?.scored
+		).toBe(false);
+		expect(
+			groups.find((group) => group.rule === "performance/no-unused-providers")
+				?.scored
+		).toBe(true);
+	});
 });
 
 describe("buildFixPrompt", () => {
@@ -46,6 +89,7 @@ describe("buildFixPrompt", () => {
 			{
 				diagnostics: [code({}), code({ line: 40, column: 1 })],
 				rule: "security/require-auth-guards",
+				scored: true,
 				severity: "warning",
 			},
 			"/app"
@@ -62,7 +106,7 @@ describe("buildFixPrompt", () => {
 			code({ line: index + 1 })
 		);
 		const prompt = buildFixPrompt(
-			{ diagnostics: many, rule: "r/x", severity: "info" },
+			{ diagnostics: many, rule: "r/x", scored: true, severity: "info" },
 			"/app"
 		);
 		expect(prompt.match(/^- \//gm)).toHaveLength(10);

@@ -19,6 +19,8 @@ import type { Toast } from "./types.js";
 
 const MIN_VISIBLE_ROWS = 8;
 const CHROME_ROWS = 7;
+const NOT_SCORED_TAG = " · not scored";
+const MIN_RULE_NAME_WIDTH = 8;
 
 interface ReviewScreenProps {
 	deferPrint: (text: string) => void;
@@ -186,9 +188,11 @@ export const ReviewScreen = ({
 							current !== undefined && row.groupIndex === current.groupIndex;
 						const count = entry.diagnostics.length;
 						const suffix = count > 1 ? ` (${count})` : "";
+						// The tag keeps its full width; the rule name gives way to it.
+						const tag = entry.scored ? "" : NOT_SCORED_TAG;
 						const name = truncate(
 							`${shortRule(entry.rule)}${suffix}`,
-							leftContent - 3
+							Math.max(MIN_RULE_NAME_WIDTH, leftContent - 3 - tag.length)
 						);
 						return (
 							<Box flexDirection="row" key={entry.rule}>
@@ -212,6 +216,7 @@ export const ReviewScreen = ({
 										>
 											{name}
 										</Text>
+										{tag ? <Text color={palette.dim}>{tag}</Text> : null}
 									</Text>
 								</Box>
 							</Box>
