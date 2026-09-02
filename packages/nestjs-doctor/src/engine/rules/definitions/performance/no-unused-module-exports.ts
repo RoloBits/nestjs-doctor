@@ -74,6 +74,21 @@ export const noUnusedModuleExports: ProjectRule = {
 			}
 		}
 
+		// Custom-provider implementation names per file, each file walked once.
+		const implementationNamesByFile = new Map<string, Set<string>>();
+		const implementationNamesIn = (filePath: string): Set<string> => {
+			const cached = implementationNamesByFile.get(filePath);
+			if (cached) {
+				return cached;
+			}
+			const { implementationNames } = collectCustomProviderClasses(
+				context.project,
+				[filePath]
+			);
+			implementationNamesByFile.set(filePath, implementationNames);
+			return implementationNames;
+		};
+
 		for (const mod of context.moduleGraph.modules.values()) {
 			if (mod.exports.length === 0) {
 				continue;
@@ -97,15 +112,13 @@ export const noUnusedModuleExports: ProjectRule = {
 				}
 
 				// An object-literal provider (`{ provide, useClass }`) keeps its source
-				// text, not a class name, so it needs its own resolution pass here.
-				const { implementationNames } = collectCustomProviderClasses(
-					context.project,
-					[consumer.filePath]
-				);
-				for (const implName of implementationNames) {
-					const implClass = classesByName.get(implName);
-					if (implClass) {
-						collectInjectedNames(implClass, usedProviders);
+				// text, not a class name.
+				for (const filePath of consumer.filePaths ?? [consumer.filePath]) {
+					for (const implName of implementationNamesIn(filePath)) {
+						const implClass = classesByName.get(implName);
+						if (implClass) {
+							collectInjectedNames(implClass, usedProviders);
+						}
 					}
 				}
 
