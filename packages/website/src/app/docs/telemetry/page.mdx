@@ -26,7 +26,7 @@ The payload is built from rule metadata, counts, and a fixed set of environment 
 | `trigger` | How the run started: `action`, `ci`, `hook`, `agent`, `script`, `npx`, `global` or `skill` |
 | `platform` | The Node platform string, such as `darwin` |
 | `node_major` | The Node major version, such as `24` |
-| `duration_ms` | How long the rules took, rounded |
+| `duration_ms` | The rule loop on a single project, the whole scan on a monorepo, rounded |
 | `total_ms` | How long the whole run took, rounded |
 | `score` | The 0-100 health score |
 | `scope_requested` | The `--scope` mode asked for: `full`, `files`, `lines` or `changed` |
@@ -37,6 +37,8 @@ The payload is built from rule metadata, counts, and a fixed set of environment 
 | `rules_with_findings` | How many rule ids that map holds |
 | `suppressed_inline` | Built-in rule id, then how many findings an inline `nestjs-doctor-ignore` comment silenced |
 | `rule_errors` | Built-in rule ids that threw during the scan |
+
+`NESTJS_DOCTOR_TRIGGER` overrides the detected `trigger` when set to one of the eight values above. Any other value is ignored.
 
 ### The project
 
@@ -157,7 +159,7 @@ The payload goes to stderr and no child process is spawned, so nothing is sent. 
 ```json
 {
   "event": "scan_completed",
-  "distinct_id": "bbb09802-ad94-42ae-b905-d2b3feb494d1",
+  "distinct_id": "dbe9bfe0-03cc-4c2f-ab85-556e5de3b4ee",
   "properties": {
     "action_commit_status": null,
     "action_comment": null,
@@ -211,14 +213,14 @@ The payload goes to stderr and no child process is spawned, so nothing is sent. 
     "orm": "mikro-orm",
     "output_format": "console",
     "platform": "darwin",
-    "project_id": "77c91d24cce8773bc10a360f5f5fbbb56abc4e59f3b262563e5cb2922f01e65b",
+    "project_id": "d5fa60fb2d7e77fdd7f5f3abce651a30dcdd2f60d597f56600eadd9aede7e030",
     "report_requested": false,
     "rule_errors": [],
     "rule_overrides": [],
     "rules_turned_off": [],
     "rules_disabled": [],
     "rules_with_findings": 4,
-    "scan_id": "556a8c4a-0ea3-4473-8428-68526f809183",
+    "scan_id": "8ac09fb6-1a4a-4b81-a043-1923290fe509",
     "scope_requested": "full",
     "score": 52,
     "suppressed_inline": {
@@ -227,8 +229,8 @@ The payload goes to stderr and no child process is spawned, so nothing is sent. 
       "schema/require-primary-key": 1,
       "schema/require-timestamps": 1
     },
-    "total_ms": 161,
-    "trigger": "agent",
+    "total_ms": 152,
+    "trigger": "global",
     "version": "0.9.5",
     "via_action": false
   }
