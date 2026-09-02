@@ -169,6 +169,7 @@ abstract class ScanPipeline {
 			fileCount,
 			monorepo,
 			optionsTelemetry: this.options.telemetry,
+			outputFormat: this.options.format,
 			result,
 			scanConfig: this.scanConfig,
 			scanId: this.options.scanId,

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { type PipelineOptions, toScanOptions } from "../../src/cli/setup.js";
 import type { BootstrapTimings } from "../../src/common/timings.js";
@@ -50,12 +51,17 @@ describe("toScanOptions", () => {
 			blocking: "error",
 			changedFilesFrom: "origin/main",
 			configPath: "nestjs-doctor.config.ts",
+			format: "report-json",
 			minScore: "80",
 			scanId: "8f1c4a2e-0b3d-4f56-9a71-2c5d8e0f3b64",
 			scope: "changed",
 			staged: true,
 			telemetry: false,
 		});
+	});
+
+	it("carries the output format through toScanOptions", () => {
+		expect(toScanOptions(options({ format: "sarif" })).format).toBe("sarif");
 	});
 
 	it("carries the scan id through toScanOptions", () => {
@@ -75,7 +81,6 @@ describe("toScanOptions", () => {
 
 	it("drops presentation fields", () => {
 		for (const key of [
-			"format",
 			"interactive",
 			"isMachineReadable",
 			"jsonCompact",
@@ -89,5 +94,22 @@ describe("toScanOptions", () => {
 		]) {
 			expect(scan).not.toHaveProperty(key);
 		}
+	});
+});
+
+describe("scan worker options", () => {
+	const source = readFileSync(
+		new URL("../../src/cli/scan-worker.ts", import.meta.url),
+		"utf8"
+	);
+
+	it("takes the output format from the request, not a constant", () => {
+		expect(source).toContain("...request.options,");
+		expect(source).not.toContain("format:");
+	});
+
+	it("still prints nothing and reports machine-readable", () => {
+		expect(source).toContain("isMachineReadable: true,");
+		expect(source).toContain("skipOutput: true,");
 	});
 });

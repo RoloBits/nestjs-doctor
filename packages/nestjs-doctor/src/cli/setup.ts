@@ -24,6 +24,7 @@ export interface ScanOptions {
 	blocking: BlockingLevel;
 	changedFilesFrom: string | undefined;
 	configPath: string | undefined;
+	format: OutputFormat;
 	minScore: string | undefined;
 	/** One id per invocation, shared by the payload and the report beacon. */
 	scanId: string;
@@ -33,7 +34,6 @@ export interface ScanOptions {
 }
 
 export interface PipelineOptions extends ScanOptions {
-	format: OutputFormat;
 	/** True when the run ends in the menu; set after setup from `canPrompt`. */
 	interactive: boolean;
 	isMachineReadable: boolean;
@@ -61,6 +61,7 @@ export const toScanOptions = (options: PipelineOptions): ScanOptions => ({
 	blocking: options.blocking,
 	changedFilesFrom: options.changedFilesFrom,
 	configPath: options.configPath,
+	format: options.format,
 	minScore: options.minScore,
 	scanId: options.scanId,
 	scope: options.scope,

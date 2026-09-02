@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { OUTPUT_FORMATS } from "../../src/cli/formatters/render.js";
 import type { CodeDiagnostic } from "../../src/common/diagnostic.js";
 import type { Score } from "../../src/common/result.js";
 import { runGit } from "../../src/engine/git.js";
@@ -11,6 +12,7 @@ import {
 } from "../../src/telemetry/environment.js";
 import {
 	buildScanPayload,
+	type PayloadOutputFormat,
 	type ScanFacts,
 	type ScanPayload,
 } from "../../src/telemetry/scan-telemetry.js";
@@ -73,6 +75,7 @@ const facts = (overrides: Partial<ScanFacts> = {}): ScanFacts => ({
 	monorepo: false,
 	nestVersion: "11.0.0",
 	orm: "prisma",
+	outputFormat: "console",
 	ruleErrors: [],
 	scanId: "8f1c4a2e-0b3d-4f56-9a71-2c5d8e0f3b64",
 	score: { value: 90, label: "Excellent" } as Score,
@@ -150,6 +153,30 @@ describe("scan telemetry payload", () => {
 		expect(serialized).not.toContain("Provider is never injected");
 		expect(serialized).not.toContain("Cannot read file");
 		expect(serialized).not.toContain("acme-billing");
+	});
+
+	it("reports which output the run asked for", () => {
+		const vocabulary: PayloadOutputFormat[] = [...OUTPUT_FORMATS, "report"];
+
+		expect(vocabulary).toHaveLength(8);
+		for (const format of vocabulary) {
+			expect(
+				buildScanPayload(facts({ outputFormat: format })).output_format
+			).toBe(format);
+		}
+	});
+
+	it("never calls a scan-pipeline run a report request", () => {
+		for (const format of OUTPUT_FORMATS) {
+			// report-json writes the artifact for another tool. It sends no
+			// beacon, so there is nothing to join it to.
+			expect(
+				buildScanPayload(facts({ outputFormat: format })).report_requested
+			).toBe(false);
+		}
+		expect(
+			buildScanPayload(facts({ outputFormat: "report" })).report_requested
+		).toBe(true);
 	});
 
 	it("reports the environment without identifying the machine", () => {

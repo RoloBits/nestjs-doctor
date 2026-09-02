@@ -1,4 +1,5 @@
 import type { BlockingLevel } from "../cli/blocking.js";
+import type { OutputFormat } from "../cli/formatters/render.js";
 import { DEFAULT_CONFIG, type NestjsDoctorConfig } from "../common/config.js";
 import type { Diagnostic } from "../common/diagnostic.js";
 import type { RuleErrorInfo, Score } from "../common/result.js";
@@ -6,6 +7,9 @@ import type { ScopeMode } from "../common/scope.js";
 import { allRules } from "../engine/rules/index.js";
 import type { EcosystemFacts } from "./ecosystem.js";
 import type { ActionFacts, Trigger, VersionPin } from "./environment.js";
+
+/** The payload's output vocabulary. `report` is what no `--format` spells. */
+export type PayloadOutputFormat = OutputFormat | "report";
 
 /** Every rule id the payload may name. */
 const BUILT_IN_RULE_IDS: ReadonlySet<string> = new Set(
@@ -39,6 +43,7 @@ export interface ScanFacts {
 	monorepo: boolean;
 	nestVersion: string | null;
 	orm: string | null;
+	outputFormat: PayloadOutputFormat;
 	projectId?: string;
 	ruleErrors: RuleErrorInfo[];
 	scanId: string;
@@ -83,8 +88,10 @@ export interface ScanPayload {
 	nestjs_packages: string[];
 	node_major: number;
 	orm: string | null;
+	output_format: PayloadOutputFormat;
 	platform: string;
 	project_id?: string;
+	report_requested: boolean;
 	rule_errors: string[];
 	rule_overrides: string[];
 	rules_disabled: string[];
@@ -200,6 +207,7 @@ export function buildScanPayload(
 		nest_version: facts.nestVersion,
 		nestjs_packages: facts.ecosystem.nestjsPackages,
 		orm: facts.orm,
+		output_format: facts.outputFormat,
 		node_major: Number.parseInt(
 			nodeVersion.replace(NODE_VERSION_PREFIX_RE, ""),
 			10
@@ -211,6 +219,7 @@ export function buildScanPayload(
 		rule_overrides: facts.config.ruleOverrides,
 		rules_turned_off: facts.config.rulesTurnedOff,
 		rules_disabled: builtInOnly(facts.disabledRuleIds),
+		report_requested: facts.outputFormat === "report",
 		rules_with_findings: Object.keys(findings).length,
 		scan_id: facts.scanId,
 		scope_requested: facts.scopeRequested,

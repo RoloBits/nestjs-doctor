@@ -35,6 +35,7 @@ const buildInput = (
 	isEnabled: () => true,
 	monorepo: false,
 	optionsTelemetry: true,
+	outputFormat: "console",
 	resolveIdentityFn: vi.fn(() => ({
 		anonymousId: "anon-123",
 		projectId: "proj-hash",
