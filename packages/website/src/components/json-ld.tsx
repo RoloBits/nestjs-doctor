@@ -18,7 +18,8 @@ const SOFTWARE_APPLICATION = {
 	"@context": "https://schema.org",
 	"@type": "SoftwareApplication",
 	name: "nestjs-doctor",
-	description: "Diagnose and fix your NestJS code in one command.",
+	description:
+		"The deterministic NestJS devtool that catches AI mistakes. Static analysis for NestJS with a health score, diagnostics and a CI gate.",
 	url: SITE_URL,
 	applicationCategory: "DeveloperApplication",
 	operatingSystem: "Cross-platform",

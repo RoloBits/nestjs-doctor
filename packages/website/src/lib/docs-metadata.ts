@@ -5,7 +5,7 @@ export const DOCS_PAGES: Record<string, PageCopy> = {
 	"/docs": {
 		title: "What is nestjs-doctor?",
 		description:
-			"Diagnostic CLI tool that scans NestJS codebases and produces a health score across security, correctness, architecture, performance, and schema.",
+			"The deterministic NestJS devtool that catches AI mistakes. Static analysis that scans a NestJS codebase and produces a health score across security, correctness, architecture, performance, and schema.",
 	},
 	"/docs/nest-devtools-alternative": {
 		title: "NestJS Doctor vs Nest Devtools",

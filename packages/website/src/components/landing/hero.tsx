@@ -54,9 +54,9 @@ export const Hero = () => (
 	<section className="grid min-h-0 flex-1 gap-12 border-white/15 border-b py-6 lg:grid-cols-[52fr_48fr]">
 		<div className="self-center">
 			<h1 className="mt-0 mb-4 text-balance font-extralight text-[#f2f1ef] text-[clamp(30px,3.4vw,46px)] leading-[1.08] tracking-[-0.02em]">
-				The deterministic,{" "}
+				The deterministic{" "}
 				<span className="font-normal text-nest-red">NestJS</span> devtool that{" "}
-				<span className="font-normal text-nest-red">catches AI mistakes</span>
+				<span className="font-normal text-nest-red">catches AI mistakes</span>.
 			</h1>
 			<div className="mb-5 max-w-[66ch] space-y-1 text-[13px] text-white/[0.92] leading-relaxed">
 				{POINTS.map((point) => (

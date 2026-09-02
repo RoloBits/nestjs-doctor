@@ -8,6 +8,8 @@ allowed-tools: Bash, Read, Edit, Glob, Grep, Write
 
 > v0.0.0
 
+The deterministic NestJS devtool that catches AI mistakes.
+
 52 rules over security, correctness, architecture, performance, and database
 schema, scored 0-100. No model at scan time and nothing about your code leaves
 the machine, so the same

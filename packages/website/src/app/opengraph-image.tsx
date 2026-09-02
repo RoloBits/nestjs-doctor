@@ -3,7 +3,8 @@ import { join } from "node:path";
 import { ImageResponse } from "next/og";
 
 export const dynamic = "force-static";
-export const alt = "NestJS Doctor - Diagnose and fix your NestJS code";
+export const alt =
+	"NestJS Doctor - The deterministic NestJS devtool that catches AI mistakes";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -98,7 +99,7 @@ export default async function Image() {
 					maxWidth: 900,
 				}}
 			>
-				{"Diagnose and fix your NestJS code in one command."}
+				{"The deterministic NestJS devtool that catches AI mistakes."}
 			</div>
 
 			<div
