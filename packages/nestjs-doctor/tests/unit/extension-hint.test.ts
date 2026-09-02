@@ -137,13 +137,6 @@ describe("the hints store", () => {
 		expect(readFileSync(join(home, "telemetry.json"), "utf-8")).toBe(identity);
 	});
 
-	it("survives an unwritable config directory", () => {
-		const env = { NESTJS_DOCTOR_CONFIG_DIR: "/dev/null/nestjs-doctor" };
-
-		expect(() => markHint("extension", env)).not.toThrow();
-		expect(readHints(env)).toEqual({});
-	});
-
 	it("returns false, so the hint stays quiet, when the config directory can't be written", () => {
 		const home = mkdtempSync(join(tmpdir(), "nd-hints-blocked-"));
 		homes.push(home);
