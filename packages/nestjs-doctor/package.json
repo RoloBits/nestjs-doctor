@@ -78,9 +78,9 @@
   "devDependencies": {
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "jsdom": "^26.1.0",
+    "jsdom": "^30.0.1",
     "react-dom": "19.2.8",
-    "tsdown": "^0.20.3",
+    "tsdown": "^0.22.14",
     "vitest": "^4.1.11"
   },
   "engines": {
