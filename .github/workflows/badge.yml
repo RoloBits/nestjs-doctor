@@ -1,6 +1,6 @@
 name: Score badge
 
-# Rescans nestjs/nest at a pinned ref and rewrites packages/website/public/badge.json,
+# Rescans immich-app/immich at a pinned ref and rewrites packages/website/public/badge.json,
 # which shields.io reads through its endpoint API.
 #
 # Three layers keep the push from re-triggering this workflow:
@@ -28,19 +28,19 @@ env:
 
 jobs:
   badge:
-    name: Scan nestjs/nest and write the badge
+    name: Scan immich-app/immich and write the badge
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v7
 
-      # Pinned: an unpinned ref moves the badge when nestjs/nest pushes.
+      # Pinned: an unpinned ref moves the badge when immich-app/immich pushes.
       # Scanned as it is cloned, with no dependencies installed.
       - uses: actions/checkout@v7
         with:
-          repository: nestjs/nest
-          ref: 39fbddae51281ca56bf2fed9123d98e61509066c
+          repository: immich-app/immich
+          ref: 2c53b76400e95c4e30571e87f85de83b0620ef01
           path: nest-scan-target
 
       - uses: pnpm/action-setup@v6.0.10
@@ -53,7 +53,7 @@ jobs:
 
       # Run from inside the clone: the score is resolved against the scanned
       # project's own working directory.
-      - name: Scan nestjs/nest
+      - name: Scan immich-app/immich
         working-directory: nest-scan-target
         run: node ../packages/nestjs-doctor/dist/cli/index.mjs . --no-telemetry --format json > ../scan.json
 
@@ -63,7 +63,7 @@ jobs:
           const { score, project } = require("./scan.json");
           if (!Number.isFinite(score?.value)) throw new Error("scan.json carries no numeric score");
           if (!(project?.fileCount >= 50)) throw new Error(`scan saw ${project?.fileCount} files; the pinned ref has hundreds`);
-          const badge = { schemaVersion: 1, label: "nestjs/nest", message: String(score.value), color: "18181b" };
+          const badge = { schemaVersion: 1, label: "immich-app/immich", message: String(score.value), color: "18181b" };
           require("node:fs").writeFileSync("packages/website/public/badge.json", `${JSON.stringify(badge, null, 2)}\n`);
           '
 
@@ -82,6 +82,6 @@ jobs:
           git diff --quiet -- packages/website/public/badge.json && exit 0
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "ci: score badge for nestjs/nest" -- packages/website/public/badge.json
+          git commit -m "ci: score badge for immich-app/immich" -- packages/website/public/badge.json
           git pull --rebase --autostash origin main
           git push
