@@ -31,6 +31,7 @@ export type ScanOutcome =
 			reportProviders: ReportProvider[];
 			bootstrapRoots: string[];
 			allFiles: string[];
+			firstTelemetrySend: boolean;
 			subProjectOptOut: boolean;
 			reportTelemetry: boolean;
 			scopeWarnings: string[];
@@ -43,6 +44,7 @@ export type ScanOutcome =
 			moduleGraph: EngineResult["moduleGraph"];
 			reportProviders: ReportProvider[];
 			bootstrapRoots: string[];
+			firstTelemetrySend: boolean;
 			result: DiagnoseResult;
 			reportTelemetry: boolean;
 			schemaGraph: EngineResult["schemaGraph"];

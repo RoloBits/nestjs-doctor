@@ -5,7 +5,7 @@ export const DOCS_PAGES: Record<string, PageCopy> = {
 	"/docs": {
 		title: "What is nestjs-doctor?",
 		description:
-			"Diagnostic CLI tool that scans NestJS codebases and produces a health score across security, correctness, architecture, performance, and schema.",
+			"The deterministic NestJS devtool that catches AI mistakes. Static analysis that scans a NestJS codebase and produces a health score across security, correctness, architecture, performance, and schema.",
 	},
 	"/docs/nest-devtools-alternative": {
 		title: "NestJS Doctor vs Nest Devtools",
@@ -71,6 +71,11 @@ export const DOCS_PAGES: Record<string, PageCopy> = {
 		title: "Custom rule configuration",
 		description:
 			"Wire custom rules into a nestjs-doctor scan: customRulesDir, how rule files load, custom/ id prefixing, and the surfaces a rule's findings appear on.",
+	},
+	"/docs/telemetry": {
+		title: "Telemetry",
+		description:
+			"Every field a nestjs-doctor scan reports, what it never sends, how the install and CI ids are built, the three ways to turn it off, and how to print the payload instead of sending it.",
 	},
 	"/docs/ci": {
 		title: "GitHub Actions setup",

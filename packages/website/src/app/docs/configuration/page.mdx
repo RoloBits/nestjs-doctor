@@ -67,6 +67,8 @@ See [Config loading](/docs/pipeline/config-loading) for implementation details.
 | `rules` | `Record<string, RuleOverride \| boolean>` | Enable/disable individual rules, and pass rule options |
 | `categories` | `Record<string, boolean>` | Enable/disable entire categories |
 | `customRulesDir` | `string` | Path to a directory of custom `.ts` rule files |
+| `telemetry` | `boolean` | Set to `false` to send nothing (see [Telemetry](/docs/telemetry)) |
+| `report.telemetry` | `boolean` | Set to `false` to drop the beacon from a generated HTML report |
 
 Set a rule to `false` to disable it. The object form does the same through `enabled`, and `surfaces` decides where the rule may appear (see [Surfaces](/docs/custom-rules#surfaces)):
 

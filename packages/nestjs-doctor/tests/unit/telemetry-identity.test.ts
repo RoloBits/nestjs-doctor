@@ -2,11 +2,17 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { configDir, resolveIdentity } from "../../src/telemetry/install-id.js";
+import {
+	configDir,
+	hasStoredIdentity,
+	resolveIdentity,
+} from "../../src/telemetry/install-id.js";
 import { scanTelemetryEnabled } from "../../src/telemetry/send.js";
 
 const SHA256_HEX = /^[a-f0-9]{64}$/;
 const CI_PREFIX = /^ci\./;
+const CI_GITHUB_REPO = /^ci\.github\.[a-f0-9]{16}$/;
+const CI_GITLAB_REPO = /^ci\.gitlab\.[a-f0-9]{16}$/;
 
 const homes: string[] = [];
 
@@ -16,6 +22,10 @@ const isolated = (extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv => {
 	homes.push(home);
 	return { NESTJS_DOCTOR_CONFIG_DIR: home, ...extra };
 };
+
+/** A GitHub runner's env, with whatever repository variables the case needs. */
+const runnerEnv = (extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv =>
+	isolated({ CI: "true", GITHUB_ACTIONS: "true", ...extra });
 
 afterAll(() => {
 	for (const home of homes) {
@@ -64,21 +74,103 @@ describe("install identity", () => {
 		expect(identity.anonymousId).not.toContain(stored.salt);
 	});
 
-	it("collapses a CI fleet to one id per provider", () => {
-		const runner = () =>
+	it("gives one id per repository in CI, stable across runs", () => {
+		const acme = () =>
 			resolveIdentity(
 				"/repo/a",
-				isolated({ CI: "true", GITHUB_ACTIONS: "true" })
-			);
+				runnerEnv({ GITHUB_REPOSITORY_ID: "918273645" })
+			).anonymousId;
 
-		expect(runner().anonymousId).toBe("ci.github");
-		expect(runner().anonymousId).toBe("ci.github");
+		expect(acme()).toMatch(CI_GITHUB_REPO);
+		expect(acme()).toBe(acme());
+		expect(
+			resolveIdentity(
+				"/repo/a",
+				runnerEnv({ GITHUB_REPOSITORY_ID: "555000111" })
+			).anonymousId
+		).not.toBe(acme());
+	});
+
+	it("hashes one repository the same from a push and a pull request", () => {
+		const repo = {
+			GITHUB_REPOSITORY_ID: "918273645",
+			GITHUB_REPOSITORY: "acme/api",
+		};
+		const push = resolveIdentity(
+			"/home/runner/work/api/api",
+			runnerEnv({
+				...repo,
+				GITHUB_EVENT_NAME: "push",
+				GITHUB_REF: "refs/heads/main",
+			})
+		);
+		const pull = resolveIdentity(
+			"/home/runner/work/api/api",
+			runnerEnv({
+				...repo,
+				GITHUB_EVENT_NAME: "pull_request",
+				GITHUB_REF: "refs/pull/7/merge",
+			})
+		);
+
+		expect(pull.anonymousId).toBe(push.anonymousId);
+	});
+
+	it("keeps the shared id when the runner names only the repository", () => {
+		// The repository name is an enumerable dictionary, so it is never hashed.
+		expect(
+			resolveIdentity("/repo/a", runnerEnv({ GITHUB_REPOSITORY: "acme/api" }))
+				.anonymousId
+		).toBe("ci.github");
+	});
+
+	it("keeps the repository, the id and the checkout path out of the CI id", () => {
+		const id = resolveIdentity(
+			"/home/runner/work/acme-api/acme-api",
+			runnerEnv({
+				GITHUB_REPOSITORY_ID: "918273645",
+				GITHUB_REPOSITORY: "acme/acme-api",
+			})
+		).anonymousId;
+
+		expect(id).not.toContain("acme");
+		expect(id).not.toContain("runner");
+		expect(id).not.toContain("918273645");
+	});
+
+	it("gives one CI id whatever spelling the runner uses for its checkout", () => {
+		const repo = { GITHUB_REPOSITORY_ID: "918273645" };
+		const linux = resolveIdentity(
+			"/home/runner/work/api/api",
+			runnerEnv(repo)
+		).anonymousId;
+		const windows = resolveIdentity(
+			"D:/a/api/api",
+			runnerEnv(repo)
+		).anonymousId;
+
+		expect(windows).toBe(linux);
+	});
+
+	it("hashes the GitLab project id too", () => {
+		expect(
+			resolveIdentity(
+				"/repo/a",
+				isolated({ GITLAB_CI: "true", CI_PROJECT_ID: "918273645" })
+			).anonymousId
+		).toMatch(CI_GITLAB_REPO);
+	});
+
+	it("keeps a shared id for a provider that names no repository", () => {
 		expect(
 			resolveIdentity(
 				"/repo/a",
 				isolated({ JENKINS_URL: "https://ci.example.com" })
 			).anonymousId
 		).toBe("ci.jenkins");
+		expect(resolveIdentity("/repo/a", runnerEnv({})).anonymousId).toBe(
+			"ci.github"
+		);
 	});
 
 	it("treats a bare CI variable as a machine, not a named provider", () => {
@@ -97,10 +189,10 @@ describe("install identity", () => {
 		// the package would make the hash reversible to the repository name.
 		const runner = resolveIdentity(
 			"/home/runner/work/acme-api/acme-api",
-			isolated({ GITHUB_ACTIONS: "1" })
+			runnerEnv({ GITHUB_REPOSITORY_ID: "918273645" })
 		);
 
-		expect(runner.anonymousId).toBe("ci.github");
+		expect(runner.anonymousId).toMatch(CI_GITHUB_REPO);
 		expect(runner.projectId).toBeUndefined();
 	});
 
@@ -121,6 +213,65 @@ describe("install identity", () => {
 		const second = resolveIdentity("/repo/a", env);
 
 		expect(first.anonymousId).not.toBe(second.anonymousId);
+	});
+
+	it("says whether the id it returned was persisted", () => {
+		const env = isolated();
+
+		expect(resolveIdentity("/repo/a", env).stored).toBe(true);
+		expect(resolveIdentity("/repo/a", env).stored).toBe(true);
+	});
+
+	it("says a per-run id was never stored", () => {
+		const blocker = join(mkdtempSync(join(tmpdir(), "nd-blocked-")), "file");
+		homes.push(dirname(blocker));
+		writeFileSync(blocker, "", "utf-8");
+		const env = { NESTJS_DOCTOR_CONFIG_DIR: join(blocker, "nope") };
+
+		expect(resolveIdentity("/repo/a", env).stored).toBe(false);
+		expect(resolveIdentity("/repo/a", env).stored).toBe(false);
+	});
+
+	it("stores nothing under the debug switch", () => {
+		const env = isolated({ NESTJS_DOCTOR_TELEMETRY_DEBUG: "1" });
+
+		expect(resolveIdentity("/repo/a", env).stored).toBe(false);
+		expect(hasStoredIdentity(env)).toBe(false);
+	});
+
+	it("stores nothing in CI", () => {
+		expect(
+			resolveIdentity(
+				"/repo/a",
+				runnerEnv({ GITHUB_REPOSITORY_ID: "918273645" })
+			).stored
+		).toBe(false);
+	});
+
+	it("reads each provider only its own repository variables", () => {
+		// A GitHub variable left in a GitLab job must not identify the project.
+		const gitlab = resolveIdentity(
+			"/repo/a",
+			isolated({ GITLAB_CI: "true", GITHUB_REPOSITORY: "acme/api" })
+		);
+
+		expect(gitlab.anonymousId).toBe("ci.gitlab");
+	});
+
+	it("knows whether this install has ever stored an id", () => {
+		const env = isolated();
+
+		expect(hasStoredIdentity(env)).toBe(false);
+		resolveIdentity("/repo/a", env);
+		expect(hasStoredIdentity(env)).toBe(true);
+	});
+
+	it("reads the store without creating one", () => {
+		const env = isolated();
+
+		hasStoredIdentity(env);
+
+		expect(hasStoredIdentity(env)).toBe(false);
 	});
 });
 

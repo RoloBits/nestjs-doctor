@@ -1,16 +1,28 @@
+import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CodeDiagnostic } from "../../src/common/diagnostic.js";
 import type { Score } from "../../src/common/result.js";
 import { ACTION_ENV, actionContext } from "../../src/telemetry/environment.js";
 import {
 	buildScanPayload,
 	type ScanFacts,
+	type ScanPayload,
 } from "../../src/telemetry/scan-telemetry.js";
 import {
 	reportTelemetryEnabled,
 	scanTelemetryEnabled,
+	sendScanTelemetry,
 } from "../../src/telemetry/send.js";
+
+vi.mock("node:child_process", () => ({
+	spawn: vi.fn(() => ({ on: vi.fn(), unref: vi.fn() })),
+}));
+
+const TELEMETRY_INPUT = /^ {2}telemetry:$/m;
+const NEXT_INPUT = /^ {2}\S/m;
+/** The retired promise that no part of the repository is sent. */
+const NEVER_THE_REPOSITORY = /Never[^.]*\brepository\b(?! name)/;
 
 const code = (overrides: Partial<CodeDiagnostic>): CodeDiagnostic => ({
 	rule: "performance/no-unused-providers",
@@ -298,6 +310,20 @@ describe("scan telemetry payload", () => {
 			expect(actionYml).toMatch(new RegExp(`^ {2}${input}:$`, "m"));
 		}
 	});
+
+	it("describes the CI identity the code actually sends", () => {
+		const actionYml = readFileSync(
+			new URL("../../../../action.yml", import.meta.url),
+			"utf8"
+		);
+		const description = actionYml
+			.split(TELEMETRY_INPUT)[1]
+			?.split(NEXT_INPUT)[0];
+
+		expect(description).toBeTruthy();
+		expect(description).not.toMatch(NEVER_THE_REPOSITORY);
+		expect(description).toContain("one-way hash of your repository id");
+	});
 });
 
 describe("scan telemetry gating", () => {
@@ -341,5 +367,65 @@ describe("report telemetry gating", () => {
 
 	it("does not need a compiled key: the beacon has its own", () => {
 		expect(reportTelemetryEnabled(true, { telemetry: true }, {})).toBe(true);
+	});
+});
+
+describe("telemetry debug switch", () => {
+	const payload = { score: 90, file_count: 4 } as unknown as ScanPayload;
+	const written: string[] = [];
+
+	const captureStderr = () =>
+		vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+			written.push(String(chunk));
+			return true;
+		});
+
+	beforeEach(() => {
+		written.length = 0;
+		vi.mocked(spawn).mockClear();
+	});
+
+	it("prints the payload instead of spawning a sender", () => {
+		const stderr = captureStderr();
+
+		const sent = sendScanTelemetry(payload, "anon-1", {
+			NESTJS_DOCTOR_TELEMETRY_DEBUG: "1",
+		});
+		stderr.mockRestore();
+
+		expect(sent).toBe(false);
+		expect(spawn).not.toHaveBeenCalled();
+		expect(JSON.parse(written.join(""))).toEqual({
+			event: "scan_completed",
+			distinct_id: "anon-1",
+			properties: payload,
+		});
+	});
+
+	it("prints exactly what it would have sent", () => {
+		sendScanTelemetry(payload, "anon-1", {});
+		const args = vi.mocked(spawn).mock.calls[0]?.[1] as string[];
+		const { api_key, ...sent } = JSON.parse(args[2] as string) as Record<
+			string,
+			unknown
+		>;
+
+		const stderr = captureStderr();
+		sendScanTelemetry(payload, "anon-1", {
+			NESTJS_DOCTOR_TELEMETRY_DEBUG: "1",
+		});
+		stderr.mockRestore();
+
+		expect(api_key).toBeTruthy();
+		expect(JSON.parse(written.join(""))).toEqual(sent);
+	});
+
+	it("treats the shell's own off spellings as off", () => {
+		const sent = sendScanTelemetry(payload, "anon-1", {
+			NESTJS_DOCTOR_TELEMETRY_DEBUG: "0",
+		});
+
+		expect(sent).toBe(true);
+		expect(spawn).toHaveBeenCalledTimes(1);
 	});
 });

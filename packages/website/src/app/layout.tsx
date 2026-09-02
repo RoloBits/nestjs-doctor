@@ -10,8 +10,9 @@ const ibmPlexMono = IBM_Plex_Mono({
 	weight: ["200", "400", "500", "700"],
 });
 
-const HOME_TITLE = "NestJS Doctor - Diagnose and Fix Your NestJS Code";
-const HOME_DESCRIPTION = "Diagnose and fix your NestJS code in one command.";
+const HOME_TITLE = "NestJS Doctor - Deterministic static analysis for NestJS";
+const HOME_DESCRIPTION =
+	"The deterministic NestJS devtool that catches AI mistakes. Static analysis for NestJS with a health score, diagnostics and a CI gate.";
 
 export const metadata: Metadata = {
 	metadataBase: new URL(SITE_URL),

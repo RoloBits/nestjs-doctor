@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <b>Static analysis for NestJS — inline diagnostics and health score, right in your editor.</b>
+  <b>The deterministic NestJS devtool that catches AI mistakes.</b>
 </p>
 
 <p align="center">

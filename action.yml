@@ -42,7 +42,7 @@ inputs:
     description: "Token used to comment and set the commit status. The default posts as github-actions[bot], with GitHub's own avatar; a GitHub App installation token or a bot account's PAT posts under that identity's name and picture instead."
     default: ${{ github.token }}
   telemetry:
-    description: "Report anonymously after the scan: which built-in rules fired, the score, well-known dependencies, the config's shape, the scope and blocking level used, and how this run was triggered (the event, and which of this action's own inputs are on). Never your code, paths, repository, or organization. Set to false, or set `DO_NOT_TRACK: \"1\"` on the job, to turn it off."
+    description: "Report anonymously after the scan: which built-in rules fired, the score, well-known dependencies, the config's shape, the scope and blocking level used, how this run was triggered (the event, and which of this action's own inputs are on), and a one-way hash of your repository id so repeated runs count as one repository. Never your code, paths, repository name, or organization. Set to false, or set `DO_NOT_TRACK: \"1\"` on the job, to turn it off. Set `NESTJS_DOCTOR_TELEMETRY_DEBUG: \"1\"` to print the scan payload instead of sending it. https://nestjs.doctor/docs/telemetry"
     default: "true"
   node-version:
     description: "Node.js version to use"

@@ -3,7 +3,7 @@
   "displayName": "NestJS Doctor",
   "version": "0.1.4",
   "private": true,
-  "description": "Static analysis for NestJS — inline diagnostics and health score",
+  "description": "The deterministic NestJS devtool that catches AI mistakes. Inline diagnostics and a health score in your editor.",
   "categories": [
     "Linters"
   ],

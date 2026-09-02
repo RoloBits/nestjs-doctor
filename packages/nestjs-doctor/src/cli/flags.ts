@@ -74,9 +74,9 @@ export const flags = {
 	telemetry: {
 		type: "boolean",
 		description:
-			"Report anonymously after a scan: which built-in rules fired, the score, well-known dependencies, the config's shape, the scope and blocking level you ran with, and in CI how the run was triggered. Never your code, paths, project name, or custom rule names",
+			"Report anonymously after a scan: which built-in rules fired, the score, well-known dependencies, the config's shape, the scope and blocking level you ran with, and in CI how the run was triggered plus a one-way hash of the repository id. Never your code, paths, project name, or custom rule names. See https://nestjs.doctor/docs/telemetry",
 		negativeDescription:
-			"Scan and generate the report without reporting anything",
+			'Scan and generate the report without reporting anything; DO_NOT_TRACK=1 and "telemetry": false in the config do the same, and NESTJS_DOCTOR_TELEMETRY_DEBUG=1 prints the scan payload instead of sending it',
 		default: true,
 	},
 	timings: {

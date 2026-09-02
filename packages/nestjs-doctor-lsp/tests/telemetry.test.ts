@@ -1,8 +1,17 @@
+import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, describe, expect, it } from "vitest";
-import { lspTelemetryEnabled, resolveIdentity } from "../src/telemetry.js";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+	lspTelemetryEnabled,
+	resolveIdentity,
+	sendLspEvent,
+} from "../src/telemetry.js";
+
+vi.mock("node:child_process", () => ({
+	spawn: vi.fn(() => ({ on: vi.fn(), unref: vi.fn() })),
+}));
 
 const dirs: string[] = [];
 
@@ -21,10 +30,10 @@ const workspace = (config?: Record<string, unknown>): string => {
 	return dir;
 };
 
-const home = (): NodeJS.ProcessEnv => {
+const home = (extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv => {
 	const dir = mkdtempSync(join(tmpdir(), "nd-lsp-home-"));
 	dirs.push(dir);
-	return { NESTJS_DOCTOR_CONFIG_DIR: dir };
+	return { NESTJS_DOCTOR_CONFIG_DIR: dir, ...extra };
 };
 
 afterAll(() => {
@@ -92,6 +101,14 @@ describe("lsp identity", () => {
 		);
 	});
 
+	it("stores nothing under the debug switch", () => {
+		const env = home({ NESTJS_DOCTOR_TELEMETRY_DEBUG: "1" });
+
+		expect(resolveIdentity("/repo/a", env).anonymousId).not.toBe(
+			resolveIdentity("/repo/a", env).anonymousId
+		);
+	});
+
 	it("separates projects, and reveals no path", () => {
 		const env = home();
 		const a = resolveIdentity("/repo/acme-billing", env);
@@ -124,5 +141,45 @@ describe("lsp identity", () => {
 		expect(first.anonymousId).not.toMatch(CI_PREFIX);
 		expect(again.anonymousId).toBe(first.anonymousId);
 		expect(again.projectId).toBe(first.projectId);
+	});
+});
+
+describe("lsp telemetry debug switch", () => {
+	const written: string[] = [];
+
+	const captureStderr = () =>
+		vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+			written.push(String(chunk));
+			return true;
+		});
+
+	beforeEach(() => {
+		written.length = 0;
+		vi.mocked(spawn).mockClear();
+	});
+
+	it("prints the payload instead of spawning a sender", () => {
+		const stderr = captureStderr();
+
+		sendLspEvent(
+			"lsp_session",
+			"anon-1",
+			{ files_open: 2 },
+			{ NESTJS_DOCTOR_TELEMETRY_DEBUG: "1" }
+		);
+		stderr.mockRestore();
+
+		expect(spawn).not.toHaveBeenCalled();
+		expect(JSON.parse(written.join(""))).toEqual({
+			event: "lsp_session",
+			distinct_id: "anon-1",
+			properties: { files_open: 2 },
+		});
+	});
+
+	it("spawns the sender when the switch is off", () => {
+		sendLspEvent("lsp_session", "anon-1", { files_open: 2 }, {});
+
+		expect(spawn).toHaveBeenCalledTimes(1);
 	});
 });

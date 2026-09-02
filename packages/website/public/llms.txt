@@ -1,6 +1,6 @@
 # NestJS Doctor
 
-> Diagnose and fix your NestJS code in one command. 52 built-in rules across security, performance, correctness, architecture, and schema. Outputs a 0-100 score with actionable diagnostics. An interactive HTML report visualizes the module dependency graph with circular imports highlighted, traced HTTP endpoints, and an ER diagram of the database schema. Zero config. Monorepo support. Ships an official GitHub Action that reports only what a pull request introduced.
+> The deterministic NestJS devtool that catches AI mistakes. 52 built-in rules across security, performance, correctness, architecture, and schema. Outputs a 0-100 score with actionable diagnostics. An interactive HTML report visualizes the module dependency graph with circular imports highlighted, traced HTTP endpoints, and an ER diagram of the database schema. Zero config. Monorepo support. Ships an official GitHub Action that reports only what a pull request introduced.
 
 ## Quick Start
 
