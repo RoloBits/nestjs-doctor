@@ -105,7 +105,11 @@ export function markLspSeen(env: NodeJS.ProcessEnv = process.env): void {
 	let existing: Record<string, string> = {};
 	try {
 		const parsed: unknown = JSON.parse(readFileSync(file, "utf-8"));
-		if (typeof parsed === "object" && parsed !== null) {
+		if (
+			typeof parsed === "object" &&
+			parsed !== null &&
+			!Array.isArray(parsed)
+		) {
 			existing = parsed as Record<string, string>;
 		}
 	} catch {

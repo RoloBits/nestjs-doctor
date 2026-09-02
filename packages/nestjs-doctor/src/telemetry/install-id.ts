@@ -92,7 +92,9 @@ export function readHints(
 		const parsed: unknown = JSON.parse(
 			readFileSync(join(configDir(env), "hints.json"), "utf-8")
 		);
-		return typeof parsed === "object" && parsed !== null
+		return typeof parsed === "object" &&
+			parsed !== null &&
+			!Array.isArray(parsed)
 			? (parsed as Record<string, string>)
 			: {};
 	} catch {
@@ -101,11 +103,11 @@ export function readHints(
 	}
 }
 
-/** Records a one-time notice. Best effort: a read-only home shows it again. */
+/** Records a one-time notice. Returns whether the write landed: false on a read-only home. */
 export function markHint(
 	name: "extension" | "lsp",
 	env: NodeJS.ProcessEnv = process.env
-): void {
+): boolean {
 	const file = join(configDir(env), "hints.json");
 	const hints = {
 		...readHints(env),
@@ -114,8 +116,10 @@ export function markHint(
 	try {
 		mkdirSync(dirname(file), { recursive: true });
 		writeFileSync(file, `${JSON.stringify(hints, null, 2)}\n`, "utf-8");
+		return true;
 	} catch {
 		// A read-only home keeps no hints.
+		return false;
 	}
 }
 

@@ -1,10 +1,17 @@
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+	existsSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	lspTelemetryEnabled,
+	markLspSeen,
 	resolveIdentity,
 	sendLspEvent,
 } from "../src/telemetry.js";
@@ -16,6 +23,7 @@ vi.mock("node:child_process", () => ({
 const dirs: string[] = [];
 
 const CI_PREFIX = /^ci\./;
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 const workspace = (config?: Record<string, unknown>): string => {
 	const dir = mkdtempSync(join(tmpdir(), "nd-lsp-"));
@@ -141,6 +149,21 @@ describe("lsp identity", () => {
 		expect(first.anonymousId).not.toMatch(CI_PREFIX);
 		expect(again.anonymousId).toBe(first.anonymousId);
 		expect(again.projectId).toBe(first.projectId);
+	});
+});
+
+describe("lsp hints", () => {
+	it("marks the extension seen without creating the identity store", () => {
+		const env = home();
+		const configDir = env.NESTJS_DOCTOR_CONFIG_DIR as string;
+
+		markLspSeen(env);
+
+		const hints = JSON.parse(
+			readFileSync(join(configDir, "hints.json"), "utf-8")
+		);
+		expect(hints.lsp).toMatch(ISO_DAY);
+		expect(existsSync(join(configDir, "telemetry.json"))).toBe(false);
 	});
 });
 

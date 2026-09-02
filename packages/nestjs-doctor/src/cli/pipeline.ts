@@ -290,9 +290,8 @@ abstract class ScanPipeline {
 			isMachineReadable: this.options.isMachineReadable,
 			tty: process.stderr.isTTY === true,
 		});
-		if (target === site) {
+		if (target === site && markHint("extension")) {
 			console.error(highlighter.dim(EXTENSION_HINT));
-			markHint("extension");
 		}
 	}
 

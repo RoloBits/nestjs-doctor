@@ -95,6 +95,12 @@ describe("where the extension hint prints", () => {
 		}
 	});
 
+	it("lands on the first --no-telemetry run, since firstSend never turns true", () => {
+		// --no-telemetry keeps firstSend false forever; the hint can't wait on a
+		// signal that will never come.
+		expect(site({ firstSend: false, hints: {} })).toBe("run");
+	});
+
 	it("prints on run 2 and nowhere on run 3", () => {
 		const env = isolated();
 
@@ -136,5 +142,16 @@ describe("the hints store", () => {
 
 		expect(() => markHint("extension", env)).not.toThrow();
 		expect(readHints(env)).toEqual({});
+	});
+
+	it("returns false, so the hint stays quiet, when the config directory can't be written", () => {
+		const home = mkdtempSync(join(tmpdir(), "nd-hints-blocked-"));
+		homes.push(home);
+		const blocker = join(home, "file");
+		writeFileSync(blocker, "", "utf-8");
+		const env = { NESTJS_DOCTOR_CONFIG_DIR: join(blocker, "nope") };
+
+		expect(() => markHint("extension", env)).not.toThrow();
+		expect(markHint("extension", env)).toBe(false);
 	});
 });
