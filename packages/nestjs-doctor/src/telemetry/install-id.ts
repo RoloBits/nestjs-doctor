@@ -9,6 +9,8 @@ interface TelemetryIdentity {
 	anonymousId: string;
 	/** Per-project, salted with a value that never leaves the machine. Absent under a known CI provider. */
 	projectId?: string;
+	/** Whether the id is the one on disk. False in CI and when the home is unwritable. */
+	stored: boolean;
 }
 
 interface StoredConfig {
@@ -38,26 +40,31 @@ export function configDir(env: NodeJS.ProcessEnv = process.env): string {
 	);
 }
 
-// Shipped in the package, so a CI id is pseudonymous rather than anonymous.
 const CI_REPO_SALT = "nestjs-doctor.ci.v1";
 
-/** The repository the runner was given, preferring the id that survives a rename. */
-function repoKey(env: NodeJS.ProcessEnv): string | undefined {
-	const raw =
-		env.GITHUB_REPOSITORY_ID ?? env.GITHUB_REPOSITORY ?? env.CI_PROJECT_ID;
-	return raw?.trim().toLowerCase() || undefined;
+/** The variables each provider uses to name a repository, in priority order. */
+const CI_REPO_VARS: Record<string, readonly string[]> = {
+	github: ["GITHUB_REPOSITORY_ID", "GITHUB_REPOSITORY"],
+	gitlab: ["CI_PROJECT_ID"],
+};
+
+function repoKey(provider: string, env: NodeJS.ProcessEnv): string | undefined {
+	for (const name of CI_REPO_VARS[provider] ?? []) {
+		const raw = env[name]?.trim().toLowerCase();
+		if (raw) {
+			return raw;
+		}
+	}
+	return undefined;
 }
 
-/**
- * One id per repository, or one per provider where none is named. Never
- * derived from a path: a runner spells its checkout differently per platform.
- */
+/** One id per repository, or one per provider that names none. */
 function ciIdentity(env: NodeJS.ProcessEnv): string | undefined {
 	const provider = detectKnownCiProvider(env);
 	if (!provider) {
 		return undefined;
 	}
-	const repo = repoKey(env);
+	const repo = repoKey(provider, env);
 	if (!repo) {
 		return `ci.${provider}`;
 	}
@@ -105,7 +112,7 @@ export function resolveIdentity(
 	if (ci) {
 		// No project id in CI: any salt shipped in the package makes a
 		// runner's checkout path guessable.
-		return { anonymousId: ci };
+		return { anonymousId: ci, stored: false };
 	}
 
 	const file = join(configDir(env), "telemetry.json");
@@ -115,6 +122,7 @@ export function resolveIdentity(
 		return {
 			anonymousId: existing.anonymousId,
 			projectId: salted(existing.salt),
+			stored: true,
 		};
 	}
 
@@ -123,9 +131,11 @@ export function resolveIdentity(
 		salt: randomUUID(),
 	};
 
+	let stored = false;
 	try {
 		mkdirSync(dirname(file), { recursive: true });
 		writeFileSync(file, `${JSON.stringify(created, null, 2)}\n`, "utf-8");
+		stored = true;
 	} catch {
 		// A read-only home reports a per-run id.
 	}
@@ -133,5 +143,6 @@ export function resolveIdentity(
 	return {
 		anonymousId: created.anonymousId,
 		projectId: salted(created.salt),
+		stored,
 	};
 }

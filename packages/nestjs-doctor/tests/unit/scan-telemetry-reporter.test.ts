@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { getCliVersion } from "../../src/cli/output.js";
+import { telemetryNoticeSite } from "../../src/cli/pipeline.js";
 import {
 	reportScanTelemetry,
 	type ScanTelemetryInput,
@@ -37,6 +38,7 @@ const buildInput = (
 	resolveIdentityFn: vi.fn(() => ({
 		anonymousId: "anon-123",
 		projectId: "proj-hash",
+		stored: true,
 	})),
 	result: { ...emptyResult(), elapsedMs: 12.7 },
 	scanConfig: scanConfigFixture(),
@@ -147,13 +149,25 @@ describe("scan telemetry reporter", () => {
 			}),
 			resolveIdentityFn: vi.fn(() => {
 				order.push("resolve");
-				return { anonymousId: "anon-123" };
+				return { anonymousId: "anon-123", stored: true };
 			}),
 		});
 
 		reportScanTelemetry(input);
 
 		expect(order).toEqual(["read", "resolve"]);
+	});
+
+	it("announces no first send when the id could not be stored", () => {
+		const input = buildInput({
+			resolveIdentityFn: vi.fn(() => ({
+				anonymousId: "anon-123",
+				stored: false,
+			})),
+		});
+
+		expect(reportScanTelemetry(input)).toBe(false);
+		expect(input.send).toHaveBeenCalledTimes(1);
 	});
 
 	it("announces no first send when nothing was sent", () => {
@@ -183,5 +197,32 @@ describe("scan telemetry reporter", () => {
 
 		expect(reportScanTelemetry(input)).toBe(false);
 		expect(input.send).not.toHaveBeenCalled();
+	});
+});
+
+describe("where the first-run notice prints", () => {
+	const site = (overrides: Parameters<typeof telemetryNoticeSite>[0]) =>
+		telemetryNoticeSite(overrides);
+
+	it("waits for the menu to close on an interactive run", () => {
+		// A line printed before the TUI is lost with the alternate screen.
+		expect(
+			site({ firstSend: true, interactive: true, isMachineReadable: false })
+		).toBe("menu");
+	});
+
+	it("prints at the end of a run with no menu", () => {
+		expect(
+			site({ firstSend: true, interactive: false, isMachineReadable: false })
+		).toBe("run");
+	});
+
+	it("prints nowhere for a machine-readable run or a later scan", () => {
+		expect(
+			site({ firstSend: true, interactive: true, isMachineReadable: true })
+		).toBe("none");
+		expect(
+			site({ firstSend: false, interactive: false, isMachineReadable: false })
+		).toBe("none");
 	});
 });

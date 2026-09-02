@@ -221,6 +221,42 @@ describe("install identity", () => {
 		expect(first.anonymousId).not.toBe(second.anonymousId);
 	});
 
+	it("says whether the id it returned was persisted", () => {
+		const env = isolated();
+
+		expect(resolveIdentity("/repo/a", env).stored).toBe(true);
+		expect(resolveIdentity("/repo/a", env).stored).toBe(true);
+	});
+
+	it("says a per-run id was never stored", () => {
+		const blocker = join(mkdtempSync(join(tmpdir(), "nd-blocked-")), "file");
+		homes.push(dirname(blocker));
+		writeFileSync(blocker, "", "utf-8");
+		const env = { NESTJS_DOCTOR_CONFIG_DIR: join(blocker, "nope") };
+
+		expect(resolveIdentity("/repo/a", env).stored).toBe(false);
+		expect(resolveIdentity("/repo/a", env).stored).toBe(false);
+	});
+
+	it("stores nothing in CI", () => {
+		expect(
+			resolveIdentity(
+				"/repo/a",
+				runnerEnv({ GITHUB_REPOSITORY_ID: "918273645" })
+			).stored
+		).toBe(false);
+	});
+
+	it("reads each provider only its own repository variables", () => {
+		// A GitHub variable left in a GitLab job must not identify the project.
+		const gitlab = resolveIdentity(
+			"/repo/a",
+			isolated({ GITLAB_CI: "true", GITHUB_REPOSITORY: "acme/api" })
+		);
+
+		expect(gitlab.anonymousId).toBe("ci.gitlab");
+	});
+
 	it("knows whether this install has ever stored an id", () => {
 		const env = isolated();
 

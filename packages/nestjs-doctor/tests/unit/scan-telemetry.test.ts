@@ -310,8 +310,6 @@ describe("scan telemetry payload", () => {
 	});
 
 	it("describes the CI identity the code actually sends", () => {
-		// The input promised "never your repository" while the id in CI is now
-		// derived from the repository id.
 		const actionYml = readFileSync(
 			new URL("../../../../action.yml", import.meta.url),
 			"utf8"

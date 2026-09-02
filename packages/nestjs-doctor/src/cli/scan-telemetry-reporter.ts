@@ -50,16 +50,15 @@ export const reportScanTelemetry = (input: ScanTelemetryInput): boolean => {
 	) {
 		return false;
 	}
-	// Read the store before resolveIdentity writes one. CI keeps no store, so
-	// every run there would otherwise read as the first.
+	// Read before resolveIdentity, which writes the store.
 	const env = input.env ?? process.env;
-	const firstSend =
-		generatedIn(env) === "cli" &&
-		!(input.hasStoredIdentityFn ?? hasStoredIdentity)(env);
+	const hadStore = (input.hasStoredIdentityFn ?? hasStoredIdentity)(env);
+	let stored = false;
 	try {
 		const identity = (input.resolveIdentityFn ?? resolveIdentity)(
 			input.targetPath
 		);
+		stored = identity.stored;
 		const scanConfig = input.scanConfig as ScanConfig;
 		const enabled = new Set(
 			[
@@ -100,5 +99,5 @@ export const reportScanTelemetry = (input: ScanTelemetryInput): boolean => {
 		// Reporting never breaks a scan.
 		return false;
 	}
-	return firstSend;
+	return generatedIn(env) === "cli" && !hadStore && stored;
 };
