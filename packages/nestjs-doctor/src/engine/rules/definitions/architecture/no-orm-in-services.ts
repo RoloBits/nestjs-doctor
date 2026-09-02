@@ -10,8 +10,6 @@ import type { Rule } from "../../types.js";
 // injecting ORM types either. Both rules above and below should remain
 // symmetric for the two ORMs' typed repository classes.
 const ORM_TYPES = new Set([
-	"PrismaService",
-	"PrismaClient",
 	"EntityManager",
 	"DataSource",
 	"Connection",
@@ -27,7 +25,7 @@ export const noOrmInServices: Rule = {
 		severity: "info",
 		description:
 			"Services should use repository abstractions instead of ORM directly",
-		help: "Create a repository class that wraps ORM calls and inject that instead. Note: If your project follows the official NestJS Prisma recipe (injecting PrismaService directly), you can disable this rule.",
+		help: "Create a repository class that wraps ORM calls and inject that instead.",
 	},
 
 	check(context) {
