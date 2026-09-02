@@ -38,8 +38,6 @@ const TrafficLight = ({
 			aria-disabled={busy}
 			aria-label={label}
 			className={className}
-			data-cuelume-press={busy ? undefined : "press"}
-			data-cuelume-release={busy ? undefined : "release"}
 			onClick={() => {
 				if (!busy) {
 					onClick();
