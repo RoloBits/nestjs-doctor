@@ -49,6 +49,7 @@ const buildInput = (
 	subProjectOptOut: false,
 	suppressed: {},
 	targetPath: "/repo/app",
+	totalMs: 18.4,
 	...overrides,
 });
 
