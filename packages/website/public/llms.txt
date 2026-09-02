@@ -223,7 +223,7 @@ surfaces: `cli`, `prComment`, `score`, `ciFailure`, all four by default. Only
 rules whose surfaces include `score` are counted; a rule set to `["cli"]` still
 reports every finding in the console and the HTML report, and weighs nothing.
 `correctness/no-async-without-await` and `correctness/prefer-readonly-injection`
-are `["cli"]`, so they never comment on a pull request and never fail a build. Override per rule with `"rules": { "<id>": { "surfaces": [...] } }`.
+are `["cli"]`, so they never comment on a pull request and never fail a build. The console prints those findings last, under a "Not scored" heading. Override per rule with `"rules": { "<id>": { "surfaces": [...] } }`.
 
 Severity weights: error = 3.0, warning = 1.5, info = 0.5
 Category multipliers: security = 1.5x, correctness = 1.3x, schema = 1.1x, architecture = 1.0x, performance = 0.8x
