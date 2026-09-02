@@ -127,16 +127,22 @@ const thock = (
 	osc.stop(c.currentTime + ms / 1000);
 };
 
+/** A noise tick over a short damped sine body: a switch snapping. */
+const click = (c: AudioContext, tick: number, body: number, ms: number) => {
+	whoosh(c, tick, tick * 0.6, 12, 0.45);
+	thock(c, body, body * 0.65, ms, 0.3);
+};
+
 const WINDOW_CUES: Record<
 	Exclude<Cue, SoundName>,
 	(c: AudioContext) => void
 > = {
-	open: (c) => whoosh(c, 320, 1900, 230, 0.6),
-	maximize: (c) => whoosh(c, 600, 2600, 90, 0.5),
-	unmaximize: (c) => whoosh(c, 2600, 600, 90, 0.5),
-	minimize: (c) => whoosh(c, 1900, 280, 260, 0.45),
+	open: (c) => click(c, 2200, 800, 45),
+	maximize: (c) => whoosh(c, 3400, 2000, 12, 0.5),
+	unmaximize: (c) => click(c, 3000, 1100, 40),
+	minimize: (c) => click(c, 1600, 520, 55),
 	close: (c) => {
-		whoosh(c, 1300, 140, 210, 0.5);
+		click(c, 1300, 400, 60);
 		thock(c, 120, 45, 70, 0.18);
 	},
 };
