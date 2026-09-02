@@ -317,20 +317,20 @@ export class UserService {
 
 Detects services that reach the ORM directly instead of going through a repository layer. Two shapes count:
 
-- **ORM types:** `PrismaService`, `PrismaClient`, `EntityManager`, `DataSource`, `Connection`, `MongooseModel`, `MikroORM`, `DrizzleService`.
+- **ORM types:** `EntityManager`, `DataSource`, `Connection`, `MongooseModel`, `MikroORM`, `DrizzleService`.
 - **ORM-binding decorators:** `@InjectRepository`, `@InjectModel`, `@InjectEntityManager`.
 
 **Why:** When services depend on ORM types directly, switching ORMs or data sources requires changing every service. A repository layer provides a clean abstraction boundary.
 
 **Note:** TypeORM's `Repository<T>` and MikroORM's `EntityRepository<T>` are allowed in services. They are the repository abstraction the rule asks for. Classes named `*Repository` or `*Repo` are skipped as well, so a custom repository can inject whatever it needs.
 
-Two official setups inject these types on purpose. The [NestJS Prisma recipe](https://docs.nestjs.com/recipes/prisma) injects `PrismaService`, and the [@mikro-orm/nestjs setup](https://mikro-orm.io/docs/usage-with-nestjs) injects `EntityManager` or uses `@InjectRepository`. Disable this rule if the project follows either.
+The [@mikro-orm/nestjs setup](https://mikro-orm.io/docs/usage-with-nestjs) injects `EntityManager` or uses `@InjectRepository` on purpose.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript
 @Injectable()
 export class UserService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly em: EntityManager) {}
 }
 ```
 ```typescript
