@@ -1,0 +1,221 @@
+import { BreadcrumbJsonLd } from "@/components/json-ld";
+import { docsMetadata } from "@/lib/docs-metadata";
+export const metadata = docsMetadata["/docs/telemetry"];
+
+<BreadcrumbJsonLd path="/docs/telemetry" />
+
+# Telemetry
+
+A finished scan reports one `scan_completed` event. It is posted to `https://us.i.posthog.com/e/` by a detached child process with a three second timeout, so a stalled network never holds the scan open.
+
+Sending is best effort. A failed request, a blocked host, or an environment that cannot spawn all leave the scan and its exit code untouched.
+
+## What is sent
+
+The payload is built from rule metadata, counts, and a fixed set of environment values. Nothing in it is read out of your source files.
+
+### The run
+
+| Field | Value |
+|---|---|
+| `version` | The nestjs-doctor version that ran |
+| `generated_in` | `cli` or `ci` |
+| `platform` | The Node platform string, such as `darwin` |
+| `node_major` | The Node major version, such as `24` |
+| `duration_ms` | How long the scan took, rounded |
+| `score` | The 0-100 health score |
+| `scope_requested` | The `--scope` mode asked for: `full`, `files`, `lines` or `changed` |
+| `blocking` | The `--blocking` level: `none`, `warning` or `error` |
+| `findings` | Built-in rule id, then severity, then a count |
+| `rules_with_findings` | How many rule ids that map holds |
+| `rule_errors` | Built-in rule ids that threw during the scan |
+
+### The project
+
+| Field | Value |
+|---|---|
+| `file_count` | How many files the scan collected |
+| `monorepo` | Whether more than one project was scanned |
+| `framework` | `express`, `fastify`, or null |
+| `orm` | The detected ORM, or null |
+| `nest_version` | The `@nestjs/core` version the project depends on |
+
+### The config
+
+| Field | Value |
+|---|---|
+| `config_include_count` | How many `include` globs the project declared |
+| `config_exclude_count` | How many `exclude` globs it added past the defaults |
+| `config_min_score` | The `minScore` value, or null |
+| `categories_disabled` | Which of the five categories are turned off |
+| `rules_turned_off` | Built-in rule ids set to `false` |
+| `rule_overrides` | Built-in rule ids carrying any entry under `rules` |
+| `rules_disabled` | Built-in rule ids that did not run |
+| `ignored_rules` | Built-in rule ids under `ignore.rules` |
+| `ignored_file_count` | How many `ignore.files` globs there are |
+| `custom_rules_dir` | Whether `customRulesDir` is set, as a boolean |
+| `custom_rules_loaded` | How many custom rules loaded |
+
+### The ecosystem
+
+| Field | Value |
+|---|---|
+| `nestjs_packages` | Packages from the `@nestjs` scope and a tracked third-party list |
+| `frontend` | Frontend framework packages the project depends on |
+| `databases` | Database driver packages |
+| `cloud` | Cloud vendor names, from package names and scope prefixes |
+| `cloud_services` | `vendor:service` pairs, such as `aws:client-s3` |
+| `messaging` | Queue and broker packages |
+
+Each of these is an intersection with a list compiled into the CLI. A package outside the lists is never named, and the dependency list itself never travels.
+
+### The CI context
+
+| Field | Value |
+|---|---|
+| `ci_provider` | A slug from a fixed provider list, or `unknown` on a runner that only sets `CI` |
+| `ci_event` | The workflow trigger, or `other` |
+| `via_action` | Whether the official GitHub Action ran the scan |
+| `action_ref` | `v<major>`, `sha`, or `branch` |
+| `action_version_pin` | `latest`, `local`, or `pinned` |
+| `actor_association` | GitHub's own term for the author's tie to the repository |
+| `action_comment` | Whether the action was asked to comment |
+| `action_commit_status` | Whether it was asked to write a commit status |
+| `action_review_comments` | Whether it was asked to leave review comments |
+| `action_sarif` | Whether it was asked to upload SARIF |
+
+Every CI field is a boolean or a value from a fixed list. An unrecognized value is dropped rather than forwarded, so no environment variable can put an unbounded string in the payload.
+
+## What is never sent
+
+Six things the payload has no field for, each decided in code rather than by convention:
+
+- **No source text:** `findings` maps a rule id to a severity to a count, built from the rule id and severity of each finding and nothing else.
+- **No file paths:** only `file_count` and `ignored_file_count` travel. `rule_errors` carries rule ids, never the error message, which quotes the file that broke the rule.
+- **No project name:** `project_id` is a SHA-256 over a random per-install salt and the resolved project path.
+- **No globs:** the config reader returns counts. `config_exclude_count` subtracts the built-in defaults, so it counts only what the project declared.
+- **No custom rule names:** every rule-id array is filtered against the built-in ids. A count and a boolean are all that describe custom rules.
+- **No branch names:** a ref is reduced to `v<major>`, `sha` or `branch`, because a fork's branch name has no bound.
+
+## Identity
+
+Outside CI the event carries two ids, both generated on first run and stored in `telemetry.json`:
+
+- **`distinct_id`:** a random UUID, stable for this install.
+- **`project_id`:** a SHA-256 over a second random UUID and the resolved project path.
+
+That second UUID is the salt, and it never leaves the machine. A hash built with it cannot be reversed against a constant shipped in the package. If the config directory cannot be written, the scan reports a fresh id and stores nothing.
+
+The store lives where the platform expects a CLI to keep its own config:
+
+| Platform | Location |
+|---|---|
+| macOS | `~/Library/Preferences/nestjs-doctor/telemetry.json` |
+| Linux | `$XDG_CONFIG_HOME/nestjs-doctor/telemetry.json`, or `~/.config` when unset |
+| Windows | `%APPDATA%\nestjs-doctor\telemetry.json` |
+
+Under a recognized CI provider nothing is written and `project_id` is absent. `distinct_id` becomes `ci.<provider>.<hash>` instead, where the hash is the first 16 hex characters of a SHA-256 over a constant salt and the repository id. GitHub supplies `GITHUB_REPOSITORY_ID` or `GITHUB_REPOSITORY`, GitLab supplies `CI_PROJECT_ID`, and a provider that names no repository keeps a shared `ci.<provider>`.
+
+The CI id is pseudonymous rather than anonymous. It is a one-way hash, so it groups repeated runs of one repository without naming it. It is not reversible to a repository name, and no path, remote URL or commit sha goes into it.
+
+## Turning it off
+
+| Control | Effect |
+|---|---|
+| `--no-telemetry` | Scans and writes the report, sends nothing |
+| `"telemetry": false` in the config file | The same, for everyone on the project |
+| `DO_NOT_TRACK` set to anything but empty, `0` or `false` | The same, honored across tools |
+
+Two consequences of how those checks are written:
+
+- **`DO_NOT_TRACK=0` and `DO_NOT_TRACK=false`:** neither opts out. One helper reads every switch on this page, and it treats an empty value, `0` and `false` as unset.
+- **A monorepo sub-project:** a sub-project config with `telemetry: false` opts out the whole scan, not its own package. The report returns before any payload is built.
+
+A generated HTML report carries its own beacon for how the report itself is used. All three controls above disable it, and so does `report.telemetry` set to `false`.
+
+## Printing the payload
+
+Set `NESTJS_DOCTOR_TELEMETRY_DEBUG` to read what a scan would report:
+
+```bash
+NESTJS_DOCTOR_TELEMETRY_DEBUG=1 npx nestjs-doctor@latest .
+```
+
+The payload goes to stderr and no child process is spawned, so nothing is sent. One real scan of a two-file project prints:
+
+```json
+{
+  "event": "scan_completed",
+  "distinct_id": "c85d0fac-31ed-4155-b997-facdabb0b595",
+  "properties": {
+    "action_commit_status": null,
+    "action_comment": null,
+    "action_ref": null,
+    "action_review_comments": null,
+    "action_sarif": null,
+    "action_version_pin": null,
+    "actor_association": null,
+    "blocking": "error",
+    "categories_disabled": [],
+    "ci_event": null,
+    "ci_provider": null,
+    "cloud": [],
+    "cloud_services": [],
+    "config_exclude_count": 0,
+    "config_include_count": 0,
+    "config_min_score": null,
+    "custom_rules_dir": false,
+    "custom_rules_loaded": 0,
+    "databases": [],
+    "duration_ms": 10,
+    "file_count": 2,
+    "findings": {
+      "security/require-guards-on-endpoints": {
+        "warning": 3
+      }
+    },
+    "framework": "express",
+    "frontend": [],
+    "generated_in": "cli",
+    "ignored_file_count": 0,
+    "ignored_rules": [],
+    "messaging": [],
+    "monorepo": false,
+    "nest_version": "11.1.18",
+    "nestjs_packages": [
+      "@nestjs/common",
+      "@nestjs/core",
+      "@nestjs/platform-express"
+    ],
+    "orm": null,
+    "node_major": 24,
+    "platform": "darwin",
+    "project_id": "fdc2d61ea612d5ffebaef4d9b5ff98299e21df9abff7f61ba1bc53fd10a062b7",
+    "rule_errors": [],
+    "rule_overrides": [],
+    "rules_turned_off": [],
+    "rules_disabled": [],
+    "rules_with_findings": 1,
+    "scope_requested": "full",
+    "score": 66,
+    "version": "0.9.5",
+    "via_action": false
+  }
+}
+```
+
+The printed body and the sent body are built from the same values, so what is printed is what would have been sent. The variable covers the scan event only. A generated report's own beacon is not affected by it.
+
+## The first-run notice
+
+The first scan that reports on a machine prints one line to stderr, then never again:
+
+```text
+nestjs-doctor reported this scan anonymously: which built-in rules fired, the score, well-known dependencies, and the shape of your config — never your code, paths, or project name. Turn it off with --no-telemetry, "telemetry": false in your config, or DO_NOT_TRACK=1. https://nestjs.doctor/docs/telemetry
+```
+
+It prints once the scan has finished, and once the interactive menu has closed when one opened. Machine-readable runs never print it, and neither does CI, which stores no id to remember the run by. A machine whose config directory cannot be written stores nothing either, so it stays quiet rather than repeating the notice on every scan.
+
+## What it is used for
+
+The data answers which rules fire in real projects, which ones teams turn off, and whether a first scan is followed by a second. That decides which rules ship on by default, which ones need better messages, and which parts of the CLI are worth building on.

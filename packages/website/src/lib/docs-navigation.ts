@@ -50,6 +50,7 @@ export const DOCS_NAV: NavSection[] = [
 		items: [
 			{ title: "Config files", href: "/docs/configuration" },
 			{ title: "Custom rule configuration", href: "/docs/custom-rules" },
+			{ title: "Telemetry", href: "/docs/telemetry" },
 		],
 	},
 	{

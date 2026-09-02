@@ -72,6 +72,11 @@ export const DOCS_PAGES: Record<string, PageCopy> = {
 		description:
 			"Wire custom rules into a nestjs-doctor scan: customRulesDir, how rule files load, custom/ id prefixing, and the surfaces a rule's findings appear on.",
 	},
+	"/docs/telemetry": {
+		title: "Telemetry",
+		description:
+			"Every field a nestjs-doctor scan reports, what it never sends, how the install and CI ids are built, the three ways to turn it off, and how to print the payload instead of sending it.",
+	},
 	"/docs/ci": {
 		title: "GitHub Actions setup",
 		description:
