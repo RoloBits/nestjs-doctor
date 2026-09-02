@@ -30,6 +30,7 @@ export interface ScanTelemetryInput {
 	resolveIdentityFn?: typeof resolveIdentity;
 	result: DiagnoseResult;
 	scanConfig: ScanConfig | undefined;
+	scanId: string;
 	scopeRequested: ScopeMode;
 	/** Injectable for tests; defaults to the detached-child sender. */
 	send?: typeof sendScanTelemetry;
@@ -89,6 +90,7 @@ export const reportScanTelemetry = (input: ScanTelemetryInput): boolean => {
 				orm: input.result.project.orm,
 				projectId: identity.projectId,
 				ruleErrors: input.result.ruleErrors,
+				scanId: input.scanId,
 				scopeRequested: input.scopeRequested,
 				score: input.result.score,
 				source: generatedIn(),

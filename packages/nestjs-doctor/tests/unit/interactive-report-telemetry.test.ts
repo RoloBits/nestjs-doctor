@@ -21,6 +21,7 @@ const declinedOptions = (): PipelineOptions => ({
 	jsonCompact: false,
 	minScore: undefined,
 	outputPath: undefined,
+	scanId: "8f1c4a2e-0b3d-4f56-9a71-2c5d8e0f3b64",
 	scope: "full",
 	score: false,
 	shareCode: false,

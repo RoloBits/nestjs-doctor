@@ -29,6 +29,7 @@ const options = (over: Partial<PipelineOptions> = {}): PipelineOptions => ({
 	minScore: "80",
 	onProgress: (label) => label.length > 0,
 	outputPath: "out/report.json",
+	scanId: "8f1c4a2e-0b3d-4f56-9a71-2c5d8e0f3b64",
 	scope: "changed",
 	score: true,
 	skipOutput: false,
@@ -50,10 +51,19 @@ describe("toScanOptions", () => {
 			changedFilesFrom: "origin/main",
 			configPath: "nestjs-doctor.config.ts",
 			minScore: "80",
+			scanId: "8f1c4a2e-0b3d-4f56-9a71-2c5d8e0f3b64",
 			scope: "changed",
 			staged: true,
 			telemetry: false,
 		});
+	});
+
+	it("carries the scan id through toScanOptions", () => {
+		// The worker builds its own options, so an id left behind here is
+		// undefined for every interactive scan.
+		expect(toScanOptions(options({ scanId: "worker-visible-id" })).scanId).toBe(
+			"worker-visible-id"
+		);
 	});
 
 	it("is JSON-safe: no functions and a lossless round-trip", () => {

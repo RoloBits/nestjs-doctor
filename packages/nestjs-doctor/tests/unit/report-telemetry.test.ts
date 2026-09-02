@@ -21,6 +21,8 @@ const emptyGraph = (): ModuleGraph => ({
 
 const TAINT = "/Users/someone/private-app/src/orders.controller.ts";
 
+const SCAN_ID = "8f1c4a2e-0b3d-4f56-9a71-2c5d8e0f3b64";
+
 const SECTION_NAMES = [
 	"summary",
 	"diagnosis",
@@ -36,6 +38,7 @@ const ALLOWED_PROPERTIES = [
 	"generated_in",
 	"section",
 	"clicks",
+	"scan_id",
 ];
 
 /**
@@ -43,7 +46,7 @@ const ALLOWED_PROPERTIES = [
  * then returns the request bodies it produced.
  */
 function runBeacon() {
-	const source = buildBeacon("phc_key", "1.2.3", "cli")
+	const source = buildBeacon("phc_key", "1.2.3", "cli", SCAN_ID)
 		.replace("<script>", "")
 		.replace("</script>", "");
 	const sent: Record<string, never>[] = [];
@@ -134,7 +137,7 @@ describe("report telemetry", () => {
 	});
 
 	it("embeds the beacon with the configured key", () => {
-		const script = getTelemetryScript("1.2.3");
+		const script = getTelemetryScript("1.2.3", SCAN_ID);
 
 		expect(script).toContain("window.__ndTrack =");
 		expect(script).toContain('var VERSION = "1.2.3"');
@@ -165,6 +168,31 @@ describe("report telemetry", () => {
 		}
 	});
 
+	it("stamps every event with the scan id it was given", () => {
+		const { sent } = runBeacon();
+
+		expect(sent.length).toBeGreaterThan(0);
+		for (const body of sent) {
+			expect(body.properties.scan_id).toBe(SCAN_ID);
+		}
+	});
+
+	it("carries no install or project id into the HTML", () => {
+		const html = buildHtmlReport(
+			buildReportArtifact({
+				moduleGraph: emptyGraph(),
+				result: emptyResult(),
+				scanId: SCAN_ID,
+				version: "1.2.3",
+			})
+		);
+
+		expect(html).toContain(SCAN_ID);
+		expect(html).not.toContain("project_id");
+		// The beacon's distinct_id is generated in the page, never interpolated.
+		expect(html).not.toContain('distinct_id: "');
+	});
+
 	it("reports a click as coordinates and an allow-listed tab", () => {
 		const { sent } = runBeacon();
 		const clicks = sent.find((b) => b.event === "report_clicks");
@@ -178,7 +206,7 @@ describe("report telemetry", () => {
 	});
 
 	it("posts only the fixed events and a known section", () => {
-		const script = buildBeacon("phc_key", "1.2.3", "cli");
+		const script = buildBeacon("phc_key", "1.2.3", "cli", SCAN_ID);
 
 		expect(script).toContain("report_opened");
 		expect(script).toContain("report_section_viewed");
@@ -201,7 +229,7 @@ describe("report telemetry", () => {
 			getReportScripts(EMPTY_ARTIFACT_JSON),
 			getCodeMirrorScript(),
 		].join("\n");
-		const script = buildBeacon("phc_key", "1.2.3", "cli");
+		const script = buildBeacon("phc_key", "1.2.3", "cli", SCAN_ID);
 		const tracked = [
 			...[...scripts.matchAll(/__ndTrack\?\.\("([a-z_]+)"\)/g)].map(
 				(m) => m[1]
@@ -217,10 +245,10 @@ describe("report telemetry", () => {
 	});
 
 	it("stamps where the report was generated", () => {
-		expect(buildBeacon("phc_key", "1.2.3", "ci")).toContain(
+		expect(buildBeacon("phc_key", "1.2.3", "ci", SCAN_ID)).toContain(
 			'var SOURCE = "ci"'
 		);
-		expect(buildBeacon("phc_key", "1.2.3", "cli")).toContain(
+		expect(buildBeacon("phc_key", "1.2.3", "cli", SCAN_ID)).toContain(
 			'var SOURCE = "cli"'
 		);
 	});

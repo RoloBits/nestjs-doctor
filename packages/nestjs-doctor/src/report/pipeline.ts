@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import type { ReportProvider, SourceInclusion } from "../common/artifact.js";
 import {
@@ -32,6 +33,8 @@ type PipelineStep = () => void | Promise<void>;
 abstract class ReportPipeline {
 	protected _html!: string;
 	protected scanConfig!: ScanConfig;
+	/** One id per report, shared by the artifact and the beacon it embeds. */
+	protected readonly scanId = randomUUID();
 	protected readonly sources: SourceInclusion;
 	protected readonly steps: PipelineStep[] = [];
 	protected readonly targetPath: string;
@@ -155,6 +158,7 @@ export class SingleProjectReportPipeline extends ReportPipeline {
 					files,
 					bootstrapRoots: facts.bootstrapRoots,
 					providers: facts.providers,
+					scanId: this.scanId,
 					sources: this.sources,
 					traces: this.traces,
 					version: this.version,
@@ -260,6 +264,7 @@ export class MonorepoReportPipeline extends ReportPipeline {
 					providers: this.allProviders,
 					bootstrapRoots: this.bootstrapRoots,
 					monorepo: true,
+					scanId: this.scanId,
 					sources: this.sources,
 					traces: this.traces,
 					version: this.version,

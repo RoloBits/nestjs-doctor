@@ -41,6 +41,7 @@ export interface ScanFacts {
 	orm: string | null;
 	projectId?: string;
 	ruleErrors: RuleErrorInfo[];
+	scanId: string;
 	/** What was asked for. Degradation to `files` is decided after this is built. */
 	scopeRequested: ScopeMode;
 	score: Score;
@@ -89,6 +90,7 @@ export interface ScanPayload {
 	rules_disabled: string[];
 	rules_turned_off: string[];
 	rules_with_findings: number;
+	scan_id: string;
 	scope_requested: ScopeMode;
 	score: number;
 	trigger: Trigger;
@@ -210,6 +212,7 @@ export function buildScanPayload(
 		rules_turned_off: facts.config.rulesTurnedOff,
 		rules_disabled: builtInOnly(facts.disabledRuleIds),
 		rules_with_findings: Object.keys(findings).length,
+		scan_id: facts.scanId,
 		scope_requested: facts.scopeRequested,
 		score: facts.score.value,
 		trigger: facts.action.trigger,

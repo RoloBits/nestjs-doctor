@@ -90,6 +90,7 @@ interface ReportArtifactInput {
 	projects?: string[];
 	providers?: ReportProvider[];
 	result: DiagnoseResult;
+	scanId?: string;
 	sources?: SourceInclusion;
 	/** Where the scan ran; share slices relativize their paths against it. */
 	targetPath?: string;
@@ -130,7 +131,11 @@ export function buildReportArtifact(
 
 	return {
 		schemaVersion: REPORT_ARTIFACT_VERSION,
-		generator: { name: "nestjs-doctor", version: input.version },
+		generator: {
+			name: "nestjs-doctor",
+			scanId: input.scanId,
+			version: input.version,
+		},
 		generatedAt: new Date().toISOString(),
 		monorepo: input.monorepo ?? false,
 		project: input.result.project,

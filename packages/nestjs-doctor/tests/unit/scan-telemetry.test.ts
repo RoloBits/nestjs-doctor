@@ -74,6 +74,7 @@ const facts = (overrides: Partial<ScanFacts> = {}): ScanFacts => ({
 	nestVersion: "11.0.0",
 	orm: "prisma",
 	ruleErrors: [],
+	scanId: "8f1c4a2e-0b3d-4f56-9a71-2c5d8e0f3b64",
 	score: { value: 90, label: "Excellent" } as Score,
 	source: "cli",
 	version: "1.2.3",
