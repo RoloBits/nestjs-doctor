@@ -77,7 +77,7 @@ environment check or a separate entry point rather than shipping it.
 ## 3. Boot once, then scan
 
 ```bash
-npx nestjs-doctor@latest . --report --timings nestjs-doctor-timings.json
+NESTJS_DOCTOR_TRIGGER=skill npx nestjs-doctor@latest . --report --timings nestjs-doctor-timings.json
 ```
 
 A monorepo boots once per entry point. Instrument each `main.ts`, keep one dump per app, and pass them together, labelled when a name helps: `--timings nestjs-doctor-timings.json,worker=worker-timings.json`. Each dump becomes its own trace in the report.

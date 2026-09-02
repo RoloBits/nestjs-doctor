@@ -3,7 +3,12 @@ import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CodeDiagnostic } from "../../src/common/diagnostic.js";
 import type { Score } from "../../src/common/result.js";
-import { ACTION_ENV, actionContext } from "../../src/telemetry/environment.js";
+import { runGit } from "../../src/engine/git.js";
+import {
+	ACTION_ENV,
+	actionContext,
+	detectTrigger,
+} from "../../src/telemetry/environment.js";
 import {
 	buildScanPayload,
 	type ScanFacts,
@@ -212,6 +217,91 @@ describe("scan telemetry payload", () => {
 		// The runner still describes itself.
 		expect(payload.ci_event).toBe("push");
 		expect(payload.ci_provider).toBe("github");
+	});
+
+	it("names every way the scan was started", () => {
+		expect(detectTrigger({ [ACTION_ENV.marker]: "v1" })).toBe("action");
+		expect(detectTrigger({ GITHUB_ACTIONS: "true" })).toBe("ci");
+		expect(detectTrigger({ GIT_INDEX_FILE: "/repo/.git/index" })).toBe("hook");
+		expect(detectTrigger({ CLAUDECODE: "1" })).toBe("agent");
+		expect(detectTrigger({ npm_lifecycle_event: "test" })).toBe("script");
+		expect(detectTrigger({ npm_command: "exec" })).toBe("npx");
+		expect(detectTrigger({})).toBe("global");
+	});
+
+	it("prefers a hook over an agent, a script and npx", () => {
+		expect(
+			detectTrigger({
+				GIT_INDEX_FILE: "/repo/.git/index",
+				CLAUDECODE: "1",
+				npm_lifecycle_event: "test",
+				npm_command: "exec",
+			})
+		).toBe("hook");
+		expect(
+			detectTrigger({ CLAUDECODE: "1", npm_lifecycle_event: "test" })
+		).toBe("agent");
+		expect(
+			detectTrigger({
+				npm_lifecycle_event: "npx",
+				npm_command: "exec",
+			})
+		).toBe("npx");
+	});
+
+	it("drops an unknown NESTJS_DOCTOR_TRIGGER", () => {
+		const env = { NESTJS_DOCTOR_TRIGGER: "my-wrapper", npm_command: "exec" };
+		expect(detectTrigger(env)).toBe("npx");
+
+		const payload = buildScanPayload(facts({ action: actionContext(env) }));
+		expect(JSON.stringify(payload)).not.toContain("my-wrapper");
+	});
+
+	it("still reads a hook after git has run", () => {
+		// The real runner (GitHub Actions) sets CI/GITHUB_ACTIONS on every job;
+		// clear them so this exercises the hook branch, not the ci branch.
+		const saved = {
+			CI: process.env.CI,
+			GITHUB_ACTIONS: process.env.GITHUB_ACTIONS,
+			GIT_DIR: process.env.GIT_DIR,
+			[ACTION_ENV.marker]: process.env[ACTION_ENV.marker],
+		};
+		try {
+			delete process.env.CI;
+			delete process.env.GITHUB_ACTIONS;
+			delete process.env[ACTION_ENV.marker];
+			process.env.GIT_DIR = "/repo/.git";
+			runGit(process.cwd(), ["rev-parse", "--show-toplevel"]);
+			expect(detectTrigger()).toBe("hook");
+		} finally {
+			for (const [name, value] of Object.entries(saved)) {
+				if (value === undefined) {
+					delete process.env[name];
+				} else {
+					process.env[name] = value;
+				}
+			}
+		}
+	});
+
+	it("stamps the skill trigger on every shipped npx line", () => {
+		const skillFiles = [
+			new URL("../../skills/nestjs-doctor/SKILL.md", import.meta.url),
+			new URL("../../skills/nestjs-boot-trace/SKILL.md", import.meta.url),
+			new URL(
+				"../../skills/nestjs-doctor-create-rule/SKILL.md",
+				import.meta.url
+			),
+		];
+
+		for (const file of skillFiles) {
+			const lines = readFileSync(file, "utf8").split("\n");
+			for (const line of lines) {
+				if (line.includes("npx nestjs-doctor")) {
+					expect(line).toContain("NESTJS_DOCTOR_TRIGGER=skill");
+				}
+			}
+		}
 	});
 
 	it("drops a value that is not in the vocabulary", () => {

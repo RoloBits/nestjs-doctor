@@ -77,6 +77,21 @@ export const ACTION_ENV = {
 	version: "NESTJS_DOCTOR_ACTION_VERSION",
 } as const;
 
+/** Coding-agent markers. The CLI's own prompt gate reads the same list. */
+export const AGENT_ENV_VARS: readonly string[] = [
+	"CLAUDECODE",
+	"CLAUDE_CODE",
+	"CURSOR_AGENT",
+	"CODEX_SANDBOX",
+	"OPENCODE",
+	"AMP_THREAD_ID",
+	"CLINE_ACTIVE",
+	"AUGMENT_AGENT",
+	"GOOSE_TERMINAL",
+	"AGENT_SESSION_ID",
+	"AGENT_THREAD_ID",
+];
+
 /** What the action writes when `github.action_ref` is empty. */
 const NO_REF = "1";
 
@@ -124,6 +139,7 @@ export interface ActionFacts {
 	actorAssociation: string | null;
 	ciEvent: string | null;
 	ciProvider: string | null;
+	trigger: Trigger;
 	viaAction: boolean;
 }
 
@@ -135,6 +151,46 @@ const oneOf = (
 	allowed: readonly string[],
 	value: string | undefined
 ): string | null => (value && allowed.includes(value) ? value : null);
+
+const TRIGGERS = [
+	"action",
+	"ci",
+	"hook",
+	"agent",
+	"script",
+	"npx",
+	"global",
+	"skill",
+] as const;
+export type Trigger = (typeof TRIGGERS)[number];
+
+/** How the process was started. Env only; no command line, no script name, no cwd. */
+export function detectTrigger(env: NodeJS.ProcessEnv = process.env): Trigger {
+	const override = oneOf(TRIGGERS, env.NESTJS_DOCTOR_TRIGGER?.trim());
+	if (override) {
+		return override as Trigger;
+	}
+	if (isSet(env[ACTION_ENV.marker])) {
+		return "action";
+	}
+	if (generatedIn(env) === "ci") {
+		return "ci";
+	}
+	if (isSet(env.GIT_DIR) || isSet(env.GIT_INDEX_FILE)) {
+		return "hook";
+	}
+	if (AGENT_ENV_VARS.some((name) => isSet(env[name]))) {
+		return "agent";
+	}
+	// npx itself sets npm_lifecycle_event to "npx".
+	if (isSet(env.npm_lifecycle_event) && env.npm_lifecycle_event !== "npx") {
+		return "script";
+	}
+	if (env.npm_command === "exec" || isSet(env.npm_config_user_agent)) {
+		return "npx";
+	}
+	return "global";
+}
 
 /**
  * Which major of the action this is, `sha` for a pinned commit, `branch` for
@@ -199,6 +255,7 @@ export function actionContext(
 		),
 		ciEvent: eventName ? (oneOf(CI_EVENTS, eventName) ?? "other") : null,
 		ciProvider: detectCiProvider(env),
+		trigger: detectTrigger(env),
 		viaAction: isSet(marker),
 	};
 }

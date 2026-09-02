@@ -20,7 +20,7 @@ commit scores the same on a laptop and in CI.
 Report only what the change introduced:
 
 ```bash
-npx nestjs-doctor@latest . --scope changed --base origin/main --verbose
+NESTJS_DOCTOR_TRIGGER=skill npx nestjs-doctor@latest . --scope changed --base origin/main --verbose
 ```
 
 Fix anything new before committing.
@@ -36,7 +36,7 @@ than going quiet and looking clean.
 ## Auditing a whole project
 
 ```bash
-npx nestjs-doctor@latest . --verbose
+NESTJS_DOCTOR_TRIGGER=skill npx nestjs-doctor@latest . --verbose
 ```
 
 Work down by severity: errors, then warnings, then info. Security and
@@ -79,7 +79,7 @@ engine code reads it, so setting it changes nothing.
 ## Machine-readable output
 
 ```bash
-npx nestjs-doctor@latest . --json
+NESTJS_DOCTOR_TRIGGER=skill npx nestjs-doctor@latest . --json
 ```
 
 `--json`, `--score`, and `--format report-json|sarif|gitlab|markdown` default
@@ -94,7 +94,7 @@ a min-score failure exits 1 with no message on either stream.
 ## Continuous integration
 
 ```bash
-npx nestjs-doctor@latest ci install
+NESTJS_DOCTOR_TRIGGER=skill npx nestjs-doctor@latest ci install
 ```
 
 Writes `.github/workflows/nestjs-doctor.yml`, which reviews each pull request

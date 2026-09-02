@@ -5,7 +5,7 @@ import type { RuleErrorInfo, Score } from "../common/result.js";
 import type { ScopeMode } from "../common/scope.js";
 import { allRules } from "../engine/rules/index.js";
 import type { EcosystemFacts } from "./ecosystem.js";
-import type { ActionFacts, VersionPin } from "./environment.js";
+import type { ActionFacts, Trigger, VersionPin } from "./environment.js";
 
 /** Every rule id the payload may name. */
 const BUILT_IN_RULE_IDS: ReadonlySet<string> = new Set(
@@ -91,6 +91,7 @@ export interface ScanPayload {
 	rules_with_findings: number;
 	scope_requested: ScopeMode;
 	score: number;
+	trigger: Trigger;
 	version: string;
 	via_action: boolean;
 }
@@ -211,6 +212,7 @@ export function buildScanPayload(
 		rules_with_findings: Object.keys(findings).length,
 		scope_requested: facts.scopeRequested,
 		score: facts.score.value,
+		trigger: facts.action.trigger,
 		version: facts.version,
 		via_action: facts.action.viaAction,
 	};
