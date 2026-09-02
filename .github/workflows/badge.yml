@@ -60,7 +60,9 @@ jobs:
       - name: Write the badge
         run: |
           node -e '
-          const { score } = require("./scan.json");
+          const { score, project } = require("./scan.json");
+          if (!Number.isFinite(score?.value)) throw new Error("scan.json carries no numeric score");
+          if (!(project?.fileCount >= 50)) throw new Error(`scan saw ${project?.fileCount} files; the pinned ref has hundreds`);
           const badge = { schemaVersion: 1, label: "nestjs/nest", message: String(score.value), color: "18181b" };
           require("node:fs").writeFileSync("packages/website/public/badge.json", `${JSON.stringify(badge, null, 2)}\n`);
           '
@@ -81,4 +83,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "ci: score badge for nestjs/nest" -- packages/website/public/badge.json
+          git pull --rebase --autostash origin main
           git push
