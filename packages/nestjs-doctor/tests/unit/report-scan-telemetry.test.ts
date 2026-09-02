@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
@@ -183,18 +183,22 @@ describe("report scan telemetry", () => {
 	it("sends nothing when a sub-project opted out", async () => {
 		// Without this the beacon is blocked by vitest's env, not by the opt-out.
 		allowBeacon();
-		const configPath = join(tempRoot, "opted-out.json");
-		writeFileSync(configPath, JSON.stringify({ telemetry: false }));
-		const targetPath = resolve(FIXTURES, "monorepo-app");
+		// The root config stays silent; only apps/api opts out.
+		const targetPath = join(tempRoot, "opted-out-monorepo");
+		cpSync(resolve(FIXTURES, "monorepo-app"), targetPath, { recursive: true });
+		writeFileSync(
+			join(targetPath, "apps", "api", "nestjs-doctor.config.json"),
+			JSON.stringify({ telemetry: false })
+		);
 		const monorepo = await detectMonorepo(targetPath);
 		if (!monorepo) {
-			throw new Error("monorepo-app fixture was not detected as a monorepo");
+			throw new Error("monorepo-app copy was not detected as a monorepo");
 		}
 
 		const send = vi.fn(() => true);
 		const pipeline = new TestMonorepoPipeline(
 			targetPath,
-			configPath,
+			undefined,
 			monorepo,
 			// Only the sub-project opt-out may stop this send.
 			injected(send, { isEnabled: () => true })
