@@ -1,4 +1,10 @@
-import { bind, play as cuelume, type SoundName, setEnabled } from "cuelume";
+import {
+	bind,
+	play as cuelume,
+	type SoundName,
+	setEnabled,
+	setVolume,
+} from "cuelume";
 
 export type Cue =
 	| SoundName
@@ -9,11 +15,14 @@ export type Cue =
 	| "close";
 
 const STORAGE_KEY = "nestjs-doctor:sounds";
+const VOLUME_KEY = "nestjs-doctor:volume";
+const DEFAULT_VOLUME = 1 / 3;
 const SILENT = 0.0001;
 
 let context: AudioContext | null = null;
 let noise: AudioBuffer | null = null;
 let enabled: boolean | null = null;
+let volume: number | null = null;
 const listeners = new Set<() => void>();
 
 /** The stored preference; unknown or unreadable storage counts as on. */
@@ -28,10 +37,27 @@ export const soundsEnabled = (): boolean => {
 	return enabled;
 };
 
-/** Wires the data-cuelume attributes once and applies the stored preference. */
+const clamp = (value: number): number =>
+	Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : DEFAULT_VOLUME;
+
+/** The stored master volume from 0 to 1; unknown or unreadable storage is the default. */
+export const soundsVolume = (): number => {
+	if (volume === null) {
+		try {
+			const stored = localStorage.getItem(VOLUME_KEY);
+			volume = stored === null ? DEFAULT_VOLUME : clamp(Number(stored));
+		} catch {
+			volume = DEFAULT_VOLUME;
+		}
+	}
+	return volume;
+};
+
+/** Wires the data-cuelume attributes once and applies the stored preferences. */
 export const bindSounds = () => {
 	bind();
 	setEnabled(soundsEnabled());
+	setVolume(soundsVolume());
 };
 
 export const subscribeSounds = (listener: () => void) => {
@@ -49,6 +75,19 @@ export const setSoundsEnabled = (on: boolean) => {
 	}
 	try {
 		localStorage.setItem(STORAGE_KEY, on ? "on" : "off");
+	} catch {
+		// Storage is unavailable; the choice lasts for this page.
+	}
+};
+
+export const setSoundsVolume = (value: number) => {
+	volume = clamp(value);
+	setVolume(volume);
+	for (const listener of listeners) {
+		listener();
+	}
+	try {
+		localStorage.setItem(VOLUME_KEY, String(volume));
 	} catch {
 		// Storage is unavailable; the choice lasts for this page.
 	}
@@ -84,7 +123,10 @@ const envelope = (
 	const gain = c.createGain();
 	const t = c.currentTime;
 	gain.gain.setValueAtTime(SILENT, t);
-	gain.gain.exponentialRampToValueAtTime(peak, t + attack / 1000);
+	gain.gain.exponentialRampToValueAtTime(
+		Math.max(peak * soundsVolume(), SILENT),
+		t + attack / 1000
+	);
 	gain.gain.exponentialRampToValueAtTime(SILENT, t + ms / 1000);
 	gain.connect(c.destination);
 	return gain;
