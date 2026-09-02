@@ -13,7 +13,7 @@ const POINTS = [
 ];
 
 export const Hero = () => (
-	<section className="grid min-h-0 flex-1 gap-12 border-white/15 border-b py-6 lg:grid-cols-[52fr_48fr]">
+	<section className="grid flex-1 gap-12 border-white/15 border-b py-6 lg:grid-cols-[52fr_48fr]">
 		<div className="self-center">
 			<h1 className="mt-0 mb-4 text-balance font-extralight text-[#f2f1ef] text-[clamp(30px,3.4vw,46px)] leading-[1.08] tracking-[-0.02em]">
 				The deterministic{" "}
@@ -39,7 +39,7 @@ export const Hero = () => (
 			meta={`$ ${COMMAND}`}
 		>
 			<Desktop
-				className="h-[560px] lg:h-[640px]"
+				className="h-[560px] lg:h-[clamp(400px,calc(100dvh_-_220px),720px)]"
 				reopenLabel="Replay demo"
 				section="Demo"
 				stretch

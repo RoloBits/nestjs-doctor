@@ -4,9 +4,8 @@ import { useEffect, useRef, useState } from "react";
 
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
-/** A looping millisecond clock that only runs while the element is on a
- * visible tab, on screen, and not hidden by its window. It restarts after
- * the window was put away. Reduced motion pins it to `endMs`. */
+/** A looping ms clock that runs only while the element is shown on a visible
+ * tab, restarts after its window was put away, and pins to `endMs` on reduced motion. */
 export const useDemoClock = (totalMs: number, endMs: number) => {
 	const ref = useRef<HTMLDivElement>(null);
 	const [elapsed, setElapsed] = useState(0);
