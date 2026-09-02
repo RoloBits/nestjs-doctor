@@ -49,7 +49,7 @@ model Product {
 
 Detects entities missing `createdAt`/`updatedAt` timestamp columns.
 
-Entities whose every column is a primary key or a relation's own column are skipped. A join table has no data of its own to timestamp.
+Entities whose every column is a primary key or a relation's own column are skipped.
 
 **Why:** Timestamp columns are essential for auditing, debugging, and data integrity. Without them, there is no way to know when a record was created or last modified.
 
