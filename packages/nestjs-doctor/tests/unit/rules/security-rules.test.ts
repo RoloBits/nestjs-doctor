@@ -16,7 +16,7 @@ function runRule(
 	rule: Rule,
 	code: string,
 	filePath = "test.ts",
-	guards?: GuardFacts
+	guards?: Partial<GuardFacts>
 ): Diagnostic[] {
 	const project = new Project({ useInMemoryFileSystem: true });
 	const sourceFile = project.createSourceFile(filePath, code);
@@ -25,7 +25,13 @@ function runRule(
 	rule.check({
 		sourceFile,
 		filePath,
-		guards,
+		guards: guards && {
+			composedDecorators: new Set<string>(),
+			globallyRegistered: false,
+			guardedBaseClasses: new Set<string>(),
+			guardedClasses: new Set<string>(),
+			...guards,
+		},
 		report(partial) {
 			diagnostics.push({
 				...partial,
@@ -784,5 +790,40 @@ describe("require-guards-on-endpoints", () => {
     `
 		);
 		expect(diags).toHaveLength(0);
+	});
+
+	it("does not report a controller extending a guarded base class", () => {
+		const diags = runRule(
+			requireGuardsOnEndpoints,
+			`
+      import { Controller, Get } from '@nestjs/common';
+      @Controller('users')
+      export class UsersController extends BaseController {
+        @Get()
+        findAll() { return []; }
+      }
+    `,
+			"test.ts",
+			{ guardedClasses: new Set(["BaseController"]) }
+		);
+		expect(diags).toHaveLength(0);
+	});
+
+	it("reports a controller extending a base class nothing guards", () => {
+		const diags = runRule(
+			requireGuardsOnEndpoints,
+			`
+      import { Controller, Get } from '@nestjs/common';
+      @Controller('users')
+      export class UsersController extends BaseController {
+        @Get()
+        findAll() { return []; }
+      }
+    `,
+			"test.ts",
+			{ guardedClasses: new Set(["OtherBase"]) }
+		);
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("findAll");
 	});
 });

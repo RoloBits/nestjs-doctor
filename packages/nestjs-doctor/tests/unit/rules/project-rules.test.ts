@@ -1,5 +1,5 @@
 import { Project } from "ts-morph";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { NestjsDoctorConfig } from "../../../src/common/config.js";
 import type { Diagnostic } from "../../../src/common/diagnostic.js";
 import {
@@ -13,6 +13,26 @@ import { noOrphanModules } from "../../../src/engine/rules/definitions/performan
 import { noUnusedModuleExports } from "../../../src/engine/rules/definitions/performance/no-unused-module-exports.js";
 import { noUnusedProviders } from "../../../src/engine/rules/definitions/performance/no-unused-providers.js";
 import type { ProjectRule } from "../../../src/engine/rules/types.js";
+
+const { customProviderScans } = vi.hoisted(() => ({
+	customProviderScans: [] as string[][],
+}));
+
+vi.mock("../../../src/engine/graph/custom-providers.js", async (original) => {
+	const actual =
+		await original<
+			typeof import("../../../src/engine/graph/custom-providers.js")
+		>();
+	return {
+		...actual,
+		collectCustomProviderClasses: (
+			...args: Parameters<typeof actual.collectCustomProviderClasses>
+		) => {
+			customProviderScans.push(args[1]);
+			return actual.collectCustomProviderClasses(...args);
+		},
+	};
+});
 
 function createProjectContext(
 	files: Record<string, string>,
@@ -97,6 +117,79 @@ describe("no-circular-module-deps", () => {
 		expect(diags[0].help).toContain("declared in 2 files");
 		expect(diags[0].help).toContain("feature-a/shared.module.ts");
 		expect(diags[0].help).toContain("feature-b/shared.module.ts");
+	});
+
+	it("does not flag same-name declarations that are each acyclic", () => {
+		const diags = runProjectRule(noCircularModuleDeps, {
+			"/x/core.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ imports: [UsersModule] })
+        export class CoreModule {}
+        @Module({})
+        export class UsersModule {}
+      `,
+			"/y/core.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class CoreModule {}
+        @Module({ imports: [CoreModule] })
+        export class UsersModule {}
+      `,
+		});
+		expect(diags).toEqual([]);
+	});
+
+	it("does not flag same-name modules declared one per file", () => {
+		const diags = runProjectRule(noCircularModuleDeps, {
+			"/x/core.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { UsersModule } from './users.module';
+        @Module({ imports: [UsersModule] })
+        export class CoreModule {}
+      `,
+			"/x/users.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class UsersModule {}
+      `,
+			"/y/core.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class CoreModule {}
+      `,
+			"/y/users.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { CoreModule } from './core.module';
+        @Module({ imports: [CoreModule] })
+        export class UsersModule {}
+      `,
+		});
+		expect(diags).toEqual([]);
+	});
+
+	it("anchors a cycle to a declaration file that contains it", () => {
+		const diags = runProjectRule(noCircularModuleDeps, {
+			"feature-a/a.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { BModule } from './b.module';
+        @Module({ imports: [BModule] })
+        export class AModule {}
+      `,
+			"feature-a/b.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { AModule } from './a.module';
+        @Module({ imports: [AModule] })
+        export class BModule {}
+      `,
+			"feature-b/b.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class BModule {}
+      `,
+		});
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("Circular");
+		expect(diags[0].filePath).toBe("feature-a/a.module.ts");
 	});
 
 	it("does not flag acyclic imports", () => {
@@ -737,6 +830,146 @@ describe("no-unused-module-exports", () => {
 		});
 		expect(diags).toHaveLength(1);
 		expect(diags[0].message).toContain("HelperService");
+	});
+
+	it("counts a consumer registered as an object-literal useClass provider", () => {
+		const diags = runProjectRule(noUnusedModuleExports, {
+			"mail.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ providers: [MailService], exports: [MailService] })
+        export class MailModule {}
+      `,
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({
+          imports: [MailModule],
+          providers: [{ provide: 'NOTIFIER', useClass: Notifier }],
+        })
+        export class AppModule {}
+      `,
+			"notifier.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class Notifier {
+          constructor(private readonly mail: MailService) {}
+        }
+      `,
+		});
+		expect(diags).toHaveLength(0);
+	});
+
+	it("counts a useExisting alias of the exported provider itself", () => {
+		const diags = runProjectRule(noUnusedModuleExports, {
+			"mail.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ providers: [MailService], exports: [MailService] })
+        export class MailModule {}
+      `,
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({
+          imports: [MailModule],
+          providers: [{ provide: 'MAILER', useExisting: MailService }],
+        })
+        export class AppModule {}
+      `,
+			"mail.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class MailService {}
+      `,
+		});
+		expect(diags).toHaveLength(0);
+	});
+
+	it("still flags the export when the useClass target injects something else", () => {
+		const diags = runProjectRule(noUnusedModuleExports, {
+			"mail.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ providers: [MailService], exports: [MailService] })
+        export class MailModule {}
+      `,
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({
+          imports: [MailModule],
+          providers: [{ provide: 'NOTIFIER', useClass: Notifier }],
+        })
+        export class AppModule {}
+      `,
+			"notifier.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class Notifier {
+          constructor(private readonly other: SomethingElse) {}
+        }
+      `,
+		});
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("MailService");
+	});
+
+	it("counts a useClass provider in a second declaration file of the consumer", () => {
+		const diags = runProjectRule(noUnusedModuleExports, {
+			"mail.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ providers: [MailService], exports: [MailService] })
+        export class MailModule {}
+      `,
+			"app-a.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ imports: [MailModule] })
+        export class AppModule {}
+      `,
+			"app-b.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({
+          imports: [MailModule],
+          providers: [{ provide: 'NOTIFIER', useClass: Notifier }],
+        })
+        export class AppModule {}
+      `,
+			"notifier.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class Notifier {
+          constructor(private readonly mail: MailService) {}
+        }
+      `,
+		});
+		expect(diags).toHaveLength(0);
+	});
+
+	it("scans each consumer file for custom providers at most once", () => {
+		customProviderScans.length = 0;
+		runProjectRule(noUnusedModuleExports, {
+			"first.module.ts": `
+        import { Global, Module } from '@nestjs/common';
+        @Global()
+        @Module({ providers: [FirstService], exports: [FirstService] })
+        export class FirstModule {}
+      `,
+			"second.module.ts": `
+        import { Global, Module } from '@nestjs/common';
+        @Global()
+        @Module({ providers: [SecondService], exports: [SecondService] })
+        export class SecondModule {}
+      `,
+			"a.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AModule {}
+      `,
+			"b.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class BModule {}
+      `,
+		});
+
+		const scanned = customProviderScans.flat();
+		expect(new Set(scanned).size).toBe(scanned.length);
+		expect(scanned).toHaveLength(4);
 	});
 });
 

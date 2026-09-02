@@ -42,10 +42,12 @@ export interface RuleMeta {
 export interface GuardFacts {
 	/** Decorator names whose implementation composes `UseGuards`. */
 	composedDecorators: ReadonlySet<string>;
-	/** Some module registers a guard through `APP_GUARD`. */
+	/** A module registers a guard through `APP_GUARD`, or some file calls `useGlobalGuards`. */
 	globallyRegistered: boolean;
 	/** Base classes some subclass guards, so the base's handlers are covered. */
 	guardedBaseClasses: ReadonlySet<string>;
+	/** Classes carrying a guard decorator, so subclasses inherit it. */
+	guardedClasses: ReadonlySet<string>;
 }
 
 export interface CodeRuleContext {

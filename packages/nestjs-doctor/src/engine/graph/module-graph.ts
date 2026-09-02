@@ -73,6 +73,10 @@ export interface ModuleNode {
 	filePaths?: string[];
 	forwardRefImports: Set<string>;
 	imports: string[];
+	/** Declaration file → the imports of that declaration, when unioned. */
+	importsByFile?: Record<string, string[]>;
+	/** Declaration file → import name → the file that import statement resolves to. */
+	importTargetsByFile?: Record<string, Record<string, string>>;
 	isGlobal: boolean;
 	/** Line of the class declaration. Absent when the graph was built without one. */
 	line?: number;
@@ -190,6 +194,17 @@ function extractModulesFromFile(
 			}
 		}
 
+		const importTargets: Record<string, string> = {};
+		for (const imp of node.imports) {
+			const resolved = resolveImportedSourceFile(imp, sourceFile, pathAliases);
+			if (resolved) {
+				importTargets[imp] = resolved.sourceFile.getFilePath();
+			}
+		}
+		if (Object.keys(importTargets).length > 0) {
+			node.importTargetsByFile = { [filePath]: importTargets };
+		}
+
 		const pkgImports = node.imports.filter((imp) => packageNames.has(imp));
 		if (pkgImports.length > 0) {
 			node.packageImports = {};
@@ -219,7 +234,17 @@ function mergeSameNameModules(a: ModuleNode, b: ModuleNode): ModuleNode {
 		]),
 		isGlobal: a.isGlobal || b.isGlobal,
 		filePaths: [...new Set([...(a.filePaths ?? [a.filePath]), b.filePath])],
+		importsByFile: {
+			...(a.importsByFile ?? { [a.filePath]: a.imports }),
+			...(b.importsByFile ?? { [b.filePath]: b.imports }),
+		},
 	};
+	if (a.importTargetsByFile || b.importTargetsByFile) {
+		merged.importTargetsByFile = {
+			...a.importTargetsByFile,
+			...b.importTargetsByFile,
+		};
+	}
 	if (a.dynamicImports || b.dynamicImports) {
 		merged.dynamicImports = { ...a.dynamicImports, ...b.dynamicImports };
 	}
@@ -1003,6 +1028,31 @@ export function mergeModuleGraphs(
 					dynamicImports[resolve(graph, projectName, imp, node)] = method;
 				}
 			}
+			let importsByFile: Record<string, string[]> | undefined;
+			if (node.importsByFile) {
+				importsByFile = {};
+				for (const [file, imports] of Object.entries(node.importsByFile)) {
+					importsByFile[file] = imports.map((imp) =>
+						resolve(graph, projectName, imp, node)
+					);
+				}
+			}
+			let importTargetsByFile:
+				| Record<string, Record<string, string>>
+				| undefined;
+			if (node.importTargetsByFile) {
+				importTargetsByFile = {};
+				for (const [file, targets] of Object.entries(
+					node.importTargetsByFile
+				)) {
+					const prefixedTargets: Record<string, string> = {};
+					for (const [imp, targetFile] of Object.entries(targets)) {
+						prefixedTargets[resolve(graph, projectName, imp, node)] =
+							targetFile;
+					}
+					importTargetsByFile[file] = prefixedTargets;
+				}
+			}
 			const mergedNode: ModuleNode = {
 				...node,
 				name: prefixed,
@@ -1015,6 +1065,8 @@ export function mergeModuleGraphs(
 					resolve(graph, projectName, exp, node)
 				),
 				...(dynamicImports ? { dynamicImports } : {}),
+				...(importsByFile ? { importsByFile } : {}),
+				...(importTargetsByFile ? { importTargetsByFile } : {}),
 			};
 			modules.set(prefixed, mergedNode);
 		}
@@ -1042,35 +1094,128 @@ export function mergeModuleGraphs(
 	return { modules, edges, providerToModule };
 }
 
-export function findCircularDeps(graph: ModuleGraph): string[][] {
-	const cycles: string[][] = [];
-	const visited = new Set<string>();
-	const recursionStack = new Set<string>();
+interface ModuleDeclaration {
+	filePath: string;
+	imports: string[];
+	/** Import name → the file its import statement resolves to. */
+	importTargets: Record<string, string>;
+	name: string;
+}
 
-	function dfs(node: string, path: string[]): void {
+interface DeclarationGraph {
+	declarations: ModuleDeclaration[];
+	idByFileAndName: Map<string, number>;
+	idsByName: Map<string, number[]>;
+}
+
+const declarationKey = (filePath: string, name: string): string =>
+	`${filePath}::${name}`;
+
+/** One node per `@Module()` declaration, so a union node splits back into its files. */
+function indexDeclarations(graph: ModuleGraph): DeclarationGraph {
+	const declarations: ModuleDeclaration[] = [];
+	const idByFileAndName = new Map<string, number>();
+	const idsByName = new Map<string, number[]>();
+
+	for (const [name, node] of graph.modules) {
+		const byFile = node.importsByFile ?? { [node.filePath]: node.imports };
+		for (const [filePath, imports] of Object.entries(byFile)) {
+			const id = declarations.length;
+			declarations.push({
+				filePath,
+				importTargets: node.importTargetsByFile?.[filePath] ?? {},
+				imports,
+				name,
+			});
+			idByFileAndName.set(declarationKey(filePath, name), id);
+			const ids = idsByName.get(name);
+			if (ids) {
+				ids.push(id);
+			} else {
+				idsByName.set(name, [id]);
+			}
+		}
+	}
+
+	return { declarations, idByFileAndName, idsByName };
+}
+
+/**
+ * A name resolves to the declaration in the file its import statement reaches,
+ * then to one in the importing file, then to every declaration carrying it.
+ */
+function declarationTargets(graph: DeclarationGraph, id: number): number[] {
+	const { filePath, importTargets, imports } = graph.declarations[id];
+	const targets: number[] = [];
+	for (const imported of imports) {
+		const targetFile = importTargets[imported];
+		const resolved =
+			targetFile === undefined
+				? undefined
+				: graph.idByFileAndName.get(declarationKey(targetFile, imported));
+		if (resolved !== undefined) {
+			targets.push(resolved);
+			continue;
+		}
+		const local = graph.idByFileAndName.get(declarationKey(filePath, imported));
+		if (local === undefined) {
+			targets.push(...(graph.idsByName.get(imported) ?? []));
+		} else {
+			targets.push(local);
+		}
+	}
+	return targets;
+}
+
+/** The rotation of a cycle that sorts first, so equivalent cycles share a key. */
+function cycleKey(names: string[]): string {
+	let key = names.join(">");
+	for (let i = 1; i < names.length; i++) {
+		const rotated = [...names.slice(i), ...names.slice(0, i)].join(">");
+		if (rotated < key) {
+			key = rotated;
+		}
+	}
+	return key;
+}
+
+export function findCircularDeps(graph: ModuleGraph): string[][] {
+	const declarationGraph = indexDeclarations(graph);
+	const cycles: string[][] = [];
+	const reported = new Set<string>();
+	const visited = new Set<number>();
+	const recursionStack = new Set<number>();
+
+	function record(path: number[]): void {
+		const names = path.map((id) => declarationGraph.declarations[id].name);
+		const key = cycleKey(names);
+		if (!reported.has(key)) {
+			reported.add(key);
+			cycles.push(names);
+		}
+	}
+
+	function dfs(node: number, path: number[]): void {
 		visited.add(node);
 		recursionStack.add(node);
 
-		const neighbors = graph.edges.get(node) ?? new Set();
-		for (const neighbor of neighbors) {
+		for (const neighbor of declarationTargets(declarationGraph, node)) {
 			if (!visited.has(neighbor)) {
 				dfs(neighbor, [...path, neighbor]);
 			} else if (recursionStack.has(neighbor)) {
 				const cycleStart = path.indexOf(neighbor);
-				if (cycleStart === -1) {
-					cycles.push([...path, neighbor]);
-				} else {
-					cycles.push(path.slice(cycleStart));
-				}
+				record(
+					cycleStart === -1 ? [...path, neighbor] : path.slice(cycleStart)
+				);
 			}
 		}
 
 		recursionStack.delete(node);
 	}
 
-	for (const moduleName of graph.modules.keys()) {
-		if (!visited.has(moduleName)) {
-			dfs(moduleName, [moduleName]);
+	for (let id = 0; id < declarationGraph.declarations.length; id++) {
+		if (!visited.has(id)) {
+			dfs(id, [id]);
 		}
 	}
 

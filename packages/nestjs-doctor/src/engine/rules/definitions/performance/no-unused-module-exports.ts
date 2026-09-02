@@ -1,4 +1,5 @@
 import type { ClassDeclaration } from "ts-morph";
+import { collectCustomProviderClasses } from "../../../graph/custom-providers.js";
 import type { ModuleNode } from "../../../graph/module-graph.js";
 import { hasDecorator } from "../../../nest-class-inspector.js";
 import type { ProjectRule, ProjectRuleContext } from "../../types.js";
@@ -73,6 +74,21 @@ export const noUnusedModuleExports: ProjectRule = {
 			}
 		}
 
+		// Custom-provider implementation names per file, each file walked once.
+		const implementationNamesByFile = new Map<string, Set<string>>();
+		const implementationNamesIn = (filePath: string): Set<string> => {
+			const cached = implementationNamesByFile.get(filePath);
+			if (cached) {
+				return cached;
+			}
+			const { implementationNames } = collectCustomProviderClasses(
+				context.project,
+				[filePath]
+			);
+			implementationNamesByFile.set(filePath, implementationNames);
+			return implementationNames;
+		};
+
 		for (const mod of context.moduleGraph.modules.values()) {
 			if (mod.exports.length === 0) {
 				continue;
@@ -92,6 +108,18 @@ export const noUnusedModuleExports: ProjectRule = {
 						classesByName.get(name);
 					if (cls) {
 						collectInjectedNames(cls, usedProviders);
+					}
+				}
+
+				// An object-literal provider (`{ provide, useClass }`) keeps its source
+				// text; the target counts as used, and so does whatever it injects.
+				for (const filePath of consumer.filePaths ?? [consumer.filePath]) {
+					for (const implName of implementationNamesIn(filePath)) {
+						usedProviders.add(implName);
+						const implClass = classesByName.get(implName);
+						if (implClass) {
+							collectInjectedNames(implClass, usedProviders);
+						}
 					}
 				}
 

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { performance } from "node:perf_hooks";
-import { type SourceFile, SyntaxKind } from "ts-morph";
+import { type Node, type SourceFile, SyntaxKind } from "ts-morph";
 import type { Diagnostic } from "../common/diagnostic.js";
 import type { RuleErrorInfo } from "../common/result.js";
 import type { AnalysisContext } from "./analysis-context.js";
@@ -118,6 +118,53 @@ function processResults(
 
 const MODULE_FILE_RE = /\.module\.[mc]?ts$/;
 
+const NEST_APP_FACTORY = /\bNestFactory\s*\.\s*create\s*[<(]/;
+const NEST_APP_TYPE = /\bI?Nest\w*Application\b/;
+
+// True when the expression is the HTTP app: a `NestFactory.create()` result, or a
+// binding initialised from one or typed as a Nest application.
+function isNestApplication(expression: Node): boolean {
+	if (NEST_APP_FACTORY.test(expression.getText())) {
+		return true;
+	}
+	const identifier = expression.asKind(SyntaxKind.Identifier);
+	if (!identifier) {
+		return false;
+	}
+	return (identifier.getSymbol()?.getDeclarations() ?? []).some(
+		(declaration) => {
+			const variable = declaration.asKind(SyntaxKind.VariableDeclaration);
+			const typeText =
+				variable?.getTypeNode()?.getText() ??
+				declaration.asKind(SyntaxKind.Parameter)?.getTypeNode()?.getText();
+			if (typeText && NEST_APP_TYPE.test(typeText)) {
+				return true;
+			}
+			const initializer = variable?.getInitializer()?.getText();
+			return initializer !== undefined && NEST_APP_FACTORY.test(initializer);
+		}
+	);
+}
+
+// True when the file calls `.useGlobalGuards(guard)` on the HTTP app.
+function usesGlobalGuards(sourceFile: SourceFile): boolean {
+	if (!sourceFile.getFullText().includes("useGlobalGuards")) {
+		return false;
+	}
+	return sourceFile
+		.getDescendantsOfKind(SyntaxKind.CallExpression)
+		.some((call) => {
+			const access = call
+				.getExpression()
+				.asKind(SyntaxKind.PropertyAccessExpression);
+			return (
+				access?.getName() === "useGlobalGuards" &&
+				call.getArguments().length > 0 &&
+				isNestApplication(access.getExpression())
+			);
+		});
+}
+
 /** Project-wide facts for the file rules, gathered once per run. */
 function fileRuleFacts(context: AnalysisContext): FileRuleFacts {
 	const modules = [...context.moduleGraph.modules.values()];
@@ -148,23 +195,32 @@ function fileRuleFacts(context: AnalysisContext): FileRuleFacts {
 
 	const composedDecorators = guardDecoratorNames(context.guardDecorators);
 	const guardedBaseClasses = new Set<string>();
+	const guardedClasses = new Set<string>();
+	let callsUseGlobalGuards = false;
 	for (const filePath of context.files) {
 		const sourceFile = context.astProject.getSourceFile(filePath);
 		if (!sourceFile) {
 			continue;
 		}
+		if (!callsUseGlobalGuards && usesGlobalGuards(sourceFile)) {
+			callsUseGlobalGuards = true;
+		}
 		for (const cls of sourceFile.getClasses()) {
-			const base = cls.getExtends()?.getExpression().getText();
-			if (!base) {
-				continue;
-			}
 			const guarded = cls
 				.getDecorators()
 				.some(
 					(d) =>
 						d.getName() === "UseGuards" || composedDecorators.has(d.getName())
 				);
-			if (guarded) {
+			if (!guarded) {
+				continue;
+			}
+			const name = cls.getName();
+			if (name) {
+				guardedClasses.add(name);
+			}
+			const base = cls.getExtends()?.getExpression().getText();
+			if (base) {
 				guardedBaseClasses.add(base.split("<")[0].split(".").pop() ?? base);
 			}
 		}
@@ -174,10 +230,11 @@ function fileRuleFacts(context: AnalysisContext): FileRuleFacts {
 		diProviders,
 		guards: {
 			composedDecorators,
-			globallyRegistered: modules.some((module) =>
-				module.providerTokens.includes("APP_GUARD")
-			),
+			globallyRegistered:
+				callsUseGlobalGuards ||
+				modules.some((module) => module.providerTokens.includes("APP_GUARD")),
 			guardedBaseClasses,
+			guardedClasses,
 		},
 		moduleDirectories,
 	};

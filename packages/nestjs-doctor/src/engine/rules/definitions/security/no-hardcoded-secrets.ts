@@ -26,10 +26,6 @@ const SECRET_PATTERNS = [
 		name: "JWT token",
 	},
 	{ pattern: /^AKIA[0-9A-Z]{16}$/, name: "AWS Access Key ID" },
-	{
-		pattern: /^[a-f0-9]{64}$/,
-		name: "Hex-encoded secret (64 chars)",
-	},
 ];
 
 const VARIABLE_NAME_PATTERNS = [
@@ -82,6 +78,9 @@ function hasSuspiciousName(name: string): boolean {
 // stays a credential.
 const SCOPE_VALUE = /^[a-z]+(:[a-z]+)+$/;
 
+// Two plain words joined by `:` or `/`, the shape of a `user:pass` credential.
+const CREDENTIAL_PAIR = /^[a-z]+[:/][a-z]+$/;
+
 const WORD_SEGMENT = /^[a-z]{3,}$/;
 const SEGMENT_SPLIT = /[-_:/.]|(?<=[a-z])(?=[A-Z])/;
 
@@ -92,6 +91,31 @@ function isWordSequence(value: string): boolean {
 		parts.length >= 2 &&
 		parts.every((part) => WORD_SEGMENT.test(part.toLowerCase()))
 	);
+}
+
+const IDENTIFIER_SHAPE = /^[A-Za-z][A-Za-z0-9]*(?:[-_:./][A-Za-z0-9]+)+$/;
+const SINGLE_CAPITALIZED_WORD = /^[A-Z][a-z]+$/;
+const HAS_DIGIT = /\d/;
+const VERSION_SEGMENT = /^v\d{1,3}$/i;
+
+// True when a value reads as a regex source rather than a literal secret:
+// anchored with `^`, or carrying a group modifier or a backslash escape.
+function looksLikeRegexSource(value: string): boolean {
+	return value.startsWith("^") || value.includes("(?") || value.includes("\\");
+}
+
+// True for a config/identifier key or a regex pattern, not a secret value.
+// A digit-bearing segment still counts as a secret unless it is a version tag.
+function isIdentifierShapedValue(value: string): boolean {
+	if (looksLikeRegexSource(value) || SINGLE_CAPITALIZED_WORD.test(value)) {
+		return true;
+	}
+	if (CREDENTIAL_PAIR.test(value) || !IDENTIFIER_SHAPE.test(value)) {
+		return false;
+	}
+	return value
+		.split(SEGMENT_SPLIT)
+		.every((part) => !HAS_DIGIT.test(part) || VERSION_SEGMENT.test(part));
 }
 
 const NON_ALNUM = /[^a-z0-9]/g;
@@ -150,16 +174,17 @@ export const noHardcodedSecrets: Rule = {
 			}
 
 			for (const { pattern, name } of SECRET_PATTERNS) {
-				if (pattern.test(value)) {
-					context.report({
-						filePath: context.filePath,
-						message: `Possible hardcoded ${name} detected.`,
-						help: this.meta.help,
-						line: literal.getStartLineNumber(),
-						column: 1,
-					});
-					break;
+				if (!pattern.test(value)) {
+					continue;
 				}
+				context.report({
+					filePath: context.filePath,
+					message: `Possible hardcoded ${name} detected.`,
+					help: this.meta.help,
+					line: literal.getStartLineNumber(),
+					column: 1,
+				});
+				break;
 			}
 		}
 
@@ -189,6 +214,7 @@ export const noHardcodedSecrets: Rule = {
 				if (
 					isPermissionScope(name, value) ||
 					echoesName(name, value) ||
+					isIdentifierShapedValue(value) ||
 					(isThrownMessage(node) && isWordSequence(value))
 				) {
 					continue;

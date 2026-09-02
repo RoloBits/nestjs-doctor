@@ -181,6 +181,219 @@ describe("module-graph", () => {
 		expect(cycles).toHaveLength(0);
 	});
 
+	// Two acyclic files whose same-name declarations union into a phantom cycle
+	it("returns no cycles when neither declaration file contains one", () => {
+		const { project, paths } = createProject({
+			"/x/core.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ imports: [UsersModule] })
+        export class CoreModule {}
+        @Module({})
+        export class UsersModule {}
+      `,
+			"/y/core.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class CoreModule {}
+        @Module({ imports: [CoreModule] })
+        export class UsersModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		expect(findCircularDeps(graph)).toEqual([]);
+	});
+
+	// Same-name modules one per file: each import statement points at one of them
+	it("returns no cycles when same-name modules are declared one per file", () => {
+		const { project, paths } = createProject({
+			"/x/core.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { UsersModule } from './users.module';
+        @Module({ imports: [UsersModule] })
+        export class CoreModule {}
+      `,
+			"/x/users.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class UsersModule {}
+      `,
+			"/y/core.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class CoreModule {}
+      `,
+			"/y/users.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { CoreModule } from './core.module';
+        @Module({ imports: [CoreModule] })
+        export class UsersModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		expect(findCircularDeps(graph)).toEqual([]);
+	});
+
+	it("follows the import statement when two same-name modules collide", () => {
+		const { project, paths } = createProject({
+			"/feature-a/shared.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class SharedModule {}
+      `,
+			"/feature-b/shared.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { UsersModule } from '../users.module';
+        @Module({ imports: [UsersModule] })
+        export class SharedModule {}
+      `,
+			"/users.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { SharedModule } from './feature-a/shared.module';
+        @Module({ imports: [SharedModule] })
+        export class UsersModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		expect(findCircularDeps(graph)).toEqual([]);
+	});
+
+	it("reports the cycle when the import reaches the cyclic same-name module", () => {
+		const { project, paths } = createProject({
+			"/feature-a/shared.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class SharedModule {}
+      `,
+			"/feature-b/shared.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { UsersModule } from '../users.module';
+        @Module({ imports: [UsersModule] })
+        export class SharedModule {}
+      `,
+			"/users.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { SharedModule } from './feature-b/shared.module';
+        @Module({ imports: [SharedModule] })
+        export class UsersModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		const cycles = findCircularDeps(graph);
+
+		expect(cycles).toHaveLength(1);
+		expect([...cycles[0]].sort()).toEqual(["SharedModule", "UsersModule"]);
+	});
+
+	// A real cycle stays visible when one of its members shares a name elsewhere
+	it("detects a cycle whose member is also declared in an unrelated file", () => {
+		const { project, paths } = createProject({
+			"feature-a/a.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { BModule } from './b.module';
+        @Module({ imports: [BModule] })
+        export class AModule {}
+      `,
+			"feature-a/b.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { AModule } from './a.module';
+        @Module({ imports: [AModule] })
+        export class BModule {}
+      `,
+			"feature-b/b.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class BModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		const cycles = findCircularDeps(graph);
+
+		expect(cycles).toHaveLength(1);
+		expect([...cycles[0]].sort()).toEqual(["AModule", "BModule"]);
+	});
+
+	// Both declarations reaching the same module must not report the cycle twice
+	it("reports one cycle when two declarations of a member import it", () => {
+		const { project, paths } = createProject({
+			"feature-a/a.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { BModule } from './b.module';
+        @Module({ imports: [BModule] })
+        export class AModule {}
+      `,
+			"feature-b/a.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { BModule } from '../feature-a/b.module';
+        @Module({ imports: [BModule] })
+        export class AModule {}
+      `,
+			"feature-a/b.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { AModule } from './a.module';
+        @Module({ imports: [AModule] })
+        export class BModule {}
+      `,
+		});
+
+		const graph = buildModuleGraph(project, paths);
+		expect(findCircularDeps(graph)).toHaveLength(1);
+	});
+
+	// Prefixing sub-project names must reach the per-declaration imports too
+	it("keeps per-declaration cycles after a monorepo merge", () => {
+		const { project: api, paths: apiPaths } = createProject({
+			"apps/api/a.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { BModule } from './b.module';
+        @Module({ imports: [BModule] })
+        export class AModule {}
+      `,
+			"apps/api/b.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { AModule } from './a.module';
+        @Module({ imports: [AModule] })
+        export class BModule {}
+      `,
+			"apps/api/legacy/b.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class BModule {}
+      `,
+		});
+		const { project: admin, paths: adminPaths } = createProject({
+			"apps/admin/x/core.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ imports: [UsersModule] })
+        export class CoreModule {}
+        @Module({})
+        export class UsersModule {}
+      `,
+			"apps/admin/y/core.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class CoreModule {}
+        @Module({ imports: [CoreModule] })
+        export class UsersModule {}
+      `,
+		});
+
+		const merged = mergeModuleGraphs(
+			new Map([
+				["api", buildModuleGraph(api, apiPaths)],
+				["admin", buildModuleGraph(admin, adminPaths)],
+			])
+		);
+		const cycles = findCircularDeps(merged);
+
+		expect(cycles).toHaveLength(1);
+		expect([...cycles[0]].sort()).toEqual(["api/AModule", "api/BModule"]);
+	});
+
 	// A provider registered in a module should be discoverable via the inverse index
 	it("finds provider module", () => {
 		const { project, paths } = createProject({
