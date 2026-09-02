@@ -99,7 +99,7 @@ export const reportScanTelemetry = (input: ScanTelemetryInput): boolean => {
 				scanId: input.scanId,
 				scopeRequested: input.scopeRequested,
 				score: input.result.score,
-				source: generatedIn(),
+				source: generatedIn(env),
 				suppressed: input.suppressed,
 				totalMs: input.totalMs,
 				version: getCliVersion(),
