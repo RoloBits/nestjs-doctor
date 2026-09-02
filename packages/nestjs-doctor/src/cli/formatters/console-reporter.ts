@@ -189,10 +189,7 @@ const collectAffectedFiles = (diagnostics: Diagnostic[]): Set<string> =>
 
 // --- Print functions ---
 
-const printDiagnostics = (
-	diagnostics: Diagnostic[],
-	verbose: boolean
-): void => {
+const printRuleGroups = (diagnostics: Diagnostic[], verbose: boolean): void => {
 	const ruleGroups = groupByRule(diagnostics);
 	const sortedGroups = sortBySeverity([...ruleGroups.entries()]);
 
@@ -206,11 +203,7 @@ const printDiagnostics = (
 		const countLabel =
 			count > 1 ? colorizeBySeverity(` (${count})`, first.severity) : "";
 
-		const notScored = onSurface(first, "score")
-			? ""
-			: highlighter.dim(" · not scored");
-
-		logger.log(`  ${icon} ${first.message}${countLabel}${notScored}`);
+		logger.log(`  ${icon} ${first.message}${countLabel}`);
 
 		if (first.help) {
 			logger.dim(`    ${first.help}`);
@@ -226,6 +219,27 @@ const printDiagnostics = (
 
 		logger.break();
 	}
+};
+
+// Findings off the score surface print last, under one heading that carries
+// the tag the per-finding line used to.
+const printDiagnostics = (
+	diagnostics: Diagnostic[],
+	verbose: boolean
+): void => {
+	const scored = diagnostics.filter((d) => onSurface(d, "score"));
+	const notScored = diagnostics.filter((d) => !onSurface(d, "score"));
+
+	printRuleGroups(scored, verbose);
+
+	if (notScored.length === 0) {
+		return;
+	}
+
+	logger.dim(`  Not scored (${notScored.length})`);
+	logger.dim("    Reported only. These do not move the score.");
+	logger.break();
+	printRuleGroups(notScored, verbose);
 };
 
 // --- Main reporter ---
