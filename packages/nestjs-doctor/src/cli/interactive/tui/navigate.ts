@@ -10,11 +10,20 @@ type ListRow =
 	| { kind: "category"; label: string }
 	| { groupIndex: number; kind: "group" };
 
-/** One caption per category, wherever the category first appears. */
+/**
+ * One caption per category, wherever the category first appears. The first
+ * not-scored group opens its own block and categories caption again inside it.
+ */
 export const buildListRows = (groups: RuleGroup[]): ListRow[] => {
 	const rows: ListRow[] = [];
-	const seen = new Set<string>();
+	let seen = new Set<string>();
+	let inScored = true;
 	for (const [groupIndex, group] of groups.entries()) {
+		if (inScored && !group.scored) {
+			inScored = false;
+			seen = new Set<string>();
+			rows.push({ kind: "category", label: "not scored" });
+		}
 		const category = group.rule.split("/")[0];
 		if (!(group.rule.startsWith("custom/") || seen.has(category))) {
 			seen.add(category);

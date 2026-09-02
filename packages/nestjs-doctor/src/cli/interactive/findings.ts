@@ -12,7 +12,7 @@ export interface RuleGroup {
 	severity: Severity;
 }
 
-const SEVERITY_RANK: Record<Severity, number> = {
+export const SEVERITY_RANK: Record<Severity, number> = {
 	error: 0,
 	warning: 1,
 	info: 2,

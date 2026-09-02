@@ -8,6 +8,7 @@ import {
 	moveSelection,
 	scrollWindow,
 } from "../../src/cli/interactive/tui/navigate.js";
+import { ruleNameBudget } from "../../src/cli/interactive/tui/text.js";
 import type { Diagnostic } from "../../src/common/diagnostic.js";
 
 const diagnostic = (
@@ -121,5 +122,42 @@ describe("buildListRows", () => {
 	it("does not caption custom rules", () => {
 		const custom = groupFindings([diagnostic("custom/team-rule", "info")]);
 		expect(buildListRows(custom)).toEqual([{ groupIndex: 0, kind: "group" }]);
+	});
+
+	it("opens a not-scored block and captions categories again inside it", () => {
+		const mixed = groupFindings([
+			diagnostic("correctness/awaited", "error"),
+			diagnostic("performance/nested-controller", "warning"),
+			{
+				...diagnostic("correctness/no-async-without-await", "info"),
+				surfaces: ["cli"],
+			},
+		]);
+		expect(buildListRows(mixed)).toEqual([
+			{ kind: "category", label: "correctness" },
+			{ groupIndex: 0, kind: "group" },
+			{ kind: "category", label: "performance" },
+			{ groupIndex: 1, kind: "group" },
+			{ kind: "category", label: "not scored" },
+			{ kind: "category", label: "correctness" },
+			{ groupIndex: 2, kind: "group" },
+		]);
+	});
+});
+
+describe("ruleNameBudget", () => {
+	const tag = " · not scored".length;
+
+	it("drops the tag when the name would fall below the minimum", () => {
+		expect(ruleNameBudget(17, tag)).toEqual({ tag: false, width: 17 });
+	});
+
+	it("keeps the tag once the name still gets the minimum", () => {
+		expect(ruleNameBudget(21, tag)).toEqual({ tag: true, width: 8 });
+		expect(ruleNameBudget(24, tag)).toEqual({ tag: true, width: 11 });
+	});
+
+	it("gives an untagged row the whole width", () => {
+		expect(ruleNameBudget(17, 0)).toEqual({ tag: false, width: 17 });
 	});
 });

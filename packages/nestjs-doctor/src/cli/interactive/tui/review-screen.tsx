@@ -13,14 +13,12 @@ import {
 	scrollWindow,
 } from "./navigate.js";
 import { buildPanelLines } from "./panel.js";
-import { truncate } from "./text.js";
+import { NOT_SCORED_TAG, ruleNameBudget, truncate } from "./text.js";
 import { palette, SEVERITY_MARK, severityColor } from "./theme.js";
 import type { Toast } from "./types.js";
 
 const MIN_VISIBLE_ROWS = 8;
 const CHROME_ROWS = 7;
-const NOT_SCORED_TAG = " · not scored";
-const MIN_RULE_NAME_WIDTH = 8;
 
 interface ReviewScreenProps {
 	deferPrint: (text: string) => void;
@@ -175,10 +173,10 @@ export const ReviewScreen = ({
 		<Box flexDirection="column" gap={1}>
 			<Box borderColor={palette.border} borderStyle="single">
 				<Box flexDirection="column" flexShrink={0} width={leftWidth}>
-					{visibleSlice.map((row) => {
+					{visibleSlice.map((row, index) => {
 						if (row.kind === "category") {
 							return (
-								<Text color={palette.muted} key={row.label}>
+								<Text color={palette.muted} key={`caption-${offset + index}`}>
 									{` ${truncate(row.label.toUpperCase(), leftContent - 1)}`}
 								</Text>
 							);
@@ -188,11 +186,14 @@ export const ReviewScreen = ({
 							current !== undefined && row.groupIndex === current.groupIndex;
 						const count = entry.diagnostics.length;
 						const suffix = count > 1 ? ` (${count})` : "";
-						// The tag keeps its full width; the rule name gives way to it.
-						const tag = entry.scored ? "" : NOT_SCORED_TAG;
+						// The tag keeps its full width; a row too narrow for both drops it.
+						const budget = ruleNameBudget(
+							leftContent - 3,
+							entry.scored ? 0 : NOT_SCORED_TAG.length
+						);
 						const name = truncate(
 							`${shortRule(entry.rule)}${suffix}`,
-							Math.max(MIN_RULE_NAME_WIDTH, leftContent - 3 - tag.length)
+							budget.width
 						);
 						return (
 							<Box flexDirection="row" key={entry.rule}>
@@ -216,7 +217,9 @@ export const ReviewScreen = ({
 										>
 											{name}
 										</Text>
-										{tag ? <Text color={palette.dim}>{tag}</Text> : null}
+										{budget.tag ? (
+											<Text color={palette.dim}>{NOT_SCORED_TAG}</Text>
+										) : null}
 									</Text>
 								</Box>
 							</Box>

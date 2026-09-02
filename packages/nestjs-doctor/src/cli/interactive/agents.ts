@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import type { Diagnostic } from "../../common/diagnostic.js";
 import { logger } from "../../ui/logger.js";
 import { isCommandAvailable } from "../ui/commands.js";
-import { buildFixPrompt, groupFindings } from "./findings.js";
+import { buildFixPrompt, groupFindings, SEVERITY_RANK } from "./findings.js";
 
 export interface LaunchableAgent {
 	binary: string;
@@ -29,7 +29,9 @@ export const buildHandoffPrompt = (
 	targetPath: string
 ): string => {
 	const groups = groupFindings(diagnostics);
-	const top = groups.slice(0, 3);
+	const top = [...groups]
+		.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity])
+		.slice(0, 3);
 
 	const sections = top.map((group) => buildFixPrompt(group, targetPath));
 	const remaining = groups.length - top.length;

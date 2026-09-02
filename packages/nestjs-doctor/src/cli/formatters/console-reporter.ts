@@ -221,8 +221,7 @@ const printRuleGroups = (diagnostics: Diagnostic[], verbose: boolean): void => {
 	}
 };
 
-// Findings off the score surface print last, under one heading that carries
-// the tag the per-finding line used to.
+// Findings off the score surface print last, under their own heading.
 const printDiagnostics = (
 	diagnostics: Diagnostic[],
 	verbose: boolean

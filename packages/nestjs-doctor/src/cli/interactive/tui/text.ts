@@ -1,5 +1,21 @@
 const WHITESPACE = /\s+/;
 
+const MIN_RULE_NAME_WIDTH = 8;
+
+export const NOT_SCORED_TAG = " · not scored";
+
+/**
+ * Splits the room left for a rule row between its name and its tag. A tag that
+ * would squeeze the name below the minimum is dropped instead.
+ */
+export const ruleNameBudget = (
+	available: number,
+	tagLength: number
+): { tag: boolean; width: number } =>
+	tagLength > 0 && available - tagLength >= MIN_RULE_NAME_WIDTH
+		? { tag: true, width: available - tagLength }
+		: { tag: false, width: available };
+
 export const truncate = (text: string, width: number): string =>
 	text.length <= width ? text : `${text.slice(0, Math.max(0, width - 1))}…`;
 

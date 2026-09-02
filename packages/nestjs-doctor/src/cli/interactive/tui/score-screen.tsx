@@ -5,7 +5,7 @@ import { usableColumns, usableRows } from "../../../ui/terminal.js";
 import { formatElapsedTime } from "../../formatters/console-reporter.js";
 import { groupFindings } from "../findings.js";
 import { clampOffset, listCapacity, scrollWindow } from "./navigate.js";
-import { padEnd, truncate } from "./text.js";
+import { NOT_SCORED_TAG, padEnd, ruleNameBudget, truncate } from "./text.js";
 import {
 	getNestBirds,
 	getStarRating,
@@ -430,19 +430,28 @@ export const ScoreScreen = ({
 								{selectedRules.length > 0 ? (
 									<Box flexDirection="column" paddingTop={0}>
 										<Text color={palette.muted}>{" TOP RULES"}</Text>
-										{shownRules.map((group) => (
-											<Text key={group.rule}>
-												<Text color={severityColor(group.severity)}>
-													{` ${SEVERITY_MARK[group.severity]} `}
+										{shownRules.map((group) => {
+											const budget = ruleNameBudget(
+												panelWidth - 8,
+												group.scored ? 0 : NOT_SCORED_TAG.length
+											);
+											return (
+												<Text key={group.rule}>
+													<Text color={severityColor(group.severity)}>
+														{` ${SEVERITY_MARK[group.severity]} `}
+													</Text>
+													<Text color={palette.text}>
+														{truncate(shortRule(group.rule), budget.width)}
+													</Text>
+													{budget.tag ? (
+														<Text color={palette.dim}>{NOT_SCORED_TAG}</Text>
+													) : null}
+													<Text color={palette.dim}>
+														{` ${group.diagnostics.length}`}
+													</Text>
 												</Text>
-												<Text color={palette.text}>
-													{truncate(shortRule(group.rule), panelWidth - 8)}
-												</Text>
-												<Text color={palette.dim}>
-													{` ${group.diagnostics.length}`}
-												</Text>
-											</Text>
-										))}
+											);
+										})}
 										{rulesTruncated ? (
 											<Text color={palette.dim}>
 												{` … +${selectedRules.length - shownRules.length} more rules`}
