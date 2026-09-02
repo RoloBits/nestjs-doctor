@@ -1,0 +1,104 @@
+import { BreadcrumbJsonLd } from "@/components/json-ld";
+import { docsMetadata } from "@/lib/docs-metadata";
+export const metadata = docsMetadata["/docs/nestjs-eslint-plugins"];
+
+<BreadcrumbJsonLd path="/docs/nestjs-eslint-plugins" />
+
+# NestJS Doctor vs ESLint plugins
+
+A linter is the better tool for most of what a linter does. It runs on save in
+milliseconds, the three NestJS plugins below ship 36 rules between them, and
+oxlint is what the Nest 12 CLI now scaffolds. Swagger decorator hygiene,
+throttled routes, permissive CORS and unsafe upload filenames are checked there
+and nowhere in nestjs-doctor.
+
+The difference is what each tool is handed. A lint rule is handed one file and
+asked a question about that file. nestjs-doctor is handed the application: every
+`@Module()` at once, the provider graph, the endpoint graph and the ORM schema.
+
+## What each plugin covers
+
+Every row was read from the installed package on 2026-09-02, not from a README.
+
+| Plugin | Version | Rules | Roughly about |
+|---|---|---|---|
+| `eslint-plugin-nestjs` | 1.2.3 | 4 | `ParseIntPipe`, deprecated API modules, injection, registering a validation pipe |
+| `@darraghor/eslint-plugin-nestjs-typed` | 7.3.4 | 22 | Swagger and OpenAPI decorators, class-validator DTO metadata, provider wiring |
+| `eslint-plugin-nestjs-security` | 3.1.1 | 10 | Guards, validation pipes, throttling, CORS, serialization, upload filenames |
+| `oxlint` | 1.81.0 | 0 | No NestJS plugin. Its plugin list is unicorn, oxc, typescript, import, react, jsdoc, jest, vitest, jsx-a11y, nextjs, react-perf, promise, node and vue |
+
+Counting a plugin's rules takes one command against the package itself:
+
+```bash
+node -e "console.log(Object.keys(require('eslint-plugin-nestjs-security').rules).length)"
+```
+
+Rule sets move. Re-run that against the version you have installed rather than
+trusting the number in the table.
+
+## What only a project-scoped scan sees
+
+nestjs-doctor builds one module graph from every `@Module()` decorator in the
+project before any rule runs. Eight of its 52 rules run once over the whole
+project instead of once per file, so they can answer questions no single file
+contains.
+
+Running all 36 plugin rules over a fixture with a two-module import cycle and an
+unused module export reported neither. On the same files nestjs-doctor reported
+both:
+
+- `architecture/no-circular-module-deps`, an `error`, on the cycle.
+- `performance/no-unused-module-exports`, an `info`, on the export nobody imports.
+- `performance/no-unused-providers` and `performance/no-orphan-modules` read the
+  same graph.
+
+The ORM schema is the second thing no plugin models. nestjs-doctor extracts
+entities and relations from Prisma, TypeORM, Drizzle and MikroORM into a schema
+graph, then reports `schema/require-primary-key`, `schema/require-timestamps`
+and `schema/require-cascade-rule` against the entity. None of the 36 rules
+models an entity or a relation.
+
+The third is one number. Every finding is weighted by severity and category,
+normalized by file count, and reduced to a score out of 100 for the whole
+project. That score is comparable across repositories in a way that a count of
+lint errors is not, and `--min-score` gates a build on it.
+
+## Where they overlap
+
+The overlaps below were produced by running both tools over the same fixture and
+comparing per file and line, on 2026-09-02.
+
+| Case | nestjs-doctor | Plugin rule | Result |
+|---|---|---|---|
+| Endpoint with no guard | `security/require-guards-on-endpoints` | `nestjs-security/require-guards`, `@darraghor/nestjs-typed/api-methods-should-be-guarded` | All three flagged the same handler and no other. A guard at class level and a guard at method level both count everywhere |
+| Nested non-primitive without `@Type()` | `correctness/validated-non-primitive-needs-type` | `@darraghor/nestjs-typed/validated-non-primitive-property-needs-type-decorator` | Same two properties, same two lines |
+| `@ValidateNested()` on an array | `correctness/validate-nested-array-each` | `@darraghor/nestjs-typed/validate-nested-of-array-should-set-each` | Same property, same line |
+| Injectable no module provides | `correctness/injectable-must-be-provided` | `@darraghor/nestjs-typed/injectable-should-be-provided` | Same file. This rule does read the whole project, so provider registration is not a gap |
+
+Both validation rows are about class-validator metadata on a DTO. Whether a
+`ValidationPipe` is registered at all is a separate question, and it is
+`eslint-plugin-nestjs-security` and `eslint-plugin-nestjs` that ask it.
+
+Any of the nestjs-doctor rules named on this page can fail a build. None of them
+restricts its surfaces, and `--blocking` gates on findings carrying the
+`ciFailure` surface. [Failing the build](/docs/ci/gates) covers the flags.
+
+## Running both
+
+Nothing here requires a choice. The plugins stay in the editor where they belong,
+running per file on save, and nestjs-doctor runs in CI over the whole project on
+every pull request.
+
+Both are free. nestjs-doctor ships under MIT with no paid tier and no seat count,
+including the 52 rules, the HTML report, the GitHub Action and the VS Code
+extension.
+
+Scan a project once and compare the output against what your linter already
+tells you:
+
+```bash
+npx nestjs-doctor@latest .
+```
+
+[Quickstart](/docs/setup) covers reading the score, and [Rules](/docs/rules)
+lists all 52.

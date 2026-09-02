@@ -12,6 +12,11 @@ export const DOCS_PAGES: Record<string, PageCopy> = {
 		description:
 			"Both draw a NestJS module graph. Nest Devtools boots your app; nestjs-doctor reads your source, adds 52 rules, an ER diagram and a CI gate, and is MIT licensed.",
 	},
+	"/docs/nestjs-eslint-plugins": {
+		title: "NestJS Doctor vs ESLint plugins",
+		description:
+			"What the NestJS ESLint plugins and oxlint check, what a project-scoped scan sees that a file-scoped lint rule cannot, and where the two overlap rule for rule.",
+	},
 	"/docs/setup": {
 		title: "Quickstart",
 		description:
