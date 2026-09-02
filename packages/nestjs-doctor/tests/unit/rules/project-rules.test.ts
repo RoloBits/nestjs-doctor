@@ -858,6 +858,30 @@ describe("no-unused-module-exports", () => {
 		expect(diags).toHaveLength(0);
 	});
 
+	it("counts a useExisting alias of the exported provider itself", () => {
+		const diags = runProjectRule(noUnusedModuleExports, {
+			"mail.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ providers: [MailService], exports: [MailService] })
+        export class MailModule {}
+      `,
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({
+          imports: [MailModule],
+          providers: [{ provide: 'MAILER', useExisting: MailService }],
+        })
+        export class AppModule {}
+      `,
+			"mail.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class MailService {}
+      `,
+		});
+		expect(diags).toHaveLength(0);
+	});
+
 	it("still flags the export when the useClass target injects something else", () => {
 		const diags = runProjectRule(noUnusedModuleExports, {
 			"mail.module.ts": `

@@ -112,9 +112,10 @@ export const noUnusedModuleExports: ProjectRule = {
 				}
 
 				// An object-literal provider (`{ provide, useClass }`) keeps its source
-				// text, not a class name.
+				// text; the target counts as used, and so does whatever it injects.
 				for (const filePath of consumer.filePaths ?? [consumer.filePath]) {
 					for (const implName of implementationNamesIn(filePath)) {
+						usedProviders.add(implName);
 						const implClass = classesByName.get(implName);
 						if (implClass) {
 							collectInjectedNames(implClass, usedProviders);

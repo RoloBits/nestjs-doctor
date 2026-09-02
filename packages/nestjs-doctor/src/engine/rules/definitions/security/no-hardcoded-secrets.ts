@@ -78,6 +78,9 @@ function hasSuspiciousName(name: string): boolean {
 // stays a credential.
 const SCOPE_VALUE = /^[a-z]+(:[a-z]+)+$/;
 
+// Two plain words joined by `:` or `/`, the shape of a `user:pass` credential.
+const CREDENTIAL_PAIR = /^[a-z]+[:/][a-z]+$/;
+
 const WORD_SEGMENT = /^[a-z]{3,}$/;
 const SEGMENT_SPLIT = /[-_:/.]|(?<=[a-z])(?=[A-Z])/;
 
@@ -107,7 +110,7 @@ function isIdentifierShapedValue(value: string): boolean {
 	if (looksLikeRegexSource(value) || SINGLE_CAPITALIZED_WORD.test(value)) {
 		return true;
 	}
-	if (!IDENTIFIER_SHAPE.test(value)) {
+	if (CREDENTIAL_PAIR.test(value) || !IDENTIFIER_SHAPE.test(value)) {
 		return false;
 	}
 	return value

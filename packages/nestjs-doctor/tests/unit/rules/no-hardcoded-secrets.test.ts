@@ -27,10 +27,11 @@ function runRule(code: string, filePath = "test.ts"): Diagnostic[] {
 describe("no-hardcoded-secrets", () => {
 	it("flags a colon value that does not name the binding", () => {
 		const diags = runRule(`
-      export const authToken = "admin:supersecret1";
-      export const dbPassword = "root:hunter2";
+      export const authToken = "admin:supersecret";
+      export const dbPassword = "root:hunter";
+      export const basicAuthPassword = "admin:admin";
     `);
-		expect(diags).toHaveLength(2);
+		expect(diags).toHaveLength(3);
 	});
 
 	it("still ignores a permission scope that names the binding", () => {
@@ -195,18 +196,25 @@ describe("no-hardcoded-secrets", () => {
 		expect(diags).toHaveLength(0);
 	});
 
-	it("still flags a word-shaped credential outside a throw", () => {
+	it("still flags a word-shaped credential with a digit outside a throw", () => {
 		const diags = runRule(`
       const config = { password: 'correct-horse-battery-staple-2024' };
     `);
 		expect(diags).toHaveLength(1);
 	});
 
-	it("still flags a credential pair and a hyphenated secret", () => {
-		expect(runRule("const password = 'admin/administrator2';")).toHaveLength(1);
+	it("still flags a slash credential pair and a hyphenated secret with a digit", () => {
+		expect(runRule("const password = 'admin/administrator';")).toHaveLength(1);
 		expect(
 			runRule("const apiKey = 'super-secret-key-value-2024';")
 		).toHaveLength(1);
+	});
+
+	it("accepts hyphenated word sequences without digits as false negatives", () => {
+		expect(
+			runRule("const config = { password: 'correct-horse-battery-staple' };")
+		).toHaveLength(0);
+		expect(runRule("const apiKey = 'super-secret-key-value';")).toHaveLength(0);
 	});
 
 	it("still flags a real secret assigned inside a throw", () => {
@@ -324,9 +332,7 @@ describe("no-hardcoded-secrets", () => {
 			expect(runRule(`const apiSecret = '${hex}';`)).toHaveLength(1);
 		});
 
-		// Accepted false negatives: purely alphabetic, multi-word values look
-		// like identifiers, not secrets. Vendor-format patterns still catch a
-		// real credential regardless of what it is assigned to.
+		// Alphabetic multi-word values under a suspicious name read as keys.
 		it("accepts two false negatives for low-entropy alphabetic placeholders", () => {
 			expect(runRule("const secretValue = 'SuperSecret_Value';")).toHaveLength(
 				0

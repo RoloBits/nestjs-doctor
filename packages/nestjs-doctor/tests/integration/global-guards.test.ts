@@ -49,6 +49,22 @@ describe("global guard detection", () => {
 		expect(guardFindings).toEqual([]);
 	});
 
+	it("reports no unguarded endpoint when a typed helper binds the guard", async () => {
+		const { output } = await scan("typed-app-helper-app/src");
+		const guardFindings = output.diagnostics.filter(
+			(diagnostic) => diagnostic.rule === GUARD_RULE
+		);
+		expect(guardFindings).toEqual([]);
+	});
+
+	it("still reports when only a microservice handle or an empty call binds guards", async () => {
+		const { output } = await scan("hybrid-guards-app/src");
+		const guardFindings = output.diagnostics.filter(
+			(diagnostic) => diagnostic.rule === GUARD_RULE
+		);
+		expect(guardFindings).toHaveLength(1);
+	});
+
 	it("still reports an unguarded endpoint in a project with no global guard", async () => {
 		const { output } = await scan("bad-security/src");
 		const guardFindings = output.diagnostics.filter(
