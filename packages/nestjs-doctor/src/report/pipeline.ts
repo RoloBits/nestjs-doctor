@@ -47,6 +47,8 @@ abstract class ReportPipeline {
 	protected subProjectOptOut = false;
 	/** Set when this scan was the first telemetry send from this install. */
 	protected firstTelemetrySend = false;
+	/** Marks when this pipeline was constructed, for the total wall time. */
+	protected readonly startedAt = performance.now();
 	/** Injectables handed to `reportScanTelemetry`; tests replace the sender. */
 	protected telemetryOverrides: Partial<ScanTelemetryInput> = {};
 	protected readonly targetPath: string;
@@ -88,7 +90,8 @@ abstract class ReportPipeline {
 		diagnostics: Diagnostic[],
 		result: DiagnoseResult,
 		fileCount: number,
-		monorepo: boolean
+		monorepo: boolean,
+		totalMs: number
 	): void {
 		this.firstTelemetrySend = reportScanTelemetry({
 			blocking: "error",
@@ -103,6 +106,7 @@ abstract class ReportPipeline {
 			scopeRequested: "full",
 			subProjectOptOut: this.subProjectOptOut,
 			targetPath: this.targetPath,
+			totalMs,
 			...this.telemetryOverrides,
 		});
 	}
@@ -184,7 +188,8 @@ export class SingleProjectReportPipeline extends ReportPipeline {
 				this.rawOutput.diagnostics,
 				this._scanResult.result,
 				this.context.files.length,
-				false
+				false,
+				performance.now() - this.startedAt
 			);
 		});
 		return this;
@@ -301,7 +306,8 @@ export class MonorepoReportPipeline extends ReportPipeline {
 				combined.diagnostics,
 				combined,
 				combined.project.fileCount,
-				true
+				true,
+				performance.now() - this.startedAt
 			);
 		});
 		return this;

@@ -44,8 +44,10 @@ export function buildBeacon(
       $current_url: "report://local",
       version: VERSION,
       generated_in: SOURCE,
-      scan_id: SCAN,
     };
+    if (SCAN) {
+      props.scan_id = SCAN;
+    }
     if (section) {
       props.section = section;
     }

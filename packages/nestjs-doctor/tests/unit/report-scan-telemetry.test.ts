@@ -138,6 +138,46 @@ describe("report scan telemetry", () => {
 		expect(pipeline.generatedHtml).not.toContain("var SCAN");
 	});
 
+	it("reports a total at least as long as the measured scan, single project", async () => {
+		const send = vi.fn(() => true);
+		await runPipeline(
+			new TestSinglePipeline(
+				resolve(FIXTURES, "basic-app"),
+				true,
+				injected(send)
+			)
+		);
+
+		const payload = sentPayload(send);
+		expect(payload.total_ms).toBeGreaterThanOrEqual(payload.duration_ms);
+	});
+
+	it("reports a total at least as long as the measured scan, monorepo", async () => {
+		const targetPath = resolve(FIXTURES, "monorepo-app");
+		const monorepo = await detectMonorepo(targetPath);
+		if (!monorepo) {
+			throw new Error("monorepo-app fixture was not detected as a monorepo");
+		}
+
+		const send = vi.fn(() => true);
+		const pipeline = new TestMonorepoPipeline(
+			targetPath,
+			undefined,
+			monorepo,
+			injected(send)
+		);
+		await pipeline
+			.resolveConfig()
+			.buildContext()
+			.runRules()
+			.buildResult()
+			.generateHtml()
+			.run();
+
+		const payload = sentPayload(send);
+		expect(payload.total_ms).toBeGreaterThanOrEqual(payload.duration_ms);
+	});
+
 	it("sends nothing when a sub-project opted out", async () => {
 		const configPath = join(tempRoot, "opted-out.json");
 		writeFileSync(configPath, JSON.stringify({ telemetry: false }));

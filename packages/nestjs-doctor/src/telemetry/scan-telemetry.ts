@@ -51,6 +51,7 @@ export interface ScanFacts {
 	scopeRequested: ScopeMode;
 	score: Score;
 	source: "ci" | "cli";
+	totalMs: number;
 	version: string;
 }
 
@@ -100,6 +101,7 @@ export interface ScanPayload {
 	scan_id: string;
 	scope_requested: ScopeMode;
 	score: number;
+	total_ms: number;
 	trigger: Trigger;
 	version: string;
 	via_action: boolean;
@@ -206,24 +208,25 @@ export function buildScanPayload(
 		monorepo: facts.monorepo,
 		nest_version: facts.nestVersion,
 		nestjs_packages: facts.ecosystem.nestjsPackages,
-		orm: facts.orm,
-		output_format: facts.outputFormat,
 		node_major: Number.parseInt(
 			nodeVersion.replace(NODE_VERSION_PREFIX_RE, ""),
 			10
 		),
+		orm: facts.orm,
+		output_format: facts.outputFormat,
 		platform,
 		...(facts.projectId ? { project_id: facts.projectId } : {}),
+		report_requested: facts.outputFormat === "report",
 		// Rule ids only; the error message quotes the file that broke the rule.
 		rule_errors: builtInOnly(facts.ruleErrors.map((e) => e.ruleId)),
 		rule_overrides: facts.config.ruleOverrides,
 		rules_turned_off: facts.config.rulesTurnedOff,
 		rules_disabled: builtInOnly(facts.disabledRuleIds),
-		report_requested: facts.outputFormat === "report",
 		rules_with_findings: Object.keys(findings).length,
 		scan_id: facts.scanId,
 		scope_requested: facts.scopeRequested,
 		score: facts.score.value,
+		total_ms: Math.round(facts.totalMs),
 		trigger: facts.action.trigger,
 		version: facts.version,
 		via_action: facts.action.viaAction,

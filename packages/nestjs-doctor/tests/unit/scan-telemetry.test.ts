@@ -80,6 +80,7 @@ const facts = (overrides: Partial<ScanFacts> = {}): ScanFacts => ({
 	scanId: "8f1c4a2e-0b3d-4f56-9a71-2c5d8e0f3b64",
 	score: { value: 90, label: "Excellent" } as Score,
 	source: "cli",
+	totalMs: 15.3,
 	version: "1.2.3",
 	...overrides,
 });
@@ -193,6 +194,12 @@ describe("scan telemetry payload", () => {
 		expect(payload.duration_ms).toBe(13);
 	});
 
+	it("rounds the total the same way it rounds the scan", () => {
+		const payload = buildScanPayload(facts({ totalMs: 10.6 }));
+
+		expect(payload.total_ms).toBe(11);
+	});
+
 	it("reports how the official action was triggered", () => {
 		const payload = buildScanPayload(
 			facts({
@@ -283,6 +290,14 @@ describe("scan telemetry payload", () => {
 
 		const payload = buildScanPayload(facts({ action: actionContext(env) }));
 		expect(JSON.stringify(payload)).not.toContain("my-wrapper");
+	});
+
+	it("takes a known NESTJS_DOCTOR_TRIGGER over the hook it's running under", () => {
+		const env = {
+			NESTJS_DOCTOR_TRIGGER: "skill",
+			GIT_DIR: "/repo/.git",
+		};
+		expect(detectTrigger(env)).toBe("skill");
 	});
 
 	it("still reads a hook after git has run", () => {

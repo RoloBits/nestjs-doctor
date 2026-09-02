@@ -38,6 +38,7 @@ export interface ScanTelemetryInput {
 	send?: typeof sendScanTelemetry;
 	subProjectOptOut: boolean;
 	targetPath: string;
+	totalMs: number;
 }
 
 /**
@@ -97,6 +98,7 @@ export const reportScanTelemetry = (input: ScanTelemetryInput): boolean => {
 				scopeRequested: input.scopeRequested,
 				score: input.result.score,
 				source: generatedIn(),
+				totalMs: input.totalMs,
 				version: getCliVersion(),
 			}),
 			identity.anonymousId

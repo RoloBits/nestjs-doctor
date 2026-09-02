@@ -133,6 +133,8 @@ abstract class ScanPipeline {
 	protected reportTelemetry = false;
 	/** Warnings raised while narrowing the scope; surfaced alongside the report. */
 	protected scopeWarnings: string[] = [];
+	/** Constructed in the worker for an interactive run, so this times the engine middle there. */
+	protected readonly startedAt = performance.now();
 	protected readonly steps: PipelineStep[] = [];
 	protected readonly targetPath: string;
 
@@ -149,7 +151,8 @@ abstract class ScanPipeline {
 		diagnostics: Diagnostic[],
 		result: DiagnoseResult,
 		fileCount: number,
-		monorepo: boolean
+		monorepo: boolean,
+		totalMs: number
 	): void {
 		this.firstTelemetrySend = reportScanTelemetry({
 			blocking: this.options.blocking,
@@ -164,6 +167,7 @@ abstract class ScanPipeline {
 			scopeRequested: this.options.scope,
 			subProjectOptOut: this.subProjectOptOut,
 			targetPath: this.targetPath,
+			totalMs,
 		});
 		this.reportTelemetry =
 			reportTelemetryEnabled(this.options.telemetry, this.scanConfig.config) &&
@@ -523,7 +527,8 @@ export class MonorepoPipeline extends ScanPipeline {
 				combined.diagnostics,
 				combined,
 				combined.project.fileCount,
-				true
+				true,
+				performance.now() - this.startedAt
 			);
 		});
 		return this;
@@ -768,7 +773,8 @@ export class SingleProjectPipeline extends ScanPipeline {
 				this.rawOutput.diagnostics,
 				this.result.result,
 				this.context.files.length,
-				false
+				false,
+				performance.now() - this.startedAt
 			);
 		});
 		return this;

@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest";
 import { type PipelineOptions, toScanOptions } from "../../src/cli/setup.js";
 import type { BootstrapTimings } from "../../src/common/timings.js";
 
+/** A `format:` property line, not a substring match inside a comment. */
+const FORMAT_PROPERTY_RE = /^\tformat:/m;
+
 const timings: BootstrapTimings = {
 	byModule: new Map([
 		[
@@ -105,7 +108,7 @@ describe("scan worker options", () => {
 
 	it("takes the output format from the request, not a constant", () => {
 		expect(source).toContain("...request.options,");
-		expect(source).not.toContain("format:");
+		expect(source).not.toMatch(FORMAT_PROPERTY_RE);
 	});
 
 	it("still prints nothing and reports machine-readable", () => {

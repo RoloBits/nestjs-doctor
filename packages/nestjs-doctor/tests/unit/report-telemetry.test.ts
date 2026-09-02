@@ -45,8 +45,8 @@ const ALLOWED_PROPERTIES = [
  * Executes the beacon against a stub page whose every readable value is TAINT,
  * then returns the request bodies it produced.
  */
-function runBeacon() {
-	const source = buildBeacon("phc_key", "1.2.3", "cli", SCAN_ID)
+function runBeacon(scanId: string = SCAN_ID) {
+	const source = buildBeacon("phc_key", "1.2.3", "cli", scanId)
 		.replace("<script>", "")
 		.replace("</script>", "");
 	const sent: Record<string, never>[] = [];
@@ -174,6 +174,15 @@ describe("report telemetry", () => {
 		expect(sent.length).toBeGreaterThan(0);
 		for (const body of sent) {
 			expect(body.properties.scan_id).toBe(SCAN_ID);
+		}
+	});
+
+	it("omits scan_id from the beacon when the artifact has none", () => {
+		const { sent } = runBeacon("");
+
+		expect(sent.length).toBeGreaterThan(0);
+		for (const body of sent) {
+			expect(body.properties).not.toHaveProperty("scan_id");
 		}
 	});
 
