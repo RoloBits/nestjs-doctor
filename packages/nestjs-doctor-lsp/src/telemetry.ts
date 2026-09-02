@@ -206,24 +206,21 @@ req.end(body);
 export function sendLspEvent(
 	event: string,
 	distinctId: string,
-	properties: Record<string, unknown>
+	properties: Record<string, unknown>,
+	env: NodeJS.ProcessEnv = process.env
 ): void {
 	if (!POSTHOG_KEY) {
+		return;
+	}
+	const body = { event, distinct_id: distinctId, properties };
+	if (isSet(env.NESTJS_DOCTOR_TELEMETRY_DEBUG)) {
+		process.stderr.write(`${JSON.stringify(body, null, 2)}\n`);
 		return;
 	}
 	try {
 		const child = spawn(
 			process.execPath,
-			[
-				"-e",
-				CHILD_SCRIPT,
-				JSON.stringify({
-					api_key: POSTHOG_KEY,
-					event,
-					distinct_id: distinctId,
-					properties,
-				}),
-			],
+			["-e", CHILD_SCRIPT, JSON.stringify({ api_key: POSTHOG_KEY, ...body })],
 			{ detached: true, stdio: "ignore", windowsHide: true }
 		);
 		child.on("error", () => {

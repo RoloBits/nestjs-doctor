@@ -66,6 +66,9 @@ import { createAnimatedProgress } from "./ui/animated-progress.js";
 
 type PipelineStep = () => void | Promise<void>;
 
+const TELEMETRY_NOTICE =
+	'nestjs-doctor reports each scan anonymously: which built-in rules fired, the score, well-known dependencies, and the shape of your config — never your code, paths, or project name. Turn it off with --no-telemetry, "telemetry": false in your config, or DO_NOT_TRACK=1. https://nestjs.doctor/docs/telemetry';
+
 const analysisLabel = (phase: AnalysisPhase): string => {
 	if (phase === "collecting") {
 		return "Collecting files";
@@ -123,6 +126,8 @@ abstract class ScanPipeline {
 	protected workerWarnings: string[] = [];
 	/** Set when any scanned sub-project declares its own opt-out. */
 	protected subProjectOptOut = false;
+	/** Set when this scan was the first telemetry send from this install. */
+	protected firstTelemetrySend = false;
 	/** Whether a report built from the menu may embed its beacon; decided with the config. */
 	protected reportTelemetry = false;
 	/** Warnings raised while narrowing the scope; surfaced alongside the report. */
@@ -145,7 +150,7 @@ abstract class ScanPipeline {
 		fileCount: number,
 		monorepo: boolean
 	): void {
-		reportScanTelemetry({
+		this.firstTelemetrySend = reportScanTelemetry({
 			blocking: this.options.blocking,
 			diagnostics,
 			fileCount,
@@ -250,6 +255,13 @@ abstract class ScanPipeline {
 			delta.introduced,
 			buildScopeInfo(scope, { baselineAvailable: true, fixed: delta.fixed })
 		);
+	}
+
+	/** One line, once per install, saying what a scan reports and how to stop it. */
+	protected printTelemetryNotice(): void {
+		if (this.firstTelemetrySend && !this.options.isMachineReadable) {
+			logger.warn(TELEMETRY_NOTICE);
+		}
 	}
 
 	/** Ends the spinner so nothing prints through an active frame. */
@@ -361,6 +373,7 @@ abstract class ScanPipeline {
 		} finally {
 			stopWatching();
 			this.stopProgress();
+			this.printTelemetryNotice();
 		}
 	}
 }
@@ -530,6 +543,7 @@ export class MonorepoPipeline extends ScanPipeline {
 				this.allProviders.push(...outcome.reportProviders);
 				this.bootstrapRoots.push(...outcome.bootstrapRoots);
 				this.subProjectOptOut = outcome.subProjectOptOut;
+				this.firstTelemetrySend = outcome.firstTelemetrySend;
 				this.reportTelemetry = outcome.reportTelemetry;
 				this.scopeWarnings.push(...outcome.scopeWarnings);
 				this.resolvedMinimumScore = outcome.resolvedMinimumScore;
@@ -547,6 +561,7 @@ export class MonorepoPipeline extends ScanPipeline {
 			reportProviders: this.allProviders,
 			bootstrapRoots: this.bootstrapRoots,
 			allFiles: this.allFiles,
+			firstTelemetrySend: this.firstTelemetrySend,
 			subProjectOptOut: this.subProjectOptOut,
 			reportTelemetry: this.reportTelemetry,
 			scopeWarnings: this.scopeWarnings,
@@ -668,6 +683,7 @@ export class SingleProjectPipeline extends ScanPipeline {
 				};
 				this.reportProviders = outcome.reportProviders;
 				this.bootstrapRoots = outcome.bootstrapRoots;
+				this.firstTelemetrySend = outcome.firstTelemetrySend;
 				this.reportTelemetry = outcome.reportTelemetry;
 				this.scopeWarnings.push(...outcome.scopeWarnings);
 				this.resolvedMinimumScore = outcome.resolvedMinimumScore;
@@ -684,6 +700,7 @@ export class SingleProjectPipeline extends ScanPipeline {
 			moduleGraph: this.result.moduleGraph,
 			reportProviders: this.reportProviders,
 			bootstrapRoots: this.bootstrapRoots,
+			firstTelemetrySend: this.firstTelemetrySend,
 			result: this.result.result,
 			reportTelemetry: this.reportTelemetry,
 			schemaGraph: this.result.schemaGraph,

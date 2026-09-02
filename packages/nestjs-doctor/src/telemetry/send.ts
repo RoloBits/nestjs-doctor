@@ -55,25 +55,27 @@ req.end(body);
 /** Hands the payload to a detached child, so the scan never waits on the network. */
 export function sendScanTelemetry(
 	payload: ScanPayload,
-	distinctId: string
+	distinctId: string,
+	env: NodeJS.ProcessEnv = process.env
 ): void {
 	if (!POSTHOG_KEY) {
+		return;
+	}
+
+	const body = {
+		event: "scan_completed",
+		distinct_id: distinctId,
+		properties: payload,
+	};
+	if (isSet(env.NESTJS_DOCTOR_TELEMETRY_DEBUG)) {
+		process.stderr.write(`${JSON.stringify(body, null, 2)}\n`);
 		return;
 	}
 
 	try {
 		const child = spawn(
 			process.execPath,
-			[
-				"-e",
-				CHILD_SCRIPT,
-				JSON.stringify({
-					api_key: POSTHOG_KEY,
-					event: "scan_completed",
-					distinct_id: distinctId,
-					properties: payload,
-				}),
-			],
+			["-e", CHILD_SCRIPT, JSON.stringify({ api_key: POSTHOG_KEY, ...body })],
 			{ detached: true, stdio: "ignore", windowsHide: true }
 		);
 		child.on("error", () => {

@@ -38,12 +38,34 @@ export function configDir(env: NodeJS.ProcessEnv = process.env): string {
 	);
 }
 
+// Shipped in the package, so a CI id is pseudonymous rather than anonymous.
+const CI_REPO_SALT = "nestjs-doctor.ci.v1";
+
+/** The repository the runner was given, preferring the id that survives a rename. */
+function repoKey(env: NodeJS.ProcessEnv): string | undefined {
+	const raw =
+		env.GITHUB_REPOSITORY_ID ?? env.GITHUB_REPOSITORY ?? env.CI_PROJECT_ID;
+	return raw?.trim().toLowerCase() || undefined;
+}
+
 /**
- * One id per CI provider, shared by every runner.
+ * One id per repository, or one per provider where none is named. Never
+ * derived from a path: a runner spells its checkout differently per platform.
  */
 function ciIdentity(env: NodeJS.ProcessEnv): string | undefined {
 	const provider = detectKnownCiProvider(env);
-	return provider ? `ci.${provider}` : undefined;
+	if (!provider) {
+		return undefined;
+	}
+	const repo = repoKey(env);
+	if (!repo) {
+		return `ci.${provider}`;
+	}
+	const hash = createHash("sha256")
+		.update(`${CI_REPO_SALT}:${repo}`)
+		.digest("hex")
+		.slice(0, 16);
+	return `ci.${provider}.${hash}`;
 }
 
 const readConfig = (file: string): StoredConfig | undefined => {
@@ -54,6 +76,13 @@ const readConfig = (file: string): StoredConfig | undefined => {
 		// A missing or corrupt store means no stored id.
 	}
 };
+
+/** Whether this install has stored an id, without creating one. */
+export function hasStoredIdentity(
+	env: NodeJS.ProcessEnv = process.env
+): boolean {
+	return readConfig(join(configDir(env), "telemetry.json")) !== undefined;
+}
 
 /** Reads the install id and salt, creating them on first run. */
 export function resolveIdentity(

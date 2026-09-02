@@ -28,7 +28,9 @@ const buildInput = (
 ): ScanTelemetryInput => ({
 	blocking: "error",
 	diagnostics: [],
+	env: {},
 	fileCount: 4,
+	hasStoredIdentityFn: () => false,
 	isEnabled: () => true,
 	monorepo: false,
 	optionsTelemetry: true,
@@ -123,7 +125,53 @@ describe("scan telemetry reporter", () => {
 			}),
 		});
 
-		expect(() => reportScanTelemetry(input)).not.toThrow();
+		expect(reportScanTelemetry(input)).toBe(false);
+	});
+
+	it("reports the first send an install ever makes", () => {
+		expect(reportScanTelemetry(buildInput())).toBe(true);
+	});
+
+	it("reports nothing new once the install has a stored id", () => {
+		expect(
+			reportScanTelemetry(buildInput({ hasStoredIdentityFn: () => true }))
+		).toBe(false);
+	});
+
+	it("reads the store before the identity resolver writes one", () => {
+		const order: string[] = [];
+		const input = buildInput({
+			hasStoredIdentityFn: vi.fn(() => {
+				order.push("read");
+				return false;
+			}),
+			resolveIdentityFn: vi.fn(() => {
+				order.push("resolve");
+				return { anonymousId: "anon-123" };
+			}),
+		});
+
+		reportScanTelemetry(input);
+
+		expect(order).toEqual(["read", "resolve"]);
+	});
+
+	it("announces no first send when nothing was sent", () => {
+		expect(reportScanTelemetry(buildInput({ isEnabled: () => false }))).toBe(
+			false
+		);
+		expect(reportScanTelemetry(buildInput({ subProjectOptOut: true }))).toBe(
+			false
+		);
+	});
+
+	it("announces no first send from CI, which stores no id", () => {
+		expect(reportScanTelemetry(buildInput({ env: { CI: "true" } }))).toBe(
+			false
+		);
+		expect(
+			reportScanTelemetry(buildInput({ env: { GITHUB_ACTIONS: "true" } }))
+		).toBe(false);
 	});
 
 	it("swallows a throw from resolving the identity", () => {
@@ -133,7 +181,7 @@ describe("scan telemetry reporter", () => {
 			}),
 		});
 
-		expect(() => reportScanTelemetry(input)).not.toThrow();
+		expect(reportScanTelemetry(input)).toBe(false);
 		expect(input.send).not.toHaveBeenCalled();
 	});
 });
