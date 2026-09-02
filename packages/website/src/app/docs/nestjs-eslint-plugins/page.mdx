@@ -6,19 +6,20 @@ export const metadata = docsMetadata["/docs/nestjs-eslint-plugins"];
 
 # NestJS Doctor vs ESLint plugins
 
-A linter is the better tool for most of what a linter does. It runs on save in
-milliseconds, and the three NestJS plugins below ship 36 rules between them.
-oxlint is what the Nest 12 CLI now scaffolds. Swagger decorator hygiene,
-throttled routes, permissive CORS and unsafe upload filenames are checked there
-and nowhere in nestjs-doctor.
+For most of what a linter checks, a linter is the better tool. It runs on save
+in milliseconds, and the three NestJS plugins ship 36 rules between them.
+oxlint is what the Nest 12 CLI now scaffolds.
 
-The difference is what each tool is handed. A lint rule is handed one file and
-asked a question about that file. nestjs-doctor is handed the application: every
-`@Module()` at once, the provider graph, the endpoint graph and the ORM schema.
+The plugins cover Swagger decorator hygiene, throttled routes, permissive CORS
+and unsafe upload filenames. nestjs-doctor covers none of those four.
+
+The difference is what each tool reads. A lint rule reads one file and answers
+one question about that file. nestjs-doctor reads the whole application: every
+`@Module()` at once, the provider map, the endpoint graph and the ORM schema.
 
 ## What each plugin covers
 
-Every row was read from the installed package on 2026-09-02, not from a README.
+Each row comes from the installed package on 2026-09-02, not from a README.
 
 | Plugin | Version | NestJS rules | Roughly about |
 |---|---|---|---|
@@ -33,57 +34,61 @@ Counting a plugin's rules takes one command against the package itself:
 node -e "console.log(Object.keys(require('eslint-plugin-nestjs-security').rules).length)"
 ```
 
-Rule sets move. Re-run that against the version you have installed rather than
-trusting the number in the table.
+Rule sets move. Run that command against the version you have installed rather
+than trusting the number in the table.
 
 ## What only a project-scoped scan sees
 
 nestjs-doctor builds one module graph from every `@Module()` decorator in the
 project before any rule runs. Eight of its 52 rules run once over the whole
-project instead of once per file, so they can answer questions no single file
+project instead of once per file. Those eight answer questions no single file
 contains.
 
-Running all 36 plugin rules over a fixture with a two-module import cycle and an
-unused module export reported neither. On the same files nestjs-doctor reported
-both:
+All 36 plugin rules ran over a fixture with a two-module import cycle and an
+unused module export. They reported neither. nestjs-doctor reported both on the
+same files:
 
 - `architecture/no-circular-module-deps`, an `error`, on the cycle.
 - `performance/no-unused-module-exports`, an `info`, on the export nobody imports.
 - `performance/no-unused-providers` and `performance/no-orphan-modules` read the
-  same graph.
+  same module graph.
 
 The ORM schema is the second thing no plugin models. nestjs-doctor extracts
 entities and relations from Prisma, TypeORM, Drizzle and MikroORM into a schema
-graph, then reports `schema/require-primary-key`, `schema/require-timestamps`
-and `schema/require-cascade-rule` against the entity. None of the 36 rules
-models an entity or a relation.
+graph. `schema/require-primary-key`, `schema/require-timestamps` and
+`schema/require-cascade-rule` read that graph and report against the entity.
 
-The third is one number. Every finding is weighted by severity and category,
-normalized by file count, and reduced to a score out of 100 for the whole
-project. That score is comparable across repositories in a way that a count of
-lint errors is not, and `--min-score` gates a build on it.
+None of the 36 plugin rules models an entity or a relation.
 
-## Where they overlap
+The third thing is one number. nestjs-doctor weights every finding by severity
+and category, then normalizes by file count. The result is one score out of 100
+for the whole project.
 
-The overlaps below were produced by running both tools over the same fixture and
-comparing per file and line, on 2026-09-02.
+That score is comparable across repositories in a way that a count of lint
+errors is not. `--min-score` gates a build on it.
+
+## Where the plugins and nestjs-doctor overlap
+
+Each row comes from running both tools over the same fixture on 2026-09-02 and
+comparing the output file by file and line by line.
 
 | Case | nestjs-doctor | Plugin rule | Result |
 |---|---|---|---|
-| Endpoint with no guard | `security/require-guards-on-endpoints` | `nestjs-security/require-guards`, `@darraghor/nestjs-typed/api-methods-should-be-guarded` | All three flagged the same handler and no other. A guard at class level and a guard at method level both count everywhere |
+| Endpoint with no guard | `security/require-guards-on-endpoints` | `nestjs-security/require-guards`, `@darraghor/nestjs-typed/api-methods-should-be-guarded` | All three reported the same handler and no other. A guard at class level and a guard at method level both count everywhere |
 | Nested non-primitive without `@Type()` | `correctness/validated-non-primitive-needs-type` | `@darraghor/nestjs-typed/validated-non-primitive-property-needs-type-decorator` | Same two properties, same two lines |
 | `@ValidateNested()` on an array | `correctness/validate-nested-array-each` | `@darraghor/nestjs-typed/validate-nested-of-array-should-set-each` | Same property, same line |
 | Injectable no module provides | `correctness/injectable-must-be-provided` | `@darraghor/nestjs-typed/injectable-should-be-provided` | Same file. This rule does read the whole project, so provider registration is not a gap |
 
-Both validation rows are about class-validator metadata on a DTO. Whether a
-`ValidationPipe` is registered at all is a separate question, and it is
-`eslint-plugin-nestjs-security` and `eslint-plugin-nestjs` that ask it.
+Both validation rows cover class-validator metadata on a DTO. Whether the
+application registers a `ValidationPipe` at all is a separate question.
+`eslint-plugin-nestjs-security` and `eslint-plugin-nestjs` are the two that
+ask it.
 
 Any of the nestjs-doctor rules named on this page can fail a build. None of them
 restricts its surfaces, and `--blocking` gates on findings carrying the
 `ciFailure` surface. [Failing the build](/docs/ci/gates) covers the flags.
 
-## Running both
+## Running the plugins and nestjs-doctor together
 
 Nothing here requires a choice. The plugins stay in the editor, running per file
 on save. nestjs-doctor runs in CI over the whole project on every pull request.
@@ -93,7 +98,7 @@ That covers the 52 rules, the HTML report, the GitHub Action and the VS Code
 extension.
 
 Scan a project once and compare the output against what your linter already
-tells you:
+reports:
 
 ```bash
 npx nestjs-doctor@latest .
