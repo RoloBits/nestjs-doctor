@@ -51,8 +51,9 @@ it loads nestjs-doctor from your workspace.
 ## Requirements
 
 nestjs-doctor does not use your project's TypeScript. It parses your source with
-the compiler bundled in `ts-morph`, reads no `tsconfig.json` and resolves no
-dependencies, so a scan works on a checkout with no `node_modules` installed.
+the compiler bundled in `ts-morph`. It reads `tsconfig.json` only for `baseUrl`
+and `paths`, and adds no files from it. It resolves no dependencies, so a scan
+works on a checkout with no `node_modules` installed.
 
 | Your project's TypeScript | Scans | Notes |
 |---|---|---|
@@ -61,8 +62,9 @@ dependencies, so a scan works on a checkout with no `node_modules` installed.
 | 7.0 | Yes | Checked 2026-09-02 on 7.0.2, with `nodenext` and `verbatimModuleSyntax` |
 
 The same NestJS 11 app scored the same on all three, with the same file count,
-the same traced endpoints and no rule errors. The CLI itself needs Node 20.19 or
-newer, whatever version your project targets.
+the same traced endpoints and no rule errors.
+
+The CLI itself needs Node 20.19 or newer, whatever version your project targets.
 
 The limit is syntax, not the version number. nestjs-doctor bundles TypeScript
 6.0.2 through `ts-morph` 28, and TypeScript 7.0 introduced no syntax that

@@ -7,7 +7,7 @@ export const metadata = docsMetadata["/docs/nestjs-eslint-plugins"];
 # NestJS Doctor vs ESLint plugins
 
 A linter is the better tool for most of what a linter does. It runs on save in
-milliseconds, the three NestJS plugins below ship 36 rules between them, and
+milliseconds, and the three NestJS plugins below ship 36 rules between them.
 oxlint is what the Nest 12 CLI now scaffolds. Swagger decorator hygiene,
 throttled routes, permissive CORS and unsafe upload filenames are checked there
 and nowhere in nestjs-doctor.
@@ -20,12 +20,12 @@ asked a question about that file. nestjs-doctor is handed the application: every
 
 Every row was read from the installed package on 2026-09-02, not from a README.
 
-| Plugin | Version | Rules | Roughly about |
+| Plugin | Version | NestJS rules | Roughly about |
 |---|---|---|---|
 | `eslint-plugin-nestjs` | 1.2.3 | 4 | `ParseIntPipe`, deprecated API modules, injection, registering a validation pipe |
 | `@darraghor/eslint-plugin-nestjs-typed` | 7.3.4 | 22 | Swagger and OpenAPI decorators, class-validator DTO metadata, provider wiring |
 | `eslint-plugin-nestjs-security` | 3.1.1 | 10 | Guards, validation pipes, throttling, CORS, serialization, upload filenames |
-| `oxlint` | 1.81.0 | 0 | No NestJS plugin. Its plugin list is unicorn, oxc, typescript, import, react, jsdoc, jest, vitest, jsx-a11y, nextjs, react-perf, promise, node and vue |
+| `oxlint` | 1.81.0 | none | No NestJS plugin. Its plugin list is unicorn, oxc, typescript, import, react, jsdoc, jest, vitest, jsx-a11y, nextjs, react-perf, promise, node and vue |
 
 Counting a plugin's rules takes one command against the package itself:
 
@@ -85,12 +85,11 @@ restricts its surfaces, and `--blocking` gates on findings carrying the
 
 ## Running both
 
-Nothing here requires a choice. The plugins stay in the editor where they belong,
-running per file on save, and nestjs-doctor runs in CI over the whole project on
-every pull request.
+Nothing here requires a choice. The plugins stay in the editor, running per file
+on save. nestjs-doctor runs in CI over the whole project on every pull request.
 
-Both are free. nestjs-doctor ships under MIT with no paid tier and no seat count,
-including the 52 rules, the HTML report, the GitHub Action and the VS Code
+Both are free. nestjs-doctor ships under MIT with no paid tier and no seat count.
+That covers the 52 rules, the HTML report, the GitHub Action and the VS Code
 extension.
 
 Scan a project once and compare the output against what your linter already
