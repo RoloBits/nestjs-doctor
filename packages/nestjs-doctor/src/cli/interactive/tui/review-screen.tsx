@@ -173,10 +173,10 @@ export const ReviewScreen = ({
 		<Box flexDirection="column" gap={1}>
 			<Box borderColor={palette.border} borderStyle="single">
 				<Box flexDirection="column" flexShrink={0} width={leftWidth}>
-					{visibleSlice.map((row) => {
+					{visibleSlice.map((row, index) => {
 						if (row.kind === "category") {
 							return (
-								<Text color={palette.muted} key={row.label}>
+								<Text color={palette.muted} key={`caption-${offset + index}`}>
 									{` ${truncate(row.label.toUpperCase(), leftContent - 1)}`}
 								</Text>
 							);

@@ -32,6 +32,26 @@ describe("buildHandoffPrompt", () => {
 		expect(prompt).toContain("npx nestjs-doctor@latest . --json");
 	});
 
+	it("leads with a not-scored error over scored infos", () => {
+		const prompt = buildHandoffPrompt(
+			[
+				finding({ rule: "performance/one", severity: "info" }),
+				finding({ rule: "performance/two", severity: "info" }),
+				finding({ rule: "performance/three", severity: "info" }),
+				finding({
+					rule: "security/no-vulnerable-nestjs-packages",
+					severity: "error",
+					surfaces: ["cli"],
+				}),
+			],
+			"/app"
+		);
+		expect(
+			prompt.indexOf("security/no-vulnerable-nestjs-packages")
+		).toBeLessThan(prompt.indexOf("performance/"));
+		expect(prompt).toContain("1 more rule reported");
+	});
+
 	it("orders the sections worst first", () => {
 		const prompt = buildHandoffPrompt(
 			[

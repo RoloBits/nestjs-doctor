@@ -435,8 +435,95 @@ describe("printConsoleReport surfaces", () => {
 		const output = lines.join("\n");
 
 		expect(output).toContain("should be readonly");
-		expect(output).toContain("not scored");
+		expect(output).toContain("Not scored (1)");
 		expect(output).toContain("Provider is never injected");
+	});
+
+	it("prints not-scored findings after every scored one", () => {
+		const { lines, restore } = capture();
+		printConsoleReport(
+			makeResult({
+				diagnostics: [
+					{ ...scored, severity: "info" },
+					{ ...reportOnly, severity: "warning" },
+				],
+			}),
+			true
+		);
+		restore();
+		const output = lines.join("\n");
+
+		expect(output.indexOf("Provider is never injected")).toBeLessThan(
+			output.indexOf("should be readonly")
+		);
+	});
+
+	it("heads the not-scored block with its own line", () => {
+		const { lines, restore } = capture();
+		printConsoleReport(makeResult({ diagnostics: [reportOnly, scored] }), true);
+		restore();
+		const output = lines.join("\n");
+
+		expect(output).toContain("Not scored (1)");
+		expect(output).toContain("do not move the score");
+	});
+
+	it("drops the per-line not-scored tag under the heading", () => {
+		const { lines, restore } = capture();
+		printConsoleReport(makeResult({ diagnostics: [reportOnly, scored] }), true);
+		restore();
+		const output = lines.join("\n");
+
+		expect(output.match(/not scored/gi)).toHaveLength(1);
+		expect(
+			lines.find((line) => line.toLowerCase().includes("not scored"))?.trim()
+		).toBe("Not scored (1)");
+	});
+
+	it("prints no heading when every finding is scored", () => {
+		const { lines, restore } = capture();
+		printConsoleReport(makeResult({ diagnostics: [scored] }), true);
+		restore();
+
+		expect(lines.join("\n")).not.toContain("Not scored");
+	});
+
+	it("counts diagnostics, not groups, in the heading", () => {
+		const { lines, restore } = capture();
+		printConsoleReport(
+			makeResult({
+				diagnostics: [
+					reportOnly,
+					{ ...reportOnly, line: 2 },
+					{ ...reportOnly, line: 3 },
+				],
+			}),
+			false
+		);
+		restore();
+		const output = lines.join("\n");
+
+		expect(output).toContain("Not scored (3)");
+		expect(output.match(/should be readonly/g)).toHaveLength(1);
+	});
+
+	it("collapses a not-scored error below a scored info", () => {
+		const { lines, restore } = capture();
+		printConsoleReport(
+			makeResult({
+				diagnostics: [
+					{ ...reportOnly, severity: "error" },
+					{ ...scored, severity: "info" },
+				],
+			}),
+			true
+		);
+		restore();
+		const output = lines.join("\n");
+
+		expect(output.indexOf("Provider is never injected")).toBeLessThan(
+			output.indexOf("should be readonly")
+		);
 	});
 
 	it("leaves out a finding that never reaches the cli surface", () => {

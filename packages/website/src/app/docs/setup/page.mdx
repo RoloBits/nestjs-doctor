@@ -28,8 +28,10 @@ The score is weighted by severity and category, then normalized by project
 size. A small project with three errors scores worse than a large one with three.
 It always covers the whole project, whatever you scope the report to.
 
-Findings are grouped by rule, worst first. Add `--verbose` for the file and line
-behind each one:
+Findings are grouped by rule, worst first. Rules that do not move the score
+print last, under a `Not scored` heading.
+
+Add `--verbose` for the file and line behind each one:
 
 ```bash
 npx nestjs-doctor@latest . --verbose

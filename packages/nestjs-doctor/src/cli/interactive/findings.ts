@@ -1,22 +1,27 @@
 import {
 	type Diagnostic,
 	isCodeDiagnostic,
+	onSurface,
 	type Severity,
 } from "../../common/diagnostic.js";
 
 export interface RuleGroup {
 	diagnostics: Diagnostic[];
 	rule: string;
+	scored: boolean;
 	severity: Severity;
 }
 
-const SEVERITY_RANK: Record<Severity, number> = {
+export const SEVERITY_RANK: Record<Severity, number> = {
 	error: 0,
 	warning: 1,
 	info: 2,
 };
 
-/** Groups by rule, worst severity first, then by how often the rule fired. */
+/**
+ * Groups by rule: scored rules first, then worst severity, then by how often
+ * the rule fired.
+ */
 export const groupFindings = (diagnostics: Diagnostic[]): RuleGroup[] => {
 	const groups = new Map<string, RuleGroup>();
 	for (const diagnostic of diagnostics) {
@@ -27,12 +32,14 @@ export const groupFindings = (diagnostics: Diagnostic[]): RuleGroup[] => {
 			groups.set(diagnostic.rule, {
 				diagnostics: [diagnostic],
 				rule: diagnostic.rule,
+				scored: onSurface(diagnostic, "score"),
 				severity: diagnostic.severity,
 			});
 		}
 	}
 	return [...groups.values()].sort(
 		(a, b) =>
+			Number(b.scored) - Number(a.scored) ||
 			SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] ||
 			b.diagnostics.length - a.diagnostics.length ||
 			a.rule.localeCompare(b.rule)
