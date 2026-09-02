@@ -171,6 +171,12 @@ export function hasDecorator(cls: ClassDeclaration, name: string): boolean {
 	return cls.getDecorator(name) !== undefined;
 }
 
+/** Name of the class this one extends, without namespace or type arguments. */
+export function baseClassName(cls: ClassDeclaration): string | undefined {
+	const base = cls.getExtends()?.getExpression().getText();
+	return base?.split("<")[0].split(".").pop() ?? base;
+}
+
 export function getClassType(cls: ClassDeclaration): NestClassType {
 	for (const [decoratorName, type] of Object.entries(NEST_CLASS_DECORATORS)) {
 		if (hasDecorator(cls, decoratorName)) {

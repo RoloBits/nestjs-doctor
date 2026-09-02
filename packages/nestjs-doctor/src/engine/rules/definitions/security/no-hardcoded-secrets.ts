@@ -174,17 +174,16 @@ export const noHardcodedSecrets: Rule = {
 			}
 
 			for (const { pattern, name } of SECRET_PATTERNS) {
-				if (!pattern.test(value)) {
-					continue;
+				if (pattern.test(value)) {
+					context.report({
+						filePath: context.filePath,
+						message: `Possible hardcoded ${name} detected.`,
+						help: this.meta.help,
+						line: literal.getStartLineNumber(),
+						column: 1,
+					});
+					break;
 				}
-				context.report({
-					filePath: context.filePath,
-					message: `Possible hardcoded ${name} detected.`,
-					help: this.meta.help,
-					line: literal.getStartLineNumber(),
-					column: 1,
-				});
-				break;
 			}
 		}
 

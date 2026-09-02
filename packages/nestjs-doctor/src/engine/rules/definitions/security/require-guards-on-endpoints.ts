@@ -1,5 +1,6 @@
 import type { ClassDeclaration, MethodDeclaration } from "ts-morph";
 import {
+	baseClassName,
 	declaresRoutes,
 	isController,
 	isHttpHandler,
@@ -63,9 +64,8 @@ export const requireGuardsOnEndpoints: Rule = {
 			}
 
 			// A subclass inherits the guard decorators of the class it extends.
-			const base = cls.getExtends()?.getExpression().getText();
-			const baseName = base?.split("<")[0].split(".").pop() ?? base;
-			if (baseName && context.guards?.guardedClasses.has(baseName)) {
+			const base = baseClassName(cls);
+			if (base && context.guards?.guardedClasses.has(base)) {
 				continue;
 			}
 
