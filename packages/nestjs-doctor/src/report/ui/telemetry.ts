@@ -11,14 +11,17 @@ const POSTHOG_HOST = "https://us.i.posthog.com";
  * click coordinates as viewport percentages, so no path, project name, or
  * source text can leave.
  */
-export function getTelemetryScript(version: string): string {
-	return POSTHOG_KEY ? buildBeacon(POSTHOG_KEY, version, generatedIn()) : "";
+export function getTelemetryScript(version: string, scanId: string): string {
+	return POSTHOG_KEY
+		? buildBeacon(POSTHOG_KEY, version, generatedIn(), scanId)
+		: "";
 }
 
 export function buildBeacon(
 	key: string,
 	version: string,
-	source: "ci" | "cli"
+	source: "ci" | "cli",
+	scanId: string
 ): string {
 	return `<script>
 (function () {
@@ -26,6 +29,7 @@ export function buildBeacon(
   var URL = ${JSON.stringify(`${POSTHOG_HOST}/e/`)};
   var VERSION = ${JSON.stringify(version)};
   var SOURCE = ${JSON.stringify(source)};
+  var SCAN = ${JSON.stringify(scanId)};
   var SECTIONS = ["summary", "diagnosis", "modules", "endpoints", "schema", "lab", "boot"];
   var ACTIONS = ["rule_lab_run", "rule_lab_preset_loaded", "rule_lab_scope_changed", "rule_lab_result_opened", "rule_lab_code_edited", "rule_lab_metadata_changed", "module_opened_from_finding", "module_opened_from_tree", "graph_recentered", "graph_zoomed", "graph_sidebar_toggled", "module_tree_expanded", "schema_tree_expanded", "endpoint_code_opened", "boot_span_selected"];
   var id;
@@ -41,6 +45,9 @@ export function buildBeacon(
       version: VERSION,
       generated_in: SOURCE,
     };
+    if (SCAN) {
+      props.scan_id = SCAN;
+    }
     if (section) {
       props.section = section;
     }

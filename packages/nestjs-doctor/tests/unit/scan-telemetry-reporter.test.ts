@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { getCliVersion } from "../../src/cli/output.js";
-import { telemetryNoticeSite } from "../../src/cli/pipeline.js";
 import {
 	reportScanTelemetry,
 	type ScanTelemetryInput,
 } from "../../src/cli/scan-telemetry-reporter.js";
 import type { Rule } from "../../src/engine/rules/types.js";
 import type { ScanConfig } from "../../src/engine/scanner.js";
+import { telemetryNoticeSite } from "../../src/telemetry/send.js";
 import { emptyResult } from "./report-artifact-fixture.js";
 
 const ruleWithId = (id: string): Rule => ({ meta: { id } }) as unknown as Rule;
@@ -35,6 +35,7 @@ const buildInput = (
 	isEnabled: () => true,
 	monorepo: false,
 	optionsTelemetry: true,
+	outputFormat: "console",
 	resolveIdentityFn: vi.fn(() => ({
 		anonymousId: "anon-123",
 		projectId: "proj-hash",
@@ -42,10 +43,13 @@ const buildInput = (
 	})),
 	result: { ...emptyResult(), elapsedMs: 12.7 },
 	scanConfig: scanConfigFixture(),
+	scanId: "8f1c4a2e-0b3d-4f56-9a71-2c5d8e0f3b64",
 	scopeRequested: "full",
 	send: vi.fn(() => true),
 	subProjectOptOut: false,
+	suppressed: {},
 	targetPath: "/repo/app",
+	totalMs: 18.4,
 	...overrides,
 });
 
@@ -83,6 +87,21 @@ describe("scan telemetry reporter", () => {
 		);
 		expect(input.send.mock.calls[0]?.[0].rules_disabled).not.toContain(
 			"performance/no-unused-providers"
+		);
+	});
+
+	it("sends the scan id it was handed", () => {
+		const input = buildInput({
+			scanId: "1b7f0e42-9c3a-4d18-8e55-6a2f0c9d4b31",
+		});
+
+		reportScanTelemetry(input);
+
+		expect(input.send).toHaveBeenCalledWith(
+			expect.objectContaining({
+				scan_id: "1b7f0e42-9c3a-4d18-8e55-6a2f0c9d4b31",
+			}),
+			"anon-123"
 		);
 	});
 

@@ -1,6 +1,10 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { type PipelineOptions, toScanOptions } from "../../src/cli/setup.js";
 import type { BootstrapTimings } from "../../src/common/timings.js";
+
+/** A `format:` property line, not a substring match inside a comment. */
+const FORMAT_PROPERTY_RE = /^\tformat:/m;
 
 const timings: BootstrapTimings = {
 	byModule: new Map([
@@ -29,6 +33,7 @@ const options = (over: Partial<PipelineOptions> = {}): PipelineOptions => ({
 	minScore: "80",
 	onProgress: (label) => label.length > 0,
 	outputPath: "out/report.json",
+	scanId: "8f1c4a2e-0b3d-4f56-9a71-2c5d8e0f3b64",
 	scope: "changed",
 	score: true,
 	skipOutput: false,
@@ -49,11 +54,25 @@ describe("toScanOptions", () => {
 			blocking: "error",
 			changedFilesFrom: "origin/main",
 			configPath: "nestjs-doctor.config.ts",
+			format: "report-json",
 			minScore: "80",
+			scanId: "8f1c4a2e-0b3d-4f56-9a71-2c5d8e0f3b64",
 			scope: "changed",
 			staged: true,
 			telemetry: false,
 		});
+	});
+
+	it("carries the output format through toScanOptions", () => {
+		expect(toScanOptions(options({ format: "sarif" })).format).toBe("sarif");
+	});
+
+	it("carries the scan id through toScanOptions", () => {
+		// The worker builds its own options, so an id left behind here is
+		// undefined for every interactive scan.
+		expect(toScanOptions(options({ scanId: "worker-visible-id" })).scanId).toBe(
+			"worker-visible-id"
+		);
 	});
 
 	it("is JSON-safe: no functions and a lossless round-trip", () => {
@@ -65,7 +84,6 @@ describe("toScanOptions", () => {
 
 	it("drops presentation fields", () => {
 		for (const key of [
-			"format",
 			"interactive",
 			"isMachineReadable",
 			"jsonCompact",
@@ -79,5 +97,22 @@ describe("toScanOptions", () => {
 		]) {
 			expect(scan).not.toHaveProperty(key);
 		}
+	});
+});
+
+describe("scan worker options", () => {
+	const source = readFileSync(
+		new URL("../../src/cli/scan-worker.ts", import.meta.url),
+		"utf8"
+	);
+
+	it("takes the output format from the request, not a constant", () => {
+		expect(source).toContain("...request.options,");
+		expect(source).not.toMatch(FORMAT_PROPERTY_RE);
+	});
+
+	it("still prints nothing and reports machine-readable", () => {
+		expect(source).toContain("isMachineReadable: true,");
+		expect(source).toContain("skipOutput: true,");
 	});
 });

@@ -1,11 +1,19 @@
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { OUTPUT_FORMATS } from "../../src/cli/formatters/render.js";
 import type { CodeDiagnostic } from "../../src/common/diagnostic.js";
 import type { Score } from "../../src/common/result.js";
-import { ACTION_ENV, actionContext } from "../../src/telemetry/environment.js";
+import { runGit } from "../../src/engine/git.js";
+import { allRules } from "../../src/engine/rules/index.js";
+import {
+	ACTION_ENV,
+	actionContext,
+	detectTrigger,
+} from "../../src/telemetry/environment.js";
 import {
 	buildScanPayload,
+	type PayloadOutputFormat,
 	type ScanFacts,
 	type ScanPayload,
 } from "../../src/telemetry/scan-telemetry.js";
@@ -23,6 +31,8 @@ const TELEMETRY_INPUT = /^ {2}telemetry:$/m;
 const NEXT_INPUT = /^ {2}\S/m;
 /** The retired promise that no part of the repository is sent. */
 const NEVER_THE_REPOSITORY = /Never[^.]*\brepository\b(?! name)/;
+
+const BUILT_IN_IDS = new Set(allRules.map((rule) => rule.meta.id));
 
 const code = (overrides: Partial<CodeDiagnostic>): CodeDiagnostic => ({
 	rule: "performance/no-unused-providers",
@@ -68,9 +78,13 @@ const facts = (overrides: Partial<ScanFacts> = {}): ScanFacts => ({
 	monorepo: false,
 	nestVersion: "11.0.0",
 	orm: "prisma",
+	outputFormat: "console",
 	ruleErrors: [],
+	scanId: "8f1c4a2e-0b3d-4f56-9a71-2c5d8e0f3b64",
 	score: { value: 90, label: "Excellent" } as Score,
 	source: "cli",
+	suppressed: {},
+	totalMs: 15.3,
 	version: "1.2.3",
 	...overrides,
 });
@@ -116,6 +130,38 @@ describe("scan telemetry payload", () => {
 		expect(payload.custom_rules_loaded).toBe(2);
 	});
 
+	it("never names a custom rule in the suppression counts", () => {
+		const payload = buildScanPayload(
+			facts({
+				suppressed: {
+					"custom/acme-no-legacy-billing-import": 3,
+					"security/no-eval": 2,
+				},
+			})
+		);
+
+		expect(payload.suppressed_inline).toEqual({ "security/no-eval": 2 });
+		expect(JSON.stringify(payload)).not.toContain("acme");
+	});
+
+	it("carries no path or directive text in the suppression counts", () => {
+		const payload = buildScanPayload(
+			facts({
+				suppressed: {
+					"/Users/someone/acme-billing/src/a.service.ts": 1,
+					"nestjs-doctor-ignore security/no-eval -- legacy sandbox": 1,
+					"security/no-eval": 1,
+				},
+			})
+		);
+
+		const serialized = JSON.stringify(payload.suppressed_inline);
+		expect(serialized).not.toContain("nestjs-doctor-ignore");
+		for (const key of Object.keys(payload.suppressed_inline)) {
+			expect(BUILT_IN_IDS.has(key)).toBe(true);
+		}
+	});
+
 	it("carries no path, message, or source text", () => {
 		const serialized = JSON.stringify(
 			buildScanPayload(
@@ -146,6 +192,30 @@ describe("scan telemetry payload", () => {
 		expect(serialized).not.toContain("acme-billing");
 	});
 
+	it("reports which output the run asked for", () => {
+		const vocabulary: PayloadOutputFormat[] = [...OUTPUT_FORMATS, "report"];
+
+		expect(vocabulary).toHaveLength(8);
+		for (const format of vocabulary) {
+			expect(
+				buildScanPayload(facts({ outputFormat: format })).output_format
+			).toBe(format);
+		}
+	});
+
+	it("never calls a scan-pipeline run a report request", () => {
+		for (const format of OUTPUT_FORMATS) {
+			// report-json writes the artifact for another tool. It sends no
+			// beacon, so there is nothing to join it to.
+			expect(
+				buildScanPayload(facts({ outputFormat: format })).report_requested
+			).toBe(false);
+		}
+		expect(
+			buildScanPayload(facts({ outputFormat: "report" })).report_requested
+		).toBe(true);
+	});
+
 	it("reports the environment without identifying the machine", () => {
 		const payload = buildScanPayload(
 			facts({ monorepo: true, source: "ci" }),
@@ -158,6 +228,12 @@ describe("scan telemetry payload", () => {
 		expect(payload.generated_in).toBe("ci");
 		expect(payload.monorepo).toBe(true);
 		expect(payload.duration_ms).toBe(13);
+	});
+
+	it("rounds the total the same way it rounds the scan", () => {
+		const payload = buildScanPayload(facts({ totalMs: 10.6 }));
+
+		expect(payload.total_ms).toBe(11);
 	});
 
 	it("reports how the official action was triggered", () => {
@@ -212,6 +288,79 @@ describe("scan telemetry payload", () => {
 		// The runner still describes itself.
 		expect(payload.ci_event).toBe("push");
 		expect(payload.ci_provider).toBe("github");
+	});
+
+	it("names every way the scan was started", () => {
+		expect(detectTrigger({ [ACTION_ENV.marker]: "v1" })).toBe("action");
+		expect(detectTrigger({ GITHUB_ACTIONS: "true" })).toBe("ci");
+		expect(detectTrigger({ GIT_INDEX_FILE: "/repo/.git/index" })).toBe("hook");
+		expect(detectTrigger({ CLAUDECODE: "1" })).toBe("agent");
+		expect(detectTrigger({ npm_lifecycle_event: "test" })).toBe("script");
+		expect(detectTrigger({ npm_command: "exec" })).toBe("npx");
+		expect(detectTrigger({})).toBe("global");
+	});
+
+	it("prefers a hook over an agent, a script and npx", () => {
+		expect(
+			detectTrigger({
+				GIT_INDEX_FILE: "/repo/.git/index",
+				CLAUDECODE: "1",
+				npm_lifecycle_event: "test",
+				npm_command: "exec",
+			})
+		).toBe("hook");
+		expect(
+			detectTrigger({ CLAUDECODE: "1", npm_lifecycle_event: "test" })
+		).toBe("agent");
+		expect(
+			detectTrigger({
+				npm_lifecycle_event: "npx",
+				npm_command: "exec",
+			})
+		).toBe("npx");
+	});
+
+	it("drops an unknown NESTJS_DOCTOR_TRIGGER", () => {
+		const env = { NESTJS_DOCTOR_TRIGGER: "my-wrapper", npm_command: "exec" };
+		expect(detectTrigger(env)).toBe("npx");
+
+		const payload = buildScanPayload(facts({ action: actionContext(env) }));
+		expect(JSON.stringify(payload)).not.toContain("my-wrapper");
+	});
+
+	it("takes a known NESTJS_DOCTOR_TRIGGER over the hook it's running under", () => {
+		const env = {
+			NESTJS_DOCTOR_TRIGGER: "agent",
+			GIT_DIR: "/repo/.git",
+		};
+		expect(detectTrigger(env)).toBe("agent");
+	});
+
+	it("still reads a hook after git has run", () => {
+		// The real runner (GitHub Actions) sets CI/GITHUB_ACTIONS on every job;
+		// clear them so this exercises the hook branch, not the ci branch.
+		const saved = {
+			CI: process.env.CI,
+			GITHUB_ACTIONS: process.env.GITHUB_ACTIONS,
+			GIT_DIR: process.env.GIT_DIR,
+			[ACTION_ENV.marker]: process.env[ACTION_ENV.marker],
+		};
+		try {
+			delete process.env.CI;
+			delete process.env.GITHUB_ACTIONS;
+			delete process.env[ACTION_ENV.marker];
+			process.env.GIT_DIR = "/repo/.git";
+			runGit(process.cwd(), ["rev-parse", "--show-toplevel"]);
+			expect(detectTrigger()).toBe("hook");
+		} finally {
+			for (const [name, value] of Object.entries(saved)) {
+				if (value === undefined) {
+					delete process.env[name];
+				} else {
+					process.env[name] = value;
+				}
+			}
+		}
 	});
 
 	it("drops a value that is not in the vocabulary", () => {

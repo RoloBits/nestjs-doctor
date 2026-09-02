@@ -1,3 +1,5 @@
+import { AGENT_ENV_VARS } from "../../telemetry/environment.js";
+
 const CI_ENV_VARS = [
 	"CI",
 	"GITHUB_ACTIONS",
@@ -11,20 +13,6 @@ const CI_ENV_VARS = [
 	"CIRCLECI",
 	"TRAVIS",
 	"DRONE",
-];
-
-const AGENT_ENV_VARS = [
-	"CLAUDECODE",
-	"CLAUDE_CODE",
-	"CURSOR_AGENT",
-	"CODEX_SANDBOX",
-	"OPENCODE",
-	"AMP_THREAD_ID",
-	"CLINE_ACTIVE",
-	"AUGMENT_AGENT",
-	"GOOSE_TERMINAL",
-	"AGENT_SESSION_ID",
-	"AGENT_THREAD_ID",
 ];
 
 /** True in CI or inside a coding agent, where a prompt would hang the run. */

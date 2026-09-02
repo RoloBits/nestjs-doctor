@@ -303,6 +303,67 @@ describe("filterSuppressedDiagnostics", () => {
 		expect(getText).toHaveBeenCalledTimes(1);
 	});
 
+	// ── onSuppressed callback ──
+
+	it("reports each suppressed rule id to the callback", () => {
+		const seen: string[] = [];
+		filterSuppressedDiagnostics(
+			[codeDiagnostic({ line: 1 })],
+			fromText(
+				"const x = eval(p); // nestjs-doctor-disable-line security/no-eval"
+			),
+			(ruleId) => seen.push(ruleId)
+		);
+		filterSuppressedDiagnostics(
+			[codeDiagnostic({ line: 2 })],
+			fromText(
+				"// nestjs-doctor-disable-next-line security/no-eval\nconst x = eval(p);"
+			),
+			(ruleId) => seen.push(ruleId)
+		);
+		filterSuppressedDiagnostics(
+			[schemaDiagnostic()],
+			fromText("// nestjs-doctor-disable-file schema/require-primary-key"),
+			(ruleId) => seen.push(ruleId)
+		);
+		expect(seen).toEqual([
+			"security/no-eval",
+			"security/no-eval",
+			"schema/require-primary-key",
+		]);
+	});
+
+	it("reports nothing when nothing is suppressed", () => {
+		const onSuppressed = vi.fn();
+		filterSuppressedDiagnostics(
+			[codeDiagnostic({ line: 1 })],
+			fromText("const x = eval(payload);"),
+			onSuppressed
+		);
+		filterSuppressedDiagnostics(
+			[codeDiagnostic({ line: 1 })],
+			() => undefined,
+			onSuppressed
+		);
+		expect(onSuppressed).not.toHaveBeenCalled();
+	});
+
+	it("returns the same survivors with and without the callback", () => {
+		const text =
+			"const a = eval(p); // nestjs-doctor-disable-line security/no-eval\nconst b = eval(p);";
+		const diagnostics = [
+			codeDiagnostic({ line: 1 }),
+			codeDiagnostic({ line: 2 }),
+		];
+		const without = filterSuppressedDiagnostics(diagnostics, fromText(text));
+		const withCallback = filterSuppressedDiagnostics(
+			diagnostics,
+			fromText(text),
+			() => undefined
+		);
+		expect(withCallback).toEqual(without);
+	});
+
 	// ── end-to-end: line numbers reported by a real rule line up ──
 
 	it("suppresses a real rule diagnostic at the reported line", () => {

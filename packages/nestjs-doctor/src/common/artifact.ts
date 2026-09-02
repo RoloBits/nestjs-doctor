@@ -91,7 +91,7 @@ export interface ReportArtifact {
 	endpoints: EndpointGraph;
 	examples: RuleExampleMap;
 	generatedAt: string;
-	generator: { name: "nestjs-doctor"; version: string };
+	generator: { name: "nestjs-doctor"; scanId?: string; version: string };
 	graph: SerializedModuleGraph;
 	monorepo: boolean;
 	project: ProjectInfo;

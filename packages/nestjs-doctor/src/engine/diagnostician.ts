@@ -94,20 +94,25 @@ export interface RawDiagnosticOutput {
 	diagnostics: Diagnostic[];
 	elapsedMs: number;
 	ruleErrors: RuleErrorInfo[];
+	/** How many diagnostics each rule id lost to an inline directive. */
+	suppressed: Record<string, number>;
 }
 
 function processResults(
 	rawDiagnostics: Diagnostic[],
 	errors: { ruleId: string; error: unknown }[],
-	context: AnalysisContext
+	context: AnalysisContext,
+	onSuppressed?: (ruleId: string) => void
 ): { diagnostics: Diagnostic[]; errors: RuleErrorInfo[] } {
 	const configFiltered = filterIgnoredDiagnostics(
 		rawDiagnostics,
 		context.config,
 		context.targetPath
 	);
-	const diagnostics = filterSuppressedDiagnostics(configFiltered, (filePath) =>
-		resolveSourceText(context, filePath)
+	const diagnostics = filterSuppressedDiagnostics(
+		configFiltered,
+		(filePath) => resolveSourceText(context, filePath),
+		onSuppressed
 	);
 	const ruleErrors: RuleErrorInfo[] = errors.map((e) => ({
 		ruleId: e.ruleId,
@@ -266,7 +271,10 @@ export function checkAllFiles(context: AnalysisContext): {
 	return processResults(result.diagnostics, result.errors, context);
 }
 
-export function checkProject(context: AnalysisContext): {
+export function checkProject(
+	context: AnalysisContext,
+	onSuppressed?: (ruleId: string) => void
+): {
 	diagnostics: Diagnostic[];
 	errors: RuleErrorInfo[];
 } {
@@ -286,16 +294,20 @@ export function checkProject(context: AnalysisContext): {
 	const { diagnostics, errors } = processResults(
 		result.diagnostics,
 		result.errors,
-		context
+		context,
+		onSuppressed
 	);
-	const schemaResult = checkSchema(context);
+	const schemaResult = checkSchema(context, onSuppressed);
 	diagnostics.push(...schemaResult.diagnostics);
 	errors.push(...schemaResult.errors);
 
 	return { diagnostics, errors };
 }
 
-export function checkSchema(context: AnalysisContext): {
+export function checkSchema(
+	context: AnalysisContext,
+	onSuppressed?: (ruleId: string) => void
+): {
 	diagnostics: Diagnostic[];
 	errors: RuleErrorInfo[];
 } {
@@ -308,7 +320,12 @@ export function checkSchema(context: AnalysisContext): {
 	}
 
 	const result = runSchemaRules(context.schemaGraph, context.schemaRules);
-	return processResults(result.diagnostics, result.errors, context);
+	return processResults(
+		result.diagnostics,
+		result.errors,
+		context,
+		onSuppressed
+	);
 }
 
 export async function diagnose(
@@ -316,6 +333,9 @@ export async function diagnose(
 	onFileChecked?: (checked: number, total: number) => void
 ): Promise<RawDiagnosticOutput> {
 	const startTime = performance.now();
+	const suppressed = new Map<string, number>();
+	const count = (ruleId: string) =>
+		suppressed.set(ruleId, (suppressed.get(ruleId) ?? 0) + 1);
 	const facts = fileRuleFacts(context);
 	const rawDiagnostics: Diagnostic[] = [];
 	const errors: { ruleId: string; error: unknown }[] = [];
@@ -335,12 +355,13 @@ export async function diagnose(
 			await yieldToEventLoop();
 		}
 	}
-	const fileResult = processResults(rawDiagnostics, errors, context);
-	const projectResult = checkProject(context);
+	const fileResult = processResults(rawDiagnostics, errors, context, count);
+	const projectResult = checkProject(context, count);
 	const elapsedMs = performance.now() - startTime;
 	return {
 		diagnostics: [...fileResult.diagnostics, ...projectResult.diagnostics],
 		elapsedMs,
 		ruleErrors: [...fileResult.errors, ...projectResult.errors],
+		suppressed: Object.fromEntries(suppressed),
 	};
 }

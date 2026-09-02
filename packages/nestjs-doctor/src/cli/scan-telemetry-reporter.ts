@@ -8,6 +8,7 @@ import { actionContext, generatedIn } from "../telemetry/environment.js";
 import { hasStoredIdentity, resolveIdentity } from "../telemetry/install-id.js";
 import {
 	buildScanPayload,
+	type PayloadOutputFormat,
 	readConfigFacts,
 } from "../telemetry/scan-telemetry.js";
 import { scanTelemetryEnabled, sendScanTelemetry } from "../telemetry/send.js";
@@ -26,15 +27,20 @@ export interface ScanTelemetryInput {
 	isEnabled?: typeof scanTelemetryEnabled;
 	monorepo: boolean;
 	optionsTelemetry: boolean;
+	outputFormat: PayloadOutputFormat;
 	/** Injectable for tests; defaults to the real install-id resolver. */
 	resolveIdentityFn?: typeof resolveIdentity;
 	result: DiagnoseResult;
 	scanConfig: ScanConfig | undefined;
+	scanId: string;
 	scopeRequested: ScopeMode;
 	/** Injectable for tests; defaults to the detached-child sender. */
 	send?: typeof sendScanTelemetry;
 	subProjectOptOut: boolean;
+	/** Inline-directive suppression counts, keyed by rule id. */
+	suppressed: Record<string, number>;
 	targetPath: string;
+	totalMs: number;
 }
 
 /**
@@ -70,7 +76,7 @@ export const reportScanTelemetry = (input: ScanTelemetryInput): boolean => {
 		);
 		sent = (input.send ?? sendScanTelemetry)(
 			buildScanPayload({
-				action: actionContext(),
+				action: actionContext(env),
 				blocking: input.blocking,
 				config: readConfigFacts(scanConfig.config),
 				customRulesLoaded: scanConfig.combinedRules.filter((rule) =>
@@ -87,11 +93,15 @@ export const reportScanTelemetry = (input: ScanTelemetryInput): boolean => {
 				monorepo: input.monorepo,
 				nestVersion: input.result.project.nestVersion,
 				orm: input.result.project.orm,
+				outputFormat: input.outputFormat,
 				projectId: identity.projectId,
 				ruleErrors: input.result.ruleErrors,
+				scanId: input.scanId,
 				scopeRequested: input.scopeRequested,
 				score: input.result.score,
-				source: generatedIn(),
+				source: generatedIn(env),
+				suppressed: input.suppressed,
+				totalMs: input.totalMs,
 				version: getCliVersion(),
 			}),
 			identity.anonymousId

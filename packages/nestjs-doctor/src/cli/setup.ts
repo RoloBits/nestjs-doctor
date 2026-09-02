@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import type { SourceInclusion } from "../common/artifact.js";
 import { isScopeMode, type ScopeMode } from "../common/scope.js";
@@ -23,14 +24,16 @@ export interface ScanOptions {
 	blocking: BlockingLevel;
 	changedFilesFrom: string | undefined;
 	configPath: string | undefined;
+	format: OutputFormat;
 	minScore: string | undefined;
+	/** One id per invocation, shared by the payload and the report beacon. */
+	scanId: string;
 	scope: ScopeMode;
 	staged: boolean;
 	telemetry: boolean;
 }
 
 export interface PipelineOptions extends ScanOptions {
-	format: OutputFormat;
 	/** True when the run ends in the menu; set after setup from `canPrompt`. */
 	interactive: boolean;
 	isMachineReadable: boolean;
@@ -58,7 +61,9 @@ export const toScanOptions = (options: PipelineOptions): ScanOptions => ({
 	blocking: options.blocking,
 	changedFilesFrom: options.changedFilesFrom,
 	configPath: options.configPath,
+	format: options.format,
 	minScore: options.minScore,
+	scanId: options.scanId,
 	scope: options.scope,
 	staged: options.staged,
 	telemetry: options.telemetry,
@@ -353,6 +358,7 @@ export class CliSetup {
 				jsonCompact: this.args["json-compact"] ?? false,
 				minScore: this.args["min-score"],
 				outputPath: this.args.output,
+				scanId: randomUUID(),
 				scope: resolveScopeMode(this.args),
 				score,
 				shareCode: this.args["share-code"] ?? false,

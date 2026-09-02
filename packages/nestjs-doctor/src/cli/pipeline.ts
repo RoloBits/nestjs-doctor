@@ -33,7 +33,11 @@ import {
 import { buildReportArtifact, collectScanFacts } from "../report/artifact.js";
 import { buildHtmlReport } from "../report/html-report.js";
 import { resetEcosystem } from "../telemetry/ecosystem.js";
-import { reportTelemetryEnabled } from "../telemetry/send.js";
+import {
+	reportTelemetryEnabled,
+	TELEMETRY_NOTICE,
+	telemetryNoticeSite,
+} from "../telemetry/send.js";
 import { logger } from "../ui/logger.js";
 import {
 	printConsoleReport,
@@ -65,22 +69,6 @@ import { type PipelineOptions, toScanOptions } from "./setup.js";
 import { createAnimatedProgress } from "./ui/animated-progress.js";
 
 type PipelineStep = () => void | Promise<void>;
-
-const TELEMETRY_NOTICE =
-	'nestjs-doctor reported this scan anonymously: which built-in rules fired, the score, well-known dependencies, and the shape of your config — never your code, paths, or project name. Turn it off with --no-telemetry, "telemetry": false in your config, or DO_NOT_TRACK=1. https://nestjs.doctor/docs/telemetry';
-
-/** Where the one-per-install notice prints: after the menu closes on an
- * interactive run, after the run otherwise. */
-export const telemetryNoticeSite = (input: {
-	firstSend: boolean;
-	interactive: boolean;
-	isMachineReadable: boolean;
-}): "menu" | "none" | "run" => {
-	if (!input.firstSend || input.isMachineReadable) {
-		return "none";
-	}
-	return input.interactive ? "menu" : "run";
-};
 
 const analysisLabel = (phase: AnalysisPhase): string => {
 	if (phase === "collecting") {
@@ -145,6 +133,8 @@ abstract class ScanPipeline {
 	protected reportTelemetry = false;
 	/** Warnings raised while narrowing the scope; surfaced alongside the report. */
 	protected scopeWarnings: string[] = [];
+	/** Constructed in the worker for an interactive run, so this times the engine middle there. */
+	protected readonly startedAt = performance.now();
 	protected readonly steps: PipelineStep[] = [];
 	protected readonly targetPath: string;
 
@@ -161,7 +151,9 @@ abstract class ScanPipeline {
 		diagnostics: Diagnostic[],
 		result: DiagnoseResult,
 		fileCount: number,
-		monorepo: boolean
+		monorepo: boolean,
+		totalMs: number,
+		suppressed: Record<string, number>
 	): void {
 		this.firstTelemetrySend = reportScanTelemetry({
 			blocking: this.options.blocking,
@@ -169,11 +161,15 @@ abstract class ScanPipeline {
 			fileCount,
 			monorepo,
 			optionsTelemetry: this.options.telemetry,
+			outputFormat: this.options.format,
 			result,
 			scanConfig: this.scanConfig,
+			scanId: this.options.scanId,
 			scopeRequested: this.options.scope,
 			subProjectOptOut: this.subProjectOptOut,
+			suppressed,
 			targetPath: this.targetPath,
+			totalMs,
 		});
 		this.reportTelemetry =
 			reportTelemetryEnabled(this.options.telemetry, this.scanConfig.config) &&
@@ -420,6 +416,8 @@ export class MonorepoPipeline extends ScanPipeline {
 	private result!: MonorepoEngineResult;
 	private scanStartTime!: number;
 	private cachedArtifact: ReportArtifact | undefined;
+	/** Inline-suppression counts summed across every sub-project. */
+	private readonly suppressedInline: Record<string, number> = {};
 
 	/** The scan as one serializable document, built once on demand. */
 	get reportArtifact(): ReportArtifact {
@@ -434,6 +432,7 @@ export class MonorepoPipeline extends ScanPipeline {
 				providers: this.allProviders,
 				bootstrapRoots: this.bootstrapRoots,
 				monorepo: true,
+				scanId: this.options.scanId,
 				sources: this.options.sources,
 				traces: this.options.traces,
 				version: getCliVersion(),
@@ -498,6 +497,9 @@ export class MonorepoPipeline extends ScanPipeline {
 					const rawOutput = await diagnose(context, (checked, total) => {
 						this.emitProgress(`${label} — running rules`, checked, total);
 					});
+					for (const [id, n] of Object.entries(rawOutput.suppressed)) {
+						this.suppressedInline[id] = (this.suppressedInline[id] ?? 0) + n;
+					}
 					const scanResult = buildResult(context, rawOutput);
 					return {
 						...scanResult,
@@ -532,7 +534,9 @@ export class MonorepoPipeline extends ScanPipeline {
 				combined.diagnostics,
 				combined,
 				combined.project.fileCount,
-				true
+				true,
+				performance.now() - this.startedAt,
+				this.suppressedInline
 			);
 		});
 		return this;
@@ -655,6 +659,7 @@ export class SingleProjectPipeline extends ScanPipeline {
 				files,
 				providers: this.reportProviders,
 				bootstrapRoots: this.bootstrapRoots,
+				scanId: this.options.scanId,
 				sources: this.options.sources,
 				traces: this.options.traces,
 				version: getCliVersion(),
@@ -776,7 +781,9 @@ export class SingleProjectPipeline extends ScanPipeline {
 				this.rawOutput.diagnostics,
 				this.result.result,
 				this.context.files.length,
-				false
+				false,
+				performance.now() - this.startedAt,
+				this.rawOutput.suppressed
 			);
 		});
 		return this;

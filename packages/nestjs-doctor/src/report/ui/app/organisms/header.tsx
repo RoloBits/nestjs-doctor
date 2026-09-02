@@ -88,9 +88,15 @@ function ShareDialog({
 						if (picked.size === 0) {
 							return;
 						}
-						const data = buildSharedJson(share, report.generator, includeCode, [
-							...picked,
-						]);
+						const data = buildSharedJson(
+							share,
+							{
+								name: report.generator.name,
+								version: report.generator.version,
+							},
+							includeCode,
+							[...picked]
+						);
 						downloadSharedJson(data);
 						onClose();
 					}}

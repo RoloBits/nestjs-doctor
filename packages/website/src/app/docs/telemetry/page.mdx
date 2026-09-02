@@ -8,6 +8,8 @@ export const metadata = docsMetadata["/docs/telemetry"];
 
 A finished scan reports one `scan_completed` event. It is posted to `https://us.i.posthog.com/e/` by a detached child process with a three second timeout, so a stalled network never holds the scan open.
 
+A `--report` run reports that same event, which earlier versions did not send. It carries `output_format` set to `report`.
+
 Sending is best effort. A failed request, a blocked host, or an environment that cannot spawn all leave the scan and its exit code untouched.
 
 ## What is sent
@@ -19,16 +21,24 @@ The payload is built from rule metadata, counts, and a fixed set of environment 
 | Field | Value |
 |---|---|
 | `version` | The nestjs-doctor version that ran |
+| `scan_id` | A random UUID for this run, generated fresh on every scan |
 | `generated_in` | `cli` or `ci` |
+| `trigger` | How the run started: `action`, `ci`, `hook`, `agent`, `script`, `npx` or `global` |
 | `platform` | The Node platform string, such as `darwin` |
 | `node_major` | The Node major version, such as `24` |
-| `duration_ms` | How long the scan took, rounded |
+| `duration_ms` | The rule loop on a single project, the whole scan on a monorepo, rounded |
+| `total_ms` | How long the whole run took, rounded |
 | `score` | The 0-100 health score |
-| `scope_requested` | The `--scope` mode asked for: `full`, `files`, `lines` or `changed` |
-| `blocking` | The `--blocking` level: `none`, `warning` or `error` |
+| `scope_requested` | The `--scope` mode asked for: `full`, `files`, `lines` or `changed`. A `--report` run has no `--scope` flag and sends `full`. |
+| `blocking` | The `--blocking` level: `none`, `warning` or `error`. A `--report` run has no `--blocking` flag and sends `error`. |
+| `output_format` | The `--format` value: `console`, `json`, `report-json`, `sarif`, `gitlab`, `markdown` or `github`, plus `report` for a `--report` run |
+| `report_requested` | Whether the run was a `--report` run |
 | `findings` | Built-in rule id, then severity, then a count |
 | `rules_with_findings` | How many rule ids that map holds |
+| `suppressed_inline` | Built-in rule id, then how many findings an inline `nestjs-doctor-ignore` comment silenced |
 | `rule_errors` | Built-in rule ids that threw during the scan |
+
+`NESTJS_DOCTOR_TRIGGER` overrides the detected `trigger` when set to one of the seven values above. Any other value is ignored.
 
 ### The project
 
@@ -88,13 +98,14 @@ Every CI field is a boolean or a value from a fixed list. An unrecognized value 
 
 ## What is never sent
 
-Six things the payload has no field for, each decided in code rather than by convention:
+Seven things the payload has no field for, each decided in code rather than by convention:
 
 - **No source text:** `findings` maps a rule id to a severity to a count, built from the rule id and severity of each finding and nothing else.
 - **No file paths:** only `file_count` and `ignored_file_count` travel. `rule_errors` carries rule ids, never the error message, which quotes the file that broke the rule.
 - **No project name:** `project_id` is a SHA-256 over a random per-install salt and the resolved project path.
 - **No globs:** the config reader returns counts. `config_exclude_count` subtracts the built-in defaults, so it counts only what the project declared.
-- **No custom rule names:** every rule-id array is filtered against the built-in ids. A count and a boolean are all that describe custom rules.
+- **No custom rule names:** every rule id the payload carries is filtered against the built-in ids. A count and a boolean are all that describe custom rules.
+- **No suppression text:** `suppressed_inline` maps a built-in rule id to a count. The directive itself, its `-- reason` trailer, and the file holding it never travel.
 - **No branch names:** a ref is reduced to `v<major>`, `sha` or `branch`, because a fork's branch name has no bound.
 
 ## Identity
@@ -133,6 +144,8 @@ Two consequences of how those checks are written:
 
 A generated HTML report carries its own beacon for how the report itself is used. All three controls above disable it, and so does `report.telemetry` set to `false`.
 
+Each of the beacon's four events carries the `scan_id` of the scan that built the report. It is the only id written into the HTML file.
+
 ## Printing the payload
 
 Set `NESTJS_DOCTOR_TELEMETRY_DEBUG` to read what a scan would report:
@@ -141,12 +154,12 @@ Set `NESTJS_DOCTOR_TELEMETRY_DEBUG` to read what a scan would report:
 NESTJS_DOCTOR_TELEMETRY_DEBUG=1 npx nestjs-doctor@latest .
 ```
 
-The payload goes to stderr and no child process is spawned, so nothing is sent. One real scan of a two-file project prints:
+The payload goes to stderr and no child process is spawned, so nothing is sent. One real scan of a six-file project prints:
 
 ```json
 {
   "event": "scan_completed",
-  "distinct_id": "c85d0fac-31ed-4155-b997-facdabb0b595",
+  "distinct_id": "dbe9bfe0-03cc-4c2f-ab85-556e5de3b4ee",
   "properties": {
     "action_commit_status": null,
     "action_comment": null,
@@ -167,10 +180,19 @@ The payload goes to stderr and no child process is spawned, so nothing is sent. 
     "custom_rules_dir": false,
     "custom_rules_loaded": 0,
     "databases": [],
-    "duration_ms": 10,
-    "file_count": 2,
+    "duration_ms": 18,
+    "file_count": 6,
     "findings": {
+      "security/no-eval": {
+        "error": 4
+      },
+      "architecture/no-orm-in-controllers": {
+        "error": 1
+      },
       "security/require-guards-on-endpoints": {
+        "warning": 2
+      },
+      "performance/no-unused-providers": {
         "warning": 3
       }
     },
@@ -183,21 +205,32 @@ The payload goes to stderr and no child process is spawned, so nothing is sent. 
     "monorepo": false,
     "nest_version": "11.1.18",
     "nestjs_packages": [
+      "@mikro-orm/nestjs",
       "@nestjs/common",
-      "@nestjs/core",
-      "@nestjs/platform-express"
+      "@nestjs/core"
     ],
-    "orm": null,
     "node_major": 24,
+    "orm": "mikro-orm",
+    "output_format": "console",
     "platform": "darwin",
-    "project_id": "fdc2d61ea612d5ffebaef4d9b5ff98299e21df9abff7f61ba1bc53fd10a062b7",
+    "project_id": "d5fa60fb2d7e77fdd7f5f3abce651a30dcdd2f60d597f56600eadd9aede7e030",
+    "report_requested": false,
     "rule_errors": [],
     "rule_overrides": [],
     "rules_turned_off": [],
     "rules_disabled": [],
-    "rules_with_findings": 1,
+    "rules_with_findings": 4,
+    "scan_id": "8ac09fb6-1a4a-4b81-a043-1923290fe509",
     "scope_requested": "full",
-    "score": 66,
+    "score": 52,
+    "suppressed_inline": {
+      "security/no-eval": 9,
+      "architecture/no-orm-in-controllers": 1,
+      "schema/require-primary-key": 1,
+      "schema/require-timestamps": 1
+    },
+    "total_ms": 152,
+    "trigger": "global",
     "version": "0.9.5",
     "via_action": false
   }
@@ -216,7 +249,9 @@ The first scan that reports on a machine prints one line to stderr, then never a
 nestjs-doctor reported this scan anonymously: which built-in rules fired, the score, well-known dependencies, and the shape of your config — never your code, paths, or project name. Turn it off with --no-telemetry, "telemetry": false in your config, or DO_NOT_TRACK=1. https://nestjs.doctor/docs/telemetry
 ```
 
-It prints once the scan has finished, and once the interactive menu has closed when one opened. Machine-readable runs never print it, and neither does CI, which stores no id to remember the run by. A machine whose config directory cannot be written stores nothing either, so it stays quiet rather than repeating the notice on every scan.
+It prints once the scan has finished, and once the interactive menu has closed when one opened. A `--report` run prints it after the path to the written report.
+
+Machine-readable runs never print it, and neither does CI, which stores no id to remember the run by. A machine whose config directory cannot be written stores nothing either, so it stays quiet rather than repeating the notice on every scan.
 
 ## The language server
 

@@ -70,6 +70,31 @@ describe("report artifact", () => {
 		expect(parsed.score).toEqual({ value: 90, label: "Excellent" });
 	});
 
+	it("records the scan id in the generator block", () => {
+		const artifact = buildReportArtifact({
+			moduleGraph: emptyGraph(),
+			result: resultWith([]),
+			scanId: "8f1c4a2e-0b3d-4f56-9a71-2c5d8e0f3b64",
+			version: "1.2.3",
+		});
+
+		expect(artifact.generator).toEqual({
+			name: "nestjs-doctor",
+			scanId: "8f1c4a2e-0b3d-4f56-9a71-2c5d8e0f3b64",
+			version: "1.2.3",
+		});
+	});
+
+	it("leaves the scan id undefined rather than inventing one", () => {
+		const artifact = buildReportArtifact({
+			moduleGraph: emptyGraph(),
+			result: resultWith([]),
+			version: "1.2.3",
+		});
+
+		expect(artifact.generator.scanId).toBeUndefined();
+	});
+
 	it("normalizes absent collections so consumers never branch on them", () => {
 		const artifact = buildReportArtifact({
 			moduleGraph: emptyGraph(),

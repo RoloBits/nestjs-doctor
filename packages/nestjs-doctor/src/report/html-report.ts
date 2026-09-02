@@ -24,7 +24,10 @@ export function buildHtmlReport(
 	const telemetry =
 		options?.telemetry === false
 			? ""
-			: getTelemetryScript(artifact.generator.version);
+			: getTelemetryScript(
+					artifact.generator.version,
+					artifact.generator.scanId ?? ""
+				);
 
 	return `<!DOCTYPE html>
 <html lang="en">
