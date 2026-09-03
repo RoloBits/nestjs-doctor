@@ -2,4 +2,4 @@
 "nestjs-doctor": patch
 ---
 
-Console reports now print findings from rules that do not carry the `score` surface under a `Not scored` heading, after every finding that moves the score. The interactive view lists those rules last too. No score, exit code, or machine-readable output changes.
+Print findings from rules without the `score` surface under a `Not scored` heading after every scored finding in the console report, and last in the interactive view; scores, exit codes and machine-readable output are unchanged.
