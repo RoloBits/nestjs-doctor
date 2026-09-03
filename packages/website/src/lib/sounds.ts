@@ -67,30 +67,32 @@ export const subscribeSounds = (listener: () => void) => {
 	};
 };
 
-export const setSoundsEnabled = (on: boolean) => {
-	enabled = on;
-	setEnabled(on);
+const notify = () => {
 	for (const listener of listeners) {
 		listener();
 	}
+};
+
+const persist = (key: string, value: string) => {
 	try {
-		localStorage.setItem(STORAGE_KEY, on ? "on" : "off");
+		localStorage.setItem(key, value);
 	} catch {
 		// Storage is unavailable; the choice lasts for this page.
 	}
 };
 
+export const setSoundsEnabled = (on: boolean) => {
+	enabled = on;
+	setEnabled(on);
+	notify();
+	persist(STORAGE_KEY, on ? "on" : "off");
+};
+
 export const setSoundsVolume = (value: number) => {
 	volume = clamp(value);
 	setVolume(volume);
-	for (const listener of listeners) {
-		listener();
-	}
-	try {
-		localStorage.setItem(VOLUME_KEY, String(volume));
-	} catch {
-		// Storage is unavailable; the choice lasts for this page.
-	}
+	notify();
+	persist(VOLUME_KEY, String(volume));
 };
 
 const audio = (): AudioContext => {
