@@ -4,7 +4,7 @@
 
 ### Patch Changes
 
-- b67449e: Lead the marketplace description and the README with the tagline the rest of the project uses.
+- Lead the marketplace description and the README with the tagline the rest of the project uses.
 
 ## 0.1.4
 
