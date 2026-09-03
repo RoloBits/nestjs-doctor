@@ -2,11 +2,13 @@
 
 import { Volume2, VolumeX } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
 	play,
 	setSoundsEnabled,
+	setSoundsVolume,
 	soundsEnabled,
+	soundsVolume,
 	subscribeSounds,
 } from "@/lib/sounds";
 
@@ -35,14 +37,17 @@ const AppleGlyph = () => (
 	</svg>
 );
 
-/** The strip along the top of the desktop: a clock and a mute switch. */
+/** The strip along the top of the desktop: a clock and a volume control. */
 export const MenuBar = ({ section }: { section: string }) => {
 	const [now, setNow] = useState<Date | null>(null);
+	const [volumeOpen, setVolumeOpen] = useState(false);
+	const volumeRef = useRef<HTMLDivElement>(null);
 	const sounds = useSyncExternalStore(
 		subscribeSounds,
 		soundsEnabled,
 		() => true
 	);
+	const volume = useSyncExternalStore(subscribeSounds, soundsVolume, () => 1);
 
 	const toggleSounds = () => {
 		if (sounds) {
@@ -55,13 +60,26 @@ export const MenuBar = ({ section }: { section: string }) => {
 	};
 
 	useEffect(() => {
+		if (!volumeOpen) {
+			return;
+		}
+		const close = (event: PointerEvent) => {
+			if (!volumeRef.current?.contains(event.target as Node)) {
+				setVolumeOpen(false);
+			}
+		};
+		document.addEventListener("pointerdown", close);
+		return () => document.removeEventListener("pointerdown", close);
+	}, [volumeOpen]);
+
+	useEffect(() => {
 		setNow(new Date());
 		const timer = setInterval(() => setNow(new Date()), TICK_MS);
 		return () => clearInterval(timer);
 	}, []);
 
 	return (
-		<div className="flex h-6 shrink-0 items-center gap-4 whitespace-nowrap bg-black/40 px-4 text-[11px] text-white/80 backdrop-blur-xl">
+		<div className="relative z-30 flex h-6 shrink-0 items-center gap-4 whitespace-nowrap bg-black/40 px-4 text-[11px] text-white/80 backdrop-blur-xl">
 			<Link className="flex items-center" href="/">
 				<AppleGlyph />
 			</Link>
@@ -86,15 +104,49 @@ export const MenuBar = ({ section }: { section: string }) => {
 				GitHub
 			</a>
 			<div className="ml-auto flex items-center gap-4">
-				<button
-					aria-label="Sounds"
-					aria-pressed={sounds}
-					className="flex cursor-pointer items-center hover:text-white"
-					onClick={toggleSounds}
-					type="button"
-				>
-					{sounds ? <Volume2 size={12} /> : <VolumeX size={12} />}
-				</button>
+				<div className="relative flex items-center" ref={volumeRef}>
+					<button
+						aria-expanded={volumeOpen}
+						aria-label="Volume"
+						className="flex cursor-pointer items-center hover:text-white"
+						onClick={() => {
+							play("toggle");
+							setVolumeOpen((open) => !open);
+						}}
+						type="button"
+					>
+						{sounds && volume > 0 ? (
+							<Volume2 size={12} />
+						) : (
+							<VolumeX size={12} />
+						)}
+					</button>
+					{volumeOpen && (
+						<div className="absolute top-full right-0 mt-1 flex items-center gap-2 rounded-md border border-white/10 bg-black/70 px-2 py-1.5 backdrop-blur-xl">
+							<button
+								aria-label={sounds ? "Mute" : "Unmute"}
+								className="flex cursor-pointer items-center hover:text-white"
+								onClick={toggleSounds}
+								type="button"
+							>
+								{sounds ? <Volume2 size={12} /> : <VolumeX size={12} />}
+							</button>
+							<input
+								aria-label="Volume level"
+								className="h-4 w-24 cursor-pointer accent-white"
+								max={100}
+								min={0}
+								onChange={(event) =>
+									setSoundsVolume(Number(event.target.value) / 100)
+								}
+								onKeyUp={() => play("tick")}
+								onPointerUp={() => play("tick")}
+								type="range"
+								value={Math.round(volume * 100)}
+							/>
+						</div>
+					)}
+				</div>
 				<span className="hidden sm:inline">{now ? formatDate(now) : ""}</span>
 				<span>{now ? formatClock(now) : CLOCK_PLACEHOLDER}</span>
 			</div>
