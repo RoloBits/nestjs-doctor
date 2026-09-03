@@ -1,7 +1,7 @@
 {
   "name": "nestjs-doctor-vscode",
   "displayName": "NestJS Doctor",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "description": "The deterministic NestJS devtool that catches AI mistakes. Inline diagnostics and a health score in your editor.",
   "categories": [

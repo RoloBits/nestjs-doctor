@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.5
+
+### Patch Changes
+
+- Lead the marketplace description and the README with the tagline the rest of the project uses.
+
 ## 0.1.4
 
 ### Fixed
