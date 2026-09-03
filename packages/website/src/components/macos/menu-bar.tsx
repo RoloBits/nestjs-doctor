@@ -125,7 +125,6 @@ export const MenuBar = ({ section }: { section: string }) => {
 						<div className="absolute top-full right-0 mt-1 flex items-center gap-2 rounded-md border border-white/10 bg-black/70 px-2 py-1.5 backdrop-blur-xl">
 							<button
 								aria-label={sounds ? "Mute" : "Unmute"}
-								aria-pressed={!sounds}
 								className="flex cursor-pointer items-center hover:text-white"
 								onClick={toggleSounds}
 								type="button"
