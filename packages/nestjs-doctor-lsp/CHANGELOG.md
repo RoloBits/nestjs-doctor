@@ -1,5 +1,25 @@
 # nestjs-doctor-lsp
 
+## 4.1.2
+
+### Patch Changes
+
+- a773726: Print one line on the first console scan on a machine pointing at the VS Code extension and the `nestjs-doctor-lsp` language server, then never again, and never in CI, inside a coding agent, in a machine-readable format, off a TTY, or once the language server has run. The first-run telemetry notice is gone; [the telemetry page](https://nestjs.doctor/docs/telemetry) still documents every field and every opt-out.
+- b67449e: `NESTJS_DOCTOR_TELEMETRY_DEBUG=1` prints the language server's telemetry payload to stderr and sends nothing.
+- Updated dependencies [ddc6bed]
+- Updated dependencies [04fdd28]
+- Updated dependencies [bbbaf8c]
+- Updated dependencies [04fdd28]
+- Updated dependencies [0243a59]
+- Updated dependencies [04fdd28]
+- Updated dependencies [04fdd28]
+- Updated dependencies [a773726]
+- Updated dependencies [3d0a444]
+- Updated dependencies [b67449e]
+- Updated dependencies [b67449e]
+- Updated dependencies [8e7dea5]
+  - nestjs-doctor@0.9.6
+
 ## 4.1.1
 
 ### Patch Changes

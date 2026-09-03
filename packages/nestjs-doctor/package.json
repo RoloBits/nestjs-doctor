@@ -1,6 +1,6 @@
 {
   "name": "nestjs-doctor",
-  "version": "0.9.5",
+  "version": "0.9.6",
   "description": "The deterministic NestJS devtool that catches AI mistakes. Static analysis for NestJS with a health score, diagnostics and an interactive report.",
   "keywords": [
     "nestjs",
