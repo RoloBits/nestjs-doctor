@@ -1,5 +1,12 @@
 # nestjs-doctor
 
+## 0.9.7
+
+### Patch Changes
+
+- 8959511: Fix `injectable-must-be-provided` false positives when a `useClass` or `provide` value is an expression such as a helper call, a ternary, a property access or a mixin, by following the value to every class it can evaluate to. Count `useExisting` targets and factory `inject` entries as uses for `no-unused-providers` and `no-unused-module-exports`, never as registrations, so a class that is only a `useExisting` target and provided nowhere is now reported.
+- 8f8604b: Fix `injectable-must-be-provided`, `no-unused-providers` and `no-unused-module-exports` false positives for providers registered only through a `DynamicModule`, such as the object a `forRoot()`, `register()`, a standalone function, a `ConfigurableModuleBuilder` `setExtras` callback or a `forRootAsync({ useClass })` option registers. A `providers` key on a testing module, a registry object or a config object still registers nothing.
+
 ## 0.9.6
 
 ### Patch Changes
