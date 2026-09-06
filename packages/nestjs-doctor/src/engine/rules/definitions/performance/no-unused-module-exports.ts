@@ -1,5 +1,8 @@
 import type { ClassDeclaration } from "ts-morph";
-import { collectCustomProviderClasses } from "../../../graph/custom-providers.js";
+import {
+	collectCustomProviderClasses,
+	isTestFile,
+} from "../../../graph/custom-providers.js";
 import type { ModuleNode } from "../../../graph/module-graph.js";
 import { hasDecorator } from "../../../nest-class-inspector.js";
 import type { ProjectRule, ProjectRuleContext } from "../../types.js";
@@ -74,20 +77,11 @@ export const noUnusedModuleExports: ProjectRule = {
 			}
 		}
 
-		// Custom-provider implementation names per file, each file walked once.
-		const implementationNamesByFile = new Map<string, Set<string>>();
-		const implementationNamesIn = (filePath: string): Set<string> => {
-			const cached = implementationNamesByFile.get(filePath);
-			if (cached) {
-				return cached;
-			}
-			const { implementationNames } = collectCustomProviderClasses(
-				context.project,
-				[filePath]
-			);
-			implementationNamesByFile.set(filePath, implementationNames);
-			return implementationNames;
-		};
+		// Custom-provider targets per production file, walked once.
+		const { targetsByFile } = collectCustomProviderClasses(
+			context.project,
+			context.files.filter((filePath) => !isTestFile(filePath))
+		);
 
 		for (const mod of context.moduleGraph.modules.values()) {
 			if (mod.exports.length === 0) {
@@ -111,10 +105,15 @@ export const noUnusedModuleExports: ProjectRule = {
 					}
 				}
 
-				// An object-literal provider (`{ provide, useClass }`) keeps its source
-				// text; the target counts as used, and so does whatever it injects.
+				// The target of an object-literal provider (`{ provide, useClass }`),
+				// by text or resolved name, counts as used, and so does what it injects.
 				for (const filePath of consumer.filePaths ?? [consumer.filePath]) {
-					for (const implName of implementationNamesIn(filePath)) {
+					const sourceFile = context.project.getSourceFile(filePath);
+					const targets = sourceFile && targetsByFile.get(sourceFile);
+					if (!targets) {
+						continue;
+					}
+					for (const implName of targets) {
 						usedProviders.add(implName);
 						const implClass = classesByName.get(implName);
 						if (implClass) {

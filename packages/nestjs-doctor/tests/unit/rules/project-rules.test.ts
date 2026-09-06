@@ -1105,4 +1105,320 @@ describe("injectable-must-be-provided", () => {
 		});
 		expect(diags.filter((d) => d.message.includes("Lonely"))).toHaveLength(1);
 	});
+
+	const appService = `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class AppService {}
+      `;
+	const otherService = `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class OtherService {}
+      `;
+	const smtpMailer = `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class SmtpMailer { send() {} }
+      `;
+	const fakeMailer = `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class FakeMailer { log() {} }
+      `;
+	const reportsFor = (diags: Diagnostic[], name: string) =>
+		diags.filter((d) => d.message.includes(`'${name}'`));
+
+	it("does not flag a class returned by a function used as useClass (#400)", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { AppService } from './app.service.js';
+        function providerFactory() { return AppService; }
+        @Module({ providers: [{ provide: AppService, useClass: providerFactory() }] })
+        export class AppModule {}
+      `,
+			"app.service.ts": appService,
+		});
+		expect(reportsFor(diags, "AppService")).toHaveLength(0);
+	});
+
+	it("does not flag either branch of a useClass ternary", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { SmtpMailer } from './smtp.mailer';
+        import { FakeMailer } from './fake.mailer';
+        const flag = process.env.SMTP === '1';
+        @Module({ providers: [{ provide: 'MAILER', useClass: flag ? SmtpMailer : FakeMailer }] })
+        export class AppModule {}
+      `,
+			"smtp.mailer.ts": smtpMailer,
+			"fake.mailer.ts": fakeMailer,
+		});
+		expect(reportsFor(diags, "SmtpMailer")).toHaveLength(0);
+		expect(reportsFor(diags, "FakeMailer")).toHaveLength(0);
+	});
+
+	it("follows a typed const ternary from another file", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { Impl } from './impl';
+        @Module({ providers: [{ provide: 'MAILER', useClass: Impl }] })
+        export class AppModule {}
+      `,
+			"impl.ts": `
+        import { Type } from '@nestjs/common';
+        import { Mailer } from './mailer';
+        import { SmtpMailer } from './smtp.mailer';
+        import { FakeMailer } from './fake.mailer';
+        export const Impl: Type<Mailer> = process.env.X ? SmtpMailer : FakeMailer;
+      `,
+			"mailer.ts": "export abstract class Mailer {}",
+			"smtp.mailer.ts": smtpMailer,
+			"fake.mailer.ts": fakeMailer,
+		});
+		expect(reportsFor(diags, "SmtpMailer")).toHaveLength(0);
+		expect(reportsFor(diags, "FakeMailer")).toHaveLength(0);
+	});
+
+	it("follows a property access into an object literal", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { SmtpMailer } from './smtp.mailer';
+        const registry = { mailer: SmtpMailer };
+        @Module({ providers: [{ provide: 'MAILER', useClass: registry.mailer }] })
+        export class AppModule {}
+      `,
+			"smtp.mailer.ts": smtpMailer,
+		});
+		expect(reportsFor(diags, "SmtpMailer")).toHaveLength(0);
+	});
+
+	it("follows a function call used as useExisting", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { AppService } from './app.service';
+        function pick() { return AppService }
+        @Module({ providers: [{ provide: 'ALIAS', useExisting: pick() }] })
+        export class AppModule {}
+      `,
+			"app.service.ts": appService,
+		});
+		expect(reportsFor(diags, "AppService")).toHaveLength(0);
+	});
+
+	it("follows a call-const-call chain across files", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { a } from './a';
+        @Module({ providers: [{ provide: 'TOK', useClass: a() }] })
+        export class AppModule {}
+      `,
+			"a.ts": `
+        import { impl } from './b';
+        export function a() { return impl }
+      `,
+			"b.ts": `
+        import { AppService } from './app.service';
+        export const impl = b();
+        function b() { return AppService }
+      `,
+			"app.service.ts": appService,
+		});
+		expect(reportsFor(diags, "AppService")).toHaveLength(0);
+	});
+
+	it("counts a class passed as an argument to a wrapping function", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"app.module.ts": `
+        import { Module, Type } from '@nestjs/common';
+        import { AppService } from './app.service';
+        function withLogging<T>(Base: Type<T>) { return class extends (Base as any) {} }
+        @Module({ providers: [{ provide: 'TOK', useClass: withLogging(AppService) }] })
+        export class AppModule {}
+      `,
+			"app.service.ts": appService,
+		});
+		expect(reportsFor(diags, "AppService")).toHaveLength(0);
+	});
+
+	it("counts a base class extended by an inline class expression", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { AppService } from './app.service';
+        @Module({ providers: [{ provide: 'TOK', useClass: class extends AppService {} }] })
+        export class AppModule {}
+      `,
+			"app.service.ts": appService,
+		});
+		expect(reportsFor(diags, "AppService")).toHaveLength(0);
+	});
+
+	it("counts a class used as the provide token", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { Mailer } from './mailer';
+        @Module({ providers: [{ provide: Mailer, useValue: {} }] })
+        export class AppModule {}
+      `,
+			"mailer.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export abstract class Mailer { abstract send(): void }
+      `,
+		});
+		expect(reportsFor(diags, "Mailer")).toHaveLength(0);
+	});
+
+	it("still flags the class when useClass cannot be resolved", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        const cfg = JSON.parse(process.env.CFG ?? '{}');
+        @Module({ providers: [{ provide: 'MAILER', useClass: (cfg as any).Impl }] })
+        export class AppModule {}
+      `,
+			"app.service.ts": appService,
+		});
+		expect(reportsFor(diags, "AppService")).toHaveLength(1);
+	});
+
+	it("still flags a class registered by no provider at all", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({ providers: [{ provide: 'TOK', useValue: 1 }] })
+        export class AppModule {}
+      `,
+			"app.service.ts": appService,
+		});
+		expect(reportsFor(diags, "AppService")).toHaveLength(1);
+	});
+
+	it("does not count a factory parameter type as a registration", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { AppService } from './app.service';
+        import { OtherService } from './other.service';
+        @Module({ providers: [{ provide: 'TOK', useFactory: (svc: OtherService) => new AppService() }] })
+        export class AppModule {}
+      `,
+			"app.service.ts": appService,
+			"other.service.ts": otherService,
+		});
+		expect(reportsFor(diags, "OtherService")).toHaveLength(1);
+		expect(reportsFor(diags, "AppService")).toHaveLength(0);
+	});
+
+	it("does not count a generic type argument in a factory as a registration", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { OtherService } from './other.service';
+        function make<T>(): T { return null as any }
+        @Module({ providers: [{ provide: 'TOK', useFactory: () => make<OtherService>() }] })
+        export class AppModule {}
+      `,
+			"other.service.ts": otherService,
+		});
+		expect(reportsFor(diags, "OtherService")).toHaveLength(1);
+	});
+
+	it("does not count a class passed as useValue as a registration", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { OtherService } from './other.service';
+        @Module({ providers: [{ provide: 'TOK', useValue: OtherService }] })
+        export class AppModule {}
+      `,
+			"other.service.ts": otherService,
+		});
+		expect(reportsFor(diags, "OtherService")).toHaveLength(1);
+	});
+
+	it("does not count a class nested in a useValue object as a registration", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { OtherService } from './other.service';
+        @Module({ providers: [{ provide: 'TOK', useValue: { fallback: OtherService } }] })
+        export class AppModule {}
+      `,
+			"other.service.ts": otherService,
+		});
+		expect(reportsFor(diags, "OtherService")).toHaveLength(1);
+	});
+
+	it("does not count a class in a return type annotation as a registration", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"app.module.ts": `
+        import { Module, Type } from '@nestjs/common';
+        import { AppService } from './app.service';
+        import { OtherService } from './other.service';
+        function pick(): Type<OtherService> { return AppService }
+        @Module({ providers: [{ provide: 'TOK', useClass: pick() }] })
+        export class AppModule {}
+      `,
+			"app.service.ts": appService,
+			"other.service.ts": otherService,
+		});
+		expect(reportsFor(diags, "OtherService")).toHaveLength(1);
+		expect(reportsFor(diags, "AppService")).toHaveLength(0);
+	});
+
+	it("follows a declaration through a file outside the scanned set", () => {
+		const ctx = createProjectContext({
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { impl } from './registry';
+        @Module({ providers: [{ provide: 'TOK', useClass: impl }] })
+        export class AppModule {}
+      `,
+			"registry.ts": `
+        import { AppService } from './app.service';
+        export const impl = AppService;
+      `,
+			"app.service.ts": appService,
+		});
+		const diags: Diagnostic[] = [];
+		injectableMustBeProvided.check({
+			...ctx,
+			files: ctx.paths.filter((p) => p !== "registry.ts"),
+			report(partial) {
+				diags.push({
+					...partial,
+					rule: injectableMustBeProvided.meta.id,
+					category: injectableMustBeProvided.meta.category,
+					severity: injectableMustBeProvided.meta.severity,
+				});
+			},
+		});
+		expect(reportsFor(diags, "AppService")).toHaveLength(0);
+	});
+
+	it("follows a declaration through a test helper file", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { stubImpl } from './app.spec.helpers';
+        @Module({ providers: [{ provide: 'TOK', useClass: stubImpl }] })
+        export class AppModule {}
+      `,
+			"app.spec.helpers.ts": `
+        import { AppService } from './app.service';
+        export const stubImpl = AppService;
+      `,
+			"app.service.ts": appService,
+		});
+		expect(reportsFor(diags, "AppService")).toHaveLength(0);
+	});
 });

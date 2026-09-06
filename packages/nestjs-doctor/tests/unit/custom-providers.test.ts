@@ -2,9 +2,12 @@ import { Project } from "ts-morph";
 import { describe, expect, it } from "vitest";
 import { collectCustomProviderClasses } from "../../src/engine/graph/custom-providers.js";
 
-function collect(files: Record<string, string>) {
+function collect(
+	files: Record<string, string>,
+	unscanned: Record<string, string> = {}
+) {
 	const project = new Project({ useInMemoryFileSystem: true });
-	for (const [path, code] of Object.entries(files)) {
+	for (const [path, code] of Object.entries({ ...files, ...unscanned })) {
 		project.createSourceFile(path, code);
 	}
 	return {
@@ -54,7 +57,7 @@ describe("collectCustomProviderClasses", () => {
 	});
 
 	it("resolves named factories, static factories, values, and passthrough factories", () => {
-		const { constructedClasses } = collect({
+		const { constructedClasses, implementationNames } = collect({
 			"factory.ts": `
         export class MailerService {}
         export function createMailer() { return new MailerService(); }
@@ -107,6 +110,10 @@ describe("collectCustomProviderClasses", () => {
 				"ShorthandValueService",
 			])
 		);
+		expect([...constructedClasses].map((cls) => cls.getName())).not.toContain(
+			"ProviderFactory"
+		);
+		expect(implementationNames).not.toContain("ProviderFactory");
 	});
 
 	it("terminates on circular factory indirection and still collects", () => {
@@ -152,5 +159,162 @@ describe("collectCustomProviderClasses", () => {
 					.getClassOrThrow("DuplicateService"),
 			])
 		);
+	});
+
+	it("resolves a class returned by a function used as useClass", () => {
+		const { constructedClasses, implementationNames } = collect({
+			"app.service.ts": "export class AppService {}",
+			"app.module.ts": `
+        import { AppService } from './app.service';
+        function providerFactory() { return AppService; }
+        export const provider = { provide: 'TOK', useClass: providerFactory() };
+      `,
+		});
+
+		expect([...constructedClasses].map((cls) => cls.getName())).toContain(
+			"AppService"
+		);
+		expect(implementationNames).not.toContain("AppService");
+	});
+
+	it("keeps a chain through an unscanned file on the declaration channel", () => {
+		const { constructedClasses, implementationNames, project } = collect(
+			{
+				"app.service.ts": "export class AppService {}",
+				"app.module.ts": `
+          import { impl } from './registry';
+          export const provider = { provide: 'TOK', useClass: impl };
+        `,
+			},
+			{
+				"registry.ts": `
+          import { AppService } from './app.service';
+          export const impl = AppService;
+        `,
+			}
+		);
+
+		expect(implementationNames).not.toContain("AppService");
+		expect(constructedClasses).toEqual(
+			new Set([
+				project
+					.getSourceFileOrThrow("app.service.ts")
+					.getClassOrThrow("AppService"),
+			])
+		);
+	});
+
+	it("records only the name when the resolved class lives in an unscanned file", () => {
+		const { constructedClasses, implementationNames } = collect(
+			{
+				"app.module.ts": `
+          import { impl } from './registry';
+          export const provider = { provide: 'TOK', useClass: impl };
+        `,
+			},
+			{
+				"app.service.ts": "export class AppService {}",
+				"registry.ts": `
+          import { AppService } from './app.service';
+          export const impl = AppService;
+        `,
+			}
+		);
+
+		expect(implementationNames).toContain("AppService");
+		expect(constructedClasses.size).toBe(0);
+	});
+
+	it("keeps declaration identity for a resolved class with a same-named twin", () => {
+		const { constructedClasses, implementationNames, project } = collect({
+			"a.ts": "export class DuplicateService {}",
+			"b.ts": "export class DuplicateService {}",
+			"app.module.ts": `
+        import { DuplicateService } from './a';
+        function pick() { return DuplicateService; }
+        export const provider = { provide: 'TOK', useClass: pick() };
+      `,
+		});
+
+		expect(implementationNames).not.toContain("DuplicateService");
+		expect(constructedClasses).toEqual(
+			new Set([
+				project
+					.getSourceFileOrThrow("a.ts")
+					.getClassOrThrow("DuplicateService"),
+			])
+		);
+	});
+
+	it("attributes useClass targets to the file that registers them", () => {
+		const { targetsByFile, project } = collect({
+			"shared.service.ts": "export class SharedService {}",
+			"pick.ts": `
+        import { SharedService } from './shared.service';
+        export function pickShared() { return SharedService; }
+      `,
+			"consumer.module.ts": `
+        import { pickShared } from './pick';
+        export const provider = { provide: 'TOK', useClass: pickShared() };
+      `,
+			"other.module.ts": `
+        import { SharedService } from './shared.service';
+        export const provider = { provide: SharedService, useValue: {} };
+      `,
+		});
+
+		const targetsIn = (path: string) =>
+			targetsByFile.get(project.getSourceFileOrThrow(path));
+		expect(targetsIn("consumer.module.ts")).toEqual(
+			new Set(["pickShared()", "SharedService"])
+		);
+		expect(targetsIn("other.module.ts")).toEqual(new Set());
+	});
+
+	it("resolves an alias used as a token and then as a useExisting target", () => {
+		const { targetsByFile, project } = collect({
+			"shared.service.ts": "export class SharedService {}",
+			"fake.service.ts": "export class FakeService {}",
+			"tokens.ts": `
+        import { SharedService } from './shared.service';
+        export const SHARED = SharedService;
+      `,
+			"app.module.ts": `
+        import { SHARED } from './tokens';
+        import { FakeService } from './fake.service';
+        export const providers = [
+          { provide: SHARED, useClass: FakeService },
+          { provide: 'ALIAS', useExisting: SHARED },
+        ];
+      `,
+		});
+
+		expect(
+			targetsByFile.get(project.getSourceFileOrThrow("app.module.ts"))
+		).toEqual(new Set(["FakeService", "SHARED", "SharedService"]));
+	});
+
+	it("ignores classes a useClass helper merely calls or reads", () => {
+		const { constructedClasses } = collect({
+			"classes.ts": `
+        export class SmtpMailer {}
+        export class Logger { static log(message: string) {} }
+        export class AuditService { static enabled = false; }
+        export class Registry { static mailer = SmtpMailer; }
+      `,
+			"app.module.ts": `
+        import { AuditService, Logger, Registry, SmtpMailer } from './classes';
+        function pickMailer() {
+          Logger.log('picking');
+          if (AuditService.enabled) { return Registry.mailer; }
+          return SmtpMailer;
+        }
+        export const provider = { provide: 'MAILER', useClass: pickMailer() };
+      `,
+		});
+
+		expect(
+			new Set([...constructedClasses].map((cls) => cls.getName()))
+		).toEqual(new Set(["SmtpMailer"]));
 	});
 });
