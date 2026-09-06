@@ -43,7 +43,10 @@ function resolveConsumers(
 		(other) => other.name !== mod.name
 	);
 
-	if (mod.classDeclaration && hasDecorator(mod.classDeclaration, "Global")) {
+	if (
+		mod.isGlobal ||
+		(mod.classDeclaration && hasDecorator(mod.classDeclaration, "Global"))
+	) {
 		return all;
 	}
 

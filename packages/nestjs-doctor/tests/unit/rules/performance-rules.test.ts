@@ -820,4 +820,36 @@ describe("no-unused-module-exports with dynamic module metadata (#403)", () => {
 		});
 		expect(diags).toHaveLength(0);
 	});
+	it("treats a module made global by its dynamic literal as visible to all", () => {
+		const diags = runProjectRule(noUnusedModuleExports, {
+			"shared.module.ts": `
+        import { Module } from '@nestjs/common';
+        import type { DynamicModule } from '@nestjs/common';
+        import { SharedService } from './shared.service';
+        @Module({})
+        export class SharedModule {
+          static forRoot(): DynamicModule {
+            return { global: true, module: SharedModule, providers: [SharedService], exports: [SharedService] };
+          }
+        }
+      `,
+			"shared.service.ts": sharedService,
+			"feature.service.ts": featureService,
+			"feature.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { FeatureService } from './feature.service';
+        @Module({ providers: [FeatureService] })
+        export class FeatureModule {}
+      `,
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { SharedModule } from './shared.module';
+        import { FeatureModule } from './feature.module';
+        @Module({ imports: [SharedModule.forRoot(), FeatureModule] })
+        export class AppModule {}
+      `,
+		});
+		expect(diags.filter((d) => d.message.includes("SharedModule"))).toEqual([]);
+		expect(diags).toHaveLength(0);
+	});
 });

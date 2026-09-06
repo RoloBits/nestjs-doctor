@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
 	buildModuleGraph,
 	buildModuleGraphAsync,
+	detachModuleGraph,
 	findCircularDeps,
 	findProviderModule,
 	mergeModuleGraphs,
@@ -2517,6 +2518,161 @@ describe("dynamic module metadata", () => {
 		);
 	});
 
+	it("collects file-level pushes onto a providers array", () => {
+		const { project, paths } = createProject({
+			"a.module.ts": `
+        import { Module } from '@nestjs/common';
+        const providers = [A];
+        if (flag) { providers.push(B); }
+        providers.push(C);
+        @Module({ providers })
+        export class AModule {}
+      `,
+		});
+		const graph = buildModuleGraph(project, paths);
+		expect(graph.modules.get("AModule")?.providers).toEqual(["A", "B", "C"]);
+	});
+
+	it("ignores pushes onto a shadowing variable", () => {
+		const { project, paths } = createProject({
+			"a.module.ts": `
+        import { Module } from '@nestjs/common';
+        import type { DynamicModule } from '@nestjs/common';
+        @Module({})
+        export class AModule {
+          static forRoot(): DynamicModule {
+            const providers = [A];
+            { const providers = [Z]; providers.push(ZZ); }
+            return { module: AModule, providers };
+          }
+        }
+      `,
+		});
+		const graph = buildModuleGraph(project, paths);
+		expect(graph.modules.get("AModule")?.providers).toEqual(["A"]);
+	});
+
+	it("ignores a return inside a nested function when deciding what is returned", () => {
+		const { project, paths } = createProject({
+			"m.module.ts": `
+        import { Module } from '@nestjs/common';
+        import type { ModuleMetadata } from '@nestjs/common';
+        @Module({})
+        export class MModule {
+          static m(): ModuleMetadata {
+            const meta = { providers: [T4] };
+            const inner = () => { const meta = 1; return meta; };
+            return { providers: [] };
+          }
+        }
+      `,
+		});
+		const graph = buildModuleGraph(project, paths);
+		expect(graph.modules.get("MModule")?.providers).not.toContain("T4");
+	});
+
+	it("follows a conditional return of two literals", () => {
+		const { project, paths } = createProject({
+			"c.module.ts": `
+        import { Module } from '@nestjs/common';
+        import type { DynamicModule } from '@nestjs/common';
+        @Module({})
+        export class CModule {
+          static forRoot(on: boolean): DynamicModule {
+            return on ? { module: CModule, providers: [A] } : { module: CModule, providers: [B] };
+          }
+        }
+        @Module({})
+        export class DModule {
+          static forRoot(on: boolean): DynamicModule {
+            return on ? { providers: [A] } : { providers: [B] };
+          }
+        }
+      `,
+		});
+		const graph = buildModuleGraph(project, paths);
+		expect(graph.modules.get("CModule")?.providers).toEqual(["A", "B"]);
+		expect(graph.modules.get("DModule")?.providers).toEqual(["A", "B"]);
+	});
+
+	it("attaches a setExtras transform through a barrel re-export", () => {
+		const { project, paths } = createProject({
+			"def.ts": `
+        import { ConfigurableModuleBuilder } from '@nestjs/common';
+        export const { ConfigurableModuleClass } =
+          new ConfigurableModuleBuilder<{ enabled: boolean }>()
+            .setExtras({}, (def, extras) => ({ ...def, providers: [...(def.providers ?? []), Extra] }))
+            .build();
+      `,
+			"barrel.ts": "export { ConfigurableModuleClass } from './def.js';",
+			"b.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { ConfigurableModuleClass } from './barrel.js';
+        @Module({})
+        export class BModule extends ConfigurableModuleClass {}
+      `,
+		});
+		const graph = buildModuleGraph(project, paths);
+		expect(graph.modules.get("BModule")?.providers).toContain("Extra");
+	});
+
+	it("registers a this.forRootAsync useClass on the enclosing module", () => {
+		const { project, paths } = createProject({
+			"x.module.ts": `
+        import { Module } from '@nestjs/common';
+        import type { DynamicModule, Type } from '@nestjs/common';
+        @Module({})
+        export class XModule {
+          static forRoot(): DynamicModule {
+            return this.forRootAsync({ useClass: Self });
+          }
+          static forRootAsync(o: { useClass: Type }): DynamicModule {
+            return { module: XModule, providers: [] };
+          }
+        }
+      `,
+		});
+		const graph = buildModuleGraph(project, paths);
+		expect(graph.modules.get("XModule")?.providers).toContain("Self");
+	});
+
+	it("registers async options passed through a variable", () => {
+		const { project, paths } = createProject({
+			"orm.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class OrmModule {}
+      `,
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { OrmModule } from './orm.module';
+        const typeOrmAsyncConfig = { useClass: Cfg2 };
+        @Module({
+          imports: [
+            OrmModule.forRootAsync(typeOrmAsyncConfig),
+            OrmModule.forRootAsync(cond ? { useClass: Cfg4 } : {}),
+          ],
+        })
+        export class AppModule {}
+      `,
+		});
+		const graph = buildModuleGraph(project, paths);
+		const providers = graph.modules.get("OrmModule")?.providers;
+		expect(providers).toContain("Cfg2");
+		expect(providers).toContain("Cfg4");
+	});
+
+	it("gives a detached graph its own per-file record", () => {
+		const { project, paths } = createProject(forRootRepro);
+		const graph = buildModuleGraph(project, paths);
+		const detached = detachModuleGraph(graph);
+		const original = graph.modules.get("CacheModule")?.dynamicByFile;
+		const copy = detached.modules.get("CacheModule")?.dynamicByFile;
+		expect(original).toBeDefined();
+		expect(copy).not.toBe(original);
+		expect(copy).toEqual(original);
+	});
+
 	describe("updateModuleGraphForFile", () => {
 		const emptyCacheModule = `
         import { Module } from '@nestjs/common';
@@ -2626,6 +2782,32 @@ describe("dynamic module metadata", () => {
 			);
 			updateModuleGraphForFile(graph, project, "app.module.ts");
 			expect(graph.modules.get("NewModule")?.providers).toContain("NewService");
+		});
+		it("drops a setExtras contribution when the module stops extending the built class", () => {
+			const { project, paths } = createProject({
+				"def.ts": `
+        import { ConfigurableModuleBuilder } from '@nestjs/common';
+        export const { ConfigurableModuleClass } =
+          new ConfigurableModuleBuilder<{ enabled: boolean }>()
+            .setExtras({}, (d, e) => ({ ...d, providers: [...(d.providers ?? []), Extra] }))
+            .build();
+      `,
+				"e.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { ConfigurableModuleClass } from './def.js';
+        @Module({ providers: [PE] })
+        export class EModule extends ConfigurableModuleClass {}
+      `,
+			});
+			const graph = buildModuleGraph(project, paths);
+			expect(graph.modules.get("EModule")?.providers).toContain("Extra");
+			project.getSourceFileOrThrow("e.module.ts").replaceWithText(`
+        import { Module } from '@nestjs/common';
+        @Module({ providers: [PE] })
+        export class EModule {}
+      `);
+			updateModuleGraphForFile(graph, project, "e.module.ts");
+			expect(graph.modules.get("EModule")?.providers).toEqual(["PE"]);
 		});
 	});
 });

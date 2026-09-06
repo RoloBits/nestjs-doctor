@@ -212,6 +212,27 @@ describe("collectCustomProviderClasses", () => {
 		expect(implementationNames).not.toContain("DeadService2");
 	});
 
+	it("registers a bare useClass passed to an Async call through a variable", () => {
+		const { constructedClasses, implementationNames } = collect({
+			"cfg.ts": `
+        export class Cfg2 {}
+        export class Dead {}
+      `,
+			"imports.ts": `
+        import { Cfg2, Dead } from './cfg';
+        const opts = { useClass: Cfg2 };
+        const unused = { useClass: Dead };
+        export const imports = [OrmModule.forRootAsync(opts)];
+      `,
+		});
+
+		const constructed = [...constructedClasses].map((cls) => cls.getName());
+		expect(constructed).toContain("Cfg2");
+		expect(implementationNames).toContain("Cfg2");
+		expect(constructed).not.toContain("Dead");
+		expect(implementationNames).not.toContain("Dead");
+	});
+
 	it("keeps a chain through an unscanned file on the declaration channel", () => {
 		const { constructedClasses, implementationNames, project } = collect(
 			{

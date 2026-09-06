@@ -8,7 +8,7 @@ import {
 	SyntaxKind,
 } from "ts-morph";
 
-/** Keys whose value registers a class: the token, and the class built for it. */
+/** Keys whose value registers a class, in a `{ provide }` literal or an `*Async` options argument. */
 const REGISTRATION_KEYS = ["provide", "useClass"];
 /** Keys whose value names classes that must be provided elsewhere. */
 const USE_KEYS = ["useExisting", "inject"];
@@ -24,19 +24,57 @@ export function isTestFile(filePath: string): boolean {
 	);
 }
 
-/** The `X.forRootAsync` callee whose options argument is `obj`, for any `*Async` method. */
-export function asyncOptionsCallee(
-	obj: ObjectLiteralExpression
-): PropertyAccessExpression | undefined {
-	const call = obj.getParent()?.asKind(SyntaxKind.CallExpression);
+/** `node` climbed through parentheses, casts, `await` and the branches of a conditional. */
+export function unwrapped(node: Node): Node {
+	let current = node;
+	for (
+		let parent = current.getParent();
+		parent &&
+		(Node.isParenthesizedExpression(parent) ||
+			Node.isAsExpression(parent) ||
+			Node.isSatisfiesExpression(parent) ||
+			Node.isNonNullExpression(parent) ||
+			Node.isAwaitExpression(parent) ||
+			Node.isConditionalExpression(parent));
+		parent = current.getParent()
+	) {
+		current = parent;
+	}
+	return current;
+}
+
+/** The `*Async` callee `argument` is passed to, e.g. `X.forRootAsync(argument)`. */
+function asyncCalleeOf(argument: Node): PropertyAccessExpression | undefined {
+	const call = argument.getParent()?.asKind(SyntaxKind.CallExpression);
 	const callee = call
 		?.getExpression()
 		.asKind(SyntaxKind.PropertyAccessExpression);
 	return call &&
 		callee?.getName().endsWith("Async") &&
-		call.getArguments().includes(obj)
+		call.getArguments().includes(argument)
 		? callee
 		: undefined;
+}
+
+/** The `X.forRootAsync` callee `obj` is the options argument of, directly or through a variable. */
+export function asyncOptionsCallee(
+	obj: ObjectLiteralExpression
+): PropertyAccessExpression | undefined {
+	const holders: Node[] = [unwrapped(obj)];
+	const declaration = holders[0].getParent();
+	const binding = Node.isVariableDeclaration(declaration)
+		? declaration.getNameNode()
+		: undefined;
+	if (Node.isIdentifier(binding)) {
+		holders.push(...binding.findReferencesAsNodes().map(unwrapped));
+	}
+	for (const holder of holders) {
+		const callee = asyncCalleeOf(holder);
+		if (callee) {
+			return callee;
+		}
+	}
+	return undefined;
 }
 
 function isExternal(sourceFile: SourceFile): boolean {
