@@ -4,7 +4,6 @@ import {
 	isTestFile,
 } from "../../../graph/custom-providers.js";
 import type { ModuleNode } from "../../../graph/module-graph.js";
-import { hasDecorator } from "../../../nest-class-inspector.js";
 import type { ProjectRule, ProjectRuleContext } from "../../types.js";
 
 const QUOTES = /^['"`]|['"`]$/g;
@@ -43,7 +42,7 @@ function resolveConsumers(
 		(other) => other.name !== mod.name
 	);
 
-	if (mod.classDeclaration && hasDecorator(mod.classDeclaration, "Global")) {
+	if (mod.isGlobal) {
 		return all;
 	}
 
@@ -107,7 +106,10 @@ export const noUnusedModuleExports: ProjectRule = {
 
 				// A custom provider's target, alias or `inject` entry, by text or
 				// resolved name, counts as used, and so does what the target injects.
-				for (const filePath of consumer.filePaths ?? [consumer.filePath]) {
+				for (const filePath of [
+					...(consumer.filePaths ?? [consumer.filePath]),
+					...Object.keys(consumer.dynamicByFile ?? {}),
+				]) {
 					const sourceFile = context.project.getSourceFile(filePath);
 					const uses = sourceFile && usesByFile.get(sourceFile);
 					if (!uses) {

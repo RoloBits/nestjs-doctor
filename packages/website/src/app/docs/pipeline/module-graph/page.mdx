@@ -104,7 +104,8 @@ Resolution rules:
 - **Same-file functions:** the resolver finds the function declaration, or the arrow function variable, and extracts identifiers from its `return` statements.
 - **Same-file variables:** the resolver finds the `const`/`let`/`var` declaration and resolves its initializer.
 - **Cross-file resolution:** a name missing from the current file is looked up through `import { name } from './other-file'` declarations and `export { name } from './other-file'` re-exports. The resolver then continues in that file.
-- **Unresolvable expressions:** ternaries and computed values return empty. The import is skipped, with no crash.
+- **Conditionals:** a ternary, `??` or `||` contributes both sides.
+- **Unresolvable expressions:** other computed values return empty. The import is skipped, with no crash.
 
 Before this resolution engine, `ConfigModule.forRoot(...)` was stored as the raw string `"ConfigModule.forRoot({ isGlobal: true })"`. That string never matched a module key, so the edge was dropped silently. Three consequences followed:
 

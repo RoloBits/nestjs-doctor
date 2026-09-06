@@ -177,6 +177,84 @@ describe("collectCustomProviderClasses", () => {
 		expect(implementationNames).not.toContain("AppService");
 	});
 
+	it("registers a useClass value that has no provide key", () => {
+		const { constructedClasses, implementationNames } = collect({
+			"mail.config.ts": "export class MailConfig {}",
+			"app.module.ts": `
+        import { MailConfig } from './mail.config';
+        export const imports = [MailModule.forRootAsync({ useClass: MailConfig })];
+      `,
+		});
+
+		expect([...constructedClasses].map((cls) => cls.getName())).toContain(
+			"MailConfig"
+		);
+		expect(implementationNames).toContain("MailConfig");
+	});
+
+	it("registers useClass without provide only inside an Async call", () => {
+		const { constructedClasses, implementationNames } = collect({
+			"dead.service.ts": `
+        export class DeadService {}
+        export class DeadService2 {}
+      `,
+			"app.module.ts": `
+        import { DeadService, DeadService2 } from './dead.service';
+        export const staleOptions = { useClass: DeadService, retries: 3 };
+        export const described = Thing.describe({ useClass: DeadService2 });
+      `,
+		});
+
+		const constructed = [...constructedClasses].map((cls) => cls.getName());
+		expect(constructed).not.toContain("DeadService");
+		expect(constructed).not.toContain("DeadService2");
+		expect(implementationNames).not.toContain("DeadService");
+		expect(implementationNames).not.toContain("DeadService2");
+	});
+
+	it("registers a bare useClass passed to an Async call through a variable", () => {
+		const { constructedClasses, implementationNames } = collect({
+			"cfg.ts": `
+        export class Cfg2 {}
+        export class Dead {}
+      `,
+			"imports.ts": `
+        import { Cfg2, Dead } from './cfg';
+        const opts = { useClass: Cfg2 };
+        const unused = { useClass: Dead };
+        export const imports = [OrmModule.forRootAsync(opts)];
+      `,
+		});
+
+		const constructed = [...constructedClasses].map((cls) => cls.getName());
+		expect(constructed).toContain("Cfg2");
+		expect(implementationNames).toContain("Cfg2");
+		expect(constructed).not.toContain("Dead");
+		expect(implementationNames).not.toContain("Dead");
+	});
+
+	it("ignores a bare useClass whose only Async call is in a test file", () => {
+		const { constructedClasses, implementationNames } = collect(
+			{
+				"redis.config.ts": "export class RedisConfig {}",
+				"options.ts": `
+          import { RedisConfig } from './redis.config';
+          export const cacheOptions = { useClass: RedisConfig };
+        `,
+			},
+			{
+				"cache.module.spec.ts": `
+          import { cacheOptions } from './options';
+          CacheModule.forRootAsync(cacheOptions);
+        `,
+			}
+		);
+
+		const constructed = [...constructedClasses].map((cls) => cls.getName());
+		expect(constructed).not.toContain("RedisConfig");
+		expect(implementationNames).not.toContain("RedisConfig");
+	});
+
 	it("keeps a chain through an unscanned file on the declaration channel", () => {
 		const { constructedClasses, implementationNames, project } = collect(
 			{

@@ -104,7 +104,7 @@ directives cannot silence either rule; use `ignore.rules`.
 
 `--report` writes an interactive HTML report whose Modules Graph tab draws the module graph built from the project's `@Module()` decorators. Circular imports render red and are listed as chains with the fix guidance from `architecture/no-circular-module-deps`. Selecting a module gives its blast radius, meaning every module that transitively imports it, split into direct and indirect with the chain between them. Two toggles start off: `@Global()` reach draws the wiring Nest does implicitly, and external modules adds package modules as separate nodes. A monorepo produces one merged graph with a labeled cluster per sub-project and cross-project imports drawn in cyan.
 
-The graph is decorator text, not a running app. Two `@Module()` classes with the same name in different directories collapse into one node outside a monorepo. A module produced only by a factory returning a `DynamicModule` never becomes an edge. `--report` ignores `--scope`, `--base`, `--staged`, `--min-score`, and `--blocking`, and always exits 0.
+The graph is decorator text, not a running app. Two `@Module()` classes with the same name in different directories collapse into one node outside a monorepo. A factory's returned `DynamicModule` yields one edge, to the module its `module` key names, and the `imports` inside that literal yield none. `--report` ignores `--scope`, `--base`, `--staged`, `--min-score`, and `--blocking`, and always exits 0.
 
 Docs: https://nestjs.doctor/docs/report/module-graph
 

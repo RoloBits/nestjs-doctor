@@ -165,7 +165,8 @@ export function updateFile(context: AnalysisContext, filePath: string): void {
 		context.moduleGraph,
 		context.astProject,
 		filePath,
-		context.pathAliases
+		context.pathAliases,
+		context.files
 	);
 	updateGuardDecoratorIndexForFile(
 		context.guardDecorators,

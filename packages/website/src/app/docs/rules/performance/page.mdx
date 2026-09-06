@@ -152,7 +152,7 @@ export class UserModule {}
 
 It also skips self-activating providers. A provider is self-activating when it carries a decorator such as `@Cron`, `@OnEvent`, or `@Process`. Implementing a framework contract such as `OnModuleInit` or `CanActivate` counts too.
 
-A provider named in any module's `exports` array is skipped as well, because a consumer outside the scan may inject it.
+A provider named in any module's `exports` array is skipped as well, because a consumer outside the scan may inject it. The `exports` of a `DynamicModule` a static method returns count too.
 
 ---
 
@@ -191,7 +191,7 @@ Detects a provider a module exports that no importing module injects.
 
 **Note:** The rule needs at least one importing module. A module nothing imports is skipped here and reported by [`no-orphan-modules`](#no-orphan-modules) instead. A `@Global()` module counts every other module as an importer.
 
-To find a consumer, the rule reads the constructor parameters and `@Inject()` tokens of every provider and controller in the importing modules.
+To find a consumer, the rule reads the constructor parameters and `@Inject()` tokens of every provider and controller in the importing modules. Providers the importing module registers through a `DynamicModule` count too.
 
 <CodeGroup labels={["Bad", "Good"]}>
 ```typescript

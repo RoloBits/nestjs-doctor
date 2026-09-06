@@ -584,6 +584,8 @@ export class UserController {
 
 Detects `@Injectable()` classes that are not registered in any module's `providers` array. Infrastructure classes (guards, pipes, filters, interceptors, etc.) are skipped.
 
+A `providers` array inside a `DynamicModule` counts. That is the object returned by `forRoot()`, `register()`, a static method of any name, a standalone function, or a `ConfigurableModuleBuilder` `setExtras` callback. The array can be a local variable, a spread, a `push`, a helper call, or a ternary. A `forRootAsync({ useClass })` option at the call site registers that class too. Test files register nothing.
+
 **Why:** An `@Injectable()` class that is not registered anywhere is either dead code or a forgotten registration. NestJS throws when something tries to inject it.
 
 <CodeGroup labels={["Bad", "Good"]}>

@@ -1491,3 +1491,219 @@ describe("injectable-must-be-provided", () => {
 		expect(reportsFor(diags, "AppService")).toHaveLength(0);
 	});
 });
+
+describe("injectable-must-be-provided with dynamic module metadata (#403)", () => {
+	const reportsFor = (diags: Diagnostic[], name: string) =>
+		diags.filter((d) => d.message.includes(`'${name}'`));
+	const cacheService = `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class CacheService {}
+      `;
+	const appImportingForRoot = `
+        import { Module } from '@nestjs/common';
+        import { CacheModule } from './cache.module';
+        @Module({ imports: [CacheModule.forRoot()] })
+        export class AppModule {}
+      `;
+
+	it("does not flag a class registered only in a forRoot literal", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"cache.module.ts": `
+        import { Module } from '@nestjs/common';
+        import type { DynamicModule } from '@nestjs/common';
+        import { CacheService } from './cache.service';
+        @Module({})
+        export class CacheModule {
+          static forRoot(): DynamicModule {
+            return { module: CacheModule, providers: [CacheService], exports: [CacheService] };
+          }
+        }
+      `,
+			"cache.service.ts": cacheService,
+			"app.module.ts": appImportingForRoot,
+		});
+		expect(reportsFor(diags, "CacheService")).toHaveLength(0);
+	});
+
+	it("does not flag a class registered by a standalone DynamicModule function", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"cache.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class CacheModule {}
+      `,
+			"make-cache-module.ts": `
+        import { type DynamicModule } from '@nestjs/common';
+        import { CacheModule } from './cache.module.js';
+        import { CacheService } from './cache.service.js';
+        export function makeCacheModule(): DynamicModule {
+          return { module: CacheModule, providers: [CacheService] };
+        }
+      `,
+			"cache.service.ts": cacheService,
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { makeCacheModule } from './make-cache-module.js';
+        @Module({ imports: [makeCacheModule()] })
+        export class AppModule {}
+      `,
+		});
+		expect(reportsFor(diags, "CacheService")).toHaveLength(0);
+	});
+
+	it("does not flag a class held in a local providers const", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"cache.module.ts": `
+        import { Module } from '@nestjs/common';
+        import type { DynamicModule } from '@nestjs/common';
+        import { CacheService } from './cache.service';
+        @Module({})
+        export class CacheModule {
+          static forRoot(): DynamicModule {
+            const providers = [CacheService];
+            return { module: CacheModule, providers, exports: providers };
+          }
+        }
+      `,
+			"cache.service.ts": cacheService,
+			"app.module.ts": appImportingForRoot,
+		});
+		expect(reportsFor(diags, "CacheService")).toHaveLength(0);
+	});
+
+	it("does not flag a class added by a setExtras transform", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"http.module-definition.ts": `
+        import { ConfigurableModuleBuilder } from '@nestjs/common';
+        import { MetricsService } from './metrics.service';
+        export const { ConfigurableModuleClass } =
+          new ConfigurableModuleBuilder<{ baseUrl: string }>()
+            .setExtras({}, (def) => ({ ...def, providers: [...(def.providers ?? []), MetricsService] }))
+            .build();
+      `,
+			"http.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { ConfigurableModuleClass } from './http.module-definition';
+        @Module({})
+        export class HttpModule extends ConfigurableModuleClass {}
+      `,
+			"metrics.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class MetricsService {}
+      `,
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { HttpModule } from './http.module';
+        @Module({ imports: [HttpModule.register({ baseUrl: '' })] })
+        export class AppModule {}
+      `,
+		});
+		expect(reportsFor(diags, "MetricsService")).toHaveLength(0);
+	});
+
+	it("does not flag a class listed in a @Module(meta) const", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"cache.module.ts": `
+        import { Module } from '@nestjs/common';
+        import type { ModuleMetadata } from '@nestjs/common';
+        import { CacheService } from './cache.service';
+        const meta: ModuleMetadata = { providers: [CacheService], exports: [CacheService] };
+        @Module(meta)
+        export class CacheModule {}
+      `,
+			"cache.service.ts": cacheService,
+		});
+		expect(reportsFor(diags, "CacheService")).toHaveLength(0);
+	});
+
+	it("still flags a class listed nowhere when another is registered dynamically", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"cache.module.ts": `
+        import { Module } from '@nestjs/common';
+        import type { DynamicModule } from '@nestjs/common';
+        import { CacheService } from './cache.service';
+        @Module({})
+        export class CacheModule {
+          static forRoot(): DynamicModule {
+            return { module: CacheModule, providers: [CacheService] };
+          }
+        }
+      `,
+			"cache.service.ts": cacheService,
+			"unregistered.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class UnregisteredService {}
+      `,
+			"app.module.ts": appImportingForRoot,
+		});
+		expect(reportsFor(diags, "UnregisteredService")).toHaveLength(1);
+		expect(reportsFor(diags, "CacheService")).toHaveLength(0);
+	});
+
+	it("does not let Test.createTestingModule in a test helper exempt a class", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AppModule {}
+      `,
+			"stub.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class Stub {}
+      `,
+			"test/utils.ts": `
+        import { Test } from '@nestjs/testing';
+        import { AppModule } from '../app.module';
+        import { Stub } from '../stub';
+        export function createApp() {
+          return Test.createTestingModule({ imports: [AppModule], providers: [Stub] }).compile();
+        }
+      `,
+		});
+		expect(reportsFor(diags, "Stub")).toHaveLength(1);
+	});
+
+	it("does not let a plain-object registry exempt a class", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AppModule {}
+      `,
+			"stripe.gateway.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class StripeGateway {}
+      `,
+			"gateway.registry.ts": `
+        import { StripeGateway } from './stripe.gateway';
+        export const gatewayRegistry = { providers: [StripeGateway] };
+      `,
+		});
+		expect(reportsFor(diags, "StripeGateway")).toHaveLength(1);
+	});
+
+	it("still reports a class named only in a stray useClass option object", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AppModule {}
+      `,
+			"dead.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class DeadService {}
+      `,
+			"options.ts": `
+        import { DeadService } from './dead.service';
+        export const staleOptions = { useClass: DeadService };
+      `,
+		});
+		expect(reportsFor(diags, "DeadService")).toHaveLength(1);
+	});
+});

@@ -1,13 +1,20 @@
 import {
+	type AsExpression,
+	type AwaitExpression,
 	type ClassDeclaration,
 	Node,
+	type NonNullExpression,
 	type ObjectLiteralExpression,
+	type ParenthesizedExpression,
 	type Project,
+	type PropertyAccessExpression,
+	type SatisfiesExpression,
 	type SourceFile,
 	SyntaxKind,
+	type TypeAssertion,
 } from "ts-morph";
 
-/** Keys whose value registers a class: the token, and the class built for it. */
+/** Keys whose value registers a class, in a `{ provide }` literal or an `*Async` options argument. */
 const REGISTRATION_KEYS = ["provide", "useClass"];
 /** Keys whose value names classes that must be provided elsewhere. */
 const USE_KEYS = ["useExisting", "inject"];
@@ -21,6 +28,65 @@ export function isTestFile(filePath: string): boolean {
 		filePath.includes("__test__") ||
 		filePath.includes("__tests__")
 	);
+}
+
+/** `node` climbed through parentheses, casts, `await` and the branches of a conditional. */
+/** Parentheses, casts, `!` and `await`: one expression inside. */
+export function isWrapper(
+	node: Node
+): node is
+	| ParenthesizedExpression
+	| AsExpression
+	| SatisfiesExpression
+	| NonNullExpression
+	| TypeAssertion
+	| AwaitExpression {
+	return (
+		Node.isParenthesizedExpression(node) ||
+		Node.isAsExpression(node) ||
+		Node.isSatisfiesExpression(node) ||
+		Node.isNonNullExpression(node) ||
+		Node.isTypeAssertion(node) ||
+		Node.isAwaitExpression(node)
+	);
+}
+
+export function unwrapped(node: Node): Node {
+	const parent = node.getParent();
+	return parent && (isWrapper(parent) || Node.isConditionalExpression(parent))
+		? unwrapped(parent)
+		: node;
+}
+
+/** The `*Async` callee `argument` is passed to, e.g. `X.forRootAsync(argument)`. */
+function asyncCalleeOf(argument: Node): PropertyAccessExpression | undefined {
+	const call = argument.getParent()?.asKind(SyntaxKind.CallExpression);
+	const callee = call
+		?.getExpression()
+		.asKind(SyntaxKind.PropertyAccessExpression);
+	return call &&
+		callee?.getName().endsWith("Async") &&
+		call.getArguments().includes(argument)
+		? callee
+		: undefined;
+}
+
+/** The `X.forRootAsync` callee `obj` is the options argument of, directly or through a variable. */
+function asyncOptionsCallee(
+	obj: ObjectLiteralExpression
+): PropertyAccessExpression | undefined {
+	const holder = unwrapped(obj);
+	const binding = holder
+		.getParent()
+		?.asKind(SyntaxKind.VariableDeclaration)
+		?.getNameNode();
+	const holders = Node.isIdentifier(binding)
+		? binding
+				.findReferencesAsNodes()
+				.filter((ref) => !isTestFile(ref.getSourceFile().getFilePath()))
+				.map(unwrapped)
+		: [holder];
+	return holders.map(asyncCalleeOf).find(Boolean);
 }
 
 function isExternal(sourceFile: SourceFile): boolean {
@@ -77,14 +143,7 @@ function declaredValue(declaration: Node): Node | undefined {
  * // declaration; the declaration yields the expression of each `return`.
  */
 function possibleValuesOf(node: Node): Node[] {
-	if (
-		Node.isParenthesizedExpression(node) ||
-		Node.isAsExpression(node) ||
-		Node.isSatisfiesExpression(node) ||
-		Node.isNonNullExpression(node) ||
-		Node.isTypeAssertion(node) ||
-		Node.isAwaitExpression(node)
-	) {
+	if (isWrapper(node)) {
 		return [node.getExpression()];
 	}
 	if (Node.isConditionalExpression(node)) {
@@ -280,12 +339,10 @@ export function collectCustomProviderClasses(
 					}
 				}
 			}
-			if (!obj.getProperty("provide")) {
-				continue;
-			}
+			const bareUseClass = !obj.getProperty("provide");
 			for (const key of REGISTRATION_KEYS) {
 				const value = providerValue(obj, key);
-				if (!value) {
+				if (!value || (bareUseClass && !asyncOptionsCallee(obj))) {
 					continue;
 				}
 				const references = new Set<ClassDeclaration>();
@@ -304,6 +361,9 @@ export function collectCustomProviderClasses(
 						uses.add(name);
 					}
 				}
+			}
+			if (!obj.getProperty("provide")) {
+				continue;
 			}
 			for (const key of INSTANCE_KEYS) {
 				const value = providerValue(obj, key);

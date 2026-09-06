@@ -125,14 +125,14 @@ result.
 
 ## Limits
 
-The graph is built from decorator text alone, and types are never resolved.
+The graph is built from source text alone, and types are never resolved.
 Four consequences follow:
 
-- **Same-named modules collide.** Two `@Module()` classes named `SharedModule`
-  in different directories become one node, and the second one collected wins.
-  Monorepos are exempt, because module names are prefixed per project.
-- **A module never named as an identifier is missing.** One produced only by a
-  factory returning a `DynamicModule` yields no edge.
+- **Same-named modules union.** Two `@Module()` classes named `SharedModule`
+  in different directories become one node with the metadata of both, and the
+  scan warns. Monorepos are exempt, because module names are prefixed per project.
+- **`imports` inside a `DynamicModule` literal add no edge.** A factory's
+  returned literal yields one edge, to the module its `module` key names.
 - **`forwardRef()` imports look like plain imports.** The edge is correct, but
   the drawing does not mark which side used it.
 - **Offline the layout degrades.** See [The report](/docs/report).
