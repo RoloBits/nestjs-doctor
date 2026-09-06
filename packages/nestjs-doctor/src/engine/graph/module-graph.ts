@@ -1,13 +1,13 @@
 import type {
 	CallExpression,
 	ClassDeclaration,
-	Node,
 	ObjectLiteralExpression,
 	Project,
 	SourceFile,
 } from "ts-morph";
-import { SyntaxKind } from "ts-morph";
+import { Node, SyntaxKind } from "ts-morph";
 import { YIELD_INTERVAL, yieldToEventLoop } from "../yield.js";
+import { isTestFile } from "./custom-providers.js";
 import { invalidateEntryModules } from "./entry-points.js";
 import type { PathAliasMap } from "./tsconfig-paths.js";
 import { resolvePathAlias } from "./tsconfig-paths.js";
@@ -68,10 +68,21 @@ interface ModuleImports {
 	targets: Record<string, string>;
 }
 
+/** What one `DynamicModule` literal registers on its module. */
+interface DynamicMetadata {
+	controllers: string[];
+	exports: string[];
+	isGlobal: boolean;
+	providers: string[];
+	providerTokens: string[];
+}
+
 export interface ModuleNode {
 	/** Absent once the graph is detached. */
 	classDeclaration?: ClassDeclaration;
 	controllers: string[];
+	/** File → what its `DynamicModule` literals added to this module. */
+	dynamicByFile?: Record<string, DynamicMetadata>;
 	/** Import name → the dynamic method it was imported with, e.g. `forRoot`. */
 	dynamicImports?: Record<string, string>;
 	exports: string[];
@@ -162,41 +173,28 @@ function extractModulesFromFile(
 			line: cls.getStartLineNumber(),
 		};
 
-		if (args && args.getKind() === SyntaxKind.ObjectLiteralExpression) {
-			const obj = args.asKind(SyntaxKind.ObjectLiteralExpression);
-			if (obj) {
-				const importTags = extractArrayPropertyNames(
-					obj,
-					"imports",
-					pathAliases
-				);
-				node.imports = importTags.map((t) => t.name);
-				for (const t of importTags) {
-					if (t.viaForwardRef) {
-						node.forwardRefImports.add(t.name);
-					}
-					if (t.dynamicMethod) {
-						node.dynamicImports ??= {};
-						node.dynamicImports[t.name] = t.dynamicMethod;
-					}
+		// `@Module(meta)` with `const meta = {...}` at the top of the same file.
+		const obj =
+			args?.asKind(SyntaxKind.ObjectLiteralExpression) ??
+			(Node.isIdentifier(args)
+				? sourceFile
+						.getVariableDeclaration(args.getText())
+						?.getInitializer()
+						?.asKind(SyntaxKind.ObjectLiteralExpression)
+				: undefined);
+		if (obj) {
+			const importTags = extractArrayPropertyNames(obj, "imports", pathAliases);
+			node.imports = importTags.map((t) => t.name);
+			for (const t of importTags) {
+				if (t.viaForwardRef) {
+					node.forwardRefImports.add(t.name);
 				}
-				node.exports = extractArrayPropertyNames(
-					obj,
-					"exports",
-					pathAliases
-				).map((t) => t.name);
-				node.providers = extractArrayPropertyNames(
-					obj,
-					"providers",
-					pathAliases
-				).map((t) => t.name);
-				node.providerTokens = extractProviderTokens(obj);
-				node.controllers = extractArrayPropertyNames(
-					obj,
-					"controllers",
-					pathAliases
-				).map((t) => t.name);
+				if (t.dynamicMethod) {
+					node.dynamicImports ??= {};
+					node.dynamicImports[t.name] = t.dynamicMethod;
+				}
 			}
+			Object.assign(node, unionMetadata(node, readMetadata(obj, pathAliases)));
 		}
 
 		const targets: Record<string, string> = {};
@@ -230,24 +228,40 @@ function declaredImports(node: ModuleNode): Record<string, ModuleImports> {
 	);
 }
 
+const union = (x: string[], y: string[]) => [...new Set([...x, ...y])];
+
+function unionMetadata(
+	a: DynamicMetadata,
+	b: DynamicMetadata
+): DynamicMetadata {
+	return {
+		controllers: union(a.controllers, b.controllers),
+		exports: union(a.exports, b.exports),
+		isGlobal: a.isGlobal || b.isGlobal,
+		providerTokens: union(a.providerTokens, b.providerTokens),
+		providers: union(a.providers, b.providers),
+	};
+}
+
 /** Unions the metadata of two same-name @Module declarations. */
 function mergeSameNameModules(a: ModuleNode, b: ModuleNode): ModuleNode {
-	const union = (x: string[], y: string[]) => [...new Set([...x, ...y])];
 	const merged: ModuleNode = {
 		...a,
+		...unionMetadata(a, b),
 		imports: union(a.imports, b.imports),
-		exports: union(a.exports, b.exports),
-		providers: union(a.providers, b.providers),
-		providerTokens: union(a.providerTokens, b.providerTokens),
-		controllers: union(a.controllers, b.controllers),
 		forwardRefImports: new Set([
 			...a.forwardRefImports,
 			...b.forwardRefImports,
 		]),
-		isGlobal: a.isGlobal || b.isGlobal,
 		filePaths: [...new Set([...(a.filePaths ?? [a.filePath]), b.filePath])],
 		importsByFile: { ...declaredImports(a), ...declaredImports(b) },
 	};
+	if (a.dynamicByFile || b.dynamicByFile) {
+		merged.dynamicByFile = { ...a.dynamicByFile };
+		for (const [file, meta] of Object.entries(b.dynamicByFile ?? {})) {
+			absorb(merged, meta, file);
+		}
+	}
 	if (a.dynamicImports || b.dynamicImports) {
 		merged.dynamicImports = { ...a.dynamicImports, ...b.dynamicImports };
 	}
@@ -305,23 +319,36 @@ function finishModuleGraph(modules: Map<string, ModuleNode>): ModuleGraph {
 		edges.set(name, importSet);
 	}
 
-	// Build inverse index: provider name → module
 	const providerToModule = new Map<string, ModuleNode>();
+	indexProviders(modules, providerToModule);
+
+	return { modules, edges, providerToModule };
+}
+
+/** Rebuilds the provider name → module index in place. */
+function indexProviders(
+	modules: Map<string, ModuleNode>,
+	providerToModule: Map<string, ModuleNode>
+): void {
+	providerToModule.clear();
 	for (const mod of modules.values()) {
 		for (const provider of mod.providers) {
 			providerToModule.set(provider, mod);
 		}
 	}
-
-	return { modules, edges, providerToModule };
 }
 
+/** Attaches the `DynamicModule` literals of one file to the modules they name. */
 export function buildModuleGraph(
 	project: Project,
 	files: string[],
 	pathAliases: PathAliasMap = new Map()
 ): ModuleGraph {
-	return finishModuleGraph(collectModuleNodes(project, files, pathAliases));
+	const modules = collectModuleNodes(project, files, pathAliases);
+	for (const filePath of files) {
+		applyDynamicMetadataForFile(modules, project, filePath, pathAliases);
+	}
+	return finishModuleGraph(modules);
 }
 
 /** Batched variant of buildModuleGraph; yields between files. */
@@ -346,7 +373,214 @@ export async function buildModuleGraphAsync(
 			await yieldToEventLoop();
 		}
 	}
+	for (let index = 0; index < files.length; index++) {
+		applyDynamicMetadataForFile(modules, project, files[index], pathAliases);
+		if ((index + 1) % YIELD_INTERVAL === 0) {
+			await yieldToEventLoop();
+		}
+	}
 	return finishModuleGraph(modules);
+}
+
+const DYNAMIC_TYPE_RE = /DynamicModule|ModuleMetadata/;
+
+const simpleName = (text: string): string =>
+	text.split("<")[0].split(".").pop() as string;
+
+/** Module metadata Nest can load: a `module` key, a `DynamicModule`-typed position, or a `setExtras` body. */
+function isModuleMetadataLiteral(obj: ObjectLiteralExpression): boolean {
+	if (obj.getProperty("module")) {
+		return true;
+	}
+	if (
+		obj.getProperty("provide") ||
+		obj.getFirstAncestorByKind(SyntaxKind.ObjectLiteralExpression)
+	) {
+		return false;
+	}
+	const fn = obj.getFirstAncestor(Node.isFunctionLikeDeclaration);
+	if (DYNAMIC_TYPE_RE.test(fn?.getReturnTypeNode()?.getText() ?? "")) {
+		return true;
+	}
+	const parent = obj.getParent();
+	const typeNode =
+		Node.isVariableDeclaration(parent) ||
+		Node.isPropertyDeclaration(parent) ||
+		Node.isAsExpression(parent) ||
+		Node.isSatisfiesExpression(parent)
+			? parent.getTypeNode()
+			: undefined;
+	if (DYNAMIC_TYPE_RE.test(typeNode?.getText() ?? "")) {
+		return true;
+	}
+	return (
+		obj.getFirstAncestor(
+			(node) =>
+				Node.isCallExpression(node) &&
+				node
+					.getExpression()
+					.asKind(SyntaxKind.PropertyAccessExpression)
+					?.getName() === "setExtras"
+		) !== undefined
+	);
+}
+
+interface DynamicContribution {
+	/** Names a module class may extend to receive this, e.g. `ConfigurableModuleClass`. */
+	extending?: string[];
+	meta: DynamicMetadata;
+	/** The module the literal names, or the class enclosing it. */
+	module?: string;
+}
+
+function dynamicOwner(
+	obj: ObjectLiteralExpression
+): Omit<DynamicContribution, "meta"> | undefined {
+	const enclosingClass = obj
+		.getFirstAncestorByKind(SyntaxKind.ClassDeclaration)
+		?.getName();
+	const moduleValue = propertyInitializer(obj, "module");
+	if (moduleValue) {
+		const name =
+			moduleValue.getKind() === SyntaxKind.ThisKeyword
+				? enclosingClass
+				: simpleName(moduleValue.getText());
+		return name ? { module: name } : undefined;
+	}
+	if (enclosingClass) {
+		return { module: enclosingClass };
+	}
+	const binding = obj
+		.getFirstAncestorByKind(SyntaxKind.VariableDeclaration)
+		?.getNameNode();
+	if (binding && Node.isObjectBindingPattern(binding)) {
+		return { extending: binding.getElements().map((e) => e.getName()) };
+	}
+	return undefined;
+}
+
+function readMetadata(
+	obj: ObjectLiteralExpression,
+	pathAliases: PathAliasMap
+): DynamicMetadata {
+	const names = (key: string) =>
+		extractArrayPropertyNames(obj, key, pathAliases).map((t) => t.name);
+	return {
+		controllers: names("controllers"),
+		exports: names("exports"),
+		isGlobal:
+			propertyInitializer(obj, "global")?.getKind() === SyntaxKind.TrueKeyword,
+		providerTokens: extractProviderTokens(obj),
+		providers: names("providers"),
+	};
+}
+
+function extractDynamicMetadata(
+	sourceFile: SourceFile,
+	pathAliases: PathAliasMap
+): DynamicContribution[] {
+	const contributions: DynamicContribution[] = [];
+	for (const obj of sourceFile.getDescendantsOfKind(
+		SyntaxKind.ObjectLiteralExpression
+	)) {
+		const options = asyncOptionsContribution(obj, pathAliases);
+		if (options) {
+			contributions.push(options);
+		}
+		if (!isModuleMetadataLiteral(obj)) {
+			continue;
+		}
+		const owner = dynamicOwner(obj);
+		if (!owner) {
+			continue;
+		}
+		const meta = readMetadata(obj, pathAliases);
+		if (
+			meta.isGlobal ||
+			meta.providers.length + meta.exports.length + meta.controllers.length > 0
+		) {
+			contributions.push({ ...owner, meta });
+		}
+	}
+	return contributions;
+}
+
+/** `X.forRootAsync({ useClass: C, extraProviders: [D] })` registers `C` and `D` on `X`. */
+function asyncOptionsContribution(
+	obj: ObjectLiteralExpression,
+	pathAliases: PathAliasMap
+): DynamicContribution | undefined {
+	const call = obj.getParent()?.asKind(SyntaxKind.CallExpression);
+	const callee = call
+		?.getExpression()
+		.asKind(SyntaxKind.PropertyAccessExpression);
+	if (!(call && callee && call.getArguments().includes(obj))) {
+		return undefined;
+	}
+	const useClass = propertyInitializer(obj, "useClass");
+	const providers = [
+		...(useClass
+			? extractNamesFromElement(useClass, obj.getSourceFile(), 0, pathAliases)
+			: []),
+		...extractArrayPropertyNames(obj, "extraProviders", pathAliases),
+	].map((t) => t.name);
+	if (providers.length === 0) {
+		return undefined;
+	}
+	return {
+		module: simpleName(callee.getExpression().getText()),
+		meta: {
+			controllers: [],
+			exports: [],
+			isGlobal: false,
+			providerTokens: [],
+			providers,
+		},
+	};
+}
+
+function absorb(
+	node: ModuleNode,
+	meta: DynamicMetadata,
+	filePath: string
+): void {
+	Object.assign(node, unionMetadata(node, meta));
+	node.dynamicByFile ??= {};
+	const prior = node.dynamicByFile[filePath];
+	node.dynamicByFile[filePath] = prior ? unionMetadata(prior, meta) : meta;
+}
+
+/** Attaches the `DynamicModule` literals of one file to the modules they name. */
+function applyDynamicMetadataForFile(
+	modules: Map<string, ModuleNode>,
+	project: Project,
+	filePath: string,
+	pathAliases: PathAliasMap
+): void {
+	const sourceFile = project.getSourceFile(filePath);
+	if (!sourceFile || isTestFile(filePath)) {
+		return;
+	}
+	for (const contribution of extractDynamicMetadata(sourceFile, pathAliases)) {
+		const owners =
+			contribution.module === undefined
+				? [...modules.values()].filter((mod) => {
+						const base = mod.classDeclaration
+							?.getExtends()
+							?.getExpression()
+							.getText();
+						return (
+							base !== undefined &&
+							contribution.extending?.includes(simpleName(base))
+						);
+					})
+				: [modules.get(contribution.module)];
+		for (const owner of owners) {
+			if (owner) {
+				absorb(owner, contribution.meta, filePath);
+			}
+		}
+	}
 }
 
 const MAX_RESOLVE_DEPTH = 5;
@@ -373,22 +607,38 @@ function plain(name: string): ExtractedName {
 	return { name, viaForwardRef: false };
 }
 
-/** The initializer of `obj.propertyName`, if it is a plain assignment. */
+/** The initializer of `obj.propertyName`, or the name of a shorthand `{ providers }`. */
 function propertyInitializer(
 	obj: ObjectLiteralExpression,
 	propertyName: string
 ): Node | undefined {
-	return obj
-		.getProperty(propertyName)
-		?.asKind(SyntaxKind.PropertyAssignment)
-		?.getInitializer();
+	const property = obj.getProperty(propertyName);
+	return (
+		property?.asKind(SyntaxKind.PropertyAssignment)?.getInitializer() ??
+		property?.asKind(SyntaxKind.ShorthandPropertyAssignment)?.getNameNode()
+	);
+}
+
+/** The variable declaration `name` binds to in the scopes enclosing `scope`. */
+function localVariable(scope: Node, name: string) {
+	for (const ancestor of scope.getAncestors()) {
+		if (Node.isStatemented(ancestor)) {
+			const declaration = ancestor.getVariableDeclaration(name);
+			if (declaration) {
+				return declaration;
+			}
+		}
+	}
 }
 
 /** `provide` tokens of the object-literal entries in a module's `providers`. */
 function extractProviderTokens(obj: ObjectLiteralExpression): string[] {
-	const initializer = propertyInitializer(obj, "providers")?.asKind(
-		SyntaxKind.ArrayLiteralExpression
-	);
+	const value = propertyInitializer(obj, "providers");
+	const initializer = (
+		Node.isIdentifier(value)
+			? localVariable(value, value.getText())?.getInitializer()
+			: value
+	)?.asKind(SyntaxKind.ArrayLiteralExpression);
 	if (!initializer) {
 		return [];
 	}
@@ -434,6 +684,39 @@ function extractNamesFromExpression(
 
 	const kind = node.getKind();
 
+	if (
+		Node.isParenthesizedExpression(node) ||
+		Node.isAsExpression(node) ||
+		Node.isSatisfiesExpression(node) ||
+		Node.isNonNullExpression(node) ||
+		Node.isTypeAssertion(node)
+	) {
+		return extractNamesFromExpression(
+			node.getExpression(),
+			sourceFile,
+			depth,
+			pathAliases
+		);
+	}
+
+	// `cond ? [A] : [B]`, `x ?? []`, `x || []`: every side may be the value.
+	let sides: Node[] | undefined;
+	if (Node.isConditionalExpression(node)) {
+		sides = [node.getWhenTrue(), node.getWhenFalse()];
+	} else if (
+		Node.isBinaryExpression(node) &&
+		[SyntaxKind.QuestionQuestionToken, SyntaxKind.BarBarToken].includes(
+			node.getOperatorToken().getKind()
+		)
+	) {
+		sides = [node.getLeft(), node.getRight()];
+	}
+	if (sides) {
+		return sides.flatMap((side) =>
+			extractNamesFromExpression(side, sourceFile, depth, pathAliases)
+		);
+	}
+
 	if (kind === SyntaxKind.ArrayLiteralExpression) {
 		const arr = node.asKindOrThrow(SyntaxKind.ArrayLiteralExpression);
 		const names: ExtractedName[] = [];
@@ -459,11 +742,51 @@ function extractNamesFromExpression(
 			node.getText(),
 			sourceFile,
 			depth + 1,
-			pathAliases
+			pathAliases,
+			node
 		);
 	}
 
+	if (Node.isObjectLiteralExpression(node)) {
+		return namedModule(node);
+	}
+
 	return [];
+}
+
+/** The module a `{ module: X, ... }` literal stands for when it sits in `imports`. */
+function namedModule(obj: ObjectLiteralExpression): ExtractedName[] {
+	if (!obj.getProperty("module")) {
+		return [];
+	}
+	const owner = dynamicOwner(obj)?.module;
+	return owner ? [plain(owner)] : [];
+}
+
+/** Names from every `return` of a function body. */
+function returnedNames(
+	fn: Node,
+	sourceFile: SourceFile,
+	depth: number,
+	pathAliases: PathAliasMap
+): ExtractedName[] {
+	const names: ExtractedName[] = [];
+	for (const returnStmt of fn.getDescendantsOfKind(
+		SyntaxKind.ReturnStatement
+	)) {
+		const returnExpr = returnStmt.getExpression();
+		if (returnExpr) {
+			names.push(
+				...extractNamesFromExpression(
+					returnExpr,
+					sourceFile,
+					depth,
+					pathAliases
+				)
+			);
+		}
+	}
+	return names;
 }
 
 function extractNamesFromElement(
@@ -508,9 +831,14 @@ function extractNamesFromElement(
 			el.getText(),
 			sourceFile,
 			depth + 1,
-			pathAliases
+			pathAliases,
+			el
 		);
 		return resolved.length > 0 ? resolved : [plain(el.getText())];
+	}
+
+	if (Node.isObjectLiteralExpression(el) && el.getProperty("module")) {
+		return namedModule(el);
 	}
 
 	return [plain(el.getText())];
@@ -540,35 +868,10 @@ function extractNamesFromCallExpression(
 			if (body.getKind() === SyntaxKind.Identifier) {
 				return [{ name: body.getText(), viaForwardRef: true }];
 			}
-			// Block body: () => { return SomeModule }
-			if (body.getKind() === SyntaxKind.Block) {
-				const block = body.asKindOrThrow(SyntaxKind.Block);
-				const names: ExtractedName[] = [];
-				for (const ret of block.getDescendantsOfKind(
-					SyntaxKind.ReturnStatement
-				)) {
-					const retExpr = ret.getExpression();
-					if (!retExpr) {
-						continue;
-					}
-					for (const e of extractNamesFromExpression(
-						retExpr,
-						sourceFile,
-						depth,
-						pathAliases
-					)) {
-						names.push({ ...e, viaForwardRef: true });
-					}
-				}
-				return names;
-			}
-			// Other expression bodies (rare): recurse and tag.
-			const inner = extractNamesFromExpression(
-				body,
-				sourceFile,
-				depth,
-				pathAliases
-			);
+			const inner =
+				body.getKind() === SyntaxKind.Block
+					? returnedNames(body, sourceFile, depth, pathAliases)
+					: extractNamesFromExpression(body, sourceFile, depth, pathAliases);
 			return inner.map((e) => ({ ...e, viaForwardRef: true }));
 		}
 		return [plain(arg.getText())];
@@ -606,8 +909,32 @@ function extractNamesFromCallExpression(
 			];
 		}
 
-		// Unknown property access call — try to use the leftmost identifier
-		return [plain(access.getExpression().getText())];
+		// `this.createProviders(o)` / `CacheModule.createProviders(o)`: read the
+		// helper's returns.
+		const receiver = access.getExpression();
+		const enclosingClass = call.getFirstAncestorByKind(
+			SyntaxKind.ClassDeclaration
+		);
+		const helper =
+			receiver.getKind() === SyntaxKind.ThisKeyword ||
+			receiver.getText() === enclosingClass?.getName()
+				? enclosingClass?.getMethod(methodName)
+				: undefined;
+		if (helper) {
+			return returnedNames(helper, sourceFile, depth + 1, pathAliases);
+		}
+
+		// `providers.filter(Boolean)`, `impls.map(f)`: the receiver holds the
+		// names; an unresolved receiver keeps its leftmost identifier.
+		const receiverNames = extractNamesFromExpression(
+			receiver,
+			sourceFile,
+			depth + 1,
+			pathAliases
+		);
+		return receiverNames.length > 0
+			? receiverNames
+			: [plain(receiver.getText())];
 	}
 
 	// Handle plain function calls: getImports()
@@ -726,31 +1053,37 @@ function resolveIdentifier(
 	name: string,
 	sourceFile: SourceFile,
 	depth: number,
-	pathAliases: PathAliasMap
+	pathAliases: PathAliasMap,
+	scope?: Node
 ): ExtractedName[] {
 	if (depth > MAX_RESOLVE_DEPTH) {
 		return [];
 	}
 
-	// Same-file variable lookup
-	for (const stmt of sourceFile.getStatements()) {
-		if (stmt.getKind() !== SyntaxKind.VariableStatement) {
-			continue;
-		}
-		const varStmt = stmt.asKindOrThrow(SyntaxKind.VariableStatement);
-		for (const decl of varStmt.getDeclarations()) {
-			if (decl.getName() === name) {
-				const init = decl.getInitializer();
-				if (init) {
-					return extractNamesFromExpression(
-						init,
-						sourceFile,
-						depth,
-						pathAliases
+	// Variable lookup, innermost enclosing scope first; the initializer plus
+	// every `name.push(...)` in that scope.
+	const init = (
+		scope ? localVariable(scope, name) : sourceFile.getVariableDeclaration(name)
+	)?.getInitializer();
+	if (init) {
+		const names = extractNamesFromExpression(
+			init,
+			sourceFile,
+			depth,
+			pathAliases
+		);
+		const block = init.getFirstAncestor(Node.isStatemented);
+		for (const call of block?.getDescendantsOfKind(SyntaxKind.CallExpression) ??
+			[]) {
+			if (call.getExpression().getText() === `${name}.push`) {
+				for (const arg of call.getArguments()) {
+					names.push(
+						...extractNamesFromElement(arg, sourceFile, depth, pathAliases)
 					);
 				}
 			}
 		}
+		return names;
 	}
 
 	// Cross-file fallback
@@ -795,23 +1128,7 @@ function resolveArrowFunctionBody(
 			}
 
 			// Block body: () => { return [...] }
-			const names: ExtractedName[] = [];
-			for (const returnStmt of body.getDescendantsOfKind(
-				SyntaxKind.ReturnStatement
-			)) {
-				const returnExpr = returnStmt.getExpression();
-				if (returnExpr) {
-					names.push(
-						...extractNamesFromExpression(
-							returnExpr,
-							sourceFile,
-							depth,
-							pathAliases
-						)
-					);
-				}
-			}
-			return names;
+			return returnedNames(body, sourceFile, depth, pathAliases);
 		}
 	}
 	return undefined;
@@ -837,23 +1154,7 @@ function resolveFunctionCall(
 			continue;
 		}
 
-		const names: ExtractedName[] = [];
-		for (const returnStmt of funcDecl.getDescendantsOfKind(
-			SyntaxKind.ReturnStatement
-		)) {
-			const returnExpr = returnStmt.getExpression();
-			if (returnExpr) {
-				names.push(
-					...extractNamesFromExpression(
-						returnExpr,
-						sourceFile,
-						depth,
-						pathAliases
-					)
-				);
-			}
-		}
-		return names;
+		return returnedNames(funcDecl, sourceFile, depth, pathAliases);
 	}
 
 	// Same-file arrow function variable: const getImports = () => [...]
@@ -888,37 +1189,53 @@ export function updateModuleGraphForFile(
 	pathAliases: PathAliasMap = new Map()
 ): void {
 	invalidateEntryModules(graph);
-	// 1. Remove stale modules declared in this file, tracking sibling files of
-	// any same-name union so their halves can be re-added below.
-	const siblingFiles = new Set<string>();
-	for (const [name, node] of graph.modules) {
-		const declarationFiles = node.filePaths ?? [node.filePath];
-		if (declarationFiles.includes(filePath)) {
-			graph.modules.delete(name);
-			graph.edges.delete(name);
-			// Clean up providerToModule entries for this module's providers
-			for (const provider of node.providers) {
-				if (graph.providerToModule.get(provider) === node) {
-					graph.providerToModule.delete(provider);
-				}
+	// 1. Files to rescan: the changed file, then every declaration file of a
+	// module declared in, or fed by a DynamicModule literal in, a rescanned file.
+	const rescan = new Set<string>([filePath]);
+	const declarationFiles = (node: ModuleNode) =>
+		node.filePaths ?? [node.filePath];
+	const touches = (node: ModuleNode) =>
+		declarationFiles(node).some((file) => rescan.has(file)) ||
+		Object.keys(node.dynamicByFile ?? {}).some((file) => rescan.has(file));
+	for (let grew = true; grew; ) {
+		grew = false;
+		for (const node of graph.modules.values()) {
+			if (!touches(node)) {
+				continue;
 			}
-			// Clean edges pointing TO this module from other modules
-			for (const edgeSet of graph.edges.values()) {
-				edgeSet.delete(name);
-			}
-			for (const sibling of declarationFiles) {
-				if (sibling !== filePath) {
-					siblingFiles.add(sibling);
+			for (const file of declarationFiles(node)) {
+				if (!rescan.has(file)) {
+					rescan.add(file);
+					grew = true;
 				}
 			}
 		}
 	}
 
-	// 2. Re-scan the changed file plus union siblings, with the same
-	// collision handling the full build uses.
-	const newModules: ModuleNode[] = [];
+	// 2. Remove the stale modules, keeping what files outside the rescan set
+	// contributed to them.
+	const kept = new Map<string, Record<string, DynamicMetadata>>();
+	for (const [name, node] of graph.modules) {
+		if (!touches(node)) {
+			continue;
+		}
+		graph.modules.delete(name);
+		graph.edges.delete(name);
+		for (const edgeSet of graph.edges.values()) {
+			edgeSet.delete(name);
+		}
+		const remaining = Object.entries(node.dynamicByFile ?? {}).filter(
+			([file]) => !rescan.has(file)
+		);
+		if (remaining.length > 0) {
+			kept.set(name, Object.fromEntries(remaining));
+		}
+	}
+
+	// 3. Re-extract from the rescan set with the same collision handling the
+	// full build uses, re-apply the kept contributions, then the rescanned ones.
 	const added = new Map<string, ModuleNode>();
-	for (const scanPath of [filePath, ...siblingFiles]) {
+	for (const scanPath of rescan) {
 		const sourceFile = project.getSourceFile(scanPath);
 		if (!sourceFile) {
 			continue;
@@ -934,30 +1251,17 @@ export function updateModuleGraphForFile(
 	for (const [name, node] of added) {
 		const existing = graph.modules.get(name);
 		const next = existing ? mergeSameNameModules(existing, node) : node;
+		for (const [file, meta] of Object.entries(kept.get(name) ?? {})) {
+			absorb(next, meta, file);
+		}
 		graph.modules.set(name, next);
-		newModules.push(next);
+	}
+	for (const scanPath of rescan) {
+		applyDynamicMetadataForFile(graph.modules, project, scanPath, pathAliases);
 	}
 
-	// 3. Rebuild edges for new modules and update providerToModule
-	for (const node of newModules) {
-		const importSet = new Set<string>();
-		for (const imp of node.imports) {
-			if (graph.modules.has(imp)) {
-				importSet.add(imp);
-			}
-		}
-		graph.edges.set(node.name, importSet);
-
-		for (const provider of node.providers) {
-			graph.providerToModule.set(provider, node);
-		}
-	}
-
-	// 4. Rebuild edges from existing modules that might reference newly added/renamed modules
+	// 4. Rebuild every edge and the provider index.
 	for (const [name, node] of graph.modules) {
-		if (node.filePath === filePath) {
-			continue;
-		}
 		const importSet = new Set<string>();
 		for (const imp of node.imports) {
 			if (graph.modules.has(imp)) {
@@ -966,6 +1270,7 @@ export function updateModuleGraphForFile(
 		}
 		graph.edges.set(name, importSet);
 	}
+	indexProviders(graph.modules, graph.providerToModule);
 }
 
 export function mergeModuleGraphs(

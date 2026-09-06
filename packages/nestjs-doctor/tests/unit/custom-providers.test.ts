@@ -177,6 +177,21 @@ describe("collectCustomProviderClasses", () => {
 		expect(implementationNames).not.toContain("AppService");
 	});
 
+	it("registers a useClass value that has no provide key", () => {
+		const { constructedClasses, implementationNames } = collect({
+			"mail.config.ts": "export class MailConfig {}",
+			"app.module.ts": `
+        import { MailConfig } from './mail.config';
+        export const imports = [MailModule.forRootAsync({ useClass: MailConfig })];
+      `,
+		});
+
+		expect([...constructedClasses].map((cls) => cls.getName())).toContain(
+			"MailConfig"
+		);
+		expect(implementationNames).toContain("MailConfig");
+	});
+
 	it("keeps a chain through an unscanned file on the declaration channel", () => {
 		const { constructedClasses, implementationNames, project } = collect(
 			{

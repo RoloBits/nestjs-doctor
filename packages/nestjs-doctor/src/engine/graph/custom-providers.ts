@@ -280,9 +280,6 @@ export function collectCustomProviderClasses(
 					}
 				}
 			}
-			if (!obj.getProperty("provide")) {
-				continue;
-			}
 			for (const key of REGISTRATION_KEYS) {
 				const value = providerValue(obj, key);
 				if (!value) {
@@ -304,6 +301,9 @@ export function collectCustomProviderClasses(
 						uses.add(name);
 					}
 				}
+			}
+			if (!obj.getProperty("provide")) {
+				continue;
 			}
 			for (const key of INSTANCE_KEYS) {
 				const value = providerValue(obj, key);

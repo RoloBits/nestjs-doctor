@@ -594,3 +594,194 @@ describe("no-request-scope-abuse", () => {
 		expect(diags).toHaveLength(0);
 	});
 });
+
+describe("no-unused-providers with dynamic module metadata (#403)", () => {
+	const cacheService = `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class CacheService {
+          get(key: string) { return key; }
+        }
+      `;
+	const appImportingForRoot = `
+        import { Module } from '@nestjs/common';
+        import { CacheModule } from './cache.module';
+        @Module({ imports: [CacheModule.forRoot()] })
+        export class AppModule {}
+      `;
+
+	it("does not flag a provider exported only inside a forRoot literal", () => {
+		const diags = runProjectRule(noUnusedProviders, {
+			"cache.module.ts": `
+        import { Module } from '@nestjs/common';
+        import type { DynamicModule } from '@nestjs/common';
+        import { CacheService } from './cache.service';
+        @Module({})
+        export class CacheModule {
+          static forRoot(): DynamicModule {
+            return { module: CacheModule, providers: [CacheService], exports: [CacheService] };
+          }
+        }
+      `,
+			"cache.service.ts": cacheService,
+			"app.module.ts": appImportingForRoot,
+		});
+		expect(
+			diags.filter((d) => d.message.includes("CacheService"))
+		).toHaveLength(0);
+	});
+
+	it("does not flag a provider exported by a standalone DynamicModule function", () => {
+		const diags = runProjectRule(noUnusedProviders, {
+			"cache.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class CacheModule {}
+      `,
+			"make-cache-module.ts": `
+        import { type DynamicModule } from '@nestjs/common';
+        import { CacheModule } from './cache.module.js';
+        import { CacheService } from './cache.service.js';
+        export function makeCacheModule(): DynamicModule {
+          return { module: CacheModule, providers: [CacheService], exports: [CacheService] };
+        }
+      `,
+			"cache.service.ts": cacheService,
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { makeCacheModule } from './make-cache-module.js';
+        @Module({ imports: [makeCacheModule()] })
+        export class AppModule {}
+      `,
+		});
+		expect(
+			diags.filter((d) => d.message.includes("CacheService"))
+		).toHaveLength(0);
+	});
+
+	it("still flags a forRoot provider that is neither injected nor exported", () => {
+		const diags = runProjectRule(noUnusedProviders, {
+			"cache.module.ts": `
+        import { Module } from '@nestjs/common';
+        import type { DynamicModule } from '@nestjs/common';
+        import { CacheService } from './cache.service';
+        @Module({})
+        export class CacheModule {
+          static forRoot(): DynamicModule {
+            return { module: CacheModule, providers: [CacheService] };
+          }
+        }
+      `,
+			"cache.service.ts": cacheService,
+			"app.module.ts": appImportingForRoot,
+		});
+		expect(
+			diags.filter((d) => d.message.includes("CacheService"))
+		).toHaveLength(1);
+	});
+});
+
+describe("no-unused-module-exports with dynamic module metadata (#403)", () => {
+	const sharedModule = `
+        import { Module } from '@nestjs/common';
+        import { SharedService } from './shared.service';
+        @Module({ providers: [SharedService], exports: [SharedService] })
+        export class SharedModule {}
+      `;
+	const sharedService = `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class SharedService {}
+      `;
+	const featureService = `
+        import { Injectable } from '@nestjs/common';
+        import { SharedService } from './shared.service';
+        @Injectable()
+        export class FeatureService {
+          constructor(private readonly shared: SharedService) {}
+        }
+      `;
+
+	it("sees an injection from a provider registered only through forRoot", () => {
+		const diags = runProjectRule(noUnusedModuleExports, {
+			"shared.module.ts": sharedModule,
+			"shared.service.ts": sharedService,
+			"feature.service.ts": featureService,
+			"feature.module.ts": `
+        import { Module } from '@nestjs/common';
+        import type { DynamicModule } from '@nestjs/common';
+        import { SharedModule } from './shared.module';
+        import { FeatureService } from './feature.service';
+        @Module({ imports: [SharedModule] })
+        export class FeatureModule {
+          static forRoot(): DynamicModule {
+            return { module: FeatureModule, providers: [FeatureService] };
+          }
+        }
+      `,
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { FeatureModule } from './feature.module';
+        @Module({ imports: [FeatureModule.forRoot()] })
+        export class AppModule {}
+      `,
+		});
+		expect(diags).toHaveLength(0);
+	});
+
+	it("sees an injection from a provider added by a setExtras transform", () => {
+		const diags = runProjectRule(noUnusedModuleExports, {
+			"shared.module.ts": sharedModule,
+			"shared.service.ts": sharedService,
+			"feature.service.ts": featureService,
+			"feature.module-definition.ts": `
+        import { ConfigurableModuleBuilder } from '@nestjs/common';
+        import { FeatureService } from './feature.service';
+        export const { ConfigurableModuleClass } =
+          new ConfigurableModuleBuilder<{ enabled: boolean }>()
+            .setExtras({}, (def) => ({ ...def, providers: [...(def.providers ?? []), FeatureService] }))
+            .build();
+      `,
+			"feature.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { SharedModule } from './shared.module';
+        import { ConfigurableModuleClass } from './feature.module-definition';
+        @Module({ imports: [SharedModule] })
+        export class FeatureModule extends ConfigurableModuleClass {}
+      `,
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { FeatureModule } from './feature.module';
+        @Module({ imports: [FeatureModule.register({ enabled: true })] })
+        export class AppModule {}
+      `,
+		});
+		expect(diags).toHaveLength(0);
+	});
+
+	it("still flags an export no dynamically registered provider injects", () => {
+		const diags = runProjectRule(noUnusedModuleExports, {
+			"shared.module.ts": sharedModule,
+			"shared.service.ts": sharedService,
+			"feature.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class FeatureService {}
+      `,
+			"feature.module.ts": `
+        import { Module } from '@nestjs/common';
+        import type { DynamicModule } from '@nestjs/common';
+        import { SharedModule } from './shared.module';
+        import { FeatureService } from './feature.service';
+        @Module({ imports: [SharedModule] })
+        export class FeatureModule {
+          static forRoot(): DynamicModule {
+            return { module: FeatureModule, providers: [FeatureService] };
+          }
+        }
+      `,
+		});
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("SharedService");
+	});
+});
