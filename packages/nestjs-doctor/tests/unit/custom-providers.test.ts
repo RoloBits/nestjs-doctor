@@ -192,6 +192,26 @@ describe("collectCustomProviderClasses", () => {
 		expect(implementationNames).toContain("MailConfig");
 	});
 
+	it("registers useClass without provide only inside an Async call", () => {
+		const { constructedClasses, implementationNames } = collect({
+			"dead.service.ts": `
+        export class DeadService {}
+        export class DeadService2 {}
+      `,
+			"app.module.ts": `
+        import { DeadService, DeadService2 } from './dead.service';
+        export const staleOptions = { useClass: DeadService, retries: 3 };
+        export const described = Thing.describe({ useClass: DeadService2 });
+      `,
+		});
+
+		const constructed = [...constructedClasses].map((cls) => cls.getName());
+		expect(constructed).not.toContain("DeadService");
+		expect(constructed).not.toContain("DeadService2");
+		expect(implementationNames).not.toContain("DeadService");
+		expect(implementationNames).not.toContain("DeadService2");
+	});
+
 	it("keeps a chain through an unscanned file on the declaration channel", () => {
 		const { constructedClasses, implementationNames, project } = collect(
 			{

@@ -2382,6 +2382,123 @@ describe("dynamic module metadata", () => {
 		expect(graph.modules.get("HttpModule")?.providers).toEqual(["HttpService"]);
 	});
 
+	it("registers a call-site useClass only for an Async method", () => {
+		const { project, paths } = createProject({
+			"cfg.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class CfgModule {}
+      `,
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { CfgModule } from './cfg.module';
+        @Module({
+          imports: [
+            CfgModule.forRootAsync({ useClass: CfgFactory }),
+            CfgModule.describe({ useClass: PlainThing }),
+            CfgModule.forFeature({ useClass: PlainThing, extraProviders: [Extra] }),
+          ],
+        })
+        export class AppModule {}
+      `,
+		});
+		const graph = buildModuleGraph(project, paths);
+		const providers = graph.modules.get("CfgModule")?.providers;
+		expect(providers).toContain("CfgFactory");
+		expect(providers).not.toContain("PlainThing");
+		expect(providers).not.toContain("Extra");
+	});
+
+	it("ignores a typed-position literal that is not returned", () => {
+		const { project, paths } = createProject({
+			"leak.module.ts": `
+        import { Module } from '@nestjs/common';
+        import type { DynamicModule } from '@nestjs/common';
+        @Module({})
+        export class OtherModule {}
+        @Module({})
+        export class LeakModule {
+          static forRoot(): DynamicModule {
+            const notMetadata = { providers: [Leaked], exports: [Leaked] };
+            return { module: OtherModule, providers: [] };
+          }
+        }
+      `,
+		});
+		const graph = buildModuleGraph(project, paths);
+		expect(graph.modules.get("LeakModule")?.providers).toEqual([]);
+		expect(graph.modules.get("LeakModule")?.exports).toEqual([]);
+	});
+
+	it("follows a returned local literal that names its module", () => {
+		const { project, paths } = createProject({
+			"leak.module.ts": `
+        import { Module } from '@nestjs/common';
+        import type { DynamicModule } from '@nestjs/common';
+        @Module({})
+        export class LeakModule {
+          static forRoot(): DynamicModule {
+            const def = { module: LeakModule, providers: [Kept] };
+            return def;
+          }
+        }
+      `,
+		});
+		const graph = buildModuleGraph(project, paths);
+		expect(graph.modules.get("LeakModule")?.providers).toContain("Kept");
+	});
+
+	it("attributes a returned local literal without a module key to the enclosing class", () => {
+		const { project, paths } = createProject({
+			"kept.module.ts": `
+        import { Module } from '@nestjs/common';
+        import type { DynamicModule } from '@nestjs/common';
+        @Module({})
+        export class KeptModule {
+          static forRoot(): DynamicModule {
+            const def = { providers: [Kept2] };
+            return def;
+          }
+        }
+      `,
+		});
+		const graph = buildModuleGraph(project, paths);
+		expect(graph.modules.get("KeptModule")?.providers).toContain("Kept2");
+	});
+
+	it("attaches a setExtras transform only to modules extending its own built class", () => {
+		const definitionAdding = (name: string) => `
+        import { ConfigurableModuleBuilder } from '@nestjs/common';
+        export const { ConfigurableModuleClass } =
+          new ConfigurableModuleBuilder<{ enabled: boolean }>()
+            .setExtras({}, (def, extras) => ({ ...def, providers: [...(def.providers ?? []), ${name}] }))
+            .build();
+      `;
+		const { project, paths } = createProject({
+			"http.module-definition.ts": definitionAdding("HttpMetrics"),
+			"queue.module-definition.ts": definitionAdding("QueueMetrics"),
+			"http.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { ConfigurableModuleClass } from './http.module-definition.js';
+        @Module({})
+        export class HttpModule extends ConfigurableModuleClass {}
+      `,
+			"queue.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { ConfigurableModuleClass } from './queue.module-definition.js';
+        @Module({})
+        export class QueueModule extends ConfigurableModuleClass {}
+      `,
+		});
+		const graph = buildModuleGraph(project, paths);
+		const http = graph.modules.get("HttpModule")?.providers;
+		const queue = graph.modules.get("QueueModule")?.providers;
+		expect(http).toContain("HttpMetrics");
+		expect(http).not.toContain("QueueMetrics");
+		expect(queue).toContain("QueueMetrics");
+		expect(queue).not.toContain("HttpMetrics");
+	});
+
 	it("builds the same dynamic metadata batched as it does in one pass", async () => {
 		const { project, paths } = createProject(forRootRepro);
 		const sync = buildModuleGraph(project, paths);
@@ -2482,6 +2599,33 @@ describe("dynamic module metadata", () => {
 				.replaceWithText(helperWith(""));
 			updateModuleGraphForFile(graph, project, "make-cache-module.ts");
 			expect(graph.providerToModule.has("CacheService")).toBe(false);
+		});
+
+		it("picks up an existing contributor when an edit declares a new module", () => {
+			const appModuleOnly = `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AppModule {}
+      `;
+			const { project, paths } = createProject({
+				"app.module.ts": appModuleOnly,
+				"reg.ts": `
+        import type { DynamicModule } from '@nestjs/common';
+        import { NewModule } from './app.module.js';
+        export function makeNew(): DynamicModule {
+          return { module: NewModule, providers: [NewService] };
+        }
+      `,
+			});
+			const graph = buildModuleGraph(project, paths);
+			project.getSourceFileOrThrow("app.module.ts").replaceWithText(
+				`${appModuleOnly}
+        @Module({})
+        export class NewModule {}
+      `
+			);
+			updateModuleGraphForFile(graph, project, "app.module.ts");
+			expect(graph.modules.get("NewModule")?.providers).toContain("NewService");
 		});
 	});
 });

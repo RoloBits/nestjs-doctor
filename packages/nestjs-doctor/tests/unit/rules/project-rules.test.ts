@@ -1686,4 +1686,24 @@ describe("injectable-must-be-provided with dynamic module metadata (#403)", () =
 		});
 		expect(reportsFor(diags, "StripeGateway")).toHaveLength(1);
 	});
+
+	it("still reports a class named only in a stray useClass option object", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class AppModule {}
+      `,
+			"dead.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class DeadService {}
+      `,
+			"options.ts": `
+        import { DeadService } from './dead.service';
+        export const staleOptions = { useClass: DeadService };
+      `,
+		});
+		expect(reportsFor(diags, "DeadService")).toHaveLength(1);
+	});
 });

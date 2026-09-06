@@ -7,7 +7,7 @@ import type {
 } from "ts-morph";
 import { Node, SyntaxKind } from "ts-morph";
 import { YIELD_INTERVAL, yieldToEventLoop } from "../yield.js";
-import { isTestFile } from "./custom-providers.js";
+import { asyncOptionsCallee, isTestFile } from "./custom-providers.js";
 import { invalidateEntryModules } from "./entry-points.js";
 import type { PathAliasMap } from "./tsconfig-paths.js";
 import { resolvePathAlias } from "./tsconfig-paths.js";
@@ -338,7 +338,6 @@ function indexProviders(
 	}
 }
 
-/** Attaches the `DynamicModule` literals of one file to the modules they name. */
 export function buildModuleGraph(
 	project: Project,
 	files: string[],
@@ -399,7 +398,11 @@ function isModuleMetadataLiteral(obj: ObjectLiteralExpression): boolean {
 		return false;
 	}
 	const fn = obj.getFirstAncestor(Node.isFunctionLikeDeclaration);
-	if (DYNAMIC_TYPE_RE.test(fn?.getReturnTypeNode()?.getText() ?? "")) {
+	if (
+		fn &&
+		DYNAMIC_TYPE_RE.test(fn.getReturnTypeNode()?.getText() ?? "") &&
+		isReturned(obj, fn)
+	) {
 		return true;
 	}
 	const parent = obj.getParent();
@@ -423,6 +426,31 @@ function isModuleMetadataLiteral(obj: ObjectLiteralExpression): boolean {
 					?.getName() === "setExtras"
 		) !== undefined
 	);
+}
+
+/** Whether `fn` returns `obj`: directly, or through a variable a `return` names. */
+function isReturned(obj: ObjectLiteralExpression, fn: Node): boolean {
+	let node: Node = obj;
+	while (
+		Node.isParenthesizedExpression(node.getParent()) ||
+		Node.isAsExpression(node.getParent()) ||
+		Node.isSatisfiesExpression(node.getParent()) ||
+		Node.isNonNullExpression(node.getParent())
+	) {
+		node = node.getParentOrThrow();
+	}
+	const parent = node.getParent();
+	if (parent === fn || Node.isReturnStatement(parent)) {
+		return true;
+	}
+	if (!Node.isVariableDeclaration(parent)) {
+		return false;
+	}
+	return fn
+		.getDescendantsOfKind(SyntaxKind.ReturnStatement)
+		.some(
+			(statement) => statement.getExpression()?.getText() === parent.getName()
+		);
 }
 
 interface DynamicContribution {
@@ -510,11 +538,8 @@ function asyncOptionsContribution(
 	obj: ObjectLiteralExpression,
 	pathAliases: PathAliasMap
 ): DynamicContribution | undefined {
-	const call = obj.getParent()?.asKind(SyntaxKind.CallExpression);
-	const callee = call
-		?.getExpression()
-		.asKind(SyntaxKind.PropertyAccessExpression);
-	if (!(call && callee && call.getArguments().includes(obj))) {
+	const callee = asyncOptionsCallee(obj);
+	if (!callee) {
 		return undefined;
 	}
 	const useClass = propertyInitializer(obj, "useClass");
@@ -550,6 +575,26 @@ function absorb(
 	node.dynamicByFile[filePath] = prior ? unionMetadata(prior, meta) : meta;
 }
 
+/** Whether `mod` extends one of `names` as declared in `definitionFile`, directly or by import. */
+function extendsBuiltClass(
+	mod: ModuleNode,
+	names: string[],
+	definitionFile: SourceFile,
+	pathAliases: PathAliasMap
+): boolean {
+	const cls = mod.classDeclaration;
+	const base = cls?.getExtends()?.getExpression().getText();
+	if (!(cls && base && names.includes(simpleName(base)))) {
+		return false;
+	}
+	const own = cls.getSourceFile();
+	return (
+		own === definitionFile ||
+		resolveImportedSourceFile(simpleName(base), own, pathAliases)
+			?.sourceFile === definitionFile
+	);
+}
+
 /** Attaches the `DynamicModule` literals of one file to the modules they name. */
 function applyDynamicMetadataForFile(
 	modules: Map<string, ModuleNode>,
@@ -564,16 +609,14 @@ function applyDynamicMetadataForFile(
 	for (const contribution of extractDynamicMetadata(sourceFile, pathAliases)) {
 		const owners =
 			contribution.module === undefined
-				? [...modules.values()].filter((mod) => {
-						const base = mod.classDeclaration
-							?.getExtends()
-							?.getExpression()
-							.getText();
-						return (
-							base !== undefined &&
-							contribution.extending?.includes(simpleName(base))
-						);
-					})
+				? [...modules.values()].filter((mod) =>
+						extendsBuiltClass(
+							mod,
+							contribution.extending ?? [],
+							sourceFile,
+							pathAliases
+						)
+					)
 				: [modules.get(contribution.module)];
 		for (const owner of owners) {
 			if (owner) {
@@ -1072,7 +1115,7 @@ function resolveIdentifier(
 			depth,
 			pathAliases
 		);
-		const block = init.getFirstAncestor(Node.isStatemented);
+		const block = init.getFirstAncestorByKind(SyntaxKind.Block);
 		for (const call of block?.getDescendantsOfKind(SyntaxKind.CallExpression) ??
 			[]) {
 			if (call.getExpression().getText() === `${name}.push`) {
@@ -1191,7 +1234,7 @@ export function updateModuleGraphForFile(
 	invalidateEntryModules(graph);
 	// 1. Files to rescan: the changed file, then every declaration file of a
 	// module declared in, or fed by a DynamicModule literal in, a rescanned file.
-	const rescan = new Set<string>([filePath]);
+	const rescan = new Set<string>([toPosix(filePath)]);
 	const declarationFiles = (node: ModuleNode) =>
 		node.filePaths ?? [node.filePath];
 	const touches = (node: ModuleNode) =>
@@ -1256,7 +1299,13 @@ export function updateModuleGraphForFile(
 		}
 		graph.modules.set(name, next);
 	}
-	for (const scanPath of rescan) {
+	// A rescanned declaration may be new, or newly extend a built class, so
+	// every file contributes to it again.
+	const passFiles =
+		added.size > 0
+			? project.getSourceFiles().map((file) => file.getFilePath())
+			: rescan;
+	for (const scanPath of passFiles) {
 		applyDynamicMetadataForFile(graph.modules, project, scanPath, pathAliases);
 	}
 
@@ -1354,6 +1403,7 @@ export function mergeModuleGraphs(
 			}
 			const mergedNode: ModuleNode = {
 				...node,
+				dynamicByFile: undefined,
 				name: prefixed,
 				project: projectName,
 				imports: node.imports.map((imp) =>

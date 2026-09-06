@@ -784,4 +784,40 @@ describe("no-unused-module-exports with dynamic module metadata (#403)", () => {
 		expect(diags).toHaveLength(1);
 		expect(diags[0].message).toContain("SharedService");
 	});
+
+	it("sees an injection from a consumer whose providers live in a helper file", () => {
+		const diags = runProjectRule(noUnusedModuleExports, {
+			"shared.module.ts": sharedModule,
+			"shared.service.ts": sharedService,
+			"notify.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        import { SharedService } from './shared.service';
+        @Injectable()
+        export class NotifyService {
+          constructor(private readonly shared: SharedService) {}
+        }
+      `,
+			"notify.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { SharedModule } from './shared.module';
+        @Module({ imports: [SharedModule] })
+        export class NotifyModule {}
+      `,
+			"make-notify.ts": `
+        import type { DynamicModule } from '@nestjs/common';
+        import { NotifyModule } from './notify.module';
+        import { NotifyService } from './notify.service';
+        export function makeNotify(): DynamicModule {
+          return { module: NotifyModule, providers: [{ provide: 'NOTIFY', useClass: NotifyService }] };
+        }
+      `,
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { makeNotify } from './make-notify';
+        @Module({ imports: [makeNotify()] })
+        export class AppModule {}
+      `,
+		});
+		expect(diags).toHaveLength(0);
+	});
 });

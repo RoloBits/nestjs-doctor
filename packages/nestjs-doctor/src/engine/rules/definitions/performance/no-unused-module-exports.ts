@@ -107,7 +107,10 @@ export const noUnusedModuleExports: ProjectRule = {
 
 				// A custom provider's target, alias or `inject` entry, by text or
 				// resolved name, counts as used, and so does what the target injects.
-				for (const filePath of consumer.filePaths ?? [consumer.filePath]) {
+				for (const filePath of [
+					...(consumer.filePaths ?? [consumer.filePath]),
+					...Object.keys(consumer.dynamicByFile ?? {}),
+				]) {
 					const sourceFile = context.project.getSourceFile(filePath);
 					const uses = sourceFile && usesByFile.get(sourceFile);
 					if (!uses) {

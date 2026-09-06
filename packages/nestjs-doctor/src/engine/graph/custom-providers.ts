@@ -3,6 +3,7 @@ import {
 	Node,
 	type ObjectLiteralExpression,
 	type Project,
+	type PropertyAccessExpression,
 	type SourceFile,
 	SyntaxKind,
 } from "ts-morph";
@@ -21,6 +22,21 @@ export function isTestFile(filePath: string): boolean {
 		filePath.includes("__test__") ||
 		filePath.includes("__tests__")
 	);
+}
+
+/** The `X.forRootAsync` callee whose options argument is `obj`, for any `*Async` method. */
+export function asyncOptionsCallee(
+	obj: ObjectLiteralExpression
+): PropertyAccessExpression | undefined {
+	const call = obj.getParent()?.asKind(SyntaxKind.CallExpression);
+	const callee = call
+		?.getExpression()
+		.asKind(SyntaxKind.PropertyAccessExpression);
+	return call &&
+		callee?.getName().endsWith("Async") &&
+		call.getArguments().includes(obj)
+		? callee
+		: undefined;
 }
 
 function isExternal(sourceFile: SourceFile): boolean {
@@ -280,9 +296,10 @@ export function collectCustomProviderClasses(
 					}
 				}
 			}
+			const bareUseClass = !obj.getProperty("provide");
 			for (const key of REGISTRATION_KEYS) {
 				const value = providerValue(obj, key);
-				if (!value) {
+				if (!value || (bareUseClass && !asyncOptionsCallee(obj))) {
 					continue;
 				}
 				const references = new Set<ClassDeclaration>();
