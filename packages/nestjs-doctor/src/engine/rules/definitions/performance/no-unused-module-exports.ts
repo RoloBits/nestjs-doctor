@@ -4,7 +4,6 @@ import {
 	isTestFile,
 } from "../../../graph/custom-providers.js";
 import type { ModuleNode } from "../../../graph/module-graph.js";
-import { hasDecorator } from "../../../nest-class-inspector.js";
 import type { ProjectRule, ProjectRuleContext } from "../../types.js";
 
 const QUOTES = /^['"`]|['"`]$/g;
@@ -43,10 +42,7 @@ function resolveConsumers(
 		(other) => other.name !== mod.name
 	);
 
-	if (
-		mod.isGlobal ||
-		(mod.classDeclaration && hasDecorator(mod.classDeclaration, "Global"))
-	) {
+	if (mod.isGlobal) {
 		return all;
 	}
 

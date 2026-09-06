@@ -233,6 +233,28 @@ describe("collectCustomProviderClasses", () => {
 		expect(implementationNames).not.toContain("Dead");
 	});
 
+	it("ignores a bare useClass whose only Async call is in a test file", () => {
+		const { constructedClasses, implementationNames } = collect(
+			{
+				"redis.config.ts": "export class RedisConfig {}",
+				"options.ts": `
+          import { RedisConfig } from './redis.config';
+          export const cacheOptions = { useClass: RedisConfig };
+        `,
+			},
+			{
+				"cache.module.spec.ts": `
+          import { cacheOptions } from './options';
+          CacheModule.forRootAsync(cacheOptions);
+        `,
+			}
+		);
+
+		const constructed = [...constructedClasses].map((cls) => cls.getName());
+		expect(constructed).not.toContain("RedisConfig");
+		expect(implementationNames).not.toContain("RedisConfig");
+	});
+
 	it("keeps a chain through an unscanned file on the declaration channel", () => {
 		const { constructedClasses, implementationNames, project } = collect(
 			{

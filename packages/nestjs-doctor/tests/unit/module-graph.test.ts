@@ -2673,6 +2673,61 @@ describe("dynamic module metadata", () => {
 		expect(copy).toEqual(original);
 	});
 
+	it("ignores an async options call in a test file", () => {
+		const { project, paths } = createProject({
+			"redis.config.ts": "export class RedisConfig {}",
+			"options.ts": `
+        import { RedisConfig } from './redis.config.js';
+        export const cacheOptions = { useClass: RedisConfig };
+      `,
+			"cache.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class CacheModule {}
+      `,
+			"cache.module.spec.ts": `
+        import { Test } from '@nestjs/testing';
+        import { CacheModule } from './cache.module.js';
+        import { cacheOptions } from './options.js';
+        Test.createTestingModule({ imports: [CacheModule.forRootAsync(cacheOptions)] });
+      `,
+		});
+		const graph = buildModuleGraph(project, paths);
+		expect(graph.modules.get("CacheModule")?.providers).toEqual([]);
+	});
+
+	it("registers one options object on every module it is passed to", () => {
+		const { project, paths } = createProject({
+			"cache.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class CacheModule {}
+      `,
+			"other.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class OtherModule {}
+      `,
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { CacheModule } from './cache.module';
+        import { OtherModule } from './other.module';
+        const opts = { useClass: SharedConfig };
+        @Module({
+          imports: [CacheModule.forRootAsync(opts), OtherModule.registerAsync(opts)],
+        })
+        export class AppModule {}
+      `,
+		});
+		const graph = buildModuleGraph(project, paths);
+		expect(graph.modules.get("CacheModule")?.providers).toContain(
+			"SharedConfig"
+		);
+		expect(graph.modules.get("OtherModule")?.providers).toContain(
+			"SharedConfig"
+		);
+	});
+
 	describe("updateModuleGraphForFile", () => {
 		const emptyCacheModule = `
         import { Module } from '@nestjs/common';
@@ -2808,6 +2863,38 @@ describe("dynamic module metadata", () => {
       `);
 			updateModuleGraphForFile(graph, project, "e.module.ts");
 			expect(graph.modules.get("EModule")?.providers).toEqual(["PE"]);
+		});
+
+		it("follows an async options call edited in another file than its literal", () => {
+			const appWith = (imports: string) => `
+        import { Module } from '@nestjs/common';
+        import { CacheModule } from './cache.module';
+        import { cacheOptions } from './options';
+        @Module({ imports: [${imports}] })
+        export class AppModule {}
+      `;
+			const { project, paths } = createProject({
+				"redis.config.ts": "export class RedisConfig {}",
+				"options.ts": `
+        import { RedisConfig } from './redis.config.js';
+        export const cacheOptions = { useClass: RedisConfig };
+      `,
+				"cache.module.ts": emptyCacheModule,
+				"app.module.ts": appWith("CacheModule.forRootAsync(cacheOptions)"),
+			});
+			const graph = buildModuleGraph(project, paths);
+			expect(graph.modules.get("CacheModule")?.providers).toContain(
+				"RedisConfig"
+			);
+			const app = project.getSourceFileOrThrow("app.module.ts");
+			app.replaceWithText(appWith(""));
+			updateModuleGraphForFile(graph, project, "app.module.ts");
+			expect(graph.modules.get("CacheModule")?.providers).toEqual([]);
+			app.replaceWithText(appWith("CacheModule.forRootAsync(cacheOptions)"));
+			updateModuleGraphForFile(graph, project, "app.module.ts");
+			expect(graph.modules.get("CacheModule")?.providers).toContain(
+				"RedisConfig"
+			);
 		});
 	});
 });

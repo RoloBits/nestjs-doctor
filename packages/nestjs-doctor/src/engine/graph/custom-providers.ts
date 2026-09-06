@@ -26,21 +26,17 @@ export function isTestFile(filePath: string): boolean {
 
 /** `node` climbed through parentheses, casts, `await` and the branches of a conditional. */
 export function unwrapped(node: Node): Node {
-	let current = node;
-	for (
-		let parent = current.getParent();
-		parent &&
+	const parent = node.getParent();
+	return parent &&
 		(Node.isParenthesizedExpression(parent) ||
 			Node.isAsExpression(parent) ||
 			Node.isSatisfiesExpression(parent) ||
 			Node.isNonNullExpression(parent) ||
+			Node.isTypeAssertion(parent) ||
 			Node.isAwaitExpression(parent) ||
-			Node.isConditionalExpression(parent));
-		parent = current.getParent()
-	) {
-		current = parent;
-	}
-	return current;
+			Node.isConditionalExpression(parent))
+		? unwrapped(parent)
+		: node;
 }
 
 /** The `*Async` callee `argument` is passed to, e.g. `X.forRootAsync(argument)`. */
@@ -57,24 +53,21 @@ function asyncCalleeOf(argument: Node): PropertyAccessExpression | undefined {
 }
 
 /** The `X.forRootAsync` callee `obj` is the options argument of, directly or through a variable. */
-export function asyncOptionsCallee(
+function asyncOptionsCallee(
 	obj: ObjectLiteralExpression
 ): PropertyAccessExpression | undefined {
-	const holders: Node[] = [unwrapped(obj)];
-	const declaration = holders[0].getParent();
+	const holder = unwrapped(obj);
+	const declaration = holder.getParent();
 	const binding = Node.isVariableDeclaration(declaration)
 		? declaration.getNameNode()
 		: undefined;
-	if (Node.isIdentifier(binding)) {
-		holders.push(...binding.findReferencesAsNodes().map(unwrapped));
-	}
-	for (const holder of holders) {
-		const callee = asyncCalleeOf(holder);
-		if (callee) {
-			return callee;
-		}
-	}
-	return undefined;
+	const holders = Node.isIdentifier(binding)
+		? binding
+				.findReferencesAsNodes()
+				.filter((ref) => !isTestFile(ref.getSourceFile().getFilePath()))
+				.map(unwrapped)
+		: [holder];
+	return holders.map(asyncCalleeOf).find(Boolean);
 }
 
 function isExternal(sourceFile: SourceFile): boolean {

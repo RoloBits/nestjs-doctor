@@ -8,11 +8,7 @@ import type {
 import { Node, SyntaxKind } from "ts-morph";
 import { baseClassName } from "../nest-class-inspector.js";
 import { YIELD_INTERVAL, yieldToEventLoop } from "../yield.js";
-import {
-	asyncOptionsCallee,
-	isTestFile,
-	unwrapped,
-} from "./custom-providers.js";
+import { isTestFile, unwrapped } from "./custom-providers.js";
 import { invalidateEntryModules } from "./entry-points.js";
 import type { PathAliasMap } from "./tsconfig-paths.js";
 import { resolvePathAlias } from "./tsconfig-paths.js";
@@ -88,7 +84,7 @@ export interface ModuleNode {
 	/** Absent once the graph is detached. */
 	classDeclaration?: ClassDeclaration;
 	controllers: string[];
-	/** File → what its `DynamicModule` literals added to this module. */
+	/** File → what its `DynamicModule` literals and `*Async` options added to this module. */
 	dynamicByFile?: Record<string, DynamicMetadata>;
 	/** Import name → the dynamic method it was imported with, e.g. `forRoot`. */
 	dynamicImports?: Record<string, string>;
@@ -166,12 +162,11 @@ function extractModulesFromFile(
 		const name = cls.getName() ?? "AnonymousModule";
 		const args = moduleDecorator.getArguments()[0];
 
-		const base = baseClassName(cls);
 		const node: ModuleNode = {
 			name,
 			filePath,
 			classDeclaration: cls,
-			...(base ? { baseClass: base } : {}),
+			baseClass: baseClassName(cls),
 			imports: [],
 			forwardRefImports: new Set<string>(),
 			exports: [],
@@ -257,6 +252,7 @@ function mergeSameNameModules(a: ModuleNode, b: ModuleNode): ModuleNode {
 	const merged: ModuleNode = {
 		...a,
 		...unionMetadata(a, b),
+		baseClass: a.baseClass ?? b.baseClass,
 		imports: union(a.imports, b.imports),
 		forwardRefImports: new Set([
 			...a.forwardRefImports,
@@ -395,7 +391,7 @@ const DYNAMIC_TYPE_RE = /DynamicModule|ModuleMetadata/;
 const simpleName = (text: string): string =>
 	text.split("<")[0].split(".").pop() as string;
 
-/** Module metadata Nest can load: a `module` key, a returned or assigned `DynamicModule` or `ModuleMetadata`, or a `setExtras` body. */
+/** Module metadata Nest can load: a `module` key, a returned or typed `DynamicModule` or `ModuleMetadata`, or a `setExtras` body. */
 function isModuleMetadataLiteral(obj: ObjectLiteralExpression): boolean {
 	if (obj.getProperty("module")) {
 		return true;
@@ -463,6 +459,13 @@ interface DynamicContribution {
 	module?: string;
 }
 
+/** The module `expr` names: the enclosing class for `this`, else its simple name. */
+function moduleNamed(expr: Node): string | undefined {
+	return expr.getKind() === SyntaxKind.ThisKeyword
+		? expr.getFirstAncestorByKind(SyntaxKind.ClassDeclaration)?.getName()
+		: simpleName(expr.getText());
+}
+
 function dynamicOwner(
 	obj: ObjectLiteralExpression
 ): Omit<DynamicContribution, "meta"> | undefined {
@@ -471,10 +474,7 @@ function dynamicOwner(
 		?.getName();
 	const moduleValue = propertyInitializer(obj, "module");
 	if (moduleValue) {
-		const name =
-			moduleValue.getKind() === SyntaxKind.ThisKeyword
-				? enclosingClass
-				: simpleName(moduleValue.getText());
+		const name = moduleNamed(moduleValue);
 		return name ? { module: name } : undefined;
 	}
 	if (enclosingClass) {
@@ -509,14 +509,10 @@ function extractDynamicMetadata(
 	sourceFile: SourceFile,
 	pathAliases: PathAliasMap
 ): DynamicContribution[] {
-	const contributions: DynamicContribution[] = [];
+	const contributions = asyncOptionsContributions(sourceFile, pathAliases);
 	for (const obj of sourceFile.getDescendantsOfKind(
 		SyntaxKind.ObjectLiteralExpression
 	)) {
-		const options = asyncOptionsContribution(obj, pathAliases);
-		if (options) {
-			contributions.push(options);
-		}
 		if (!isModuleMetadataLiteral(obj)) {
 			continue;
 		}
@@ -535,40 +531,106 @@ function extractDynamicMetadata(
 	return contributions;
 }
 
-/** `X.forRootAsync({ useClass: C, extraProviders: [D] })` registers `C` and `D` on `X`. */
-function asyncOptionsContribution(
-	obj: ObjectLiteralExpression,
+/** `X.forRootAsync(options)` registers the `useClass` and `extraProviders` of `options` on `X`. */
+function asyncOptionsContributions(
+	sourceFile: SourceFile,
 	pathAliases: PathAliasMap
-): DynamicContribution | undefined {
-	const useClass = propertyInitializer(obj, "useClass");
-	const providers = [
-		...(useClass
-			? extractNamesFromElement(useClass, obj.getSourceFile(), 0, pathAliases)
-			: []),
-		...extractArrayPropertyNames(obj, "extraProviders", pathAliases),
-	].map((t) => t.name);
-	const callee = providers.length > 0 ? asyncOptionsCallee(obj) : undefined;
-	if (!callee) {
-		return undefined;
+): DynamicContribution[] {
+	const contributions: DynamicContribution[] = [];
+	for (const call of sourceFile.getDescendantsOfKind(
+		SyntaxKind.CallExpression
+	)) {
+		const callee = call
+			.getExpression()
+			.asKind(SyntaxKind.PropertyAccessExpression);
+		const module =
+			callee?.getName().endsWith("Async") &&
+			moduleNamed(callee.getExpression());
+		if (!module) {
+			continue;
+		}
+		for (const argument of call.getArguments()) {
+			for (const obj of optionsLiterals(argument, sourceFile, pathAliases, 0)) {
+				const useClass = propertyInitializer(obj, "useClass");
+				const providers = [
+					...(useClass
+						? extractNamesFromElement(
+								useClass,
+								obj.getSourceFile(),
+								0,
+								pathAliases
+							)
+						: []),
+					...extractArrayPropertyNames(obj, "extraProviders", pathAliases),
+				].map((t) => t.name);
+				if (providers.length > 0) {
+					contributions.push({
+						module,
+						meta: {
+							controllers: [],
+							exports: [],
+							isGlobal: false,
+							providerTokens: [],
+							providers,
+						},
+					});
+				}
+			}
+		}
 	}
-	const receiver = callee.getExpression();
-	const module =
-		receiver.getKind() === SyntaxKind.ThisKeyword
-			? callee.getFirstAncestorByKind(SyntaxKind.ClassDeclaration)?.getName()
-			: simpleName(receiver.getText());
-	if (!module) {
-		return undefined;
+	return contributions;
+}
+
+/** The object literals `node` evaluates to: itself, a conditional's branches, or a variable's initializer. */
+function optionsLiterals(
+	node: Node,
+	sourceFile: SourceFile,
+	pathAliases: PathAliasMap,
+	depth: number
+): ObjectLiteralExpression[] {
+	if (depth > MAX_RESOLVE_DEPTH) {
+		return [];
 	}
-	return {
-		module,
-		meta: {
-			controllers: [],
-			exports: [],
-			isGlobal: false,
-			providerTokens: [],
-			providers,
-		},
-	};
+	if (Node.isObjectLiteralExpression(node)) {
+		return [node];
+	}
+	if (
+		Node.isParenthesizedExpression(node) ||
+		Node.isAsExpression(node) ||
+		Node.isSatisfiesExpression(node) ||
+		Node.isNonNullExpression(node) ||
+		Node.isTypeAssertion(node) ||
+		Node.isAwaitExpression(node)
+	) {
+		return optionsLiterals(
+			node.getExpression(),
+			sourceFile,
+			pathAliases,
+			depth
+		);
+	}
+	if (Node.isConditionalExpression(node)) {
+		return [node.getWhenTrue(), node.getWhenFalse()].flatMap((side) =>
+			optionsLiterals(side, sourceFile, pathAliases, depth)
+		);
+	}
+	if (!Node.isIdentifier(node)) {
+		return [];
+	}
+	const name = node.getText();
+	const init = (
+		localVariable(node, name) ?? sourceFile.getVariableDeclaration(name)
+	)?.getInitializer();
+	if (init) {
+		return optionsLiterals(init, sourceFile, pathAliases, depth + 1);
+	}
+	const imported = resolveImportedSourceFile(name, sourceFile, pathAliases);
+	const importedInit = imported?.sourceFile
+		.getVariableDeclaration(imported.localName)
+		?.getInitializer();
+	return imported && importedInit
+		? optionsLiterals(importedInit, imported.sourceFile, pathAliases, depth + 1)
+		: [];
 }
 
 function absorb(
@@ -589,12 +651,11 @@ function extendsBuiltClass(
 	definitionFile: SourceFile,
 	pathAliases: PathAliasMap
 ): boolean {
-	const cls = mod.classDeclaration;
 	const base = mod.baseClass;
-	if (!(cls && base && names.includes(base))) {
+	let file = mod.classDeclaration?.getSourceFile();
+	if (!(file && base && names.includes(base))) {
 		return false;
 	}
-	let file = cls.getSourceFile();
 	let local = base;
 	for (let hop = 0; file !== definitionFile && hop < MAX_RESOLVE_DEPTH; hop++) {
 		const next = resolveImportedSourceFile(local, file, pathAliases);
@@ -1121,14 +1182,14 @@ function resolveIdentifier(
 		? localVariable(scope, name)
 		: sourceFile.getVariableDeclaration(name);
 	const init = declaration?.getInitializer();
-	if (declaration && init) {
+	if (init) {
 		const names = extractNamesFromExpression(
 			init,
 			sourceFile,
 			depth,
 			pathAliases
 		);
-		const block = declaration.getFirstAncestor(Node.isStatemented);
+		const block = init.getFirstAncestor(Node.isStatemented);
 		for (const call of block?.getDescendantsOfKind(SyntaxKind.CallExpression) ??
 			[]) {
 			if (
@@ -1250,7 +1311,6 @@ export function updateModuleGraphForFile(
 ): void {
 	invalidateEntryModules(graph);
 	const before = new Set(graph.modules.keys());
-	const extendsSomething = (node: ModuleNode) => node.baseClass !== undefined;
 	let fullPass = false;
 	// 1. Files to rescan: the changed file, then every declaration file of a
 	// module declared in, or fed by a DynamicModule literal in, a rescanned file.
@@ -1287,7 +1347,7 @@ export function updateModuleGraphForFile(
 		for (const edgeSet of graph.edges.values()) {
 			edgeSet.delete(name);
 		}
-		fullPass ||= extendsSomething(node);
+		fullPass ||= node.baseClass !== undefined;
 		const remaining = Object.entries(node.dynamicByFile ?? {}).filter(
 			([file]) => !rescan.has(file)
 		);
@@ -1297,7 +1357,7 @@ export function updateModuleGraphForFile(
 	}
 
 	// 3. Re-extract from the rescan set with the same collision handling the
-	// full build uses, re-apply the kept contributions, then the rescanned ones.
+	// full build uses, then apply the kept contributions or every file.
 	const added = new Map<string, ModuleNode>();
 	for (const scanPath of rescan) {
 		const sourceFile = project.getSourceFile(scanPath);
@@ -1312,26 +1372,21 @@ export function updateModuleGraphForFile(
 			addModuleNode(added, node);
 		}
 	}
+	fullPass ||= [...added].some(
+		([name, node]) => !before.has(name) || node.baseClass !== undefined
+	);
 	for (const [name, node] of added) {
 		const existing = graph.modules.get(name);
-		graph.modules.set(
-			name,
-			existing ? mergeSameNameModules(existing, node) : node
-		);
-		fullPass ||= !before.has(name) || extendsSomething(node);
-	}
-	// Every file when a declaration is new or extends a class; otherwise the
-	// kept contributions plus the rescan set.
-	if (!fullPass) {
-		for (const [name, contributions] of kept) {
-			const node = graph.modules.get(name);
-			for (const [file, meta] of Object.entries(contributions)) {
-				if (node) {
-					absorb(node, meta, file);
-				}
+		const next = existing ? mergeSameNameModules(existing, node) : node;
+		if (!fullPass) {
+			for (const [file, meta] of Object.entries(kept.get(name) ?? {})) {
+				absorb(next, meta, file);
 			}
 		}
+		graph.modules.set(name, next);
 	}
+	// Every file when a declaration is new, extends a class, or stopped
+	// extending one; otherwise the rescan set.
 	const passFiles = fullPass
 		? (files ?? project.getSourceFiles().map((file) => file.getFilePath()))
 		: rescan;
