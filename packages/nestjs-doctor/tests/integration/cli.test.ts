@@ -1299,6 +1299,61 @@ describe("scanner integration", () => {
 		});
 	});
 
+	describe("dynamic-class-providers-app fixture (#400)", () => {
+		const targetPath = resolve(FIXTURES, "dynamic-class-providers-app/src");
+		let diags: Awaited<ReturnType<typeof buildResult>>["result"]["diagnostics"];
+
+		beforeAll(async () => {
+			const scanConfig = await resolveScanConfig(targetPath);
+			const context = await buildAnalysisContext(targetPath, scanConfig);
+			const rawOutput = await diagnose(context);
+			const { result } = buildResult(
+				context,
+				rawOutput,
+				scanConfig.customRuleWarnings
+			);
+			diags = result.diagnostics;
+		});
+
+		const registrationRules = [
+			"correctness/injectable-must-be-provided",
+			"performance/no-unused-providers",
+		];
+
+		it("counts a class reached through a useClass expression as provided", () => {
+			const resolvedClasses = [
+				"AppService",
+				"SmtpMailer",
+				"FakeMailer",
+				"AuditService",
+			];
+			const registrationDiags = diags.filter(
+				(d) =>
+					registrationRules.includes(d.rule) &&
+					resolvedClasses.some((name) => d.message.includes(`'${name}'`))
+			);
+			expect(registrationDiags).toHaveLength(0);
+		});
+
+		it("counts a factory inject entry as an injection", () => {
+			const injected = diags.filter(
+				(d) =>
+					d.rule === "performance/no-unused-providers" &&
+					d.message.includes("'ConfigService'")
+			);
+			expect(injected).toHaveLength(0);
+		});
+
+		it("still reports a class a useClass helper merely calls", () => {
+			const unregistered = diags.filter(
+				(d) =>
+					d.rule === "correctness/injectable-must-be-provided" &&
+					d.message.includes("'UnregisteredService'")
+			);
+			expect(unregistered).toHaveLength(1);
+		});
+	});
+
 	describe("drizzle-app fixture", () => {
 		const targetPath = resolve(FIXTURES, "drizzle-app");
 		let context: Awaited<ReturnType<typeof buildAnalysisContext>>;

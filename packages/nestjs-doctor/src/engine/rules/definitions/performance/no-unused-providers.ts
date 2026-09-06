@@ -132,8 +132,9 @@ export const noUnusedProviders: ProjectRule = {
 			}
 		}
 
-		// Custom-provider targets and base classes are in use without being injected.
-		// Test files are left out so a spec cannot exempt a production provider.
+		// Custom-provider targets, `useExisting` and `inject` entries, and base
+		// classes are in use without a constructor injection. Test files are left
+		// out so a spec cannot exempt a production provider.
 		const productionFiles = context.files.filter(
 			(filePath) => !isTestFile(filePath)
 		);
@@ -151,6 +152,7 @@ export const noUnusedProviders: ProjectRule = {
 				customProviderClasses.constructedClasses.has(
 					provider.classDeclaration
 				) ||
+				customProviderClasses.usedClasses.has(provider.classDeclaration) ||
 				extended.has(name)
 			) {
 				continue;

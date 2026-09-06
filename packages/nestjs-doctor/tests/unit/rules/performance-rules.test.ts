@@ -304,6 +304,28 @@ describe("no-unused-providers", () => {
 		);
 		expect(usedServiceDiags).toHaveLength(0);
 	});
+
+	it("does not flag a provider registered through a function-returned useClass", () => {
+		const diags = runProjectRule(noUnusedProviders, {
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { AppService } from './app.service.js';
+        function providerFactory() { return AppService; }
+        @Module({ providers: [{ provide: AppService, useClass: providerFactory() }] })
+        export class AppModule {}
+      `,
+			"app.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class AppService {
+          doStuff() {}
+        }
+      `,
+		});
+		expect(diags.filter((d) => d.message.includes("AppService"))).toHaveLength(
+			0
+		);
+	});
 });
 
 describe("no-unused-module-exports", () => {
@@ -384,6 +406,97 @@ describe("no-unused-module-exports", () => {
         export class AppService {
           doStuff() {}
         }
+      `,
+		});
+		expect(diags).toHaveLength(1);
+		expect(diags[0].message).toContain("SharedService");
+	});
+
+	it("allows export used through a function-returned useClass", () => {
+		const diags = runProjectRule(noUnusedModuleExports, {
+			"shared.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { SharedService } from './shared.service';
+        @Module({ providers: [SharedService], exports: [SharedService] })
+        export class SharedModule {}
+      `,
+			"shared.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class SharedService {}
+      `,
+			"pick-shared.ts": `
+        import { SharedService } from './shared.service';
+        export function pickShared() { return SharedService }
+      `,
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { SharedModule } from './shared.module';
+        import { pickShared } from './pick-shared';
+        @Module({ imports: [SharedModule], providers: [{ provide: 'TOK', useClass: pickShared() }] })
+        export class AppModule {}
+      `,
+		});
+		expect(diags).toHaveLength(0);
+	});
+
+	it("allows export consumed only through a factory inject array", () => {
+		const diags = runProjectRule(noUnusedModuleExports, {
+			"config.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { ConfigService } from './config.service';
+        @Module({ providers: [ConfigService], exports: [ConfigService] })
+        export class ConfigModule {}
+      `,
+			"config.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class ConfigService {}
+      `,
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { ConfigModule } from './config.module';
+        import { ConfigService } from './config.service';
+        @Module({
+          imports: [ConfigModule],
+          providers: [{ provide: 'URL', useFactory: (c: ConfigService) => c, inject: [ConfigService] }],
+        })
+        export class AppModule {}
+      `,
+		});
+		expect(diags).toHaveLength(0);
+	});
+
+	it("still flags an export only a non-importing module registers", () => {
+		const diags = runProjectRule(noUnusedModuleExports, {
+			"shared.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { SharedService } from './shared.service';
+        @Module({ providers: [SharedService], exports: [SharedService] })
+        export class SharedModule {}
+      `,
+			"shared.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class SharedService {}
+      `,
+			"fake.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class FakeService {}
+      `,
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { SharedModule } from './shared.module';
+        @Module({ imports: [SharedModule] })
+        export class AppModule {}
+      `,
+			"other.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { SharedService } from './shared.service';
+        import { FakeService } from './fake.service';
+        @Module({ providers: [{ provide: SharedService, useClass: FakeService }] })
+        export class OtherModule {}
       `,
 		});
 		expect(diags).toHaveLength(1);
