@@ -20,6 +20,7 @@ import {
 } from "../../src/engine/scanner.js";
 
 const FIXTURES = resolve(import.meta.dirname, "../fixtures");
+const QUOTED_NAME = /'([^']+)'/;
 const tempRoots: string[] = [];
 
 afterAll(() => {
@@ -1351,6 +1352,74 @@ describe("scanner integration", () => {
 					d.message.includes("'UnregisteredService'")
 			);
 			expect(unregistered).toHaveLength(1);
+		});
+	});
+
+	describe("dynamic-module-providers-app fixture (#403)", () => {
+		const targetPath = resolve(FIXTURES, "dynamic-module-providers-app/src");
+		let context: Awaited<ReturnType<typeof buildAnalysisContext>>;
+		let diags: Awaited<ReturnType<typeof buildResult>>["result"]["diagnostics"];
+
+		beforeAll(async () => {
+			const scanConfig = await resolveScanConfig(targetPath);
+			context = await buildAnalysisContext(targetPath, scanConfig);
+			const rawOutput = await diagnose(context);
+			const { result } = buildResult(
+				context,
+				rawOutput,
+				scanConfig.customRuleWarnings
+			);
+			diags = result.diagnostics;
+		});
+
+		const registrationRules = [
+			"correctness/injectable-must-be-provided",
+			"performance/no-unused-providers",
+			"performance/no-unused-module-exports",
+		];
+		const dynamicallyRegistered = [
+			"CacheService",
+			"CacheMetricsService",
+			"LoggerService",
+			"HttpMetricsService",
+			"MailService",
+			"MailConfig",
+		];
+
+		it.each(dynamicallyRegistered)(
+			"reports nothing about %s from the registration rules",
+			(name) => {
+				const findings = diags.filter(
+					(d) =>
+						registrationRules.includes(d.rule) &&
+						d.message.includes(`'${name}'`)
+				);
+				expect(findings).toHaveLength(0);
+			}
+		);
+
+		it("reports exactly the three classes registered nowhere", () => {
+			const unregistered = diags
+				.filter((d) => d.rule === "correctness/injectable-must-be-provided")
+				.map((d) => d.message.match(QUOTED_NAME)?.[1])
+				.sort();
+			expect(unregistered).toEqual([
+				"FakeCache",
+				"StripeGateway",
+				"UnregisteredService",
+			]);
+		});
+
+		it("maps a forRoot-only provider to its module", () => {
+			expect(
+				context.moduleGraph.providerToModule.get("CacheService")?.name
+			).toBe("CacheModule");
+		});
+
+		it("lists a setExtras provider on the module extending the built class", () => {
+			expect(
+				context.moduleGraph.modules.get("HttpModule")?.providers
+			).toContain("HttpMetricsService");
 		});
 	});
 
