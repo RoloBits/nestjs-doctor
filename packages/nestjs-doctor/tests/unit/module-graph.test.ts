@@ -2696,6 +2696,33 @@ describe("dynamic module metadata", () => {
 		expect(graph.modules.get("CacheModule")?.providers).toEqual([]);
 	});
 
+	it("registers async options re-exported through a barrel", () => {
+		const { project, paths } = createProject({
+			"/config/cache.options.ts": `
+        import { RedisConfig } from '../redis.config.js';
+        export const cacheOptions = { useClass: RedisConfig };
+      `,
+			"/config/index.ts": `export { cacheOptions } from './cache.options.js';`,
+			"/redis.config.ts": "export class RedisConfig {}",
+			"/cache.module.ts": `
+        import { Module } from '@nestjs/common';
+        @Module({})
+        export class CacheModule {}
+      `,
+			"/app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { CacheModule } from './cache.module.js';
+        import { cacheOptions } from './config/index.js';
+        @Module({ imports: [CacheModule.forRootAsync(cacheOptions)] })
+        export class AppModule {}
+      `,
+		});
+		const graph = buildModuleGraph(project, paths);
+		expect(graph.modules.get("CacheModule")?.providers).toContain(
+			"RedisConfig"
+		);
+	});
+
 	it("registers one options object on every module it is passed to", () => {
 		const { project, paths } = createProject({
 			"cache.module.ts": `
@@ -2895,6 +2922,38 @@ describe("dynamic module metadata", () => {
 			expect(graph.modules.get("CacheModule")?.providers).toContain(
 				"RedisConfig"
 			);
+		});
+
+		it("follows an edit to the options file an async call reads", () => {
+			const optionsWith = (config: string) => `
+        import { MemConfig } from './mem.config.js';
+        import { RedisConfig } from './redis.config.js';
+        export const cacheOptions = { useClass: ${config} };
+      `;
+			const { project, paths } = createProject({
+				"/redis.config.ts": "export class RedisConfig {}",
+				"/mem.config.ts": "export class MemConfig {}",
+				"/options.ts": optionsWith("RedisConfig"),
+				"/cache.module.ts": emptyCacheModule,
+				"/app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { CacheModule } from './cache.module.js';
+        import { cacheOptions } from './options.js';
+        @Module({ imports: [CacheModule.forRootAsync(cacheOptions)] })
+        export class AppModule {}
+      `,
+			});
+			const graph = buildModuleGraph(project, paths);
+			expect(graph.modules.get("CacheModule")?.providers).toEqual([
+				"RedisConfig",
+			]);
+			project
+				.getSourceFileOrThrow("/options.ts")
+				.replaceWithText(optionsWith("MemConfig"));
+			updateModuleGraphForFile(graph, project, "/options.ts", new Map(), paths);
+			expect(graph.modules.get("CacheModule")?.providers).toEqual([
+				"MemConfig",
+			]);
 		});
 	});
 });

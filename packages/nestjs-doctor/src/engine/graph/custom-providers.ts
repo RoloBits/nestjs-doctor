@@ -1,11 +1,17 @@
 import {
+	type AsExpression,
+	type AwaitExpression,
 	type ClassDeclaration,
 	Node,
+	type NonNullExpression,
 	type ObjectLiteralExpression,
+	type ParenthesizedExpression,
 	type Project,
 	type PropertyAccessExpression,
+	type SatisfiesExpression,
 	type SourceFile,
 	SyntaxKind,
+	type TypeAssertion,
 } from "ts-morph";
 
 /** Keys whose value registers a class, in a `{ provide }` literal or an `*Async` options argument. */
@@ -25,16 +31,29 @@ export function isTestFile(filePath: string): boolean {
 }
 
 /** `node` climbed through parentheses, casts, `await` and the branches of a conditional. */
+/** Parentheses, casts, `!` and `await`: one expression inside. */
+export function isWrapper(
+	node: Node
+): node is
+	| ParenthesizedExpression
+	| AsExpression
+	| SatisfiesExpression
+	| NonNullExpression
+	| TypeAssertion
+	| AwaitExpression {
+	return (
+		Node.isParenthesizedExpression(node) ||
+		Node.isAsExpression(node) ||
+		Node.isSatisfiesExpression(node) ||
+		Node.isNonNullExpression(node) ||
+		Node.isTypeAssertion(node) ||
+		Node.isAwaitExpression(node)
+	);
+}
+
 export function unwrapped(node: Node): Node {
 	const parent = node.getParent();
-	return parent &&
-		(Node.isParenthesizedExpression(parent) ||
-			Node.isAsExpression(parent) ||
-			Node.isSatisfiesExpression(parent) ||
-			Node.isNonNullExpression(parent) ||
-			Node.isTypeAssertion(parent) ||
-			Node.isAwaitExpression(parent) ||
-			Node.isConditionalExpression(parent))
+	return parent && (isWrapper(parent) || Node.isConditionalExpression(parent))
 		? unwrapped(parent)
 		: node;
 }
@@ -57,10 +76,10 @@ function asyncOptionsCallee(
 	obj: ObjectLiteralExpression
 ): PropertyAccessExpression | undefined {
 	const holder = unwrapped(obj);
-	const declaration = holder.getParent();
-	const binding = Node.isVariableDeclaration(declaration)
-		? declaration.getNameNode()
-		: undefined;
+	const binding = holder
+		.getParent()
+		?.asKind(SyntaxKind.VariableDeclaration)
+		?.getNameNode();
 	const holders = Node.isIdentifier(binding)
 		? binding
 				.findReferencesAsNodes()
@@ -124,14 +143,7 @@ function declaredValue(declaration: Node): Node | undefined {
  * // declaration; the declaration yields the expression of each `return`.
  */
 function possibleValuesOf(node: Node): Node[] {
-	if (
-		Node.isParenthesizedExpression(node) ||
-		Node.isAsExpression(node) ||
-		Node.isSatisfiesExpression(node) ||
-		Node.isNonNullExpression(node) ||
-		Node.isTypeAssertion(node) ||
-		Node.isAwaitExpression(node)
-	) {
+	if (isWrapper(node)) {
 		return [node.getExpression()];
 	}
 	if (Node.isConditionalExpression(node)) {

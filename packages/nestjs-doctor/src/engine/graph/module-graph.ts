@@ -8,7 +8,7 @@ import type {
 import { Node, SyntaxKind } from "ts-morph";
 import { baseClassName } from "../nest-class-inspector.js";
 import { YIELD_INTERVAL, yieldToEventLoop } from "../yield.js";
-import { isTestFile, unwrapped } from "./custom-providers.js";
+import { isTestFile, isWrapper, unwrapped } from "./custom-providers.js";
 import { invalidateEntryModules } from "./entry-points.js";
 import type { PathAliasMap } from "./tsconfig-paths.js";
 import { resolvePathAlias } from "./tsconfig-paths.js";
@@ -70,12 +70,17 @@ interface ModuleImports {
 }
 
 /** What one `DynamicModule` literal registers on its module. */
-interface DynamicMetadata {
+interface ModuleLists {
 	controllers: string[];
 	exports: string[];
 	isGlobal: boolean;
 	providers: string[];
 	providerTokens: string[];
+}
+
+interface DynamicMetadata extends ModuleLists {
+	/** Other files this was read from, e.g. the one declaring an options object. */
+	sources: string[];
 }
 
 export interface ModuleNode {
@@ -234,10 +239,7 @@ function declaredImports(node: ModuleNode): Record<string, ModuleImports> {
 
 const union = (x: string[], y: string[]) => [...new Set([...x, ...y])];
 
-function unionMetadata(
-	a: DynamicMetadata,
-	b: DynamicMetadata
-): DynamicMetadata {
+function unionMetadata(a: ModuleLists, b: ModuleLists): ModuleLists {
 	return {
 		controllers: union(a.controllers, b.controllers),
 		exports: union(a.exports, b.exports),
@@ -502,6 +504,7 @@ function readMetadata(
 			propertyInitializer(obj, "global")?.getKind() === SyntaxKind.TrueKeyword,
 		providerTokens: extractProviderTokens(obj),
 		providers: names("providers"),
+		sources: [],
 	};
 }
 
@@ -550,20 +553,10 @@ function asyncOptionsContributions(
 			continue;
 		}
 		for (const argument of call.getArguments()) {
-			for (const obj of optionsLiterals(argument, sourceFile, pathAliases, 0)) {
-				const useClass = propertyInitializer(obj, "useClass");
-				const providers = [
-					...(useClass
-						? extractNamesFromElement(
-								useClass,
-								obj.getSourceFile(),
-								0,
-								pathAliases
-							)
-						: []),
-					...extractArrayPropertyNames(obj, "extraProviders", pathAliases),
-				].map((t) => t.name);
+			for (const obj of optionsLiterals(argument, pathAliases, 0)) {
+				const providers = asyncOptionsProviders(obj, pathAliases);
 				if (providers.length > 0) {
+					const source = obj.getSourceFile();
 					contributions.push({
 						module,
 						meta: {
@@ -572,6 +565,7 @@ function asyncOptionsContributions(
 							isGlobal: false,
 							providerTokens: [],
 							providers,
+							sources: source === sourceFile ? [] : [source.getFilePath()],
 						},
 					});
 				}
@@ -581,10 +575,23 @@ function asyncOptionsContributions(
 	return contributions;
 }
 
+/** `useClass` and `extraProviders` names of an `*Async` options literal. */
+function asyncOptionsProviders(
+	obj: ObjectLiteralExpression,
+	pathAliases: PathAliasMap
+): string[] {
+	const useClass = propertyInitializer(obj, "useClass");
+	return [
+		...(useClass
+			? extractNamesFromElement(useClass, obj.getSourceFile(), 0, pathAliases)
+			: []),
+		...extractArrayPropertyNames(obj, "extraProviders", pathAliases),
+	].map((t) => t.name);
+}
+
 /** The object literals `node` evaluates to: itself, a conditional's branches, or a variable's initializer. */
 function optionsLiterals(
 	node: Node,
-	sourceFile: SourceFile,
 	pathAliases: PathAliasMap,
 	depth: number
 ): ObjectLiteralExpression[] {
@@ -594,43 +601,41 @@ function optionsLiterals(
 	if (Node.isObjectLiteralExpression(node)) {
 		return [node];
 	}
-	if (
-		Node.isParenthesizedExpression(node) ||
-		Node.isAsExpression(node) ||
-		Node.isSatisfiesExpression(node) ||
-		Node.isNonNullExpression(node) ||
-		Node.isTypeAssertion(node) ||
-		Node.isAwaitExpression(node)
-	) {
-		return optionsLiterals(
-			node.getExpression(),
-			sourceFile,
-			pathAliases,
-			depth
-		);
+	if (isWrapper(node)) {
+		return optionsLiterals(node.getExpression(), pathAliases, depth);
 	}
 	if (Node.isConditionalExpression(node)) {
 		return [node.getWhenTrue(), node.getWhenFalse()].flatMap((side) =>
-			optionsLiterals(side, sourceFile, pathAliases, depth)
+			optionsLiterals(side, pathAliases, depth)
 		);
 	}
 	if (!Node.isIdentifier(node)) {
 		return [];
 	}
 	const name = node.getText();
-	const init = (
-		localVariable(node, name) ?? sourceFile.getVariableDeclaration(name)
-	)?.getInitializer();
+	const init = localVariable(node, name)?.getInitializer();
 	if (init) {
-		return optionsLiterals(init, sourceFile, pathAliases, depth + 1);
+		return optionsLiterals(init, pathAliases, depth + 1);
 	}
-	const imported = resolveImportedSourceFile(name, sourceFile, pathAliases);
-	const importedInit = imported?.sourceFile
-		.getVariableDeclaration(imported.localName)
-		?.getInitializer();
-	return imported && importedInit
-		? optionsLiterals(importedInit, imported.sourceFile, pathAliases, depth + 1)
-		: [];
+	let imported = resolveImportedSourceFile(
+		name,
+		node.getSourceFile(),
+		pathAliases
+	);
+	for (let hop = 0; imported && hop < MAX_RESOLVE_DEPTH; hop++) {
+		const init = imported.sourceFile
+			.getVariableDeclaration(imported.localName)
+			?.getInitializer();
+		if (init) {
+			return optionsLiterals(init, pathAliases, depth + 1);
+		}
+		imported = resolveImportedSourceFile(
+			imported.localName,
+			imported.sourceFile,
+			pathAliases
+		);
+	}
+	return [];
 }
 
 function absorb(
@@ -641,7 +646,12 @@ function absorb(
 	Object.assign(node, unionMetadata(node, meta));
 	node.dynamicByFile ??= {};
 	const prior = node.dynamicByFile[filePath];
-	node.dynamicByFile[filePath] = prior ? unionMetadata(prior, meta) : meta;
+	node.dynamicByFile[filePath] = prior
+		? {
+				...unionMetadata(prior, meta),
+				sources: union(prior.sources, meta.sources),
+			}
+		: meta;
 }
 
 /** Whether `mod` extends one of `names` as declared in `definitionFile`, directly or by import. */
@@ -1317,16 +1327,22 @@ export function updateModuleGraphForFile(
 	const rescan = new Set<string>([toPosix(filePath)]);
 	const declarationFiles = (node: ModuleNode) =>
 		node.filePaths ?? [node.filePath];
+	const inRescan = (file: string) => rescan.has(file);
 	const touches = (node: ModuleNode) =>
-		declarationFiles(node).some((file) => rescan.has(file)) ||
-		Object.keys(node.dynamicByFile ?? {}).some((file) => rescan.has(file));
+		declarationFiles(node).some(inRescan) ||
+		Object.entries(node.dynamicByFile ?? {}).some(
+			([file, meta]) => inRescan(file) || meta.sources.some(inRescan)
+		);
 	for (let grew = true; grew; ) {
 		grew = false;
 		for (const node of graph.modules.values()) {
 			if (!touches(node)) {
 				continue;
 			}
-			for (const file of declarationFiles(node)) {
+			const fed = Object.entries(node.dynamicByFile ?? {})
+				.filter(([, meta]) => meta.sources.some(inRescan))
+				.map(([file]) => file);
+			for (const file of [...declarationFiles(node), ...fed]) {
 				if (!rescan.has(file)) {
 					rescan.add(file);
 					grew = true;
@@ -1357,7 +1373,7 @@ export function updateModuleGraphForFile(
 	}
 
 	// 3. Re-extract from the rescan set with the same collision handling the
-	// full build uses, then apply the kept contributions or every file.
+	// full build uses; kept contributions come back unless a full pass follows.
 	const added = new Map<string, ModuleNode>();
 	for (const scanPath of rescan) {
 		const sourceFile = project.getSourceFile(scanPath);
