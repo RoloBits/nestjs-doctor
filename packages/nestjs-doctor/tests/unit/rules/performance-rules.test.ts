@@ -440,6 +440,33 @@ describe("no-unused-module-exports", () => {
 		expect(diags).toHaveLength(0);
 	});
 
+	it("allows export consumed only through a factory inject array", () => {
+		const diags = runProjectRule(noUnusedModuleExports, {
+			"config.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { ConfigService } from './config.service';
+        @Module({ providers: [ConfigService], exports: [ConfigService] })
+        export class ConfigModule {}
+      `,
+			"config.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class ConfigService {}
+      `,
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { ConfigModule } from './config.module';
+        import { ConfigService } from './config.service';
+        @Module({
+          imports: [ConfigModule],
+          providers: [{ provide: 'URL', useFactory: (c: ConfigService) => c, inject: [ConfigService] }],
+        })
+        export class AppModule {}
+      `,
+		});
+		expect(diags).toHaveLength(0);
+	});
+
 	it("still flags an export only a non-importing module registers", () => {
 		const diags = runProjectRule(noUnusedModuleExports, {
 			"shared.module.ts": `

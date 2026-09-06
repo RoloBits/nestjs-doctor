@@ -247,7 +247,7 @@ describe("collectCustomProviderClasses", () => {
 	});
 
 	it("attributes useClass targets to the file that registers them", () => {
-		const { targetsByFile, project } = collect({
+		const { usesByFile, project } = collect({
 			"shared.service.ts": "export class SharedService {}",
 			"pick.ts": `
         import { SharedService } from './shared.service';
@@ -264,7 +264,7 @@ describe("collectCustomProviderClasses", () => {
 		});
 
 		const targetsIn = (path: string) =>
-			targetsByFile.get(project.getSourceFileOrThrow(path));
+			usesByFile.get(project.getSourceFileOrThrow(path));
 		expect(targetsIn("consumer.module.ts")).toEqual(
 			new Set(["pickShared()", "SharedService"])
 		);
@@ -272,7 +272,7 @@ describe("collectCustomProviderClasses", () => {
 	});
 
 	it("resolves an alias used as a token and then as a useExisting target", () => {
-		const { targetsByFile, project } = collect({
+		const { usesByFile, project } = collect({
 			"shared.service.ts": "export class SharedService {}",
 			"fake.service.ts": "export class FakeService {}",
 			"tokens.ts": `
@@ -290,8 +290,67 @@ describe("collectCustomProviderClasses", () => {
 		});
 
 		expect(
-			targetsByFile.get(project.getSourceFileOrThrow("app.module.ts"))
+			usesByFile.get(project.getSourceFileOrThrow("app.module.ts"))
 		).toEqual(new Set(["FakeService", "SHARED", "SharedService"]));
+	});
+
+	it("lists inject entries as used classes, not as registrations", () => {
+		const { usedClasses, constructedClasses, usesByFile, project } = collect({
+			"config.service.ts": "export class ConfigService {}",
+			"cache.service.ts": "export class CacheService {}",
+			"queue.service.ts": "export class QueueService {}",
+			"app.module.ts": `
+        import { forwardRef } from '@nestjs/common';
+        import { ConfigService } from './config.service';
+        import { CacheService } from './cache.service';
+        import { QueueService } from './queue.service';
+        export const providers = [
+          {
+            provide: 'QUEUE',
+            useFactory: (c: ConfigService, cache: CacheService, q: QueueService) => c,
+            inject: [ConfigService, forwardRef(() => CacheService), { token: QueueService, optional: true }],
+          },
+        ];
+      `,
+		});
+
+		expect(new Set([...usedClasses].map((cls) => cls.getName()))).toEqual(
+			new Set(["ConfigService", "CacheService", "QueueService"])
+		);
+		expect(constructedClasses.size).toBe(0);
+		expect(
+			usesByFile.get(project.getSourceFileOrThrow("app.module.ts"))
+		).toEqual(new Set(["ConfigService", "CacheService", "QueueService"]));
+	});
+
+	it("reads inject on an options object that has no provide key", () => {
+		const { usedClasses } = collect({
+			"config.service.ts": "export class ConfigService {}",
+			"app.module.ts": `
+        import { ConfigService } from './config.service';
+        export const options = { useFactory: (c: ConfigService) => ({ url: c }), inject: [ConfigService] };
+      `,
+		});
+
+		expect([...usedClasses].map((cls) => cls.getName())).toEqual([
+			"ConfigService",
+		]);
+	});
+
+	it("treats a useExisting target as used, not registered", () => {
+		const { usedClasses, constructedClasses, implementationNames } = collect({
+			"app.service.ts": "export class AppService {}",
+			"app.module.ts": `
+        import { AppService } from './app.service';
+        export const provider = { provide: 'ALIAS', useExisting: AppService };
+      `,
+		});
+
+		expect([...usedClasses].map((cls) => cls.getName())).toEqual([
+			"AppService",
+		]);
+		expect(constructedClasses.size).toBe(0);
+		expect(implementationNames.size).toBe(0);
 	});
 
 	it("ignores classes a useClass helper merely calls or reads", () => {

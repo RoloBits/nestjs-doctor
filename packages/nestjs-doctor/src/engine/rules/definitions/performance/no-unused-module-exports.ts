@@ -77,8 +77,8 @@ export const noUnusedModuleExports: ProjectRule = {
 			}
 		}
 
-		// Custom-provider targets per production file, walked once.
-		const { targetsByFile } = collectCustomProviderClasses(
+		// Custom-provider uses per production file, walked once.
+		const { usesByFile } = collectCustomProviderClasses(
 			context.project,
 			context.files.filter((filePath) => !isTestFile(filePath))
 		);
@@ -105,15 +105,15 @@ export const noUnusedModuleExports: ProjectRule = {
 					}
 				}
 
-				// The target of an object-literal provider (`{ provide, useClass }`),
-				// by text or resolved name, counts as used, and so does what it injects.
+				// A custom provider's target, alias or `inject` entry, by text or
+				// resolved name, counts as used, and so does what the target injects.
 				for (const filePath of consumer.filePaths ?? [consumer.filePath]) {
 					const sourceFile = context.project.getSourceFile(filePath);
-					const targets = sourceFile && targetsByFile.get(sourceFile);
-					if (!targets) {
+					const uses = sourceFile && usesByFile.get(sourceFile);
+					if (!uses) {
 						continue;
 					}
-					for (const implName of targets) {
+					for (const implName of uses) {
 						usedProviders.add(implName);
 						const implClass = classesByName.get(implName);
 						if (implClass) {

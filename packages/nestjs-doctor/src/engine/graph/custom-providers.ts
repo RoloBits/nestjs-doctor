@@ -7,8 +7,10 @@ import {
 	SyntaxKind,
 } from "ts-morph";
 
-/** Keys whose value names a class. */
-const CLASS_REFERENCE_KEYS = ["provide", "useClass", "useExisting"];
+/** Keys whose value registers a class: the token, and the class built for it. */
+const REGISTRATION_KEYS = ["provide", "useClass"];
+/** Keys whose value names classes that must be provided elsewhere. */
+const USE_KEYS = ["useExisting", "inject"];
 /** Keys whose value is an instance; only `new X()` counts. */
 const INSTANCE_KEYS = ["useFactory", "useValue"];
 
@@ -137,8 +139,8 @@ function possibleValuesOf(node: Node): Node[] {
 }
 
 /**
- * Adds every class a `provide`, `useClass` or `useExisting` value can
- * evaluate to, following `possibleValuesOf` until a class is reached.
+ * Adds every class a `provide`, `useClass`, `useExisting` or `inject` value
+ * can evaluate to, following `possibleValuesOf` until a class is reached.
  *
  * @example
  * // function providerFactory() { return AppService; }
@@ -216,18 +218,21 @@ function providerValue(
 }
 
 /**
- * Classes registered by the object-literal providers found in `files`.
- * `constructedClasses` holds resolved classes declared in `files`; a class
- * declared elsewhere, and the raw `useClass`/`useExisting` text, go by name.
- * `targetsByFile` lists each file's own `useClass`/`useExisting` targets.
+ * Classes registered and used by the object-literal providers in `files`.
+ * `constructedClasses` holds registered classes declared in `files`; one
+ * declared elsewhere, and the raw `useClass` text, go into
+ * `implementationNames`. `usedClasses` holds `useExisting` and `inject`
+ * classes, and `usesByFile` each file's target and injected names.
  *
  * @example
- * // app.module.ts: { provide: 'MAILER', useClass: pickMailer() }
+ * // app.module.ts: { provide: 'MAILER', useClass: pickMailer() },
+ * //                { provide: 'URL', useFactory: (c) => c.url, inject: [ConfigService] }
  * // pick.ts:       export function pickMailer() { return SmtpMailer; }
- * // with files = ['app.module.ts', 'pick.ts', 'smtp.mailer.ts']:
+ * // with files = ['app.module.ts', 'pick.ts', 'smtp.mailer.ts', 'config.service.ts']:
  * //   constructedClasses = { SmtpMailer declaration }
  * //   implementationNames = { 'pickMailer()' }
- * //   targetsByFile.get(app.module.ts) = { 'pickMailer()', 'SmtpMailer' }
+ * //   usedClasses = { ConfigService declaration }
+ * //   usesByFile.get(app.module.ts) = { 'pickMailer()', 'SmtpMailer', 'ConfigService' }
  */
 export function collectCustomProviderClasses(
 	project: Project,
@@ -235,7 +240,8 @@ export function collectCustomProviderClasses(
 ): {
 	implementationNames: Set<string>;
 	constructedClasses: Set<ClassDeclaration>;
-	targetsByFile: Map<SourceFile, Set<string>>;
+	usedClasses: Set<ClassDeclaration>;
+	usesByFile: Map<SourceFile, Set<string>>;
 } {
 	const scannedFiles = new Set<SourceFile>();
 	for (const filePath of files) {
@@ -245,20 +251,39 @@ export function collectCustomProviderClasses(
 		}
 	}
 	const implementationNames = new Set<string>();
-	const resolvedClasses = new Set<ClassDeclaration>();
-	const targetsByFile = new Map<SourceFile, Set<string>>();
+	const registeredClasses = new Set<ClassDeclaration>();
+	const usedClasses = new Set<ClassDeclaration>();
+	const usesByFile = new Map<SourceFile, Set<string>>();
 	const visitedForInstances = new Set<Node>();
 
 	for (const sourceFile of scannedFiles) {
-		const targets = new Set<string>();
-		targetsByFile.set(sourceFile, targets);
+		const uses = new Set<string>();
+		usesByFile.set(sourceFile, uses);
 		for (const obj of sourceFile.getDescendantsOfKind(
 			SyntaxKind.ObjectLiteralExpression
 		)) {
+			for (const key of USE_KEYS) {
+				const value = providerValue(obj, key);
+				if (!value) {
+					continue;
+				}
+				if (key === "useExisting") {
+					uses.add(value.getText());
+				}
+				const references = new Set<ClassDeclaration>();
+				collectClassReferences(value, references, new Set());
+				for (const cls of references) {
+					usedClasses.add(cls);
+					const name = cls.getName();
+					if (name) {
+						uses.add(name);
+					}
+				}
+			}
 			if (!obj.getProperty("provide")) {
 				continue;
 			}
-			for (const key of CLASS_REFERENCE_KEYS) {
+			for (const key of REGISTRATION_KEYS) {
 				const value = providerValue(obj, key);
 				if (!value) {
 					continue;
@@ -266,17 +291,17 @@ export function collectCustomProviderClasses(
 				const references = new Set<ClassDeclaration>();
 				collectClassReferences(value, references, new Set());
 				for (const cls of references) {
-					resolvedClasses.add(cls);
+					registeredClasses.add(cls);
 				}
 				if (key === "provide") {
 					continue;
 				}
 				implementationNames.add(value.getText());
-				targets.add(value.getText());
+				uses.add(value.getText());
 				for (const cls of references) {
 					const name = cls.getName();
 					if (name) {
-						targets.add(name);
+						uses.add(name);
 					}
 				}
 			}
@@ -285,7 +310,7 @@ export function collectCustomProviderClasses(
 				if (value) {
 					collectConstructedClasses(
 						value,
-						resolvedClasses,
+						registeredClasses,
 						visitedForInstances
 					);
 				}
@@ -294,7 +319,7 @@ export function collectCustomProviderClasses(
 	}
 
 	const constructedClasses = new Set<ClassDeclaration>();
-	for (const cls of resolvedClasses) {
+	for (const cls of registeredClasses) {
 		if (scannedFiles.has(cls.getSourceFile())) {
 			constructedClasses.add(cls);
 		} else {
@@ -305,7 +330,7 @@ export function collectCustomProviderClasses(
 		}
 	}
 
-	return { implementationNames, constructedClasses, targetsByFile };
+	return { implementationNames, constructedClasses, usedClasses, usesByFile };
 }
 
 /** Names appearing in an `extends` clause — a base class is used by its subclasses. */

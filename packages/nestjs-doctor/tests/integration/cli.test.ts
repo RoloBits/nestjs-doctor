@@ -1335,6 +1335,15 @@ describe("scanner integration", () => {
 			expect(registrationDiags).toHaveLength(0);
 		});
 
+		it("counts a factory inject entry as an injection", () => {
+			const injected = diags.filter(
+				(d) =>
+					d.rule === "performance/no-unused-providers" &&
+					d.message.includes("'ConfigService'")
+			);
+			expect(injected).toHaveLength(0);
+		});
+
 		it("still reports a class a useClass helper merely calls", () => {
 			const unregistered = diags.filter(
 				(d) =>

@@ -447,6 +447,42 @@ describe("no-circular-module-deps", () => {
 });
 
 describe("no-unused-providers", () => {
+	it("counts a factory inject entry and a useExisting alias as injections", () => {
+		const diags = runProjectRule(noUnusedProviders, {
+			"config.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class ConfigService {}
+      `,
+			"app.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class AppService {}
+      `,
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { AppService } from './app.service';
+        import { ConfigService } from './config.service';
+        @Module({
+          providers: [
+            ConfigService,
+            AppService,
+            { provide: 'URL', useFactory: (c: ConfigService) => c, inject: [ConfigService] },
+            { provide: 'ALIAS', useExisting: AppService },
+          ],
+        })
+        export class AppModule {}
+      `,
+		});
+		expect(
+			diags.filter(
+				(d) =>
+					d.message.includes("'ConfigService'") ||
+					d.message.includes("'AppService'")
+			)
+		).toHaveLength(0);
+	});
+
 	const selfActivating: [string, string][] = [
 		["OnModuleInit", "OnModuleInit"],
 		["OnApplicationBootstrap", "OnApplicationBootstrap"],
@@ -1018,6 +1054,39 @@ describe("project rules on a detached graph", () => {
 });
 
 describe("injectable-must-be-provided", () => {
+	it("still flags a class that only appears in inject or useExisting", () => {
+		const diags = runProjectRule(injectableMustBeProvided, {
+			"config.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class ConfigService {}
+      `,
+			"app.service.ts": `
+        import { Injectable } from '@nestjs/common';
+        @Injectable()
+        export class AppService {}
+      `,
+			"app.module.ts": `
+        import { Module } from '@nestjs/common';
+        import { AppService } from './app.service';
+        import { ConfigService } from './config.service';
+        @Module({
+          providers: [
+            { provide: 'URL', useFactory: (c: ConfigService) => c, inject: [ConfigService] },
+            { provide: 'ALIAS', useExisting: AppService },
+          ],
+        })
+        export class AppModule {}
+      `,
+		});
+		expect(
+			diags.filter((d) => d.message.includes("'AppService'"))
+		).toHaveLength(1);
+		expect(
+			diags.filter((d) => d.message.includes("'ConfigService'"))
+		).toHaveLength(1);
+	});
+
 	it("does not flag a base class that subclasses extend", () => {
 		const diags = runProjectRule(injectableMustBeProvided, {
 			"app.module.ts": `
@@ -1198,12 +1267,12 @@ describe("injectable-must-be-provided", () => {
 	});
 
 	it("follows a function call used as useExisting", () => {
-		const diags = runProjectRule(injectableMustBeProvided, {
+		const diags = runProjectRule(noUnusedProviders, {
 			"app.module.ts": `
         import { Module } from '@nestjs/common';
         import { AppService } from './app.service';
         function pick() { return AppService }
-        @Module({ providers: [{ provide: 'ALIAS', useExisting: pick() }] })
+        @Module({ providers: [AppService, { provide: 'ALIAS', useExisting: pick() }] })
         export class AppModule {}
       `,
 			"app.service.ts": appService,
