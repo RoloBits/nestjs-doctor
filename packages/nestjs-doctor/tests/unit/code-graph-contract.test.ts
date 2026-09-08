@@ -74,12 +74,11 @@ function sequence(id: NodeId): { order: number; what: string }[] {
 	return items.sort((a, b) => a.order - b.order);
 }
 
-/**
- * The conditions enclosing a call, outermost first. Reads the one condition the
- * graph records today; the branch table of work step 1 replaces this body.
- */
+/** The conditions enclosing a call, outermost first. */
 function conditionsAround(edge: CallEdge): string[] {
-	return edge.conditionText ? [edge.conditionText] : [];
+	return edge.conditionPath.map(
+		(frame) => frame.conditionText ?? frame.branchKind
+	);
 }
 
 /** Every way control leaves a method: a throw, a return, a guard clause. */
@@ -145,12 +144,15 @@ describe("code graph contract", () => {
 	});
 
 	describe("4. which conditions is a step nested inside", () => {
-		it.fails("keeps every enclosing condition, outermost first", () => {
-			// Work step 1: collect the whole path instead of the innermost only.
+		it("keeps every enclosing condition, outermost first", () => {
 			expect(conditionsAround(edgeTo(PLACE, REPO_SAVE, 34))).toEqual([
 				"retry",
 				"id === 'x'",
 			]);
+		});
+
+		it("leaves the path empty for an unconditional call", () => {
+			expect(conditionsAround(edgeTo(PLACE, REPO_FIND, 28))).toEqual([]);
 		});
 	});
 

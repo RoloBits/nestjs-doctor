@@ -18,6 +18,26 @@ export interface StepStatement {
 	text: string;
 }
 
+/** The control-flow construct an arm of a branch belongs to. */
+export type BranchKind =
+	| "if"
+	| "else-if"
+	| "else"
+	| "case"
+	| "default"
+	| "catch"
+	| "ternary-true"
+	| "ternary-false";
+
+/** One construct a call or statement sits inside. */
+export interface ConditionFrame {
+	branchKind: BranchKind;
+	/** Null for a `default` or `catch` arm, which has no expression. */
+	conditionText: string | null;
+	/** Line of the statement opening the construct, shared by all of its arms. */
+	statementLine: number;
+}
+
 /**
  * Merged guard-throw info attached to a call node when the return value
  * is immediately null-checked and throws an exception.

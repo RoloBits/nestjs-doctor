@@ -1,4 +1,5 @@
 import type {
+	ConditionFrame,
 	GuardThrow,
 	MethodParameterInfo,
 	StepStatement,
@@ -36,6 +37,8 @@ interface BodyItemBase {
 	branchKind: string | null;
 	comment: string | null;
 	conditional: boolean;
+	/** Every enclosing construct, outermost first. Empty when unconditional. */
+	conditionPath: ConditionFrame[];
 	conditionText: string | null;
 	iterationKind: "loop" | "callback" | "concurrent" | null;
 	iterationLabel: string | null;
@@ -83,6 +86,8 @@ export interface CallEdge {
 	branchKind: string | null;
 	comment: string | null;
 	conditional: boolean;
+	/** Every enclosing construct, outermost first. Empty when unconditional. */
+	conditionPath: ConditionFrame[];
 	conditionText: string | null;
 	from: NodeId;
 	guardThrow: GuardThrow | null;

@@ -16,7 +16,11 @@ import type {
 	UnresolvedReason,
 } from "../../common/code-graph.js";
 import { nodeId } from "../../common/code-graph.js";
-import type { EndpointNode, GuardThrow } from "../../common/endpoint.js";
+import type {
+	ConditionFrame,
+	EndpointNode,
+	GuardThrow,
+} from "../../common/endpoint.js";
 import {
 	declaresRoutes,
 	getClassType,
@@ -87,6 +91,7 @@ interface CallSiteFacts {
 	callSiteLine: number;
 	comment: string | null;
 	conditional: boolean;
+	conditionPath: ConditionFrame[];
 	conditionText: string | null;
 	guardThrow?: GuardThrow | null;
 	iterationKind: "loop" | "callback" | "concurrent" | null;
@@ -343,6 +348,7 @@ class GraphBuilder {
 			branchKind: facts.branchKind,
 			comment: facts.comment,
 			conditional: facts.conditional,
+			conditionPath: facts.conditionPath,
 			conditionText: facts.conditionText,
 			from,
 			guardThrow: facts.guardThrow ?? null,
@@ -388,6 +394,7 @@ function bodyItems(scan: ReturnType<typeof scanUsedDependencies>): BodyItem[] {
 			branchKind: thrown.branchKind,
 			comment: thrown.comment,
 			conditional: thrown.conditional,
+			conditionPath: thrown.conditionPath,
 			conditionText: thrown.conditionText,
 			exceptionClass: thrown.exceptionClassName,
 			iterationKind: thrown.iterationKind,
@@ -404,6 +411,7 @@ function bodyItems(scan: ReturnType<typeof scanUsedDependencies>): BodyItem[] {
 			branchKind: step.branchKind,
 			comment: step.comment,
 			conditional: step.conditional,
+			conditionPath: step.conditionPath,
 			conditionText: step.conditionText,
 			iterationKind: step.iterationKind,
 			iterationLabel: step.iterationLabel,

@@ -11,6 +11,8 @@ import type {
 	ApiBodyInfo,
 	ApiParamInfo,
 	ApiResponseInfo,
+	BranchKind,
+	ConditionFrame,
 	DependencyType,
 	EndpointGraph,
 	EndpointNode,
@@ -63,16 +65,9 @@ interface IterationInfo {
 }
 
 interface ConditionalInfo {
-	branchKind:
-		| "if"
-		| "else-if"
-		| "else"
-		| "case"
-		| "default"
-		| "catch"
-		| "ternary-true"
-		| "ternary-false"
-		| null;
+	branchKind: BranchKind | null;
+	/** Every enclosing construct, outermost first. Empty when unconditional. */
+	conditionPath: ConditionFrame[];
 	conditionText: string | null;
 	isConditional: boolean;
 	statementLine: number | null;
@@ -85,6 +80,7 @@ interface OrderedMethodUsage {
 	callSiteLine: number;
 	comment: string | null;
 	conditional: boolean;
+	conditionPath: ConditionFrame[];
 	conditionText: string | null;
 	guardThrow: GuardThrow | null;
 	iterationKind: "loop" | "callback" | "concurrent" | null;
@@ -106,6 +102,7 @@ interface SameClassCallUsage {
 	childResult: ScanResult;
 	comment: string | null;
 	conditional: boolean;
+	conditionPath: ConditionFrame[];
 	conditionText: string | null;
 	iterationKind: "loop" | "callback" | "concurrent" | null;
 	iterationLabel: string | null;
@@ -119,6 +116,7 @@ interface ThrowUsage {
 	callSiteLine: number;
 	comment: string | null;
 	conditional: boolean;
+	conditionPath: ConditionFrame[];
 	conditionText: string | null;
 	exceptionClassName: string;
 	iterationKind: "loop" | "callback" | "concurrent" | null;
@@ -134,6 +132,7 @@ interface StepUsage {
 	callSiteLine: number;
 	comment: string | null;
 	conditional: boolean;
+	conditionPath: ConditionFrame[];
 	conditionText: string | null;
 	iterationKind: "loop" | "callback" | "concurrent" | null;
 	iterationLabel: string | null;
@@ -149,6 +148,7 @@ interface MemberCallUsage {
 	callSiteLine: number;
 	comment: string | null;
 	conditional: boolean;
+	conditionPath: ConditionFrame[];
 	conditionText: string | null;
 	guardThrow: GuardThrow | null;
 	iterationKind: "loop" | "callback" | "concurrent" | null;
@@ -219,118 +219,108 @@ function normalizeConditionText(text: string): string {
 	return collapsed;
 }
 
-function getConditionalInfo(node: Node, boundary: Node): ConditionalInfo {
-	const none: ConditionalInfo = {
-		isConditional: false,
-		conditionText: null,
-		branchKind: null,
-		statementLine: null,
-	};
+/** The construct `current` sits directly inside, if `parent` opens one. */
+function frameFor(current: Node, parent: Node): ConditionFrame | undefined {
+	const ifStmt = parent.asKind(SyntaxKind.IfStatement);
+	if (ifStmt) {
+		const conditionText = normalizeConditionText(
+			ifStmt.getExpression().getText()
+		);
+		if (current === ifStmt.getThenStatement()) {
+			const outer = parent.getParent()?.asKind(SyntaxKind.IfStatement);
+			const chained = outer?.getElseStatement() === parent;
+			return {
+				branchKind: chained ? "else-if" : "if",
+				conditionText,
+				statementLine: (chained && outer ? outer : ifStmt).getStartLineNumber(),
+			};
+		}
+		if (current === ifStmt.getElseStatement()) {
+			// A chained `else if` already produced its own frame.
+			return current.isKind(SyntaxKind.IfStatement)
+				? undefined
+				: {
+						branchKind: "else",
+						conditionText,
+						statementLine: ifStmt.getStartLineNumber(),
+					};
+		}
+	}
 
+	const condExpr = parent.asKind(SyntaxKind.ConditionalExpression);
+	if (condExpr) {
+		const conditionText = normalizeConditionText(
+			condExpr.getCondition().getText()
+		);
+		const statementLine = condExpr.getStartLineNumber();
+		if (current === condExpr.getWhenTrue()) {
+			return { branchKind: "ternary-true", conditionText, statementLine };
+		}
+		if (current === condExpr.getWhenFalse()) {
+			return { branchKind: "ternary-false", conditionText, statementLine };
+		}
+	}
+
+	const caseClause = current.asKind(SyntaxKind.CaseClause);
+	if (caseClause) {
+		return {
+			branchKind: "case",
+			conditionText: normalizeConditionText(
+				caseClause.getExpression().getText()
+			),
+			statementLine: current
+				.getParentOrThrow()
+				.getParentOrThrow()
+				.getStartLineNumber(),
+		};
+	}
+	if (current.isKind(SyntaxKind.DefaultClause)) {
+		return {
+			branchKind: "default",
+			conditionText: null,
+			statementLine: current
+				.getParentOrThrow()
+				.getParentOrThrow()
+				.getStartLineNumber(),
+		};
+	}
+	if (current.isKind(SyntaxKind.CatchClause)) {
+		return {
+			branchKind: "catch",
+			conditionText: null,
+			statementLine: current.getParentOrThrow().getStartLineNumber(),
+		};
+	}
+	return undefined;
+}
+
+/**
+ * Every construct enclosing `node` up to `boundary`, outermost first, with the
+ * innermost one repeated in the flat fields.
+ */
+function getConditionalInfo(node: Node, boundary: Node): ConditionalInfo {
+	const frames: ConditionFrame[] = [];
 	let current: Node | undefined = node;
 	while (current && current !== boundary) {
 		const parent = current.getParent();
 		if (!parent || parent === boundary) {
 			break;
 		}
-		const parentKind = parent.getKind();
-
-		if (parentKind === SyntaxKind.IfStatement) {
-			const ifStmt = parent.asKindOrThrow(SyntaxKind.IfStatement);
-			if (current === ifStmt.getThenStatement()) {
-				// Check if this IfStatement is an else-if: is it the ElseStatement of a parent IfStatement?
-				const grandparent = parent.getParent();
-				if (grandparent && grandparent.getKind() === SyntaxKind.IfStatement) {
-					const outerIf = grandparent.asKindOrThrow(SyntaxKind.IfStatement);
-					if (parent === outerIf.getElseStatement()) {
-						return {
-							isConditional: true,
-							conditionText: normalizeConditionText(
-								ifStmt.getExpression().getText()
-							),
-							branchKind: "else-if",
-							statementLine: outerIf.getStartLineNumber(),
-						};
-					}
-				}
-				return {
-					isConditional: true,
-					conditionText: normalizeConditionText(
-						ifStmt.getExpression().getText()
-					),
-					branchKind: "if",
-					statementLine: ifStmt.getStartLineNumber(),
-				};
-			}
-			if (current === ifStmt.getElseStatement()) {
-				return {
-					isConditional: true,
-					conditionText: normalizeConditionText(
-						ifStmt.getExpression().getText()
-					),
-					branchKind: "else",
-					statementLine: ifStmt.getStartLineNumber(),
-				};
-			}
+		const frame = frameFor(current, parent);
+		if (frame) {
+			frames.push(frame);
 		}
-
-		if (parentKind === SyntaxKind.ConditionalExpression) {
-			const condExpr = parent.asKindOrThrow(SyntaxKind.ConditionalExpression);
-			if (current === condExpr.getWhenTrue()) {
-				return {
-					isConditional: true,
-					conditionText: normalizeConditionText(
-						condExpr.getCondition().getText()
-					),
-					branchKind: "ternary-true",
-					statementLine: condExpr.getStartLineNumber(),
-				};
-			}
-			if (current === condExpr.getWhenFalse()) {
-				return {
-					isConditional: true,
-					conditionText: normalizeConditionText(
-						condExpr.getCondition().getText()
-					),
-					branchKind: "ternary-false",
-					statementLine: condExpr.getStartLineNumber(),
-				};
-			}
-		}
-
-		const kind = current.getKind();
-		if (kind === SyntaxKind.CaseClause) {
-			const clause = current.asKindOrThrow(SyntaxKind.CaseClause);
-			const parentSwitch = current.getParentOrThrow().getParentOrThrow();
-			return {
-				isConditional: true,
-				conditionText: normalizeConditionText(clause.getExpression().getText()),
-				branchKind: "case",
-				statementLine: parentSwitch.getStartLineNumber(),
-			};
-		}
-		if (kind === SyntaxKind.DefaultClause) {
-			const parentSwitch = current.getParentOrThrow().getParentOrThrow();
-			return {
-				isConditional: true,
-				conditionText: null,
-				branchKind: "default",
-				statementLine: parentSwitch.getStartLineNumber(),
-			};
-		}
-		if (kind === SyntaxKind.CatchClause) {
-			const parentTry = current.getParentOrThrow();
-			return {
-				isConditional: true,
-				conditionText: null,
-				branchKind: "catch",
-				statementLine: parentTry.getStartLineNumber(),
-			};
-		}
-
 		current = parent;
 	}
-	return none;
+	const innermost = frames[0];
+	frames.reverse();
+	return {
+		branchKind: innermost?.branchKind ?? null,
+		conditionPath: frames,
+		conditionText: innermost?.conditionText ?? null,
+		isConditional: frames.length > 0,
+		statementLine: innermost?.statementLine ?? null,
+	};
 }
 
 const LOOP_LABEL_MAP = new Map<SyntaxKind, string>([
@@ -1172,6 +1162,7 @@ export function scanUsedDependencies(
 				callSiteLine: item.node.getStartLineNumber(),
 				comment: extractLeadingComment(item.node),
 				conditional: condInfo.isConditional,
+				conditionPath: condInfo.conditionPath,
 				conditionText: condInfo.conditionText,
 				exceptionClassName: extractThrowClassName(item.node),
 				iterationKind: iterInfo.iterationKind,
@@ -1237,6 +1228,7 @@ export function scanUsedDependencies(
 					callSiteLine: call.getStartLineNumber(),
 					comment: extractLeadingComment(call),
 					conditional: condInfo.isConditional,
+					conditionPath: condInfo.conditionPath,
 					conditionText: condInfo.conditionText,
 					guardThrow: null,
 					iterationKind: iterInfo.iterationKind,
@@ -1301,6 +1293,7 @@ export function scanUsedDependencies(
 					childResult,
 					comment: extractLeadingComment(call),
 					conditional: condInfo.isConditional,
+					conditionPath: condInfo.conditionPath,
 					conditionText: condInfo.conditionText,
 					iterationKind: iterInfo.iterationKind,
 					iterationLabel: iterInfo.iterationLabel,
@@ -1370,6 +1363,7 @@ export function scanUsedDependencies(
 					: null,
 				branchKind: condInfo.branchKind,
 				callSiteLine: firstStmt.getStartLineNumber(),
+				conditionPath: condInfo.conditionPath,
 				comment: extractLeadingComment(firstStmt),
 				conditional: condInfo.isConditional,
 				conditionText: condInfo.conditionText,
@@ -1462,6 +1456,7 @@ export function scanUsedDependencies(
 			callSiteLine: entry.callSiteLine,
 			comment: entry.comment,
 			conditional: isConditional,
+			conditionPath: entry.condInfo.conditionPath,
 			conditionText: isConditional ? entry.condInfo.conditionText : null,
 			guardThrow: entry.guardThrow,
 			iterationKind: entry.iterInfo.iterationKind,
@@ -1710,6 +1705,7 @@ function buildMethodDependencyTree(
 				callSiteLine: number;
 				comment: string | null;
 				conditional: boolean;
+				conditionPath: ConditionFrame[];
 				branchKind: string | null;
 				conditionText: string | null;
 				branchGroupId: string | null;
@@ -1779,6 +1775,7 @@ function buildMethodDependencyTree(
 							callSiteLine: sub.m.callSiteLine,
 							comment: sub.m.comment,
 							conditional: sub.m.conditional,
+							conditionPath: sub.m.conditionPath,
 							branchKind: sub.m.conditional ? sub.m.branchKind : null,
 							conditionText: sub.m.conditional ? sub.m.conditionText : null,
 							branchGroupId: sub.m.conditional ? sub.m.branchGroupId : null,
@@ -1809,6 +1806,7 @@ function buildMethodDependencyTree(
 					callSiteLine: entry.callSiteLine,
 					comment: entry.comment,
 					conditional: entry.conditional,
+					conditionPath: entry.conditionPath,
 					conditionText: entry.conditionText,
 					guardThrow: entry.guardThrow,
 					iterationKind: entry.iterationKind,
