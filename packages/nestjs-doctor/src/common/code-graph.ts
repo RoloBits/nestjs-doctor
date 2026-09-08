@@ -58,8 +58,15 @@ interface StepItem extends BodyItemBase {
 	statements: StepStatement[];
 }
 
+/** A `return` of the method itself, early or final. */
+interface ReturnItem extends BodyItemBase {
+	/** The returned expression, null for a bare `return`. */
+	expression: string | null;
+	kind: "return";
+}
+
 /** The ordered parts of a method body that are not calls. */
-export type BodyItem = StepItem | ThrowItem;
+export type BodyItem = ReturnItem | StepItem | ThrowItem;
 
 export interface MethodNode {
 	body: BodyItem[];

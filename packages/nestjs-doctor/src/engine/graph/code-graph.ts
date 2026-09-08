@@ -405,6 +405,22 @@ function bodyItems(scan: ReturnType<typeof scanUsedDependencies>): BodyItem[] {
 			order: thrown.order,
 		});
 	}
+	for (const returned of scan.returns) {
+		items.push({
+			branchGroupId: returned.branchGroupId,
+			branchKind: returned.branchKind,
+			comment: returned.comment,
+			conditional: returned.conditional,
+			conditionPath: returned.conditionPath,
+			conditionText: returned.conditionText,
+			expression: returned.expression,
+			iterationKind: returned.iterationKind,
+			iterationLabel: returned.iterationLabel,
+			kind: "return",
+			line: returned.callSiteLine,
+			order: returned.order,
+		});
+	}
 	for (const step of scan.steps) {
 		items.push({
 			branchGroupId: step.branchGroupId,
@@ -467,7 +483,7 @@ function scanClass(
 			indexed.cls,
 			undefined,
 			cache,
-			{ memberCalls: true, skipChildScan: true }
+			{ memberCalls: true, returns: true, skipChildScan: true }
 		);
 		builder.setBody(from, bodyItems(scan));
 

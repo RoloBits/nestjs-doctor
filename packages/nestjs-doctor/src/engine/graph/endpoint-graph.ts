@@ -140,6 +140,22 @@ interface StepUsage {
 	statements: StepStatement[];
 }
 
+/** A `return` belonging to the scanned method itself. */
+interface ReturnUsage {
+	branchGroupId: string | null;
+	branchKind: string | null;
+	callSiteLine: number;
+	comment: string | null;
+	conditional: boolean;
+	conditionPath: ConditionFrame[];
+	conditionText: string | null;
+	/** The returned expression, null for a bare `return`. */
+	expression: string | null;
+	iterationKind: "loop" | "callback" | "concurrent" | null;
+	iterationLabel: string | null;
+	order: number;
+}
+
 /** A `this.<injected>.<member>.<method>()` call site. */
 interface MemberCallUsage {
 	assignedTo: string | null;
@@ -162,6 +178,11 @@ interface MemberCallUsage {
 export interface ScanOptions {
 	/** Collect two-level receivers into `memberCalls` instead of dropping them. */
 	memberCalls?: boolean;
+	/**
+	 * Collect the method's own `return` statements into `returns`. They take
+	 * order numbers, so the endpoint tree leaves this off.
+	 */
+	returns?: boolean;
 	/** Leave `sameClassCalls[].childResult` empty instead of recursing into it. */
 	skipChildScan?: boolean;
 }
@@ -169,6 +190,7 @@ export interface ScanOptions {
 export interface ScanResult {
 	deps: UsedDependency[];
 	memberCalls: MemberCallUsage[];
+	returns: ReturnUsage[];
 	sameClassCalls: SameClassCallUsage[];
 	steps: StepUsage[];
 	throws: ThrowUsage[];
@@ -209,9 +231,25 @@ export class ScanCache {
 	}
 }
 
+const EXIT_OWNER_KINDS = new Set([
+	SyntaxKind.ArrowFunction,
+	SyntaxKind.FunctionDeclaration,
+	SyntaxKind.FunctionExpression,
+	SyntaxKind.MethodDeclaration,
+]);
+
+/** True when the statement leaves `method` itself, not a function nested in it. */
+function ownsExit(statement: Node, method: Node): boolean {
+	return (
+		statement.getFirstAncestor((ancestor) =>
+			EXIT_OWNER_KINDS.has(ancestor.getKind())
+		) === method
+	);
+}
+
 const MAX_CONDITION_TEXT_LENGTH = 50;
 
-function normalizeConditionText(text: string): string {
+function normalizeSnippet(text: string): string {
 	const collapsed = text.replace(/\s+/g, " ").trim();
 	if (collapsed.length > MAX_CONDITION_TEXT_LENGTH) {
 		return `${collapsed.slice(0, MAX_CONDITION_TEXT_LENGTH)}\u2026`;
@@ -223,9 +261,7 @@ function normalizeConditionText(text: string): string {
 function frameFor(current: Node, parent: Node): ConditionFrame | undefined {
 	const ifStmt = parent.asKind(SyntaxKind.IfStatement);
 	if (ifStmt) {
-		const conditionText = normalizeConditionText(
-			ifStmt.getExpression().getText()
-		);
+		const conditionText = normalizeSnippet(ifStmt.getExpression().getText());
 		if (current === ifStmt.getThenStatement()) {
 			const outer = parent.getParent()?.asKind(SyntaxKind.IfStatement);
 			const chained = outer?.getElseStatement() === parent;
@@ -249,9 +285,7 @@ function frameFor(current: Node, parent: Node): ConditionFrame | undefined {
 
 	const condExpr = parent.asKind(SyntaxKind.ConditionalExpression);
 	if (condExpr) {
-		const conditionText = normalizeConditionText(
-			condExpr.getCondition().getText()
-		);
+		const conditionText = normalizeSnippet(condExpr.getCondition().getText());
 		const statementLine = condExpr.getStartLineNumber();
 		if (current === condExpr.getWhenTrue()) {
 			return { branchKind: "ternary-true", conditionText, statementLine };
@@ -265,9 +299,7 @@ function frameFor(current: Node, parent: Node): ConditionFrame | undefined {
 	if (caseClause) {
 		return {
 			branchKind: "case",
-			conditionText: normalizeConditionText(
-				caseClause.getExpression().getText()
-			),
+			conditionText: normalizeSnippet(caseClause.getExpression().getText()),
 			statementLine: current
 				.getParentOrThrow()
 				.getParentOrThrow()
@@ -1086,6 +1118,7 @@ export function scanUsedDependencies(
 	const empty: ScanResult = {
 		deps: [],
 		memberCalls: [],
+		returns: [],
 		sameClassCalls: [],
 		steps: [],
 		throws: [],
@@ -1122,6 +1155,7 @@ export function scanUsedDependencies(
 
 	const sameClassCalls: SameClassCallUsage[] = [];
 	const memberCalls: MemberCallUsage[] = [];
+	const returns: ReturnUsage[] = [];
 	const throws: ThrowUsage[] = [];
 
 	// Flat array: each dependency call gets its own entry (no dedup by method name)
@@ -1139,18 +1173,46 @@ export function scanUsedDependencies(
 	let callOrder = 0;
 	const callExpressions = body.getDescendantsOfKind(SyntaxKind.CallExpression);
 	const throwStatements = body.getDescendantsOfKind(SyntaxKind.ThrowStatement);
+	const returnStatements = options?.returns
+		? body
+				.getDescendantsOfKind(SyntaxKind.ReturnStatement)
+				.filter((statement) => ownsExit(statement, method))
+		: [];
 
 	type WorkItem =
 		| { kind: "call"; node: (typeof callExpressions)[number] }
+		| { kind: "return"; node: (typeof returnStatements)[number] }
 		| { kind: "throw"; node: (typeof throwStatements)[number] };
 
 	const workItems: WorkItem[] = [
 		...callExpressions.map((node) => ({ kind: "call" as const, node })),
+		...returnStatements.map((node) => ({ kind: "return" as const, node })),
 		...throwStatements.map((node) => ({ kind: "throw" as const, node })),
 	];
 	workItems.sort((a, b) => a.node.getStart() - b.node.getStart());
 
 	for (const item of workItems) {
+		if (item.kind === "return") {
+			const condInfo = getConditionalInfo(item.node, body);
+			const iterInfo = getIterationContext(item.node, body);
+			const expression = item.node.getExpression();
+			returns.push({
+				branchGroupId: condInfo.statementLine
+					? `L${condInfo.statementLine}`
+					: null,
+				branchKind: condInfo.branchKind,
+				callSiteLine: item.node.getStartLineNumber(),
+				comment: extractLeadingComment(item.node),
+				conditional: condInfo.isConditional,
+				conditionPath: condInfo.conditionPath,
+				conditionText: condInfo.conditionText,
+				expression: expression ? normalizeSnippet(expression.getText()) : null,
+				iterationKind: iterInfo.iterationKind,
+				iterationLabel: iterInfo.iterationLabel,
+				order: callOrder++,
+			});
+			continue;
+		}
 		if (item.kind === "throw") {
 			const condInfo = getConditionalInfo(item.node, body);
 			const iterInfo = getIterationContext(item.node, body);
@@ -1329,6 +1391,9 @@ export function scanUsedDependencies(
 				}
 			}
 		}
+		for (const statement of returnStatements) {
+			trackedPositions.add(statement.getStart());
+		}
 		for (const scc of sameClassCalls) {
 			for (const ce of callExpressions) {
 				if (ce.getStartLineNumber() === scc.callSiteLine) {
@@ -1411,6 +1476,7 @@ export function scanUsedDependencies(
 			| { kind: "call"; item: (typeof callEntries)[number] }
 			| { kind: "throw"; item: ThrowUsage }
 			| { kind: "member"; item: MemberCallUsage }
+			| { kind: "return"; item: ReturnUsage }
 			| { kind: "scc"; item: SameClassCallUsage }
 			| { kind: "step"; item: StepUsage };
 
@@ -1420,6 +1486,9 @@ export function scanUsedDependencies(
 		}
 		for (const t of throws) {
 			allItems.push({ kind: "throw", item: t });
+		}
+		for (const r of returns) {
+			allItems.push({ kind: "return", item: r });
 		}
 		for (const s of sameClassCalls) {
 			allItems.push({ kind: "scc", item: s });
@@ -1473,6 +1542,7 @@ export function scanUsedDependencies(
 	const scanResult: ScanResult = {
 		deps: result,
 		memberCalls,
+		returns,
 		sameClassCalls,
 		steps,
 		throws,
@@ -1622,6 +1692,7 @@ function buildMethodDependencyTree(
 				{
 					deps: fallbackChildDeps,
 					memberCalls: [],
+					returns: [],
 					sameClassCalls: [],
 					steps: [],
 					throws: [],
@@ -1825,6 +1896,7 @@ function buildMethodDependencyTree(
 				{
 					deps: childDeps,
 					memberCalls: [],
+					returns: [],
 					sameClassCalls: allSameClassCalls,
 					steps: [],
 					throws: allThrows,

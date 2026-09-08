@@ -83,7 +83,9 @@ function conditionsAround(edge: CallEdge): string[] {
 
 /** Every way control leaves a method: a throw, a return, a guard clause. */
 function exits(id: NodeId): BodyItem[] {
-	return node(id).body.filter((item) => item.kind === "throw");
+	return node(id)
+		.body.filter((item) => item.kind === "throw" || item.kind === "return")
+		.sort((a, b) => a.order - b.order);
 }
 
 /** Whether the call site awaits its callee. No field carries this yet. */
@@ -100,7 +102,7 @@ describe("code graph contract", () => {
 	describe("1. what happens first, second, third", () => {
 		it("puts every call and body item of one method in one dense sequence", () => {
 			expect(sequence(PLACE).map((item) => item.order)).toEqual([
-				0, 1, 2, 3, 4, 5, 6, 7, 8,
+				0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
 			]);
 		});
 
@@ -157,22 +159,32 @@ describe("code graph contract", () => {
 	});
 
 	describe("5. does control leave here", () => {
-		it("records a throw as a body item", () => {
-			const thrown = exits(PLACE);
-			expect(thrown).toHaveLength(1);
-			expect(thrown[0].line).toBe(44);
+		it("records an early return, a throw and the final return in order", () => {
+			expect(exits(PLACE).map((item) => item.line)).toEqual([30, 44, 52]);
+			expect(exits(PLACE).map((item) => item.kind)).toEqual([
+				"return",
+				"throw",
+				"return",
+			]);
 		});
 
-		it.fails("records an early return and the final return", () => {
-			// `return null` at line 30 and `return order` at line 52 produce nothing.
-			// Work step 2: emit a return item per exit.
-			expect(exits(PLACE).map((item) => item.line)).toEqual([30, 44, 52]);
+		it("carries the returned expression, and marks an early return conditional", () => {
+			const early = exits(PLACE)[0];
+			expect(early.kind === "return" && early.expression).toBe("null");
+			expect(early.conditional).toBe(true);
+			expect(exits(PLACE)[2].conditional).toBe(false);
+		});
+
+		it("ignores a return belonging to a nested callback", () => {
+			// `ids.map((id) => this.prisma...)` returns from the arrow, not from `all`.
+			expect(exits(ALL)).toHaveLength(1);
+			expect(exits(ALL)[0].line).toBe(24);
 		});
 	});
 
 	describe("6. where can it fail, and with what exception", () => {
 		it("names the exception class and message of a throw", () => {
-			const thrown = exits(PLACE)[0];
+			const thrown = exits(PLACE)[1];
 			expect(thrown.kind).toBe("throw");
 			expect(thrown.kind === "throw" && thrown.exceptionClass).toBe(
 				"NotFoundException"
@@ -183,7 +195,9 @@ describe("code graph contract", () => {
 		it.fails("keeps a throw that was merged into a guard annotation", () => {
 			// `find` throws NotFoundException, and the merge deletes the body item.
 			// Work step 8: emit both and let a consumer pattern-match them.
-			expect(exits(FIND)).toHaveLength(1);
+			expect(exits(FIND).filter((item) => item.kind === "throw")).toHaveLength(
+				1
+			);
 		});
 	});
 
@@ -368,7 +382,7 @@ describe("code graph contract", () => {
 
 	describe("18. is a call inside a try, and which catch covers it", () => {
 		it("marks the throw inside a catch clause", () => {
-			expect(exits(PLACE)[0].branchKind).toBe("catch");
+			expect(exits(PLACE)[1].branchKind).toBe("catch");
 		});
 
 		it.fails("links a call in a try to the catch that covers it", () => {
