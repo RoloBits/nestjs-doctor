@@ -2,6 +2,7 @@ import type {
 	CallExpression,
 	ClassDeclaration,
 	Decorator,
+	IfStatement,
 	MethodDeclaration,
 	Node,
 	Project,
@@ -281,18 +282,29 @@ function normalizeSnippet(text: string): string {
 	return collapsed;
 }
 
+/** The `if` a chain opens with. Every arm of one chain reports this one. */
+function chainRoot(ifStmt: IfStatement): IfStatement {
+	let root = ifStmt;
+	let above = root.getParent()?.asKind(SyntaxKind.IfStatement);
+	while (above?.getElseStatement() === root) {
+		root = above;
+		above = root.getParent()?.asKind(SyntaxKind.IfStatement);
+	}
+	return root;
+}
+
 /** The construct `current` sits directly inside, if `parent` opens one. */
 function frameFor(current: Node, parent: Node): ConditionFrame | undefined {
 	const ifStmt = parent.asKind(SyntaxKind.IfStatement);
 	if (ifStmt) {
 		const conditionText = normalizeSnippet(ifStmt.getExpression().getText());
+		const root = chainRoot(ifStmt);
+		const chained = root !== ifStmt;
 		if (current === ifStmt.getThenStatement()) {
-			const outer = parent.getParent()?.asKind(SyntaxKind.IfStatement);
-			const chained = outer?.getElseStatement() === parent;
 			return {
 				branchKind: chained ? "else-if" : "if",
 				conditionText,
-				statementLine: (chained && outer ? outer : ifStmt).getStartLineNumber(),
+				statementLine: root.getStartLineNumber(),
 			};
 		}
 		if (current === ifStmt.getElseStatement()) {
@@ -301,8 +313,10 @@ function frameFor(current: Node, parent: Node): ConditionFrame | undefined {
 				? undefined
 				: {
 						branchKind: "else",
-						conditionText,
-						statementLine: ifStmt.getStartLineNumber(),
+						// The tail of a chain fails every test above it, so no one
+						// condition describes it.
+						conditionText: chained ? null : conditionText,
+						statementLine: root.getStartLineNumber(),
 					};
 		}
 	}

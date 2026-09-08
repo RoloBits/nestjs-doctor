@@ -125,22 +125,34 @@ describe("code graph contract", () => {
 	});
 
 	describe("3. which steps are mutually exclusive arms of one decision", () => {
-		it.fails("gives the three arms of one if chain one group", () => {
-			// The chain opens at line 32. Today the arms report L33, L32 and L36.
-			// Work step 7: walk to the outermost if of the chain.
+		it("gives every arm of one if chain the same group", () => {
+			// The chain opens at line 32. The save at 34 sits a level deeper, inside
+			// its own if, so its own arm is the outermost frame of its path.
 			const arms = [
 				edgeTo(PLACE, REPO_SAVE, 34),
 				edgeTo(PLACE, SEND, 37),
 				edgeTo(PLACE, REPO_FIND, 39),
 			];
-			expect(new Set(arms.map((edge) => edge.branchGroupId)).size).toBe(1);
+			expect(arms.map((edge) => edge.conditionPath[0].statementLine)).toEqual([
+				32, 32, 32,
+			]);
+			expect(arms.map((edge) => edge.conditionPath[0].branchKind)).toEqual([
+				"if",
+				"else-if",
+				"else",
+			]);
 		});
 
-		it.fails("does not label an else arm with the condition that skips it", () => {
-			// The else runs when `id === 'y'` is false, and reports it as the reason.
+		it("gives a nested decision its own group", () => {
+			expect(edgeTo(PLACE, REPO_SAVE, 34).branchGroupId).toBe("L33");
+		});
+
+		it("does not label an else arm with a condition that skips it", () => {
+			// The else runs when both `retry` and `id === 'y'` are false, so no one
+			// condition describes it.
 			const otherwise = edgeTo(PLACE, REPO_FIND, 39);
 			expect(otherwise.branchKind).toBe("else");
-			expect(otherwise.conditionText).not.toBe("id === 'y'");
+			expect(otherwise.conditionText).toBeNull();
 		});
 	});
 
