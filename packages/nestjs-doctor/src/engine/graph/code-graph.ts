@@ -86,6 +86,7 @@ interface ResolvedReceiver {
 /** The call-site fields every usage kind carries. */
 interface CallSiteFacts {
 	assignedTo: string | null;
+	awaited: boolean;
 	branchGroupId: string | null;
 	branchKind: string | null;
 	callSiteLine: number;
@@ -97,6 +98,7 @@ interface CallSiteFacts {
 	iterationKind: "loop" | "callback" | "concurrent" | null;
 	iterationLabel: string | null;
 	order: number;
+	tryRegion: string | null;
 }
 
 function baseClassOf(cls: ClassDeclaration): ClassDeclaration | undefined {
@@ -344,6 +346,7 @@ class GraphBuilder {
 	edge(from: NodeId, to: NodeId, facts: CallSiteFacts): void {
 		this.edges.push({
 			assignedTo: facts.assignedTo,
+			awaited: facts.awaited,
 			branchGroupId: facts.branchGroupId,
 			branchKind: facts.branchKind,
 			comment: facts.comment,
@@ -357,6 +360,7 @@ class GraphBuilder {
 			line: facts.callSiteLine,
 			order: facts.order,
 			to,
+			tryRegion: facts.tryRegion,
 		});
 	}
 }
@@ -400,6 +404,7 @@ function bodyItems(scan: ReturnType<typeof scanUsedDependencies>): BodyItem[] {
 			iterationKind: thrown.iterationKind,
 			iterationLabel: thrown.iterationLabel,
 			kind: "throw",
+			tryRegion: thrown.tryRegion,
 			line: thrown.callSiteLine,
 			message: thrown.message,
 			order: thrown.order,
@@ -417,6 +422,7 @@ function bodyItems(scan: ReturnType<typeof scanUsedDependencies>): BodyItem[] {
 			iterationKind: returned.iterationKind,
 			iterationLabel: returned.iterationLabel,
 			kind: "return",
+			tryRegion: returned.tryRegion,
 			line: returned.callSiteLine,
 			order: returned.order,
 		});
@@ -432,6 +438,7 @@ function bodyItems(scan: ReturnType<typeof scanUsedDependencies>): BodyItem[] {
 			iterationKind: step.iterationKind,
 			iterationLabel: step.iterationLabel,
 			kind: "step",
+			tryRegion: step.tryRegion,
 			line: step.callSiteLine,
 			order: step.order,
 			statements: step.statements,

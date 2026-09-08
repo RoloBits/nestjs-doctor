@@ -88,14 +88,14 @@ function exits(id: NodeId): BodyItem[] {
 		.sort((a, b) => a.order - b.order);
 }
 
-/** Whether the call site awaits its callee. No field carries this yet. */
-function isAwaited(_edge: CallEdge): boolean | undefined {
-	return undefined;
+/** Whether the call site awaits its callee. */
+function isAwaited(edge: CallEdge): boolean {
+	return edge.awaited;
 }
 
 /** The try block covering a call, and the catch that would handle it. */
-function tryRegionOf(_edge: CallEdge): string | null {
-	return null;
+function tryRegionOf(edge: CallEdge): string | null {
+	return edge.tryRegion;
 }
 
 describe("code graph contract", () => {
@@ -202,10 +202,16 @@ describe("code graph contract", () => {
 	});
 
 	describe("7. is a call awaited or fire and forget", () => {
-		it.fails("separates an awaited call from a floating one", () => {
-			// Line 28 is awaited, line 48 is not. Work step 4.
+		it("separates an awaited call from a floating one", () => {
 			expect(isAwaited(edgeTo(PLACE, REPO_FIND, 28))).toBe(true);
 			expect(isAwaited(edgeTo(PLACE, SEND, 48))).toBe(false);
+		});
+
+		it("reads a call collected by Promise.all as not awaited itself", () => {
+			// The await sits on Promise.all, so iterationKind carries the collection.
+			const raced = out(BOTH)[0];
+			expect(isAwaited(raced)).toBe(false);
+			expect(raced.iterationKind).toBe("concurrent");
 		});
 	});
 
@@ -385,10 +391,14 @@ describe("code graph contract", () => {
 			expect(exits(PLACE)[1].branchKind).toBe("catch");
 		});
 
-		it.fails("links a call in a try to the catch that covers it", () => {
-			// Line 42 sits in the try whose catch throws at line 44, and reads as
-			// sequential. Work step 3.
-			expect(tryRegionOf(edgeTo(PLACE, REPO_SAVE, 42))).toBe("L41");
+		it("links a call in a try to the catch that covers it", () => {
+			const covered = edgeTo(PLACE, REPO_SAVE, 42);
+			expect(tryRegionOf(covered)).toBe("L41");
+			expect(exits(PLACE)[1].branchGroupId).toBe("L41");
+		});
+
+		it("leaves a call outside any try uncovered", () => {
+			expect(tryRegionOf(edgeTo(PLACE, REPO_FIND, 28))).toBeNull();
 		});
 	});
 });

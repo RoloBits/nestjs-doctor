@@ -71,10 +71,13 @@ interface ConditionalInfo {
 	conditionText: string | null;
 	isConditional: boolean;
 	statementLine: number | null;
+	/** Group of the innermost `try` with a `catch`, matching that catch's arm. */
+	tryRegion: string | null;
 }
 
 interface OrderedMethodUsage {
 	assignedTo: string | null;
+	awaited: boolean;
 	branchGroupId: string | null;
 	branchKind: string | null;
 	callSiteLine: number;
@@ -87,6 +90,7 @@ interface OrderedMethodUsage {
 	iterationLabel: string | null;
 	name: string;
 	order: number;
+	tryRegion: string | null;
 }
 
 interface UsedDependency {
@@ -96,6 +100,7 @@ interface UsedDependency {
 
 interface SameClassCallUsage {
 	assignedTo: string | null;
+	awaited: boolean;
 	branchGroupId: string | null;
 	branchKind: string | null;
 	callSiteLine: number;
@@ -108,6 +113,7 @@ interface SameClassCallUsage {
 	iterationLabel: string | null;
 	methodName: string;
 	order: number;
+	tryRegion: string | null;
 }
 
 interface ThrowUsage {
@@ -124,6 +130,7 @@ interface ThrowUsage {
 	merged?: boolean;
 	message: string | null;
 	order: number;
+	tryRegion: string | null;
 }
 
 interface StepUsage {
@@ -138,6 +145,7 @@ interface StepUsage {
 	iterationLabel: string | null;
 	order: number;
 	statements: StepStatement[];
+	tryRegion: string | null;
 }
 
 /** A `return` belonging to the scanned method itself. */
@@ -154,11 +162,13 @@ interface ReturnUsage {
 	iterationKind: "loop" | "callback" | "concurrent" | null;
 	iterationLabel: string | null;
 	order: number;
+	tryRegion: string | null;
 }
 
 /** A `this.<injected>.<member>.<method>()` call site. */
 interface MemberCallUsage {
 	assignedTo: string | null;
+	awaited: boolean;
 	branchGroupId: string | null;
 	branchKind: string | null;
 	callSiteLine: number;
@@ -173,6 +183,7 @@ interface MemberCallUsage {
 	methodName: string;
 	order: number;
 	paramName: string;
+	tryRegion: string | null;
 }
 
 export interface ScanOptions {
@@ -327,11 +338,28 @@ function frameFor(current: Node, parent: Node): ConditionFrame | undefined {
 }
 
 /**
+ * The group of the `try` whose block holds `current`, when a `catch` covers it.
+ * A `try`/`finally` has no handler, so it yields nothing.
+ */
+function guardedRegion(current: Node, parent: Node): string | null {
+	const tryStmt = parent.asKind(SyntaxKind.TryStatement);
+	if (
+		!tryStmt ||
+		current !== tryStmt.getTryBlock() ||
+		!tryStmt.getCatchClause()
+	) {
+		return null;
+	}
+	return `L${tryStmt.getStartLineNumber()}`;
+}
+
+/**
  * Every construct enclosing `node` up to `boundary`, outermost first, with the
  * innermost one repeated in the flat fields.
  */
 function getConditionalInfo(node: Node, boundary: Node): ConditionalInfo {
 	const frames: ConditionFrame[] = [];
+	let tryRegion: string | null = null;
 	let current: Node | undefined = node;
 	while (current && current !== boundary) {
 		const parent = current.getParent();
@@ -342,6 +370,7 @@ function getConditionalInfo(node: Node, boundary: Node): ConditionalInfo {
 		if (frame) {
 			frames.push(frame);
 		}
+		tryRegion ??= guardedRegion(current, parent);
 		current = parent;
 	}
 	const innermost = frames[0];
@@ -352,6 +381,7 @@ function getConditionalInfo(node: Node, boundary: Node): ConditionalInfo {
 		conditionText: innermost?.conditionText ?? null,
 		isConditional: frames.length > 0,
 		statementLine: innermost?.statementLine ?? null,
+		tryRegion,
 	};
 }
 
@@ -551,6 +581,25 @@ function extractThrowMessage(throwStmt: Node): string | null {
 		return `${raw.slice(0, MAX_THROW_MESSAGE_LENGTH)}\u2026`;
 	}
 	return raw;
+}
+
+// Wrappers that do not change whether the call site is awaited.
+const TRANSPARENT_KINDS = new Set([
+	SyntaxKind.AsExpression,
+	SyntaxKind.NonNullExpression,
+	SyntaxKind.ParenthesizedExpression,
+]);
+
+/**
+ * True when this call site is itself awaited. A call handed to `Promise.all`
+ * reads as false; its iteration kind is what says the promise is collected.
+ */
+function isAwaitedCall(callNode: Node): boolean {
+	let current = callNode.getParent();
+	while (current && TRANSPARENT_KINDS.has(current.getKind())) {
+		current = current.getParent();
+	}
+	return current?.isKind(SyntaxKind.AwaitExpression) === true;
 }
 
 function extractAssignedVariable(callNode: Node): string | null {
@@ -1161,6 +1210,7 @@ export function scanUsedDependencies(
 	// Flat array: each dependency call gets its own entry (no dedup by method name)
 	const callEntries: Array<{
 		assignedTo: string | null;
+		awaited: boolean;
 		paramName: string;
 		methodName: string;
 		order: number;
@@ -1205,6 +1255,7 @@ export function scanUsedDependencies(
 				comment: extractLeadingComment(item.node),
 				conditional: condInfo.isConditional,
 				conditionPath: condInfo.conditionPath,
+				tryRegion: condInfo.tryRegion,
 				conditionText: condInfo.conditionText,
 				expression: expression ? normalizeSnippet(expression.getText()) : null,
 				iterationKind: iterInfo.iterationKind,
@@ -1225,6 +1276,7 @@ export function scanUsedDependencies(
 				comment: extractLeadingComment(item.node),
 				conditional: condInfo.isConditional,
 				conditionPath: condInfo.conditionPath,
+				tryRegion: condInfo.tryRegion,
 				conditionText: condInfo.conditionText,
 				exceptionClassName: extractThrowClassName(item.node),
 				iterationKind: iterInfo.iterationKind,
@@ -1283,6 +1335,7 @@ export function scanUsedDependencies(
 				const iterInfo = getIterationContext(call, body);
 				memberCalls.push({
 					assignedTo: extractAssignedVariable(call),
+					awaited: isAwaitedCall(call),
 					branchGroupId: condInfo.statementLine
 						? `L${condInfo.statementLine}`
 						: null,
@@ -1291,6 +1344,7 @@ export function scanUsedDependencies(
 					comment: extractLeadingComment(call),
 					conditional: condInfo.isConditional,
 					conditionPath: condInfo.conditionPath,
+					tryRegion: condInfo.tryRegion,
 					conditionText: condInfo.conditionText,
 					guardThrow: null,
 					iterationKind: iterInfo.iterationKind,
@@ -1319,6 +1373,7 @@ export function scanUsedDependencies(
 			const iterInfo = getIterationContext(call, body);
 			callEntries.push({
 				assignedTo: extractAssignedVariable(call),
+				awaited: isAwaitedCall(call),
 				paramName,
 				methodName: calledMethodName,
 				order: callOrder++,
@@ -1347,6 +1402,7 @@ export function scanUsedDependencies(
 						);
 				sameClassCalls.push({
 					assignedTo: extractAssignedVariable(call),
+					awaited: isAwaitedCall(call),
 					branchGroupId: condInfo.statementLine
 						? `L${condInfo.statementLine}`
 						: null,
@@ -1356,6 +1412,7 @@ export function scanUsedDependencies(
 					comment: extractLeadingComment(call),
 					conditional: condInfo.isConditional,
 					conditionPath: condInfo.conditionPath,
+					tryRegion: condInfo.tryRegion,
 					conditionText: condInfo.conditionText,
 					iterationKind: iterInfo.iterationKind,
 					iterationLabel: iterInfo.iterationLabel,
@@ -1429,6 +1486,7 @@ export function scanUsedDependencies(
 				branchKind: condInfo.branchKind,
 				callSiteLine: firstStmt.getStartLineNumber(),
 				conditionPath: condInfo.conditionPath,
+				tryRegion: condInfo.tryRegion,
 				comment: extractLeadingComment(firstStmt),
 				conditional: condInfo.isConditional,
 				conditionText: condInfo.conditionText,
@@ -1517,6 +1575,7 @@ export function scanUsedDependencies(
 		const isConditional = entry.condInfo.isConditional;
 		classMethodsMap.get(className)!.push({
 			assignedTo: entry.assignedTo,
+			awaited: entry.awaited,
 			branchGroupId:
 				isConditional && entry.condInfo.statementLine
 					? `L${entry.condInfo.statementLine}`
@@ -1526,6 +1585,7 @@ export function scanUsedDependencies(
 			comment: entry.comment,
 			conditional: isConditional,
 			conditionPath: entry.condInfo.conditionPath,
+			tryRegion: entry.condInfo.tryRegion,
 			conditionText: isConditional ? entry.condInfo.conditionText : null,
 			guardThrow: entry.guardThrow,
 			iterationKind: entry.iterInfo.iterationKind,
@@ -1770,6 +1830,7 @@ function buildMethodDependencyTree(
 			// Collect sub-deps from ALL methods of this class (no dedup — each call is its own entry)
 			const childCallEntries: Array<{
 				assignedTo: string | null;
+				awaited: boolean;
 				depClassName: string;
 				methodName: string;
 				order: number;
@@ -1777,6 +1838,7 @@ function buildMethodDependencyTree(
 				comment: string | null;
 				conditional: boolean;
 				conditionPath: ConditionFrame[];
+				tryRegion: string | null;
 				branchKind: string | null;
 				conditionText: string | null;
 				branchGroupId: string | null;
@@ -1840,6 +1902,7 @@ function buildMethodDependencyTree(
 					if (sub.kind === "dep") {
 						childCallEntries.push({
 							assignedTo: sub.m.assignedTo,
+							awaited: sub.m.awaited,
 							depClassName: sub.depClassName,
 							methodName: sub.m.name,
 							order: childOrder++,
@@ -1847,6 +1910,7 @@ function buildMethodDependencyTree(
 							comment: sub.m.comment,
 							conditional: sub.m.conditional,
 							conditionPath: sub.m.conditionPath,
+							tryRegion: sub.m.tryRegion,
 							branchKind: sub.m.conditional ? sub.m.branchKind : null,
 							conditionText: sub.m.conditional ? sub.m.conditionText : null,
 							branchGroupId: sub.m.conditional ? sub.m.branchGroupId : null,
@@ -1872,12 +1936,14 @@ function buildMethodDependencyTree(
 				}
 				childClassMethodsMap.get(entry.depClassName)!.push({
 					assignedTo: entry.assignedTo,
+					awaited: entry.awaited,
 					branchGroupId: entry.branchGroupId,
 					branchKind: entry.branchKind,
 					callSiteLine: entry.callSiteLine,
 					comment: entry.comment,
 					conditional: entry.conditional,
 					conditionPath: entry.conditionPath,
+					tryRegion: entry.tryRegion,
 					conditionText: entry.conditionText,
 					guardThrow: entry.guardThrow,
 					iterationKind: entry.iterationKind,

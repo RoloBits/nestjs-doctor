@@ -45,6 +45,11 @@ interface BodyItemBase {
 	line: number;
 	/** Shares one sequence with the outgoing `CallEdge.order` of the same node. */
 	order: number;
+	/**
+	 * Group of the `try` covering this item, matching the `branchGroupId` of the
+	 * `catch` that handles it. Null outside a try, and inside a bare `finally`.
+	 */
+	tryRegion: string | null;
 }
 
 interface ThrowItem extends BodyItemBase {
@@ -89,6 +94,11 @@ export interface MethodNode {
 /** One call site. Two calls to one callee from one body are two edges. */
 export interface CallEdge {
 	assignedTo: string | null;
+	/**
+	 * True when the call site is itself awaited. A call handed to `Promise.all`
+	 * is false; `iterationKind` is what says its promise is collected.
+	 */
+	awaited: boolean;
 	branchGroupId: string | null;
 	branchKind: string | null;
 	comment: string | null;
@@ -103,6 +113,11 @@ export interface CallEdge {
 	line: number;
 	order: number;
 	to: NodeId;
+	/**
+	 * Group of the `try` covering this call, matching the `branchGroupId` of the
+	 * `catch` that handles it. Null outside a try, and inside a bare `finally`.
+	 */
+	tryRegion: string | null;
 }
 
 export interface EntryPoint {
