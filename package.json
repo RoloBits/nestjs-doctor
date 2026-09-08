@@ -16,12 +16,12 @@
     "version": "changeset version && pnpm install --no-frozen-lockfile && node scripts/sync-skill-version.mjs"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.11",
-    "@changesets/cli": "^3.0.1",
+    "@biomejs/biome": "2.5.12",
+    "@changesets/cli": "^3.0.2",
     "husky": "9.1.7",
-    "knip": "6.33.0",
-    "typescript": "^5.7.0",
-    "ultracite": "7.10.7"
+    "knip": "6.34.0",
+    "typescript": "^7.0.2",
+    "ultracite": "7.10.8"
   },
   "packageManager": "pnpm@10.2.0"
 }
