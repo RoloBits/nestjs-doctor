@@ -1,5 +1,7 @@
-import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path, { resolve } from "node:path";
+import { afterAll, describe, expect, it } from "vitest";
 import {
 	buildAnalysisContext,
 	diagnose,
@@ -99,5 +101,51 @@ describe("global guard detection", () => {
 	it("finds every route in the composed decorator fixture", async () => {
 		const { context } = await scan("composed-guard-app/src");
 		expect(context.endpointGraph.endpoints).toHaveLength(7);
+	});
+
+	// The decorator lives in a package, so the checker only reads it when that
+	// package is installed. Both directions are pinned here.
+	describe("a decorator imported from a package", () => {
+		const tempRoot = fs.mkdtempSync(
+			path.join(os.tmpdir(), "nestjs-doctor-package-guard-")
+		);
+
+		afterAll(() => {
+			fs.rmSync(tempRoot, { recursive: true, force: true });
+		});
+
+		function plant(name: string, installed: boolean) {
+			const root = path.join(tempRoot, name);
+			fs.cpSync(resolve(FIXTURES, "package-guard-app"), root, {
+				recursive: true,
+			});
+			if (installed) {
+				const target = path.join(root, "node_modules", "@fixture", "auth");
+				fs.mkdirSync(path.dirname(target), { recursive: true });
+				fs.cpSync(path.join(root, "vendor", "auth"), target, {
+					recursive: true,
+				});
+			}
+			return path.join(root, "src");
+		}
+
+		async function guardFindings(target: string) {
+			const scanConfig = await resolveScanConfig(target);
+			const context = await buildAnalysisContext(target, scanConfig);
+			const output = await diagnose(context);
+			return output.diagnostics.filter(
+				(diagnostic) => diagnostic.rule === GUARD_RULE
+			);
+		}
+
+		it("counts the guard when the package is installed", async () => {
+			expect(await guardFindings(plant("installed", true))).toEqual([]);
+		});
+
+		it("reports the endpoint when the package is missing", async () => {
+			const findings = await guardFindings(plant("bare", false));
+			expect(findings).toHaveLength(1);
+			expect(findings[0].filePath).toContain("orders.controller.ts");
+		});
 	});
 });
