@@ -1,5 +1,14 @@
 # nestjs-doctor
 
+## 0.9.8
+
+### Patch Changes
+
+- 78fe270: A decorator that composes `UseGuards` now counts as a guard even when it returns the call directly instead of wrapping it in `applyDecorators`, when it is written as `export const X = function () {...}`, and when it is declared in one package and used in another. A decorator only counts when every path out of it returns a guard, so one that guards on a single branch no longer clears a route. `security/require-guards-on-endpoints` drops from 246 findings to 22 on a 249-route monorepo whose auth decorator lives in a shared library.
+- 2292d22: Setting `NESTJS_DOCTOR_PHASE_TIMINGS=1` prints how long each stage of the analysis context took to stderr. A single project marks collect, parse, modules, providers, endpoints, schema and guards; a monorepo sub-project marks detect instead of collect, since its files were gathered for every project at once beforehand. Nothing changes without the variable, and the scan output is untouched either way.
+- 2292d22: `correctness/no-fire-and-forget-async` no longer guesses from a method name when the receiver's type is written down. A call like `this.socket.send(data)`, where `socket` is declared as a type the scan cannot read, was reported as an unawaited promise even though the method returns void. A receiver the class never declares still falls back to the name, which is what the check was for.
+- 2292d22: The scan no longer reads installed packages when resolving types. A 354-file project spent 7.3 of its 8.0 seconds having TypeScript parse and type 182 MB of `node_modules`; it now takes 0.7 seconds, and a 45-project monorepo went from 76 to 12 seconds. Workspace packages linked into `node_modules` stay visible, so a decorator or base class in your own library still resolves. A type that only an installed dependency knows now reads as `any`, which affects rules that inspect a return type rather than a declaration.
+
 ## 0.9.7
 
 ### Patch Changes
