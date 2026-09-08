@@ -203,12 +203,20 @@ describe("code graph contract", () => {
 			expect(thrown.kind === "throw" && thrown.message).toBe("order vanished");
 		});
 
-		it.fails("keeps a throw that was merged into a guard annotation", () => {
-			// `find` throws NotFoundException, and the merge deletes the body item.
-			// Work step 8: emit both and let a consumer pattern-match them.
-			expect(exits(FIND).filter((item) => item.kind === "throw")).toHaveLength(
-				1
+		it("keeps a throw that was merged into a guard annotation", () => {
+			// `find` fetches, null-checks and throws. The edge carries the merged
+			// guard and the body still carries the throw, flagged as the same one.
+			const thrown = exits(FIND).filter((item) => item.kind === "throw");
+			expect(thrown).toHaveLength(1);
+			expect(thrown[0].kind === "throw" && thrown[0].mergedIntoCall).toBe(true);
+			expect(edgeTo(FIND, REPO_FIND, 56).guardThrow?.className).toBe(
+				"NotFoundException"
 			);
+		});
+
+		it("does not flag a throw the merge left alone", () => {
+			const thrown = exits(PLACE)[1];
+			expect(thrown.kind === "throw" && thrown.mergedIntoCall).toBe(false);
 		});
 	});
 

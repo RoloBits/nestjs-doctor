@@ -404,6 +404,7 @@ function bodyItems(scan: ReturnType<typeof scanUsedDependencies>): BodyItem[] {
 			iterationKind: thrown.iterationKind,
 			iterationLabel: thrown.iterationLabel,
 			kind: "throw",
+			mergedIntoCall: thrown.merged === true,
 			tryRegion: thrown.tryRegion,
 			line: thrown.callSiteLine,
 			message: thrown.message,
@@ -492,6 +493,7 @@ function scanClass(
 			cache,
 			{
 				everyThisCall: true,
+				keepMergedThrows: true,
 				memberCalls: true,
 				returns: true,
 				skipChildScan: true,

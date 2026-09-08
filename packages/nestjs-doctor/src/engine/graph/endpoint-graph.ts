@@ -201,6 +201,11 @@ export interface ScanOptions {
 	 * a subtree and would not terminate on a cycle.
 	 */
 	everyThisCall?: boolean;
+	/**
+	 * Keep a throw the guard merge folded into a call, flagged rather than
+	 * deleted. The tree drops it so the report does not show it twice.
+	 */
+	keepMergedThrows?: boolean;
 	/** Collect two-level receivers into `memberCalls` instead of dropping them. */
 	memberCalls?: boolean;
 	/**
@@ -1165,7 +1170,8 @@ function mergeGuardThrows(
 		order: number;
 		guardThrow: GuardThrow | null;
 	}>,
-	throws: ThrowUsage[]
+	throws: ThrowUsage[],
+	keepMerged?: boolean
 ): void {
 	for (const entry of callEntries) {
 		if (!entry.assignedTo) {
@@ -1194,6 +1200,9 @@ function mergeGuardThrows(
 				break;
 			}
 		}
+	}
+	if (keepMerged) {
+		return;
 	}
 	// Remove merged throws in-place
 	const kept = throws.filter((t) => !t.merged);
@@ -1498,7 +1507,8 @@ export function scanUsedDependencies(
 	// Merge guard-throw patterns (fetch + null-check + throw)
 	mergeGuardThrows(
 		[...callEntries, ...memberCalls].sort((a, b) => a.order - b.order),
-		throws
+		throws,
+		options?.keepMergedThrows
 	);
 
 	// Detect inline logic steps

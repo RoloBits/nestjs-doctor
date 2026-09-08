@@ -55,6 +55,11 @@ interface BodyItemBase {
 interface ThrowItem extends BodyItemBase {
 	exceptionClass: string;
 	kind: "throw";
+	/**
+	 * The `guardThrow` of an earlier call repeats this throw, so a view can show
+	 * the fetch, its null check and this exception as one step.
+	 */
+	mergedIntoCall: boolean;
 	message: string | null;
 }
 
