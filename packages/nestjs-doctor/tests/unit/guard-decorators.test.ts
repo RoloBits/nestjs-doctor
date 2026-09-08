@@ -279,3 +279,94 @@ describe("decoratorAppliesGuards", () => {
 		expect(decoratorAppliesGuards(decorator)).toBe(false);
 	});
 });
+
+describe("a guard the decorator does not always apply", () => {
+	it("ignores a function that returns a guard on only one path", () => {
+		const names = index(`
+      import { applyDecorators, SetMetadata, UseGuards } from '@nestjs/common';
+      export function MaybeAuth(secure: boolean) {
+        if (secure) {
+          return UseGuards(AuthGuard);
+        }
+        return applyDecorators(SetMetadata('public', true));
+      }
+    `);
+		expect(names.size).toBe(0);
+	});
+
+	it("ignores a function expression that returns a guard on only one path", () => {
+		const names = index(`
+      import { UseGuards } from '@nestjs/common';
+      export const MaybeAuth = function (secure: boolean) {
+        if (secure) {
+          return UseGuards(AuthGuard);
+        }
+        return () => undefined;
+      };
+    `);
+		expect(names.size).toBe(0);
+	});
+
+	it("ignores a declaration with no return at all", () => {
+		const names = index(`
+      import { UseGuards } from '@nestjs/common';
+      export function Auth() {
+        UseGuards(AuthGuard);
+      }
+    `);
+		expect(names.size).toBe(0);
+	});
+
+	it("still counts a function whose every return applies a guard", () => {
+		const names = index(`
+      import { applyDecorators, UseGuards } from '@nestjs/common';
+      export function Auth(strict: boolean) {
+        if (strict) {
+          return UseGuards(StrictGuard);
+        }
+        return applyDecorators(UseGuards(AuthGuard));
+      }
+    `);
+		expect([...names]).toEqual(["Auth"]);
+	});
+});
+
+describe("decoratorAppliesGuards verdict reuse", () => {
+	function decoratorFor(implementation: string) {
+		const project = new Project({ useInMemoryFileSystem: true });
+		project.createSourceFile("/impl.ts", implementation);
+		project.createSourceFile(
+			"/thing.controller.ts",
+			`
+        import { Auth } from './impl';
+        @Auth()
+        export class ThingController {}
+      `
+		);
+		return project
+			.getSourceFileOrThrow("/thing.controller.ts")
+			.getClasses()[0]
+			.getDecorators()[0];
+	}
+
+	it("judges each project on its own source, even at the same path", () => {
+		// Both bodies are the same length, so a verdict keyed by file offsets
+		// would answer the second one from the first.
+		const guarded = decoratorFor(
+			"export const Auth = () => applyDecorators(UseGuards(AuthGuard));"
+		);
+		const plain = decoratorFor(
+			"export const Auth = () => applyDecorators(SetHeader(AuthGuard));"
+		);
+		expect(decoratorAppliesGuards(guarded)).toBe(true);
+		expect(decoratorAppliesGuards(plain)).toBe(false);
+	});
+
+	it("gives the same answer when asked twice", () => {
+		const decorator = decoratorFor(
+			"export const Auth = () => UseGuards(AuthGuard);"
+		);
+		expect(decoratorAppliesGuards(decorator)).toBe(true);
+		expect(decoratorAppliesGuards(decorator)).toBe(true);
+	});
+});

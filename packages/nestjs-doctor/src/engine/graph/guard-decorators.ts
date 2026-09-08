@@ -87,6 +87,12 @@ function returnedExpressions(fn: Node): Node[] {
 	return expressions;
 }
 
+/** True when every path out of `fn` returns a guard, and there is at least one. */
+function functionAppliesGuards(fn: Node): boolean {
+	const returns = returnedExpressions(fn);
+	return returns.length > 0 && returns.every(appliesGuards);
+}
+
 /** The function a declaration implements: itself, or its initialiser. */
 function declaredFunction(declaration: Node): Node | undefined {
 	if (declaration.isKind(SyntaxKind.FunctionDeclaration)) {
@@ -101,12 +107,12 @@ function declaredFunction(declaration: Node): Node | undefined {
 	);
 }
 
-/** Verdicts keyed by declaration position, so each implementation is read once. */
-const compositionCache = new Map<string, boolean>();
+/** Verdicts keyed by the declaration node. */
+const compositionCache = new WeakMap<Node, boolean>();
 
 /**
  * True when this decorator's implementation applies a guard. Resolves the name
- * to its declaration, so a decorator declared in another project still counts.
+ * to its declaration through the type checker.
  */
 export function decoratorAppliesGuards(decorator: Decorator): boolean {
 	const symbol = decorator.getNameNode().getSymbol();
@@ -117,16 +123,15 @@ export function decoratorAppliesGuards(decorator: Decorator): boolean {
 		return false;
 	}
 	const first = declarations[0];
-	const key = `${first.getSourceFile().getFilePath()}:${first.getPos()}:${first.getEnd()}:${declarations.length}`;
-	const cached = compositionCache.get(key);
+	const cached = compositionCache.get(first);
 	if (cached !== undefined) {
 		return cached;
 	}
 	const applies = declarations.some((declaration) => {
 		const fn = declaredFunction(declaration);
-		return fn ? returnedExpressions(fn).some(appliesGuards) : false;
+		return fn ? functionAppliesGuards(fn) : false;
 	});
-	compositionCache.set(key, applies);
+	compositionCache.set(first, applies);
 	return applies;
 }
 
@@ -152,14 +157,14 @@ function namesInFile(sourceFile: SourceFile): Set<string> {
 
 	for (const fn of sourceFile.getFunctions()) {
 		const name = fn.getName();
-		if (name && returnedExpressions(fn).some(appliesGuards)) {
+		if (name && functionAppliesGuards(fn)) {
 			names.add(name);
 		}
 	}
 
 	for (const declaration of sourceFile.getVariableDeclarations()) {
 		const fn = declaredFunction(declaration);
-		if (fn && returnedExpressions(fn).some(appliesGuards)) {
+		if (fn && functionAppliesGuards(fn)) {
 			names.add(declaration.getName());
 		}
 	}

@@ -72,4 +72,32 @@ describe("global guard detection", () => {
 		);
 		expect(guardFindings.length).toBeGreaterThan(0);
 	});
+
+	it("counts a decorator that returns UseGuards from another package", async () => {
+		const { output } = await scan("composed-guard-app/src");
+		const flagged = output.diagnostics
+			.filter((diagnostic) => diagnostic.rule === GUARD_RULE)
+			.map((diagnostic) => diagnostic.filePath.split("/").pop())
+			.sort();
+		expect(flagged).toEqual([
+			"documented.controller.ts",
+			"maybe-auth.controller.ts",
+			"unguarded.controller.ts",
+		]);
+	});
+
+	it("does not count a decorator that returns a guard on only one path", async () => {
+		const { output } = await scan("composed-guard-app/src");
+		const flagged = output.diagnostics.filter(
+			(diagnostic) =>
+				diagnostic.rule === GUARD_RULE &&
+				diagnostic.filePath.endsWith("maybe-auth.controller.ts")
+		);
+		expect(flagged).toHaveLength(1);
+	});
+
+	it("finds every route in the composed decorator fixture", async () => {
+		const { context } = await scan("composed-guard-app/src");
+		expect(context.endpointGraph.endpoints).toHaveLength(7);
+	});
 });

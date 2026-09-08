@@ -34,7 +34,7 @@ export const requireGuardsOnEndpoints: Rule = {
 		severity: "warning",
 		description:
 			"Controller endpoints should be protected by @UseGuards() at class or method level",
-		help: "Add @UseGuards(AuthGuard) to the controller class or individual route handlers, or mark routes as @Public(). A guard bound through APP_GUARD or app.useGlobalGuards(), inherited from a guarded base class, or applied by a decorator built with applyDecorators(UseGuards(...)), already counts — but APP_GUARD only when the token is written as APP_GUARD, not through an aliased import.",
+		help: "Add @UseGuards(AuthGuard) to the controller class or individual route handlers, or mark routes as @Public(). A guard bound through APP_GUARD or app.useGlobalGuards(), inherited from a guarded base class, or applied by a decorator whose every return is UseGuards(...), directly or through applyDecorators(...), already counts — but APP_GUARD only when the token is written as APP_GUARD, not through an aliased import.",
 	},
 
 	check(context) {
