@@ -102,7 +102,7 @@ describe("code graph contract", () => {
 	describe("1. what happens first, second, third", () => {
 		it("puts every call and body item of one method in one dense sequence", () => {
 			expect(sequence(PLACE).map((item) => item.order)).toEqual([
-				0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+				0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
 			]);
 		});
 
@@ -249,29 +249,24 @@ describe("code graph contract", () => {
 			}
 		});
 
-		it.fails("makes a self-recursive call an edge back to the same node", () => {
-			// `this.place(id, false)` at line 49. Work step 5.
-			expect(out(PLACE).some((edge) => edge.to === PLACE)).toBe(true);
+		it("makes a self-recursive call an edge back to the same node", () => {
+			expect(edgeTo(PLACE, PLACE, 51).to).toBe(PLACE);
 		});
 
-		it.fails("makes an inherited same-class call an edge", () => {
-			// `this.record('placed')` at line 47 resolves to AuditService. Work step 5.
-			expect(out(PLACE).some((edge) => edge.to === RECORD)).toBe(true);
-		});
-
-		it.fails("makes a super call an edge", () => {
-			// `super.record('audited')` at line 48. Work step 5.
-			expect(
-				out(PLACE).filter((edge) => edge.to === RECORD).length
-			).toBeGreaterThan(1);
+		it("points an inherited call and a super call at the one declaration", () => {
+			// `this.record()` at 49 and `super.record()` at 50 both resolve to
+			// AuditService, which declares the method.
+			const inherited = out(PLACE).filter((edge) => edge.to === RECORD);
+			expect(inherited.map((edge) => edge.line)).toEqual([49, 50]);
+			expect(node(RECORD).filePath).toBe("/audit.service.ts");
 		});
 
 		it("drops a static call and a bare function call", () => {
-			// `Mailer.send(id)` and `helper(1)` produce no edge. Whether project
-			// functions become nodes is the plan's one open decision, not a defect.
+			// `Mailer.send(id)` at 46 and `helper(1)` at 47 produce no edge. Whether
+			// project functions become nodes is the plan's open decision.
 			const lines = out(PLACE).map((edge) => edge.line);
-			expect(lines).not.toContain(45);
 			expect(lines).not.toContain(46);
+			expect(lines).not.toContain(47);
 		});
 	});
 

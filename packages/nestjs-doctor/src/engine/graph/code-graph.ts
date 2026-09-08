@@ -490,7 +490,12 @@ function scanClass(
 			indexed.cls,
 			undefined,
 			cache,
-			{ memberCalls: true, returns: true, skipChildScan: true }
+			{
+				everyThisCall: true,
+				memberCalls: true,
+				returns: true,
+				skipChildScan: true,
+			}
 		);
 		builder.setBody(from, bodyItems(scan));
 
@@ -516,9 +521,15 @@ function scanClass(
 		}
 
 		for (const call of scan.sameClassCalls) {
-			const target = indexed.cls.getInstanceMethod(call.methodName);
+			// `super.m()` targets the base declaration even when this class overrides it.
+			const start = call.viaSuper ? baseClassOf(indexed.cls) : indexed.cls;
+			const target = start
+				? findMethodInHierarchy(start, call.methodName, providers, cache)
+				: undefined;
 			if (target) {
-				builder.edge(from, builder.declared(indexed.cls, target), call);
+				const owner =
+					target.getParentIfKind(SyntaxKind.ClassDeclaration) ?? indexed.cls;
+				builder.edge(from, builder.declared(owner, target), call);
 			}
 		}
 	}

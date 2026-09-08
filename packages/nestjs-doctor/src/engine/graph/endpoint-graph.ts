@@ -114,6 +114,8 @@ interface SameClassCallUsage {
 	methodName: string;
 	order: number;
 	tryRegion: string | null;
+	/** The call was `super.method()`, so it targets the base declaration. */
+	viaSuper: boolean;
 }
 
 interface ThrowUsage {
@@ -187,6 +189,12 @@ interface MemberCallUsage {
 }
 
 export interface ScanOptions {
+	/**
+	 * Record every `this.` and `super.` call: recursion, and methods a base
+	 * class declares. The tree leaves this off, since it expands each call into
+	 * a subtree and would not terminate on a cycle.
+	 */
+	everyThisCall?: boolean;
 	/** Collect two-level receivers into `memberCalls` instead of dropping them. */
 	memberCalls?: boolean;
 	/**
@@ -654,6 +662,35 @@ function resolveBaseClass(
 	}
 
 	return nextClass;
+}
+
+/** The class this one extends, ignoring providers. */
+function declaredBaseClass(
+	cls: ClassDeclaration
+): ClassDeclaration | undefined {
+	try {
+		return cls.getBaseClass();
+	} catch {
+		return undefined;
+	}
+}
+
+/** The nearest declaration of `methodName` at or above `cls`. */
+function declaredMethodInHierarchy(
+	cls: ClassDeclaration,
+	methodName: string
+): MethodDeclaration | undefined {
+	let current: ClassDeclaration | undefined = cls;
+	const seen = new Set<ClassDeclaration>();
+	while (current && !seen.has(current)) {
+		seen.add(current);
+		const method = current.getInstanceMethod(methodName);
+		if (method) {
+			return method;
+		}
+		current = declaredBaseClass(current);
+	}
+	return undefined;
 }
 
 export function findMethodInHierarchy(
@@ -1386,20 +1423,29 @@ export function scanUsedDependencies(
 			continue;
 		}
 
-		// Pattern C: this.method() — same-class helper call (preserve hierarchy)
-		if (receiver.getKind() === SyntaxKind.ThisKeyword && cls) {
-			const targetMethod = cls.getInstanceMethod(calledMethodName);
-			if (targetMethod && !visited.has(calledMethodName)) {
+		// Pattern C: this.method() or super.method() — same-class helper call
+		const viaSuper = receiver.getKind() === SyntaxKind.SuperKeyword;
+		const viaThis = receiver.getKind() === SyntaxKind.ThisKeyword;
+		if ((viaThis || (viaSuper && options?.everyThisCall)) && cls) {
+			const searchFrom = viaSuper ? declaredBaseClass(cls) : cls;
+			const targetMethod = options?.everyThisCall
+				? searchFrom && declaredMethodInHierarchy(searchFrom, calledMethodName)
+				: cls.getInstanceMethod(calledMethodName);
+			// A cycle is an edge in the graph, so only the tree refuses to record it.
+			const revisiting = visited.has(calledMethodName);
+			if (targetMethod && (options?.everyThisCall || !revisiting)) {
 				const condInfo = getConditionalInfo(call, body);
 				const iterInfo = getIterationContext(call, body);
-				const childResult = options?.skipChildScan
-					? empty
-					: scanUsedDependencies(
-							targetMethod,
-							injectionMap,
-							cls,
-							new Set(visited)
-						);
+				// Recording a revisit is safe; expanding one is not.
+				const childResult =
+					options?.skipChildScan || revisiting
+						? empty
+						: scanUsedDependencies(
+								targetMethod,
+								injectionMap,
+								cls,
+								new Set(visited)
+							);
 				sameClassCalls.push({
 					assignedTo: extractAssignedVariable(call),
 					awaited: isAwaitedCall(call),
@@ -1418,6 +1464,7 @@ export function scanUsedDependencies(
 					iterationLabel: iterInfo.iterationLabel,
 					methodName: calledMethodName,
 					order: callOrder++,
+					viaSuper,
 				});
 			}
 		}
