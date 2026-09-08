@@ -141,14 +141,40 @@ interface StepUsage {
 	statements: StepStatement[];
 }
 
-interface ScanResult {
+/** A `this.<injected>.<member>.<method>()` call site. */
+interface MemberCallUsage {
+	assignedTo: string | null;
+	branchGroupId: string | null;
+	branchKind: string | null;
+	callSiteLine: number;
+	comment: string | null;
+	conditional: boolean;
+	conditionText: string | null;
+	guardThrow: GuardThrow | null;
+	iterationKind: "loop" | "callback" | "concurrent" | null;
+	iterationLabel: string | null;
+	member: string;
+	methodName: string;
+	order: number;
+	paramName: string;
+}
+
+export interface ScanOptions {
+	/** Collect two-level receivers into `memberCalls` instead of dropping them. */
+	memberCalls?: boolean;
+	/** Leave `sameClassCalls[].childResult` empty instead of recursing into it. */
+	skipChildScan?: boolean;
+}
+
+export interface ScanResult {
 	deps: UsedDependency[];
+	memberCalls: MemberCallUsage[];
 	sameClassCalls: SameClassCallUsage[];
 	steps: StepUsage[];
 	throws: ThrowUsage[];
 }
 
-class ScanCache {
+export class ScanCache {
 	private readonly scanResults = new Map<string, ScanResult>();
 	private readonly injectionMaps = new Map<string, Map<string, string>>();
 	private readonly methodLookups = new Map<
@@ -559,7 +585,7 @@ function resolveBaseClass(
 	return nextClass;
 }
 
-function findMethodInHierarchy(
+export function findMethodInHierarchy(
 	cls: ClassDeclaration,
 	methodName: string,
 	providers: Map<string, ProviderInfo>,
@@ -830,7 +856,7 @@ function extractSwaggerMetadata(
 
 const PROMISE_OBSERVABLE_REGEX = /^(?:Promise|Observable)<(.+)>$/;
 
-function extractReturnType(method: MethodDeclaration): string | null {
+export function extractReturnType(method: MethodDeclaration): string | null {
 	const typeNode = method.getReturnTypeNode();
 	if (!typeNode) {
 		return null;
@@ -847,7 +873,7 @@ function extractReturnType(method: MethodDeclaration): string | null {
 	return text;
 }
 
-function extractMethodParameters(
+export function extractMethodParameters(
 	method: MethodDeclaration
 ): MethodParameterInfo[] {
 	return method
@@ -941,7 +967,7 @@ function extractStatementInfo(
 	return null;
 }
 
-function buildInjectionMap(
+export function buildInjectionMap(
 	cls: ClassDeclaration,
 	providers?: Map<string, ProviderInfo>,
 	cache?: ScanCache
@@ -1050,12 +1076,13 @@ function mergeGuardThrows(
 	}
 }
 
-function scanUsedDependencies(
+export function scanUsedDependencies(
 	method: MethodDeclaration,
 	injectionMap: Map<string, string>,
 	cls?: ClassDeclaration,
 	visitedMethods?: Set<string>,
-	cache?: ScanCache
+	cache?: ScanCache,
+	options?: ScanOptions
 ): ScanResult {
 	const className = cls?.getName() ?? "";
 	const cacheKey = `${className}::${method.getName()}`;
@@ -1068,6 +1095,7 @@ function scanUsedDependencies(
 
 	const empty: ScanResult = {
 		deps: [],
+		memberCalls: [],
 		sameClassCalls: [],
 		steps: [],
 		throws: [],
@@ -1103,6 +1131,7 @@ function scanUsedDependencies(
 	}
 
 	const sameClassCalls: SameClassCallUsage[] = [];
+	const memberCalls: MemberCallUsage[] = [];
 	const throws: ThrowUsage[] = [];
 
 	// Flat array: each dependency call gets its own entry (no dedup by method name)
@@ -1178,6 +1207,49 @@ function scanUsedDependencies(
 			}
 		}
 
+		// Pattern A2: this.param.member.method()
+		if (
+			!paramName &&
+			options?.memberCalls &&
+			receiver.getKind() === SyntaxKind.PropertyAccessExpression
+		) {
+			const memberAccess = receiver.asKindOrThrow(
+				SyntaxKind.PropertyAccessExpression
+			);
+			const root = memberAccess.getExpression();
+			const rootName =
+				root.getKind() === SyntaxKind.PropertyAccessExpression &&
+				root
+					.asKindOrThrow(SyntaxKind.PropertyAccessExpression)
+					.getExpression()
+					.getKind() === SyntaxKind.ThisKeyword
+					? root.asKindOrThrow(SyntaxKind.PropertyAccessExpression).getName()
+					: undefined;
+			if (rootName && injectionMap.has(rootName)) {
+				const condInfo = getConditionalInfo(call, body);
+				const iterInfo = getIterationContext(call, body);
+				memberCalls.push({
+					assignedTo: extractAssignedVariable(call),
+					branchGroupId: condInfo.statementLine
+						? `L${condInfo.statementLine}`
+						: null,
+					branchKind: condInfo.branchKind,
+					callSiteLine: call.getStartLineNumber(),
+					comment: extractLeadingComment(call),
+					conditional: condInfo.isConditional,
+					conditionText: condInfo.conditionText,
+					guardThrow: null,
+					iterationKind: iterInfo.iterationKind,
+					iterationLabel: iterInfo.iterationLabel,
+					member: memberAccess.getName(),
+					methodName: calledMethodName,
+					order: callOrder++,
+					paramName: rootName,
+				});
+				continue;
+			}
+		}
+
 		// Pattern B: alias.method() where alias = this.param
 		if (!paramName && receiver.getKind() === SyntaxKind.Identifier) {
 			const aliasName = receiver.getText();
@@ -1211,12 +1283,14 @@ function scanUsedDependencies(
 			if (targetMethod && !visited.has(calledMethodName)) {
 				const condInfo = getConditionalInfo(call, body);
 				const iterInfo = getIterationContext(call, body);
-				const childResult = scanUsedDependencies(
-					targetMethod,
-					injectionMap,
-					cls,
-					new Set(visited)
-				);
+				const childResult = options?.skipChildScan
+					? empty
+					: scanUsedDependencies(
+							targetMethod,
+							injectionMap,
+							cls,
+							new Set(visited)
+						);
 				sameClassCalls.push({
 					assignedTo: extractAssignedVariable(call),
 					branchGroupId: condInfo.statementLine
@@ -1238,7 +1312,10 @@ function scanUsedDependencies(
 	}
 
 	// Merge guard-throw patterns (fetch + null-check + throw)
-	mergeGuardThrows(callEntries, throws);
+	mergeGuardThrows(
+		[...callEntries, ...memberCalls].sort((a, b) => a.order - b.order),
+		throws
+	);
 
 	// Detect inline logic steps
 	const steps: StepUsage[] = [];
@@ -1262,6 +1339,13 @@ function scanUsedDependencies(
 		for (const scc of sameClassCalls) {
 			for (const ce of callExpressions) {
 				if (ce.getStartLineNumber() === scc.callSiteLine) {
+					trackedPositions.add(ce.getStart());
+				}
+			}
+		}
+		for (const mbr of memberCalls) {
+			for (const ce of callExpressions) {
+				if (ce.getStartLineNumber() === mbr.callSiteLine) {
 					trackedPositions.add(ce.getStart());
 				}
 			}
@@ -1332,6 +1416,7 @@ function scanUsedDependencies(
 		type OrderItem =
 			| { kind: "call"; item: (typeof callEntries)[number] }
 			| { kind: "throw"; item: ThrowUsage }
+			| { kind: "member"; item: MemberCallUsage }
 			| { kind: "scc"; item: SameClassCallUsage }
 			| { kind: "step"; item: StepUsage };
 
@@ -1344,6 +1429,9 @@ function scanUsedDependencies(
 		}
 		for (const s of sameClassCalls) {
 			allItems.push({ kind: "scc", item: s });
+		}
+		for (const m of memberCalls) {
+			allItems.push({ kind: "member", item: m });
 		}
 		for (const s of steps) {
 			allItems.push({ kind: "step", item: s });
@@ -1389,6 +1477,7 @@ function scanUsedDependencies(
 
 	const scanResult: ScanResult = {
 		deps: result,
+		memberCalls,
 		sameClassCalls,
 		steps,
 		throws,
@@ -1399,7 +1488,7 @@ function scanUsedDependencies(
 	return scanResult;
 }
 
-function classifyDependency(name: string): DependencyType {
+export function classifyDependency(name: string): DependencyType {
 	if (name.endsWith("Repository")) {
 		return "repository";
 	}
@@ -1537,6 +1626,7 @@ function buildMethodDependencyTree(
 			dependencies: buildMethodDependencyTree(
 				{
 					deps: fallbackChildDeps,
+					memberCalls: [],
 					sameClassCalls: [],
 					steps: [],
 					throws: [],
@@ -1736,6 +1826,7 @@ function buildMethodDependencyTree(
 			childNodes = buildMethodDependencyTree(
 				{
 					deps: childDeps,
+					memberCalls: [],
 					sameClassCalls: allSameClassCalls,
 					steps: [],
 					throws: allThrows,
