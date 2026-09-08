@@ -227,7 +227,7 @@ async function buildSubProjectContext(
 		detectProject(projectPath),
 		loadConfigWithFallback(projectPath, rootConfig),
 	]);
-	mark("collect");
+	mark("detect");
 
 	const { aliases: pathAliases, baseUrl } = loadTsconfigResolution(projectPath);
 	const astProject = await createAstParser(

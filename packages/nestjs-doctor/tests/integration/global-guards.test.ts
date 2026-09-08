@@ -103,8 +103,8 @@ describe("global guard detection", () => {
 		expect(context.endpointGraph.endpoints).toHaveLength(7);
 	});
 
-	// The decorator lives in a package, so the checker only reads it when that
-	// package is installed. Both directions are pinned here.
+	// The decorator lives in a package, so the checker reads it through a
+	// workspace link but not through an installed copy.
 	describe("a decorator imported from a package", () => {
 		const tempRoot = fs.mkdtempSync(
 			path.join(os.tmpdir(), "nestjs-doctor-package-guard-")

@@ -1,4 +1,9 @@
-import { type CallExpression, type Node, SyntaxKind } from "ts-morph";
+import {
+	type CallExpression,
+	type ClassDeclaration,
+	type Node,
+	SyntaxKind,
+} from "ts-morph";
 import { isHttpHandler } from "../../../nest-class-inspector.js";
 import type { Rule } from "../../types.js";
 
@@ -36,6 +41,45 @@ const ASYNC_PREFIXES = new Set([
 	"download",
 	"process",
 ]);
+
+/** The class member a `this.member.method()` call reads, if the class declares one. */
+function declaredReceiver(callExpr: CallExpression, cls: ClassDeclaration) {
+	const access = callExpr
+		.getExpression()
+		.asKind(SyntaxKind.PropertyAccessExpression)
+		?.getExpression()
+		.asKind(SyntaxKind.PropertyAccessExpression);
+	if (access?.getExpression().getKind() !== SyntaxKind.ThisKeyword) {
+		return;
+	}
+	const name = access.getName();
+	return (
+		cls.getProperty(name) ??
+		cls
+			.getConstructors()[0]
+			?.getParameters()
+			.find((parameter) => parameter.getName() === name)
+	);
+}
+
+/**
+ * True when the name suggests an async call and the receiver's type is not
+ * written down. A declared type that still resolves to `any` belongs to a
+ * package the scan does not read, so the name is not evidence.
+ */
+function nameMayBeAsync(callExpr: CallExpression, methodName: string): boolean {
+	const cls = callExpr.getFirstAncestorByKind(SyntaxKind.ClassDeclaration);
+	if (cls && declaredReceiver(callExpr, cls)?.getTypeNode()) {
+		return false;
+	}
+	const lowerName = methodName.toLowerCase();
+	return (
+		ASYNC_PREFIXES.has(lowerName) ||
+		[...ASYNC_PREFIXES].some(
+			(prefix) => lowerName.startsWith(prefix) && lowerName !== prefix
+		)
+	);
+}
 
 /**
  * A handler that ends by throwing leaves the rejection unhandled. Only an
@@ -158,17 +202,11 @@ export const noFireAndForgetAsync: Rule = {
 						continue;
 					}
 
-					if (promiseCheck === "unknown") {
-						// Type is unresolvable (any) — fall back to name heuristic
-						const lowerName = methodName.toLowerCase();
-						const isLikelyAsync =
-							ASYNC_PREFIXES.has(lowerName) ||
-							[...ASYNC_PREFIXES].some(
-								(prefix) => lowerName.startsWith(prefix) && lowerName !== prefix
-							);
-						if (!isLikelyAsync) {
-							continue;
-						}
+					if (
+						promiseCheck === "unknown" &&
+						!nameMayBeAsync(callExpr, methodName)
+					) {
+						continue;
 					}
 
 					// Check the call is inside a non-arrow, non-nested function scope

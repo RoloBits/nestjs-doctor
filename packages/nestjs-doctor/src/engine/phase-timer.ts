@@ -1,13 +1,13 @@
-/** How long a stage took, and how long the build has run, in milliseconds. */
+/** Records that a named stage finished. */
 export type PhaseMark = (phase: string) => void;
 
 const NO_MARKS: PhaseMark = () => {
-	// Timing is off, so a mark costs nothing.
+	// Discards the mark.
 };
 
 /**
- * Writes one line per stage to stderr when NESTJS_DOCTOR_PHASE_TIMINGS is set,
- * and does nothing otherwise.
+ * Writes one line per stage to stderr when NESTJS_DOCTOR_PHASE_TIMINGS holds a
+ * non-empty value, and does nothing otherwise.
  */
 export function startPhaseTimer(label: string): PhaseMark {
 	if (!process.env.NESTJS_DOCTOR_PHASE_TIMINGS) {

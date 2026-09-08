@@ -1282,6 +1282,24 @@ describe("no-fire-and-forget-async", () => {
 		expect(diags[0].message).toContain("sendConfirmation");
 	});
 
+	it("does not guess from the name when the receiver type is declared", () => {
+		const diags = runRule(
+			noFireAndForgetAsync,
+			`
+      import { Injectable } from '@nestjs/common';
+      import { WebSocket } from 'ws';
+      @Injectable()
+      export class NotifyService {
+        constructor(private readonly socket: WebSocket) {}
+        notify(message: string) {
+          this.socket.send(message);
+        }
+      }
+    `
+		);
+		expect(diags).toEqual([]);
+	});
+
 	it("allows awaited calls", () => {
 		const diags = runRule(
 			noFireAndForgetAsync,

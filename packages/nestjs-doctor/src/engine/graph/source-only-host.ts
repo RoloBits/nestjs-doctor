@@ -6,6 +6,11 @@ const NODE_MODULES = /[\\/]node_modules[\\/]/;
 /** `node_modules/name` or `node_modules/@scope/name`, whichever the path has. */
 const PACKAGE_ROOT = /^(.*[\\/]node_modules[\\/](?:@[^\\/]+[\\/])?[^\\/]+)/;
 
+/** The shape ts-morph recognises as a missing file. */
+function notFound(filePath: string): Error {
+	return Object.assign(new Error(`${filePath} not found`), { code: "ENOENT" });
+}
+
 const HIDDEN_READS = new Set([
 	"directoryExists",
 	"directoryExistsSync",
@@ -15,10 +20,7 @@ const HIDDEN_READS = new Set([
 	"readFileSync",
 ]);
 
-/**
- * True when the path resolves to an installed package. A workspace package
- * symlinked into node_modules resolves back out of it and stays visible.
- */
+/** True when the path resolves inside node_modules, or resolves to nothing. */
 function installedPackage(filePath: string, cache: Map<string, boolean>) {
 	const root = PACKAGE_ROOT.exec(filePath)?.[1];
 	if (!root) {
@@ -28,7 +30,7 @@ function installedPackage(filePath: string, cache: Map<string, boolean>) {
 	if (cached !== undefined) {
 		return cached;
 	}
-	let installed = true;
+	let installed: boolean;
 	try {
 		installed = NODE_MODULES.test(realpathSync(root));
 	} catch {
@@ -39,9 +41,8 @@ function installedPackage(filePath: string, cache: Map<string, boolean>) {
 }
 
 /**
- * A file system that reports installed packages as absent, so the type checker
- * resolves the scanned sources and stops before their dependencies. Paths the
- * scan collected are always readable, whatever they contain.
+ * A file system that reports installed packages as absent. A file the scan
+ * collected stays readable.
  */
 export function createSourceOnlyHost(collected: Iterable<string>) {
 	const real = new Project({
@@ -65,10 +66,10 @@ export function createSourceOnlyHost(collected: Iterable<string>) {
 					return Reflect.apply(value, target, [filePath, ...rest]);
 				}
 				if (property === "readFile") {
-					return Promise.reject(new Error(`${filePath} not found`));
+					return Promise.reject(notFound(filePath));
 				}
 				if (property === "readFileSync") {
-					throw new Error(`${filePath} not found`);
+					throw notFound(filePath);
 				}
 				return property === "fileExists" || property === "directoryExists"
 					? Promise.resolve(false)
