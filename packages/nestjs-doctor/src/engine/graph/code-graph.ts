@@ -79,6 +79,8 @@ interface IndexedClass {
 /** Where a receiver's declared type led, or why it led nowhere. */
 interface ResolvedReceiver {
 	cls?: ClassDeclaration;
+	/** File declaring the type, so two same-named interfaces stay apart. */
+	filePath?: string;
 	reason?: UnresolvedReason;
 	typeName: string;
 }
@@ -179,7 +181,7 @@ function resolveTypeNode(
 	const declarations = (
 		symbol?.getAliasedSymbol() ?? symbol
 	)?.getDeclarations();
-	let sawTypeOnly = false;
+	let typeOnly: Node | undefined;
 	for (const decl of declarations ?? []) {
 		const asClass = decl.asKind(SyntaxKind.ClassDeclaration);
 		if (asClass) {
@@ -189,7 +191,7 @@ function resolveTypeNode(
 			decl.getKind() === SyntaxKind.InterfaceDeclaration ||
 			decl.getKind() === SyntaxKind.TypeAliasDeclaration
 		) {
-			sawTypeOnly = true;
+			typeOnly ??= decl;
 		}
 	}
 	const provider = providers.get(typeName);
@@ -197,7 +199,8 @@ function resolveTypeNode(
 		return { cls: provider.classDeclaration, typeName };
 	}
 	return {
-		reason: sawTypeOnly ? "interface-token" : "external-package",
+		...(typeOnly ? { filePath: typeOnly.getSourceFile().getFilePath() } : {}),
+		reason: typeOnly ? "interface-token" : "external-package",
 		typeName,
 	};
 }
@@ -270,7 +273,7 @@ class GraphBuilder {
 	): NodeId {
 		if (!receiver.cls) {
 			return this.unresolved(
-				"",
+				receiver.filePath ?? "",
 				receiver.typeName || fallbackName,
 				methodName,
 				receiver.reason ?? "receiver-unknown"
@@ -309,7 +312,7 @@ class GraphBuilder {
 				className: cls?.getName() ?? (receiver.typeName || fallbackName),
 				classMethodCount: 0,
 				endLine: 0,
-				filePath: cls?.getSourceFile().getFilePath() ?? "",
+				filePath: cls?.getSourceFile().getFilePath() ?? receiver.filePath ?? "",
 				kind: cls ? "db" : "unresolved",
 				line: 0,
 				member,

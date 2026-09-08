@@ -324,10 +324,10 @@ describe("code graph contract", () => {
 			expect(node(out(OTHER_STAMP)[0].to).unresolved).toBe("interface-token");
 		});
 
-		it.fails("keeps two same-named interfaces in different files apart", () => {
-			// Both Clock interfaces get an empty file path, so they collide.
-			// Work step 9: give an interface token its declaration path.
+		it("keeps two same-named interfaces in different files apart", () => {
 			expect(out(STAMP)[0].to).not.toBe(out(OTHER_STAMP)[0].to);
+			expect(node(out(STAMP)[0].to).filePath).toBe("/tokens.ts");
+			expect(node(out(OTHER_STAMP)[0].to).filePath).toBe("/other-tokens.ts");
 		});
 	});
 
