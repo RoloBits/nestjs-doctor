@@ -106,9 +106,8 @@ describe("code graph contract", () => {
 			]);
 		});
 
-		it.fails("runs an argument call before the call it is an argument to", () => {
+		it("runs an argument call before the call it is an argument to", () => {
 			// `this.repo.save(this.repo.findOne(...))` evaluates findOne first.
-			// Work step 6: sort by node end instead of node start.
 			expect(out(LABEL).map((edge) => edge.to)).toEqual([REPO_FIND, REPO_SAVE]);
 		});
 	});
@@ -313,9 +312,7 @@ describe("code graph contract", () => {
 	});
 
 	describe("13. is this method's flow complete", () => {
-		it.fails("numbers every method's sequence 0 to n-1 with no holes", () => {
-			// `find` yields [0, 2]: order 1 was the throw the guard merge deleted.
-			// Work steps 6 and 8.
+		it("numbers every method's sequence 0 to n-1 with no holes", () => {
 			const holes = GRAPH.nodes
 				.map((item) => sequence(item.id))
 				.filter((items) => items.some((entry, index) => entry.order !== index));

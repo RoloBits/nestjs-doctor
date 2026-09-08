@@ -113,6 +113,7 @@ interface SameClassCallUsage {
 	iterationLabel: string | null;
 	methodName: string;
 	order: number;
+	sortKey: number;
 	tryRegion: string | null;
 	/** The call was `super.method()`, so it targets the base declaration. */
 	viaSuper: boolean;
@@ -132,6 +133,7 @@ interface ThrowUsage {
 	merged?: boolean;
 	message: string | null;
 	order: number;
+	sortKey: number;
 	tryRegion: string | null;
 }
 
@@ -146,6 +148,7 @@ interface StepUsage {
 	iterationKind: "loop" | "callback" | "concurrent" | null;
 	iterationLabel: string | null;
 	order: number;
+	sortKey: number;
 	statements: StepStatement[];
 	tryRegion: string | null;
 }
@@ -164,6 +167,7 @@ interface ReturnUsage {
 	iterationKind: "loop" | "callback" | "concurrent" | null;
 	iterationLabel: string | null;
 	order: number;
+	sortKey: number;
 	tryRegion: string | null;
 }
 
@@ -185,6 +189,7 @@ interface MemberCallUsage {
 	methodName: string;
 	order: number;
 	paramName: string;
+	sortKey: number;
 	tryRegion: string | null;
 }
 
@@ -1248,6 +1253,7 @@ export function scanUsedDependencies(
 	const callEntries: Array<{
 		assignedTo: string | null;
 		awaited: boolean;
+		sortKey: number;
 		paramName: string;
 		methodName: string;
 		order: number;
@@ -1276,7 +1282,7 @@ export function scanUsedDependencies(
 		...returnStatements.map((node) => ({ kind: "return" as const, node })),
 		...throwStatements.map((node) => ({ kind: "throw" as const, node })),
 	];
-	workItems.sort((a, b) => a.node.getStart() - b.node.getStart());
+	workItems.sort((a, b) => a.node.getEnd() - b.node.getEnd());
 
 	for (const item of workItems) {
 		if (item.kind === "return") {
@@ -1295,6 +1301,7 @@ export function scanUsedDependencies(
 				tryRegion: condInfo.tryRegion,
 				conditionText: condInfo.conditionText,
 				expression: expression ? normalizeSnippet(expression.getText()) : null,
+				sortKey: item.node.getEnd(),
 				iterationKind: iterInfo.iterationKind,
 				iterationLabel: iterInfo.iterationLabel,
 				order: callOrder++,
@@ -1316,6 +1323,7 @@ export function scanUsedDependencies(
 				tryRegion: condInfo.tryRegion,
 				conditionText: condInfo.conditionText,
 				exceptionClassName: extractThrowClassName(item.node),
+				sortKey: item.node.getEnd(),
 				iterationKind: iterInfo.iterationKind,
 				iterationLabel: iterInfo.iterationLabel,
 				message: extractThrowMessage(item.node),
@@ -1373,6 +1381,7 @@ export function scanUsedDependencies(
 				memberCalls.push({
 					assignedTo: extractAssignedVariable(call),
 					awaited: isAwaitedCall(call),
+					sortKey: call.getEnd(),
 					branchGroupId: condInfo.statementLine
 						? `L${condInfo.statementLine}`
 						: null,
@@ -1411,6 +1420,7 @@ export function scanUsedDependencies(
 			callEntries.push({
 				assignedTo: extractAssignedVariable(call),
 				awaited: isAwaitedCall(call),
+				sortKey: call.getEnd(),
 				paramName,
 				methodName: calledMethodName,
 				order: callOrder++,
@@ -1449,6 +1459,7 @@ export function scanUsedDependencies(
 				sameClassCalls.push({
 					assignedTo: extractAssignedVariable(call),
 					awaited: isAwaitedCall(call),
+					sortKey: call.getEnd(),
 					branchGroupId: condInfo.statementLine
 						? `L${condInfo.statementLine}`
 						: null,
@@ -1540,6 +1551,7 @@ export function scanUsedDependencies(
 				iterationKind: iterInfo.iterationKind,
 				iterationLabel: iterInfo.iterationLabel,
 				order: 0, // Will be re-assigned
+				sortKey: firstStmt.getEnd(),
 				statements: pendingStatements.map((p) => p.info),
 			});
 			pendingStatements = [];
@@ -1576,7 +1588,7 @@ export function scanUsedDependencies(
 	}
 
 	// Re-assign order numbers across all items by source position
-	if (steps.length > 0) {
+	{
 		type OrderItem =
 			| { kind: "call"; item: (typeof callEntries)[number] }
 			| { kind: "throw"; item: ThrowUsage }
@@ -1604,7 +1616,7 @@ export function scanUsedDependencies(
 		for (const s of steps) {
 			allItems.push({ kind: "step", item: s });
 		}
-		allItems.sort((a, b) => a.item.callSiteLine - b.item.callSiteLine);
+		allItems.sort((a, b) => a.item.sortKey - b.item.sortKey);
 
 		let newOrder = 0;
 		for (const ai of allItems) {
