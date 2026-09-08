@@ -103,8 +103,8 @@ describe("global guard detection", () => {
 		expect(context.endpointGraph.endpoints).toHaveLength(7);
 	});
 
-	// The decorator lives in a package, so the checker only reads it when that
-	// package is installed. Both directions are pinned here.
+	// The decorator lives in a package, so the checker reads it through a
+	// workspace link but not through an installed copy.
 	describe("a decorator imported from a package", () => {
 		const tempRoot = fs.mkdtempSync(
 			path.join(os.tmpdir(), "nestjs-doctor-package-guard-")
@@ -114,17 +114,21 @@ describe("global guard detection", () => {
 			fs.rmSync(tempRoot, { recursive: true, force: true });
 		});
 
-		function plant(name: string, installed: boolean) {
+		function plant(name: string, how: "link" | "copy" | "none") {
 			const root = path.join(tempRoot, name);
 			fs.cpSync(resolve(FIXTURES, "package-guard-app"), root, {
 				recursive: true,
 			});
-			if (installed) {
-				const target = path.join(root, "node_modules", "@fixture", "auth");
+			const source = path.join(root, "vendor", "auth");
+			const target = path.join(root, "node_modules", "@fixture", "auth");
+			if (how !== "none") {
 				fs.mkdirSync(path.dirname(target), { recursive: true });
-				fs.cpSync(path.join(root, "vendor", "auth"), target, {
-					recursive: true,
-				});
+			}
+			if (how === "link") {
+				fs.symlinkSync(source, target, "dir");
+			}
+			if (how === "copy") {
+				fs.cpSync(source, target, { recursive: true });
 			}
 			return path.join(root, "src");
 		}
@@ -138,12 +142,34 @@ describe("global guard detection", () => {
 			);
 		}
 
-		it("counts the guard when the package is installed", async () => {
-			expect(await guardFindings(plant("installed", true))).toEqual([]);
+		it("counts a guard from a workspace package linked into node_modules", async () => {
+			expect(await guardFindings(plant("linked", "link"))).toEqual([]);
+		});
+
+		it("reports the endpoint when the decorator is only an installed copy", async () => {
+			const findings = await guardFindings(plant("installed", "copy"));
+			expect(findings).toHaveLength(1);
+			expect(findings[0].filePath).toContain("orders.controller.ts");
+		});
+
+		it("still reads a file inside a package when asked outright", async () => {
+			const src = plant("outright", "copy");
+			const scanConfig = await resolveScanConfig(src);
+			const context = await buildAnalysisContext(src, scanConfig);
+			const inside = path.join(
+				path.dirname(src),
+				"node_modules",
+				"@fixture",
+				"auth",
+				"index.ts"
+			);
+			expect(() =>
+				context.astProject.addSourceFileAtPath(inside)
+			).not.toThrow();
 		});
 
 		it("reports the endpoint when the package is missing", async () => {
-			const findings = await guardFindings(plant("bare", false));
+			const findings = await guardFindings(plant("bare", "none"));
 			expect(findings).toHaveLength(1);
 			expect(findings[0].filePath).toContain("orders.controller.ts");
 		});

@@ -1,5 +1,6 @@
 import { Project } from "ts-morph";
 import { YIELD_INTERVAL, yieldToEventLoop } from "../yield.js";
+import { createSourceOnlyHost } from "./source-only-host.js";
 import type { PathAliasMap } from "./tsconfig-paths.js";
 
 export async function createAstParser(
@@ -20,6 +21,7 @@ export async function createAstParser(
 					? Object.fromEntries(pathAliases)
 					: undefined,
 		},
+		fileSystem: createSourceOnlyHost(files),
 		skipAddingFilesFromTsConfig: true,
 	});
 
