@@ -1,4 +1,4 @@
-import type { Node, Project, SourceFile } from "ts-morph";
+import type { Decorator, Node, Project, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import { YIELD_INTERVAL, yieldToEventLoop } from "../yield.js";
 
@@ -42,9 +42,15 @@ function argumentApplies(argument: Node): boolean {
 	return elements ? elements.some(argumentApplies) : false;
 }
 
-/** True when an argument of `applyDecorators(...)` always applies a guard. */
+/** True for `UseGuards(...)` itself, or an `applyDecorators(...)` that applies one. */
 function appliesGuards(expression: Node | undefined): boolean {
-	const call = expression?.asKind(SyntaxKind.CallExpression);
+	if (!expression) {
+		return false;
+	}
+	if (isUseGuardsCall(expression)) {
+		return true;
+	}
+	const call = expression.asKind(SyntaxKind.CallExpression);
 	if (call?.getExpression().getText() !== "applyDecorators") {
 		return false;
 	}
@@ -81,6 +87,65 @@ function returnedExpressions(fn: Node): Node[] {
 	return expressions;
 }
 
+/** The function a declaration implements: itself, or its initialiser. */
+function declaredFunction(declaration: Node): Node | undefined {
+	if (declaration.isKind(SyntaxKind.FunctionDeclaration)) {
+		return declaration;
+	}
+	const initializer = declaration
+		.asKind(SyntaxKind.VariableDeclaration)
+		?.getInitializer();
+	return (
+		initializer?.asKind(SyntaxKind.ArrowFunction) ??
+		initializer?.asKind(SyntaxKind.FunctionExpression)
+	);
+}
+
+/** Verdicts keyed by declaration position, so each implementation is read once. */
+const compositionCache = new Map<string, boolean>();
+
+/**
+ * True when this decorator's implementation applies a guard. Resolves the name
+ * to its declaration, so a decorator declared in another project still counts.
+ */
+export function decoratorAppliesGuards(decorator: Decorator): boolean {
+	const symbol = decorator.getNameNode().getSymbol();
+	const declarations = (
+		symbol?.getAliasedSymbol() ?? symbol
+	)?.getDeclarations();
+	if (!declarations?.length) {
+		return false;
+	}
+	const first = declarations[0];
+	const key = `${first.getSourceFile().getFilePath()}:${first.getPos()}:${first.getEnd()}:${declarations.length}`;
+	const cached = compositionCache.get(key);
+	if (cached !== undefined) {
+		return cached;
+	}
+	const applies = declarations.some((declaration) => {
+		const fn = declaredFunction(declaration);
+		return fn ? returnedExpressions(fn).some(appliesGuards) : false;
+	});
+	compositionCache.set(key, applies);
+	return applies;
+}
+
+/**
+ * True when a decorator binds a guard: `@UseGuards`, a name the index already
+ * knows, or a composition its declaration spells out.
+ */
+export function isGuardDecorator(
+	decorator: Decorator,
+	composed: ReadonlySet<string> | undefined
+): boolean {
+	const name = decorator.getName();
+	return (
+		name === "UseGuards" ||
+		composed?.has(name) === true ||
+		decoratorAppliesGuards(decorator)
+	);
+}
+
 /** Names in one file whose implementation composes `UseGuards`. */
 function namesInFile(sourceFile: SourceFile): Set<string> {
 	const names = new Set<string>();
@@ -93,10 +158,8 @@ function namesInFile(sourceFile: SourceFile): Set<string> {
 	}
 
 	for (const declaration of sourceFile.getVariableDeclarations()) {
-		const arrow = declaration
-			.getInitializer()
-			?.asKind(SyntaxKind.ArrowFunction);
-		if (arrow && returnedExpressions(arrow).some(appliesGuards)) {
+		const fn = declaredFunction(declaration);
+		if (fn && returnedExpressions(fn).some(appliesGuards)) {
 			names.add(declaration.getName());
 		}
 	}

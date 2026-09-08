@@ -2,6 +2,7 @@ import { Project } from "ts-morph";
 import { describe, expect, it } from "vitest";
 import {
 	buildGuardDecoratorIndex,
+	decoratorAppliesGuards,
 	guardDecoratorNames,
 } from "../../src/engine/graph/guard-decorators.js";
 
@@ -150,5 +151,131 @@ describe("buildGuardDecoratorIndex", () => {
 		);
 		const empty = buildGuardDecoratorIndex(project, ["/missing.ts"]);
 		expect(guardDecoratorNames(empty).size).toBe(0);
+	});
+});
+
+describe("buildGuardDecoratorIndex, guards applied without applyDecorators", () => {
+	it("indexes a function returning UseGuards(...) on its own", () => {
+		const names = index(`
+      import { UseGuards } from '@nestjs/common';
+      export function Auth() {
+        return UseGuards(AuthGuard);
+      }
+    `);
+		expect([...names]).toEqual(["Auth"]);
+	});
+
+	it("indexes a function expression assigned to a const", () => {
+		const names = index(`
+      import { UseGuards } from '@nestjs/common';
+      export const IsAuthnAuthz = function () {
+        return UseGuards(IsAuthnAuthzGuard);
+      };
+    `);
+		expect([...names]).toEqual(["IsAuthnAuthz"]);
+	});
+
+	it("indexes an arrow returning UseGuards(...) with a concise body", () => {
+		const names = index(`
+      import { UseGuards } from '@nestjs/common';
+      export const StripeAuthorizer = () => UseGuards(StripeAuthorizerGuard);
+    `);
+		expect([...names]).toEqual(["StripeAuthorizer"]);
+	});
+
+	it("still ignores a UseGuards call that is not what the function returns", () => {
+		const names = index(`
+      import { UseGuards } from '@nestjs/common';
+      export function notADecorator() {
+        const x = UseGuards(AuthGuard);
+        return x;
+      }
+    `);
+		expect(names.size).toBe(0);
+	});
+});
+
+describe("decoratorAppliesGuards", () => {
+	function decoratorOn(files: Record<string, string>, entry: string) {
+		const project = new Project({ useInMemoryFileSystem: true });
+		for (const [path, code] of Object.entries(files)) {
+			project.createSourceFile(path, code);
+		}
+		const cls = project.getSourceFileOrThrow(entry).getClasses()[0];
+		return cls.getDecorators()[0];
+	}
+
+	it("credits a decorator declared in another file", () => {
+		const decorator = decoratorOn(
+			{
+				"/libs/auth/guard.ts": `
+          import { UseGuards } from '@nestjs/common';
+          export const IsAuthnAuthz = function () {
+            return UseGuards(IsAuthnAuthzGuard);
+          };
+        `,
+				"/apps/api/thing.controller.ts": `
+          import { IsAuthnAuthz } from '../../libs/auth/guard';
+          @IsAuthnAuthz()
+          export class ThingController {}
+        `,
+			},
+			"/apps/api/thing.controller.ts"
+		);
+		expect(decoratorAppliesGuards(decorator)).toBe(true);
+	});
+
+	it("credits a decorator built with applyDecorators in another file", () => {
+		const decorator = decoratorOn(
+			{
+				"/libs/auth/guard.ts": `
+          import { applyDecorators, UseGuards } from '@nestjs/common';
+          export function Auth() {
+            return applyDecorators(UseGuards(AuthGuard));
+          }
+        `,
+				"/apps/api/thing.controller.ts": `
+          import { Auth } from '../../libs/auth/guard';
+          @Auth()
+          export class ThingController {}
+        `,
+			},
+			"/apps/api/thing.controller.ts"
+		);
+		expect(decoratorAppliesGuards(decorator)).toBe(true);
+	});
+
+	it("does not credit a decorator that applies no guard", () => {
+		const decorator = decoratorOn(
+			{
+				"/libs/docs/api.ts": `
+          import { applyDecorators } from '@nestjs/common';
+          export function Documented() {
+            return applyDecorators(ApiOperation());
+          }
+        `,
+				"/apps/api/thing.controller.ts": `
+          import { Documented } from '../../libs/docs/api';
+          @Documented()
+          export class ThingController {}
+        `,
+			},
+			"/apps/api/thing.controller.ts"
+		);
+		expect(decoratorAppliesGuards(decorator)).toBe(false);
+	});
+
+	it("does not credit a decorator whose declaration it cannot find", () => {
+		const decorator = decoratorOn(
+			{
+				"/apps/api/thing.controller.ts": `
+          import { Mystery } from '@some/package';
+          @Mystery()
+          export class ThingController {}
+        `,
+			},
+			"/apps/api/thing.controller.ts"
+		);
+		expect(decoratorAppliesGuards(decorator)).toBe(false);
 	});
 });

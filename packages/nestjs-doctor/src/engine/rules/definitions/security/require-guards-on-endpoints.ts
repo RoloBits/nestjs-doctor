@@ -1,4 +1,5 @@
 import type { ClassDeclaration, MethodDeclaration } from "ts-morph";
+import { isGuardDecorator } from "../../../graph/guard-decorators.js";
 import {
 	baseClassName,
 	declaresRoutes,
@@ -21,10 +22,8 @@ function hasGuard(
 ): boolean {
 	return node
 		.getDecorators()
-		.some(
-			(decorator) =>
-				decorator.getName() === "UseGuards" ||
-				guards?.composedDecorators.has(decorator.getName())
+		.some((decorator) =>
+			isGuardDecorator(decorator, guards?.composedDecorators)
 		);
 }
 
