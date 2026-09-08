@@ -1282,6 +1282,40 @@ describe("no-fire-and-forget-async", () => {
 		expect(diags[0].message).toContain("sendConfirmation");
 	});
 
+	it("does not guess from the name for a parameter receiver", () => {
+		const diags = runRule(
+			noFireAndForgetAsync,
+			`
+      import { Injectable } from '@nestjs/common';
+      import { Response } from 'express';
+      @Injectable()
+      export class FileService {
+        stream(res: Response) {
+          res.sendFile('/tmp/a.pdf');
+        }
+      }
+    `
+		);
+		expect(diags).toEqual([]);
+	});
+
+	it("does not guess from the name for a local receiver", () => {
+		const diags = runRule(
+			noFireAndForgetAsync,
+			`
+      import { Injectable } from '@nestjs/common';
+      @Injectable()
+      export class WorkerService {
+        run() {
+          const child = spawn('node');
+          child.send('go');
+        }
+      }
+    `
+		);
+		expect(diags).toEqual([]);
+	});
+
 	it("does not guess from the name when the receiver type is declared", () => {
 		const diags = runRule(
 			noFireAndForgetAsync,

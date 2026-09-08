@@ -42,34 +42,38 @@ const ASYNC_PREFIXES = new Set([
 	"process",
 ]);
 
-/** The class member a `this.member.method()` call reads, if the class declares one. */
-function declaredReceiver(callExpr: CallExpression, cls: ClassDeclaration) {
-	const access = callExpr
+/** The member name in `this.member.method()`, when the call has that shape. */
+function thisMemberName(callExpr: CallExpression): string | undefined {
+	const receiver = callExpr
 		.getExpression()
 		.asKind(SyntaxKind.PropertyAccessExpression)
 		?.getExpression()
 		.asKind(SyntaxKind.PropertyAccessExpression);
-	if (access?.getExpression().getKind() !== SyntaxKind.ThisKeyword) {
-		return;
-	}
-	const name = access.getName();
-	return (
+	return receiver?.getExpression().getKind() === SyntaxKind.ThisKeyword
+		? receiver.getName()
+		: undefined;
+}
+
+/** True when the class declares the member, as a property or a constructor parameter. */
+function declaresMember(cls: ClassDeclaration, name: string): boolean {
+	return Boolean(
 		cls.getProperty(name) ??
-		cls
-			.getConstructors()[0]
-			?.getParameters()
-			.find((parameter) => parameter.getName() === name)
+			cls
+				.getConstructors()[0]
+				?.getParameters()
+				.find((parameter) => parameter.getName() === name)
 	);
 }
 
 /**
- * True when the name suggests an async call and the receiver's type is not
- * written down. A declared type that still resolves to `any` belongs to a
- * package the scan does not read, so the name is not evidence.
+ * True when the name suggests an async call on a member the class never
+ * declares. A written-down type that resolves to nothing belongs to a package
+ * the scan does not read, so the name is not evidence.
  */
 function nameMayBeAsync(callExpr: CallExpression, methodName: string): boolean {
 	const cls = callExpr.getFirstAncestorByKind(SyntaxKind.ClassDeclaration);
-	if (cls && declaredReceiver(callExpr, cls)?.getTypeNode()) {
+	const member = thisMemberName(callExpr);
+	if (!(cls && member) || declaresMember(cls, member)) {
 		return false;
 	}
 	const lowerName = methodName.toLowerCase();
