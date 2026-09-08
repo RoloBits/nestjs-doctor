@@ -66,7 +66,7 @@
     "onLanguage:typescript"
   ],
   "dependencies": {
-    "vscode-languageclient": "^9.0.0"
+    "vscode-languageclient": "^10.1.1"
   },
   "devDependencies": {
     "@types/vscode": "~1.85.0",
