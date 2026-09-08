@@ -1,0 +1,9 @@
+{
+  "name": "package-guard-app",
+  "version": "1.0.0",
+  "dependencies": {
+    "@fixture/auth": "workspace:*",
+    "@nestjs/common": "^10.0.0",
+    "@nestjs/core": "^11.1.18"
+  }
+}

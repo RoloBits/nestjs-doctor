@@ -1,4 +1,4 @@
-import type { Node, Project, SourceFile } from "ts-morph";
+import type { Decorator, Node, Project, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import { YIELD_INTERVAL, yieldToEventLoop } from "../yield.js";
 
@@ -42,9 +42,15 @@ function argumentApplies(argument: Node): boolean {
 	return elements ? elements.some(argumentApplies) : false;
 }
 
-/** True when an argument of `applyDecorators(...)` always applies a guard. */
+/** True for `UseGuards(...)` itself, or an `applyDecorators(...)` that applies one. */
 function appliesGuards(expression: Node | undefined): boolean {
-	const call = expression?.asKind(SyntaxKind.CallExpression);
+	if (!expression) {
+		return false;
+	}
+	if (isUseGuardsCall(expression)) {
+		return true;
+	}
+	const call = expression.asKind(SyntaxKind.CallExpression);
 	if (call?.getExpression().getText() !== "applyDecorators") {
 		return false;
 	}
@@ -52,10 +58,11 @@ function appliesGuards(expression: Node | undefined): boolean {
 }
 
 /**
- * Expressions `fn` itself hands back. Returns belonging to a nested function
- * are skipped, since they say nothing about what `fn` returns.
+ * What `fn` itself hands back, one entry per return, `undefined` for a bare
+ * one. Returns belonging to a nested function are skipped, since they say
+ * nothing about what `fn` returns.
  */
-function returnedExpressions(fn: Node): Node[] {
+function returnedExpressions(fn: Node): (Node | undefined)[] {
 	const body = fn.getChildrenOfKind(SyntaxKind.Block)[0];
 	if (!body) {
 		const arrow = fn.asKind(SyntaxKind.ArrowFunction);
@@ -63,7 +70,7 @@ function returnedExpressions(fn: Node): Node[] {
 		return concise && !concise.isKind(SyntaxKind.Block) ? [concise] : [];
 	}
 
-	const expressions: Node[] = [];
+	const expressions: (Node | undefined)[] = [];
 	for (const statement of body.getDescendantsOfKind(
 		SyntaxKind.ReturnStatement
 	)) {
@@ -73,12 +80,73 @@ function returnedExpressions(fn: Node): Node[] {
 		if (owner !== fn) {
 			continue;
 		}
-		const expression = statement.getExpression();
-		if (expression) {
-			expressions.push(expression);
-		}
+		expressions.push(statement.getExpression());
 	}
 	return expressions;
+}
+
+/** True when every path out of `fn` returns a guard, and there is at least one. */
+function functionAppliesGuards(fn: Node): boolean {
+	const returns = returnedExpressions(fn);
+	return returns.length > 0 && returns.every(appliesGuards);
+}
+
+/** The function a declaration implements: itself, or its initialiser. */
+function declaredFunction(declaration: Node): Node | undefined {
+	if (declaration.isKind(SyntaxKind.FunctionDeclaration)) {
+		return declaration;
+	}
+	const initializer = declaration
+		.asKind(SyntaxKind.VariableDeclaration)
+		?.getInitializer();
+	return (
+		initializer?.asKind(SyntaxKind.ArrowFunction) ??
+		initializer?.asKind(SyntaxKind.FunctionExpression)
+	);
+}
+
+/** Verdicts keyed by the declaration node. */
+const compositionCache = new WeakMap<Node, boolean>();
+
+/**
+ * True when this decorator's implementation applies a guard. Resolves the name
+ * to its declaration through the type checker.
+ */
+export function decoratorAppliesGuards(decorator: Decorator): boolean {
+	const symbol = decorator.getNameNode().getSymbol();
+	const declarations = (
+		symbol?.getAliasedSymbol() ?? symbol
+	)?.getDeclarations();
+	if (!declarations?.length) {
+		return false;
+	}
+	const first = declarations[0];
+	const cached = compositionCache.get(first);
+	if (cached !== undefined) {
+		return cached;
+	}
+	const applies = declarations.some((declaration) => {
+		const fn = declaredFunction(declaration);
+		return fn ? functionAppliesGuards(fn) : false;
+	});
+	compositionCache.set(first, applies);
+	return applies;
+}
+
+/**
+ * True when a decorator binds a guard: `@UseGuards`, a name the index already
+ * knows, or a composition its declaration spells out.
+ */
+export function isGuardDecorator(
+	decorator: Decorator,
+	composed: ReadonlySet<string> | undefined
+): boolean {
+	const name = decorator.getName();
+	return (
+		name === "UseGuards" ||
+		composed?.has(name) === true ||
+		decoratorAppliesGuards(decorator)
+	);
 }
 
 /** Names in one file whose implementation composes `UseGuards`. */
@@ -87,16 +155,14 @@ function namesInFile(sourceFile: SourceFile): Set<string> {
 
 	for (const fn of sourceFile.getFunctions()) {
 		const name = fn.getName();
-		if (name && returnedExpressions(fn).some(appliesGuards)) {
+		if (name && functionAppliesGuards(fn)) {
 			names.add(name);
 		}
 	}
 
 	for (const declaration of sourceFile.getVariableDeclarations()) {
-		const arrow = declaration
-			.getInitializer()
-			?.asKind(SyntaxKind.ArrowFunction);
-		if (arrow && returnedExpressions(arrow).some(appliesGuards)) {
+		const fn = declaredFunction(declaration);
+		if (fn && functionAppliesGuards(fn)) {
 			names.add(declaration.getName());
 		}
 	}
