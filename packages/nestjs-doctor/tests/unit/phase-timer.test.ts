@@ -17,7 +17,6 @@ function captureStderr() {
 
 afterEach(() => {
 	vi.restoreAllMocks();
-	process.env.NESTJS_DOCTOR_PHASE_TIMINGS = undefined;
 	process.env.NESTJS_DOCTOR_PHASE_TIMINGS = "";
 });
 

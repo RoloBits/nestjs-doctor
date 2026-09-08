@@ -152,6 +152,22 @@ describe("global guard detection", () => {
 			expect(findings[0].filePath).toContain("orders.controller.ts");
 		});
 
+		it("still reads a file inside a package when asked outright", async () => {
+			const src = plant("outright", "copy");
+			const scanConfig = await resolveScanConfig(src);
+			const context = await buildAnalysisContext(src, scanConfig);
+			const inside = path.join(
+				path.dirname(src),
+				"node_modules",
+				"@fixture",
+				"auth",
+				"index.ts"
+			);
+			expect(() =>
+				context.astProject.addSourceFileAtPath(inside)
+			).not.toThrow();
+		});
+
 		it("reports the endpoint when the package is missing", async () => {
 			const findings = await guardFindings(plant("bare", "none"));
 			expect(findings).toHaveLength(1);

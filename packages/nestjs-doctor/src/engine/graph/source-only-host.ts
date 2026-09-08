@@ -6,18 +6,11 @@ const NODE_MODULES = /[\\/]node_modules[\\/]/;
 /** `node_modules/name` or `node_modules/@scope/name`, whichever the path has. */
 const PACKAGE_ROOT = /^(.*[\\/]node_modules[\\/](?:@[^\\/]+[\\/])?[^\\/]+)/;
 
-/** The shape ts-morph recognises as a missing file. */
-function notFound(filePath: string): Error {
-	return Object.assign(new Error(`${filePath} not found`), { code: "ENOENT" });
-}
-
-const HIDDEN_READS = new Set([
+const HIDDEN_LOOKUPS = new Set([
 	"directoryExists",
 	"directoryExistsSync",
 	"fileExists",
 	"fileExistsSync",
-	"readFile",
-	"readFileSync",
 ]);
 
 /** True when the path resolves inside node_modules, or resolves to nothing. */
@@ -41,8 +34,8 @@ function installedPackage(filePath: string, cache: Map<string, boolean>) {
 }
 
 /**
- * A file system that reports installed packages as absent. A file the scan
- * collected stays readable.
+ * A file system that reports installed packages as absent, so module
+ * resolution stops at them. Reading a path outright still works.
  */
 export function createSourceOnlyHost(collected: Iterable<string>) {
 	const real = new Project({
@@ -58,18 +51,15 @@ export function createSourceOnlyHost(collected: Iterable<string>) {
 	return new Proxy(real, {
 		get(target, property, receiver) {
 			const value = Reflect.get(target, property, receiver);
-			if (typeof value !== "function" || !HIDDEN_READS.has(String(property))) {
+			if (
+				typeof value !== "function" ||
+				!HIDDEN_LOOKUPS.has(String(property))
+			) {
 				return typeof value === "function" ? value.bind(target) : value;
 			}
 			return (filePath: string, ...rest: unknown[]) => {
 				if (!hidden(filePath)) {
 					return Reflect.apply(value, target, [filePath, ...rest]);
-				}
-				if (property === "readFile") {
-					return Promise.reject(notFound(filePath));
-				}
-				if (property === "readFileSync") {
-					throw notFound(filePath);
 				}
 				return property === "fileExists" || property === "directoryExists"
 					? Promise.resolve(false)
