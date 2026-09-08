@@ -370,3 +370,31 @@ describe("decoratorAppliesGuards verdict reuse", () => {
 		expect(decoratorAppliesGuards(decorator)).toBe(true);
 	});
 });
+
+describe("a return that hands back nothing", () => {
+	it("ignores a function whose disabled path returns bare", () => {
+		const names = index(`
+      import { UseGuards } from '@nestjs/common';
+      export function Auth(enabled = true) {
+        if (!enabled) {
+          return;
+        }
+        return UseGuards(JwtGuard);
+      }
+    `);
+		expect(names.size).toBe(0);
+	});
+
+	it("ignores a function whose disabled path returns undefined", () => {
+		const names = index(`
+      import { UseGuards } from '@nestjs/common';
+      export function Auth(enabled = true) {
+        if (!enabled) {
+          return undefined;
+        }
+        return UseGuards(JwtGuard);
+      }
+    `);
+		expect(names.size).toBe(0);
+	});
+});

@@ -58,10 +58,11 @@ function appliesGuards(expression: Node | undefined): boolean {
 }
 
 /**
- * Expressions `fn` itself hands back. Returns belonging to a nested function
- * are skipped, since they say nothing about what `fn` returns.
+ * What `fn` itself hands back, one entry per return, `undefined` for a bare
+ * one. Returns belonging to a nested function are skipped, since they say
+ * nothing about what `fn` returns.
  */
-function returnedExpressions(fn: Node): Node[] {
+function returnedExpressions(fn: Node): (Node | undefined)[] {
 	const body = fn.getChildrenOfKind(SyntaxKind.Block)[0];
 	if (!body) {
 		const arrow = fn.asKind(SyntaxKind.ArrowFunction);
@@ -69,7 +70,7 @@ function returnedExpressions(fn: Node): Node[] {
 		return concise && !concise.isKind(SyntaxKind.Block) ? [concise] : [];
 	}
 
-	const expressions: Node[] = [];
+	const expressions: (Node | undefined)[] = [];
 	for (const statement of body.getDescendantsOfKind(
 		SyntaxKind.ReturnStatement
 	)) {
@@ -79,10 +80,7 @@ function returnedExpressions(fn: Node): Node[] {
 		if (owner !== fn) {
 			continue;
 		}
-		const expression = statement.getExpression();
-		if (expression) {
-			expressions.push(expression);
-		}
+		expressions.push(statement.getExpression());
 	}
 	return expressions;
 }
