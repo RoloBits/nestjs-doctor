@@ -104,3 +104,142 @@ The `prepareAnalysis` function returns an `AnalysisContext` that holds:
 | `schemaRules` | `SchemaRule[]` | Schema-scoped rules (filtered by config) |
 | `targetPath` | `string` | Root directory of the scanned project |
 | `installRoot` | `string \| undefined` | Where to resolve `node_modules` from, when that is not `targetPath` |
+
+## Code graph
+
+A second structure beside the endpoint graph. It holds one node per declared
+method of every Nest class, and one edge per call site. The endpoint graph nests a
+subtree under each route, so one method that five routes reach appears in five
+subtrees.
+
+Build one from a prepared context:
+
+```typescript
+import { prepareAnalysis, codeGraphFor } from "nestjs-doctor";
+
+const { context } = await prepareAnalysis("./my-nestjs-app");
+const graph = codeGraphFor(context);
+
+graph.nodes; // MethodNode[]
+graph.edges; // CallEdge[]
+graph.entries; // EntryPoint[], the routes whose handler became a node
+```
+
+`codeGraphFor` costs a pass over every indexed method, so it builds on the first
+call and caches against the context. `updateFile` drops that cache. Nothing on
+the diagnostics path calls it, so neither `diagnose()` nor `checkFile` builds it.
+
+The endpoint graph stops at 5000 dependency nodes and marks the endpoint
+`truncated`. The code graph has no such limit.
+
+### Node ids
+
+A node id is `${path}::${ClassName}#${methodName}`. The path is the absolute
+path of the declaring file, the same one the endpoint graph reports. An
+installed package has no file to point at, so its import specifier fills the
+slot, and a receiver that resolves to neither leaves it empty. Five variations
+sit inside that shape:
+
+| Node id | Means |
+|---|---|
+| `/app/src/orders.service.ts::OrdersService#find` | An instance method |
+| `/app/src/token.service.ts::TokenService.format` | A static, separated with `.` |
+| `/app/src/helpers.ts::#formatLabel` | A free function, with the class left empty |
+| `/app/src/prisma.service.ts::PrismaService#user.findUnique` | A member call, from `this.prisma.user.findUnique()` |
+| `@nestjs/common::Logger#error` | An installed package, whose import specifier fills the path slot |
+| `::{ tick(): void }#tick` | A receiver that resolved to neither, leaving the path empty |
+
+The parser hides `node_modules`, so a package has no declaration to key on. The
+import specifier is what keeps two packages exporting one name apart.
+
+### Body and order
+
+Each node carries an ordered `body` of the parts that are not calls: returns,
+throws, and plain steps. Body items and the node's outgoing edges share one
+dense `0..n-1` sequence, so `order` interleaves them back into the method as
+written.
+
+Every edge says where its call site sits in the control flow:
+
+| Field | Says |
+|---|---|
+| `conditional`, `conditionPath` | Whether the call runs on a condition, and every enclosing construct, outermost first |
+| `branchKind`, `branchGroupId` | Which arm of a branch holds it, and which arms are mutually exclusive |
+| `tryRegion` | The `try` covering it, matching the `branchGroupId` of the `catch` that handles it |
+| `awaited` | Whether the code awaits the call site itself |
+| `iterationKind`, `iterationLabel` | Whether it repeats, and the construct that repeats it |
+| `guardThrow` | The exception thrown when the returned value fails an immediate null check |
+| `assignedTo`, `comment` | The variable taking the result, and the comment above the call |
+
+A call handed to `Promise.all` has `awaited: false`. Its `iterationKind` is
+`concurrent`, which is what records the collection.
+
+### Reading a graph
+
+Four helpers read a built graph:
+
+| Function | Returns |
+|---|---|
+| `nodeId(filePath, className, methodName, member?)` | The id a node would carry |
+| `indexNodes(graph)` | `Map<NodeId, MethodNode>` |
+| `outgoing(graph)` | `Map<NodeId, CallEdge[]>`, edges grouped by their `from` |
+| `reachableFrom(graph, entryIds)` | `Set<NodeId>`, the entry ids included |
+
+Walk every method one route reaches:
+
+```typescript
+import { codeGraphFor, reachableFrom, indexNodes } from "nestjs-doctor";
+
+const graph = codeGraphFor(context);
+const byId = indexNodes(graph);
+const entry = graph.entries.find((e) => e.routePath === "/orders");
+
+for (const id of reachableFrom(graph, entry ? [entry.node] : [])) {
+  console.log(byId.get(id)?.kind);
+}
+```
+
+`reachableFrom` follows edges without tracking depth, so a recursive or cyclic
+call chain terminates instead of repeating.
+
+### Building and merging
+
+`codeGraphFor` wraps `buildCodeGraph`, which takes the four inputs directly:
+
+```typescript
+import { buildCodeGraph, mergeCodeGraphs } from "nestjs-doctor";
+
+const graph = buildCodeGraph(
+  context.astProject,
+  context.files,
+  context.providers,
+  context.endpointGraph.endpoints,
+);
+
+const combined = mergeCodeGraphs([graph, otherGraph]);
+```
+
+Pass all four. `buildCodeGraph` has no defaults, and `codeGraphFor` is the
+shorter route whenever a context is already in hand.
+
+`mergeCodeGraphs` is what a monorepo scan uses, since each sub-project builds
+its own graph, and the scan drops each context before building the next. The result
+does not depend on the order the graphs arrive in.
+
+### Encoding
+
+`encodeCodeGraph` turns file paths and node ids into indices and drops every
+field sitting at its default. `decodeCodeGraph` restores the graph exactly.
+
+Round-trip a graph through the compact form:
+
+```typescript
+import { encodeCodeGraph, decodeCodeGraph } from "nestjs-doctor";
+
+const encoded = encodeCodeGraph(graph);
+const restored = decodeCodeGraph(encoded);
+```
+
+The report artifact carries that encoded form in its optional `codeGraph` field.
+A tool reading `nestjs-doctor-report.json` decodes it rather than rebuilding it.
+See [Output](/docs/pipeline/output).

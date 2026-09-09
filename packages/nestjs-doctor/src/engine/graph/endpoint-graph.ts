@@ -2,6 +2,8 @@ import type {
 	CallExpression,
 	ClassDeclaration,
 	Decorator,
+	FunctionDeclaration,
+	IfStatement,
 	MethodDeclaration,
 	Node,
 	Project,
@@ -11,6 +13,8 @@ import type {
 	ApiBodyInfo,
 	ApiParamInfo,
 	ApiResponseInfo,
+	BranchKind,
+	ConditionFrame,
 	DependencyType,
 	EndpointGraph,
 	EndpointNode,
@@ -63,34 +67,34 @@ interface IterationInfo {
 }
 
 interface ConditionalInfo {
-	branchKind:
-		| "if"
-		| "else-if"
-		| "else"
-		| "case"
-		| "default"
-		| "catch"
-		| "ternary-true"
-		| "ternary-false"
-		| null;
+	branchKind: BranchKind | null;
+	/** Every enclosing construct, outermost first. Empty when unconditional. */
+	conditionPath: ConditionFrame[];
 	conditionText: string | null;
 	isConditional: boolean;
 	statementLine: number | null;
+	/** Group of the innermost `try` with a `catch`, matching that catch's arm. */
+	tryRegion: string | null;
 }
 
 interface OrderedMethodUsage {
 	assignedTo: string | null;
+	awaited: boolean;
 	branchGroupId: string | null;
 	branchKind: string | null;
 	callSiteLine: number;
 	comment: string | null;
 	conditional: boolean;
+	conditionPath: ConditionFrame[];
 	conditionText: string | null;
 	guardThrow: GuardThrow | null;
 	iterationKind: "loop" | "callback" | "concurrent" | null;
 	iterationLabel: string | null;
+	/** Injected member the call went through, which names one declaration. */
+	member: string;
 	name: string;
 	order: number;
+	tryRegion: string | null;
 }
 
 interface UsedDependency {
@@ -100,17 +104,24 @@ interface UsedDependency {
 
 interface SameClassCallUsage {
 	assignedTo: string | null;
+	awaited: boolean;
 	branchGroupId: string | null;
 	branchKind: string | null;
 	callSiteLine: number;
 	childResult: ScanResult;
 	comment: string | null;
 	conditional: boolean;
+	conditionPath: ConditionFrame[];
 	conditionText: string | null;
+	guardThrow: GuardThrow | null;
 	iterationKind: "loop" | "callback" | "concurrent" | null;
 	iterationLabel: string | null;
 	methodName: string;
 	order: number;
+	sortKey: number;
+	tryRegion: string | null;
+	/** The call was `super.method()`, so it targets the base declaration. */
+	viaSuper: boolean;
 }
 
 interface ThrowUsage {
@@ -119,6 +130,7 @@ interface ThrowUsage {
 	callSiteLine: number;
 	comment: string | null;
 	conditional: boolean;
+	conditionPath: ConditionFrame[];
 	conditionText: string | null;
 	exceptionClassName: string;
 	iterationKind: "loop" | "callback" | "concurrent" | null;
@@ -126,6 +138,8 @@ interface ThrowUsage {
 	merged?: boolean;
 	message: string | null;
 	order: number;
+	sortKey: number;
+	tryRegion: string | null;
 }
 
 interface StepUsage {
@@ -134,21 +148,123 @@ interface StepUsage {
 	callSiteLine: number;
 	comment: string | null;
 	conditional: boolean;
+	conditionPath: ConditionFrame[];
 	conditionText: string | null;
 	iterationKind: "loop" | "callback" | "concurrent" | null;
 	iterationLabel: string | null;
 	order: number;
+	sortKey: number;
 	statements: StepStatement[];
+	tryRegion: string | null;
 }
 
-interface ScanResult {
+/** Where a call outside the injected receivers lands. */
+export interface FreeCallTarget {
+	/** Class declaring the static method, empty for a free function. */
+	className: string;
+	filePath: string;
+	isStatic: boolean;
+	methodName: string;
+}
+
+/** A `helper()` or `Klass.helper()` call reaching code this project declares. */
+interface FreeCallUsage extends FreeCallTarget {
+	assignedTo: string | null;
+	awaited: boolean;
+	branchGroupId: string | null;
+	branchKind: string | null;
+	callSiteLine: number;
+	comment: string | null;
+	conditional: boolean;
+	conditionPath: ConditionFrame[];
+	conditionText: string | null;
+	guardThrow: GuardThrow | null;
+	iterationKind: "loop" | "callback" | "concurrent" | null;
+	iterationLabel: string | null;
+	order: number;
+	sortKey: number;
+	tryRegion: string | null;
+}
+
+/** A `return` belonging to the scanned method itself. */
+interface ReturnUsage {
+	branchGroupId: string | null;
+	branchKind: string | null;
+	callSiteLine: number;
+	comment: string | null;
+	conditional: boolean;
+	conditionPath: ConditionFrame[];
+	conditionText: string | null;
+	/** The returned expression, null for a bare `return`. */
+	expression: string | null;
+	iterationKind: "loop" | "callback" | "concurrent" | null;
+	iterationLabel: string | null;
+	order: number;
+	sortKey: number;
+	tryRegion: string | null;
+}
+
+/** A `this.<injected>.<member>.<method>()` call site. */
+interface MemberCallUsage {
+	assignedTo: string | null;
+	awaited: boolean;
+	branchGroupId: string | null;
+	branchKind: string | null;
+	callSiteLine: number;
+	comment: string | null;
+	conditional: boolean;
+	conditionPath: ConditionFrame[];
+	conditionText: string | null;
+	guardThrow: GuardThrow | null;
+	iterationKind: "loop" | "callback" | "concurrent" | null;
+	iterationLabel: string | null;
+	member: string;
+	methodName: string;
+	order: number;
+	paramName: string;
+	sortKey: number;
+	tryRegion: string | null;
+}
+
+export interface ScanOptions {
+	/**
+	 * Record every `this.` and `super.` call: recursion, and methods a base class
+	 * declares. The tree leaves this off, since the extra nodes would change what
+	 * it publishes.
+	 */
+	everyThisCall?: boolean;
+	/**
+	 * Record calls to functions and static methods this project declares, which
+	 * belong to no injected receiver.
+	 */
+	freeCalls?: boolean;
+	/**
+	 * Keep a throw the guard merge folded into a call, flagged rather than
+	 * deleted. The tree drops it so the report does not show it twice.
+	 */
+	keepMergedThrows?: boolean;
+	/** Collect two-level receivers into `memberCalls` instead of dropping them. */
+	memberCalls?: boolean;
+	/**
+	 * Collect the method's own `return` statements into `returns`. They take
+	 * order numbers, so the endpoint tree leaves this off.
+	 */
+	returns?: boolean;
+	/** Leave `sameClassCalls[].childResult` empty instead of recursing into it. */
+	skipChildScan?: boolean;
+}
+
+export interface ScanResult {
 	deps: UsedDependency[];
+	freeCalls: FreeCallUsage[];
+	memberCalls: MemberCallUsage[];
+	returns: ReturnUsage[];
 	sameClassCalls: SameClassCallUsage[];
 	steps: StepUsage[];
 	throws: ThrowUsage[];
 }
 
-class ScanCache {
+export class ScanCache {
 	private readonly scanResults = new Map<string, ScanResult>();
 	private readonly injectionMaps = new Map<string, Map<string, string>>();
 	private readonly methodLookups = new Map<
@@ -183,9 +299,25 @@ class ScanCache {
 	}
 }
 
+const EXIT_OWNER_KINDS = new Set([
+	SyntaxKind.ArrowFunction,
+	SyntaxKind.FunctionDeclaration,
+	SyntaxKind.FunctionExpression,
+	SyntaxKind.MethodDeclaration,
+]);
+
+/** True when the statement leaves `method` itself, not a function nested in it. */
+function ownsExit(statement: Node, method: Node): boolean {
+	return (
+		statement.getFirstAncestor((ancestor) =>
+			EXIT_OWNER_KINDS.has(ancestor.getKind())
+		) === method
+	);
+}
+
 const MAX_CONDITION_TEXT_LENGTH = 50;
 
-function normalizeConditionText(text: string): string {
+function normalizeSnippet(text: string): string {
 	const collapsed = text.replace(/\s+/g, " ").trim();
 	if (collapsed.length > MAX_CONDITION_TEXT_LENGTH) {
 		return `${collapsed.slice(0, MAX_CONDITION_TEXT_LENGTH)}\u2026`;
@@ -193,118 +325,151 @@ function normalizeConditionText(text: string): string {
 	return collapsed;
 }
 
-function getConditionalInfo(node: Node, boundary: Node): ConditionalInfo {
-	const none: ConditionalInfo = {
-		isConditional: false,
-		conditionText: null,
-		branchKind: null,
-		statementLine: null,
-	};
+/** The `if` a chain opens with. Every arm of one chain reports this one. */
+function chainRoot(ifStmt: IfStatement): IfStatement {
+	let root = ifStmt;
+	let above = root.getParent()?.asKind(SyntaxKind.IfStatement);
+	while (above?.getElseStatement() === root) {
+		root = above;
+		above = root.getParent()?.asKind(SyntaxKind.IfStatement);
+	}
+	return root;
+}
 
+/**
+ * The construct `current` sits directly inside, if `parent` opens one.
+ * `previous` is the node the walk came up from.
+ */
+function frameFor(
+	current: Node,
+	parent: Node,
+	previous: Node | undefined
+): ConditionFrame | undefined {
+	const ifStmt = parent.asKind(SyntaxKind.IfStatement);
+	if (ifStmt) {
+		const conditionText = normalizeSnippet(ifStmt.getExpression().getText());
+		const root = chainRoot(ifStmt);
+		const chained = root !== ifStmt;
+		if (current === ifStmt.getThenStatement()) {
+			return {
+				branchKind: chained ? "else-if" : "if",
+				conditionText,
+				statementLine: root.getStartLineNumber(),
+			};
+		}
+		if (current === ifStmt.getElseStatement()) {
+			// A chained `else if` frames itself when the walk comes up through one of
+			// its arms. Reaching here from its condition instead leaves it unframed,
+			// and that condition only runs because this test failed.
+			const chainedIf = current.asKind(SyntaxKind.IfStatement);
+			if (
+				chainedIf &&
+				(previous === chainedIf.getThenStatement() ||
+					previous === chainedIf.getElseStatement())
+			) {
+				return undefined;
+			}
+			return {
+				branchKind: "else",
+				// The tail of a chain fails every test above it, so no one condition
+				// describes it.
+				conditionText: chained ? null : conditionText,
+				statementLine: root.getStartLineNumber(),
+			};
+		}
+	}
+
+	const condExpr = parent.asKind(SyntaxKind.ConditionalExpression);
+	if (condExpr) {
+		const conditionText = normalizeSnippet(condExpr.getCondition().getText());
+		const statementLine = condExpr.getStartLineNumber();
+		if (current === condExpr.getWhenTrue()) {
+			return { branchKind: "ternary-true", conditionText, statementLine };
+		}
+		if (current === condExpr.getWhenFalse()) {
+			return { branchKind: "ternary-false", conditionText, statementLine };
+		}
+	}
+
+	const caseClause = current.asKind(SyntaxKind.CaseClause);
+	if (caseClause) {
+		return {
+			branchKind: "case",
+			conditionText: normalizeSnippet(caseClause.getExpression().getText()),
+			statementLine: current
+				.getParentOrThrow()
+				.getParentOrThrow()
+				.getStartLineNumber(),
+		};
+	}
+	if (current.isKind(SyntaxKind.DefaultClause)) {
+		return {
+			branchKind: "default",
+			conditionText: null,
+			statementLine: current
+				.getParentOrThrow()
+				.getParentOrThrow()
+				.getStartLineNumber(),
+		};
+	}
+	if (current.isKind(SyntaxKind.CatchClause)) {
+		return {
+			branchKind: "catch",
+			conditionText: null,
+			statementLine: current.getParentOrThrow().getStartLineNumber(),
+		};
+	}
+	return undefined;
+}
+
+/**
+ * The group of the `try` whose block holds `current`, when a `catch` covers it.
+ * A `try`/`finally` has no handler, so it yields nothing.
+ */
+function guardedRegion(current: Node, parent: Node): string | null {
+	const tryStmt = parent.asKind(SyntaxKind.TryStatement);
+	if (
+		!tryStmt ||
+		current !== tryStmt.getTryBlock() ||
+		!tryStmt.getCatchClause()
+	) {
+		return null;
+	}
+	return `L${tryStmt.getStartLineNumber()}`;
+}
+
+/**
+ * Every construct enclosing `node` up to `boundary`, outermost first, with the
+ * innermost one repeated in the flat fields.
+ */
+function getConditionalInfo(node: Node, boundary: Node): ConditionalInfo {
+	const frames: ConditionFrame[] = [];
+	let tryRegion: string | null = null;
+	let previous: Node | undefined;
 	let current: Node | undefined = node;
 	while (current && current !== boundary) {
 		const parent = current.getParent();
 		if (!parent || parent === boundary) {
 			break;
 		}
-		const parentKind = parent.getKind();
-
-		if (parentKind === SyntaxKind.IfStatement) {
-			const ifStmt = parent.asKindOrThrow(SyntaxKind.IfStatement);
-			if (current === ifStmt.getThenStatement()) {
-				// Check if this IfStatement is an else-if: is it the ElseStatement of a parent IfStatement?
-				const grandparent = parent.getParent();
-				if (grandparent && grandparent.getKind() === SyntaxKind.IfStatement) {
-					const outerIf = grandparent.asKindOrThrow(SyntaxKind.IfStatement);
-					if (parent === outerIf.getElseStatement()) {
-						return {
-							isConditional: true,
-							conditionText: normalizeConditionText(
-								ifStmt.getExpression().getText()
-							),
-							branchKind: "else-if",
-							statementLine: outerIf.getStartLineNumber(),
-						};
-					}
-				}
-				return {
-					isConditional: true,
-					conditionText: normalizeConditionText(
-						ifStmt.getExpression().getText()
-					),
-					branchKind: "if",
-					statementLine: ifStmt.getStartLineNumber(),
-				};
-			}
-			if (current === ifStmt.getElseStatement()) {
-				return {
-					isConditional: true,
-					conditionText: normalizeConditionText(
-						ifStmt.getExpression().getText()
-					),
-					branchKind: "else",
-					statementLine: ifStmt.getStartLineNumber(),
-				};
-			}
+		const frame = frameFor(current, parent, previous);
+		if (frame) {
+			frames.push(frame);
 		}
-
-		if (parentKind === SyntaxKind.ConditionalExpression) {
-			const condExpr = parent.asKindOrThrow(SyntaxKind.ConditionalExpression);
-			if (current === condExpr.getWhenTrue()) {
-				return {
-					isConditional: true,
-					conditionText: normalizeConditionText(
-						condExpr.getCondition().getText()
-					),
-					branchKind: "ternary-true",
-					statementLine: condExpr.getStartLineNumber(),
-				};
-			}
-			if (current === condExpr.getWhenFalse()) {
-				return {
-					isConditional: true,
-					conditionText: normalizeConditionText(
-						condExpr.getCondition().getText()
-					),
-					branchKind: "ternary-false",
-					statementLine: condExpr.getStartLineNumber(),
-				};
-			}
-		}
-
-		const kind = current.getKind();
-		if (kind === SyntaxKind.CaseClause) {
-			const clause = current.asKindOrThrow(SyntaxKind.CaseClause);
-			const parentSwitch = current.getParentOrThrow().getParentOrThrow();
-			return {
-				isConditional: true,
-				conditionText: normalizeConditionText(clause.getExpression().getText()),
-				branchKind: "case",
-				statementLine: parentSwitch.getStartLineNumber(),
-			};
-		}
-		if (kind === SyntaxKind.DefaultClause) {
-			const parentSwitch = current.getParentOrThrow().getParentOrThrow();
-			return {
-				isConditional: true,
-				conditionText: null,
-				branchKind: "default",
-				statementLine: parentSwitch.getStartLineNumber(),
-			};
-		}
-		if (kind === SyntaxKind.CatchClause) {
-			const parentTry = current.getParentOrThrow();
-			return {
-				isConditional: true,
-				conditionText: null,
-				branchKind: "catch",
-				statementLine: parentTry.getStartLineNumber(),
-			};
-		}
-
+		tryRegion ??= guardedRegion(current, parent);
+		previous = current;
 		current = parent;
 	}
-	return none;
+	const innermost = frames[0];
+	frames.reverse();
+	return {
+		branchKind: innermost?.branchKind ?? null,
+		conditionPath: frames,
+		conditionText: innermost?.conditionText ?? null,
+		isConditional: frames.length > 0,
+		statementLine: innermost?.statementLine ?? null,
+		tryRegion,
+	};
 }
 
 const LOOP_LABEL_MAP = new Map<SyntaxKind, string>([
@@ -356,7 +521,14 @@ function getIterationContext(node: Node, boundary: Node): IterationInfo {
 					parent.asKindOrThrow(SyntaxKind.DoStatement).getStatement();
 			}
 			if (isBody) {
-				return { iterationKind: "loop", iterationLabel: loopLabel };
+				const awaiting =
+					parentKind === SyntaxKind.ForOfStatement &&
+					parent.asKindOrThrow(SyntaxKind.ForOfStatement).getAwaitKeyword() !==
+						undefined;
+				return {
+					iterationKind: "loop",
+					iterationLabel: awaiting ? "for-await-of" : loopLabel,
+				};
 			}
 		}
 
@@ -505,6 +677,25 @@ function extractThrowMessage(throwStmt: Node): string | null {
 	return raw;
 }
 
+// Wrappers that do not change whether the call site is awaited.
+const TRANSPARENT_KINDS = new Set([
+	SyntaxKind.AsExpression,
+	SyntaxKind.NonNullExpression,
+	SyntaxKind.ParenthesizedExpression,
+]);
+
+/**
+ * True when this call site is itself awaited. A call handed to `Promise.all`
+ * reads as false; its iteration kind is what says the promise is collected.
+ */
+function isAwaitedCall(callNode: Node): boolean {
+	let current = callNode.getParent();
+	while (current && TRANSPARENT_KINDS.has(current.getKind())) {
+		current = current.getParent();
+	}
+	return current?.isKind(SyntaxKind.AwaitExpression) === true;
+}
+
 function extractAssignedVariable(callNode: Node): string | null {
 	let current = callNode.getParent();
 	while (current) {
@@ -559,29 +750,142 @@ function resolveBaseClass(
 	return nextClass;
 }
 
-function findMethodInHierarchy(
+const INSTALLED_PATH = /[\\/]node_modules[\\/]/;
+
+/** The fields every call site records, whatever pattern matched it. */
+function callSiteFacts(call: CallExpression, body: Node, order: number) {
+	const condInfo = getConditionalInfo(call, body);
+	const iterInfo = getIterationContext(call, body);
+	return {
+		assignedTo: extractAssignedVariable(call),
+		awaited: isAwaitedCall(call),
+		branchGroupId: condInfo.statementLine ? `L${condInfo.statementLine}` : null,
+		branchKind: condInfo.branchKind,
+		callSiteLine: call.getStartLineNumber(),
+		comment: extractLeadingComment(call),
+		conditional: condInfo.isConditional,
+		conditionPath: condInfo.conditionPath,
+		conditionText: condInfo.conditionText,
+		iterationKind: iterInfo.iterationKind,
+		iterationLabel: iterInfo.iterationLabel,
+		guardThrow: null,
+		order,
+		sortKey: call.getEnd(),
+		tryRegion: condInfo.tryRegion,
+	};
+}
+
+/** Declarations a name resolves to, following import aliases. */
+function declarationsOf(name: Node): Node[] {
+	const symbol = name.getSymbol();
+	return (symbol?.getAliasedSymbol() ?? symbol)?.getDeclarations() ?? [];
+}
+
+/** True for a declaration this project owns rather than an installed package. */
+function ownDeclaration(declaration: Node): boolean {
+	return !INSTALLED_PATH.test(declaration.getSourceFile().getFilePath());
+}
+
+/**
+ * True when the declaration sits at the top of its file. A nested one cannot be
+ * reached by name from outside, so the graph has no node to point at.
+ */
+function topLevel(declaration: Node): boolean {
+	return declaration.getParent()?.isKind(SyntaxKind.SourceFile) === true;
+}
+
+/** The project function a bare `helper()` reaches, or nothing. */
+function freeFunctionTarget(callee: Node): FreeCallTarget | undefined {
+	for (const declaration of declarationsOf(callee)) {
+		const fn = declaration.asKind(SyntaxKind.FunctionDeclaration);
+		const name = fn?.getName();
+		if (fn && name && ownDeclaration(fn) && topLevel(fn)) {
+			return {
+				className: "",
+				filePath: fn.getSourceFile().getFilePath(),
+				isStatic: false,
+				methodName: name,
+			};
+		}
+	}
+	return undefined;
+}
+
+/** The project static method a `Klass.helper()` reaches, or nothing. */
+function staticMethodTarget(
+	receiver: Node,
+	methodName: string
+): FreeCallTarget | undefined {
+	for (const declaration of declarationsOf(receiver)) {
+		const cls = declaration.asKind(SyntaxKind.ClassDeclaration);
+		const name = cls?.getName();
+		if (
+			cls &&
+			name &&
+			ownDeclaration(cls) &&
+			topLevel(cls) &&
+			cls.getStaticMethod(methodName)
+		) {
+			return {
+				className: name,
+				filePath: cls.getSourceFile().getFilePath(),
+				isStatic: true,
+				methodName,
+			};
+		}
+	}
+	return undefined;
+}
+
+/** The class this one extends, ignoring providers. */
+function declaredBaseClass(
+	cls: ClassDeclaration
+): ClassDeclaration | undefined {
+	try {
+		return cls.getBaseClass();
+	} catch {
+		return undefined;
+	}
+}
+
+/** The nearest declaration of `methodName` at or above `cls`. */
+function declaredMethodInHierarchy(
+	cls: ClassDeclaration,
+	methodName: string
+): MethodDeclaration | undefined {
+	let current: ClassDeclaration | undefined = cls;
+	const seen = new Set<ClassDeclaration>();
+	while (current && !seen.has(current)) {
+		seen.add(current);
+		const method = current.getInstanceMethod(methodName);
+		if (method) {
+			return method;
+		}
+		current = declaredBaseClass(current);
+	}
+	return undefined;
+}
+
+export function findMethodInHierarchy(
 	cls: ClassDeclaration,
 	methodName: string,
 	providers: Map<string, ProviderInfo>,
 	cache?: ScanCache
 ): MethodDeclaration | undefined {
 	const className = cls.getName() ?? "";
-	const cacheKey = `${className}.${methodName}`;
+	// Keyed by file too, since a subclass may carry its base class's name and the
+	// two searches start from different declarations.
+	const cacheKey = `${cls.getSourceFile().getFilePath()}::${className}.${methodName}`;
 	if (cache?.hasMethod(cacheKey)) {
 		return cache.getMethod(cacheKey);
 	}
 
 	let current: ClassDeclaration | undefined = cls;
-	const visited = new Set<string>();
+	// Keyed by declaration, since a subclass may carry its base class's name.
+	const visited = new Set<ClassDeclaration>();
 
-	while (current) {
-		const name = current.getName();
-		if (name && visited.has(name)) {
-			break;
-		}
-		if (name) {
-			visited.add(name);
-		}
+	while (current && !visited.has(current)) {
+		visited.add(current);
 
 		const method = current.getInstanceMethod(methodName);
 		if (method) {
@@ -830,7 +1134,9 @@ function extractSwaggerMetadata(
 
 const PROMISE_OBSERVABLE_REGEX = /^(?:Promise|Observable)<(.+)>$/;
 
-function extractReturnType(method: MethodDeclaration): string | null {
+export function extractReturnType(
+	method: FunctionDeclaration | MethodDeclaration
+): string | null {
 	const typeNode = method.getReturnTypeNode();
 	if (!typeNode) {
 		return null;
@@ -847,8 +1153,8 @@ function extractReturnType(method: MethodDeclaration): string | null {
 	return text;
 }
 
-function extractMethodParameters(
-	method: MethodDeclaration
+export function extractMethodParameters(
+	method: FunctionDeclaration | MethodDeclaration
 ): MethodParameterInfo[] {
 	return method
 		.getParameters()
@@ -941,7 +1247,7 @@ function extractStatementInfo(
 	return null;
 }
 
-function buildInjectionMap(
+export function buildInjectionMap(
 	cls: ClassDeclaration,
 	providers?: Map<string, ProviderInfo>,
 	cache?: ScanCache
@@ -1012,7 +1318,8 @@ function mergeGuardThrows(
 		order: number;
 		guardThrow: GuardThrow | null;
 	}>,
-	throws: ThrowUsage[]
+	throws: ThrowUsage[],
+	keepMerged?: boolean
 ): void {
 	for (const entry of callEntries) {
 		if (!entry.assignedTo) {
@@ -1042,6 +1349,9 @@ function mergeGuardThrows(
 			}
 		}
 	}
+	if (keepMerged) {
+		return;
+	}
 	// Remove merged throws in-place
 	const kept = throws.filter((t) => !t.merged);
 	throws.length = 0;
@@ -1050,12 +1360,13 @@ function mergeGuardThrows(
 	}
 }
 
-function scanUsedDependencies(
+export function scanUsedDependencies(
 	method: MethodDeclaration,
 	injectionMap: Map<string, string>,
 	cls?: ClassDeclaration,
 	visitedMethods?: Set<string>,
-	cache?: ScanCache
+	cache?: ScanCache,
+	options?: ScanOptions
 ): ScanResult {
 	const className = cls?.getName() ?? "";
 	const cacheKey = `${className}::${method.getName()}`;
@@ -1068,6 +1379,9 @@ function scanUsedDependencies(
 
 	const empty: ScanResult = {
 		deps: [],
+		freeCalls: [],
+		memberCalls: [],
+		returns: [],
 		sameClassCalls: [],
 		steps: [],
 		throws: [],
@@ -1103,11 +1417,16 @@ function scanUsedDependencies(
 	}
 
 	const sameClassCalls: SameClassCallUsage[] = [];
+	const freeCalls: FreeCallUsage[] = [];
+	const memberCalls: MemberCallUsage[] = [];
+	const returns: ReturnUsage[] = [];
 	const throws: ThrowUsage[] = [];
 
 	// Flat array: each dependency call gets its own entry (no dedup by method name)
 	const callEntries: Array<{
 		assignedTo: string | null;
+		awaited: boolean;
+		sortKey: number;
 		paramName: string;
 		methodName: string;
 		order: number;
@@ -1120,18 +1439,48 @@ function scanUsedDependencies(
 	let callOrder = 0;
 	const callExpressions = body.getDescendantsOfKind(SyntaxKind.CallExpression);
 	const throwStatements = body.getDescendantsOfKind(SyntaxKind.ThrowStatement);
+	const returnStatements = options?.returns
+		? body
+				.getDescendantsOfKind(SyntaxKind.ReturnStatement)
+				.filter((statement) => ownsExit(statement, method))
+		: [];
 
 	type WorkItem =
 		| { kind: "call"; node: (typeof callExpressions)[number] }
+		| { kind: "return"; node: (typeof returnStatements)[number] }
 		| { kind: "throw"; node: (typeof throwStatements)[number] };
 
 	const workItems: WorkItem[] = [
 		...callExpressions.map((node) => ({ kind: "call" as const, node })),
+		...returnStatements.map((node) => ({ kind: "return" as const, node })),
 		...throwStatements.map((node) => ({ kind: "throw" as const, node })),
 	];
-	workItems.sort((a, b) => a.node.getStart() - b.node.getStart());
+	workItems.sort((a, b) => a.node.getEnd() - b.node.getEnd());
 
 	for (const item of workItems) {
+		if (item.kind === "return") {
+			const condInfo = getConditionalInfo(item.node, body);
+			const iterInfo = getIterationContext(item.node, body);
+			const expression = item.node.getExpression();
+			returns.push({
+				branchGroupId: condInfo.statementLine
+					? `L${condInfo.statementLine}`
+					: null,
+				branchKind: condInfo.branchKind,
+				callSiteLine: item.node.getStartLineNumber(),
+				comment: extractLeadingComment(item.node),
+				conditional: condInfo.isConditional,
+				conditionPath: condInfo.conditionPath,
+				tryRegion: condInfo.tryRegion,
+				conditionText: condInfo.conditionText,
+				expression: expression ? normalizeSnippet(expression.getText()) : null,
+				sortKey: item.node.getEnd(),
+				iterationKind: iterInfo.iterationKind,
+				iterationLabel: iterInfo.iterationLabel,
+				order: callOrder++,
+			});
+			continue;
+		}
 		if (item.kind === "throw") {
 			const condInfo = getConditionalInfo(item.node, body);
 			const iterInfo = getIterationContext(item.node, body);
@@ -1143,8 +1492,11 @@ function scanUsedDependencies(
 				callSiteLine: item.node.getStartLineNumber(),
 				comment: extractLeadingComment(item.node),
 				conditional: condInfo.isConditional,
+				conditionPath: condInfo.conditionPath,
+				tryRegion: condInfo.tryRegion,
 				conditionText: condInfo.conditionText,
 				exceptionClassName: extractThrowClassName(item.node),
+				sortKey: item.node.getEnd(),
 				iterationKind: iterInfo.iterationKind,
 				iterationLabel: iterInfo.iterationLabel,
 				message: extractThrowMessage(item.node),
@@ -1156,6 +1508,17 @@ function scanUsedDependencies(
 		const call = item.node;
 		const expr = call.getExpression();
 		if (expr.getKind() !== SyntaxKind.PropertyAccessExpression) {
+			// Pattern D: helper(), declared by this project
+			const target =
+				options?.freeCalls && expr.isKind(SyntaxKind.Identifier)
+					? freeFunctionTarget(expr)
+					: undefined;
+			if (target) {
+				freeCalls.push({
+					...target,
+					...callSiteFacts(call, body, callOrder++),
+				});
+			}
 			continue;
 		}
 
@@ -1178,6 +1541,53 @@ function scanUsedDependencies(
 			}
 		}
 
+		// Pattern A2: this.param.member.method()
+		if (
+			!paramName &&
+			options?.memberCalls &&
+			receiver.getKind() === SyntaxKind.PropertyAccessExpression
+		) {
+			const memberAccess = receiver.asKindOrThrow(
+				SyntaxKind.PropertyAccessExpression
+			);
+			const root = memberAccess.getExpression();
+			const rootName =
+				root.getKind() === SyntaxKind.PropertyAccessExpression &&
+				root
+					.asKindOrThrow(SyntaxKind.PropertyAccessExpression)
+					.getExpression()
+					.getKind() === SyntaxKind.ThisKeyword
+					? root.asKindOrThrow(SyntaxKind.PropertyAccessExpression).getName()
+					: undefined;
+			if (rootName && injectionMap.has(rootName)) {
+				const condInfo = getConditionalInfo(call, body);
+				const iterInfo = getIterationContext(call, body);
+				memberCalls.push({
+					assignedTo: extractAssignedVariable(call),
+					awaited: isAwaitedCall(call),
+					sortKey: call.getEnd(),
+					branchGroupId: condInfo.statementLine
+						? `L${condInfo.statementLine}`
+						: null,
+					branchKind: condInfo.branchKind,
+					callSiteLine: call.getStartLineNumber(),
+					comment: extractLeadingComment(call),
+					conditional: condInfo.isConditional,
+					conditionPath: condInfo.conditionPath,
+					tryRegion: condInfo.tryRegion,
+					conditionText: condInfo.conditionText,
+					guardThrow: null,
+					iterationKind: iterInfo.iterationKind,
+					iterationLabel: iterInfo.iterationLabel,
+					member: memberAccess.getName(),
+					methodName: calledMethodName,
+					order: callOrder++,
+					paramName: rootName,
+				});
+				continue;
+			}
+		}
+
 		// Pattern B: alias.method() where alias = this.param
 		if (!paramName && receiver.getKind() === SyntaxKind.Identifier) {
 			const aliasName = receiver.getText();
@@ -1193,6 +1603,8 @@ function scanUsedDependencies(
 			const iterInfo = getIterationContext(call, body);
 			callEntries.push({
 				assignedTo: extractAssignedVariable(call),
+				awaited: isAwaitedCall(call),
+				sortKey: call.getEnd(),
 				paramName,
 				methodName: calledMethodName,
 				order: callOrder++,
@@ -1205,20 +1617,34 @@ function scanUsedDependencies(
 			continue;
 		}
 
-		// Pattern C: this.method() — same-class helper call (preserve hierarchy)
-		if (receiver.getKind() === SyntaxKind.ThisKeyword && cls) {
-			const targetMethod = cls.getInstanceMethod(calledMethodName);
-			if (targetMethod && !visited.has(calledMethodName)) {
+		// Pattern C: this.method() or super.method() — same-class helper call
+		const viaSuper = receiver.getKind() === SyntaxKind.SuperKeyword;
+		const viaThis = receiver.getKind() === SyntaxKind.ThisKeyword;
+		if ((viaThis || (viaSuper && options?.everyThisCall)) && cls) {
+			const searchFrom = viaSuper ? declaredBaseClass(cls) : cls;
+			const targetMethod = options?.everyThisCall
+				? searchFrom && declaredMethodInHierarchy(searchFrom, calledMethodName)
+				: cls.getInstanceMethod(calledMethodName);
+			// A cycle is an edge in the graph, so only the tree refuses to record it.
+			const revisiting = visited.has(calledMethodName);
+			if (targetMethod && (options?.everyThisCall || !revisiting)) {
 				const condInfo = getConditionalInfo(call, body);
 				const iterInfo = getIterationContext(call, body);
-				const childResult = scanUsedDependencies(
-					targetMethod,
-					injectionMap,
-					cls,
-					new Set(visited)
-				);
+				// Recording a revisit is safe; expanding one is not.
+				const childResult =
+					options?.skipChildScan || revisiting
+						? empty
+						: scanUsedDependencies(
+								targetMethod,
+								injectionMap,
+								cls,
+								new Set(visited)
+							);
 				sameClassCalls.push({
 					assignedTo: extractAssignedVariable(call),
+					awaited: isAwaitedCall(call),
+					guardThrow: null,
+					sortKey: call.getEnd(),
 					branchGroupId: condInfo.statementLine
 						? `L${condInfo.statementLine}`
 						: null,
@@ -1227,43 +1653,64 @@ function scanUsedDependencies(
 					childResult,
 					comment: extractLeadingComment(call),
 					conditional: condInfo.isConditional,
+					conditionPath: condInfo.conditionPath,
+					tryRegion: condInfo.tryRegion,
 					conditionText: condInfo.conditionText,
 					iterationKind: iterInfo.iterationKind,
 					iterationLabel: iterInfo.iterationLabel,
 					methodName: calledMethodName,
 					order: callOrder++,
+					viaSuper,
 				});
+				continue;
 			}
+		}
+
+		// Pattern E: Klass.helper(), a static this project declares
+		const staticTarget =
+			options?.freeCalls &&
+			!(viaThis || viaSuper) &&
+			receiver.isKind(SyntaxKind.Identifier)
+				? staticMethodTarget(receiver, calledMethodName)
+				: undefined;
+		if (staticTarget) {
+			freeCalls.push({
+				...staticTarget,
+				...callSiteFacts(call, body, callOrder++),
+			});
 		}
 	}
 
-	// Merge guard-throw patterns (fetch + null-check + throw)
-	mergeGuardThrows(callEntries, throws);
+	// Merge guard-throw patterns (fetch + null-check + throw). Same-class, free
+	// and static calls join only when the throw survives the merge, since the
+	// endpoint tree shows no guard on those and would lose it entirely.
+	const guarded = options?.keepMergedThrows
+		? [...callEntries, ...memberCalls, ...sameClassCalls, ...freeCalls]
+		: [...callEntries, ...memberCalls];
+	mergeGuardThrows(
+		guarded.sort((a, b) => a.order - b.order),
+		throws,
+		options?.keepMergedThrows
+	);
 
 	// Detect inline logic steps
 	const steps: StepUsage[] = [];
 	if (body.getKind() === SyntaxKind.Block) {
-		const trackedPositions = new Set<number>();
-		for (const entry of callEntries) {
-			// Find the actual CallExpression node at this position
-			for (const ce of callExpressions) {
-				if (ce.getStartLineNumber() === entry.callSiteLine) {
-					trackedPositions.add(ce.getStart());
-				}
-			}
-		}
-		for (const t of throws) {
-			for (const ts of throwStatements) {
-				if (ts.getStartLineNumber() === t.callSiteLine) {
-					trackedPositions.add(ts.getStart());
-				}
-			}
-		}
-		for (const scc of sameClassCalls) {
-			for (const ce of callExpressions) {
-				if (ce.getStartLineNumber() === scc.callSiteLine) {
-					trackedPositions.add(ce.getStart());
-				}
+		// Keyed by node end, which `sortKey` already records, so a statement that
+		// merely shares a line with a tracked call is not mistaken for one.
+		const trackedEnds = new Set<number>([
+			...callEntries.map((entry) => entry.sortKey),
+			...throws.map((entry) => entry.sortKey),
+			...freeCalls.map((entry) => entry.sortKey),
+			...sameClassCalls.map((entry) => entry.sortKey),
+			...memberCalls.map((entry) => entry.sortKey),
+		]);
+		const trackedPositions = new Set<number>(
+			returnStatements.map((statement) => statement.getStart())
+		);
+		for (const node of [...callExpressions, ...throwStatements]) {
+			if (trackedEnds.has(node.getEnd())) {
+				trackedPositions.add(node.getStart());
 			}
 		}
 
@@ -1286,12 +1733,15 @@ function scanUsedDependencies(
 					: null,
 				branchKind: condInfo.branchKind,
 				callSiteLine: firstStmt.getStartLineNumber(),
+				conditionPath: condInfo.conditionPath,
+				tryRegion: condInfo.tryRegion,
 				comment: extractLeadingComment(firstStmt),
 				conditional: condInfo.isConditional,
 				conditionText: condInfo.conditionText,
 				iterationKind: iterInfo.iterationKind,
 				iterationLabel: iterInfo.iterationLabel,
 				order: 0, // Will be re-assigned
+				sortKey: firstStmt.getEnd(),
 				statements: pendingStatements.map((p) => p.info),
 			});
 			pendingStatements = [];
@@ -1328,10 +1778,13 @@ function scanUsedDependencies(
 	}
 
 	// Re-assign order numbers across all items by source position
-	if (steps.length > 0) {
+	{
 		type OrderItem =
 			| { kind: "call"; item: (typeof callEntries)[number] }
 			| { kind: "throw"; item: ThrowUsage }
+			| { kind: "member"; item: MemberCallUsage }
+			| { kind: "free"; item: FreeCallUsage }
+			| { kind: "return"; item: ReturnUsage }
 			| { kind: "scc"; item: SameClassCallUsage }
 			| { kind: "step"; item: StepUsage };
 
@@ -1342,13 +1795,22 @@ function scanUsedDependencies(
 		for (const t of throws) {
 			allItems.push({ kind: "throw", item: t });
 		}
+		for (const r of returns) {
+			allItems.push({ kind: "return", item: r });
+		}
+		for (const f of freeCalls) {
+			allItems.push({ kind: "free", item: f });
+		}
 		for (const s of sameClassCalls) {
 			allItems.push({ kind: "scc", item: s });
+		}
+		for (const m of memberCalls) {
+			allItems.push({ kind: "member", item: m });
 		}
 		for (const s of steps) {
 			allItems.push({ kind: "step", item: s });
 		}
-		allItems.sort((a, b) => a.item.callSiteLine - b.item.callSiteLine);
+		allItems.sort((a, b) => a.item.sortKey - b.item.sortKey);
 
 		let newOrder = 0;
 		for (const ai of allItems) {
@@ -1366,6 +1828,7 @@ function scanUsedDependencies(
 		const isConditional = entry.condInfo.isConditional;
 		classMethodsMap.get(className)!.push({
 			assignedTo: entry.assignedTo,
+			awaited: entry.awaited,
 			branchGroupId:
 				isConditional && entry.condInfo.statementLine
 					? `L${entry.condInfo.statementLine}`
@@ -1374,10 +1837,13 @@ function scanUsedDependencies(
 			callSiteLine: entry.callSiteLine,
 			comment: entry.comment,
 			conditional: isConditional,
+			conditionPath: entry.condInfo.conditionPath,
+			tryRegion: entry.condInfo.tryRegion,
 			conditionText: isConditional ? entry.condInfo.conditionText : null,
 			guardThrow: entry.guardThrow,
 			iterationKind: entry.iterInfo.iterationKind,
 			iterationLabel: entry.iterInfo.iterationLabel,
+			member: entry.paramName,
 			name: entry.methodName,
 			order: entry.order,
 		});
@@ -1389,6 +1855,9 @@ function scanUsedDependencies(
 
 	const scanResult: ScanResult = {
 		deps: result,
+		freeCalls,
+		memberCalls,
+		returns,
 		sameClassCalls,
 		steps,
 		throws,
@@ -1399,7 +1868,7 @@ function scanUsedDependencies(
 	return scanResult;
 }
 
-function classifyDependency(name: string): DependencyType {
+export function classifyDependency(name: string): DependencyType {
 	if (name.endsWith("Repository")) {
 		return "repository";
 	}
@@ -1537,6 +2006,9 @@ function buildMethodDependencyTree(
 			dependencies: buildMethodDependencyTree(
 				{
 					deps: fallbackChildDeps,
+					freeCalls: [],
+					memberCalls: [],
+					returns: [],
 					sameClassCalls: [],
 					steps: [],
 					throws: [],
@@ -1614,12 +2086,16 @@ function buildMethodDependencyTree(
 			// Collect sub-deps from ALL methods of this class (no dedup — each call is its own entry)
 			const childCallEntries: Array<{
 				assignedTo: string | null;
+				awaited: boolean;
 				depClassName: string;
+				member: string;
 				methodName: string;
 				order: number;
 				callSiteLine: number;
 				comment: string | null;
 				conditional: boolean;
+				conditionPath: ConditionFrame[];
+				tryRegion: string | null;
 				branchKind: string | null;
 				conditionText: string | null;
 				branchGroupId: string | null;
@@ -1683,12 +2159,16 @@ function buildMethodDependencyTree(
 					if (sub.kind === "dep") {
 						childCallEntries.push({
 							assignedTo: sub.m.assignedTo,
+							awaited: sub.m.awaited,
 							depClassName: sub.depClassName,
+							member: sub.m.member,
 							methodName: sub.m.name,
 							order: childOrder++,
 							callSiteLine: sub.m.callSiteLine,
 							comment: sub.m.comment,
 							conditional: sub.m.conditional,
+							conditionPath: sub.m.conditionPath,
+							tryRegion: sub.m.tryRegion,
 							branchKind: sub.m.conditional ? sub.m.branchKind : null,
 							conditionText: sub.m.conditional ? sub.m.conditionText : null,
 							branchGroupId: sub.m.conditional ? sub.m.branchGroupId : null,
@@ -1714,15 +2194,19 @@ function buildMethodDependencyTree(
 				}
 				childClassMethodsMap.get(entry.depClassName)!.push({
 					assignedTo: entry.assignedTo,
+					awaited: entry.awaited,
 					branchGroupId: entry.branchGroupId,
 					branchKind: entry.branchKind,
 					callSiteLine: entry.callSiteLine,
 					comment: entry.comment,
 					conditional: entry.conditional,
+					conditionPath: entry.conditionPath,
+					tryRegion: entry.tryRegion,
 					conditionText: entry.conditionText,
 					guardThrow: entry.guardThrow,
 					iterationKind: entry.iterationKind,
 					iterationLabel: entry.iterationLabel,
+					member: entry.member,
 					name: entry.methodName,
 					order: entry.order,
 				});
@@ -1736,6 +2220,9 @@ function buildMethodDependencyTree(
 			childNodes = buildMethodDependencyTree(
 				{
 					deps: childDeps,
+					freeCalls: [],
+					memberCalls: [],
+					returns: [],
 					sameClassCalls: allSameClassCalls,
 					steps: [],
 					throws: allThrows,

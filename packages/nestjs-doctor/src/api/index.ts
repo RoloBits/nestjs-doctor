@@ -21,6 +21,27 @@ export {
 	type SerializedModuleNode,
 	type SourceInclusion,
 } from "../common/artifact.js";
+export type {
+	BodyItem,
+	CallEdge,
+	CodeGraph,
+	EntryPoint,
+	MethodNode,
+	NodeId,
+	NodeKind,
+	UnresolvedReason,
+} from "../common/code-graph.js";
+export {
+	indexNodes,
+	nodeId,
+	outgoing,
+	reachableFrom,
+} from "../common/code-graph.js";
+export type { EncodedCodeGraph } from "../common/code-graph-codec.js";
+export {
+	decodeCodeGraph,
+	encodeCodeGraph,
+} from "../common/code-graph-codec.js";
 export type { NestjsDoctorConfig } from "../common/config.js";
 export type {
 	BaseDiagnostic,
@@ -38,11 +59,15 @@ export {
 	onSurface,
 } from "../common/diagnostic.js";
 export type {
+	BranchKind,
+	ConditionFrame,
 	DependencyType,
 	EndpointGraph,
 	EndpointNode,
+	GuardThrow,
 	MethodCallNode,
 	MethodDependencyNode,
+	StepStatement,
 } from "../common/endpoint.js";
 export {
 	ConfigurationError,
@@ -88,6 +113,10 @@ export {
 	resolveBaseRef,
 } from "../engine/git.js";
 export {
+	buildCodeGraph,
+	mergeCodeGraphs,
+} from "../engine/graph/code-graph.js";
+export {
 	buildEndpointGraph,
 	traceEndpointCalls,
 	updateEndpointGraphForFile,
@@ -121,6 +150,7 @@ export {
 	checkFile,
 	checkProject,
 	checkSchema,
+	codeGraphFor,
 	prepareAnalysis,
 	resolveScanConfig,
 	updateFile,

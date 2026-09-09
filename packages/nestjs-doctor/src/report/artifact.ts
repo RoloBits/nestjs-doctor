@@ -6,6 +6,7 @@ import {
 	type ReportProvider,
 	type SourceInclusion,
 } from "../common/artifact.js";
+import type { EncodedCodeGraph } from "../common/code-graph-codec.js";
 import { forSurface } from "../common/diagnostic.js";
 import type { DiagnoseResult } from "../common/result.js";
 import type { SerializedSchemaGraph } from "../common/schema.js";
@@ -84,6 +85,8 @@ function readSources(paths: string[]): Record<string, string> {
 
 interface ReportArtifactInput {
 	bootstrapRoots?: string[];
+	/** The code graph, encoded. Only a report carries it. */
+	codeGraph?: EncodedCodeGraph;
 	files?: string[];
 	moduleGraph: ModuleGraph;
 	monorepo?: boolean;
@@ -130,6 +133,7 @@ export function buildReportArtifact(
 	}
 
 	return {
+		...(input.codeGraph ? { codeGraph: input.codeGraph } : {}),
 		schemaVersion: REPORT_ARTIFACT_VERSION,
 		generator: {
 			name: "nestjs-doctor",

@@ -90,10 +90,10 @@ SCORE=$(npx nestjs-doctor . --score)
 ### Report artifact (`--format report-json`)
 
 The document the HTML report embeds, as versioned JSON: score, findings,
-summary, module graph, providers, endpoints, schema, rule examples, source text,
-and the slices behind [Sharing a report](/docs/report/share). Written to
-`nestjs-doctor-report.json` beside the scanned project, or wherever `--output`
-points:
+summary, module graph, providers, endpoints, code graph, schema, rule examples,
+source text, and the slices behind [Sharing a report](/docs/report/share).
+Written to `nestjs-doctor-report.json` beside the scanned project, or wherever
+`--output` points:
 
 ```bash
 npx nestjs-doctor . --format report-json
@@ -104,6 +104,14 @@ The HTML report is rendered from the same artifact, so the two always agree.
 `--sources` controls how much source text it carries: `all` (default), `touched`
 (only files with findings), or `none`. `--timings` embeds boot timings in the
 graph the same way it does for `--report`.
+
+The `codeGraph` field holds one node per declared method and one edge per call
+site, encoded. The endpoint graph nests a subtree under each route, so one
+method that five routes reach appears in five subtrees.
+
+Only the report artifact carries the code graph, so the console report, `--json`
+and `--score` do not build it. See
+[Code graph](/docs/reference/node-api#code-graph).
 
 ### Shared slice (`--share-sections`)
 

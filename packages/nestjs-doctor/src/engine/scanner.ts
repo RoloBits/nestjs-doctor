@@ -16,6 +16,7 @@ export {
 	type AnalysisPhase,
 	type AnalysisProgress,
 	buildAnalysisContext,
+	codeGraphFor,
 	prepareAnalysis,
 	reduceSubProjects,
 	updateFile,

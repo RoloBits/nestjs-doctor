@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import type { Project } from "ts-morph";
+import type { CodeGraph } from "../common/code-graph.js";
 import type { NestjsDoctorConfig } from "../common/config.js";
 import type { EndpointGraph } from "../common/endpoint.js";
 import type { ProjectInfo } from "../common/result.js";
@@ -8,6 +9,7 @@ import { loadConfigWithFallback } from "./config/loader.js";
 import { resolveScanConfig, type ScanConfig } from "./config/scan-config.js";
 import { collectFiles, collectMonorepoFiles } from "./file-collector.js";
 import { createAstParser } from "./graph/ast-parser.js";
+import { buildCodeGraph } from "./graph/code-graph.js";
 import {
 	buildEndpointGraphWithProgress,
 	updateEndpointGraphForFile,
@@ -58,6 +60,28 @@ export interface AnalysisContext {
 	schemaGraph?: SchemaGraph;
 	schemaRules: SchemaRule[];
 	targetPath: string;
+}
+
+/** Built on first use, since only a report reads it, and dropped on any edit. */
+const codeGraphs = new WeakMap<AnalysisContext, CodeGraph>();
+
+/**
+ * The code graph for this context. Costs a pass over every indexed method, so
+ * nothing on the diagnostics path calls it.
+ */
+export function codeGraphFor(context: AnalysisContext): CodeGraph {
+	const cached = codeGraphs.get(context);
+	if (cached) {
+		return cached;
+	}
+	const graph = buildCodeGraph(
+		context.astProject,
+		context.files,
+		context.providers,
+		context.endpointGraph.endpoints
+	);
+	codeGraphs.set(context, graph);
+	return graph;
 }
 
 export type AnalysisPhase = "collecting" | "parsing" | "analyzing";
@@ -163,6 +187,7 @@ export async function prepareAnalysis(
 }
 
 export function updateFile(context: AnalysisContext, filePath: string): void {
+	codeGraphs.delete(context);
 	const existing = context.astProject.getSourceFile(filePath);
 	if (existing) {
 		context.astProject.removeSourceFile(existing);

@@ -1,8 +1,12 @@
 import { performance } from "node:perf_hooks";
 import type { ReportArtifact, ReportProvider } from "../common/artifact.js";
+import type { CodeGraph } from "../common/code-graph.js";
+import { encodeCodeGraph } from "../common/code-graph-codec.js";
 import type { Diagnostic } from "../common/diagnostic.js";
 import type { DiagnoseResult } from "../common/result.js";
+import { codeGraphFor } from "../engine/analysis-context.js";
 import { computeBaselineDelta } from "../engine/baseline.js";
+import { mergeCodeGraphs } from "../engine/graph/code-graph.js";
 import {
 	detachModuleGraph,
 	mergeModuleGraphs,
@@ -416,6 +420,13 @@ export class MonorepoPipeline extends ScanPipeline {
 	private cachedArtifact: ReportArtifact | undefined;
 	/** Inline-suppression counts summed across every sub-project. */
 	private readonly suppressedInline: Record<string, number> = {};
+	/** Kept only when something downstream will ask for the report artifact. */
+	private readonly codeGraphs: CodeGraph[] = [];
+
+	/** Whether anything downstream reads the report artifact. */
+	private get wantsArtifact(): boolean {
+		return this.options.interactive || this.options.format === "report-json";
+	}
 
 	/** The scan as one serializable document, built once on demand. */
 	get reportArtifact(): ReportArtifact {
@@ -429,6 +440,9 @@ export class MonorepoPipeline extends ScanPipeline {
 				files: this.allFiles,
 				providers: this.allProviders,
 				bootstrapRoots: this.bootstrapRoots,
+				...(this.codeGraphs.length > 0
+					? { codeGraph: encodeCodeGraph(mergeCodeGraphs(this.codeGraphs)) }
+					: {}),
 				monorepo: true,
 				scanId: this.options.scanId,
 				sources: this.options.sources,
@@ -492,6 +506,11 @@ export class MonorepoPipeline extends ScanPipeline {
 					const facts = collectScanFacts({ ...context, projectName: name });
 					this.bootstrapRoots.push(...facts.bootstrapRoots);
 					this.allProviders.push(...facts.providers);
+					// Each sub-project's context is dropped as the scan moves on, so a
+					// graph the artifact will want has to be taken here.
+					if (this.wantsArtifact) {
+						this.codeGraphs.push(codeGraphFor(context));
+					}
 					const rawOutput = await diagnose(context, (checked, total) => {
 						this.emitProgress(`${label} — running rules`, checked, total);
 					});
@@ -644,10 +663,17 @@ export class SingleProjectPipeline extends ScanPipeline {
 	private bootstrapRoots: string[] = [];
 	private cachedArtifact: ReportArtifact | undefined;
 
+	/** Whether anything downstream reads the whole artifact. */
+	private get wantsArtifact(): boolean {
+		return this.options.interactive || this.options.format === "report-json";
+	}
+
 	/** The scan as one serializable document, built once on demand. */
 	get reportArtifact(): ReportArtifact {
 		if (!this.cachedArtifact) {
 			const { moduleGraph, files, result } = this.result;
+			// `--share-sections modules` reads only the module graph, so the code
+			// graph is left unbuilt for it.
 			this.cachedArtifact = buildReportArtifact({
 				targetPath: this.targetPath,
 				moduleGraph,
@@ -655,6 +681,9 @@ export class SingleProjectPipeline extends ScanPipeline {
 				files,
 				providers: this.reportProviders,
 				bootstrapRoots: this.bootstrapRoots,
+				...(this.wantsArtifact
+					? { codeGraph: encodeCodeGraph(codeGraphFor(this.context)) }
+					: {}),
 				scanId: this.options.scanId,
 				sources: this.options.sources,
 				traces: this.options.traces,
