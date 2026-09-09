@@ -228,9 +228,9 @@ interface MemberCallUsage {
 
 export interface ScanOptions {
 	/**
-	 * Record every `this.` and `super.` call: recursion, and methods a base
-	 * class declares. The tree leaves this off, since it expands each call into
-	 * a subtree and would not terminate on a cycle.
+	 * Record every `this.` and `super.` call: recursion, and methods a base class
+	 * declares. The tree leaves this off, since the extra nodes would change what
+	 * it publishes.
 	 */
 	everyThisCall?: boolean;
 	/**
@@ -336,8 +336,15 @@ function chainRoot(ifStmt: IfStatement): IfStatement {
 	return root;
 }
 
-/** The construct `current` sits directly inside, if `parent` opens one. */
-function frameFor(current: Node, parent: Node): ConditionFrame | undefined {
+/**
+ * The construct `current` sits directly inside, if `parent` opens one.
+ * `framedAt` is the node that produced the previous frame.
+ */
+function frameFor(
+	current: Node,
+	parent: Node,
+	framedAt: Node | undefined
+): ConditionFrame | undefined {
 	const ifStmt = parent.asKind(SyntaxKind.IfStatement);
 	if (ifStmt) {
 		const conditionText = normalizeSnippet(ifStmt.getExpression().getText());
@@ -351,16 +358,19 @@ function frameFor(current: Node, parent: Node): ConditionFrame | undefined {
 			};
 		}
 		if (current === ifStmt.getElseStatement()) {
-			// A chained `else if` already produced its own frame.
-			return current.isKind(SyntaxKind.IfStatement)
-				? undefined
-				: {
-						branchKind: "else",
-						// The tail of a chain fails every test above it, so no one
-						// condition describes it.
-						conditionText: chained ? null : conditionText,
-						statementLine: root.getStartLineNumber(),
-					};
+			// A chained `else if` frames itself when the walk comes up through its
+			// body. Reaching here from its condition instead leaves it unframed, and
+			// that condition only runs because this test failed.
+			if (current.isKind(SyntaxKind.IfStatement) && framedAt === current) {
+				return undefined;
+			}
+			return {
+				branchKind: "else",
+				// The tail of a chain fails every test above it, so no one condition
+				// describes it.
+				conditionText: chained ? null : conditionText,
+				statementLine: root.getStartLineNumber(),
+			};
 		}
 	}
 
@@ -430,15 +440,17 @@ function guardedRegion(current: Node, parent: Node): string | null {
 function getConditionalInfo(node: Node, boundary: Node): ConditionalInfo {
 	const frames: ConditionFrame[] = [];
 	let tryRegion: string | null = null;
+	let framedAt: Node | undefined;
 	let current: Node | undefined = node;
 	while (current && current !== boundary) {
 		const parent = current.getParent();
 		if (!parent || parent === boundary) {
 			break;
 		}
-		const frame = frameFor(current, parent);
+		const frame = frameFor(current, parent, framedAt);
 		if (frame) {
 			frames.push(frame);
+			framedAt = parent;
 		}
 		tryRegion ??= guardedRegion(current, parent);
 		current = parent;
@@ -856,7 +868,9 @@ export function findMethodInHierarchy(
 	cache?: ScanCache
 ): MethodDeclaration | undefined {
 	const className = cls.getName() ?? "";
-	const cacheKey = `${className}.${methodName}`;
+	// Keyed by file too, since a subclass may carry its base class's name and the
+	// two searches start from different declarations.
+	const cacheKey = `${cls.getSourceFile().getFilePath()}::${className}.${methodName}`;
 	if (cache?.hasMethod(cacheKey)) {
 		return cache.getMethod(cacheKey);
 	}

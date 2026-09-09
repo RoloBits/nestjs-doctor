@@ -163,40 +163,48 @@ export function encodeCodeGraph(graph: CodeGraph): EncodedCodeGraph {
 		return out;
 	});
 
-	const edges = graph.edges.map((edge) => {
-		const out: Record<string, unknown> = {
-			f: indexOfNode.get(edge.from),
-			o: edge.order,
-			t: indexOfNode.get(edge.to),
-		};
-		put(out, "l", edge.line, 0);
-		put(out, "a", edge.assignedTo, null);
-		put(out, "w", edge.awaited, false);
-		put(out, "bg", edge.branchGroupId, null);
-		put(out, "bk", edge.branchKind, null);
-		put(out, "cm", edge.comment, null);
-		put(out, "cd", edge.conditional, false);
-		putList(out, "cp", edge.conditionPath);
-		put(out, "ct", edge.conditionText, null);
-		put(out, "gt", edge.guardThrow, null);
-		put(out, "ik", edge.iterationKind, null);
-		put(out, "il", edge.iterationLabel, null);
-		put(out, "tr", edge.tryRegion, null);
-		return out;
-	});
+	// An endpoint left without a node would encode as a missing index and decode
+	// into a crash, so anything that does not resolve is dropped here instead.
+	const resolves = (id: NodeId) => indexOfNode.has(id);
 
-	const entries = graph.entries.map((entry) => {
-		const out: Record<string, unknown> = {
-			c: entry.controllerClass,
-			h: entry.handlerMethod,
-			m: entry.httpMethod,
-			n: indexOfNode.get(entry.node),
-			p: entry.routePath,
-		};
-		put(out, "r", entry.returnType, null);
-		put(out, "s", entry.swagger, null);
-		return out;
-	});
+	const edges = graph.edges
+		.filter((edge) => resolves(edge.from) && resolves(edge.to))
+		.map((edge) => {
+			const out: Record<string, unknown> = {
+				f: indexOfNode.get(edge.from),
+				o: edge.order,
+				t: indexOfNode.get(edge.to),
+			};
+			put(out, "l", edge.line, 0);
+			put(out, "a", edge.assignedTo, null);
+			put(out, "w", edge.awaited, false);
+			put(out, "bg", edge.branchGroupId, null);
+			put(out, "bk", edge.branchKind, null);
+			put(out, "cm", edge.comment, null);
+			put(out, "cd", edge.conditional, false);
+			putList(out, "cp", edge.conditionPath);
+			put(out, "ct", edge.conditionText, null);
+			put(out, "gt", edge.guardThrow, null);
+			put(out, "ik", edge.iterationKind, null);
+			put(out, "il", edge.iterationLabel, null);
+			put(out, "tr", edge.tryRegion, null);
+			return out;
+		});
+
+	const entries = graph.entries
+		.filter((entry) => resolves(entry.node))
+		.map((entry) => {
+			const out: Record<string, unknown> = {
+				c: entry.controllerClass,
+				h: entry.handlerMethod,
+				m: entry.httpMethod,
+				n: indexOfNode.get(entry.node),
+				p: entry.routePath,
+			};
+			put(out, "r", entry.returnType, null);
+			put(out, "s", entry.swagger, null);
+			return out;
+		});
 
 	return { edges, entries, files: files.paths, nodes, version: 1 };
 }

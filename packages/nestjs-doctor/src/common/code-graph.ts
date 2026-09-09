@@ -7,9 +7,11 @@ import type {
 } from "./endpoint.js";
 
 /**
- * `${posixFilePath}::${ClassName}#${methodName}`, with `${member}.` before the
- * method name on a `db` node. A static method separates with `.` instead of
- * `#`, and a free function leaves the class empty. Never a bare name.
+ * `${path}::${ClassName}#${methodName}`, where `path` is the declaring file, an
+ * import specifier for an installed package, or empty when neither is known.
+ * A `${member}.` sits before the method name on a member call, a static
+ * separates with `.` instead of `#`, and a free function leaves the class
+ * empty.
  */
 export type NodeId = string;
 
@@ -48,8 +50,9 @@ interface BodyItemBase {
 	/** Shares one sequence with the outgoing `CallEdge.order` of the same node. */
 	order: number;
 	/**
-	 * Group of the `try` covering this item, matching the `branchGroupId` of the
-	 * `catch` that handles it. Null outside a try, and inside a bare `finally`.
+	 * Group of the `try` block holding this item, matching the `branchGroupId` of
+	 * the `catch` that handles it. Null everywhere else, a `catch` or `finally`
+	 * body and a `try` without a `catch` included.
 	 */
 	tryRegion: string | null;
 }
@@ -91,7 +94,7 @@ export interface MethodNode {
 	isStatic?: true;
 	kind: NodeKind;
 	line: number;
-	/** Property the call went through on a `db` node: `user` in `this.prisma.user.find()`. */
+	/** Property the call went through: `user` in `this.prisma.user.find()`. */
 	member?: string;
 	methodName: string;
 	parameters: MethodParameterInfo[];
@@ -123,8 +126,9 @@ export interface CallEdge {
 	order: number;
 	to: NodeId;
 	/**
-	 * Group of the `try` covering this call, matching the `branchGroupId` of the
-	 * `catch` that handles it. Null outside a try, and inside a bare `finally`.
+	 * Group of the `try` block holding this call, matching the `branchGroupId` of
+	 * the `catch` that handles it. Null everywhere else, a `catch` or `finally`
+	 * body and a `try` without a `catch` included.
 	 */
 	tryRegion: string | null;
 }

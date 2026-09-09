@@ -3,6 +3,7 @@ import type {
 	MethodDeclaration,
 	Node,
 	Project,
+	TypeReferenceNode,
 } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import type {
@@ -24,6 +25,7 @@ import type {
 import {
 	declaresRoutes,
 	getClassType,
+	isController,
 	isInjectable,
 } from "../nest-class-inspector.js";
 import type { FreeCallTarget } from "./endpoint-graph.js";
@@ -113,14 +115,19 @@ function baseClassOf(cls: ClassDeclaration): ClassDeclaration | undefined {
 }
 
 function classKind(cls: ClassDeclaration): NodeKind {
-	// Before the decorator names, since a wrapper composing `Controller()` carries
-	// its own name and would otherwise read as a plain service.
-	if (declaresRoutes(cls)) {
+	// A wrapper composing `Controller()` carries its own name, so the decorator
+	// names alone would read it as a plain service.
+	if (isController(cls)) {
 		return "controller";
 	}
 	const fromDecorator = DECORATOR_KINDS[getClassType(cls)];
 	if (fromDecorator) {
 		return fromDecorator;
+	}
+	// Nest reads route metadata off the prototype chain, so an undecorated base
+	// declaring handlers is a controller too.
+	if (declaresRoutes(cls)) {
+		return "controller";
 	}
 	const injectsDriver = cls
 		.getConstructors()[0]
@@ -176,7 +183,23 @@ function declaredTypeName(declaration: Node): string | undefined {
 	);
 }
 
-/** The module a name was imported from, used to tell two packages apart. */
+/** The name actually bound in scope: `pkgOne` in `pkgOne.Client`. */
+function boundName(ref: TypeReferenceNode): string {
+	const typeName = ref.getTypeName();
+	return (
+		typeName
+			.asKind(SyntaxKind.QualifiedName)
+			?.getLeft()
+			.getText()
+			.split(".")[0] ?? typeName.getText()
+	);
+}
+
+/**
+ * The package a name was imported from, used to tell two packages apart. A
+ * relative specifier names no package and repeats across directories, so it is
+ * not an identity and yields nothing.
+ */
 function importSpecifier(ref: Node, name: string): string | undefined {
 	for (const declaration of ref.getSourceFile().getImportDeclarations()) {
 		const named = declaration
@@ -188,7 +211,10 @@ function importSpecifier(ref: Node, name: string): string | undefined {
 		const defaulted = declaration.getDefaultImport()?.getText() === name;
 		const namespaced = declaration.getNamespaceImport()?.getText() === name;
 		if (named || defaulted || namespaced) {
-			return declaration.getModuleSpecifierValue();
+			const specifier = declaration.getModuleSpecifierValue();
+			return specifier.startsWith(".") || specifier.startsWith("/")
+				? undefined
+				: specifier;
 		}
 	}
 	return undefined;
@@ -241,7 +267,7 @@ function resolveTypeNode(
 	}
 	// Installed packages are hidden from resolution, so the import specifier is
 	// the only thing separating two packages exporting one name.
-	const specifier = importSpecifier(ref, written);
+	const specifier = importSpecifier(ref, boundName(ref));
 	return {
 		...(specifier ? { filePath: specifier } : {}),
 		reason: "external-package",
@@ -660,9 +686,15 @@ function compareEdges(a: CallEdge, b: CallEdge): number {
 	);
 }
 
+/**
+ * One entry per endpoint whose handler was indexed. The endpoint extractor
+ * names an anonymous class `AnonymousController` and reads static handlers,
+ * neither of which becomes a node, so those endpoints carry no entry.
+ */
 function buildEntries(
 	project: Project,
-	endpoints: EndpointNode[]
+	endpoints: EndpointNode[],
+	known: ReadonlySet<NodeId>
 ): EntryPoint[] {
 	return endpoints
 		.map((endpoint) => ({
@@ -679,6 +711,7 @@ function buildEntries(
 			routePath: endpoint.routePath,
 			swagger: endpoint.swagger,
 		}))
+		.filter((entry) => known.has(entry.node))
 		.sort(
 			(a, b) =>
 				a.node.localeCompare(b.node) ||
@@ -705,16 +738,23 @@ export function mergeCodeGraphs(graphs: Iterable<CodeGraph>): CodeGraph {
 	const nodes = new Map<NodeId, MethodNode>();
 	const edges = new Map<string, CallEdge>();
 	const entries = new Map<string, EntryPoint>();
-	for (const graph of graphs) {
+	const all = [...graphs];
+	for (const graph of all) {
 		for (const node of graph.nodes) {
 			const known = nodes.get(node.id);
 			if (!known || preferNode(node, known)) {
 				nodes.set(node.id, node);
 			}
 		}
+	}
+	// One call site is one edge. A sub-project that cannot see the callee's file
+	// resolves it to an unresolved node, so the sub-project that can wins.
+	const resolved = (id: NodeId) => nodes.get(id)?.kind !== "unresolved";
+	for (const graph of all) {
 		for (const edge of graph.edges) {
-			const key = `${edge.from}|${edge.order}|${edge.to}`;
-			if (!edges.has(key)) {
+			const key = `${edge.from}|${edge.order}`;
+			const known = edges.get(key);
+			if (!known || (resolved(edge.to) && !resolved(known.to))) {
 				edges.set(key, edge);
 			}
 		}
@@ -759,9 +799,14 @@ export function buildCodeGraph(
 		scanClass(entry, builder, providers, project);
 	}
 
+	const nodes = builder.list().sort(compareNodes);
 	return {
 		edges: builder.edges.sort(compareEdges),
-		entries: buildEntries(project, endpoints),
-		nodes: builder.list().sort(compareNodes),
+		entries: buildEntries(
+			project,
+			endpoints,
+			new Set(nodes.map((node) => node.id))
+		),
+		nodes,
 	};
 }

@@ -216,17 +216,23 @@ describe("code graph node identity", () => {
 			).toEqual(new Set([user, order]));
 		});
 
-		// The parser hides node_modules, so every external type resolves to
-		// `external-package` with an empty file path and one name means one node.
+		// The parser hides node_modules, so an external type has no declaration to
+		// key on and the import specifier separates the two packages.
 		it("keeps two same-named external types apart", () => {
-			const send = "::Client#send";
 			const one = `${SRC}/external/one.service.ts::ExternalOneService#run`;
 			const two = `${SRC}/external/two.service.ts::ExternalTwoService#run`;
+			const target = (from: string) => {
+				const edges = outbound(from);
+				expect(edges).toHaveLength(1);
+				return edges[0].to;
+			};
 
-			expect(outbound(one).map((edge) => edge.to)).not.toEqual(
-				outbound(two).map((edge) => edge.to)
-			);
-			expect(inbound(send).length).toBeLessThan(2);
+			expect(target(one)).not.toBe(target(two));
+			for (const id of [target(one), target(two)]) {
+				// A bare `::Client#send` is the collision this guards against.
+				expect(id.startsWith("::")).toBe(false);
+				expect(inbound(id)).toHaveLength(1);
+			}
 		});
 
 		it("keeps one method name on two unrelated services apart", () => {
