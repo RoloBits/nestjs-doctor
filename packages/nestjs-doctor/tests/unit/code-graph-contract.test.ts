@@ -44,6 +44,7 @@ const STAMP = "/external.service.ts::ExternalService#stamp";
 const OTHER_STAMP = "/other.service.ts::OtherService#stamp";
 const HELPER = "/orders.service.ts::#helper";
 const MAILER_SEND = "/orders.service.ts::Mailer.send";
+const WRAPPED_CREATE = "/wrapped.controller.ts::WrappedController#create";
 
 function node(id: NodeId): MethodNode {
 	const found = BY_ID.get(id);
@@ -298,16 +299,16 @@ describe("code graph contract", () => {
 	});
 
 	describe("10. which endpoints reach a method", () => {
-		it("reaches one shared service from all three entries", () => {
+		it("reaches one shared service from every entry", () => {
 			const perEntry = GRAPH.entries.filter((entry) =>
 				reachableFrom(GRAPH, [entry.node]).has(SEND)
 			);
-			expect(perEntry).toHaveLength(3);
+			expect(perEntry).toHaveLength(GRAPH.entries.length);
 		});
 
 		it("gives two endpoints reaching one method a single node", () => {
 			expect(GRAPH.nodes.filter((item) => item.id === SEND)).toHaveLength(1);
-			expect(GRAPH.edges.filter((edge) => edge.to === SEND).length).toBe(5);
+			expect(GRAPH.edges.filter((edge) => edge.to === SEND).length).toBe(6);
 		});
 	});
 
@@ -362,6 +363,12 @@ describe("code graph contract", () => {
 	});
 
 	describe("15. what kind of thing is this", () => {
+		it("kinds a controller declared by a wrapper decorator", () => {
+			// `@ApiController()` composes `Controller()`, so its name is not literally
+			// Controller and a name match would read the class as a service.
+			expect(node(WRAPPED_CREATE).kind).toBe("controller");
+		});
+
 		it("kinds a controller, a service, a repository and a data call", () => {
 			expect(node("/orders.controller.ts::OrdersController#create").kind).toBe(
 				"controller"
@@ -402,7 +409,12 @@ describe("code graph contract", () => {
 		it("carries the method and path of every endpoint", () => {
 			expect(
 				GRAPH.entries.map((entry) => `${entry.httpMethod} ${entry.routePath}`)
-			).toEqual(["POST /admin/ping", "POST /orders", "GET /orders/:id"]);
+			).toEqual([
+				"POST /admin/ping",
+				"POST /orders",
+				"GET /orders/:id",
+				"POST /wrapped",
+			]);
 		});
 	});
 

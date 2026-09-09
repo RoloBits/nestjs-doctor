@@ -201,6 +201,28 @@ export class OrdersController {
 	}
 }
 `,
+	"api-decorators.ts": `
+import { applyDecorators, Controller } from '@nestjs/common';
+
+export function ApiController(path: string) {
+	return applyDecorators(Controller(path));
+}
+`,
+	"wrapped.controller.ts": `
+import { Post } from '@nestjs/common';
+import { ApiController } from './api-decorators';
+import { NotifyService } from './notify.service';
+
+@ApiController('wrapped')
+export class WrappedController {
+	constructor(private readonly notify: NotifyService) {}
+
+	@Post()
+	create() {
+		return this.notify.send('wrapped');
+	}
+}
+`,
 	"admin.controller.ts": `
 import { Controller, Post } from '@nestjs/common';
 import { NotifyService } from './notify.service';

@@ -113,6 +113,11 @@ function baseClassOf(cls: ClassDeclaration): ClassDeclaration | undefined {
 }
 
 function classKind(cls: ClassDeclaration): NodeKind {
+	// Before the decorator names, since a wrapper composing `Controller()` carries
+	// its own name and would otherwise read as a plain service.
+	if (declaresRoutes(cls)) {
+		return "controller";
+	}
 	const fromDecorator = DECORATOR_KINDS[getClassType(cls)];
 	if (fromDecorator) {
 		return fromDecorator;
