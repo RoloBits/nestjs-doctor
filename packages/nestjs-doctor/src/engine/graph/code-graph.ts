@@ -367,8 +367,7 @@ class GraphBuilder {
 		return this.declared(owner, method);
 	}
 
-	// ponytail: a two-level receiver reads as a db member, so a field holding
-	// another service becomes `Wrapper#inner.doThing`; check the member's type to lift it.
+	/** The node a `this.<member>.<method>()` call reaches. */
 	db(
 		receiver: ResolvedReceiver,
 		member: string,
