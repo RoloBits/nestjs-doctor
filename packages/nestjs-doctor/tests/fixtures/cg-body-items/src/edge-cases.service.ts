@@ -41,7 +41,7 @@ export class EdgeCasesService {
 		const label = id.trim();
 		const saved = await this.repo.save(user);
 		const suffix = label.concat("!");
-		return suffix;
+		return { saved, suffix };
 	}
 
 	helperCall(id: string) {

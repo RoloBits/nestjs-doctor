@@ -10,6 +10,6 @@ export class StepsService {
 		const name = id.trim();
 		const key = name.concat("-key");
 		const saved = await this.repo.save(user);
-		return saved;
+		return { key, saved };
 	}
 }

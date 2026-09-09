@@ -12,6 +12,9 @@ import {
 } from "../../src/engine/scanner.js";
 
 const FIXTURE = resolve(import.meta.dirname, "../fixtures/cg-call-shapes");
+const BACKSLASH = /\\/g;
+// ts-morph reports posix paths, so a node id never carries a Windows separator.
+const POSIX_FIXTURE = FIXTURE.replace(BACKSLASH, "/");
 
 const NOTES = "/src/notes.service.ts::NotesService";
 const CHAIN = "/src/chain.service.ts::ChainService";
@@ -143,7 +146,7 @@ describe("code graph call shapes", () => {
 			"/src/clock-pair.consumer.ts::ClockPairConsumer#tickBoth"
 		);
 		expect(targeted).toHaveLength(2);
-		expect(targeted.map((id) => id.replace(FIXTURE, "")).sort()).toEqual([
+		expect(targeted.map((id) => id.replace(POSIX_FIXTURE, "")).sort()).toEqual([
 			"/src/clock-a.ts::Clock#now",
 			"/src/clock-b.ts::Clock#now",
 		]);
@@ -157,7 +160,7 @@ describe("code graph call shapes", () => {
 			"/src/store-pair.consumer.ts::StorePairConsumer#saveBoth"
 		);
 		expect(targeted).toHaveLength(2);
-		expect(targeted.map((id) => id.replace(FIXTURE, "")).sort()).toEqual([
+		expect(targeted.map((id) => id.replace(POSIX_FIXTURE, "")).sort()).toEqual([
 			"/src/store-a.ts::Store#save",
 			"/src/store-b.ts::Store#save",
 		]);
