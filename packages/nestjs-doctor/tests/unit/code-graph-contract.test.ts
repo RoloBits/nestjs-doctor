@@ -42,6 +42,8 @@ const DB_FIND = "/prisma.service.ts::PrismaService#user.findUnique";
 const DB_UPDATE = "/prisma.service.ts::PrismaService#user.update";
 const STAMP = "/external.service.ts::ExternalService#stamp";
 const OTHER_STAMP = "/other.service.ts::OtherService#stamp";
+const HELPER = "/orders.service.ts::#helper";
+const MAILER_SEND = "/orders.service.ts::Mailer.send";
 
 function node(id: NodeId): MethodNode {
 	const found = BY_ID.get(id);
@@ -102,7 +104,7 @@ describe("code graph contract", () => {
 	describe("1. what happens first, second, third", () => {
 		it("puts every call and body item of one method in one dense sequence", () => {
 			expect(sequence(PLACE).map((item) => item.order)).toEqual([
-				0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+				0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
 			]);
 		});
 
@@ -280,12 +282,18 @@ describe("code graph contract", () => {
 			expect(node(RECORD).filePath).toBe("/audit.service.ts");
 		});
 
-		it("drops a static call and a bare function call", () => {
-			// `Mailer.send(id)` at 46 and `helper(1)` at 47 produce no edge. Whether
-			// project functions become nodes is the plan's open decision.
-			const lines = out(PLACE).map((edge) => edge.line);
-			expect(lines).not.toContain(46);
-			expect(lines).not.toContain(47);
+		it("reaches a bare call and a static call this project declares", () => {
+			// `helper(1)` at 47 and `Mailer.send(id)` at 46, neither injected.
+			expect(edgeTo(PLACE, HELPER, 47).to).toBe(HELPER);
+			expect(edgeTo(PLACE, MAILER_SEND, 46).to).toBe(MAILER_SEND);
+			expect(node(HELPER).kind).toBe("function");
+			expect(node(MAILER_SEND).kind).toBe("function");
+		});
+
+		it("keeps a static apart from an instance method of the same name", () => {
+			expect(node(MAILER_SEND).isStatic).toBe(true);
+			expect(node(SEND).isStatic).toBeUndefined();
+			expect(MAILER_SEND).not.toBe(SEND);
 		});
 	});
 

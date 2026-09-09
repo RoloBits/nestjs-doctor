@@ -5,8 +5,12 @@ import {
 	type ScanTelemetryInput,
 } from "../cli/scan-telemetry-reporter.js";
 import type { ReportProvider, SourceInclusion } from "../common/artifact.js";
+import type { CodeGraph } from "../common/code-graph.js";
+import { encodeCodeGraph } from "../common/code-graph-codec.js";
 import type { Diagnostic } from "../common/diagnostic.js";
 import type { DiagnoseResult } from "../common/result.js";
+import { codeGraphFor } from "../engine/analysis-context.js";
+import { mergeCodeGraphs } from "../engine/graph/code-graph.js";
 import {
 	detachModuleGraph,
 	type ModuleGraph,
@@ -211,6 +215,7 @@ export class SingleProjectReportPipeline extends ReportPipeline {
 					result,
 					files,
 					bootstrapRoots: facts.bootstrapRoots,
+					codeGraph: encodeCodeGraph(codeGraphFor(this.context)),
 					providers: facts.providers,
 					scanId: this.scanId,
 					sources: this.sources,
@@ -231,6 +236,7 @@ export class MonorepoReportPipeline extends ReportPipeline {
 	private readonly allFiles: string[] = [];
 	private readonly allProviders: ReportProvider[] = [];
 	private readonly bootstrapRoots: string[] = [];
+	private readonly codeGraphs: CodeGraph[] = [];
 	private _monoResult!: MonorepoEngineResult;
 	private _mergedGraph?: ModuleGraph;
 	private scanStartTime!: number;
@@ -279,6 +285,7 @@ export class MonorepoReportPipeline extends ReportPipeline {
 					const facts = collectScanFacts({ ...context, projectName: name });
 					this.bootstrapRoots.push(...facts.bootstrapRoots);
 					this.allProviders.push(...facts.providers);
+					this.codeGraphs.push(codeGraphFor(context));
 					const rawOutput = await diagnose(context);
 					for (const [id, n] of Object.entries(rawOutput.suppressed)) {
 						this.suppressedInline[id] = (this.suppressedInline[id] ?? 0) + n;
@@ -335,6 +342,7 @@ export class MonorepoReportPipeline extends ReportPipeline {
 					files: this.allFiles,
 					providers: this.allProviders,
 					bootstrapRoots: this.bootstrapRoots,
+					codeGraph: encodeCodeGraph(mergeCodeGraphs(this.codeGraphs)),
 					monorepo: true,
 					scanId: this.scanId,
 					sources: this.sources,

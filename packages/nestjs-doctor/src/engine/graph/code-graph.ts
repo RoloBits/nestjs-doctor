@@ -15,7 +15,7 @@ import type {
 	NodeKind,
 	UnresolvedReason,
 } from "../../common/code-graph.js";
-import { nodeId } from "../../common/code-graph.js";
+import { nodeId, staticNodeId } from "../../common/code-graph.js";
 import type {
 	ConditionFrame,
 	EndpointNode,
@@ -26,6 +26,7 @@ import {
 	getClassType,
 	isInjectable,
 } from "../nest-class-inspector.js";
+import type { FreeCallTarget } from "./endpoint-graph.js";
 import {
 	buildInjectionMap,
 	classifyDependency,
@@ -325,6 +326,67 @@ class GraphBuilder {
 		);
 	}
 
+	/**
+	 * The node a `helper()` or `Klass.helper()` call reaches. Returns nothing
+	 * when the declaration has since gone, so no edge dangles.
+	 */
+	free(project: Project, target: FreeCallTarget): NodeId | undefined {
+		const source = project.getSourceFile(target.filePath);
+		if (!source) {
+			return undefined;
+		}
+		if (target.isStatic) {
+			const cls = source.getClass(target.className);
+			const method = cls?.getStaticMethod(target.methodName);
+			if (!(cls && method)) {
+				return undefined;
+			}
+			const id = staticNodeId(
+				target.filePath,
+				target.className,
+				target.methodName
+			);
+			if (!this.nodes.has(id)) {
+				this.nodes.set(id, {
+					body: [],
+					className: target.className,
+					classMethodCount: cls.getStaticMethods().length,
+					endLine: method.getEndLineNumber(),
+					filePath: target.filePath,
+					id,
+					isStatic: true,
+					kind: "function",
+					line: method.getStartLineNumber(),
+					methodName: target.methodName,
+					parameters: extractMethodParameters(method),
+					returnType: extractReturnType(method),
+				});
+			}
+			return id;
+		}
+		const fn = source.getFunction(target.methodName);
+		if (!fn) {
+			return undefined;
+		}
+		const id = nodeId(target.filePath, "", target.methodName);
+		if (!this.nodes.has(id)) {
+			this.nodes.set(id, {
+				body: [],
+				className: "",
+				classMethodCount: 0,
+				endLine: fn.getEndLineNumber(),
+				filePath: target.filePath,
+				id,
+				kind: "function",
+				line: fn.getStartLineNumber(),
+				methodName: target.methodName,
+				parameters: extractMethodParameters(fn),
+				returnType: extractReturnType(fn),
+			});
+		}
+		return id;
+	}
+
 	private unresolved(
 		filePath: string,
 		className: string,
@@ -467,7 +529,8 @@ function memberOfType(
 function scanClass(
 	indexed: IndexedClass,
 	builder: GraphBuilder,
-	providers: Map<string, ProviderInfo>
+	providers: Map<string, ProviderInfo>,
+	project: Project
 ): void {
 	// One cache per class: its keys are class names, which collide across files.
 	const cache = new ScanCache();
@@ -496,6 +559,7 @@ function scanClass(
 			cache,
 			{
 				everyThisCall: true,
+				freeCalls: true,
 				keepMergedThrows: true,
 				memberCalls: true,
 				returns: true,
@@ -523,6 +587,13 @@ function scanClass(
 				builder.db(receiver, call.member, call.methodName, call.paramName),
 				call
 			);
+		}
+
+		for (const call of scan.freeCalls) {
+			const target = builder.free(project, call);
+			if (target) {
+				builder.edge(from, target, call);
+			}
 		}
 
 		for (const call of scan.sameClassCalls) {
@@ -586,6 +657,42 @@ function buildEntries(
 }
 
 /**
+ * One graph from several, for a monorepo scanned a sub-project at a time. A
+ * method two sub-projects both reach through a shared library is one node.
+ */
+export function mergeCodeGraphs(graphs: Iterable<CodeGraph>): CodeGraph {
+	const nodes = new Map<NodeId, MethodNode>();
+	const edges = new Map<string, CallEdge>();
+	const entries = new Map<string, EntryPoint>();
+	for (const graph of graphs) {
+		for (const node of graph.nodes) {
+			if (!nodes.has(node.id)) {
+				nodes.set(node.id, node);
+			}
+		}
+		for (const edge of graph.edges) {
+			edges.set(`${edge.from}|${edge.order}|${edge.to}`, edge);
+		}
+		for (const entry of graph.entries) {
+			entries.set(
+				`${entry.httpMethod} ${entry.routePath} ${entry.node}`,
+				entry
+			);
+		}
+	}
+	return {
+		edges: [...edges.values()].sort(compareEdges),
+		entries: [...entries.values()].sort(
+			(a, b) =>
+				a.node.localeCompare(b.node) ||
+				a.httpMethod.localeCompare(b.httpMethod) ||
+				a.routePath.localeCompare(b.routePath)
+		),
+		nodes: [...nodes.values()].sort(compareNodes),
+	};
+}
+
+/**
  * One node per declared method of every Nest class, with each call site as an
  * edge. Cycles are edges, so nothing is expanded twice.
  */
@@ -604,7 +711,7 @@ export function buildCodeGraph(
 		}
 	}
 	for (const entry of indexed) {
-		scanClass(entry, builder, providers);
+		scanClass(entry, builder, providers, project);
 	}
 
 	return {

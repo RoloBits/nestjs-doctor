@@ -1,3 +1,4 @@
+import type { EncodedCodeGraph } from "./code-graph-codec.js";
 import type { Diagnostic } from "./diagnostic.js";
 import type { EndpointGraph } from "./endpoint.js";
 import type {
@@ -86,6 +87,11 @@ export interface SerializedModuleGraph {
  * consume the same bytes.
  */
 export interface ReportArtifact {
+	/**
+	 * The code graph, encoded: one node per declared method, one edge per call
+	 * site. Absent when the scan did not build it.
+	 */
+	codeGraph?: EncodedCodeGraph;
 	diagnostics: Diagnostic[];
 	elapsedMs: number;
 	endpoints: EndpointGraph;

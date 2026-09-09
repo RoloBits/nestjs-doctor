@@ -112,7 +112,10 @@ export {
 	getStagedFiles,
 	resolveBaseRef,
 } from "../engine/git.js";
-export { buildCodeGraph } from "../engine/graph/code-graph.js";
+export {
+	buildCodeGraph,
+	mergeCodeGraphs,
+} from "../engine/graph/code-graph.js";
 export {
 	buildEndpointGraph,
 	traceEndpointCalls,
@@ -147,6 +150,7 @@ export {
 	checkFile,
 	checkProject,
 	checkSchema,
+	codeGraphFor,
 	prepareAnalysis,
 	resolveScanConfig,
 	updateFile,

@@ -8,7 +8,8 @@ import type {
 
 /**
  * `${posixFilePath}::${ClassName}#${methodName}`, with `${member}.` before the
- * method name on a `db` node. Never a bare name.
+ * method name on a `db` node. A static method separates with `.` instead of
+ * `#`, and a free function leaves the class empty. Never a bare name.
  */
 export type NodeId = string;
 
@@ -24,6 +25,7 @@ export type NodeKind =
 	| "service"
 	| "db"
 	| "external"
+	| "function"
 	| "unresolved";
 
 export type UnresolvedReason =
@@ -85,6 +87,8 @@ export interface MethodNode {
 	endLine: number;
 	filePath: string;
 	id: NodeId;
+	/** Reached through the class rather than an instance. */
+	isStatic?: true;
 	kind: NodeKind;
 	line: number;
 	/** Property the call went through on a `db` node: `user` in `this.prisma.user.find()`. */
@@ -150,6 +154,18 @@ export function nodeId(
 ): NodeId {
 	const suffix = member ? `${member}.${methodName}` : methodName;
 	return `${filePath}::${className}#${suffix}`;
+}
+
+/**
+ * A method reached through the class rather than an instance. The `.` keeps it
+ * apart from an instance method of the same name.
+ */
+export function staticNodeId(
+	filePath: string,
+	className: string,
+	methodName: string
+): NodeId {
+	return `${filePath}::${className}.${methodName}`;
 }
 
 export function indexNodes(graph: CodeGraph): Map<NodeId, MethodNode> {

@@ -2,6 +2,7 @@ import type {
 	CallExpression,
 	ClassDeclaration,
 	Decorator,
+	FunctionDeclaration,
 	IfStatement,
 	MethodDeclaration,
 	Node,
@@ -154,6 +155,33 @@ interface StepUsage {
 	tryRegion: string | null;
 }
 
+/** Where a call outside the injected receivers lands. */
+export interface FreeCallTarget {
+	/** Class declaring the static method, empty for a free function. */
+	className: string;
+	filePath: string;
+	isStatic: boolean;
+	methodName: string;
+}
+
+/** A `helper()` or `Klass.helper()` call reaching code this project declares. */
+interface FreeCallUsage extends FreeCallTarget {
+	assignedTo: string | null;
+	awaited: boolean;
+	branchGroupId: string | null;
+	branchKind: string | null;
+	callSiteLine: number;
+	comment: string | null;
+	conditional: boolean;
+	conditionPath: ConditionFrame[];
+	conditionText: string | null;
+	iterationKind: "loop" | "callback" | "concurrent" | null;
+	iterationLabel: string | null;
+	order: number;
+	sortKey: number;
+	tryRegion: string | null;
+}
+
 /** A `return` belonging to the scanned method itself. */
 interface ReturnUsage {
 	branchGroupId: string | null;
@@ -202,6 +230,11 @@ export interface ScanOptions {
 	 */
 	everyThisCall?: boolean;
 	/**
+	 * Record calls to functions and static methods this project declares, which
+	 * belong to no injected receiver.
+	 */
+	freeCalls?: boolean;
+	/**
 	 * Keep a throw the guard merge folded into a call, flagged rather than
 	 * deleted. The tree drops it so the report does not show it twice.
 	 */
@@ -219,6 +252,7 @@ export interface ScanOptions {
 
 export interface ScanResult {
 	deps: UsedDependency[];
+	freeCalls: FreeCallUsage[];
 	memberCalls: MemberCallUsage[];
 	returns: ReturnUsage[];
 	sameClassCalls: SameClassCallUsage[];
@@ -688,6 +722,78 @@ function resolveBaseClass(
 	return nextClass;
 }
 
+const INSTALLED_PATH = /[\\/]node_modules[\\/]/;
+
+/** The fields every call site records, whatever pattern matched it. */
+function callSiteFacts(call: CallExpression, body: Node, order: number) {
+	const condInfo = getConditionalInfo(call, body);
+	const iterInfo = getIterationContext(call, body);
+	return {
+		assignedTo: extractAssignedVariable(call),
+		awaited: isAwaitedCall(call),
+		branchGroupId: condInfo.statementLine ? `L${condInfo.statementLine}` : null,
+		branchKind: condInfo.branchKind,
+		callSiteLine: call.getStartLineNumber(),
+		comment: extractLeadingComment(call),
+		conditional: condInfo.isConditional,
+		conditionPath: condInfo.conditionPath,
+		conditionText: condInfo.conditionText,
+		iterationKind: iterInfo.iterationKind,
+		iterationLabel: iterInfo.iterationLabel,
+		order,
+		sortKey: call.getEnd(),
+		tryRegion: condInfo.tryRegion,
+	};
+}
+
+/** Declarations a name resolves to, following import aliases. */
+function declarationsOf(name: Node): Node[] {
+	const symbol = name.getSymbol();
+	return (symbol?.getAliasedSymbol() ?? symbol)?.getDeclarations() ?? [];
+}
+
+/** True for a declaration this project owns rather than an installed package. */
+function ownDeclaration(declaration: Node): boolean {
+	return !INSTALLED_PATH.test(declaration.getSourceFile().getFilePath());
+}
+
+/** The project function a bare `helper()` reaches, or nothing. */
+function freeFunctionTarget(callee: Node): FreeCallTarget | undefined {
+	for (const declaration of declarationsOf(callee)) {
+		const fn = declaration.asKind(SyntaxKind.FunctionDeclaration);
+		const name = fn?.getName();
+		if (fn && name && ownDeclaration(fn)) {
+			return {
+				className: "",
+				filePath: fn.getSourceFile().getFilePath(),
+				isStatic: false,
+				methodName: name,
+			};
+		}
+	}
+	return undefined;
+}
+
+/** The project static method a `Klass.helper()` reaches, or nothing. */
+function staticMethodTarget(
+	receiver: Node,
+	methodName: string
+): FreeCallTarget | undefined {
+	for (const declaration of declarationsOf(receiver)) {
+		const cls = declaration.asKind(SyntaxKind.ClassDeclaration);
+		const name = cls?.getName();
+		if (cls && name && ownDeclaration(cls) && cls.getStaticMethod(methodName)) {
+			return {
+				className: name,
+				filePath: cls.getSourceFile().getFilePath(),
+				isStatic: true,
+				methodName,
+			};
+		}
+	}
+	return undefined;
+}
+
 /** The class this one extends, ignoring providers. */
 function declaredBaseClass(
 	cls: ClassDeclaration
@@ -988,7 +1094,9 @@ function extractSwaggerMetadata(
 
 const PROMISE_OBSERVABLE_REGEX = /^(?:Promise|Observable)<(.+)>$/;
 
-export function extractReturnType(method: MethodDeclaration): string | null {
+export function extractReturnType(
+	method: FunctionDeclaration | MethodDeclaration
+): string | null {
 	const typeNode = method.getReturnTypeNode();
 	if (!typeNode) {
 		return null;
@@ -1006,7 +1114,7 @@ export function extractReturnType(method: MethodDeclaration): string | null {
 }
 
 export function extractMethodParameters(
-	method: MethodDeclaration
+	method: FunctionDeclaration | MethodDeclaration
 ): MethodParameterInfo[] {
 	return method
 		.getParameters()
@@ -1231,6 +1339,7 @@ export function scanUsedDependencies(
 
 	const empty: ScanResult = {
 		deps: [],
+		freeCalls: [],
 		memberCalls: [],
 		returns: [],
 		sameClassCalls: [],
@@ -1268,6 +1377,7 @@ export function scanUsedDependencies(
 	}
 
 	const sameClassCalls: SameClassCallUsage[] = [];
+	const freeCalls: FreeCallUsage[] = [];
 	const memberCalls: MemberCallUsage[] = [];
 	const returns: ReturnUsage[] = [];
 	const throws: ThrowUsage[] = [];
@@ -1358,6 +1468,17 @@ export function scanUsedDependencies(
 		const call = item.node;
 		const expr = call.getExpression();
 		if (expr.getKind() !== SyntaxKind.PropertyAccessExpression) {
+			// Pattern D: helper(), declared by this project
+			const target =
+				options?.freeCalls && expr.isKind(SyntaxKind.Identifier)
+					? freeFunctionTarget(expr)
+					: undefined;
+			if (target) {
+				freeCalls.push({
+					...target,
+					...callSiteFacts(call, body, callOrder++),
+				});
+			}
 			continue;
 		}
 
@@ -1500,7 +1621,22 @@ export function scanUsedDependencies(
 					order: callOrder++,
 					viaSuper,
 				});
+				continue;
 			}
+		}
+
+		// Pattern E: Klass.helper(), a static this project declares
+		const staticTarget =
+			options?.freeCalls &&
+			!(viaThis || viaSuper) &&
+			receiver.isKind(SyntaxKind.Identifier)
+				? staticMethodTarget(receiver, calledMethodName)
+				: undefined;
+		if (staticTarget) {
+			freeCalls.push({
+				...staticTarget,
+				...callSiteFacts(call, body, callOrder++),
+			});
 		}
 	}
 
@@ -1532,6 +1668,13 @@ export function scanUsedDependencies(
 		}
 		for (const statement of returnStatements) {
 			trackedPositions.add(statement.getStart());
+		}
+		for (const free of freeCalls) {
+			for (const ce of callExpressions) {
+				if (ce.getStartLineNumber() === free.callSiteLine) {
+					trackedPositions.add(ce.getStart());
+				}
+			}
 		}
 		for (const scc of sameClassCalls) {
 			for (const ce of callExpressions) {
@@ -1617,6 +1760,7 @@ export function scanUsedDependencies(
 			| { kind: "call"; item: (typeof callEntries)[number] }
 			| { kind: "throw"; item: ThrowUsage }
 			| { kind: "member"; item: MemberCallUsage }
+			| { kind: "free"; item: FreeCallUsage }
 			| { kind: "return"; item: ReturnUsage }
 			| { kind: "scc"; item: SameClassCallUsage }
 			| { kind: "step"; item: StepUsage };
@@ -1630,6 +1774,9 @@ export function scanUsedDependencies(
 		}
 		for (const r of returns) {
 			allItems.push({ kind: "return", item: r });
+		}
+		for (const f of freeCalls) {
+			allItems.push({ kind: "free", item: f });
 		}
 		for (const s of sameClassCalls) {
 			allItems.push({ kind: "scc", item: s });
@@ -1684,6 +1831,7 @@ export function scanUsedDependencies(
 
 	const scanResult: ScanResult = {
 		deps: result,
+		freeCalls,
 		memberCalls,
 		returns,
 		sameClassCalls,
@@ -1834,6 +1982,7 @@ function buildMethodDependencyTree(
 			dependencies: buildMethodDependencyTree(
 				{
 					deps: fallbackChildDeps,
+					freeCalls: [],
 					memberCalls: [],
 					returns: [],
 					sameClassCalls: [],
@@ -2044,6 +2193,7 @@ function buildMethodDependencyTree(
 			childNodes = buildMethodDependencyTree(
 				{
 					deps: childDeps,
+					freeCalls: [],
 					memberCalls: [],
 					returns: [],
 					sameClassCalls: allSameClassCalls,

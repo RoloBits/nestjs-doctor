@@ -8,6 +8,7 @@ import type {
 	NodeKind,
 	UnresolvedReason,
 } from "./code-graph.js";
+import { staticNodeId } from "./code-graph.js";
 import type {
 	ConditionFrame,
 	GuardThrow,
@@ -153,6 +154,9 @@ export function encodeCodeGraph(graph: CodeGraph): EncodedCodeGraph {
 		if (node.member !== undefined) {
 			out.b = node.member;
 		}
+		if (node.isStatic) {
+			out.s = 1;
+		}
 		if (node.unresolved !== undefined) {
 			out.u = node.unresolved;
 		}
@@ -203,6 +207,7 @@ export function decodeCodeGraph(encoded: EncodedCodeGraph): CodeGraph {
 		const className = raw.c as string;
 		const methodName = raw.m as string;
 		const member = raw.b as string | undefined;
+		const isStatic = raw.s === 1;
 		const suffix = member ? `${member}.${methodName}` : methodName;
 		const node: MethodNode = {
 			body: ((raw.y as Record<string, unknown>[]) ?? []).map(decodeItem),
@@ -210,13 +215,16 @@ export function decodeCodeGraph(encoded: EncodedCodeGraph): CodeGraph {
 			classMethodCount: (raw.n as number) ?? 0,
 			endLine: (raw.e as number) ?? 0,
 			filePath,
-			id: `${filePath}::${className}#${suffix}`,
+			id: isStatic
+				? staticNodeId(filePath, className, methodName)
+				: `${filePath}::${className}#${suffix}`,
 			kind: raw.k as NodeKind,
 			line: (raw.l as number) ?? 0,
 			methodName,
 			parameters: (raw.p as MethodParameterInfo[]) ?? [],
 			returnType: (raw.r as string | null) ?? null,
 			...(member === undefined ? {} : { member }),
+			...(isStatic ? { isStatic: true as const } : {}),
 			...(raw.u === undefined ? {} : { unresolved: raw.u as UnresolvedReason }),
 		};
 		return node;
