@@ -338,12 +338,12 @@ function chainRoot(ifStmt: IfStatement): IfStatement {
 
 /**
  * The construct `current` sits directly inside, if `parent` opens one.
- * `framedAt` is the node that produced the previous frame.
+ * `previous` is the node the walk came up from.
  */
 function frameFor(
 	current: Node,
 	parent: Node,
-	framedAt: Node | undefined
+	previous: Node | undefined
 ): ConditionFrame | undefined {
 	const ifStmt = parent.asKind(SyntaxKind.IfStatement);
 	if (ifStmt) {
@@ -358,10 +358,15 @@ function frameFor(
 			};
 		}
 		if (current === ifStmt.getElseStatement()) {
-			// A chained `else if` frames itself when the walk comes up through its
-			// body. Reaching here from its condition instead leaves it unframed, and
-			// that condition only runs because this test failed.
-			if (current.isKind(SyntaxKind.IfStatement) && framedAt === current) {
+			// A chained `else if` frames itself when the walk comes up through one of
+			// its arms. Reaching here from its condition instead leaves it unframed,
+			// and that condition only runs because this test failed.
+			const chainedIf = current.asKind(SyntaxKind.IfStatement);
+			if (
+				chainedIf &&
+				(previous === chainedIf.getThenStatement() ||
+					previous === chainedIf.getElseStatement())
+			) {
 				return undefined;
 			}
 			return {
@@ -440,19 +445,19 @@ function guardedRegion(current: Node, parent: Node): string | null {
 function getConditionalInfo(node: Node, boundary: Node): ConditionalInfo {
 	const frames: ConditionFrame[] = [];
 	let tryRegion: string | null = null;
-	let framedAt: Node | undefined;
+	let previous: Node | undefined;
 	let current: Node | undefined = node;
 	while (current && current !== boundary) {
 		const parent = current.getParent();
 		if (!parent || parent === boundary) {
 			break;
 		}
-		const frame = frameFor(current, parent, framedAt);
+		const frame = frameFor(current, parent, previous);
 		if (frame) {
 			frames.push(frame);
-			framedAt = parent;
 		}
 		tryRegion ??= guardedRegion(current, parent);
+		previous = current;
 		current = parent;
 	}
 	const innermost = frames[0];

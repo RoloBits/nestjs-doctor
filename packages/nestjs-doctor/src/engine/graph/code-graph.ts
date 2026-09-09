@@ -120,13 +120,15 @@ function classKind(cls: ClassDeclaration): NodeKind {
 	if (isController(cls)) {
 		return "controller";
 	}
-	const fromDecorator = DECORATOR_KINDS[getClassType(cls)];
+	const declared = getClassType(cls);
+	const fromDecorator = DECORATOR_KINDS[declared];
 	if (fromDecorator) {
 		return fromDecorator;
 	}
 	// Nest reads route metadata off the prototype chain, so an undecorated base
-	// declaring handlers is a controller too.
-	if (declaresRoutes(cls)) {
+	// declaring handlers is a controller. A class that named its own kind is not,
+	// whatever its method decorators look like.
+	if (declared === "unknown" && declaresRoutes(cls)) {
 		return "controller";
 	}
 	const injectsDriver = cls
@@ -725,7 +727,27 @@ function buildEntries(
  * declares it wins whatever order they merge in.
  */
 function preferNode(candidate: MethodNode, known: MethodNode): boolean {
-	return candidate.body.length > known.body.length;
+	if (candidate.body.length !== known.body.length) {
+		return candidate.body.length > known.body.length;
+	}
+	// Total and order independent, so equal-length bodies still pick one winner.
+	return JSON.stringify(candidate.body) < JSON.stringify(known.body);
+}
+
+/**
+ * True when `candidate` names the call's target better than `known`. A
+ * sub-project that cannot see the callee's file resolves it to an unresolved
+ * node, and a lexicographic tie-break keeps the result order independent.
+ */
+function preferEdge(
+	candidate: CallEdge,
+	known: CallEdge,
+	resolved: (id: NodeId) => boolean
+): boolean {
+	if (resolved(candidate.to) !== resolved(known.to)) {
+		return resolved(candidate.to);
+	}
+	return candidate.to < known.to;
 }
 
 /**
@@ -748,12 +770,15 @@ export function mergeCodeGraphs(graphs: Iterable<CodeGraph>): CodeGraph {
 	}
 	// One call site is one edge. A sub-project that cannot see the callee's file
 	// resolves it to an unresolved node, so the sub-project that can wins.
-	const resolved = (id: NodeId) => nodes.get(id)?.kind !== "unresolved";
+	const resolved = (id: NodeId) => {
+		const kind = nodes.get(id)?.kind;
+		return kind !== undefined && kind !== "unresolved";
+	};
 	for (const graph of all) {
 		for (const edge of graph.edges) {
 			const key = `${edge.from}|${edge.order}`;
 			const known = edges.get(key);
-			if (!known || (resolved(edge.to) && !resolved(known.to))) {
+			if (!known || preferEdge(edge, known, resolved)) {
 				edges.set(key, edge);
 			}
 		}

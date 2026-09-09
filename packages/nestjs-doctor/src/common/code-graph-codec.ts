@@ -20,7 +20,8 @@ import type {
 /**
  * The graph with its repetition taken out: file paths and node ids become
  * indices, and any field sitting at its default is left out entirely. Decoding
- * restores the graph exactly.
+ * restores a graph whose edges and entries all resolve; an edge pointing at a
+ * node the graph does not hold is dropped rather than encoded as a hole.
  */
 export interface EncodedCodeGraph {
 	edges: Record<string, unknown>[];

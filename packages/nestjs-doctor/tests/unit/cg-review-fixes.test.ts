@@ -31,6 +31,12 @@ describe("code graph review regressions", () => {
 			.sort((a, b) => a.order - b.order);
 	}
 
+	function node(id: NodeId) {
+		const found = graph.nodes.find((candidate) => candidate.id === id);
+		expect(found, `no node ${id}`).toBeDefined();
+		return found as NonNullable<typeof found>;
+	}
+
 	function target(suffix: string): NodeId {
 		const edges = edgesFrom(suffix);
 		expect(edges).toHaveLength(1);
@@ -39,10 +45,41 @@ describe("code graph review regressions", () => {
 
 	it("keeps two namespace-qualified external types apart", () => {
 		// The binding in scope is the namespace, so keying the import lookup on the
-		// stripped type name found nothing and both landed on one node.
-		expect(target("/one.service.ts::OneService#run")).not.toBe(
-			target("/two.service.ts::TwoService#run")
+		// stripped type name found nothing and both landed on `::Client#send`.
+		const one = target("/one.service.ts::OneService#run");
+		const two = target("/two.service.ts::TwoService#run");
+		expect(one).not.toBe(two);
+		expect(one).toBe("pkg-one::Client#send");
+		expect(two).toBe("pkg-two::Client#send");
+		for (const id of [one, two]) {
+			expect(node(id).unresolved).toBe("external-package");
+		}
+	});
+
+	it("gives every arm of a four-arm chain exactly one condition frame", () => {
+		// Suppressing the duplicate frame on a chained `else if` used to compare the
+		// node that framed last, which is true on every step after the first.
+		const arms = edgesFrom("/chain.service.ts::ChainService#quad");
+		expect(arms).toHaveLength(4);
+		expect(arms.map((edge) => edge.conditionPath.length)).toEqual([1, 1, 1, 1]);
+		expect(arms.map((edge) => edge.conditionPath[0].branchKind)).toEqual([
+			"if",
+			"else-if",
+			"else-if",
+			"else",
+		]);
+		expect(
+			new Set(arms.map((edge) => edge.conditionPath[0].statementLine)).size
+		).toBe(1);
+	});
+
+	it("does not kind an @Injectable() class by its method decorators", () => {
+		// `Audited` calls `store.Delete(key)`, which the wrapper scan reads as a
+		// composed Delete() route. An explicit class decorator outranks that.
+		const users = graph.nodes.find((candidate) =>
+			candidate.id.endsWith("/users.service.ts::UsersService#findAll")
 		);
+		expect(users?.kind).toBe("service");
 	});
 
 	it("sends super and this to different declarations when the names match", () => {

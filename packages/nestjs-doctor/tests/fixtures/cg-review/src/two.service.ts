@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type * as pkgTwo from './pkg-two';
+import type * as pkgTwo from 'pkg-two';
 
 @Injectable()
 export class TwoService {
