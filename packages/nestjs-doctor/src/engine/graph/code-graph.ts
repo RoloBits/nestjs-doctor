@@ -168,6 +168,32 @@ function injectedTypeNode(
 	return undefined;
 }
 
+/** The name a type declaration gives itself, ignoring how a caller imported it. */
+function declaredTypeName(declaration: Node): string | undefined {
+	return (
+		declaration.asKind(SyntaxKind.InterfaceDeclaration)?.getName() ??
+		declaration.asKind(SyntaxKind.TypeAliasDeclaration)?.getName()
+	);
+}
+
+/** The module a name was imported from, used to tell two packages apart. */
+function importSpecifier(ref: Node, name: string): string | undefined {
+	for (const declaration of ref.getSourceFile().getImportDeclarations()) {
+		const named = declaration
+			.getNamedImports()
+			.some(
+				(entry) =>
+					(entry.getAliasNode() ?? entry.getNameNode()).getText() === name
+			);
+		const defaulted = declaration.getDefaultImport()?.getText() === name;
+		const namespaced = declaration.getNamespaceImport()?.getText() === name;
+		if (named || defaulted || namespaced) {
+			return declaration.getModuleSpecifierValue();
+		}
+	}
+	return undefined;
+}
+
 function resolveTypeNode(
 	typeNode: Node | undefined,
 	providers: Map<string, ProviderInfo>
@@ -182,7 +208,7 @@ function resolveTypeNode(
 			typeName: extractSimpleTypeName(typeNode.getText()),
 		};
 	}
-	const typeName = extractSimpleTypeName(ref.getTypeName().getText());
+	const written = extractSimpleTypeName(ref.getTypeName().getText());
 	const symbol = ref.getTypeName().getSymbol();
 	const declarations = (
 		symbol?.getAliasedSymbol() ?? symbol
@@ -191,7 +217,7 @@ function resolveTypeNode(
 	for (const decl of declarations ?? []) {
 		const asClass = decl.asKind(SyntaxKind.ClassDeclaration);
 		if (asClass) {
-			return { cls: asClass, typeName };
+			return { cls: asClass, typeName: asClass.getName() ?? written };
 		}
 		if (
 			decl.getKind() === SyntaxKind.InterfaceDeclaration ||
@@ -200,14 +226,26 @@ function resolveTypeNode(
 			typeOnly ??= decl;
 		}
 	}
-	const provider = providers.get(typeName);
+	const provider = providers.get(written);
 	if (provider) {
-		return { cls: provider.classDeclaration, typeName };
+		return { cls: provider.classDeclaration, typeName: written };
 	}
+	if (typeOnly) {
+		// The declaration's own name, so an import alias does not split the node.
+		const declared = declaredTypeName(typeOnly);
+		return {
+			filePath: typeOnly.getSourceFile().getFilePath(),
+			reason: "interface-token",
+			typeName: declared ?? written,
+		};
+	}
+	// Installed packages are hidden from resolution, so the import specifier is
+	// the only thing separating two packages exporting one name.
+	const specifier = importSpecifier(ref, written);
 	return {
-		...(typeOnly ? { filePath: typeOnly.getSourceFile().getFilePath() } : {}),
-		reason: typeOnly ? "interface-token" : "external-package",
-		typeName,
+		...(specifier ? { filePath: specifier } : {}),
+		reason: "external-package",
+		typeName: written,
 	};
 }
 
@@ -518,19 +556,6 @@ function bodyItems(scan: ReturnType<typeof scanUsedDependencies>): BodyItem[] {
 	return items.sort((a, b) => a.order - b.order);
 }
 
-/** The first injected member declared with `typeName`; several share one declaration. */
-function memberOfType(
-	injectionMap: Map<string, string>,
-	typeName: string
-): string {
-	for (const [member, type] of injectionMap) {
-		if (type === typeName) {
-			return member;
-		}
-	}
-	return typeName;
-}
-
 function scanClass(
 	indexed: IndexedClass,
 	builder: GraphBuilder,
@@ -574,9 +599,10 @@ function scanClass(
 		builder.setBody(from, bodyItems(scan));
 
 		for (const dep of scan.deps) {
-			const member = memberOfType(injectionMap, dep.className);
-			const receiver = receiverFor(member);
 			for (const call of dep.methodsCalled) {
+				// Resolve per call site: two members can share a simple type name
+				// while pointing at different declarations.
+				const receiver = receiverFor(call.member);
 				builder.edge(
 					from,
 					builder.callee(receiver, call.name, dep.className),
@@ -662,8 +688,18 @@ function buildEntries(
 }
 
 /**
+ * True when `candidate` describes the method better than `known`. A sub-project
+ * that only calls a method records it without a body, so the sub-project that
+ * declares it wins whatever order they merge in.
+ */
+function preferNode(candidate: MethodNode, known: MethodNode): boolean {
+	return candidate.body.length > known.body.length;
+}
+
+/**
  * One graph from several, for a monorepo scanned a sub-project at a time. A
- * method two sub-projects both reach through a shared library is one node.
+ * method two sub-projects both reach through a shared library is one node, and
+ * the result does not depend on the order the sub-projects arrive in.
  */
 export function mergeCodeGraphs(graphs: Iterable<CodeGraph>): CodeGraph {
 	const nodes = new Map<NodeId, MethodNode>();
@@ -671,18 +707,22 @@ export function mergeCodeGraphs(graphs: Iterable<CodeGraph>): CodeGraph {
 	const entries = new Map<string, EntryPoint>();
 	for (const graph of graphs) {
 		for (const node of graph.nodes) {
-			if (!nodes.has(node.id)) {
+			const known = nodes.get(node.id);
+			if (!known || preferNode(node, known)) {
 				nodes.set(node.id, node);
 			}
 		}
 		for (const edge of graph.edges) {
-			edges.set(`${edge.from}|${edge.order}|${edge.to}`, edge);
+			const key = `${edge.from}|${edge.order}|${edge.to}`;
+			if (!edges.has(key)) {
+				edges.set(key, edge);
+			}
 		}
 		for (const entry of graph.entries) {
-			entries.set(
-				`${entry.httpMethod} ${entry.routePath} ${entry.node}`,
-				entry
-			);
+			const key = `${entry.httpMethod} ${entry.routePath} ${entry.node}`;
+			if (!entries.has(key)) {
+				entries.set(key, entry);
+			}
 		}
 	}
 	return {

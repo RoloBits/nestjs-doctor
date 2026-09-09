@@ -90,6 +90,8 @@ interface OrderedMethodUsage {
 	guardThrow: GuardThrow | null;
 	iterationKind: "loop" | "callback" | "concurrent" | null;
 	iterationLabel: string | null;
+	/** Injected member the call went through, which names one declaration. */
+	member: string;
 	name: string;
 	order: number;
 	tryRegion: string | null;
@@ -111,6 +113,7 @@ interface SameClassCallUsage {
 	conditional: boolean;
 	conditionPath: ConditionFrame[];
 	conditionText: string | null;
+	guardThrow: GuardThrow | null;
 	iterationKind: "loop" | "callback" | "concurrent" | null;
 	iterationLabel: string | null;
 	methodName: string;
@@ -175,6 +178,7 @@ interface FreeCallUsage extends FreeCallTarget {
 	conditional: boolean;
 	conditionPath: ConditionFrame[];
 	conditionText: string | null;
+	guardThrow: GuardThrow | null;
 	iterationKind: "loop" | "callback" | "concurrent" | null;
 	iterationLabel: string | null;
 	order: number;
@@ -500,7 +504,14 @@ function getIterationContext(node: Node, boundary: Node): IterationInfo {
 					parent.asKindOrThrow(SyntaxKind.DoStatement).getStatement();
 			}
 			if (isBody) {
-				return { iterationKind: "loop", iterationLabel: loopLabel };
+				const awaiting =
+					parentKind === SyntaxKind.ForOfStatement &&
+					parent.asKindOrThrow(SyntaxKind.ForOfStatement).getAwaitKeyword() !==
+						undefined;
+				return {
+					iterationKind: "loop",
+					iterationLabel: awaiting ? "for-await-of" : loopLabel,
+				};
 			}
 		}
 
@@ -740,6 +751,7 @@ function callSiteFacts(call: CallExpression, body: Node, order: number) {
 		conditionText: condInfo.conditionText,
 		iterationKind: iterInfo.iterationKind,
 		iterationLabel: iterInfo.iterationLabel,
+		guardThrow: null,
 		order,
 		sortKey: call.getEnd(),
 		tryRegion: condInfo.tryRegion,
@@ -757,12 +769,20 @@ function ownDeclaration(declaration: Node): boolean {
 	return !INSTALLED_PATH.test(declaration.getSourceFile().getFilePath());
 }
 
+/**
+ * True when the declaration sits at the top of its file. A nested one cannot be
+ * reached by name from outside, so the graph has no node to point at.
+ */
+function topLevel(declaration: Node): boolean {
+	return declaration.getParent()?.isKind(SyntaxKind.SourceFile) === true;
+}
+
 /** The project function a bare `helper()` reaches, or nothing. */
 function freeFunctionTarget(callee: Node): FreeCallTarget | undefined {
 	for (const declaration of declarationsOf(callee)) {
 		const fn = declaration.asKind(SyntaxKind.FunctionDeclaration);
 		const name = fn?.getName();
-		if (fn && name && ownDeclaration(fn)) {
+		if (fn && name && ownDeclaration(fn) && topLevel(fn)) {
 			return {
 				className: "",
 				filePath: fn.getSourceFile().getFilePath(),
@@ -782,7 +802,13 @@ function staticMethodTarget(
 	for (const declaration of declarationsOf(receiver)) {
 		const cls = declaration.asKind(SyntaxKind.ClassDeclaration);
 		const name = cls?.getName();
-		if (cls && name && ownDeclaration(cls) && cls.getStaticMethod(methodName)) {
+		if (
+			cls &&
+			name &&
+			ownDeclaration(cls) &&
+			topLevel(cls) &&
+			cls.getStaticMethod(methodName)
+		) {
 			return {
 				className: name,
 				filePath: cls.getSourceFile().getFilePath(),
@@ -836,16 +862,11 @@ export function findMethodInHierarchy(
 	}
 
 	let current: ClassDeclaration | undefined = cls;
-	const visited = new Set<string>();
+	// Keyed by declaration, since a subclass may carry its base class's name.
+	const visited = new Set<ClassDeclaration>();
 
-	while (current) {
-		const name = current.getName();
-		if (name && visited.has(name)) {
-			break;
-		}
-		if (name) {
-			visited.add(name);
-		}
+	while (current && !visited.has(current)) {
+		visited.add(current);
 
 		const method = current.getInstanceMethod(methodName);
 		if (method) {
@@ -1603,6 +1624,7 @@ export function scanUsedDependencies(
 				sameClassCalls.push({
 					assignedTo: extractAssignedVariable(call),
 					awaited: isAwaitedCall(call),
+					guardThrow: null,
 					sortKey: call.getEnd(),
 					branchGroupId: condInfo.statementLine
 						? `L${condInfo.statementLine}`
@@ -1640,9 +1662,14 @@ export function scanUsedDependencies(
 		}
 	}
 
-	// Merge guard-throw patterns (fetch + null-check + throw)
+	// Merge guard-throw patterns (fetch + null-check + throw). Same-class, free
+	// and static calls join only when the throw survives the merge, since the
+	// endpoint tree shows no guard on those and would lose it entirely.
+	const guarded = options?.keepMergedThrows
+		? [...callEntries, ...memberCalls, ...sameClassCalls, ...freeCalls]
+		: [...callEntries, ...memberCalls];
 	mergeGuardThrows(
-		[...callEntries, ...memberCalls].sort((a, b) => a.order - b.order),
+		guarded.sort((a, b) => a.order - b.order),
 		throws,
 		options?.keepMergedThrows
 	);
@@ -1650,44 +1677,21 @@ export function scanUsedDependencies(
 	// Detect inline logic steps
 	const steps: StepUsage[] = [];
 	if (body.getKind() === SyntaxKind.Block) {
-		const trackedPositions = new Set<number>();
-		for (const entry of callEntries) {
-			// Find the actual CallExpression node at this position
-			for (const ce of callExpressions) {
-				if (ce.getStartLineNumber() === entry.callSiteLine) {
-					trackedPositions.add(ce.getStart());
-				}
-			}
-		}
-		for (const t of throws) {
-			for (const ts of throwStatements) {
-				if (ts.getStartLineNumber() === t.callSiteLine) {
-					trackedPositions.add(ts.getStart());
-				}
-			}
-		}
-		for (const statement of returnStatements) {
-			trackedPositions.add(statement.getStart());
-		}
-		for (const free of freeCalls) {
-			for (const ce of callExpressions) {
-				if (ce.getStartLineNumber() === free.callSiteLine) {
-					trackedPositions.add(ce.getStart());
-				}
-			}
-		}
-		for (const scc of sameClassCalls) {
-			for (const ce of callExpressions) {
-				if (ce.getStartLineNumber() === scc.callSiteLine) {
-					trackedPositions.add(ce.getStart());
-				}
-			}
-		}
-		for (const mbr of memberCalls) {
-			for (const ce of callExpressions) {
-				if (ce.getStartLineNumber() === mbr.callSiteLine) {
-					trackedPositions.add(ce.getStart());
-				}
+		// Keyed by node end, which `sortKey` already records, so a statement that
+		// merely shares a line with a tracked call is not mistaken for one.
+		const trackedEnds = new Set<number>([
+			...callEntries.map((entry) => entry.sortKey),
+			...throws.map((entry) => entry.sortKey),
+			...freeCalls.map((entry) => entry.sortKey),
+			...sameClassCalls.map((entry) => entry.sortKey),
+			...memberCalls.map((entry) => entry.sortKey),
+		]);
+		const trackedPositions = new Set<number>(
+			returnStatements.map((statement) => statement.getStart())
+		);
+		for (const node of [...callExpressions, ...throwStatements]) {
+			if (trackedEnds.has(node.getEnd())) {
+				trackedPositions.add(node.getStart());
 			}
 		}
 
@@ -1820,6 +1824,7 @@ export function scanUsedDependencies(
 			guardThrow: entry.guardThrow,
 			iterationKind: entry.iterInfo.iterationKind,
 			iterationLabel: entry.iterInfo.iterationLabel,
+			member: entry.paramName,
 			name: entry.methodName,
 			order: entry.order,
 		});
@@ -2064,6 +2069,7 @@ function buildMethodDependencyTree(
 				assignedTo: string | null;
 				awaited: boolean;
 				depClassName: string;
+				member: string;
 				methodName: string;
 				order: number;
 				callSiteLine: number;
@@ -2136,6 +2142,7 @@ function buildMethodDependencyTree(
 							assignedTo: sub.m.assignedTo,
 							awaited: sub.m.awaited,
 							depClassName: sub.depClassName,
+							member: sub.m.member,
 							methodName: sub.m.name,
 							order: childOrder++,
 							callSiteLine: sub.m.callSiteLine,
@@ -2180,6 +2187,7 @@ function buildMethodDependencyTree(
 					guardThrow: entry.guardThrow,
 					iterationKind: entry.iterationKind,
 					iterationLabel: entry.iterationLabel,
+					member: entry.member,
 					name: entry.methodName,
 					order: entry.order,
 				});
