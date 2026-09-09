@@ -122,7 +122,7 @@ const graph = codeGraphFor(context);
 
 graph.nodes; // MethodNode[]
 graph.edges; // CallEdge[]
-graph.entries; // EntryPoint[], one per traced HTTP route
+graph.entries; // EntryPoint[], the routes whose handler became a node
 ```
 
 `codeGraphFor` costs a pass over every indexed method, so it builds on the first
@@ -135,8 +135,10 @@ The endpoint graph stops at 5000 dependency nodes and marks the endpoint
 ### Node ids
 
 A node id is `${path}::${ClassName}#${methodName}`. The path is the absolute
-path of the declaring file, the same one the endpoint graph reports. Four
-variations sit inside that shape:
+path of the declaring file, the same one the endpoint graph reports. An
+installed package has no file to point at, so its import specifier fills the
+slot, and a receiver that resolves to neither leaves it empty. Five variations
+sit inside that shape:
 
 | Node id | Means |
 |---|---|
@@ -145,6 +147,7 @@ variations sit inside that shape:
 | `/app/src/helpers.ts::#formatLabel` | A free function, with the class left empty |
 | `/app/src/prisma.service.ts::PrismaService#user.findUnique` | A member call, from `this.prisma.user.findUnique()` |
 | `@nestjs/common::Logger#error` | An installed package, whose import specifier fills the path slot |
+| `::{ tick(): void }#tick` | A receiver that resolved to neither, leaving the path empty |
 
 The parser hides `node_modules`, so a package has no declaration to key on. The
 import specifier is what keeps two packages exporting one name apart.
@@ -191,7 +194,7 @@ const graph = codeGraphFor(context);
 const byId = indexNodes(graph);
 const entry = graph.entries.find((e) => e.routePath === "/orders");
 
-for (const id of reachableFrom(graph, [entry.node])) {
+for (const id of reachableFrom(graph, entry ? [entry.node] : [])) {
   console.log(byId.get(id)?.kind);
 }
 ```

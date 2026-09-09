@@ -663,10 +663,17 @@ export class SingleProjectPipeline extends ScanPipeline {
 	private bootstrapRoots: string[] = [];
 	private cachedArtifact: ReportArtifact | undefined;
 
+	/** Whether anything downstream reads the whole artifact. */
+	private get wantsArtifact(): boolean {
+		return this.options.interactive || this.options.format === "report-json";
+	}
+
 	/** The scan as one serializable document, built once on demand. */
 	get reportArtifact(): ReportArtifact {
 		if (!this.cachedArtifact) {
 			const { moduleGraph, files, result } = this.result;
+			// `--share-sections modules` reads only the module graph, so the code
+			// graph is left unbuilt for it.
 			this.cachedArtifact = buildReportArtifact({
 				targetPath: this.targetPath,
 				moduleGraph,
@@ -674,7 +681,9 @@ export class SingleProjectPipeline extends ScanPipeline {
 				files,
 				providers: this.reportProviders,
 				bootstrapRoots: this.bootstrapRoots,
-				codeGraph: encodeCodeGraph(codeGraphFor(this.context)),
+				...(this.wantsArtifact
+					? { codeGraph: encodeCodeGraph(codeGraphFor(this.context)) }
+					: {}),
 				scanId: this.options.scanId,
 				sources: this.options.sources,
 				traces: this.options.traces,
