@@ -1,10 +1,23 @@
 /* ── Endpoints tab ── */
 #tab-endpoints { display: none; position: fixed; top: var(--header-h); left: 0; right: 0; bottom: 0; }
-#tab-endpoints.active { display: flex; }
+#tab-endpoints.active { display: block; }
+.dc-view {
+  --dc-eff-write: var(--cat-security);
+  --dc-eff-read: var(--cat-correctness);
+  --dc-eff-throw: var(--cat-performance);
+  --dc-eff-external: var(--cat-architecture);
+  height: 100%; display: grid; grid-template-columns: 300px minmax(0, 1fr) 320px;
+  font-size: 12px; line-height: 1.5;
+}
+/* The rail keeps its grid slot at zero width: display:none would drop it out
+   of the flow and shift the main pane and the pile into the wrong columns. */
+.dc-side-hidden { grid-template-columns: 0 minmax(0, 1fr) 320px; }
+.dc-side-hidden #endpoints-sidebar { overflow: hidden; border-right: none; }
+
+/* ── Route rail: the controller tree, one verdict line under each route ── */
 #endpoints-sidebar {
-  width: 340px; min-width: 340px; height: 100%;
-  background: var(--surface); border-right: 1px solid var(--border);
-  overflow-y: auto; padding: 0;
+  height: 100%; overflow-y: auto; border-right: 1px solid var(--border);
+  background: var(--surface); min-width: 0; padding: 0;
 }
 .endpoints-sidebar-sticky {
   position: sticky; top: 0; z-index: 1; background: var(--surface);
@@ -14,28 +27,6 @@
   border-bottom: 1px solid var(--border);
 }
 #endpoints-list { padding: 4px 0; }
-#endpoints-main {
-  flex: 1; overflow: hidden; background: var(--bg);
-  display: flex; flex-direction: column; min-width: 0;
-}
-#endpoints-canvas-wrap {
-  flex: 1; overflow: hidden; position: relative; min-height: 0;
-}
-#endpoints-canvas {
-  position: absolute; top: 0; left: 0;
-  cursor: grab; display: block;
-}
-#endpoints-canvas:active { cursor: grabbing; }
-#endpoints-toolbar {
-  position: absolute; top: 12px; right: 12px; z-index: 10;
-  display: flex; gap: 4px;
-}
-#endpoints-empty-state {
-  display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-  flex-direction: column; align-items: center; justify-content: center;
-  color: var(--text-muted); gap: 12px; text-align: center; z-index: 5;
-}
-#endpoints-empty-state p { font-size: 14px; color: var(--text-dim); margin: 0; }
 .ep-method-badge {
   display: inline-block; font-size: 9px; font-weight: 700;
   padding: 1px 6px; border-radius: 3px; margin-right: 6px;
@@ -50,52 +41,327 @@
 .ep-endpoint-row { padding-left: 4px; }
 .ep-endpoint-row:hover { background: rgba(255,255,255,0.04); }
 .ep-endpoint-row.st-selected { background: rgba(59,130,246,0.18); }
+.dc-route-verdict {
+  padding: 0 12px 4px 76px; font-size: 10.5px; color: var(--text-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dc-route-verdict[data-first="read"] { color: var(--dc-eff-read); }
+.dc-route-verdict[data-first="write"] { color: var(--dc-eff-write); }
 
-/* ── Endpoint code panel ── */
-.ep-code-panel {
-  position: absolute; left: 0; top: 0; bottom: 0; width: 500px; z-index: 10;
-  background: var(--surface); border-right: 1px solid var(--border);
-  display: flex; flex-direction: column;
-  transform: translateX(-100%); transition: transform 0.25s ease;
+/* ── Main column ── */
+/* The map takes every pixel the rows above it leave, and scrolls inside
+   itself, so the tab never grows past the viewport. */
+#endpoints-main {
+  min-width: 0; height: 100%; overflow: hidden; display: flex; flex-direction: column;
 }
-.ep-code-panel.open { transform: translateX(0); }
-.ep-code-panel-header {
-  padding: 14px 16px 10px; border-bottom: 1px solid var(--border);
-  position: relative; flex-shrink: 0;
+.dc-head {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 14px 18px 12px; border-bottom: 1px solid var(--border-strong);
 }
-.ep-code-panel-title {
-  display: flex; align-items: center; gap: 4px;
-  font-size: 14px; font-weight: 600; color: var(--white);
-  margin-bottom: 4px;
+.dc-head-name { font-size: 15px; font-weight: 700; color: var(--white); word-break: break-all; }
+.dc-head-name em {
+  font-style: normal; color: var(--text-muted); font-size: 12px;
+  margin-right: 8px; letter-spacing: 0.08em;
 }
-.ep-code-panel-method { color: var(--text-muted); font-weight: 400; }
-.ep-code-panel-path {
-  font-size: 11px; font-family: var(--font); color: var(--text-dim);
-  word-break: break-all;
+.dc-badge {
+  font-size: 11px; padding: 3px 8px; border: 1px solid var(--border);
+  color: var(--text-muted); white-space: nowrap; letter-spacing: 0.04em;
 }
-.ep-code-panel-close {
-  position: absolute; top: 10px; right: 12px;
-  background: none; border: none; color: var(--text-dim);
-  cursor: pointer; font-size: 20px; line-height: 1;
+.dc-spacer { flex: 1; min-width: 0; }
+
+.dc-verdict {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  padding: 11px 18px; border-bottom: 1px solid var(--border);
 }
-.ep-code-panel-close:hover { color: var(--white); }
-.ep-code-panel-body {
-  flex: 1; overflow-y: auto;
+.dc-verdict-key {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text-dim);
 }
-.ep-code-panel-body .cm-editor { background: var(--surface); }
-.ep-code-panel-body .cm-scroller { overflow: auto; }
-.ep-code-no-source {
-  display: flex; align-items: center; justify-content: center;
-  height: 100%; color: var(--text-dim); font-size: 13px; text-align: center;
-  padding: 24px;
+.dc-verdict-text { font-size: 13px; font-weight: 700; color: var(--text); }
+.dc-verdict-text[data-first="read"] { color: var(--dc-eff-read); }
+.dc-verdict-text[data-first="write"] { color: var(--dc-eff-write); }
+.dc-verdict-counts { font-size: 11px; color: var(--text-dim); }
+
+/* ── Filter row ── */
+.dc-filter { padding: 8px 18px; border-bottom: 1px solid var(--border); }
+.dc-filter-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.dc-filter-row + .dc-filter-row { margin-top: 7px; padding-top: 8px; border-top: 1px solid var(--border); }
+.dc-filter-label {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-dim); margin-right: 5px;
 }
-.ep-code-panel-resize {
-  position: absolute; right: -2px; top: 0; bottom: 0; width: 5px;
-  cursor: col-resize; z-index: 11;
-  background: transparent;
-  transition: background 0.15s;
+.dc-chip {
+  display: inline-flex; align-items: baseline; gap: 6px; cursor: pointer;
+  border: 1px solid var(--border-strong); background: none; color: rgba(255,255,255,0.75);
+  padding: 4px 11px; font-family: var(--font); font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
-.ep-code-panel-resize:hover,
-.ep-code-panel-resize.dragging {
-  background: var(--nest-red);
+.dc-chip:hover, .dc-chip[aria-pressed="true"] { background: var(--white); border-color: var(--white); color: #000; }
+.dc-chip-n { font-weight: 400; opacity: 0.65; letter-spacing: 0.02em; }
+.dc-chip[data-zero="1"] { opacity: 0.4; }
+.dc-chip[data-overlay="1"] { border-style: dashed; }
+
+/* ── Player ── */
+.dc-player {
+  flex: none; display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+  padding: 8px 12px; border-bottom: 1px solid var(--border);
+}
+.dc-btn {
+  border: 1px solid var(--border-strong); background: none; cursor: pointer;
+  color: rgba(255,255,255,0.75); font-family: var(--font);
+  padding: 5px 13px; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.dc-btn:hover:not(:disabled), .dc-btn[aria-pressed="true"] { background: var(--white); border-color: var(--white); color: #000; }
+.dc-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.dc-speed { display: flex; gap: 0; }
+.dc-speed .dc-btn { border-right-width: 0; padding: 5px 9px; }
+.dc-speed .dc-btn:last-child { border-right-width: 1px; }
+.dc-step-num {
+  font-size: 17px; font-weight: 700; color: var(--white);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.dc-step-num small { font-size: 11px; color: var(--text-dim); font-weight: 400; }
+.dc-step-label {
+  font-size: 11px; color: var(--text-muted); flex: 1 1 180px; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dc-step-label b { color: var(--text); }
+.dc-track { flex: 1 1 100%; height: 3px; background: rgba(255,255,255,0.1); }
+.dc-track i { display: block; height: 100%; background: var(--nest-red); }
+
+/* ── Depth-tier map ── */
+.dc-map-wrap {
+  margin: 0 18px 14px; border: 1px solid var(--border);
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+}
+.dc-map-head {
+  flex: none; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  padding: 7px 12px; border-bottom: 1px solid var(--border);
+}
+.dc-map-title {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text); white-space: nowrap;
+}
+/* The caveat wraps rather than clipping: a truncated one reads as the
+   opposite of what it says. */
+.dc-map-note {
+  font-size: 10.5px; color: var(--text-dim); letter-spacing: 0.03em;
+  min-width: 0; line-height: 1.45;
+}
+.dc-map { flex: 1; min-height: 0; overflow: auto; }
+.dc-cols { display: flex; align-items: flex-start; min-width: min-content; position: relative; }
+.dc-col { width: 250px; flex: none; border-right: 1px solid var(--border); padding: 0 32px 12px; }
+.dc-col:last-child { border-right: none; }
+.dc-col-head {
+  position: sticky; top: 0; z-index: 2; background: #000;
+  border-bottom: 1px solid var(--border); padding: 9px 0 8px; margin-bottom: 2px;
+}
+.dc-col-depth {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+  color: var(--text); text-transform: uppercase;
+}
+.dc-col-depth span { color: var(--text-dim); font-weight: 400; margin-left: 6px; }
+.dc-card {
+  display: block; width: 100%; text-align: left; margin-top: 8px; cursor: pointer;
+  border: 1px solid var(--border); padding: 6px 8px 7px; color: var(--text);
+  position: relative; z-index: 1; background: #000; font-family: var(--font);
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+.dc-card:hover { border-color: var(--border-hover); background: var(--surface-hover); }
+.dc-card[data-entry="1"] { border-left: 2px solid var(--nest-red); }
+.dc-card[data-dimmed="1"] { opacity: 0.3; }
+.dc-card[data-step="1"] { border-color: var(--white); background: rgba(255,255,255,0.07); }
+.dc-card-l1 { display: flex; align-items: baseline; gap: 6px; }
+.dc-card-cls {
+  font-size: 11.5px; font-weight: 600; color: var(--text); flex: 1 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dc-card-d { font-size: 9.5px; color: var(--text-dim); flex: none; font-variant-numeric: tabular-nums; }
+.dc-card-l2 { display: flex; align-items: baseline; gap: 6px; margin-top: 2px; }
+.dc-card-m {
+  font-size: 11px; color: var(--text-muted); flex: 1 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dc-tag {
+  font-size: 8.5px; font-weight: 700; letter-spacing: 0.06em; padding: 1px 4px;
+  border: 1px solid var(--border); color: var(--text-dim); flex: none;
+}
+.dc-tag[data-eff="write"] { color: var(--dc-eff-write); border-color: rgba(239,68,68,0.4); }
+.dc-tag[data-eff="read"] { color: var(--dc-eff-read); border-color: rgba(59,130,246,0.4); }
+.dc-tag[data-eff="throw"] { color: var(--dc-eff-throw); border-color: rgba(245,158,11,0.4); }
+.dc-tag[data-eff="external"] { color: var(--dc-eff-external); border-color: rgba(139,92,246,0.4); }
+.dc-card-steps {
+  display: block; margin-top: 5px; padding-top: 4px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  font-size: 10px; color: var(--text-dim); font-variant-numeric: tabular-nums;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dc-card-steps b { color: var(--text-muted); }
+.dc-card-steps[data-off="1"] { color: #4a4a4a; }
+.dc-card-entry {
+  display: inline-block; margin-top: 5px; font-size: 8.5px; font-weight: 700;
+  letter-spacing: 0.08em; color: var(--nest-red);
+}
+
+/* ── The wire layer: one path per call site ── */
+.dc-wires { position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none; overflow: visible; }
+.dc-wire {
+  fill: none; stroke: var(--border-strong); stroke-width: 1.1; opacity: 0.42;
+  transition: opacity 0.15s, stroke-width 0.15s;
+}
+.dc-wire[data-eff="read"] { stroke: var(--dc-eff-read); opacity: 0.62; }
+.dc-wire[data-eff="write"] { stroke: var(--dc-eff-write); opacity: 0.62; }
+.dc-wire[data-eff="throw"] { stroke: var(--dc-eff-throw); opacity: 0.62; }
+.dc-wire[data-eff="external"] { stroke: var(--dc-eff-external); opacity: 0.62; }
+.dc-wire[data-live="1"] { opacity: 1; stroke-width: 2; animation: dc-march 0.8s linear infinite; }
+.dc-wire-head { fill: var(--border-strong); opacity: 0.55; }
+.dc-wire-head[data-eff="read"] { fill: var(--dc-eff-read); }
+.dc-wire-head[data-eff="write"] { fill: var(--dc-eff-write); }
+.dc-wire-head[data-eff="throw"] { fill: var(--dc-eff-throw); }
+.dc-wire-head[data-eff="external"] { fill: var(--dc-eff-external); }
+.dc-wire-head[data-live="1"] { opacity: 1; }
+@keyframes dc-march { to { stroke-dashoffset: -140; } }
+
+/* ── The pile: blocks land on top and are never removed ── */
+#endpoints-pile {
+  border-left: 1px solid var(--border); height: 100%;
+  display: flex; flex-direction: column; min-width: 0; overflow: hidden;
+}
+.dc-pile-head {
+  flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 12px; border-bottom: 1px solid var(--border);
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-dim); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden;
+}
+.dc-pile-head .dc-pile-title { color: var(--text); flex: none; }
+.dc-pile-head .dc-pile-stat { min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+.dc-pile-head b { color: var(--text-muted); }
+.dc-pile-scroll {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; position: relative; min-width: 0;
+  margin: 0 12px 12px;
+  border-left: 1px solid var(--border-strong); border-right: 1px solid var(--border-strong);
+}
+.dc-pile-body { position: relative; width: 100%; border-bottom: 2px solid var(--border-strong); }
+.dc-block {
+  position: absolute; left: 0; right: 0; height: 46px; cursor: pointer;
+  display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 0 7px;
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.18);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
+  font-family: var(--font); color: var(--text); text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+.dc-block:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.3); }
+.dc-block[data-top="1"] {
+  border-color: rgba(255,255,255,0.3);
+  border-left: 2px solid var(--nest-red);
+  background: rgba(234,40,69,0.08);
+}
+.dc-block[data-eff] { border-right-width: 2px; }
+.dc-block[data-eff="read"] { border-right-color: var(--dc-eff-read); }
+.dc-block[data-eff="write"] { border-right-color: var(--dc-eff-write); }
+.dc-block[data-eff="throw"] { border-right-color: var(--dc-eff-throw); }
+.dc-block[data-eff="external"] { border-right-color: var(--dc-eff-external); }
+.dc-block-l1 { display: flex; align-items: baseline; gap: 7px; font-size: 11.5px; min-width: 0; }
+.dc-block-cls {
+  color: rgba(255,255,255,0.88); font-weight: 600; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dc-block-at { margin-left: auto; flex: none; font-size: 10px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.dc-block-l2 {
+  display: flex; align-items: center; gap: 5px; font-size: 11px;
+  color: rgba(255,255,255,0.55); overflow: hidden; white-space: nowrap;
+}
+.dc-block-kind { flex: none; letter-spacing: 0.05em; }
+.dc-block-eff { flex: none; font-weight: 700; letter-spacing: 0.05em; }
+.dc-block-eff[data-eff="read"] { color: var(--dc-eff-read); }
+.dc-block-eff[data-eff="write"] { color: var(--dc-eff-write); }
+.dc-block-eff[data-eff="throw"] { color: var(--dc-eff-throw); }
+.dc-block-eff[data-eff="external"] { color: var(--dc-eff-external); }
+.dc-glyph {
+  flex: none; font-size: 9px; letter-spacing: 0.05em; padding: 0 4px; line-height: 14px;
+  border: 1px solid rgba(255,255,255,0.14); color: rgba(255,255,255,0.5);
+}
+.dc-pile-div {
+  position: absolute; left: 0; right: 0; height: 20px;
+  display: flex; align-items: center; padding-left: 8px;
+  border-top: 1px solid var(--border);
+  font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text); opacity: 0.3;
+}
+
+/* The block falls in, the one beneath takes the weight, and the red bar
+   hands off from the old top to the new. */
+.dc-pile-body[data-motion="none"] .dc-block { animation: none !important; }
+.dc-block.dc-land { animation: dc-land 0.22s ease-in; }
+@keyframes dc-land { from { transform: translateY(-64px); opacity: 0; } to { transform: none; opacity: 1; } }
+.dc-block.dc-impact { animation: dc-impact 0.12s ease-out; transform-origin: bottom; }
+@keyframes dc-impact { 0% { transform: scaleY(1); } 50% { transform: scaleY(0.96); } 100% { transform: scaleY(1); } }
+.dc-block.dc-bar-in { animation: dc-bar-in 0.15s linear; }
+@keyframes dc-bar-in {
+  from { border-left: 1px solid rgba(255,255,255,0.18); }
+  to { border-left: 2px solid var(--nest-red); }
+}
+.dc-block.dc-bar-out { animation: dc-bar-out 0.15s linear; }
+@keyframes dc-bar-out {
+  from { border-left: 2px solid var(--nest-red); }
+  to { border-left: 1px solid rgba(255,255,255,0.18); }
+}
+/* After a flight the drop leg waits for the ghost to arrive. */
+.dc-pile-body[data-motion="fly"] .dc-block.dc-land { animation: dc-land 0.22s ease-in 0.25s backwards; }
+.dc-pile-body[data-motion="fly"] .dc-block.dc-impact,
+.dc-pile-body[data-motion="fly"] .dc-block.dc-bar-in,
+.dc-pile-body[data-motion="fly"] .dc-block.dc-bar-out { animation-delay: 0.25s; }
+
+/* The flight leg is a fixed ghost on the body: the pile scroller would clip
+   most of the path. */
+.dc-ghost {
+  position: fixed; z-index: 60; pointer-events: none; margin: 0;
+  animation: dc-fly 0.25s ease-out;
+  outline: 1px solid rgba(234,40,69,0.5);
+}
+@keyframes dc-fly {
+  0% { transform: translate(var(--dc-fx, -260px), var(--dc-fy, -120px)) scale(0.55); opacity: 0.35; }
+  72% { transform: translate(var(--dc-mx, -130px), var(--dc-my, -200px)) scale(0.86); opacity: 0.85; animation-timing-function: ease-in; }
+  100% { transform: translate(0, -64px) scale(1); opacity: 1; outline-color: transparent; }
+}
+
+.dc-steps { margin: 0 12px 12px; border: 1px solid var(--border); flex: none; }
+.dc-steps > summary {
+  list-style: none; cursor: pointer; padding: 9px 12px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text-muted);
+  transition: background 0.15s, color 0.15s;
+}
+.dc-steps > summary::-webkit-details-marker { display: none; }
+.dc-steps > summary::marker { content: ""; }
+.dc-steps > summary:hover { background: var(--surface-hover); color: var(--text); }
+.dc-steps[open] > summary { border-bottom: 1px solid var(--border); }
+.dc-step-box { max-height: min(34vh, 300px); overflow-y: auto; }
+.dc-step-row {
+  display: grid; grid-template-columns: 38px 1fr; align-items: baseline;
+  width: 100%; text-align: left; background: none; cursor: pointer; color: var(--text);
+  font-family: var(--font); padding: 3px 10px 3px 0; border: none;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.dc-step-row:hover { background: var(--surface-hover); }
+.dc-step-row[data-step="1"] { background: rgba(255,255,255,0.1); box-shadow: inset 2px 0 0 var(--nest-red); }
+.dc-step-n {
+  font-size: 10px; color: var(--text-dim); text-align: right; padding-right: 9px;
+  font-variant-numeric: tabular-nums;
+}
+.dc-step-name { font-size: 11.5px; overflow-wrap: anywhere; }
+.dc-step-flags { display: flex; align-items: baseline; gap: 5px; flex-wrap: wrap; }
+
+.dc-empty {
+  display: flex; align-items: center; justify-content: center; height: 100%;
+  color: var(--text-dim); font-size: 13px; text-align: center; padding: 24px;
+}
+.dc-side-show { padding: 10px 0 0 10px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dc-block, .dc-ghost, .dc-wire { animation: none !important; }
 }

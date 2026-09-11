@@ -158,12 +158,14 @@ The report has up to six tabs:
 - **Summary:** health score overview with a category breakdown.
 - **Findings:** source-level diagnostics with a code viewer and fix examples.
 - **Modules Graph:** clustered module diagram with cycles in red and a per-module detail panel. See [Module graph](/docs/report/module-graph).
-- **Endpoints:** badged `Beta`, traced HTTP routes per controller with their dependency chains. Controllers and handlers behind a project wrapper decorator, meaning a custom decorator composing `@Controller()` or `@Get()`, are resolved and traced too.
+- **Endpoints:** badged `Beta`, every route walked in execution order over the code graph. A depth map, a step player, and a database verdict per route. The scan also resolves a controller behind a wrapper decorator composing `@Controller()` or `@Get()`. See [The report](/docs/report#endpoints).
 - **Relational Schema:** entity-relationship diagram of the database models.
 - **Lab:** custom rule playground for writing and testing your own rules.
 
 Endpoints and Relational Schema stay hidden until there is data, so a project
-with no controllers and no ORM entities sees four.
+with no controllers and no ORM entities sees four. Endpoints needs the code
+graph as well, which this flag and `--format report-json` build and the other
+formats do not.
 
 The file is written to `nestjs-doctor-report.html` in the project root and auto-opened in the default browser.
 

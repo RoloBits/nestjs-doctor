@@ -16,7 +16,6 @@ import {
 	renderModules,
 	renderSchema,
 	renderSummary,
-	resizeEndpoints,
 	resizeModules,
 	setActiveTab,
 	setDiagnosisBadge,
@@ -143,9 +142,6 @@ function LoadedReport({
 			if (name === "boot" && !rendered.boot) {
 				renderBoot(artifact);
 				rendered.boot = true;
-			}
-			if (name === "endpoints" && rendered.endpoints) {
-				resizeEndpoints();
 			}
 		};
 

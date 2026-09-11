@@ -17,7 +17,7 @@ import {
 	type DiagnosisCallbacks,
 	DiagnosisTab,
 } from "./templates/diagnosis.js";
-import { EndpointsTab, resizeEndpointsCanvas } from "./templates/endpoints.js";
+import { EndpointsTab } from "./templates/endpoints.js";
 import { LabTab, labOpened as labOpenedImpl } from "./templates/lab.js";
 import {
 	ModulesTab,
@@ -67,10 +67,6 @@ export function renderDiagnosis(
 
 export function renderEndpoints(report: ReportArtifact): void {
 	mount("tab-endpoints", <EndpointsTab report={report} />);
-}
-
-export function resizeEndpoints(): void {
-	resizeEndpointsCanvas();
 }
 
 export function renderSchema(report: ReportArtifact): void {

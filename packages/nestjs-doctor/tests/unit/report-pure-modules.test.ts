@@ -6,10 +6,6 @@ import {
 	keyName,
 } from "../../src/report/ui/app/lib/column-kinds.js";
 import {
-	buildEndpointGraph,
-	layoutEndpointGraph,
-} from "../../src/report/ui/app/lib/endpoint-layout.js";
-import {
 	endpointsOf,
 	providersOf,
 	wiringChildren,
@@ -49,56 +45,6 @@ describe("column classification", () => {
 		expect(columnKind({ name: "email", isUnique: true }, {})).toBe("idx");
 		expect(columnKind({ name: "createdAt", hasIndex: true }, {})).toBe("idx");
 		expect(columnKind({ name: "title" }, {})).toBeNull();
-	});
-});
-
-describe("endpoint graph", () => {
-	const ep = {
-		controllerClass: "OrdersController",
-		handlerMethod: "create",
-		filePath: "src/orders.controller.ts",
-		line: 12,
-		dependencies: [
-			{
-				className: "OrdersService",
-				type: "service",
-				methodName: "create",
-				conditional: false,
-				order: 0,
-				totalMethods: 3,
-				dependencies: [
-					{
-						className: "PaymentsService",
-						type: "service",
-						methodName: "charge",
-						conditional: true,
-						order: 0,
-						totalMethods: 1,
-					},
-				],
-			},
-		],
-	};
-
-	it("flattens the dependency tree under a controller root", () => {
-		const { nodes, edges } = buildEndpointGraph(ep);
-		expect(nodes.map((n) => n.className)).toEqual([
-			"OrdersController",
-			"OrdersService",
-			"PaymentsService",
-		]);
-		expect(nodes[0].type).toBe("controller");
-		expect(edges).toEqual([
-			{ from: 0, to: 1, conditional: false },
-			{ from: 1, to: 2, conditional: true },
-		]);
-	});
-
-	it("stacks nodes vertically when dagre is absent", () => {
-		const { nodes, edges } = buildEndpointGraph(ep);
-		layoutEndpointGraph(nodes, edges, undefined);
-		expect(nodes.map((n) => n.x)).toEqual([300, 300, 300]);
-		expect(nodes.map((n) => n.y)).toEqual([60, 160, 260]);
 	});
 });
 

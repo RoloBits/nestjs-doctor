@@ -38,13 +38,14 @@ works, including the schema diagram's layout.
 | Summary | The score, the category breakdown, and the counts behind them |
 | Findings | Every finding with a code viewer and a fix example |
 | Modules Graph | Your real module graph, clustered, with cycles in red |
-| Endpoints | Traced HTTP routes per controller and the dependencies each one pulls |
+| Endpoints | Every route walked in execution order, with what each one touches |
 | Relational Schema | The ER diagram extracted from your ORM |
 | Rule Lab | A playground for writing a custom rule against your own code |
 
 Endpoints and Relational Schema stay hidden until there is data. A project with
-no controllers and no ORM entities sees four tabs. The Endpoints tab is badged
-`Beta`.
+no controllers and no ORM entities sees four tabs. Endpoints also needs the code
+graph, which only `--report` and `--format report-json` build, so a report saved
+before those carried one loses the tab. The Endpoints tab is badged `Beta`.
 
 A **share** button in the nav picks sections of the report and downloads them
 as JSON. The scan precomputes every slice, so the page only merges what you
@@ -64,6 +65,78 @@ badges each one `not scored` beside its rule id when you turn it on.
 
 Which rules those are is up to the rule and your config. See
 [Surfaces](/docs/custom-rules#surfaces).
+
+## Endpoints
+
+The tab takes one route and walks the code under it.
+
+The sidebar groups routes by controller, the same tree the other tabs use. A
+one-line verdict about database calls sits under each route. Pick a route to
+load its walk.
+
+The map lays every method the route reaches into a column by call depth. One
+card is one method. One wire is one call site, so a method called twice from
+the same body draws two wires. Color says what the callee does: read, write,
+throw, external, or gray for the rest. A dashed wire is a conditional call
+site, and a doubled wire is a concurrent one. A call back to an equal or
+shallower depth routes through the lanes under the last row, so no wire
+crosses a card.
+
+**Next** and **Play** step the walk. Each step lights its card and drops a
+block on the pile at the right. Blocks are never removed, so the pile is the
+route's history up to the step you are on.
+
+The walk is source order of call sites, depth first from the handler. It is
+not a runtime trace. The walk emits a callee already on the current path as a
+step and stops there, so recursion shows once instead of looping.
+
+### The database verdict
+
+The verdict names the first database read and the first database write on the
+path, and which ran first. Only nodes the scan classified as `db` count, and
+direction comes from the ORM method name:
+
+| Method name starts with | Direction |
+|---|---|
+| `find`, `get`, `count`, `aggregate` | read |
+| `create`, `update`, `upsert`, `delete` | write |
+| anything else | other, counted as neither |
+
+A route that reaches no such node reads `no db node on this path`. That is not
+a claim the route touches no database. A driver the scan did not classify as
+`db` is invisible to this line, so read it as what the graph can see.
+
+### Filters
+
+The preset row narrows which steps play and which land on the pile. Hiding
+steps never reorders the ones that stay:
+
+| Preset | Keeps |
+|---|---|
+| all | every step |
+| effects | write, read, throw and external |
+| problems | throws, warns, errors, and guarded call sites |
+| no logs | everything except log, warn and error |
+| database | only the steps that land on a `db` node |
+
+The `⋯` button opens one chip per category, each with its own count.
+
+Every step carries the marks of its own call site:
+
+| Mark | Means |
+|---|---|
+| `not awaited` | the call site has no `await` |
+| `cond` | the call site sits inside a branch |
+| `try` | the call site sits inside a `try` block |
+| `guard` | a null-check throw guards the call, so later steps may not run |
+| `‖` | a `Promise.all` collects the promise |
+| `loop` | the call site sits inside a loop |
+| `cb` | the call site sits inside a callback |
+| `again` | the walk already passed this node, at another moment |
+
+Read `not awaited` narrowly. It covers `return svc.foo()`, a fire-and-forget
+call, and a promise collected by `Promise.all`. The graph cannot tell those
+apart, so the mark never claims the call was forgotten.
 
 ## Boot trace
 

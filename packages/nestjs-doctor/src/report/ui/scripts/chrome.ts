@@ -32,7 +32,6 @@ function switchTab(name) {
   if (name === "modules") {
     if (modulesRendered) { REPORT_APP.resizeModules(); } else { REPORT_APP.renderModules(REPORT); modulesRendered = true; }
   }
-  if (name === "endpoints" && endpointsRendered) REPORT_APP.resizeEndpoints();
   if (name === "boot" && !bootRendered) { REPORT_APP.renderBoot(REPORT); bootRendered = true; }
 }
 `;

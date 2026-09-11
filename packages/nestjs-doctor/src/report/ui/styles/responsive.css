@@ -1,3 +1,11 @@
+/* The endpoints tab keeps its three columns at every width: stacking them
+   would put the page back on a scrollbar, which is what the fixed height
+   exists to avoid. The side columns give ground instead. */
+@media (max-width: 1180px) {
+  .dc-view { grid-template-columns: 260px minmax(0, 1fr) 280px; }
+  .dc-side-hidden { grid-template-columns: 0 minmax(0, 1fr) 280px; }
+}
+
 @media (max-width: 640px) {
   .summary-grid { grid-template-columns: 1fr; }
   .ov-score-row { flex-direction: column; align-items: flex-start; }
@@ -9,6 +17,6 @@
   .playground-editor { width: 100%; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
   .playground-results { width: 100%; }
   #schema-sidebar { width: 260px; min-width: 260px; }
-  #endpoints-sidebar { width: 260px; min-width: 260px; }
-  .ep-code-panel { width: 100%; }
+  .dc-view { grid-template-columns: 220px minmax(0, 1fr) 260px; }
+  .dc-side-hidden { grid-template-columns: 0 minmax(0, 1fr) 260px; }
 }
