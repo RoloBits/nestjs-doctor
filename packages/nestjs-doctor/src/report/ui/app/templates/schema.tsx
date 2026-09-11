@@ -280,6 +280,13 @@ function allTreeIds(schema: SerializedSchemaGraph): string[] {
 	return ids;
 }
 
+const registry: { select?: (name: string) => void } = {};
+
+/** Deep link from another tab: land on one entity after switchTab("schema"). */
+export function openSchemaEntity(name: string): void {
+	registry.select?.(name);
+}
+
 export function SchemaTab({ report }: { report: ReportArtifact }) {
 	const schema = report.schema;
 	const [selected, setSelected] = useState<string | null>(null);
@@ -418,6 +425,14 @@ export function SchemaTab({ report }: { report: ReportArtifact }) {
 		}
 		controllerRef.current?.selectFromSidebar(name);
 	};
+
+	const selectRef = useLatest(selectEntity);
+	useEffect(() => {
+		registry.select = (name) => selectRef.current(name);
+		return () => {
+			registry.select = undefined;
+		};
+	}, [selectRef]);
 
 	const schemaDiags = report.diagnostics.filter((d) => d.category === "schema");
 	const entityNames = new Set(schema.entities.map((e) => e.name));

@@ -95,7 +95,8 @@ function ShareDialog({
 								version: report.generator.version,
 							},
 							includeCode,
-							[...picked]
+							[...picked],
+							{ codeGraph: report.codeGraph, root: report.root }
 						);
 						downloadSharedJson(data);
 						onClose();

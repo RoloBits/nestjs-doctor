@@ -24,7 +24,10 @@ import {
 	openModule as openModuleImpl,
 	resizeModulesCanvas,
 } from "./templates/modules.js";
-import { SchemaTab } from "./templates/schema.js";
+import {
+	openSchemaEntity as openSchemaEntityImpl,
+	SchemaTab,
+} from "./templates/schema.js";
 import { SummaryTab } from "./templates/summary.js";
 
 const roots = new Map<string, Root>();
@@ -71,6 +74,10 @@ export function renderEndpoints(report: ReportArtifact): void {
 
 export function renderSchema(report: ReportArtifact): void {
 	mount("tab-schema", <SchemaTab report={report} />);
+}
+
+export function openSchemaEntity(name: string): void {
+	openSchemaEntityImpl(name);
 }
 
 export function renderModules(report: ReportArtifact): void {

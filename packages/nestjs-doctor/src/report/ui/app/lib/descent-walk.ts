@@ -30,10 +30,14 @@ export interface DescentNode {
 	/** Shortest call depth from the entry. */
 	depth: number;
 	effect: Effect;
+	/** Last line of the method body, for the source pane's highlight. */
+	endLine: number;
 	filePath: string;
 	id: NodeId;
 	kind: string;
 	label: string;
+	/** First line of the method declaration. */
+	line: number;
 	/** Property the call went through: `user` in `this.prisma.user.find()`. */
 	member: string | null;
 	methodName: string;
@@ -98,11 +102,7 @@ export interface DescentEndpoint {
 	walk: DescentStep[];
 }
 
-/**
- * A depth-first walk re-enters a node once per path that reaches it, so a wide
- * diamond can expand far past what any reader would follow.
- * ponytail: fixed ceiling; make it a setting only if a real project hits it.
- */
+/** Step ceiling for one walk; past it the walk stops and reports truncated. */
 const MAX_STEPS = 5000;
 
 const READ_PREFIXES = ["find", "get", "count", "aggregate"];
@@ -110,7 +110,7 @@ const WRITE_PREFIXES = ["create", "update", "upsert", "delete"];
 const LOG_METHODS = ["log", "debug", "verbose", "info", "trace"];
 const LOGGER_CLASS = /Logger$/;
 
-/** The ORM method name is the only evidence of direction the graph carries. */
+/** Read, write or other, from the prefix of an ORM method name. */
 export function dbOperation(methodName: string): DbOp {
 	const name = methodName.toLowerCase();
 	if (WRITE_PREFIXES.some((prefix) => name.startsWith(prefix))) {
@@ -126,15 +126,16 @@ function countThrows(node: MethodNode): number {
 	return node.body.filter((item) => item.kind === "throw").length;
 }
 
-/** The graph's own classification, never a name list over the codebase. */
-function nodeEffect(node: MethodNode): Effect {
-	if (node.kind === "db") {
-		const op = dbOperation(node.methodName);
-		if (op === "read" || op === "write") {
-			return op;
-		}
+/** A node's effect: its db direction, else throw, else external, else plain. */
+function nodeEffect(
+	node: MethodNode,
+	dbOp: DbOp | null,
+	throws: number
+): Effect {
+	if (dbOp === "read" || dbOp === "write") {
+		return dbOp;
 	}
-	if (countThrows(node) > 0) {
+	if (throws > 0) {
 		return "throw";
 	}
 	if (node.kind === "unresolved") {
@@ -156,19 +157,16 @@ export function stepCategory(node: DescentNode): StepCategory {
 			return "error";
 		}
 	}
-	if (node.effect === "write") {
-		return "write";
+	return node.effect === "plain" ? "call" : node.effect;
+}
+
+function append<K, V>(map: Map<K, V[]>, key: K, value: V): void {
+	const list = map.get(key);
+	if (list) {
+		list.push(value);
+	} else {
+		map.set(key, [value]);
 	}
-	if (node.effect === "read") {
-		return "read";
-	}
-	if (node.effect === "throw") {
-		return "throw";
-	}
-	if (node.effect === "external") {
-		return "external";
-	}
-	return "call";
 }
 
 function nodeLabel(node: MethodNode): string {
@@ -186,7 +184,7 @@ function depthsFrom(
 ): number[] {
 	const depth = new Array<number>(size).fill(Number.POSITIVE_INFINITY);
 	depth[entry] = 0;
-	// The array iterator re-reads length each step, so pushes are visited too.
+	// The array iterator re-reads length, so entries pushed while looping run too.
 	const queue = [entry];
 	for (const from of queue) {
 		for (const edge of outgoing.get(from) ?? []) {
@@ -323,12 +321,7 @@ function indexGraph(graph: CodeGraph): GraphIndex {
 	);
 	const rawOut = new Map<NodeId, CallEdge[]>();
 	for (const edge of graph.edges) {
-		const list = rawOut.get(edge.from);
-		if (list) {
-			list.push(edge);
-		} else {
-			rawOut.set(edge.from, [edge]);
-		}
+		append(rawOut, edge.from, edge);
 	}
 	for (const list of rawOut.values()) {
 		list.sort((a, b) => a.order - b.order);
@@ -340,7 +333,7 @@ function sliceEndpoint(
 	{ byId, rawOut }: GraphIndex,
 	entry: EntryPoint
 ): DescentEndpoint {
-	// Reachable slice first, so every local index resolves.
+	// Collects the nodes reachable from the entry, then indexes them locally.
 	const localOf = new Map<NodeId, number>();
 	const source: MethodNode[] = [];
 	const queue: NodeId[] = [entry.node];
@@ -394,19 +387,25 @@ function sliceEndpoint(
 
 	const entryIndex = localOf.get(entry.node) ?? 0;
 	const depth = depthsFrom(entryIndex, outgoing, source.length);
-	const nodes: DescentNode[] = source.map((node, index) => ({
-		className: node.className,
-		depth: depth[index] as number,
-		dbOp: node.kind === "db" ? dbOperation(node.methodName) : null,
-		effect: nodeEffect(node),
-		filePath: node.filePath,
-		id: node.id,
-		kind: node.kind,
-		label: nodeLabel(node),
-		member: node.member ?? null,
-		methodName: node.methodName,
-		throws: countThrows(node),
-	}));
+	const nodes: DescentNode[] = source.map((node, index) => {
+		const dbOp = node.kind === "db" ? dbOperation(node.methodName) : null;
+		const throws = countThrows(node);
+		return {
+			className: node.className,
+			depth: depth[index] as number,
+			dbOp,
+			effect: nodeEffect(node, dbOp, throws),
+			endLine: node.endLine,
+			filePath: node.filePath,
+			id: node.id,
+			kind: node.kind,
+			label: nodeLabel(node),
+			line: node.line,
+			member: node.member ?? null,
+			methodName: node.methodName,
+			throws,
+		};
+	});
 
 	const { truncated, walk } = walkFrom(entryIndex, outgoing, edgeIndex);
 
@@ -417,12 +416,7 @@ function sliceEndpoint(
 
 	const byDepth = new Map<number, number[]>();
 	for (const [index, node] of nodes.entries()) {
-		const list = byDepth.get(node.depth);
-		if (list) {
-			list.push(index);
-		} else {
-			byDepth.set(node.depth, [index]);
-		}
+		append(byDepth, node.depth, index);
 	}
 	const depths = [...byDepth.keys()].sort((a, b) => a - b);
 	const tiers = depths.map((d) =>
@@ -461,6 +455,87 @@ export function buildEndpoint(
 export function buildEndpoints(graph: CodeGraph): DescentEndpoint[] {
 	const index = indexGraph(graph);
 	return graph.entries.map((entry) => sliceEndpoint(index, entry));
+}
+
+/** Whose source the pane shows: the node's own body, or the call that reached it. */
+export type PaneMode = "call" | "decl";
+
+export interface PaneTarget {
+	/** The call-expression line, when the target is a call site. */
+	callLine: number | null;
+	file: string;
+	/** Inclusive line range of the method shown, or null when it has none. */
+	range: [number, number] | null;
+	/** Index of the node whose body is shown. */
+	shownNode: number;
+}
+
+/**
+ * Which source a node opens: a db, unresolved or external node at its call
+ * site, anything else at its own declaration.
+ */
+export function defaultPaneMode(node: DescentNode): PaneMode {
+	return node.kind === "db" ||
+		node.kind === "unresolved" ||
+		node.kind === "external"
+		? "call"
+		: "decl";
+}
+
+/**
+ * Which visit of a node to open: the one asked for, else the one the playhead
+ * is on, else the first.
+ */
+export function resolveVisit(
+	endpoint: DescentEndpoint,
+	node: number,
+	explicit: number | undefined,
+	playStep: number | null
+): number | null {
+	if (explicit !== undefined) {
+		return explicit;
+	}
+	const visits = endpoint.stepsOf[node] ?? [];
+	if (playStep !== null && visits.includes(playStep)) {
+		return playStep;
+	}
+	return visits[0] ?? null;
+}
+
+/** The file and lines the pane should show for one node, in one mode. */
+export function paneTarget(
+	endpoint: DescentEndpoint,
+	node: number,
+	step: number | null,
+	mode: PaneMode
+): PaneTarget | null {
+	const own = endpoint.nodes[node];
+	if (!own) {
+		return null;
+	}
+	if (mode === "decl") {
+		return {
+			callLine: null,
+			file: own.filePath,
+			range: own.line > 0 ? [own.line, Math.max(own.endLine, own.line)] : null,
+			shownNode: node,
+		};
+	}
+	const edge =
+		step === null ? undefined : endpoint.edges[endpoint.walk[step]?.edge ?? -1];
+	const caller = edge ? endpoint.nodes[edge.from] : undefined;
+	if (!(edge && caller)) {
+		return null;
+	}
+	return {
+		callLine: edge.line,
+		file: caller.filePath,
+		range:
+			caller.line > 0
+				? [caller.line, Math.max(caller.endLine, caller.line)]
+				: null,
+		shownNode: edge.from,
+	};
 }
 
 export interface FilterState {
@@ -523,6 +598,28 @@ export const PRESETS: {
 		tip: "only the steps that land on a db node",
 	},
 ];
+
+export const ALL_PRESET = PRESETS.findIndex((preset) => preset.label === "all");
+export const DATABASE_PRESET = PRESETS.findIndex(
+	(preset) => preset.label === "database"
+);
+
+/** Walk length under which `defaultPreset` keeps every step. */
+const SHORT_WALK = 7;
+
+/** Walk steps that land on a db node. */
+export function dbStepCount(endpoint: DescentEndpoint): number {
+	const { other, reads, writes } = endpoint.verdict;
+	return reads + writes + other;
+}
+
+/** `all` for a walk under `SHORT_WALK` or with no db step, `database` otherwise. */
+export function defaultPreset(endpoint: DescentEndpoint): number {
+	if (endpoint.walk.length < SHORT_WALK || dbStepCount(endpoint) === 0) {
+		return ALL_PRESET;
+	}
+	return DATABASE_PRESET;
+}
 
 export function presetState(index: number): FilterState {
 	const preset = PRESETS[index] ?? (PRESETS[0] as (typeof PRESETS)[number]);
@@ -642,7 +739,7 @@ export interface CardBox {
 	y: number;
 }
 
-export interface Wire {
+interface Wire {
 	dash: string;
 	edge: number;
 	effect: Effect;
@@ -665,9 +762,8 @@ const LANE_MAX = 4;
 const LANE_TAIL = 14;
 
 /**
- * One wire per call site, measured off the boxes the flex layout already
- * placed. A call to an equal or shallower depth is routed through a lane under
- * the last row, so no wire ever crosses a card.
+ * One wire per call site, over the boxes the flex layout placed. A call to an
+ * equal or shallower depth routes through a lane under the last row.
  */
 export function layoutWires(
 	endpoint: DescentEndpoint,
@@ -680,16 +776,10 @@ export function layoutWires(
 		}
 	}
 
-	// Parallel call sites fan apart instead of stacking into one stroke.
+	// Call sites grouped by their endpoint pair; each is bowed by its index.
 	const siblings = new Map<string, number[]>();
 	for (const [index, edge] of endpoint.edges.entries()) {
-		const key = `${edge.from}>${edge.to}`;
-		const list = siblings.get(key);
-		if (list) {
-			list.push(index);
-		} else {
-			siblings.set(key, [index]);
-		}
+		append(siblings, `${edge.from}>${edge.to}`, index);
 	}
 
 	const isBack = (edge: DescentEdgeInfo): boolean =>
@@ -756,12 +846,12 @@ export function layoutWires(
 	return { height: bottom + padBottom + 4, padBottom, wires };
 }
 
-/** One entry per pile row, newest first. A run of hidden steps folds into one. */
+/** One entry per pile row, newest first. Two or more hidden steps in a row fold into one; a lone one is dropped. */
 export type PileItem =
 	| { hidden: number; step?: undefined }
 	| { hidden?: undefined; step: number };
 
-/** The pile as it stands at step `top`: nothing is ever removed below it. */
+/** The rows from step `top` down to 0, newest first. */
 export function pileItems(kept: boolean[], top: number): PileItem[] {
 	const out: PileItem[] = [];
 	let run = 0;

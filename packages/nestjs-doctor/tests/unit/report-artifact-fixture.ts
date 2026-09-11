@@ -232,6 +232,89 @@ export const DESCENT_GRAPH: CodeGraph = {
 };
 
 /**
+ * A controller calling a straight chain of `steps - 1` services, so the walk
+ * is exactly `steps` long. `withDb` makes the last one a db node.
+ */
+export const chainGraph = (steps: number, withDb: boolean): CodeGraph => {
+	const nodes: MethodNode[] = [
+		descentNode(
+			"src/chain.controller.ts",
+			"ChainController",
+			"run",
+			"controller"
+		),
+	];
+	const edges: CallEdge[] = [];
+	for (let i = 1; i < steps; i++) {
+		const last = withDb && i === steps - 1;
+		nodes.push(
+			descentNode(
+				`src/chain${i}.service.ts`,
+				`Chain${i}Service`,
+				last ? "findMany" : `step${i}`,
+				last ? "db" : "service"
+			)
+		);
+		edges.push(
+			descentEdge(nodes[i - 1]?.id as string, nodes[i]?.id as string, 0)
+		);
+	}
+	return {
+		edges,
+		entries: [
+			{
+				controllerClass: "ChainController",
+				handlerMethod: "run",
+				httpMethod: "GET",
+				node: nodes[0]?.id as string,
+				returnType: null,
+				routePath: "/chain",
+				swagger: null,
+			},
+		],
+		nodes,
+	};
+};
+
+/** A controller calling one node `visits` times, for the visit strip. */
+export const callsGraph = (
+	visits: number,
+	kind: MethodNode["kind"],
+	member?: string
+): CodeGraph => {
+	const caller = descentNode(
+		"src/calls.controller.ts",
+		"CallsController",
+		"run",
+		"controller"
+	);
+	const callee = descentNode(
+		kind === "unresolved" ? "@nestjs/config" : "src/callee.service.ts",
+		"Callee",
+		"hit",
+		kind,
+		member ? { member } : {}
+	);
+	return {
+		edges: Array.from({ length: visits }, (_, i) =>
+			descentEdge(caller.id, callee.id, i, { line: 10 + i })
+		),
+		entries: [
+			{
+				controllerClass: "CallsController",
+				handlerMethod: "run",
+				httpMethod: "GET",
+				node: caller.id,
+				returnType: null,
+				routePath: "/calls",
+				swagger: null,
+			},
+		],
+		nodes: [caller, callee],
+	};
+};
+
+/**
  * An artifact with enough graph, schema and endpoint data that the report's
  * sidebar trees, tab panels and detail views all render something.
  */

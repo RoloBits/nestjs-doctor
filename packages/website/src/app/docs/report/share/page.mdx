@@ -35,6 +35,13 @@ two would write over each other.
 `schema` and `findings:schema` are different sections. The first is the
 relational schema, the second is what the schema rules reported about it.
 
+A share written from the report's own dialog adds the code graph to the
+`endpoints` section, so the Endpoints tab opens in the shared file. The graph
+names every class and method a route reaches, each call site, and the condensed
+text of the statements, comments and throws along the way. The code snippets
+box does not cover it. A share from the command line or the menu carries the
+routes without it, and the tab stays hidden.
+
 An unknown section, an unknown category, or an empty list exits `2` and lists
 what is valid. A section with nothing behind it is skipped instead, and a run
 whose sections are all empty warns on stderr and writes no file.
@@ -75,6 +82,7 @@ without a scan and without a network request.
 | `project`, `score` | Only with the `score` section |
 | `scope` | Only when the scan was narrowed, so a thin share reads as narrowed |
 | `endpoints`, `schema`, `modules` | Only with that section, and only when it had content |
+| `codeGraph` | Only from the report's own dialog, with the `endpoints` section |
 
 File paths inside are relative to the scanned directory, so the file names no
 absolute path from your machine. The module graph is stripped of boot timings.

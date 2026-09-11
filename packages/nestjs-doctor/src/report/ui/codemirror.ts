@@ -43,8 +43,8 @@ function escHtml(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-function makeHighlightPlugin(targetLines) {
-  const lineDeco = Decoration.line({ attributes: { class: "cm-highlighted-line" } });
+function makeHighlightPlugin(targetLines, className) {
+  const lineDeco = Decoration.line({ attributes: { class: className } });
   return ViewPlugin.fromClass(class {
     constructor(view) {
       this.decorations = this.buildDecos(view);
@@ -130,6 +130,11 @@ window.createCodeViewer = function(container, code, options) {
         borderLeft: "3px solid #ea2845",
         cursor: "pointer",
       },
+      ".cm-hit-line": {
+        background: "rgba(234,40,69,0.32) !important",
+        borderLeft: "3px solid #ffffff",
+        boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.22)",
+      },
     }),
   ];
 
@@ -138,7 +143,12 @@ window.createCodeViewer = function(container, code, options) {
   }
 
   if (highlightLines.length > 0) {
-    extensions.push(makeHighlightPlugin(highlightLines));
+    extensions.push(makeHighlightPlugin(highlightLines, "cm-highlighted-line"));
+  }
+
+  const hitLines = options.hitLines || [];
+  if (hitLines.length > 0) {
+    extensions.push(makeHighlightPlugin(hitLines, "cm-hit-line"));
   }
 
   if (lineMetadata) {

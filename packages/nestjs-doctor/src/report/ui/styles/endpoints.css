@@ -6,12 +6,17 @@
   --dc-eff-read: var(--cat-correctness);
   --dc-eff-throw: var(--cat-performance);
   --dc-eff-external: var(--cat-architecture);
-  height: 100%; display: grid; grid-template-columns: 300px minmax(0, 1fr) 320px;
+  --dc-rail-w: 300px;
+  --dc-pile-w: 360px;
+  /* While the first column holds the code pane: its cap, and the pile's width. */
+  --dc-code-max: 62vw;
+  --dc-code-pile: 300px;
+  height: 100%; display: grid;
+  grid-template-columns: var(--dc-rail-w) minmax(0, 1fr) var(--dc-pile-w);
   font-size: 12px; line-height: 1.5;
 }
-/* The rail keeps its grid slot at zero width: display:none would drop it out
-   of the flow and shift the main pane and the pile into the wrong columns. */
-.dc-side-hidden { grid-template-columns: 0 minmax(0, 1fr) 320px; }
+/* The rail keeps its grid slot at zero width. */
+.dc-side-hidden { grid-template-columns: 0 minmax(0, 1fr) var(--dc-pile-w); }
 .dc-side-hidden #endpoints-sidebar { overflow: hidden; border-right: none; }
 
 /* ── Route rail: the controller tree, one verdict line under each route ── */
@@ -48,9 +53,115 @@
 .dc-route-verdict[data-first="read"] { color: var(--dc-eff-read); }
 .dc-route-verdict[data-first="write"] { color: var(--dc-eff-write); }
 
+/* ── Code pane: the rail's column, showing one node's source ── */
+#endpoints-sidebar[data-code="1"] { overflow: hidden; }
+.dc-code {
+  height: 100%; position: relative; background: var(--surface);
+  display: flex; flex-direction: column;
+}
+.dc-code-head {
+  flex: none; padding: 11px 14px 10px; border-bottom: 1px solid var(--border-strong);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.dc-code-top { display: flex; align-items: center; gap: 10px; }
+.dc-code-key {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-dim); flex: none;
+}
+.dc-code-path {
+  font-size: 10.5px; letter-spacing: 0.03em; color: var(--text-dim);
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dc-code-back {
+  margin-left: auto; flex: none; font-family: var(--font);
+  font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 6px 9px; border: 1px solid var(--border); background: transparent;
+  color: var(--text-muted); cursor: pointer; white-space: nowrap;
+}
+.dc-code-back:hover {
+  border-color: var(--border-hover); background: var(--surface-hover); color: var(--white);
+}
+.dc-code-name { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.dc-code-cls { font-size: 12.5px; font-weight: 700; color: var(--white); flex: none; }
+.dc-code-m {
+  font-size: 12.5px; color: var(--text-muted); min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* The callee line: what the call on the highlighted line actually reaches. */
+.dc-code-callee { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.dc-code-arrow { color: var(--text-dim); flex: none; }
+.dc-code-callee-n {
+  font-size: 11.5px; color: var(--text); min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dc-visits { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.dc-code-modes { display: flex; align-items: center; gap: 0; }
+.dc-visit {
+  font-family: var(--font); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 7px;
+  border: 1px solid var(--border-strong); background: none; cursor: pointer;
+  color: rgba(255,255,255,0.72); font-variant-numeric: tabular-nums;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.dc-visit:hover { border-color: var(--border-hover); color: var(--white); }
+.dc-visit[aria-pressed="true"] { background: var(--white); border-color: var(--white); color: #000; }
+.dc-visit[data-more="1"] { border-style: dashed; color: var(--text-dim); }
+.dc-code-modes .dc-visit { border-right-width: 0; }
+.dc-code-modes .dc-visit:last-child { border-right-width: 1px; }
+
+/* The model behind a db node, between the header and the code. */
+.dc-model {
+  flex: none; display: flex; align-items: center; gap: 7px; width: 100%;
+  padding: 8px 14px; border-bottom: 1px solid var(--border);
+  background: none; border-left: none; border-right: none; border-top: none;
+  font-family: var(--font); text-align: left; cursor: pointer; color: var(--text);
+}
+.dc-model:hover { background: var(--surface-hover); }
+.dc-model[data-empty="1"] { opacity: 0.45; cursor: default; }
+.dc-model-key {
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text-dim);
+}
+.dc-model-name { font-size: 12px; font-weight: 700; color: var(--white); }
+.dc-model-note { font-size: 10px; color: var(--text-dim); }
+.dc-model-caret { margin-left: auto; color: var(--text-dim); }
+.dc-model-body {
+  flex: none; max-height: 190px; overflow: auto; padding: 8px 14px 10px;
+  border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02);
+}
+.dc-model-col { display: flex; align-items: baseline; gap: 6px; font-size: 11px; padding: 1px 0; }
+.dc-model-cn { color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.dc-model-ct { color: var(--text-dim); }
+.dc-model-col[data-rel="1"] .dc-model-ct { color: var(--dc-eff-read); }
+.dc-model-link {
+  margin-top: 7px; font-family: var(--font); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 8px;
+  border: 1px solid var(--border-strong); background: none;
+  color: var(--text-muted); cursor: pointer;
+}
+.dc-model-link:hover { border-color: var(--border-hover); color: var(--white); }
+.dc-code-note {
+  padding: 7px 14px; font-size: 10.5px; color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+}
+
+.dc-code-body { flex: 1; min-height: 0; overflow: auto; }
+.dc-code-body .cm-editor { background: var(--surface); }
+.dc-code-body .cm-scroller { overflow: auto; }
+.dc-code-none { padding: 22px 16px; font-size: 11.5px; color: var(--text-dim); line-height: 1.6; }
+.dc-code-none b {
+  display: block; margin-bottom: 7px; font-weight: 400;
+  color: var(--text-muted); word-break: break-all;
+}
+/* The grip sits inside the column's right edge, not straddling it. */
+.dc-code-grip {
+  position: absolute; right: 0; top: 0; bottom: 0; width: 7px; z-index: 3;
+  cursor: col-resize; background: transparent; transition: background 0.15s;
+}
+.dc-code-grip:hover, .dc-code-grip.dragging { background: var(--nest-red); }
+
 /* ── Main column ── */
-/* The map takes every pixel the rows above it leave, and scrolls inside
-   itself, so the tab never grows past the viewport. */
+/* The map takes what the rows above leave, and scrolls inside itself. */
 #endpoints-main {
   min-width: 0; height: 100%; overflow: hidden; display: flex; flex-direction: column;
 }
@@ -145,8 +256,7 @@
   font-size: 11px; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.08em; color: var(--text); white-space: nowrap;
 }
-/* The caveat wraps rather than clipping: a truncated one reads as the
-   opposite of what it says. */
+/* The caveat wraps rather than clipping. */
 .dc-map-note {
   font-size: 10.5px; color: var(--text-dim); letter-spacing: 0.03em;
   min-width: 0; line-height: 1.45;
@@ -174,6 +284,11 @@
 .dc-card[data-entry="1"] { border-left: 2px solid var(--nest-red); }
 .dc-card[data-dimmed="1"] { opacity: 0.3; }
 .dc-card[data-step="1"] { border-color: var(--white); background: rgba(255,255,255,0.07); }
+/* The selection is what the code pane is showing; it outlives the playhead. */
+.dc-card[data-sel="1"] {
+  opacity: 1; border-color: var(--white);
+  box-shadow: 0 0 0 1px var(--white), 0 0 14px rgba(255,255,255,0.18);
+}
 .dc-card-l1 { display: flex; align-items: baseline; gap: 6px; }
 .dc-card-cls {
   font-size: 11.5px; font-weight: 600; color: var(--text); flex: 1 1 auto; min-width: 0;
@@ -216,16 +331,18 @@
 .dc-wire[data-eff="write"] { stroke: var(--dc-eff-write); opacity: 0.62; }
 .dc-wire[data-eff="throw"] { stroke: var(--dc-eff-throw); opacity: 0.62; }
 .dc-wire[data-eff="external"] { stroke: var(--dc-eff-external); opacity: 0.62; }
+.dc-wire[data-sel="1"] { opacity: 0.95; stroke-width: 1.8; }
 .dc-wire[data-live="1"] { opacity: 1; stroke-width: 2; animation: dc-march 0.8s linear infinite; }
 .dc-wire-head { fill: var(--border-strong); opacity: 0.55; }
 .dc-wire-head[data-eff="read"] { fill: var(--dc-eff-read); }
 .dc-wire-head[data-eff="write"] { fill: var(--dc-eff-write); }
 .dc-wire-head[data-eff="throw"] { fill: var(--dc-eff-throw); }
 .dc-wire-head[data-eff="external"] { fill: var(--dc-eff-external); }
+.dc-wire-head[data-sel="1"] { opacity: 0.95; }
 .dc-wire-head[data-live="1"] { opacity: 1; }
 @keyframes dc-march { to { stroke-dashoffset: -140; } }
 
-/* ── The pile: blocks land on top and are never removed ── */
+/* ── The pile: one row per kept step, newest on top ── */
 #endpoints-pile {
   border-left: 1px solid var(--border); height: 100%;
   display: flex; flex-direction: column; min-width: 0; overflow: hidden;
@@ -245,9 +362,10 @@
   border-left: 1px solid var(--border-strong); border-right: 1px solid var(--border-strong);
 }
 .dc-pile-body { position: relative; width: 100%; border-bottom: 2px solid var(--border-strong); }
+/* The height is set inline; the line boxes below have to sum to it. */
 .dc-block {
-  position: absolute; left: 0; right: 0; height: 46px; cursor: pointer;
-  display: flex; flex-direction: column; justify-content: center; gap: 3px; padding: 0 7px;
+  position: absolute; left: 0; right: 0; cursor: pointer;
+  display: flex; flex-direction: column; justify-content: center; padding: 8px;
   background: rgba(255,255,255,0.035);
   border: 1px solid rgba(255,255,255,0.18);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
@@ -260,20 +378,33 @@
   border-left: 2px solid var(--nest-red);
   background: rgba(234,40,69,0.08);
 }
+.dc-block[data-sel="1"] {
+  border-color: var(--white); background: rgba(255,255,255,0.11);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), inset 3px 0 0 var(--white);
+}
+/* The method line wraps instead of clipping. */
+.dc-block-m {
+  font-size: 12px; font-weight: 600; line-height: 16px; color: var(--text);
+  word-break: break-all; white-space: normal; overflow-wrap: anywhere;
+}
 .dc-block[data-eff] { border-right-width: 2px; }
 .dc-block[data-eff="read"] { border-right-color: var(--dc-eff-read); }
 .dc-block[data-eff="write"] { border-right-color: var(--dc-eff-write); }
 .dc-block[data-eff="throw"] { border-right-color: var(--dc-eff-throw); }
 .dc-block[data-eff="external"] { border-right-color: var(--dc-eff-external); }
-.dc-block-l1 { display: flex; align-items: baseline; gap: 7px; font-size: 11.5px; min-width: 0; }
 .dc-block-cls {
-  color: rgba(255,255,255,0.88); font-weight: 600; min-width: 0;
+  color: rgba(255,255,255,0.6); min-width: 0; flex: 0 1 auto;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.dc-block-at { margin-left: auto; flex: none; font-size: 10px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.dc-block-at { flex: none; font-size: 10px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.dc-block-d { margin-left: auto; }
 .dc-block-l2 {
-  display: flex; align-items: center; gap: 5px; font-size: 11px;
+  display: flex; align-items: center; gap: 5px; height: 16px; font-size: 10.5px;
   color: rgba(255,255,255,0.55); overflow: hidden; white-space: nowrap;
+}
+.dc-block-flags {
+  display: flex; align-items: center; gap: 4px; height: 17px;
+  overflow: hidden; white-space: nowrap;
 }
 .dc-block-kind { flex: none; letter-spacing: 0.05em; }
 .dc-block-eff { flex: none; font-weight: 700; letter-spacing: 0.05em; }
@@ -316,8 +447,7 @@
 .dc-pile-body[data-motion="fly"] .dc-block.dc-bar-in,
 .dc-pile-body[data-motion="fly"] .dc-block.dc-bar-out { animation-delay: 0.25s; }
 
-/* The flight leg is a fixed ghost on the body: the pile scroller would clip
-   most of the path. */
+/* The flight leg is a fixed ghost on the body, outside the pile scroller. */
 .dc-ghost {
   position: fixed; z-index: 60; pointer-events: none; margin: 0;
   animation: dc-fly 0.25s ease-out;

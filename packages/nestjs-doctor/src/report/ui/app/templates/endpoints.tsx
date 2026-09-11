@@ -1,29 +1,41 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ReportArtifact } from "../../../../common/artifact.js";
 import { decodeCodeGraph } from "../../../../common/code-graph-codec.js";
-import { IconButton } from "../atoms/button.js";
+import type { SchemaEntity } from "../../../../common/schema.js";
+import { IconButton, TextButton } from "../atoms/button.js";
 import { Icon } from "../atoms/icon.js";
 import {
+	ALL_PRESET,
 	buildEndpoints,
 	CATEGORIES,
 	categoryCounts,
+	DATABASE_PRESET,
 	type DescentEndpoint,
+	type DescentNode,
 	type DescentStep,
+	dbStepCount,
+	defaultPaneMode,
+	defaultPreset,
 	type Effect,
 	type FilterState,
 	keptSteps,
 	layoutWires,
+	type PaneMode,
 	PRESETS,
+	paneTarget,
 	pileItems,
 	presetState,
+	resolveVisit,
 	type StepCategory,
 	stepFlags,
-	type Wire,
+	type WireLayout,
 } from "../lib/descent-walk.js";
 import { useLatest } from "../lib/use-latest.js";
+import { CodeViewer } from "../molecules/code-viewer.js";
 import { SearchField } from "../molecules/search-field.js";
 import { SidebarHeader, TreeToolbar } from "../molecules/sidebar-header.js";
 import { TreeRow } from "../molecules/tree-row.js";
+import { openSchemaEntity } from "./schema.js";
 
 const KIND_TAG: Record<string, string> = {
 	controller: "CTL",
@@ -58,10 +70,17 @@ const METHOD_COLORS: Record<string, string> = {
 };
 
 const SPEEDS = [0.5, 1, 2, 4];
+const WIDTH_KEY = "nd.endpoints.codeWidth";
+const CODE_WIDTH = 520;
+const CODE_MIN = 340;
 const BASE_INTERVAL = 820;
-const BLOCK_H = 46;
-const PITCH = 49;
 const DIV_H = 20;
+const GAP = 3;
+/** Vertical padding and borders a `.dc-block` spends outside its line boxes. */
+const BLOCK_PAD = 18;
+const METHOD_LINE = 16;
+const META_LINE = 16;
+const FLAG_LINE = 17;
 /** Above this interval the block flies from its card; below 200ms it snaps. */
 const FLY_MS = 500;
 const DROP_MS = 200;
@@ -88,9 +107,447 @@ function effectOf(endpoint: DescentEndpoint, step: DescentStep): Effect {
 	return endpoint.nodes[step.node]?.effect ?? "plain";
 }
 
+function methodText(node: DescentNode): string {
+	return node.member ? `${node.member}.${node.methodName}` : node.methodName;
+}
+
+function blockFlags(endpoint: DescentEndpoint, step: DescentStep): string[] {
+	const flags = stepFlags(endpoint, step);
+	const dbOp = endpoint.nodes[step.node]?.dbOp;
+	return dbOp ? [`db ${dbOp}`, ...flags] : flags;
+}
+
+/**
+ * The height one block renders at: the method's length over the characters
+ * the column fits, plus the meta line and any flag line.
+ */
+function blockHeight(
+	endpoint: DescentEndpoint,
+	step: number,
+	charW: number,
+	innerW: number
+): number {
+	const walkStep = endpoint.walk[step] as DescentStep;
+	const node = endpoint.nodes[walkStep.node];
+	const perLine = charW > 0 ? Math.floor(innerW / charW) : 0;
+	const chars = node ? methodText(node).length : 0;
+	const lines = perLine > 0 ? Math.max(1, Math.ceil(chars / perLine)) : 1;
+	const flags = blockFlags(endpoint, walkStep).length > 0 ? FLAG_LINE : 0;
+	return BLOCK_PAD + lines * METHOD_LINE + META_LINE + flags;
+}
+
 interface PlayState {
 	push: boolean;
 	step: number | null;
+}
+
+/** The node and visit the code pane shows, separate from the playhead. */
+interface Selection {
+	mode: PaneMode;
+	node: number;
+	/** The visit being shown, or null when the node is not on the walk. */
+	step: number | null;
+}
+
+function track(event: string): void {
+	(globalThis as { __ndTrack?: (e: string) => void }).__ndTrack?.(event);
+}
+
+function readWidth(): number {
+	try {
+		const stored = Number(localStorage.getItem(WIDTH_KEY));
+		return stored >= CODE_MIN ? stored : CODE_WIDTH;
+	} catch {
+		return CODE_WIDTH;
+	}
+}
+
+function storeWidth(width: number): void {
+	try {
+		localStorage.setItem(WIDTH_KEY, String(width));
+	} catch {
+		// Storage can be unavailable; the width is then not persisted.
+	}
+}
+
+/** Drops the scan root prefix; a path that does not carry it is unchanged. */
+function relativeTo(root: string | undefined, filePath: string): string {
+	if (!(root && filePath.startsWith(`${root}/`))) {
+		return filePath;
+	}
+	return filePath.slice(root.length + 1);
+}
+
+/** Elides the middle of a string longer than `max`, keeping both ends. */
+function midTruncate(text: string, max = 46): string {
+	if (text.length <= max) {
+		return text;
+	}
+	const head = Math.ceil((max - 1) / 2);
+	return `${text.slice(0, head)}…${text.slice(text.length - (max - 1 - head))}`;
+}
+
+const VISIT_CHIPS = 4;
+
+function schemaEntity(
+	schema: ReportArtifact["schema"],
+	member: string | null
+): SchemaEntity | undefined {
+	// Matches the client accessor to an entity name, case-insensitively.
+	const wanted = member?.toLowerCase();
+	return wanted
+		? schema.entities.find((entity) => entity.name.toLowerCase() === wanted)
+		: undefined;
+}
+
+function ModelChip({
+	entity,
+	member,
+}: {
+	entity: SchemaEntity | undefined;
+	member: string;
+}) {
+	const [open, setOpen] = useState(false);
+	if (!entity) {
+		return (
+			<div className="dc-model" data-empty="1" id="endpoints-model">
+				<span className="dc-model-key">model</span>
+				<span className="dc-model-name">{member}</span>
+				<span className="dc-model-note">not in schema</span>
+			</div>
+		);
+	}
+	return (
+		<>
+			<button
+				aria-expanded={open}
+				className="dc-model"
+				id="endpoints-model"
+				onClick={() => setOpen((prev) => !prev)}
+				type="button"
+			>
+				<span className="dc-model-key">model</span>
+				<span className="dc-model-name">{entity.name}</span>
+				<span className="dc-model-caret">{open ? "\u25be" : "\u25b8"}</span>
+			</button>
+			{open && (
+				<div className="dc-model-body" id="endpoints-model-body">
+					{entity.columns.map((column) => (
+						<div className="dc-model-col" key={column.name}>
+							<span className="dc-model-cn">{column.name}</span>
+							<span className="dc-model-ct">{column.type}</span>
+							{column.isPrimary && <span className="dc-glyph">pk</span>}
+							{column.isUnique && !column.isPrimary && (
+								<span className="dc-glyph">uniq</span>
+							)}
+						</div>
+					))}
+					{entity.relations.map((relation) => (
+						<div
+							className="dc-model-col"
+							data-rel="1"
+							key={`${relation.propertyName}:${relation.toEntity}`}
+						>
+							<span className="dc-model-cn">{relation.propertyName}</span>
+							<span className="dc-model-ct">{`\u2192 ${relation.toEntity}`}</span>
+						</div>
+					))}
+					<button
+						className="dc-model-link"
+						id="endpoints-model-open"
+						onClick={() => {
+							(
+								globalThis as { switchTab?: (name: string) => void }
+							).switchTab?.("schema");
+							openSchemaEntity(entity.name);
+						}}
+						type="button"
+					>
+						{"view in schema \u25b8"}
+					</button>
+				</div>
+			)}
+		</>
+	);
+}
+
+function VisitStrip({
+	endpoint,
+	from,
+	onPage,
+	onPick,
+	step,
+	visits,
+}: {
+	endpoint: DescentEndpoint;
+	from: number;
+	onPage: () => void;
+	onPick: (visit: number) => void;
+	step: number | null;
+	visits: number[];
+}) {
+	if (visits.length < 2) {
+		return null;
+	}
+	const shown = visits.slice(from, from + VISIT_CHIPS);
+	const rest = visits.length - shown.length;
+	return (
+		<div className="dc-visits" id="endpoints-visits">
+			<span className="dc-code-key">visits</span>
+			{shown.map((visit) => {
+				const edge = endpoint.edges[endpoint.walk[visit]?.edge ?? -1];
+				const caller = edge ? endpoint.nodes[edge.from] : undefined;
+				const file = caller?.filePath.split("/").pop() ?? "";
+				return (
+					<button
+						aria-pressed={visit === step}
+						className="dc-visit"
+						key={visit}
+						onClick={() => onPick(visit)}
+						title={edge ? `line ${edge.line} \u00b7 ${file}` : undefined}
+						type="button"
+					>
+						{`@${visit}`}
+					</button>
+				);
+			})}
+			{rest > 0 && (
+				<button
+					className="dc-visit"
+					data-more="1"
+					id="endpoints-visits-more"
+					onClick={onPage}
+					title="show the next visits"
+					type="button"
+				>
+					{`+${rest}`}
+				</button>
+			)}
+		</div>
+	);
+}
+
+function CodePane({
+	endpoint,
+	mode,
+	node,
+	onClose,
+	onMode,
+	onResize,
+	onVisit,
+	report,
+	step,
+}: {
+	endpoint: DescentEndpoint;
+	mode: PaneMode;
+	node: number;
+	onClose: () => void;
+	onMode: (mode: PaneMode) => void;
+	onResize: (width: number) => void;
+	onVisit: (visit: number) => void;
+	report: ReportArtifact;
+	step: number | null;
+}) {
+	const paneRef = useRef<HTMLDivElement>(null);
+	const [page, setPage] = useState(0);
+	const gripRef = useRef<HTMLDivElement>(null);
+	const resize = useLatest(onResize);
+	const close = useLatest(onClose);
+
+	// Drags the pane's width, reported from the pane's own offsetWidth, and
+	// releases the body cursor and selection on release or unmount.
+	useEffect(() => {
+		const grip = gripRef.current;
+		const pane = paneRef.current;
+		if (!(grip && pane)) {
+			return;
+		}
+		let dragging = false;
+		let startX = 0;
+		let startW = 0;
+		const onDown = (e: MouseEvent) => {
+			dragging = true;
+			startX = e.clientX;
+			startW = pane.offsetWidth;
+			grip.classList.add("dragging");
+			document.body.style.cursor = "col-resize";
+			document.body.style.userSelect = "none";
+			e.preventDefault();
+		};
+		const onMove = (e: MouseEvent) => {
+			if (dragging) {
+				resize.current(startW + e.clientX - startX);
+			}
+		};
+		const onUp = () => {
+			if (!dragging) {
+				return;
+			}
+			dragging = false;
+			grip.classList.remove("dragging");
+			document.body.style.cursor = "";
+			document.body.style.userSelect = "";
+		};
+		grip.addEventListener("mousedown", onDown);
+		document.addEventListener("mousemove", onMove);
+		document.addEventListener("mouseup", onUp);
+		return () => {
+			onUp();
+			grip.removeEventListener("mousedown", onDown);
+			document.removeEventListener("mousemove", onMove);
+			document.removeEventListener("mouseup", onUp);
+		};
+	}, [resize]);
+
+	useEffect(() => {
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key === "Escape") {
+				close.current();
+			}
+		};
+		document.addEventListener("keydown", onKey);
+		return () => document.removeEventListener("keydown", onKey);
+	}, [close]);
+
+	const own = endpoint.nodes[node] as DescentNode;
+	const sources = report.sources ?? {};
+	const visits = endpoint.stepsOf[node] ?? [];
+
+	// Falls back to the declaration when the wanted target has no source.
+	const wanted = paneTarget(endpoint, node, step, mode);
+	const declined = paneTarget(endpoint, node, step, "decl");
+	let target = wanted;
+	if (!(wanted && sources[wanted.file]) && declined && sources[declined.file]) {
+		target = declined;
+	}
+	const shown = target ? endpoint.nodes[target.shownNode] : undefined;
+	const source = target ? sources[target.file] : undefined;
+
+	const range = target?.range;
+	const rangeLines = range
+		? Array.from({ length: range[1] - range[0] + 1 }, (_, i) => range[0] + i)
+		: [];
+	const hit = target?.callLine ?? null;
+	// The call line leads and appears once; the viewer scrolls to the first.
+	const highlightLines =
+		hit === null
+			? rangeLines
+			: [hit, ...rangeLines.filter((line) => line !== hit)];
+
+	const canToggle = Boolean(sources[own.filePath]) && own.dbOp === null;
+	const calleeTag = own.dbOp
+		? `db ${own.dbOp}`
+		: (EFF_TAG[own.effect] || KIND_TAG[own.kind] || own.kind).toLowerCase();
+	const path = target ? relativeTo(report.root, target.file) : "";
+
+	return (
+		<div className="dc-code" ref={paneRef}>
+			<div className="dc-code-head">
+				<div className="dc-code-top">
+					<div className="dc-code-path" title={target?.file}>
+						{midTruncate(path)}
+					</div>
+					<TextButton
+						classes="dc-code-back"
+						id="endpoints-code-back"
+						onClick={onClose}
+					>
+						{"\u25c2 ROUTES"}
+					</TextButton>
+				</div>
+				<div className="dc-code-name">
+					<span className="dc-code-cls">{shown?.className || "\u0192"}</span>
+					<span className="dc-code-m">
+						{shown ? `#${methodText(shown)}` : ""}
+					</span>
+				</div>
+				{hit !== null && (
+					<div className="dc-code-callee" id="endpoints-callee">
+						<span className="dc-code-arrow">{"\u2192"}</span>
+						<span className="dc-code-callee-n">
+							{`${own.className || "\u0192"}.${methodText(own)}`}
+						</span>
+						<span
+							className="dc-tag"
+							data-eff={own.effect === "plain" ? undefined : own.effect}
+						>
+							{calleeTag}
+						</span>
+					</div>
+				)}
+				<VisitStrip
+					endpoint={endpoint}
+					from={page}
+					onPage={() =>
+						setPage((prev) =>
+							prev + VISIT_CHIPS >= visits.length ? 0 : prev + VISIT_CHIPS
+						)
+					}
+					onPick={onVisit}
+					step={step}
+					visits={visits}
+				/>
+				{canToggle && (
+					<div className="dc-code-modes" id="endpoints-modes">
+						<button
+							aria-pressed={mode === "decl"}
+							className="dc-visit"
+							id="endpoints-mode-decl"
+							onClick={() => onMode("decl")}
+							type="button"
+						>
+							decl
+						</button>
+						<button
+							aria-pressed={mode === "call"}
+							className="dc-visit"
+							id="endpoints-mode-call"
+							onClick={() => onMode("call")}
+							type="button"
+						>
+							call
+						</button>
+					</div>
+				)}
+			</div>
+			{own.dbOp !== null && (
+				<ModelChip
+					entity={schemaEntity(report.schema, own.member)}
+					member={own.member ?? own.methodName}
+				/>
+			)}
+			<div className="dc-code-body" id="endpoints-code-body">
+				{source ? (
+					<>
+						{highlightLines.length === 0 && (
+							<div className="dc-code-note" id="endpoints-code-note">
+								no declaration range for this node
+							</div>
+						)}
+						<CodeViewer
+							code={source}
+							options={{
+								firstLineNumber: 1,
+								highlightLines,
+								hitLines: hit === null ? [] : [hit],
+							}}
+						/>
+					</>
+				) : (
+					<div className="dc-code-none" id="endpoints-code-none">
+						<b>{relativeTo(report.root, own.filePath) || "this node"}</b>
+						{shown
+							? `${shown.className || "This function"}'s source is not in this report.`
+							: "The source of this file is not in this report."}
+						{
+							" It sits outside the scan, or the report was written with --sources none."
+						}
+					</div>
+				)}
+			</div>
+			<div className="dc-code-grip" id="endpoints-code-grip" ref={gripRef} />
+		</div>
+	);
 }
 
 function DepthCard({
@@ -99,13 +556,15 @@ function DepthCard({
 	live,
 	onPick,
 	refFor,
+	selected,
 	shown,
 }: {
 	endpoint: DescentEndpoint;
 	index: number;
 	live: boolean;
-	onPick: (step: number) => void;
+	onPick: (node: number) => void;
 	refFor: (el: HTMLButtonElement | null) => void;
+	selected: boolean;
 	shown: boolean;
 }) {
 	const node = endpoint.nodes[index];
@@ -124,12 +583,9 @@ function DepthCard({
 			className="dc-card"
 			data-dimmed={shown ? "0" : "1"}
 			data-entry={isEntry ? "1" : undefined}
+			data-sel={selected ? "1" : undefined}
 			data-step={live ? "1" : "0"}
-			onClick={() => {
-				if (steps.length > 0) {
-					onPick(steps[0] as number);
-				}
-			}}
+			onClick={() => onPick(index)}
 			ref={refFor}
 			title={`${node.label}  ·  ${node.filePath}`}
 			type="button"
@@ -139,9 +595,7 @@ function DepthCard({
 				<span className="dc-card-d">d{node.depth}</span>
 			</span>
 			<span className="dc-card-l2">
-				<span className="dc-card-m">
-					{node.member ? `${node.member}.${node.methodName}` : node.methodName}
-				</span>
+				<span className="dc-card-m">{methodText(node)}</span>
 				<span
 					className="dc-tag"
 					data-eff={node.effect === "plain" ? undefined : node.effect}
@@ -163,21 +617,20 @@ function DepthMap({
 	kept,
 	live,
 	onPick,
+	selected,
 }: {
 	endpoint: DescentEndpoint;
 	kept: boolean[];
 	live: number | null;
-	onPick: (step: number) => void;
+	onPick: (node: number) => void;
+	selected: number | null;
 }) {
 	const mapRef = useRef<HTMLDivElement>(null);
 	const colsRef = useRef<HTMLDivElement>(null);
 	const cardRefs = useRef<(HTMLButtonElement | null)[]>([]);
-	const [wires, setWires] = useState<{
-		height: number;
-		padBottom: number;
-		width: number;
-		wires: Wire[];
-	} | null>(null);
+	const [wires, setWires] = useState<(WireLayout & { width: number }) | null>(
+		null
+	);
 
 	useLayoutEffect(() => {
 		const measure = () => {
@@ -212,11 +665,9 @@ function DepthMap({
 	const liveEdge = live === null ? -1 : (endpoint.walk[live]?.edge ?? -1);
 	const liveNode = live === null ? -1 : (endpoint.walk[live]?.node ?? -1);
 
-	// The lit card has to be on screen before the pile's ghost reads its rect,
-	// and the jump has to be instant or the flight starts from the old spot.
-	useEffect(() => {
+	const reveal = useLatest((index: number) => {
 		const map = mapRef.current;
-		const card = cardRefs.current[liveNode];
+		const card = cardRefs.current[index];
 		if (!(map && card)) {
 			return;
 		}
@@ -228,7 +679,19 @@ function DepthMap({
 		if (rect.left < box.left + 4 || rect.right > box.right - 4) {
 			map.scrollLeft += rect.left - box.left - (box.width - rect.width) / 2;
 		}
-	}, [liveNode]);
+	});
+
+	// Scrolls the playhead's card into view, without animating the jump.
+	useEffect(() => {
+		reveal.current(liveNode);
+	}, [liveNode, reveal]);
+
+	// Scrolls the selected card into view.
+	useEffect(() => {
+		if (selected !== null) {
+			reveal.current(selected);
+		}
+	}, [selected, reveal]);
 
 	return (
 		<div className="dc-map" ref={mapRef}>
@@ -249,6 +712,12 @@ function DepthMap({
 						{wires.wires.map((wire) => {
 							const eff = wire.effect === "plain" ? undefined : wire.effect;
 							const isLive = wire.edge === liveEdge ? "1" : undefined;
+							const edge = endpoint.edges[wire.edge];
+							const isSel =
+								selected !== null &&
+								(edge?.from === selected || edge?.to === selected)
+									? "1"
+									: undefined;
 							return (
 								<g key={wire.edge}>
 									<path
@@ -256,6 +725,7 @@ function DepthMap({
 										d={wire.path}
 										data-eff={eff}
 										data-live={isLive}
+										data-sel={isSel}
 										strokeDasharray={wire.dash}
 									/>
 									{wire.twin && (
@@ -264,6 +734,7 @@ function DepthMap({
 											d={wire.path}
 											data-eff={eff}
 											data-live={isLive}
+											data-sel={isSel}
 											strokeDasharray={wire.dash}
 											transform="translate(0,2.4)"
 										/>
@@ -273,6 +744,7 @@ function DepthMap({
 										d="M0 0 L-7 -3.4 L-7 3.4 Z"
 										data-eff={eff}
 										data-live={isLive}
+										data-sel={isSel}
 										transform={wire.head}
 									/>
 								</g>
@@ -298,6 +770,7 @@ function DepthMap({
 								refFor={(el) => {
 									cardRefs.current[index] = el;
 								}}
+								selected={index === selected}
 								shown={liveNodes.has(index)}
 							/>
 						))}
@@ -321,15 +794,12 @@ function BlockFace({
 		return null;
 	}
 	const effect = node.effect === "plain" ? undefined : node.effect;
-	const flags = stepFlags(endpoint, walkStep);
+	const flags = blockFlags(endpoint, walkStep);
 	return (
 		<>
-			<span className="dc-block-l1">
-				<span className="dc-block-cls">{node.label}</span>
-				<span className="dc-block-at">d{walkStep.depth}</span>
-				<span className="dc-block-at">@{step}</span>
-			</span>
+			<span className="dc-block-m">{methodText(node)}</span>
 			<span className="dc-block-l2">
+				<span className="dc-block-cls">{node.className || "ƒ"}</span>
 				<span className="dc-block-kind">
 					{KIND_TAG[node.kind] ?? node.kind}
 				</span>
@@ -338,13 +808,18 @@ function BlockFace({
 						{EFF_TAG[node.effect]}
 					</span>
 				)}
-				{node.dbOp && <span className="dc-glyph">db {node.dbOp}</span>}
-				{flags.map((flag) => (
-					<span className="dc-glyph" key={flag}>
-						{flag}
-					</span>
-				))}
+				<span className="dc-block-at dc-block-d">d{walkStep.depth}</span>
+				<span className="dc-block-at">@{step}</span>
 			</span>
+			{flags.length > 0 && (
+				<span className="dc-block-flags">
+					{flags.map((flag) => (
+						<span className="dc-glyph" key={flag}>
+							{flag}
+						</span>
+					))}
+				</span>
+			)}
 		</>
 	);
 }
@@ -352,51 +827,89 @@ function BlockFace({
 function ExecutionPile({
 	endpoint,
 	kept,
-	onPick,
+	onSeek,
+	onSelect,
 	play,
+	selected,
 	speed,
 }: {
 	endpoint: DescentEndpoint;
 	kept: boolean[];
-	onPick: (step: number) => void;
+	onSeek: (step: number) => void;
+	onSelect: (step: number) => void;
 	play: PlayState;
+	selected: number | null;
 	speed: number;
 }) {
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const topRef = useRef<HTMLButtonElement>(null);
 	const [viewH, setViewH] = useState(400);
+	const [box, setBox] = useState({ charW: 0, innerW: 0 });
 	const [scrollTop, setScrollTop] = useState(0);
 
+	// Re-measures the block face and the column off the scroller on any resize.
 	useLayoutEffect(() => {
 		const el = scrollRef.current;
 		if (!el) {
 			return;
 		}
-		const measure = () => setViewH(el.clientHeight || 400);
+		const measure = () => {
+			setViewH(el.clientHeight || 400);
+			const probe = document.createElement("div");
+			probe.className = "dc-block";
+			probe.style.cssText = "visibility:hidden;height:0";
+			const face = document.createElement("span");
+			face.className = "dc-block-m";
+			face.style.cssText = "position:absolute;white-space:pre";
+			face.textContent = "0".repeat(40);
+			probe.append(face);
+			el.append(probe);
+			const pad = getComputedStyle(probe);
+			setBox({
+				charW: face.offsetWidth / 40,
+				innerW:
+					probe.clientWidth -
+					(Number.parseFloat(pad.paddingLeft) || 0) -
+					(Number.parseFloat(pad.paddingRight) || 0),
+			});
+			probe.remove();
+		};
 		measure();
-		window.addEventListener("resize", measure);
-		return () => window.removeEventListener("resize", measure);
+		if (typeof ResizeObserver !== "function") {
+			window.addEventListener("resize", measure);
+			return () => window.removeEventListener("resize", measure);
+		}
+		const observer = new ResizeObserver(measure);
+		observer.observe(el);
+		return () => observer.disconnect();
 	}, []);
 
 	const items = useMemo(
 		() => (play.step === null ? [] : pileItems(kept, play.step)),
 		[kept, play.step]
 	);
+	const heights = useMemo(
+		() =>
+			items.map((item) =>
+				item.hidden
+					? DIV_H
+					: blockHeight(endpoint, item.step as number, box.charW, box.innerW)
+			),
+		[box.charW, box.innerW, endpoint, items]
+	);
 	const offsets = useMemo(() => {
 		const out = [0];
-		for (const item of items) {
-			out.push((out.at(-1) as number) + (item.hidden ? DIV_H : PITCH));
+		for (const height of heights) {
+			out.push((out.at(-1) as number) + height + GAP);
 		}
 		return out;
-	}, [items]);
+	}, [heights]);
 
-	const total =
-		(offsets.at(-1) as number) - (items.length > 0 ? PITCH - BLOCK_H : 0);
+	const total = (offsets.at(-1) as number) - (items.length > 0 ? GAP : 0);
 	const pad = Math.max(0, viewH - total);
 	const mode = motionMode(speed);
 
-	// The pile keeps every step, so only the rows near the scroll port render.
-	// ponytail: linear scan over the offsets; a binary search if it ever drags.
+	// The first and last rows inside the scroll port, so only those render.
 	const from = Math.max(
 		0,
 		offsets.findIndex((off) => off >= scrollTop - pad) - 2
@@ -409,17 +922,15 @@ function ExecutionPile({
 		}
 	}
 
-	// The block that takes the weight is the next block, not the next row:
-	// under a filter the row below the top is often a hidden-run divider.
+	// The first row below the top that is a block, not a hidden-run divider.
 	const underIndex = items.findIndex(
 		(item, index) => index > 0 && item.step !== undefined
 	);
 
-	// The ghost flies from the lit card to the slot, unclipped by the scroller.
+	// Clones the top block onto the body and flies it in from the lit card.
 	useEffect(() => {
 		const block = topRef.current;
-		// A hidden tab never ticks a CSS animation, so animationend never fires
-		// and the ghost would sit on the page for good.
+		// A hidden tab never ticks a CSS animation, so animationend never fires.
 		if (!(play.push && mode === "fly" && block) || document.hidden) {
 			return;
 		}
@@ -456,9 +967,7 @@ function ExecutionPile({
 		return () => ghost.remove();
 	}, [mode, play.push, play.step]);
 
-	const dbSteps = endpoint.walk.filter(
-		(step) => endpoint.nodes[step.node]?.dbOp
-	).length;
+	const dbSteps = dbStepCount(endpoint);
 
 	return (
 		<>
@@ -505,16 +1014,20 @@ function ExecutionPile({
 						]
 							.filter(Boolean)
 							.join(" ");
-						const effect = effectOf(endpoint, endpoint.walk[step] as never);
+						const effect = effectOf(
+							endpoint,
+							endpoint.walk[step] as DescentStep
+						);
 						return (
 							<button
 								className={classes}
 								data-eff={effect === "plain" ? undefined : effect}
+								data-sel={step === selected ? "1" : undefined}
 								data-top={isTop ? "1" : undefined}
 								key={isTop || isUnder ? `${step}:${play.step}` : step}
-								onClick={() => onPick(step)}
+								onClick={() => onSelect(step)}
 								ref={isTop ? topRef : undefined}
-								style={{ top }}
+								style={{ height: heights[index], top }}
 								type="button"
 							>
 								<BlockFace endpoint={endpoint} step={step} />
@@ -533,7 +1046,7 @@ function ExecutionPile({
 								className="dc-step-row"
 								data-step={play.step === index ? "1" : "0"}
 								key={`${index}:${node?.id}`}
-								onClick={() => onPick(index)}
+								onClick={() => onSeek(index)}
 								type="button"
 							>
 								<span className="dc-step-n">{index}</span>
@@ -701,28 +1214,30 @@ export function EndpointsTab({ report }: { report: ReportArtifact }) {
 	);
 	const [selected, setSelected] = useState(0);
 	const [sideHidden, setSideHidden] = useState(false);
-	const [presetIndex, setPresetIndex] = useState(0);
-	const [filter, setFilter] = useState<FilterState>(() => presetState(0));
+	const [sourceTarget, setSourceTarget] = useState<Selection | null>(null);
+	const [codeWidth, setCodeWidth] = useState(readWidth);
+	const [presetIndex, setPresetIndex] = useState(ALL_PRESET);
+	const [filter, setFilter] = useState<FilterState>(() =>
+		presetState(ALL_PRESET)
+	);
 	const [showCats, setShowCats] = useState(false);
 	const [play, setPlay] = useState<PlayState>({ push: false, step: null });
 	const [playing, setPlaying] = useState(false);
 	const [speed, setSpeed] = useState(1);
 
 	const endpoint = endpoints[selected];
+	const keptList = useMemo(
+		() => (endpoint ? keptSteps(endpoint, filter) : []),
+		[endpoint, filter]
+	);
+	// The same steps as flags indexed by walk position.
 	const kept = useMemo(() => {
-		if (!endpoint) {
-			return [] as boolean[];
-		}
-		const flags = new Array<boolean>(endpoint.walk.length).fill(false);
-		for (const index of keptSteps(endpoint, filter)) {
+		const flags = new Array<boolean>(endpoint?.walk.length ?? 0).fill(false);
+		for (const index of keptList) {
 			flags[index] = true;
 		}
 		return flags;
-	}, [endpoint, filter]);
-	const keptList = useMemo(
-		() => kept.flatMap((on, index) => (on ? [index] : [])),
-		[kept]
-	);
+	}, [endpoint, keptList]);
 	const counts = useMemo(
 		() =>
 			endpoint
@@ -733,8 +1248,34 @@ export function EndpointsTab({ report }: { report: ReportArtifact }) {
 
 	const goTo = (step: number | null, push: boolean) => setPlay({ push, step });
 
-	// Reads the step off the previous state, so presses faster than a render
-	// each move one step instead of all landing on the same one.
+	// Selects a node for the code pane, leaving the playhead where it is.
+	const select = (node: number, step?: number) => {
+		setPlaying(false);
+		track("endpoint_code_opened");
+		const target = endpoint?.nodes[node];
+		setSourceTarget({
+			mode: target ? defaultPaneMode(target) : "decl",
+			node,
+			step: endpoint ? resolveVisit(endpoint, node, step, play.step) : null,
+		});
+	};
+
+	// Moves the playhead to one step and selects the node it lands on.
+	const seekTo = (step: number) => {
+		goTo(step, false);
+		select(endpoint?.walk[step]?.node ?? 0, step);
+	};
+
+	const resizeCode = (width: number) => {
+		const ceiling = Math.max(window.innerWidth * 0.72, CODE_MIN);
+		setCodeWidth(Math.round(Math.min(Math.max(width, CODE_MIN), ceiling)));
+	};
+
+	useEffect(() => {
+		storeWidth(codeWidth);
+	}, [codeWidth]);
+
+	// Reads the step off the previous state, so queued presses each move one.
 	const stepBy = (direction: 1 | -1) => {
 		if (keptList.length === 0) {
 			setPlaying(false);
@@ -760,14 +1301,25 @@ export function EndpointsTab({ report }: { report: ReportArtifact }) {
 		});
 	};
 
-	// The walk has run out: the playhead stops itself rather than ticking on.
+	// Re-applies the default preset whenever the selected route changes.
+	useEffect(() => {
+		const chosen = endpoints[selected];
+		if (!chosen) {
+			return;
+		}
+		const index = defaultPreset(chosen);
+		setPresetIndex(index);
+		setFilter(presetState(index));
+	}, [endpoints, selected]);
+
+	// Stops playing once the playhead reaches the last kept step.
 	useEffect(() => {
 		if (playing && play.step !== null && play.step >= (keptList.at(-1) ?? -1)) {
 			setPlaying(false);
 		}
 	}, [keptList, play.step, playing]);
 
-	// The page's one timer: the playhead. No setTimeout, no animation frame.
+	// The playhead's timer, ticking at `BASE_INTERVAL` over the chosen speed.
 	const advance = useLatest(() => stepBy(1));
 	useEffect(() => {
 		if (!playing) {
@@ -807,24 +1359,64 @@ export function EndpointsTab({ report }: { report: ReportArtifact }) {
 
 	const current = play.step === null ? null : endpoint.walk[play.step];
 	const currentNode = current ? endpoint.nodes[current.node] : undefined;
-	const viewClasses = ["dc-view", sideHidden ? "dc-side-hidden" : undefined]
+	const currentFlags = current ? stepFlags(endpoint, current) : [];
+	const sourceNode =
+		sourceTarget === null ? undefined : endpoint.nodes[sourceTarget.node];
+	const railHidden = sideHidden && !sourceNode;
+	const viewClasses = ["dc-view", railHidden ? "dc-side-hidden" : undefined]
 		.filter(Boolean)
 		.join(" ");
+	// Widens the first column to the code pane's width and shrinks the pile.
+	const viewStyle = sourceNode
+		? {
+				gridTemplateColumns: `min(${codeWidth}px, var(--dc-code-max)) minmax(0, 1fr) var(--dc-code-pile)`,
+			}
+		: undefined;
+	const dbSteps = dbStepCount(endpoint);
+	const steps = `${endpoint.walk.length} step${endpoint.walk.length === 1 ? "" : "s"}`;
+	let defaultNote = `default: all — ${steps}`;
+	if (defaultPreset(endpoint) === DATABASE_PRESET) {
+		defaultNote = `default: database — ${steps}, ${dbSteps} db`;
+	} else if (dbSteps === 0 && endpoint.walk.length > 1) {
+		defaultNote = `default: all — ${steps}, no db`;
+	}
 	const disabled = keptList.length === 0;
 
 	return (
-		<div className={viewClasses}>
-			<div id="endpoints-sidebar">
-				<RouteRail
-					endpoints={endpoints}
-					onHide={() => setSideHidden(true)}
-					onSelect={(index) => {
-						setSelected(index);
-						setPlay({ push: false, step: null });
-						setPlaying(false);
-					}}
-					selected={selected}
-				/>
+		<div className={viewClasses} style={viewStyle}>
+			<div data-code={sourceNode ? "1" : undefined} id="endpoints-sidebar">
+				{sourceNode ? (
+					<CodePane
+						endpoint={endpoint}
+						key={sourceTarget?.node}
+						mode={sourceTarget?.mode ?? "decl"}
+						node={sourceTarget?.node ?? 0}
+						onClose={() => setSourceTarget(null)}
+						onMode={(mode) =>
+							setSourceTarget((prev) => (prev ? { ...prev, mode } : prev))
+						}
+						onResize={resizeCode}
+						onVisit={(visit) =>
+							setSourceTarget((prev) =>
+								prev ? { ...prev, step: visit } : prev
+							)
+						}
+						report={report}
+						step={sourceTarget?.step ?? null}
+					/>
+				) : (
+					<RouteRail
+						endpoints={endpoints}
+						onHide={() => setSideHidden(true)}
+						onSelect={(index) => {
+							setSelected(index);
+							setSourceTarget(null);
+							setPlay({ push: false, step: null });
+							setPlaying(false);
+						}}
+						selected={selected}
+					/>
+				)}
 			</div>
 			<div id="endpoints-main">
 				{sideHidden && (
@@ -890,6 +1482,9 @@ export function EndpointsTab({ report }: { report: ReportArtifact }) {
 						>
 							⋯
 						</button>
+						<span className="dc-verdict-counts" id="endpoints-default-note">
+							{defaultNote}
+						</span>
 						<span className="dc-verdict-counts">
 							{`${keptList.length} of ${endpoint.walk.length} steps kept`}
 						</span>
@@ -993,8 +1588,8 @@ export function EndpointsTab({ report }: { report: ReportArtifact }) {
 							) : (
 								`press Play to walk ${endpoint.walk.length} steps in execution order`
 							)}
-							{current && stepFlags(endpoint, current).length > 0
-								? `  ·  ${stepFlags(endpoint, current).join(" · ")}`
+							{currentFlags.length > 0
+								? `  ·  ${currentFlags.join(" · ")}`
 								: ""}
 						</span>
 						<span className="dc-speed">
@@ -1036,10 +1631,8 @@ export function EndpointsTab({ report }: { report: ReportArtifact }) {
 						endpoint={endpoint}
 						kept={kept}
 						live={play.step}
-						onPick={(step) => {
-							setPlaying(false);
-							goTo(step, false);
-						}}
+						onPick={select}
+						selected={sourceTarget?.node ?? null}
 					/>
 				</div>
 			</div>
@@ -1047,11 +1640,12 @@ export function EndpointsTab({ report }: { report: ReportArtifact }) {
 				<ExecutionPile
 					endpoint={endpoint}
 					kept={kept}
-					onPick={(step) => {
-						setPlaying(false);
-						goTo(step, false);
-					}}
+					onSeek={seekTo}
+					onSelect={(step) =>
+						select((endpoint.walk[step] as DescentStep).node, step)
+					}
 					play={play}
+					selected={sourceTarget?.step ?? null}
 					speed={speed}
 				/>
 			</div>

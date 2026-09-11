@@ -71,6 +71,12 @@ export function collectScanFacts(input: ScanFactsInput): {
 	};
 }
 
+const BACKSLASH_RE = /\\/g;
+const TRAILING_SLASH_RE = /\/+$/;
+
+const toPosix = (value: string): string =>
+	value.replace(BACKSLASH_RE, "/").replace(TRAILING_SLASH_RE, "");
+
 function readSources(paths: string[]): Record<string, string> {
 	const sources: Record<string, string> = {};
 	for (const filePath of paths) {
@@ -151,6 +157,7 @@ export function buildReportArtifact(
 		elapsedMs: input.result.elapsedMs,
 		graph,
 		providers: input.providers ?? [],
+		...(input.targetPath ? { root: toPosix(input.targetPath) } : {}),
 		endpoints: input.result.endpoints ?? { endpoints: [] },
 		schema: input.result.schema ?? EMPTY_SCHEMA,
 		examples: getRuleExamples(),

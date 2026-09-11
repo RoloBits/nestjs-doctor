@@ -154,4 +154,45 @@ describe("share payload", () => {
 		expect(withCode.includeCode).toBe(true);
 		expect(withCode.schema).toEqual({ entities: [] });
 	});
+
+	it("ships the code graph, paths relative to the root, with the endpoints section", () => {
+		const withEndpoints = { ...share, endpoints: [{ routePath: "/a" }] };
+		const codeGraph = {
+			edges: [],
+			entries: [],
+			files: ["/repo/src/a.ts", "/elsewhere/b.ts", "@nestjs/common"],
+			nodes: [],
+			version: 1 as const,
+		};
+		const graph = { codeGraph, root: "/repo" };
+		const out = buildSharedJson(
+			withEndpoints,
+			"nestjs-doctor",
+			false,
+			["endpoints"],
+			graph
+		) as Record<string, unknown>;
+		expect(out.codeGraph).toEqual({
+			...codeGraph,
+			files: ["src/a.ts", "../elsewhere/b.ts", "@nestjs/common"],
+		});
+		expect(out.root).toBeUndefined();
+		expect(JSON.stringify(out)).not.toContain("/repo");
+
+		const scoreOnly = buildSharedJson(
+			withEndpoints,
+			"nestjs-doctor",
+			false,
+			["score"],
+			graph
+		) as Record<string, unknown>;
+		expect(scoreOnly.codeGraph).toBeUndefined();
+
+		const noGraph = buildSharedJson(withEndpoints, "nestjs-doctor", false, [
+			"endpoints",
+		]) as Record<string, unknown>;
+		expect(noGraph.endpoints).toBeDefined();
+		expect(noGraph.codeGraph).toBeUndefined();
+		expect(noGraph.root).toBeUndefined();
+	});
 });

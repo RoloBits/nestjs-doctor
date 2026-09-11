@@ -43,13 +43,24 @@ works, including the schema diagram's layout.
 | Rule Lab | A playground for writing a custom rule against your own code |
 
 Endpoints and Relational Schema stay hidden until there is data. A project with
-no controllers and no ORM entities sees four tabs. Endpoints also needs the code
-graph, which only `--report` and `--format report-json` build, so a report saved
-before those carried one loses the tab. The Endpoints tab is badged `Beta`.
+no controllers and no ORM entities sees four tabs. The Endpoints tab is badged
+`Beta`.
+
+Endpoints also needs the code graph, and not every run builds one:
+
+| Run | Builds the code graph |
+|---|---|
+| `--report` | Yes |
+| `--format report-json` | Yes |
+| A console run that ends in the post-scan menu | Yes |
+| Anything else, CI included | No |
+
+A report file written before the code graph shipped has no Endpoints tab when
+you open it at [nestjs.doctor/report](/report).
 
 A **share** button in the nav picks sections of the report and downloads them
 as JSON. The scan precomputes every slice, so the page only merges what you
-tick. The file opens in the browser at [nestjs.doctor/report](/report), and
+tick and adds the code graph with its paths made relative. The file opens in the browser at [nestjs.doctor/report](/report), and
 so does the full `--format report-json` artifact. See
 [Sharing a report](/docs/report/share).
 
@@ -76,15 +87,18 @@ load its walk.
 
 The map lays every method the route reaches into a column by call depth. One
 card is one method. One wire is one call site, so a method called twice from
-the same body draws two wires. Color says what the callee does: read, write,
-throw, external, or gray for the rest. A dashed wire is a conditional call
-site, and a doubled wire is a concurrent one. A call back to an equal or
-shallower depth routes through the lanes under the last row, so no wire
-crosses a card.
+the same body draws two wires.
+
+Color says what the callee does: read, write, throw, external, or gray for the
+rest. Every wire draws dashed, and a conditional call site uses a longer dash
+than a plain one. A doubled wire marks a concurrent call site.
+
+A call back to an equal or shallower depth draws a short dash and routes
+through the lanes under the last row, so no wire crosses a card.
 
 **Next** and **Play** step the walk. Each step lights its card and drops a
-block on the pile at the right. Blocks are never removed, so the pile is the
-route's history up to the step you are on.
+block on the pile at the right. The pile is the route's history up to the step
+you are on, so **Prev** and **Reset** shrink it again.
 
 The walk is source order of call sites, depth first from the handler. It is
 not a runtime trace. The walk emits a callee already on the current path as a
@@ -102,9 +116,20 @@ direction comes from the ORM method name:
 | `create`, `update`, `upsert`, `delete` | write |
 | anything else | other, counted as neither |
 
-A route that reaches no such node reads `no db node on this path`. That is not
-a claim the route touches no database. A driver the scan did not classify as
-`db` is invisible to this line, so read it as what the graph can see.
+The line takes one of six forms:
+
+| Verdict | Means |
+|---|---|
+| `read before write · @2 then @5` | Both directions ran, the read first |
+| `write before read · @2 then @5` | Both directions ran, the write first |
+| `read @2, no write` | Reads only |
+| `write @2, no read` | Writes only |
+| `db calls, direction unclassified` | Every `db` node on the path fell into `other` |
+| `no db node on this path` | The walk reached no `db` node at all |
+
+`no db node on this path` is not a claim that the route touches no database. A
+driver the scan did not classify as `db` is invisible to this line, so read it
+as what the graph can see.
 
 ### Filters
 
@@ -119,12 +144,23 @@ steps never reorders the ones that stay:
 | no logs | everything except log, warn and error |
 | database | only the steps that land on a `db` node |
 
-The `⋯` button opens one chip per category, each with its own count.
+Each route opens on the preset that fits its walk. A walk under seven steps
+opens on `all`. A longer one opens on `database`, unless it reaches no `db`
+node, which opens on `all` too.
+
+The preset row prints which one is in force and the counts it used.
+
+The `⋯` button opens eight more chips, one per step category, each with its own
+count. Two more chips follow, `guard` and `db`. Those two are overlays: they add
+the steps they name on top of whatever the categories keep, rather than
+narrowing the set further.
 
 Every step carries the marks of its own call site:
 
 | Mark | Means |
 |---|---|
+| `rec` | the callee is already on the current path, so the walk emits it and stops |
+| `again` | the walk reached this node earlier, and this call site is not recursive |
 | `not awaited` | the call site has no `await` |
 | `cond` | the call site sits inside a branch |
 | `try` | the call site sits inside a `try` block |
@@ -132,7 +168,6 @@ Every step carries the marks of its own call site:
 | `‖` | a `Promise.all` collects the promise |
 | `loop` | the call site sits inside a loop |
 | `cb` | the call site sits inside a callback |
-| `again` | the walk already passed this node, at another moment |
 
 Read `not awaited` narrowly. It covers `return svc.foo()`, a fire-and-forget
 call, and a promise collected by `Promise.all`. The graph cannot tell those

@@ -691,9 +691,8 @@ export class SingleProjectPipeline extends ScanPipeline {
 	get reportArtifact(): ReportArtifact {
 		if (!this.cachedArtifact) {
 			const { moduleGraph, files, result } = this.result;
-			// `--share-sections modules` reads only the module graph, so the code
-			// graph is left unbuilt for it. A worker scan leaves no context behind,
-			// and sends the graph back encoded instead.
+			// A worker scan leaves no context behind and sends the graph back
+			// encoded; otherwise it is built here when something reads it.
 			const codeGraph =
 				this.encodedCodeGraph ??
 				(this.wantsArtifact && this.context

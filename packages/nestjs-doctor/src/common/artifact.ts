@@ -102,6 +102,11 @@ export interface ReportArtifact {
 	monorepo: boolean;
 	project: ProjectInfo;
 	providers: ReportProvider[];
+	/**
+	 * Where the scan ran, posix and without a trailing slash. Every path in this
+	 * artifact outside `share` is absolute; `share` paths are relative to it.
+	 */
+	root?: string;
 	ruleErrors: RuleErrorInfo[];
 	schema: SerializedSchemaGraph;
 	schemaVersion: typeof REPORT_ARTIFACT_VERSION;
