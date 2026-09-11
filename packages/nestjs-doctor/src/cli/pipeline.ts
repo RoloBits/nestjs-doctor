@@ -1,7 +1,10 @@
 import { performance } from "node:perf_hooks";
 import type { ReportArtifact, ReportProvider } from "../common/artifact.js";
 import type { CodeGraph } from "../common/code-graph.js";
-import { encodeCodeGraph } from "../common/code-graph-codec.js";
+import {
+	type EncodedCodeGraph,
+	encodeCodeGraph,
+} from "../common/code-graph-codec.js";
 import type { Diagnostic } from "../common/diagnostic.js";
 import type { DiagnoseResult } from "../common/result.js";
 import { codeGraphFor } from "../engine/analysis-context.js";
@@ -422,16 +425,27 @@ export class MonorepoPipeline extends ScanPipeline {
 	private readonly suppressedInline: Record<string, number> = {};
 	/** Kept only when something downstream will ask for the report artifact. */
 	private readonly codeGraphs: CodeGraph[] = [];
+	/** Set when the scan ran in a worker, which encodes the graph there. */
+	private encodedCodeGraph: EncodedCodeGraph | undefined;
 
 	/** Whether anything downstream reads the report artifact. */
 	private get wantsArtifact(): boolean {
-		return this.options.interactive || this.options.format === "report-json";
+		return (
+			this.options.interactive ||
+			this.options.format === "report-json" ||
+			this.options.wantsCodeGraph === true
+		);
 	}
 
 	/** The scan as one serializable document, built once on demand. */
 	get reportArtifact(): ReportArtifact {
 		if (!this.cachedArtifact) {
 			const { moduleGraphs, result } = this.result;
+			const codeGraph =
+				this.encodedCodeGraph ??
+				(this.codeGraphs.length > 0
+					? encodeCodeGraph(mergeCodeGraphs(this.codeGraphs))
+					: undefined);
 			this.cachedArtifact = buildReportArtifact({
 				targetPath: this.targetPath,
 				moduleGraph: mergeModuleGraphs(moduleGraphs),
@@ -440,9 +454,7 @@ export class MonorepoPipeline extends ScanPipeline {
 				files: this.allFiles,
 				providers: this.allProviders,
 				bootstrapRoots: this.bootstrapRoots,
-				...(this.codeGraphs.length > 0
-					? { codeGraph: encodeCodeGraph(mergeCodeGraphs(this.codeGraphs)) }
-					: {}),
+				...(codeGraph ? { codeGraph } : {}),
 				monorepo: true,
 				scanId: this.options.scanId,
 				sources: this.options.sources,
@@ -568,12 +580,14 @@ export class MonorepoPipeline extends ScanPipeline {
 				options: toScanOptions(this.options),
 				monorepo: this.monorepo,
 				version: getCliVersion(),
+				wantsCodeGraph: true,
 			},
 			(outcome) => {
 				if (outcome.kind !== "monorepo") {
 					throw new Error("unexpected scan outcome");
 				}
 				this.workerWarnings = outcome.customRuleWarnings;
+				this.encodedCodeGraph = outcome.codeGraph;
 				this.result = {
 					customRuleWarnings: outcome.customRuleWarnings,
 					moduleGraphs: outcome.moduleGraphs,
@@ -594,6 +608,9 @@ export class MonorepoPipeline extends ScanPipeline {
 	get workerOutcome(): ScanOutcome {
 		return {
 			kind: "monorepo",
+			...(this.codeGraphs.length > 0
+				? { codeGraph: encodeCodeGraph(mergeCodeGraphs(this.codeGraphs)) }
+				: {}),
 			customRuleWarnings: this.result.customRuleWarnings,
 			moduleGraphs: this.result.moduleGraphs,
 			result: this.result.result,
@@ -662,6 +679,8 @@ export class SingleProjectPipeline extends ScanPipeline {
 	private reportProviders: ReportProvider[] = [];
 	private bootstrapRoots: string[] = [];
 	private cachedArtifact: ReportArtifact | undefined;
+	/** Set when the scan ran in a worker, which encodes the graph there. */
+	private encodedCodeGraph: EncodedCodeGraph | undefined;
 
 	/** Whether anything downstream reads the whole artifact. */
 	private get wantsArtifact(): boolean {
@@ -673,7 +692,13 @@ export class SingleProjectPipeline extends ScanPipeline {
 		if (!this.cachedArtifact) {
 			const { moduleGraph, files, result } = this.result;
 			// `--share-sections modules` reads only the module graph, so the code
-			// graph is left unbuilt for it.
+			// graph is left unbuilt for it. A worker scan leaves no context behind,
+			// and sends the graph back encoded instead.
+			const codeGraph =
+				this.encodedCodeGraph ??
+				(this.wantsArtifact && this.context
+					? encodeCodeGraph(codeGraphFor(this.context))
+					: undefined);
 			this.cachedArtifact = buildReportArtifact({
 				targetPath: this.targetPath,
 				moduleGraph,
@@ -681,9 +706,7 @@ export class SingleProjectPipeline extends ScanPipeline {
 				files,
 				providers: this.reportProviders,
 				bootstrapRoots: this.bootstrapRoots,
-				...(this.wantsArtifact
-					? { codeGraph: encodeCodeGraph(codeGraphFor(this.context)) }
-					: {}),
+				...(codeGraph ? { codeGraph } : {}),
 				scanId: this.options.scanId,
 				sources: this.options.sources,
 				traces: this.options.traces,
@@ -717,12 +740,14 @@ export class SingleProjectPipeline extends ScanPipeline {
 				targetPath: this.targetPath,
 				options: toScanOptions(this.options),
 				version: getCliVersion(),
+				wantsCodeGraph: true,
 			},
 			(outcome) => {
 				if (outcome.kind !== "single") {
 					throw new Error("unexpected scan outcome");
 				}
 				this.workerWarnings = outcome.customRuleWarnings;
+				this.encodedCodeGraph = outcome.codeGraph;
 				this.result = {
 					customRuleWarnings: outcome.customRuleWarnings,
 					files: outcome.files,
@@ -744,6 +769,9 @@ export class SingleProjectPipeline extends ScanPipeline {
 	get workerOutcome(): ScanOutcome {
 		return {
 			kind: "single",
+			...(this.options.wantsCodeGraph
+				? { codeGraph: encodeCodeGraph(codeGraphFor(this.context)) }
+				: {}),
 			customRuleWarnings: this.result.customRuleWarnings,
 			files: this.result.files,
 			moduleGraph: this.result.moduleGraph,

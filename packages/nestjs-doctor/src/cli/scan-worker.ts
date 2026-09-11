@@ -32,6 +32,7 @@ const options: PipelineOptions = {
 	sources: "none",
 	traces: undefined,
 	verbose: false,
+	wantsCodeGraph: request.wantsCodeGraph,
 };
 
 try {
