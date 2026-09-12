@@ -40,6 +40,7 @@ Options:
   --report              Generate an interactive HTML report (--graph also works)
   --timings <path>      SerializedGraph dump to overlay bootstrap init times on the report
   --sources <mode>      How much source text the report carries: all (default), touched (only files with findings), none
+  --no-telemetry        Scan without reporting the scan_completed event
   --share-sections <csv> Write nestjs-doctor-shared.json beside the project with only these sections: score, endpoints, schema, modules, findings:<category>
   --share-code          With --share-sections, include a few lines of code around each shared finding
   --config <p>          Path to config file
@@ -344,6 +345,10 @@ Docs: https://nestjs.doctor/docs/language-server
 - `require-cascade-rule` (info) — Relation with no explicit onDelete behavior
 
 Schema rules run against entities extracted from Prisma, TypeORM, Drizzle, or MikroORM. They report against an entity, so their findings carry no line number.
+
+## Telemetry
+
+A finished scan reports one `scan_completed` event: CLI version, Node major version, platform, how the run started, file count, framework, ORM, Nest version, dependencies matched against a fixed list, built-in rule ids with counts, and the score. Never code, paths, the project name, globs, or custom rule names. Opt out with `--no-telemetry`, `"telemetry": false` in the config, or `DO_NOT_TRACK=1`. `NESTJS_DOCTOR_TELEMETRY_DEBUG=1` prints the payload instead of sending it. Details: https://nestjs.doctor/docs/telemetry
 
 ## Links
 
