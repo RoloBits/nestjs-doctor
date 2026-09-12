@@ -69,7 +69,25 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter nestjs-doctor-lsp build
       - run: pnpm --filter nestjs-doctor-vscode build
+      - name: Check whether the marketplace already has this version
+        id: marketplace
+        run: |
+          set -euo pipefail
+          local_version="$(node -p "require('./packages/nestjs-doctor-vscode/package.json').version")"
+          published="$(curl -sS --max-time 30 -X POST \
+            "https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery" \
+            -H "Content-Type: application/json" \
+            -H "Accept: application/json;api-version=3.0-preview.1" \
+            -d '{"filters":[{"criteria":[{"filterType":7,"value":"rolobits.nestjs-doctor-vscode"}]}],"flags":1}' \
+            | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).results[0].extensions[0]?.versions[0]?.version ?? ''")"
+          echo "local=$local_version marketplace=$published"
+          if [ "$local_version" = "$published" ]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Publish to VS Code Marketplace
+        if: steps.marketplace.outputs.publish == 'true'
         uses: HaaLeo/publish-vscode-extension@v2
         with:
           pat: ${{ secrets.VSCE_PAT }}
