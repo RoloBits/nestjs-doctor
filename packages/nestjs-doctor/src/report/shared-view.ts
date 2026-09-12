@@ -99,6 +99,7 @@ export function sharedReportToArtifact(shared: SharedReport): ReportArtifact {
 	};
 	const score = shared.score ?? EMPTY_SCORE;
 	return {
+		...(shared.codeGraph ? { codeGraph: shared.codeGraph } : {}),
 		diagnostics: [...shared.findings, ...shared.schemaIssues],
 		elapsedMs: 0,
 		endpoints: sharedEndpoints(shared),
@@ -127,7 +128,7 @@ export function sharedReportToArtifact(shared: SharedReport): ReportArtifact {
 	};
 }
 
-/** Tabs a shared file cannot fill; schema and endpoints hide on their own. */
+/** Tabs a shared file cannot fill; schema and endpoints hide on their own data. */
 export function sharedHiddenTabs(shared: SharedReport): string[] {
 	const hidden = ["lab"];
 	if (!shared.sections.includes("score")) {
@@ -156,7 +157,10 @@ export function initialTab(
 		if (tab === "schema" && artifact.schema.entities.length === 0) {
 			continue;
 		}
-		if (tab === "endpoints" && artifact.endpoints.endpoints.length === 0) {
+		if (
+			tab === "endpoints" &&
+			(!artifact.codeGraph || artifact.endpoints.endpoints.length === 0)
+		) {
 			continue;
 		}
 		return tab;

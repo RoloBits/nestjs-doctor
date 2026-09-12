@@ -1,3 +1,5 @@
+import type { EncodedCodeGraph } from "../../../../common/code-graph-codec.js";
+
 interface SharedFinding {
 	category: string;
 	severity: string;
@@ -48,13 +50,47 @@ export function scoredCount(share: ShareData, id: string): number | null {
 	return n;
 }
 
+const ABSOLUTE_RE = /^(?:\/|[A-Za-z]:\/)/;
+
+/** `file` relative to `root`, posix; a package marker with no leading slash or drive is unchanged. */
+function relativeFile(root: string, file: string): string {
+	if (!ABSOLUTE_RE.test(file)) {
+		return file;
+	}
+	const from = root.split("/");
+	const to = file.split("/");
+	let i = 0;
+	while (i < from.length && i < to.length && from[i] === to[i]) {
+		i++;
+	}
+	if (i === 0) {
+		return file;
+	}
+	return [...from.slice(i).map(() => ".."), ...to.slice(i)].join("/");
+}
+
+/** The graph with every file path made relative to the scan root. */
+function relativeFiles(
+	graph: EncodedCodeGraph,
+	root: string | undefined
+): EncodedCodeGraph {
+	if (!root) {
+		return graph;
+	}
+	return {
+		...graph,
+		files: graph.files.map((file) => relativeFile(root, file)),
+	};
+}
+
 // Assembles the downloadable JSON from the picked sections, dropping
 // not-scored findings and, unless asked, the code snippets.
 export function buildSharedJson(
 	share: ShareData,
 	generator: unknown,
 	includeCode: boolean,
-	picked: string[]
+	picked: string[],
+	graph?: { codeGraph?: EncodedCodeGraph; root?: string }
 ): object {
 	const findings: object[] = [];
 	const schemaIssues: object[] = [];
@@ -129,7 +165,12 @@ export function buildSharedJson(
 		findings,
 		schemaIssues,
 		...(share.endpoints && has("endpoints")
-			? { endpoints: share.endpoints }
+			? {
+					endpoints: share.endpoints,
+					...(graph?.codeGraph
+						? { codeGraph: relativeFiles(graph.codeGraph, graph.root) }
+						: {}),
+				}
 			: {}),
 		...(share.schema && has("schema") ? { schema: share.schema } : {}),
 		...(share.modules && has("modules") ? { modules: share.modules } : {}),

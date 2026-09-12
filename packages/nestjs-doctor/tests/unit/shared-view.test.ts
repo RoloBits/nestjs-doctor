@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { encodeCodeGraph } from "../../src/common/code-graph-codec.js";
 import type {
 	CodeDiagnostic,
 	SchemaDiagnostic,
@@ -10,6 +11,14 @@ import {
 	sharedHiddenTabs,
 	sharedReportToArtifact,
 } from "../../src/report/shared-view.js";
+import { DESCENT_GRAPH } from "./report-artifact-fixture.js";
+
+const SHARED_ENDPOINT = {
+	controllerClass: "UserController",
+	handlerMethod: "findAll",
+	httpMethod: "GET",
+	routePath: "/users",
+};
 
 const FINDING = {
 	category: "security",
@@ -147,6 +156,25 @@ describe("sharedReportToArtifact", () => {
 		expect(endpoint.dependencies).toEqual([]);
 		expect(endpoint.swagger).toBeNull();
 	});
+
+	it("restores the code graph the endpoints section carried", () => {
+		const encoded = encodeCodeGraph(DESCENT_GRAPH);
+		const artifact = sharedReportToArtifact(
+			shared({
+				codeGraph: encoded,
+				endpoints: [SHARED_ENDPOINT],
+				sections: ["endpoints"],
+			})
+		);
+		expect(artifact.codeGraph).toEqual(encoded);
+	});
+
+	it("leaves the code graph off a file shared without one", () => {
+		const artifact = sharedReportToArtifact(
+			shared({ endpoints: [SHARED_ENDPOINT], sections: ["endpoints"] })
+		);
+		expect(artifact.codeGraph).toBeUndefined();
+	});
 });
 
 describe("sharedHiddenTabs", () => {
@@ -192,15 +220,9 @@ describe("initialTab", () => {
 		).toBe("diagnosis");
 
 		const endpointsOnly = shared({
+			codeGraph: encodeCodeGraph(DESCENT_GRAPH),
 			sections: ["endpoints"],
-			endpoints: [
-				{
-					controllerClass: "UserController",
-					handlerMethod: "findAll",
-					httpMethod: "GET",
-					routePath: "/users",
-				},
-			],
+			endpoints: [SHARED_ENDPOINT],
 		});
 		expect(
 			initialTab(
@@ -208,5 +230,15 @@ describe("initialTab", () => {
 				sharedHiddenTabs(endpointsOnly)
 			)
 		).toBe("endpoints");
+	});
+
+	it("never lands on endpoints when the file carries no code graph", () => {
+		const noGraph = shared({
+			sections: ["endpoints"],
+			endpoints: [SHARED_ENDPOINT],
+		});
+		expect(
+			initialTab(sharedReportToArtifact(noGraph), sharedHiddenTabs(noGraph))
+		).toBe("summary");
 	});
 });

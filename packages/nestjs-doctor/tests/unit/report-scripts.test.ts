@@ -9,18 +9,6 @@ describe("report scripts", () => {
 		expect(() => new Function(scripts)).not.toThrow();
 	});
 
-	it("carries expandedElsewhere onto the drawn node", () => {
-		expect(scripts).toContain("expandedElsewhere");
-	});
-
-	it("marks a node whose subtree is drawn elsewhere", () => {
-		expect(scripts).toContain("\u21B1");
-	});
-
-	it("says so in the tooltip", () => {
-		expect(scripts).toContain("Calls drawn at another call site");
-	});
-
 	it("appends the ms segment to a node's sub-label only when it carries timings", () => {
 		expect(scripts).toContain("p \u00b7 ");
 	});
@@ -68,6 +56,16 @@ describe("report scripts", () => {
 
 	it("ships the boot tab button", () => {
 		expect(scripts).toContain("tab-btn-boot");
+	});
+
+	it("ships the endpoints tab button and its lazy render", () => {
+		expect(scripts).toContain("tab-btn-endpoints");
+		expect(scripts).toContain("renderEndpoints");
+	});
+
+	it("drops the canvas the endpoints tab used to draw", () => {
+		expect(scripts).not.toContain("endpoints-canvas");
+		expect(scripts).not.toContain("resizeEndpoints");
 	});
 
 	it("renders the lifecycle phase lane from the dump's markers", () => {

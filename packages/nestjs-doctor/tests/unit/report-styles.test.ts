@@ -48,6 +48,13 @@ describe("report styles", () => {
 		expect(css).toContain("position: sticky");
 	});
 
+	it("weaves the endpoints map, pile and flight", () => {
+		expect(css).toContain(".dc-card {");
+		expect(css).toContain(".dc-wire {");
+		expect(css).toContain("@keyframes dc-fly {");
+		expect(css).toContain(".dc-side-hidden {");
+	});
+
 	it("concatenates every sheet", () => {
 		for (const marker of [
 			":root {",
@@ -57,7 +64,7 @@ describe("report styles", () => {
 			".summary-grid {",
 			".playground-editor {",
 			"#schema-sidebar {",
-			".ep-code-panel {",
+			"#endpoints-sidebar {",
 		]) {
 			expect(css).toContain(marker);
 		}

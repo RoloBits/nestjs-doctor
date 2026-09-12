@@ -53,6 +53,8 @@ export interface PipelineOptions extends ScanOptions {
 	/** Parsed bootstrap dump, for the artifact's module-graph overlay. */
 	traces?: LoadedBootTrace[];
 	verbose: boolean;
+	/** Worker-internal: the worker builds the code graph for its outcome. */
+	wantsCodeGraph?: boolean;
 }
 
 /** Picks only the engine fields. */

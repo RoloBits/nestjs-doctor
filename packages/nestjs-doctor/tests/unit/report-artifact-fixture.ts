@@ -3,6 +3,12 @@ import type {
 	ReportProvider,
 } from "../../src/common/artifact.js";
 import type {
+	CallEdge,
+	CodeGraph,
+	MethodNode,
+} from "../../src/common/code-graph.js";
+import { encodeCodeGraph } from "../../src/common/code-graph-codec.js";
+import type {
 	CodeDiagnostic,
 	Diagnostic,
 } from "../../src/common/diagnostic.js";
@@ -121,12 +127,200 @@ export const EMPTY_ARTIFACT: ReportArtifact = {
 
 export const EMPTY_ARTIFACT_JSON = JSON.stringify(EMPTY_ARTIFACT);
 
+const descentNode = (
+	filePath: string,
+	className: string,
+	methodName: string,
+	kind: MethodNode["kind"],
+	extra: Partial<MethodNode> = {}
+): MethodNode => ({
+	body: [],
+	classMethodCount: 1,
+	className,
+	endLine: 10,
+	filePath,
+	id: extra.member
+		? `${filePath}::${className}#${extra.member}.${methodName}`
+		: `${filePath}::${className}#${methodName}`,
+	kind,
+	line: 1,
+	methodName,
+	parameters: [],
+	returnType: null,
+	...extra,
+});
+
+const descentEdge = (
+	from: string,
+	to: string,
+	order: number,
+	extra: Partial<CallEdge> = {}
+): CallEdge => ({
+	assignedTo: null,
+	awaited: true,
+	branchGroupId: null,
+	branchKind: null,
+	comment: null,
+	conditional: false,
+	conditionPath: [],
+	conditionText: null,
+	from,
+	guardThrow: null,
+	iterationKind: null,
+	iterationLabel: null,
+	line: 2,
+	order,
+	to,
+	tryRegion: null,
+	...extra,
+});
+
+const CTL = "src/a.controller.ts::AController#handle";
+const LOAD = "src/a.service.ts::AService#load";
+const SAVE = "src/a.service.ts::AService#save";
+const FIND = "src/prisma.service.ts::PrismaService#user.findUnique";
+const UPDATE = "src/prisma.service.ts::PrismaService#user.update";
+const LOG = "src/app.logger.ts::AppLogger#log";
+
+/**
+ * One controller over two services, a Prisma read and write, a logger, a
+ * second visit to a service, and a call back to the handler on the path.
+ */
+export const DESCENT_GRAPH: CodeGraph = {
+	edges: [
+		descentEdge(CTL, LOAD, 0),
+		descentEdge(CTL, SAVE, 1, { conditional: true }),
+		descentEdge(LOAD, FIND, 0),
+		descentEdge(LOAD, LOG, 1, { awaited: false }),
+		descentEdge(SAVE, UPDATE, 0),
+		descentEdge(SAVE, LOAD, 1, { iterationKind: "concurrent" }),
+		descentEdge(SAVE, CTL, 2),
+	],
+	entries: [
+		{
+			controllerClass: "AController",
+			handlerMethod: "handle",
+			httpMethod: "POST",
+			node: CTL,
+			returnType: null,
+			routePath: "/a",
+			swagger: null,
+		},
+		{
+			controllerClass: "AController",
+			handlerMethod: "peek",
+			httpMethod: "GET",
+			node: "src/a.controller.ts::AController#peek",
+			returnType: null,
+			routePath: "/a/peek",
+			swagger: null,
+		},
+	],
+	nodes: [
+		descentNode("src/a.controller.ts", "AController", "handle", "controller"),
+		descentNode("src/a.controller.ts", "AController", "peek", "controller"),
+		descentNode("src/a.service.ts", "AService", "load", "service"),
+		descentNode("src/a.service.ts", "AService", "save", "service"),
+		descentNode("src/prisma.service.ts", "PrismaService", "findUnique", "db", {
+			member: "user",
+		}),
+		descentNode("src/prisma.service.ts", "PrismaService", "update", "db", {
+			member: "user",
+		}),
+		descentNode("src/app.logger.ts", "AppLogger", "log", "service"),
+	],
+};
+
+/**
+ * A controller calling a straight chain of `steps - 1` services, so the walk
+ * is exactly `steps` long. `withDb` makes the last one a db node.
+ */
+export const chainGraph = (steps: number, withDb: boolean): CodeGraph => {
+	const nodes: MethodNode[] = [
+		descentNode(
+			"src/chain.controller.ts",
+			"ChainController",
+			"run",
+			"controller"
+		),
+	];
+	const edges: CallEdge[] = [];
+	for (let i = 1; i < steps; i++) {
+		const last = withDb && i === steps - 1;
+		nodes.push(
+			descentNode(
+				`src/chain${i}.service.ts`,
+				`Chain${i}Service`,
+				last ? "findMany" : `step${i}`,
+				last ? "db" : "service"
+			)
+		);
+		edges.push(
+			descentEdge(nodes[i - 1]?.id as string, nodes[i]?.id as string, 0)
+		);
+	}
+	return {
+		edges,
+		entries: [
+			{
+				controllerClass: "ChainController",
+				handlerMethod: "run",
+				httpMethod: "GET",
+				node: nodes[0]?.id as string,
+				returnType: null,
+				routePath: "/chain",
+				swagger: null,
+			},
+		],
+		nodes,
+	};
+};
+
+/** A controller calling one node `visits` times, for the visit strip. */
+export const callsGraph = (
+	visits: number,
+	kind: MethodNode["kind"],
+	member?: string
+): CodeGraph => {
+	const caller = descentNode(
+		"src/calls.controller.ts",
+		"CallsController",
+		"run",
+		"controller"
+	);
+	const callee = descentNode(
+		kind === "unresolved" ? "@nestjs/config" : "src/callee.service.ts",
+		"Callee",
+		"hit",
+		kind,
+		member ? { member } : {}
+	);
+	return {
+		edges: Array.from({ length: visits }, (_, i) =>
+			descentEdge(caller.id, callee.id, i, { line: 10 + i })
+		),
+		entries: [
+			{
+				controllerClass: "CallsController",
+				handlerMethod: "run",
+				httpMethod: "GET",
+				node: caller.id,
+				returnType: null,
+				routePath: "/calls",
+				swagger: null,
+			},
+		],
+		nodes: [caller, callee],
+	};
+};
+
 /**
  * An artifact with enough graph, schema and endpoint data that the report's
  * sidebar trees, tab panels and detail views all render something.
  */
 export const RICH_ARTIFACT: ReportArtifact = {
 	...EMPTY_ARTIFACT,
+	codeGraph: encodeCodeGraph(DESCENT_GRAPH),
 	project: { ...EMPTY_ARTIFACT.project, fileCount: 4, moduleCount: 3 },
 	diagnostics: [
 		codeDiagnostic({

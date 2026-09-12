@@ -1,4 +1,5 @@
 import type { SerializedModuleNode } from "./artifact.js";
+import type { EncodedCodeGraph } from "./code-graph-codec.js";
 import type {
 	Category,
 	CodeDiagnostic,
@@ -75,6 +76,8 @@ export interface ShareManifest {
 
 /** The assembled shareable document, whichever surface produced it. */
 export interface SharedReport {
+	/** Present when the endpoints section is shared and the scan built one. */
+	codeGraph?: EncodedCodeGraph;
 	endpoints?: SharedEndpoint[];
 	findings: CodeDiagnostic[];
 	generatedAt: string;

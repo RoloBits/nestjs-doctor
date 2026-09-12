@@ -1,3 +1,9 @@
+/* The endpoints tab keeps its three columns at every width; the side two
+   narrow instead of stacking. */
+@media (max-width: 1180px) {
+  .dc-view { --dc-rail-w: 260px; --dc-pile-w: 280px; --dc-code-max: 54vw; --dc-code-pile: 240px; }
+}
+
 @media (max-width: 640px) {
   .summary-grid { grid-template-columns: 1fr; }
   .ov-score-row { flex-direction: column; align-items: flex-start; }
@@ -9,6 +15,5 @@
   .playground-editor { width: 100%; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
   .playground-results { width: 100%; }
   #schema-sidebar { width: 260px; min-width: 260px; }
-  #endpoints-sidebar { width: 260px; min-width: 260px; }
-  .ep-code-panel { width: 100%; }
+  .dc-view { --dc-rail-w: 220px; --dc-pile-w: 260px; --dc-code-max: 50vw; --dc-code-pile: 210px; }
 }

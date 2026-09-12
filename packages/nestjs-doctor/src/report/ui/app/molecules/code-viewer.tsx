@@ -3,6 +3,8 @@ import { useEffect, useRef } from "react";
 export interface CodeViewerOptions {
 	firstLineNumber?: number;
 	highlightLines?: number[];
+	/** Lines that get a stronger mark than `highlightLines`. */
+	hitLines?: number[];
 	lineMetadata?: Record<
 		number,
 		{ message: string; rule: string; severity: string }[]

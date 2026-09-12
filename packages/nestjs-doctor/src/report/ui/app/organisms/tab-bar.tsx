@@ -125,7 +125,7 @@ export function TabBar({
 			return report.schema.entities.length === 0;
 		}
 		if (def.tab === "endpoints") {
-			return report.endpoints.endpoints.length === 0;
+			return !report.codeGraph || report.endpoints.endpoints.length === 0;
 		}
 		if (def.tab === "boot") {
 			return !(

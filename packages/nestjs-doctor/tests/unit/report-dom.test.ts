@@ -92,6 +92,10 @@ it("renders every tab into a DOM", () => {
 	expect(rows("schema")).toBeGreaterThan(0);
 	expect(rows("endpoints")).toBeGreaterThan(0);
 
+	// The endpoints tab draws the depth map and the verdict under each route.
+	expect(snap.endpoints).toContain("dc-card");
+	expect(snap.endpoints).toContain("read before write");
+
 	// The detail panel only renders on selection, so drive one per module
 	// through the same entry point the page uses.
 	win.eval("switchTab('modules')");
