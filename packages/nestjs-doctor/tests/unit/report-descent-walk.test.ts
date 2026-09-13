@@ -108,6 +108,8 @@ describe("descent walk", () => {
 		expect(dbOperation("softDelete")).toBe("write");
 		expect(dbOperation("exists")).toBe("read");
 		expect(dbOperation("createQueryBuilder")).toBe("other");
+		expect(dbOperation("create", "Repository")).toBe("other");
+		expect(dbOperation("create", "PrismaService")).toBe("write");
 	});
 
 	it("says which of the first db read and write came first", () => {
