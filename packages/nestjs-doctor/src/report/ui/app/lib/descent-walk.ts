@@ -105,14 +105,39 @@ export interface DescentEndpoint {
 /** Step ceiling for one walk; past it the walk stops and reports truncated. */
 const MAX_STEPS = 5000;
 
-const READ_PREFIXES = ["find", "get", "count", "aggregate"];
-const WRITE_PREFIXES = ["create", "update", "upsert", "delete"];
+const READ_PREFIXES = ["find", "get", "count", "aggregate", "exist"];
+const WRITE_PREFIXES = [
+	"create",
+	"update",
+	"upsert",
+	"delete",
+	"save",
+	"insert",
+	"remove",
+	"softdelete",
+	"restore",
+];
+const BUILDER_PREFIX = "createquerybuilder";
+// TypeORM's create and merge build an entity in memory; only save persists it.
+const IN_MEMORY_CLIENTS = new Set([
+	"Repository",
+	"MongoRepository",
+	"TreeRepository",
+	"EntityManager",
+]);
+const IN_MEMORY_METHODS = new Set(["create", "merge"]);
 const LOG_METHODS = ["log", "debug", "verbose", "info", "trace"];
 const LOGGER_CLASS = /Logger$/;
 
 /** Read, write or other, from the prefix of an ORM method name. */
-export function dbOperation(methodName: string): DbOp {
+export function dbOperation(methodName: string, className = ""): DbOp {
 	const name = methodName.toLowerCase();
+	if (
+		name.startsWith(BUILDER_PREFIX) ||
+		(IN_MEMORY_CLIENTS.has(className) && IN_MEMORY_METHODS.has(name))
+	) {
+		return "other";
+	}
 	if (WRITE_PREFIXES.some((prefix) => name.startsWith(prefix))) {
 		return "write";
 	}
@@ -388,7 +413,8 @@ function sliceEndpoint(
 	const entryIndex = localOf.get(entry.node) ?? 0;
 	const depth = depthsFrom(entryIndex, outgoing, source.length);
 	const nodes: DescentNode[] = source.map((node, index) => {
-		const dbOp = node.kind === "db" ? dbOperation(node.methodName) : null;
+		const dbOp =
+			node.kind === "db" ? dbOperation(node.methodName, node.className) : null;
 		const throws = countThrows(node);
 		return {
 			className: node.className,

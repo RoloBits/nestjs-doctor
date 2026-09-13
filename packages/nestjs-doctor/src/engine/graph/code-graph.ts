@@ -41,6 +41,19 @@ import {
 import type { ProviderInfo } from "./type-resolver.js";
 import { extractSimpleTypeName } from "./type-resolver.js";
 
+// Installed ORM client types: a call on one is a database call, not an unresolved one.
+const ORM_CLIENTS = new Set([
+	"Repository",
+	"MongoRepository",
+	"TreeRepository",
+	"EntityRepository",
+	"EntityManager",
+	"DataSource",
+	"Model",
+	"PrismaClient",
+	"Knex",
+]);
+
 // Injecting one of these makes the enclosing class a repository whatever it is named.
 const DRIVER_ROOTS = new Set([
 	"PrismaService",
@@ -85,6 +98,8 @@ interface ResolvedReceiver {
 	/** File declaring the type, so two same-named interfaces stay apart. */
 	filePath?: string;
 	reason?: UnresolvedReason;
+	/** The first type argument as written, so `Repository<Order>` names its entity. */
+	typeArgument?: string;
 	typeName: string;
 }
 
@@ -270,9 +285,13 @@ function resolveTypeNode(
 	// Installed packages are hidden from resolution, so the import specifier is
 	// the only thing separating two packages exporting one name.
 	const specifier = importSpecifier(ref, boundName(ref));
+	const typeArgument = ref.getTypeArguments()[0]?.getText();
 	return {
 		...(specifier ? { filePath: specifier } : {}),
 		reason: "external-package",
+		...(typeArgument
+			? { typeArgument: extractSimpleTypeName(typeArgument) }
+			: {}),
 		typeName: written,
 	};
 }
@@ -369,6 +388,15 @@ class GraphBuilder {
 		return this.declared(owner, method);
 	}
 
+	/** Whether a call on this receiver lands on an installed ORM client. */
+	static isOrmClient(receiver: ResolvedReceiver): boolean {
+		return (
+			!receiver.cls &&
+			receiver.reason === "external-package" &&
+			ORM_CLIENTS.has(receiver.typeName)
+		);
+	}
+
 	/** The node a `this.<member>.<method>()` call reaches. */
 	db(
 		receiver: ResolvedReceiver,
@@ -377,6 +405,7 @@ class GraphBuilder {
 		fallbackName: string
 	): NodeId {
 		const cls = receiver.cls;
+		const resolved = Boolean(cls) || GraphBuilder.isOrmClient(receiver);
 		return this.synthetic(
 			{
 				body: [],
@@ -384,13 +413,15 @@ class GraphBuilder {
 				classMethodCount: 0,
 				endLine: 0,
 				filePath: cls?.getSourceFile().getFilePath() ?? receiver.filePath ?? "",
-				kind: cls ? "db" : "unresolved",
+				kind: resolved ? "db" : "unresolved",
 				line: 0,
 				member,
 				methodName,
 				parameters: [],
 				returnType: null,
-				...(cls ? {} : { unresolved: receiver.reason ?? "receiver-unknown" }),
+				...(resolved
+					? {}
+					: { unresolved: receiver.reason ?? "receiver-unknown" }),
 			},
 			member
 		);
@@ -630,11 +661,15 @@ function scanClass(
 				// Resolve per call site: two members can share a simple type name
 				// while pointing at different declarations.
 				const receiver = receiverFor(call.member);
-				builder.edge(
-					from,
-					builder.callee(receiver, call.name, dep.className),
-					call
-				);
+				const target = GraphBuilder.isOrmClient(receiver)
+					? builder.db(
+							receiver,
+							receiver.typeArgument ?? call.member,
+							call.name,
+							dep.className
+						)
+					: builder.callee(receiver, call.name, dep.className);
+				builder.edge(from, target, call);
 			}
 		}
 

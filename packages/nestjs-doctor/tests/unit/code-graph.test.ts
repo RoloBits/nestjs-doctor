@@ -168,6 +168,43 @@ describe("code-graph", () => {
 		).toEqual([db?.id]);
 	});
 
+	it("makes a call on an installed ORM client a db node named by its entity", () => {
+		const graph = build({
+			"orders.service.ts": `
+				import { Injectable } from '@nestjs/common';
+				import { InjectRepository } from '@nestjs/typeorm';
+				import { Repository } from 'typeorm';
+				import { Order } from './order.entity';
+				@Injectable()
+				export class OrdersService {
+					constructor(@InjectRepository(Order) private readonly orders: Repository<Order>) {}
+					async close(id: string) {
+						const order = await this.orders.findOne({ where: { id } });
+						return this.orders.save(order);
+					}
+				}
+			`,
+			"order.entity.ts": "export class Order { id: string; }",
+		});
+		const db = graph.nodes.filter((node) => node.kind === "db");
+
+		expect(db.map((node) => node.id)).toEqual([
+			"typeorm::Repository#Order.findOne",
+			"typeorm::Repository#Order.save",
+		]);
+		expect(db[0]?.member).toBe("Order");
+		expect(db[0]?.line).toBe(0);
+		expect(graph.nodes.some((node) => node.kind === "unresolved")).toBe(false);
+		expect(
+			edgesOutOf(graph, "/orders.service.ts::OrdersService#close").map(
+				(edge) => edge.to
+			)
+		).toEqual([
+			"typeorm::Repository#Order.findOne",
+			"typeorm::Repository#Order.save",
+		]);
+	});
+
 	it("reaches every unresolved reason and drops no call", () => {
 		const graph = build({
 			"mixed.service.ts": `
