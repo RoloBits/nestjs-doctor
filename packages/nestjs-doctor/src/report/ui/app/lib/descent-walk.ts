@@ -105,14 +105,28 @@ export interface DescentEndpoint {
 /** Step ceiling for one walk; past it the walk stops and reports truncated. */
 const MAX_STEPS = 5000;
 
-const READ_PREFIXES = ["find", "get", "count", "aggregate"];
-const WRITE_PREFIXES = ["create", "update", "upsert", "delete"];
+const READ_PREFIXES = ["find", "get", "count", "aggregate", "exist"];
+const WRITE_PREFIXES = [
+	"create",
+	"update",
+	"upsert",
+	"delete",
+	"save",
+	"insert",
+	"remove",
+	"softdelete",
+	"restore",
+];
+const BUILDER_PREFIX = "createquerybuilder";
 const LOG_METHODS = ["log", "debug", "verbose", "info", "trace"];
 const LOGGER_CLASS = /Logger$/;
 
 /** Read, write or other, from the prefix of an ORM method name. */
 export function dbOperation(methodName: string): DbOp {
 	const name = methodName.toLowerCase();
+	if (name.startsWith(BUILDER_PREFIX)) {
+		return "other";
+	}
 	if (WRITE_PREFIXES.some((prefix) => name.startsWith(prefix))) {
 		return "write";
 	}
