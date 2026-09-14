@@ -433,6 +433,7 @@ export class MonorepoPipeline extends ScanPipeline {
 		return (
 			this.options.interactive ||
 			this.options.format === "report-json" ||
+			this.options.format === "json" ||
 			this.options.wantsCodeGraph === true
 		);
 	}
@@ -684,7 +685,11 @@ export class SingleProjectPipeline extends ScanPipeline {
 
 	/** Whether anything downstream reads the whole artifact. */
 	private get wantsArtifact(): boolean {
-		return this.options.interactive || this.options.format === "report-json";
+		return (
+			this.options.interactive ||
+			this.options.format === "report-json" ||
+			this.options.format === "json"
+		);
 	}
 
 	/** The scan as one serializable document, built once on demand. */

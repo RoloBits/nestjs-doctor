@@ -32,6 +32,8 @@ interface ViewerCall {
 	globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
+const EXPLAIN_HEAD = /^POST \/a → AController\.handle/;
+
 describe("EndpointsTab", () => {
 	let container: HTMLDivElement;
 	let root: Root;
@@ -183,6 +185,34 @@ describe("EndpointsTab", () => {
 		expect(container.querySelector(".dc-verdict-counts")?.textContent).toBe(
 			"2 read · 1 write"
 		);
+	});
+
+	it("copies the route as text for an agent and says so", async () => {
+		const written: string[] = [];
+		Object.defineProperty(navigator, "clipboard", {
+			configurable: true,
+			value: {
+				writeText: (text: string) => {
+					written.push(text);
+					return Promise.resolve();
+				},
+			},
+		});
+		try {
+			mount(RICH_ARTIFACT);
+			click("#endpoints-copy-agent");
+			await act(async () => {
+				await Promise.resolve();
+			});
+			expect(written).toHaveLength(1);
+			expect(written[0]).toMatch(EXPLAIN_HEAD);
+			expect(written[0]).toContain("verdict: read before write · @2 then @5");
+			expect(
+				container.querySelector("#endpoints-copy-agent")?.textContent
+			).toBe("Copied");
+		} finally {
+			Reflect.deleteProperty(navigator, "clipboard");
+		}
 	});
 
 	it("advances the pile by one block per press of NEXT", () => {

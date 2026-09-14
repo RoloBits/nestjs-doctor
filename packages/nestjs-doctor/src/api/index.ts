@@ -170,6 +170,11 @@ export type { SarifLog } from "../formatters/sarif-report.js";
 export { buildSarifLog } from "../formatters/sarif-report.js";
 export { buildReportArtifact } from "../report/artifact.js";
 export type { LoadedBootTrace } from "../report/timings.js";
+export type { ExplainContext } from "../report/ui/app/lib/explain.js";
+export {
+	explainEndpoint,
+	explainEndpoints,
+} from "../report/ui/app/lib/explain.js";
 
 function validatePath(path: string): string {
 	if (!path || path.trim() === "") {
