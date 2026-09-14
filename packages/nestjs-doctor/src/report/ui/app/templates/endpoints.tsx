@@ -34,6 +34,7 @@ import {
 import { explainEndpoint } from "../lib/explain.js";
 import { useLatest } from "../lib/use-latest.js";
 import { CodeViewer } from "../molecules/code-viewer.js";
+import { CopyForAgent } from "../molecules/copy-for-agent.js";
 import { SearchField } from "../molecules/search-field.js";
 import { SidebarHeader, TreeToolbar } from "../molecules/sidebar-header.js";
 import { TreeRow } from "../molecules/tree-row.js";
@@ -149,65 +150,6 @@ interface Selection {
 	node: number;
 	/** The visit being shown, or null when the node is not on the walk. */
 	step: number | null;
-}
-
-/** Copies the route's walk text; a browser that refuses the clipboard gets a download. */
-function CopyForAgent({
-	endpoint,
-	report,
-}: {
-	endpoint: DescentEndpoint;
-	report: ReportArtifact;
-}) {
-	const [copied, setCopied] = useState(false);
-	useEffect(() => {
-		if (!copied) {
-			return;
-		}
-		const timer = setTimeout(() => setCopied(false), 2000);
-		return () => clearTimeout(timer);
-	}, [copied]);
-	const copy = () => {
-		const text = explainEndpoint(endpoint, {
-			root: report.root,
-			sources: report.sources,
-			version: report.generator.version,
-		});
-		track("endpoint_explain_copied");
-		const write = navigator.clipboard?.writeText(text);
-		if (!write) {
-			downloadText(text, endpoint.key);
-			setCopied(true);
-			return;
-		}
-		write.then(
-			() => setCopied(true),
-			() => {
-				downloadText(text, endpoint.key);
-				setCopied(true);
-			}
-		);
-	};
-	return (
-		<TextButton
-			classes="dc-copy"
-			id="endpoints-copy-agent"
-			onClick={copy}
-			tip="Copy this route as plain text for an AI agent: verdict, steps, conditions, code"
-		>
-			{copied ? "Copied" : "Copy for AI agent"}
-		</TextButton>
-	);
-}
-
-function downloadText(text: string, name: string): void {
-	const a = document.createElement("a");
-	a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
-	a.download = `${name.replace(/[^\w.-]+/g, "-")}.txt`;
-	document.body.appendChild(a);
-	a.click();
-	document.body.removeChild(a);
-	URL.revokeObjectURL(a.href);
 }
 
 function track(event: string): void {
@@ -1490,7 +1432,19 @@ export function EndpointsTab({ report }: { report: ReportArtifact }) {
 						{endpoint.routePath}
 					</div>
 					<div className="dc-spacer" />
-					<CopyForAgent endpoint={endpoint} report={report} />
+					<CopyForAgent
+						event="endpoint_explain_copied"
+						id="endpoints-copy-agent"
+						name={endpoint.key}
+						text={() =>
+							explainEndpoint(endpoint, {
+								root: report.root,
+								sources: report.sources,
+								version: report.generator.version,
+							})
+						}
+						tip="Copy this route as plain text for an AI agent: verdict, steps, conditions, code"
+					/>
 					<span className="dc-badge">{`${endpoint.nodes.length} nodes`}</span>
 					<span className="dc-badge">{`${endpoint.walk.length} steps`}</span>
 					<span className="dc-badge">{`${endpoint.depths.length} depth tiers`}</span>

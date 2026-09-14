@@ -56,6 +56,7 @@ const ACTIONS = new Set([
 	"schema_tree_expanded",
 	"endpoint_code_opened",
 	"endpoint_explain_copied",
+	"boot_explain_copied",
 	"boot_span_selected",
 ]);
 

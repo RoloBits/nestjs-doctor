@@ -19,12 +19,14 @@ import {
 	windowAround,
 } from "../lib/boot-timeline.js";
 import { cssAttr } from "../lib/escape.js";
+import { explainBoot } from "../lib/explain.js";
 import { formatMs } from "../lib/trace.js";
 import { useLatest } from "../lib/use-latest.js";
 import { BootCrosshair } from "../molecules/boot-crosshair.js";
 import { BootEmpty } from "../molecules/boot-empty.js";
 import { BootResizer } from "../molecules/boot-resizer.js";
 import { BootRows } from "../molecules/boot-rows.js";
+import { CopyForAgent } from "../molecules/copy-for-agent.js";
 import { HoverCard, type HoverCardData } from "../molecules/hover-card.js";
 import { BootLanes } from "../organisms/boot-lanes.js";
 import { BootSideHead } from "../organisms/boot-side-head.js";
@@ -41,6 +43,8 @@ interface BootViewProps {
 	onSelectSpan?: (span: BootSpan) => void;
 	/** Pins the view to one trace and hides the picker. */
 	traceIndex?: number;
+	/** Set to show the copy button; the text names the version that scanned. */
+	version?: string;
 }
 
 function toggled(set: ReadonlySet<string>, key: string): Set<string> {
@@ -70,7 +74,7 @@ export function focusBootTrace(className?: string): void {
 export function BootTab({ report }: { report: ReportArtifact }) {
 	return (
 		<div className="boot-tab">
-			<BootView graph={report.graph} />
+			<BootView graph={report.graph} version={report.generator.version} />
 		</div>
 	);
 }
@@ -83,6 +87,7 @@ export function BootView({
 	graph,
 	onSelectSpan,
 	traceIndex,
+	version,
 }: BootViewProps) {
 	const views = useMemo<BootTraceView[]>(() => traceViews(graph), [graph]);
 	const [ownIdx, setOwnIdx] = useState(0);
@@ -484,21 +489,35 @@ export function BootView({
 		<div className={viewClasses} ref={viewRef}>
 			{!compact && <BootResizer viewRef={viewRef} />}
 			<div className="boot-main" ref={mainRef}>
-				{!compact && traceIndex === undefined && views.length > 1 && (
-					<div className="boot-trace-picker">
-						{views.map((v, i) => {
-							const cls = i === activeIdx ? "active" : undefined;
-							return (
-								<button
-									className={cls}
-									key={`${v.project ?? ""}:${v.label}`}
-									onClick={() => setOwnIdx(i)}
-									type="button"
-								>
-									{v.label}
-								</button>
-							);
-						})}
+				{!compact && traceIndex === undefined && (
+					<div className="boot-trace-bar">
+						{views.length > 1 && (
+							<div className="boot-trace-picker">
+								{views.map((v, i) => {
+									const cls = i === activeIdx ? "active" : undefined;
+									return (
+										<button
+											className={cls}
+											key={`${v.project ?? ""}:${v.label}`}
+											onClick={() => setOwnIdx(i)}
+											type="button"
+										>
+											{v.label}
+										</button>
+									);
+								})}
+							</div>
+						)}
+						<div className="dc-spacer" />
+						{version !== undefined && view && (
+							<CopyForAgent
+								event="boot_explain_copied"
+								id="boot-copy-agent"
+								name={`boot-${view.label}`}
+								text={() => explainBoot(view, { version })}
+								tip="Copy this boot trace as plain text for an AI agent: phases, slowest modules and classes, hooks"
+							/>
+						)}
 					</div>
 				)}
 				<div className="boot-head">

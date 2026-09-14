@@ -172,6 +172,8 @@ export { buildReportArtifact } from "../report/artifact.js";
 export type { LoadedBootTrace } from "../report/timings.js";
 export type { ExplainContext } from "../report/ui/app/lib/explain.js";
 export {
+	explainBoot,
+	explainBoots,
 	explainEndpoint,
 	explainEndpoints,
 } from "../report/ui/app/lib/explain.js";

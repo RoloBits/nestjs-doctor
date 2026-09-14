@@ -4,14 +4,18 @@ import type {
 	CodeGraph,
 	MethodNode,
 } from "../../src/common/code-graph.js";
+import { traceViews } from "../../src/report/ui/app/lib/boot-timeline.js";
 import { buildEndpoints } from "../../src/report/ui/app/lib/descent-walk.js";
 import {
+	explainBoot,
+	explainBoots,
 	explainEndpoint,
 	explainEndpoints,
 } from "../../src/report/ui/app/lib/explain.js";
-import { DESCENT_GRAPH } from "./report-artifact-fixture.js";
+import { DESCENT_GRAPH, EMPTY_ARTIFACT } from "./report-artifact-fixture.js";
 
 const CTX = { version: "0.0.0-test" };
+const API_BOOT_HEAD = /^boot: api → ready in 300ms/;
 
 function route(graph: CodeGraph, path: string) {
 	const endpoint = buildEndpoints(graph).find((e) => e.routePath === path);
@@ -168,5 +172,80 @@ describe("explainEndpoints", () => {
 			"AController.handle:/a",
 			"AController.peek:/a/peek",
 		]);
+	});
+});
+
+const TIMED_GRAPH = {
+	...EMPTY_ARTIFACT.graph,
+	phases: { createMs: 100, initMs: 300, moduleInitMs: 250 },
+	startupMs: 400,
+	timingsAvailable: true,
+	timingsTrace: {
+		ta: {
+			deps: ["tb"],
+			hooks: [{ hook: "onModuleInit", ms: 5 }],
+			initTime: 100,
+			module: "CatsModule",
+			name: "CatsController",
+			type: "controller",
+		},
+		tb: {
+			deps: [],
+			initTime: 70,
+			module: "CatsModule",
+			name: "SchedulingService",
+			type: "provider",
+		},
+	},
+};
+
+describe("explainBoot", () => {
+	it("prints the phases, the last class built, and the slowest modules, classes and hooks", () => {
+		const [view] = traceViews(TIMED_GRAPH);
+		expect(explainBoot(view as never, CTX)).toBe(
+			[
+				"boot: boot → ready in 400ms  (2 classes · 1 module)",
+				"phases: create 100ms · onModuleInit 150ms · onApplicationBootstrap 50ms · listen 100ms",
+				"last class built: CatsController at 100ms, after SchedulingService finished at 70ms",
+				"",
+				"modules (top 1 by wall time):",
+				" CatsModule                     100ms  70ms build · 5.0ms init  package",
+				"",
+				"classes (top 2 by own time, after their dependencies):",
+				" SchedulingService            provider   own    70ms      0ms →    70ms  CatsModule",
+				" CatsController               controller own    30ms     70ms →   100ms  CatsModule  waited on SchedulingService",
+				"",
+				"hooks (top 1):",
+				" CatsController               onModuleInit             5.0ms",
+				"",
+				"nestjs-doctor 0.0.0-test · https://nestjs.doctor/docs/report/boot-trace",
+				"A class's time includes waiting on its own dependencies. Read down a cascade until the number drops; the class where it drops owns the time.",
+				"",
+			].join("\n")
+		);
+	});
+
+	it("names each trace once and skips a graph without timings", () => {
+		const two = {
+			...EMPTY_ARTIFACT.graph,
+			traces: [
+				{
+					label: "api",
+					project: "api",
+					startupMs: 300,
+					trace: TIMED_GRAPH.timingsTrace,
+				},
+				{
+					label: "worker",
+					project: "worker",
+					startupMs: 120,
+					trace: TIMED_GRAPH.timingsTrace,
+				},
+			],
+		};
+		const texts = explainBoots(two, CTX);
+		expect(texts.map((t) => t.label)).toEqual(["api", "worker"]);
+		expect(texts[0]?.explain).toMatch(API_BOOT_HEAD);
+		expect(explainBoots(EMPTY_ARTIFACT.graph, CTX)).toEqual([]);
 	});
 });

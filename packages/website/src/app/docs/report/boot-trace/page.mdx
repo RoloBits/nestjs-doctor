@@ -147,6 +147,14 @@ The hook time is the total its classes spent in lifecycle hooks, for example
 `104ms build · 63ms init`. A package node keeps its `package` line and shows
 its time in the tooltip.
 
+## Copy for AI agent
+
+The button above the timeline copies the active trace as plain text: how long
+the boot took and its phases, the last class built and what it waited on, the
+ten slowest modules and classes with their own time after their dependencies,
+and the slowest hooks. Paste it into whichever agent you use. A `--json` run
+with `--timings` carries the same text under `boot`, one entry per trace.
+
 ## What the report shows
 
 The Boot trace tab is one waterfall on one absolute axis, read the way an APM

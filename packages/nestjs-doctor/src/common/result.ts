@@ -31,6 +31,8 @@ export interface RuleErrorInfo {
 }
 
 export interface DiagnoseResult {
+	/** One entry per boot trace, as plain text for an agent. Present on `--format json` with `--timings`. */
+	boot?: { explain: string; label: string; project?: string }[];
 	diagnostics: Diagnostic[];
 	elapsedMs: number;
 	endpoints?: EndpointGraph;

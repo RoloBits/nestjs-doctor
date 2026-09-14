@@ -332,7 +332,7 @@ export class CliSetup {
 		const format = resolveFormat(this.args);
 		let traces: LoadedBootTrace[] | undefined;
 		if (this.args.timings) {
-			if (format === "report-json") {
+			if (format === "report-json" || format === "json") {
 				const { loadBootstrapTraces } = await import("../report/timings.js");
 				const loaded = loadBootstrapTraces(this.targetPath, this.args.timings);
 				traces = loaded.traces;
@@ -340,7 +340,9 @@ export class CliSetup {
 					logger.warn(warning);
 				}
 			} else {
-				logger.warn("--timings is ignored without --report");
+				logger.warn(
+					"--timings is ignored without --report, --format json or --format report-json"
+				);
 			}
 		}
 

@@ -205,7 +205,8 @@
 .boot-compact .boot-track { height: 16px; }
 .boot-compact .boot-bar, .boot-compact .boot-hook-span { height: 12px; line-height: 12px; font-size: 9px; }
 
-.boot-trace-picker { display: flex; gap: 6px; padding: 8px 14px 0; }
+.boot-trace-bar { display: flex; align-items: center; gap: 6px; padding: 8px 14px 0; }
+.boot-trace-picker { display: flex; gap: 6px; }
 .boot-trace-picker button {
   background: none; border: 1px solid rgba(255,255,255,0.18); border-radius: 4px;
   color: var(--text-dim); font: inherit; font-size: 11px; padding: 2px 10px; cursor: pointer;
