@@ -1,6 +1,7 @@
 import type { ReportArtifact } from "../../../../common/artifact.js";
 import { decodeCodeGraph } from "../../../../common/code-graph-codec.js";
 import { isCodeDiagnostic } from "../../../../common/diagnostic.js";
+import { endpointsControl } from "../templates/endpoints.js";
 import { buildEndpoints, relativeTo } from "./descent-walk.js";
 import { explainBoots, explainEndpoint } from "./explain.js";
 
@@ -27,6 +28,8 @@ interface ModelContext {
 }
 
 const ANNOTATIONS = { readOnlyHint: true, untrustedContentHint: true };
+const UI_ANNOTATIONS = { readOnlyHint: false, untrustedContentHint: true };
+const PRESET_LABELS = ["all", "effects", "problems", "no logs", "database"];
 const MAX_FINDINGS = 50;
 
 /** The page's model context, on the document or the navigator, when the browser has one. */
@@ -129,8 +132,47 @@ function bootText(
 	return picked.map((b) => b.explain).join("\n");
 }
 
+function switchTab(name: string): void {
+	(globalThis as { switchTab?: (tab: string) => void }).switchTab?.(name);
+}
+
+/** The Endpoints tab's control once it has rendered, switching to it first. */
+async function endpointsTab() {
+	switchTab("endpoints");
+	for (let i = 0; i < 20 && !endpointsControl(); i++) {
+		await new Promise((resolve) => setTimeout(resolve, 50));
+	}
+	return endpointsControl();
+}
+
+async function showEndpoint(input: Record<string, unknown>): Promise<string> {
+	const control = await endpointsTab();
+	if (!control) {
+		return "this report has no Endpoints tab";
+	}
+	const method = String(input.method ?? "GET");
+	const path = String(input.path ?? "");
+	const preset = typeof input.preset === "string" ? input.preset : undefined;
+	const shown = control.show(method, path, preset);
+	return shown ?? `no route ${method.toUpperCase()} ${path} in this report`;
+}
+
+async function walkStep(input: Record<string, unknown>): Promise<string> {
+	const control = await endpointsTab();
+	if (!control) {
+		return "this report has no Endpoints tab";
+	}
+	if (typeof input.to === "number") {
+		control.step({ to: input.to });
+	} else {
+		control.step({ delta: input.delta === -1 ? -1 : 1 });
+	}
+	await new Promise((resolve) => setTimeout(resolve, 60));
+	return control.where();
+}
+
 /**
- * Registers the report's read-only tools with the browser's model context,
+ * Registers the report's tools with the browser's model context,
  * when it has one. Returns the function that unregisters them.
  */
 export function registerModelContext(report: ReportArtifact): () => void {
@@ -199,6 +241,47 @@ export function registerModelContext(report: ReportArtifact): () => void {
 				type: "object",
 			},
 			name: "explain_boot_trace",
+		},
+		{
+			annotations: UI_ANNOTATIONS,
+			description:
+				"Shows one route in the Endpoints tab, optionally with a step filter preset, and returns its verdict. Changes what the page displays.",
+			execute: async (input) => text(await showEndpoint(input)),
+			inputSchema: {
+				properties: {
+					method: { type: "string" },
+					path: { type: "string" },
+					preset: { enum: PRESET_LABELS, type: "string" },
+				},
+				required: ["path"],
+				type: "object",
+			},
+			name: "show_endpoint",
+		},
+		{
+			annotations: UI_ANNOTATIONS,
+			description:
+				"Moves the Endpoints tab's playhead one kept step forward or back, or to a walk index, and returns the step it lands on: index, depth, method, marks, call site.",
+			execute: async (input) => text(await walkStep(input)),
+			inputSchema: {
+				properties: {
+					delta: { enum: [-1, 1], type: "integer" },
+					to: { minimum: 0, type: "integer" },
+				},
+				type: "object",
+			},
+			name: "walk_step",
+		},
+		{
+			annotations: ANNOTATIONS,
+			description:
+				"Where the Endpoints tab's playhead is right now, as one line, or the route's verdict before any step.",
+			execute: async () =>
+				text(
+					(await endpointsTab())?.where() ?? "this report has no Endpoints tab"
+				),
+			inputSchema: { properties: {}, type: "object" },
+			name: "walk_position",
 		},
 	];
 	for (const tool of tools) {

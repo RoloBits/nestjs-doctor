@@ -28,6 +28,7 @@ import {
 	relativeTo,
 	resolveVisit,
 	type StepCategory,
+	stepCategory,
 	stepFlags,
 	type WireLayout,
 } from "../lib/descent-walk.js";
@@ -150,6 +151,22 @@ interface Selection {
 	node: number;
 	/** The visit being shown, or null when the node is not on the walk. */
 	step: number | null;
+}
+
+/** What a page tool may do to the tab: pick a route, move the playhead, read it. */
+export interface EndpointsControl {
+	/** Selects a route by method and path, with a preset by label; null when absent. */
+	show: (method: string, path: string, preset?: string) => string | null;
+	/** Moves the playhead by one kept step, or to a walk index. */
+	step: (move: { delta?: 1 | -1; to?: number }) => void;
+	/** The playhead's step as one line, or the route's verdict before any step. */
+	where: () => string;
+}
+
+const registry: { control?: EndpointsControl } = {};
+
+export function endpointsControl(): EndpointsControl | undefined {
+	return registry.control;
 }
 
 function track(event: string): void {
@@ -1296,16 +1313,38 @@ export function EndpointsTab({ report }: { report: ReportArtifact }) {
 		});
 	};
 
+	// A preset a page tool asked for along with the route, applied once.
+	const pendingPreset = useRef<number | null>(null);
 	// Re-applies the default preset whenever the selected route changes.
 	useEffect(() => {
 		const chosen = endpoints[selected];
 		if (!chosen) {
 			return;
 		}
-		const index = defaultPreset(chosen);
+		const index = pendingPreset.current ?? defaultPreset(chosen);
+		pendingPreset.current = null;
 		setPresetIndex(index);
 		setFilter(presetState(index));
 	}, [endpoints, selected]);
+
+	// The step a page tool last moved to, read until the playhead state catches up.
+	const toolStepRef = useRef<number | null>(null);
+	useEffect(() => {
+		toolStepRef.current = null;
+	}, [play.step]);
+	// The page tools reach the tab through this, always at the latest render.
+	const controlRef = useRef<EndpointsControl | null>(null);
+	useEffect(() => {
+		registry.control = {
+			show: (method, path, preset) =>
+				controlRef.current?.show(method, path, preset) ?? null,
+			step: (move) => controlRef.current?.step(move),
+			where: () => controlRef.current?.where() ?? "",
+		};
+		return () => {
+			registry.control = undefined;
+		};
+	}, []);
 
 	// Stops playing once the playhead reaches the last kept step.
 	useEffect(() => {
@@ -1340,6 +1379,66 @@ export function EndpointsTab({ report }: { report: ReportArtifact }) {
 		setFilter(presetState(index));
 		setPlay({ push: false, step: null });
 		setPlaying(false);
+	};
+	controlRef.current = {
+		show: (method, path, preset) => {
+			const index = endpoints.findIndex(
+				(e) => e.httpMethod === method.toUpperCase() && e.routePath === path
+			);
+			if (index === -1) {
+				return null;
+			}
+			const presetIdx = PRESETS.findIndex((p) => p.label === preset);
+			pendingPreset.current = presetIdx === -1 ? null : presetIdx;
+			if (index === selected) {
+				applyPreset(presetIdx === -1 ? defaultPreset(endpoint) : presetIdx);
+			}
+			setSelected(index);
+			setSourceTarget(null);
+			setPlay({ push: false, step: null });
+			setPlaying(false);
+			const chosen = endpoints[index] as DescentEndpoint;
+			return `${chosen.httpMethod} ${chosen.routePath}: ${chosen.verdict.text} · ${chosen.walk.length} steps`;
+		},
+		step: (move) => {
+			setPlaying(false);
+			const current = toolStepRef.current ?? play.step;
+			let target: number | undefined;
+			if (typeof move.to === "number") {
+				target = Math.max(0, Math.min(move.to, endpoint.walk.length - 1));
+			} else {
+				const direction = move.delta ?? 1;
+				const ahead = keptList.filter((k) => current === null || k > current);
+				const behind = keptList.filter((k) => current !== null && k < current);
+				target = direction > 0 ? ahead[0] : behind.at(-1);
+			}
+			if (target === undefined) {
+				return;
+			}
+			toolStepRef.current = target;
+			seekTo(target);
+		},
+		where: () => {
+			const at = toolStepRef.current ?? play.step;
+			if (at === null) {
+				return `no step yet · ${endpoint.verdict.text} · ${keptList.length} of ${endpoint.walk.length} steps kept`;
+			}
+			const walkStep = endpoint.walk[at];
+			const node = walkStep ? endpoint.nodes[walkStep.node] : undefined;
+			if (!(walkStep && node)) {
+				return "";
+			}
+			const edge = endpoint.edges[walkStep.edge];
+			const caller = edge ? endpoint.nodes[edge.from] : undefined;
+			const site = caller
+				? `${relativeTo(report.root, caller.filePath)}:${edge?.line}`
+				: `${relativeTo(report.root, node.filePath)}:${node.line}`;
+			const marks = [
+				node.dbOp === null ? stepCategory(node) : `db ${node.dbOp}`,
+				...stepFlags(endpoint, walkStep),
+			].join(" ");
+			return `@${at} of ${endpoint.walk.length - 1} · depth ${walkStep.depth} · ${node.label} · ${marks} · ${site}`;
+		},
 	};
 	const toggleCategory = (cat: StepCategory) => {
 		setPresetIndex(-1);

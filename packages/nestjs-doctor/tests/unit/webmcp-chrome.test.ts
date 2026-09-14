@@ -193,6 +193,9 @@ describe.skipIf(!CHROME)("WebMCP in a real Chrome", () => {
 			"explain_endpoint",
 			"get_summary",
 			"list_findings",
+			"show_endpoint",
+			"walk_position",
+			"walk_step",
 		]);
 		expect(probe.annotations).toEqual({
 			readOnlyHint: true,

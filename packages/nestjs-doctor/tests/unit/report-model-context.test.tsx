@@ -1,8 +1,12 @@
 // @vitest-environment jsdom
+
+import { act } from "react";
+import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 import type { ReportArtifact } from "../../src/common/artifact.js";
 import { encodeCodeGraph } from "../../src/common/code-graph-codec.js";
 import { registerModelContext } from "../../src/report/ui/app/lib/model-context.js";
+import { EndpointsTab } from "../../src/report/ui/app/templates/endpoints.js";
 import {
 	codeDiagnostic,
 	DESCENT_GRAPH,
@@ -10,6 +14,9 @@ import {
 } from "./report-artifact-fixture.js";
 
 const EXPLAIN_HEAD = /^POST \/a → AController\.handle/;
+const NO_STEP_YET = /^no step yet · read before write/;
+const STEP_TWO =
+	/^@2 of 9 · depth 2 · PrismaService#user\.findUnique · db read/;
 
 interface Registered {
 	signal?: AbortSignal;
@@ -73,6 +80,10 @@ async function run(
 	return result.content[0]?.text ?? "";
 }
 
+(
+	globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT = true;
+
 describe("registerModelContext", () => {
 	afterEach(() => {
 		Reflect.deleteProperty(document, "modelContext");
@@ -90,14 +101,19 @@ describe("registerModelContext", () => {
 			"list_findings",
 			"explain_endpoint",
 			"explain_boot_trace",
+			"show_endpoint",
+			"walk_step",
+			"walk_position",
 		]);
 		for (const { signal, tool } of registered) {
-			expect(tool.annotations).toEqual({
-				readOnlyHint: true,
-				untrustedContentHint: true,
-			});
+			expect(tool.annotations?.untrustedContentHint).toBe(true);
 			expect(signal?.aborted).toBe(false);
 		}
+		expect(
+			registered
+				.filter((r) => r.tool.annotations?.readOnlyHint === false)
+				.map((r) => r.tool.name)
+		).toEqual(["show_endpoint", "walk_step"]);
 		unregister();
 		expect(registered.every((r) => r.signal?.aborted)).toBe(true);
 	});
@@ -124,5 +140,42 @@ describe("registerModelContext", () => {
 		expect(await run(registered, "explain_boot_trace")).toBe(
 			"this report carries no boot trace"
 		);
+	});
+
+	it("drives the Endpoints tab: shows a route with a preset and steps the walk", async () => {
+		const registered = install();
+		const container = document.createElement("div");
+		container.id = "tab-endpoints";
+		document.body.appendChild(container);
+		const root = createRoot(container);
+		act(() => {
+			root.render(<EndpointsTab report={ARTIFACT} />);
+		});
+		try {
+			registerModelContext(ARTIFACT);
+			const shown = await act(() =>
+				run(registered, "show_endpoint", {
+					method: "post",
+					path: "/a",
+					preset: "all",
+				})
+			);
+			expect(shown).toBe("POST /a: read before write · @2 then @5 · 10 steps");
+			expect(await act(() => run(registered, "walk_position"))).toMatch(
+				NO_STEP_YET
+			);
+			expect(await act(() => run(registered, "walk_step", { delta: 1 }))).toBe(
+				"@0 of 9 · depth 0 · AController#handle · call · src/a.controller.ts:1"
+			);
+			expect(await act(() => run(registered, "walk_step", { to: 2 }))).toMatch(
+				STEP_TWO
+			);
+			expect(
+				await act(() => run(registered, "show_endpoint", { path: "/nope" }))
+			).toBe("no route GET /nope in this report");
+		} finally {
+			act(() => root.unmount());
+			container.remove();
+		}
 	});
 });
