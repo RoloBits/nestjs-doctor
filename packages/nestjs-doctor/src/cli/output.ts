@@ -6,7 +6,10 @@ import { MAX_DEPENDENCY_NODES } from "../common/endpoint.js";
 import type { DiagnoseResult, MonorepoResult } from "../common/result.js";
 import type { EngineResult, MonorepoEngineResult } from "../engine/scanner.js";
 import { buildSharedReport, writeSharedReportFile } from "../report/share.js";
-import { explainEndpoints } from "../report/ui/app/lib/explain.js";
+import {
+	explainBoots,
+	explainEndpoints,
+} from "../report/ui/app/lib/explain.js";
 import { highlighter } from "../ui/highlighter.js";
 import { logger } from "../ui/logger.js";
 import { shouldBlock } from "./blocking.js";
@@ -28,25 +31,34 @@ function withExplanations(
 	result: DiagnoseResult,
 	artifact: (() => ReportArtifact) | undefined
 ): DiagnoseResult {
-	const built = result.endpoints ? artifact?.() : undefined;
-	if (!built?.codeGraph) {
+	const built = artifact?.();
+	if (!built) {
 		return result;
 	}
-	const texts = explainEndpoints(decodeCodeGraph(built.codeGraph), {
+	const ctx = {
 		root: built.root,
 		sources: built.sources,
 		version: built.generator.version,
-	});
+	};
+	const boot = explainBoots(built.graph, ctx);
+	const texts = built.codeGraph
+		? explainEndpoints(decodeCodeGraph(built.codeGraph), ctx)
+		: undefined;
 	return {
 		...result,
-		endpoints: {
-			endpoints: (result.endpoints?.endpoints ?? []).map((endpoint) => {
-				const explain = texts.get(
-					`${endpoint.controllerClass}.${endpoint.handlerMethod}:${endpoint.routePath}`
-				);
-				return explain ? { ...endpoint, explain } : endpoint;
-			}),
-		},
+		...(boot.length > 0 ? { boot } : {}),
+		...(texts && result.endpoints
+			? {
+					endpoints: {
+						endpoints: result.endpoints.endpoints.map((endpoint) => {
+							const explain = texts.get(
+								`${endpoint.controllerClass}.${endpoint.handlerMethod}:${endpoint.routePath}`
+							);
+							return explain ? { ...endpoint, explain } : endpoint;
+						}),
+					},
+				}
+			: {}),
 	};
 }
 

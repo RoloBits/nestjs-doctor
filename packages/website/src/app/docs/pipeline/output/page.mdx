@@ -82,6 +82,13 @@ run builds one:
 npx nestjs-doctor . --json | jq -r '.endpoints.endpoints[] | select(.routePath == "/orders/:id") | .explain'
 ```
 
+With `--timings`, the result also carries `boot`, one entry per trace with its
+`label`, `project` and the boot as plain text under `explain`:
+
+```bash
+npx nestjs-doctor . --json --timings nestjs-doctor-timings.json | jq -r '.boot[].explain'
+```
+
 ### Score only (`--score`)
 
 The numeric score and nothing else:

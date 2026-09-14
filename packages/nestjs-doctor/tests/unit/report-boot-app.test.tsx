@@ -14,6 +14,8 @@ import { EMPTY_ARTIFACT } from "./report-artifact-fixture.js";
 	globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
+const BOOT_HEAD = /^boot: boot → ready in 400ms/;
+
 const TIMED_ARTIFACT: ReportArtifact = {
 	...EMPTY_ARTIFACT,
 	graph: {
@@ -104,6 +106,35 @@ describe("BootTab", () => {
 			root.render(<BootTab report={artifact} />);
 		});
 	};
+
+	it("copies the trace as text for an agent", async () => {
+		const written: string[] = [];
+		Object.defineProperty(navigator, "clipboard", {
+			configurable: true,
+			value: {
+				writeText: (text: string) => {
+					written.push(text);
+					return Promise.resolve();
+				},
+			},
+		});
+		try {
+			mount(TIMED_ARTIFACT);
+			act(() => {
+				container.querySelector<HTMLButtonElement>("#boot-copy-agent")?.click();
+			});
+			await act(async () => {
+				await Promise.resolve();
+			});
+			expect(written).toHaveLength(1);
+			expect(written[0]).toMatch(BOOT_HEAD);
+			expect(written[0]).toContain(
+				"CatsController               controller own    30ms"
+			);
+		} finally {
+			Reflect.deleteProperty(navigator, "clipboard");
+		}
+	});
 
 	it("renders the empty state without timings", () => {
 		mount(EMPTY_ARTIFACT);

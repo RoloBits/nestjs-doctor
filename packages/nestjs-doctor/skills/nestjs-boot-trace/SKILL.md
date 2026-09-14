@@ -82,12 +82,22 @@ npx nestjs-doctor@latest . --report --timings nestjs-doctor-timings.json
 
 A monorepo boots once per entry point. Instrument each `main.ts`, keep one dump per app, and pass them together, labelled when a name helps: `--timings nestjs-doctor-timings.json,worker=worker-timings.json`. Each dump becomes its own trace in the report.
 
-Relative paths resolve against the scanned directory. Without `--report` the
-flag is ignored, with a warning. A missing file, invalid JSON, or a dump
+Relative paths resolve against the scanned directory. Without `--report` or
+`--format json` the flag is ignored, with a warning. A missing file, invalid JSON, or a dump
 without `initTime` each warn on stderr and still render the report, so check
 stderr before trusting an empty trace.
 
 ## 4. Read the result
+
+Read the trace as text instead of the HTML, one entry per dump:
+
+```bash
+npx nestjs-doctor@latest . --json --timings nestjs-doctor-timings.json | jq -r '.boot[].explain'
+```
+
+It lists the phases, the last class built and what it waited on, the ten
+slowest modules and classes with their own time after their dependencies, and
+the slowest hooks. The rules below are how to read those numbers.
 
 Each class's time includes waiting on its own dependencies. A shared slow
 dependency therefore counts again in every class that awaits it.

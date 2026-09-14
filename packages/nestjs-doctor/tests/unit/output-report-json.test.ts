@@ -14,6 +14,7 @@ import {
 } from "./report-artifact-fixture.js";
 
 const EXPLAIN_HEAD = /^POST \/a → AController\.handle/;
+const BOOT_HEAD = /^boot: boot → ready in 40ms/;
 
 const engineResult = () =>
 	({
@@ -95,6 +96,37 @@ describe("report-json output", () => {
 
 		const out = JSON.parse(readFileSync(join(dir, "out.json"), "utf-8"));
 		expect(out.endpoints.endpoints[0].explain).toMatch(EXPLAIN_HEAD);
+	});
+
+	it("attaches one boot text per trace to --format json", () => {
+		const dir = mkdtempSync(join(tmpdir(), "nd-json-"));
+		outputSingleProjectResults(
+			engineResult(),
+			undefined,
+			dir,
+			{ ...options("json"), outputPath: join(dir, "out.json") },
+			[],
+			() => ({
+				...EMPTY_ARTIFACT,
+				graph: {
+					...EMPTY_ARTIFACT.graph,
+					startupMs: 40,
+					timingsAvailable: true,
+					timingsTrace: {
+						ta: {
+							deps: [],
+							initTime: 40,
+							name: "AppService",
+							type: "provider",
+						},
+					},
+				},
+			})
+		);
+		const out = JSON.parse(readFileSync(join(dir, "out.json"), "utf-8"));
+		expect(out.boot).toHaveLength(1);
+		expect(out.boot[0].label).toBe("boot");
+		expect(out.boot[0].explain).toMatch(BOOT_HEAD);
 	});
 
 	it("leaves --format json alone when no artifact builder is given", () => {

@@ -1,4 +1,13 @@
+import type { SerializedModuleGraph } from "../../../../common/artifact.js";
 import type { CodeGraph } from "../../../../common/code-graph.js";
+import {
+	type BootSpan,
+	type BootTraceView,
+	buildBootTimeline,
+	moduleTimingLabel,
+	moduleTimings,
+	traceViews,
+} from "./boot-timeline.js";
 import {
 	buildEndpoints,
 	type DescentEndpoint,
@@ -10,6 +19,7 @@ import {
 	stepCategory,
 	stepFlags,
 } from "./descent-walk.js";
+import { formatMs } from "./trace.js";
 
 export interface ExplainContext {
 	/** Scan root, posix, so paths print relative. */
@@ -20,6 +30,9 @@ export interface ExplainContext {
 }
 
 const DOCS_URL = "https://nestjs.doctor/docs/report#endpoints";
+const BOOT_DOCS_URL = "https://nestjs.doctor/docs/report/boot-trace";
+/** Rows the boot text lists per table. */
+const BOOT_TOP = 10;
 /** Step lines the text carries before it says how many more there are. */
 const MAX_STEP_LINES = 30;
 /** Condition lines the text carries; the ones above the verdict's steps come first. */
@@ -270,4 +283,128 @@ export function explainEndpoints(
 		out.set(endpoint.key, explainEndpoint(endpoint, ctx));
 	}
 	return out;
+}
+
+/** An offset from boot start; zero is exactly zero, not under a millisecond. */
+function at(value: number): string {
+	return value === 0 ? "0ms" : formatMs(value);
+}
+
+function ownMs(span: BootSpan): number {
+	return span.end - span.start;
+}
+
+/** One trace of a real boot as plain text: phases, slowest modules and classes. */
+export function explainBoot(
+	view: BootTraceView,
+	ctx: { version: string }
+): string {
+	const timeline = buildBootTimeline(view.graph);
+	if (!timeline) {
+		return "";
+	}
+	const spans = [...timeline.byId.values()];
+	const last = spans.reduce<BootSpan | null>(
+		(best, span) => (best === null || span.end > best.end ? span : best),
+		null
+	);
+	const name =
+		view.project && view.project !== view.label
+			? `${view.project} · ${view.label}`
+			: view.label;
+	const moduleCount = timeline.groups.length;
+	const lines = [
+		`boot: ${name} → ready in ${formatMs(view.graph.startupMs ?? timeline.maxMs)}  (${spans.length} class${
+			spans.length === 1 ? "" : "es"
+		} · ${moduleCount} module${moduleCount === 1 ? "" : "s"})`,
+	];
+	const phases = timeline.phases
+		.filter((phase) => phase.end > phase.start)
+		.map((phase) => `${phase.label} ${formatMs(phase.end - phase.start)}`);
+	if (phases.length > 0) {
+		lines.push(`phases: ${phases.join(" · ")}`);
+	}
+	if (last) {
+		const waited = last.waitedOn ? timeline.byId.get(last.waitedOn) : undefined;
+		lines.push(
+			`last class built: ${last.name} at ${formatMs(last.end)}${
+				waited
+					? `, after ${waited.name} finished at ${formatMs(waited.end)}`
+					: ""
+			}`
+		);
+	}
+	const timings = moduleTimings({ ...view.graph, traces: undefined });
+	const modules = [...timeline.groups]
+		.sort(
+			(a, b) =>
+				b.end - b.start - (a.end - a.start) || a.module.localeCompare(b.module)
+		)
+		.slice(0, BOOT_TOP);
+	lines.push("", `modules (top ${modules.length} by wall time):`);
+	for (const group of modules) {
+		const timing = timings.get(group.module);
+		const tag = group.external ? "  package" : "";
+		lines.push(
+			` ${group.module.padEnd(28)} ${formatMs(group.end - group.start).padStart(7)}  ${
+				timing ? moduleTimingLabel(timing) : ""
+			}${tag}`
+		);
+	}
+	const classes = [...spans]
+		.sort((a, b) => ownMs(b) - ownMs(a) || a.name.localeCompare(b.name))
+		.slice(0, BOOT_TOP);
+	lines.push(
+		"",
+		`classes (top ${classes.length} by own time, after their dependencies):`
+	);
+	for (const span of classes) {
+		const waited = span.waitedOn ? timeline.byId.get(span.waitedOn) : undefined;
+		lines.push(
+			` ${span.name.padEnd(28)} ${span.type.padEnd(10)} own ${formatMs(ownMs(span)).padStart(7)}  ${at(span.start).padStart(7)} → ${at(span.end).padStart(7)}  ${span.module}${
+				waited ? `  waited on ${waited.name}` : ""
+			}`
+		);
+	}
+	const hooks = spans
+		.flatMap((span) =>
+			(span.hooks ?? []).map((hook) => ({
+				hook: hook.hook,
+				ms: hook.ms,
+				name: span.name,
+			}))
+		)
+		.sort((a, b) => b.ms - a.ms || a.name.localeCompare(b.name))
+		.slice(0, BOOT_TOP);
+	if (hooks.length > 0) {
+		lines.push("", `hooks (top ${hooks.length}):`);
+		for (const hook of hooks) {
+			lines.push(
+				` ${hook.name.padEnd(28)} ${hook.hook.padEnd(22)} ${formatMs(hook.ms).padStart(7)}`
+			);
+		}
+	}
+	lines.push(
+		"",
+		`nestjs-doctor ${ctx.version} · ${BOOT_DOCS_URL}`,
+		"A class's time includes waiting on its own dependencies. Read down a cascade until the number drops; the class where it drops owns the time."
+	);
+	return `${lines.join("\n")}\n`;
+}
+
+/** One text per boot trace in a graph, or none when it carries no timings. */
+export function explainBoots(
+	graph: SerializedModuleGraph,
+	ctx: { version: string }
+): { explain: string; label: string; project?: string }[] {
+	if (!(graph.timingsAvailable || graph.traces?.length)) {
+		return [];
+	}
+	return traceViews(graph)
+		.map((view) => ({
+			explain: explainBoot(view, ctx),
+			label: view.label,
+			...(view.project ? { project: view.project } : {}),
+		}))
+		.filter((entry) => entry.explain !== "");
 }
