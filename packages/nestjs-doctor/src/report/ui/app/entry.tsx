@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import type { ReportArtifact } from "../../../common/artifact.js";
+import { registerModelContext as registerModelContextImpl } from "./lib/model-context.js";
 import { HeaderRow } from "./organisms/header.js";
 
 import {
@@ -106,6 +107,11 @@ export function renderLab(report: ReportArtifact): void {
 
 export function labOpened(): void {
 	labOpenedImpl();
+}
+
+/** Registers the report's read-only tools with the browser's model context, when it has one. */
+export function registerModelContext(report: ReportArtifact): () => void {
+	return registerModelContextImpl(report);
 }
 
 export function renderChrome(
