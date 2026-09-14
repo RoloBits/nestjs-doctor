@@ -8,6 +8,7 @@ import {
 	Modal,
 	parseReportFile,
 	type ReportArtifact,
+	registerModelContext,
 	renderBoot,
 	renderChrome,
 	renderDiagnosis,
@@ -103,6 +104,7 @@ function LoadedReport({
 	useEffect(() => {
 		let disposed = false;
 		let cleanupCodeViewer: (() => void) | undefined;
+		let unregisterTools: (() => void) | undefined;
 		const rendered: Record<string, boolean> = {};
 		const g = globalThis as ReportGlobals;
 
@@ -166,6 +168,7 @@ function LoadedReport({
 				hideShare: shared,
 				onLoadAnother,
 			});
+			unregisterTools = registerModelContext(artifact);
 			if (!hiddenTabs.includes("lab")) {
 				renderLab(artifact);
 				codeViewer.initLabEditor(track);
@@ -182,6 +185,7 @@ function LoadedReport({
 
 		return () => {
 			disposed = true;
+			unregisterTools?.();
 			unmountAll();
 			cleanupCodeViewer?.();
 			g.switchTab = undefined;
