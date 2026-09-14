@@ -49,8 +49,12 @@ interface DescentEdgeInfo {
 	awaited: boolean;
 	concurrent: boolean;
 	conditional: boolean;
+	/** The innermost enclosing condition as written, or null. */
+	conditionText: string | null;
 	from: number;
 	guard: boolean;
+	/** The exception a guard throw raises when the callee comes back empty. */
+	guardThrows: string | null;
 	inTry: boolean;
 	iteration: "loop" | "callback" | "concurrent" | null;
 	line: number;
@@ -104,6 +108,14 @@ export interface DescentEndpoint {
 
 /** Step ceiling for one walk; past it the walk stops and reports truncated. */
 const MAX_STEPS = 5000;
+
+/** Drops the scan root prefix; a path that does not carry it is unchanged. */
+export function relativeTo(root: string | undefined, filePath: string): string {
+	if (!(root && filePath.startsWith(`${root}/`))) {
+		return filePath;
+	}
+	return filePath.slice(root.length + 1);
+}
 
 const READ_PREFIXES = ["find", "get", "count", "aggregate", "exist"];
 const WRITE_PREFIXES = [
@@ -395,8 +407,10 @@ function sliceEndpoint(
 				awaited: edge.awaited,
 				concurrent: edge.iterationKind === "concurrent",
 				conditional: edge.conditional,
+				conditionText: edge.conditionText,
 				from,
 				guard: edge.guardThrow !== null,
+				guardThrows: edge.guardThrow?.className ?? null,
 				inTry: edge.tryRegion !== null,
 				iteration: edge.iterationKind,
 				line: edge.line,
