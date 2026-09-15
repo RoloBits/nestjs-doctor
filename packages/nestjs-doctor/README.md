@@ -18,13 +18,18 @@
   <a href="https://marketplace.visualstudio.com/items?itemName=rolobits.nestjs-doctor-vscode"><img src="https://img.shields.io/visual-studio-marketplace/v/rolobits.nestjs-doctor-vscode?style=flat&colorA=18181b&colorB=18181b&label=vscode" alt="vscode"></a>
 </p>
 
-An opinionated rule set for an opinionated framework. nestjs-doctor scans your
-codebase and reports findings across security, correctness, architecture,
-performance, and schema, then scores it 0-100.
+nestjs-doctor is a free, open-source static analysis tool for NestJS. It scans
+your codebase, reports findings across security, correctness, architecture,
+performance, and schema, and scores it 0-100. It picks up where
+[the NestJS ESLint plugins](https://nestjs.doctor/docs/nestjs-eslint-plugins)
+end by reading the whole module graph from source, which answers statically
+what [Nest Devtools](https://nestjs.doctor/docs/nest-devtools-alternative)
+reads at runtime. MIT licensed, nothing boots, and nothing about your code
+leaves your machine.
 
-No AI at scan time, and nothing about your code leaves the machine. The same
-commit scores the same on your laptop and in CI. Reads schemas from Prisma,
-TypeORM, Drizzle and MikroORM, and handles monorepos.
+No AI at scan time. The same commit scores the same on your laptop and in CI.
+Reads schemas from Prisma, TypeORM, Drizzle and MikroORM, and handles
+monorepos.
 
 [Website →](https://nestjs.doctor/docs)
 

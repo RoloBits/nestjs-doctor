@@ -19,7 +19,7 @@ const SOFTWARE_APPLICATION = {
 	"@type": "SoftwareApplication",
 	name: "nestjs-doctor",
 	description:
-		"The deterministic NestJS devtool that catches AI mistakes. Static analysis for NestJS with a health score, diagnostics and a CI gate.",
+		"nestjs-doctor is a free, open-source static analysis tool for NestJS. The deterministic NestJS devtool that catches AI mistakes: a health score, diagnostics and a CI gate, under MIT.",
 	url: SITE_URL,
 	applicationCategory: "DeveloperApplication",
 	operatingSystem: "Cross-platform",

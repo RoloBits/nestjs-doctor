@@ -8,9 +8,9 @@ export const DOCS_PAGES: Record<string, PageCopy> = {
 			"The deterministic NestJS devtool that catches AI mistakes. Static analysis that scans a NestJS codebase and produces a health score across security, correctness, architecture, performance, and schema.",
 	},
 	"/docs/nest-devtools-alternative": {
-		title: "NestJS Doctor vs Nest Devtools",
+		title: "Nest Devtools alternative: nestjs-doctor, free and open source",
 		description:
-			"Both draw a NestJS module graph. Nest Devtools boots your app; nestjs-doctor reads your source, adds 52 rules, an ER diagram and a CI gate, and is MIT licensed.",
+			"nestjs-doctor is a free, open source Nest Devtools alternative for the module graph and CI. Devtools boots the app and is paid; nestjs-doctor reads source, runs locally, and is MIT.",
 	},
 	"/docs/nestjs-eslint-plugins": {
 		title: "NestJS Doctor vs ESLint plugins",

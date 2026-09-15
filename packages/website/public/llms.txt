@@ -1,6 +1,6 @@
 # NestJS Doctor
 
-> The deterministic NestJS devtool that catches AI mistakes. 52 built-in rules across security, performance, correctness, architecture, and schema. Outputs a 0-100 score with actionable diagnostics. An interactive HTML report visualizes the module dependency graph with circular imports highlighted, traced HTTP endpoints, and an ER diagram of the database schema. Zero config. Monorepo support. Ships an official GitHub Action that reports only what a pull request introduced.
+> nestjs-doctor is a free, open-source static analysis tool for NestJS, under MIT. The deterministic NestJS devtool that catches AI mistakes. Nothing boots and nothing about your code leaves the machine. 52 built-in rules across security, performance, correctness, architecture, and schema. Outputs a 0-100 score with actionable diagnostics. An interactive HTML report visualizes the module dependency graph with circular imports highlighted, traced HTTP endpoints, and an ER diagram of the database schema. Zero config. Monorepo support. Ships an official GitHub Action that reports only what a pull request introduced.
 
 ## Quick Start
 
@@ -15,6 +15,11 @@ Install as a devDependency for CI:
 ```bash
 npm install -D nestjs-doctor
 ```
+
+## Compared with
+
+- [Nest Devtools](https://nestjs.doctor/docs/nest-devtools-alternative) boots the app and shows the graph Nest built; it is paid, and its CI diff sits on the Enterprise plan. Under MIT, nestjs-doctor reads the same modules from source and adds 52 rules and a CI gate.
+- [The NestJS ESLint plugins](https://nestjs.doctor/docs/nestjs-eslint-plugins) read one file at a time and run on save. One nestjs-doctor scan reads the whole application at once: every `@Module()`, the provider map, the endpoint graph and the ORM schema. Keep both.
 
 ## CLI Options
 
