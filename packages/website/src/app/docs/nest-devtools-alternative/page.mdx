@@ -119,22 +119,12 @@ built at runtime.
 
 ## Related tools
 
-The first three need the app running and read what it does while it runs.
-nestjs-doctor reads source, so they run alongside it rather than instead of
-it. The ESLint plugins are static too and have their own page.
-
-- **[NestLens](https://github.com/mogretici/nestlens):** a Telescope-style
-  monitoring dashboard for a running app that records requests, queries,
-  exceptions and jobs. MIT.
-- **[nestjs-devtools-mcp](https://www.npmjs.com/package/nestjs-devtools-mcp):**
-  an MCP server that connects an AI coding assistant to a running local app and
-  proxies its routes, logs, errors and request history. MIT.
-- **[@angelitosystems/nest-devtools-cli](https://github.com/angelitosystems/nest-devtools):**
-  a local HTTP and WebSocket server with an embedded dashboard, and
-  `nest-devtools init` wires its SDK into `main.ts`. MIT.
-- **[The NestJS ESLint plugins](/docs/nestjs-eslint-plugins):** file-scoped lint
-  rules that run on save. That page lists where they overlap with nestjs-doctor
-  rule for rule.
+Other free tools in the Devtools space watch a running app: request, query and
+exception monitors, and MCP bridges that hand a running app's routes and logs
+to an AI assistant. They read what the app does at runtime, so they run
+alongside nestjs-doctor, not instead of it. The
+[NestJS ESLint plugins](/docs/nestjs-eslint-plugins) are static like
+nestjs-doctor, and that page lists where they overlap rule for rule.
 
 ## Running both
 
