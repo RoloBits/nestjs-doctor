@@ -1,7 +1,7 @@
 {
   "name": "nestjs-doctor",
   "version": "0.9.9",
-  "description": "nestjs-doctor is a free, open-source static analysis tool for NestJS, under MIT. The deterministic NestJS devtool that catches AI mistakes: a 0-100 health score, diagnostics and an interactive report.",
+  "description": "nestjs-doctor is a free, open-source static analysis tool for NestJS (MIT): 52 rules, a 0-100 health score, the module graph without booting the app, and a CI gate that comments on pull requests. No LLM at scan time.",
   "keywords": [
     "nestjs",
     "nest",
@@ -19,6 +19,8 @@
     "devtools",
     "nestjs-devtools",
     "nest-devtools",
+    "ci",
+    "github-action",
     "best-practices"
   ],
   "homepage": "https://www.nestjs.doctor",

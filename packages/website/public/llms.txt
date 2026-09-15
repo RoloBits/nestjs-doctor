@@ -1,6 +1,6 @@
 # NestJS Doctor
 
-> nestjs-doctor is a free, open-source static analysis tool for NestJS, under MIT. The deterministic NestJS devtool that catches AI mistakes. Nothing boots and nothing about your code leaves the machine. 52 built-in rules across security, performance, correctness, architecture, and schema. Outputs a 0-100 score with actionable diagnostics. An interactive HTML report visualizes the module dependency graph with circular imports highlighted, traced HTTP endpoints, and an ER diagram of the database schema. Zero config. Monorepo support. Ships an official GitHub Action that reports only what a pull request introduced.
+> nestjs-doctor is a free, open-source static analysis tool for NestJS (MIT). It reads the whole application from source, so nothing boots and nothing about your code leaves the machine, and runs 52 rules across security, correctness, architecture, performance and schema for a 0-100 score. No LLM at scan time; the same commit scores the same everywhere. The HTML report draws the module graph with circular imports highlighted, traced HTTP endpoints, an ER diagram of the ORM schema, and boot timings. Ships a GitHub Action that fails the build and reports only what a pull request introduced, a VS Code extension, and skills for coding agents. Zero config; monorepos supported.
 
 ## Quick Start
 

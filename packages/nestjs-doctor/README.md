@@ -18,18 +18,23 @@
   <a href="https://marketplace.visualstudio.com/items?itemName=rolobits.nestjs-doctor-vscode"><img src="https://img.shields.io/visual-studio-marketplace/v/rolobits.nestjs-doctor-vscode?style=flat&colorA=18181b&colorB=18181b&label=vscode" alt="vscode"></a>
 </p>
 
-nestjs-doctor is a free, open-source static analysis tool for NestJS. It scans
-your codebase, reports findings across security, correctness, architecture,
-performance, and schema, and scores it 0-100. It picks up where
+nestjs-doctor is a free, open-source static analysis tool for NestJS. It reads
+the whole application from source, every `@Module()`, provider, endpoint and
+ORM entity, and reports findings across security, correctness, architecture,
+performance and schema with a 0-100 score. It picks up where
 [the NestJS ESLint plugins](https://nestjs.doctor/docs/nestjs-eslint-plugins)
-end by reading the whole module graph from source, which answers statically
-what [Nest Devtools](https://nestjs.doctor/docs/nest-devtools-alternative)
-reads at runtime. MIT licensed, nothing boots, and nothing about your code
-leaves your machine.
+end and answers statically what
+[Nest Devtools](https://nestjs.doctor/docs/nest-devtools-alternative) reads at
+runtime: nothing boots, and nothing about your code leaves your machine
+([telemetry](#telemetry)). MIT.
 
-No AI at scan time. The same commit scores the same on your laptop and in CI.
-Reads schemas from Prisma, TypeORM, Drizzle and MikroORM, and handles
-monorepos.
+No LLM at scan time, so the same commit scores the same on your laptop and in
+CI, which makes it the check to run on Nest code that Copilot, Cursor or Claude
+Code wrote. Run it with `npx`, as a pre-commit hook, as a GitHub Action that
+fails the build and comments on the pull request with only what it introduced,
+in VS Code, or from a coding-agent skill. The HTML report draws the module
+graph, the endpoint traces, the ER diagram from Prisma, TypeORM, Drizzle or
+MikroORM, and boot timings from one real start. Monorepos work.
 
 [Website →](https://nestjs.doctor/docs)
 
