@@ -6,11 +6,13 @@ import {
 	openReportInBrowser,
 	writeReportFile,
 } from "../../../report/output.js";
+import { reportCommandTelemetry } from "../../../telemetry/command-telemetry.js";
 import {
 	ciNextSteps,
 	ciWorkflowExists,
 	installCiWorkflow,
 } from "../../ci-install.js";
+import { initSkill, skillInstalledForDetectedAgent } from "../../init.js";
 import {
 	buildHandoffPrompt,
 	detectLaunchableAgents,
@@ -78,14 +80,18 @@ export const App = ({
 		() => groupFindings(shown.diagnostics).length,
 		[shown.diagnostics]
 	);
+	const [skillInstalled, setSkillInstalled] = useState(
+		skillInstalledForDetectedAgent
+	);
 	const items = useMemo(
 		() =>
 			buildMenuItems(
 				shown.diagnostics.length,
 				ruleCount,
-				!ciWorkflowExists(context.targetPath)
+				!ciWorkflowExists(context.targetPath),
+				!skillInstalled
 			),
-		[context.targetPath, ruleCount, shown.diagnostics]
+		[context.targetPath, ruleCount, shown.diagnostics, skillInstalled]
 	);
 	const handoffItems = useMemo(() => buildHandoffItems(), []);
 
@@ -105,6 +111,18 @@ export const App = ({
 		}
 		setScreen("score");
 	}, [context.targetPath, deferPrint, shown.diagnostics]);
+
+	const reportCommand = useCallback(
+		(command: "ci_install" | "init") =>
+			reportCommandTelemetry({
+				command,
+				configPath: context.configPath,
+				from: "menu",
+				optionsTelemetry: context.telemetry,
+				targetPath: context.targetPath,
+			}),
+		[context.configPath, context.targetPath, context.telemetry]
+	);
 
 	const runAction = useCallback(
 		async (action: MenuAction): Promise<void> => {
@@ -151,6 +169,7 @@ export const App = ({
 									.map((step) => `• ${step}`)
 									.join("\n")}`,
 							});
+							await reportCommand("ci_install");
 							break;
 						case "exists":
 							setToast({
@@ -175,6 +194,29 @@ export const App = ({
 								kind: "error",
 								text: `Could not write the workflow (${outcome.status}).`,
 							});
+					}
+				} else if (action === "init") {
+					const lines: string[] = [];
+					let failed = false;
+					const collect = (...args: unknown[]) => {
+						lines.push(args.join(" "));
+					};
+					await initSkill(context.targetPath, context.version, {
+						dim: () => undefined,
+						error: (...args) => {
+							failed = true;
+							collect(...args);
+						},
+						success: collect,
+						warn: collect,
+					});
+					setSkillInstalled(skillInstalledForDetectedAgent());
+					setToast({
+						kind: failed ? "error" : "success",
+						text: lines.join("\n"),
+					});
+					if (!failed) {
+						await reportCommand("init");
 					}
 				} else if (action === "markdown") {
 					const markdown = buildMarkdownReport(context.result, {
@@ -203,7 +245,7 @@ export const App = ({
 				setBusy(false);
 			}
 		},
-		[context, deferPrint, exit]
+		[context, deferPrint, exit, reportCommand]
 	);
 
 	useInput(

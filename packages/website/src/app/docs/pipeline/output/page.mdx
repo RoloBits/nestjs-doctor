@@ -188,7 +188,7 @@ graph. See [Boot trace](/docs/report/boot-trace).
 |------|---------|
 | `0` | Passed |
 | `1` | A gate failed |
-| `2` | Invalid input (bad path, invalid flags) |
+| `2` | Invalid input (bad path, invalid flags, or no TypeScript files under the path) |
 | `130` | The scan was cancelled with Ctrl+C |
 
 Two gates produce `1`: the `--min-score` threshold, and the severity gate set by `--blocking`. The severity gate defaults per output mode, so the same findings exit `1` under the console report and `0` under `--format json`. See [Exit codes](/docs/reference/cli#exit-codes) for the defaults.

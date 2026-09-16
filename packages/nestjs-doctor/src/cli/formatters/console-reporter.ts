@@ -243,6 +243,19 @@ const printDiagnostics = (
 
 // --- Main reporter ---
 
+/** Replaces the score box when the collector matched nothing. Always on stderr. */
+export function printNoFilesReport(targetPath: string): void {
+	logger.error(`No TypeScript source files found under ${targetPath}`);
+	console.error(
+		highlighter.dim(
+			[
+				"Looked for **/*.ts outside node_modules, dist, build, coverage, and test, mock, and seed files; a config's include and exclude globs change that.",
+				"Run from the project root, or pass the path:  npx nestjs-doctor@latest apps/api",
+			].join("\n")
+		)
+	);
+}
+
 export function printConsoleReport(
 	fullResult: DiagnoseResult,
 	verbose: boolean,

@@ -170,7 +170,7 @@ Every run ends in one of four codes:
 |------|---------|
 | `0` | Passed |
 | `1` | A gate failed |
-| `2` | Bad input: the path does not exist, a flag is invalid, or two flags conflict |
+| `2` | Bad input: the path does not exist, holds no TypeScript files, a flag is invalid, or two flags conflict |
 | `130` | You cancelled the scan with Ctrl+C |
 
 The score gate is checked before the severity gate, so a run below `--min-score`

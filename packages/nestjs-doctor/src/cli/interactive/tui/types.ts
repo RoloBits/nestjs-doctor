@@ -20,6 +20,7 @@ export type Toast = {
 export type MenuAction =
 	| "ci"
 	| "handoff"
+	| "init"
 	| "markdown"
 	| "quit"
 	| "report"
@@ -29,10 +30,14 @@ export type MenuAction =
 /** Everything the post-scan UI needs, handed over by the pipeline. */
 export interface InteractiveContext {
 	buildReportHtml: () => string;
+	/** The `--config` path, when one was passed. */
+	configPath?: string;
 	/** The serialized module graph, for sharing the modules section. */
 	moduleGraph: () => ReportArtifact["graph"];
 	result: DiagnoseResult;
 	subProjects?: SubProjectView[];
 	targetPath: string;
+	/** The `--telemetry` flag; the config's own opt-out is read on use. */
+	telemetry: boolean;
 	version: string;
 }

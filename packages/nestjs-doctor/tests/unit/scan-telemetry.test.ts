@@ -320,6 +320,13 @@ describe("scan telemetry payload", () => {
 		).toBe("npx");
 	});
 
+	it("names a skill run only through the explicit override", () => {
+		expect(
+			detectTrigger({ NESTJS_DOCTOR_TRIGGER: "skill", CLAUDECODE: "1" })
+		).toBe("skill");
+		expect(detectTrigger({ CLAUDECODE: "1" })).toBe("agent");
+	});
+
 	it("drops an unknown NESTJS_DOCTOR_TRIGGER", () => {
 		const env = { NESTJS_DOCTOR_TRIGGER: "my-wrapper", npm_command: "exec" };
 		expect(detectTrigger(env)).toBe("npx");

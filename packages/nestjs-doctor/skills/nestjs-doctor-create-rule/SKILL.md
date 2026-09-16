@@ -153,7 +153,7 @@ console.log('Updated ' + f);
 Run nestjs-doctor and check that the custom rule loads without warnings:
 
 ```!
-npx nestjs-doctor $ARGUMENTS --json 2>&1
+NESTJS_DOCTOR_TRIGGER=skill npx nestjs-doctor $ARGUMENTS --json 2>&1
 ```
 
 Check the output for:

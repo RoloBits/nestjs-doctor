@@ -40,6 +40,13 @@ vi.mock("node:fs", () => ({
 		mockState.existingPaths.has(p) ||
 		mockState.existingFileContents.has(p) ||
 		(mockState.skillsHaveReferences && p.endsWith("references")),
+	readFileSync: (p: string) => {
+		const content = mockState.existingFileContents.get(p);
+		if (content === undefined) {
+			throw new Error(`ENOENT: ${p}`);
+		}
+		return content;
+	},
 }));
 
 const WHICH_RE = /^(which|where)\s+/;
@@ -427,5 +434,78 @@ describe("initSkill", () => {
 		expect(mockLogger.dim).toHaveBeenCalledWith(
 			expect.stringContaining("3 targets")
 		);
+	});
+});
+
+describe("initSkill output", () => {
+	it("writes its lines through the given reporter instead of the logger", async () => {
+		mockState.existingPaths.add(join(FAKE_HOME, ".claude"));
+		const lines: string[] = [];
+		const collect = (...args: unknown[]) => {
+			lines.push(args.join(" "));
+		};
+
+		const initSkill = await loadInitSkill();
+		await initSkill("/project", FAKE_VERSION, {
+			dim: () => undefined,
+			error: collect,
+			success: collect,
+			warn: collect,
+		});
+
+		expect(lines).toContain("Installed 3 skills for Claude Code");
+		expect(lines).toContain("Installed 3 skills to .agents/");
+		expect(mockLogger.success).not.toHaveBeenCalled();
+		expect(mockLogger.dim).not.toHaveBeenCalled();
+	});
+});
+
+describe("skillInstalledForDetectedAgent", () => {
+	const load = async () => {
+		const mod = await import("../../src/cli/init.js");
+		return mod.skillInstalledForDetectedAgent;
+	};
+
+	it("is false when no agent is detected", async () => {
+		expect((await load())()).toBe(false);
+	});
+
+	it("is false when a detected agent has no skill yet", async () => {
+		mockState.existingPaths.add(join(FAKE_HOME, ".claude"));
+		expect((await load())()).toBe(false);
+	});
+
+	it("is true once a detected agent carries the skill file", async () => {
+		mockState.existingPaths.add(join(FAKE_HOME, ".cursor"));
+		mockState.existingPaths.add(
+			join(FAKE_HOME, ".cursor", "skills", "nestjs-doctor", "AGENTS.md")
+		);
+		expect((await load())()).toBe(true);
+	});
+
+	it("ignores a skill file left behind by an agent that is no longer detected", async () => {
+		mockState.existingPaths.add(
+			join(FAKE_HOME, ".claude", "skills", "nestjs-doctor", "SKILL.md")
+		);
+		expect((await load())()).toBe(false);
+	});
+
+	it("reads Windsurf's rules file for the managed block", async () => {
+		mockState.existingPaths.add(join(FAKE_HOME, ".codeium"));
+		const rulesPath = join(
+			FAKE_HOME,
+			".codeium",
+			"windsurf",
+			"memories",
+			"global_rules.md"
+		);
+		mockState.existingFileContents.set(rulesPath, "# Mine\n");
+		expect((await load())()).toBe(false);
+
+		mockState.existingFileContents.set(
+			rulesPath,
+			"# Mine\n<!-- nestjs-doctor:start -->\nx\n<!-- nestjs-doctor:end -->\n"
+		);
+		expect((await load())()).toBe(true);
 	});
 });

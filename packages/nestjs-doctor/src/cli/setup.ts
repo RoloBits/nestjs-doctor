@@ -228,6 +228,7 @@ export class CliSetup {
 			if (code !== 0) {
 				process.exit(code);
 			}
+			await this.reportCommand("ci_install", process.cwd());
 			return false;
 		});
 		return this;
@@ -238,11 +239,28 @@ export class CliSetup {
 			if (this.args.init) {
 				const { initSkill } = await import("./init.js");
 				await initSkill(this.targetPath, this.version);
+				await this.reportCommand("init", this.targetPath);
 				return false;
 			}
 			return true;
 		});
 		return this;
+	}
+
+	private async reportCommand(
+		command: "ci_install" | "init",
+		targetPath: string
+	): Promise<void> {
+		const { reportCommandTelemetry } = await import(
+			"../telemetry/command-telemetry.js"
+		);
+		await reportCommandTelemetry({
+			command,
+			configPath: this.args.config,
+			from: "flag",
+			optionsTelemetry: this.args.telemetry ?? true,
+			targetPath,
+		});
 	}
 
 	handleReport(): this {

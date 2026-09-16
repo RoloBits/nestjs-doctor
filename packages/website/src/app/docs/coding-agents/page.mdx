@@ -27,8 +27,10 @@ asked.
 The everyday skill runs this after a change:
 
 ```bash
-npx nestjs-doctor@latest . --scope changed --base origin/main --verbose
+NESTJS_DOCTOR_TRIGGER=skill npx nestjs-doctor@latest . --scope changed --base origin/main --verbose
 ```
+
+The variable marks the run as a skill run in [telemetry](/docs/telemetry), so a scan the skill starts is told apart from one the agent starts on its own.
 
 It needs a git repository with the base commit fetched; without one the scan
 reports everything and says why.

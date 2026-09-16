@@ -152,10 +152,12 @@ const oneOf = (
 	value: string | undefined
 ): string | null => (value && allowed.includes(value) ? value : null);
 
+/** `skill` is never detected: the shipped skills set it through the override. */
 const TRIGGERS = [
 	"action",
 	"ci",
 	"hook",
+	"skill",
 	"agent",
 	"script",
 	"npx",
