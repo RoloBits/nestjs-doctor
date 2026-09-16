@@ -94,6 +94,8 @@ export interface InteractiveArtifacts {
 	/** Prints the persistent score box after the TUI leaves the alt screen. */
 	printSummary: () => void;
 	result: DiagnoseResult;
+	/** Set when a scanned sub-project declared `telemetry: false`. */
+	subProjectOptOut: boolean;
 	/** Per-project results in a monorepo, for the score screen's breakdown. */
 	subProjects?: { name: string; result: DiagnoseResult }[];
 }
@@ -478,6 +480,7 @@ export class MonorepoPipeline extends ScanPipeline {
 				this.printExtensionHint("menu");
 			},
 			result: this.result.result.combined,
+			subProjectOptOut: this.subProjectOptOut,
 			subProjects: this.result.result.subProjects.map(({ name, result }) => ({
 				name,
 				result,
@@ -728,6 +731,7 @@ export class SingleProjectPipeline extends ScanPipeline {
 				this.printExtensionHint("menu");
 			},
 			result: this.result.result,
+			subProjectOptOut: this.subProjectOptOut,
 		};
 	}
 

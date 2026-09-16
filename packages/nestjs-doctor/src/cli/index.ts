@@ -80,8 +80,10 @@ async function scan(args: CliArgs): Promise<void> {
 		const { runInteractiveApp } = await import("./interactive/tui/run.js");
 		await runInteractiveApp({
 			buildReportHtml: artifacts.buildReportHtml,
+			configPath: options.configPath,
 			moduleGraph: artifacts.moduleGraph,
 			result: artifacts.result,
+			subProjectOptOut: artifacts.subProjectOptOut,
 			subProjects: artifacts.subProjects?.map(({ name, result }) => ({
 				diagnostics: result.diagnostics,
 				errors: result.summary.errors,
@@ -92,6 +94,7 @@ async function scan(args: CliArgs): Promise<void> {
 				warnings: result.summary.warnings,
 			})),
 			targetPath,
+			telemetry: options.telemetry,
 			version,
 		});
 		// The TUI drew in the alternate screen; leave the score box behind.

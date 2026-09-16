@@ -30,10 +30,16 @@ export type MenuAction =
 /** Everything the post-scan UI needs, handed over by the pipeline. */
 export interface InteractiveContext {
 	buildReportHtml: () => string;
+	/** The `--config` path, when one was passed. */
+	configPath?: string;
 	/** The serialized module graph, for sharing the modules section. */
 	moduleGraph: () => ReportArtifact["graph"];
 	result: DiagnoseResult;
+	/** Set when a scanned sub-project declared `telemetry: false`. */
+	subProjectOptOut: boolean;
 	subProjects?: SubProjectView[];
 	targetPath: string;
+	/** The `--telemetry` flag; the config's own opt-out is read on use. */
+	telemetry: boolean;
 	version: string;
 }

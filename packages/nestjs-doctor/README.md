@@ -164,10 +164,11 @@ The CLI reports rule errors and anonymous run data to help us catch bugs and pri
 
 We collect:
 
-- Environment: CLI version, platform, Node version, and how it ran (npx, script, coding agent, or CI)
+- Environment: CLI version, platform, Node version, and how it ran (npx, script, the installed skill, a coding agent, or CI)
 - Project shape: file count, framework, ORM, Nest version (NO file contents)
 - Rules fired: rule ids and counts only (e.g. `security/no-eval`) (NO code or specific findings)
 - Rules that threw during the scan
+- Commands run: one `command_completed` event when `--init` or `ci install` finishes, with `command` (`init` or `ci_install`) and `from` (`flag` or `menu`)
 
 To opt out, run: `npx nestjs-doctor@latest --no-telemetry`. [Details →](https://www.nestjs.doctor/docs/telemetry)
 

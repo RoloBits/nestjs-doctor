@@ -6,6 +6,7 @@ import {
 	openReportInBrowser,
 	writeReportFile,
 } from "../../../report/output.js";
+import { reportCommandTelemetry } from "../../../telemetry/command-telemetry.js";
 import {
 	ciNextSteps,
 	ciWorkflowExists,
@@ -50,6 +51,19 @@ const buildHandoffItems = (): HandoffItem[] => [
 	},
 	{ kind: "back" as const, label: "Back" },
 ];
+
+const reportCommand = (
+	context: InteractiveContext,
+	command: "ci_install" | "init"
+): Promise<void> =>
+	reportCommandTelemetry({
+		command,
+		configPath: context.configPath,
+		from: "menu",
+		optionsTelemetry: context.telemetry,
+		subProjectOptOut: context.subProjectOptOut,
+		targetPath: context.targetPath,
+	});
 
 interface AppProps {
 	context: InteractiveContext;
@@ -157,6 +171,7 @@ export const App = ({
 									.map((step) => `• ${step}`)
 									.join("\n")}`,
 							});
+							await reportCommand(context, "ci_install");
 							break;
 						case "exists":
 							setToast({
@@ -188,20 +203,27 @@ export const App = ({
 					const collect = (...args: unknown[]) => {
 						lines.push(args.join(" "));
 					};
-					await initSkill(context.targetPath, context.version, {
-						dim: () => undefined,
-						error: (...args) => {
-							failed = true;
-							collect(...args);
-						},
-						success: collect,
-						warn: collect,
-					});
+					const installed = await initSkill(
+						context.targetPath,
+						context.version,
+						{
+							dim: () => undefined,
+							error: (...args) => {
+								failed = true;
+								collect(...args);
+							},
+							success: collect,
+							warn: collect,
+						}
+					);
 					setSkillInstalled(skillInstalledForDetectedAgent(context.version));
 					setToast({
 						kind: failed ? "error" : "success",
 						text: lines.join("\n"),
 					});
+					if (installed > 0) {
+						await reportCommand(context, "init");
+					}
 				} else if (action === "markdown") {
 					const markdown = buildMarkdownReport(context.result, {
 						targetPath: context.targetPath,

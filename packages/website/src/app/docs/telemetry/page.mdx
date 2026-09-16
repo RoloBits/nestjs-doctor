@@ -10,6 +10,8 @@ A finished scan reports one `scan_completed` event. It is posted to `https://us.
 
 A `--report` run reports that same event, which earlier versions did not send. It carries `output_format` set to `report`.
 
+A finished `--init` or `ci install` reports one `command_completed` event with two fields: `command`, either `init` or `ci_install`, and `from`, either `flag` or `menu`. It carries the same `distinct_id` as a scan, which under a recognized CI provider is the per-repository hash described under [Identity](#identity), and nothing else about the project. The `--init` flag runs no scan, so only the root config's `telemetry: false` is read; from the menu a sub-project opt-out stops it too.
+
 Sending is best effort. A failed request, a blocked host, or an environment that cannot spawn all leave the scan and its exit code untouched.
 
 ## What is sent
@@ -133,7 +135,7 @@ The CI id is pseudonymous rather than anonymous. Repository ids are sequential i
 
 | Control | Effect |
 |---|---|
-| `--no-telemetry` | Scans and writes the report, sends nothing |
+| `--no-telemetry` | Scans and writes the report, sends nothing; `--init` and `ci install` send nothing either |
 | `"telemetry": false` in the config file | The same, for everyone on the project |
 | `DO_NOT_TRACK` set to anything but empty, `0` or `false` | The same, honored across tools |
 
