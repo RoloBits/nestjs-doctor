@@ -326,11 +326,13 @@ const SKILL_TARGETS: SkillTarget[] = [
 	},
 ];
 
-/** True when every detected agent carries this version's skill. */
-export const skillInstalledForDetectedAgent = (version: string): boolean =>
-	SKILL_TARGETS.every(
-		(target) => !target.detect() || target.installed(version)
+/** True when at least one agent is detected and every detected one carries this version's skill. */
+export const skillInstalledForDetectedAgent = (version: string): boolean => {
+	const detected = SKILL_TARGETS.filter((target) => target.detect());
+	return (
+		detected.length > 0 && detected.every((target) => target.installed(version))
 	);
+};
 
 /** Sink for the install's progress lines. */
 export type InitReporter = Pick<

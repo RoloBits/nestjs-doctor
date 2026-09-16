@@ -437,6 +437,24 @@ describe("initSkill", () => {
 	});
 });
 
+describe("initSkill return value", () => {
+	it("counts the .agents/ fallback when no agent is detected", async () => {
+		const initSkill = await loadInitSkill();
+
+		await expect(initSkill("/project", FAKE_VERSION)).resolves.toBe(1);
+		expect(
+			writes.files.has(join("/project", ".agents", "nestjs-doctor", "SKILL.md"))
+		).toBe(true);
+	});
+
+	it("returns zero when the skill sources are missing", async () => {
+		missingSkills.add("nestjs-doctor");
+		const initSkill = await loadInitSkill();
+
+		await expect(initSkill("/project", FAKE_VERSION)).resolves.toBe(0);
+	});
+});
+
 describe("initSkill output", () => {
 	it("writes its lines through the given reporter instead of the logger", async () => {
 		mockState.existingPaths.add(join(FAKE_HOME, ".claude"));
@@ -470,8 +488,8 @@ describe("skillInstalledForDetectedAgent", () => {
 	const agentsFile = (...dir: string[]) =>
 		join(FAKE_HOME, ...dir, "nestjs-doctor", "AGENTS.md");
 
-	it("is true when no agent is detected", async () => {
-		expect((await load())(FAKE_VERSION)).toBe(true);
+	it("is false when no agent is detected", async () => {
+		expect((await load())(FAKE_VERSION)).toBe(false);
 	});
 
 	it("is false when a detected agent has no skill yet", async () => {
