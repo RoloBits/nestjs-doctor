@@ -20,6 +20,7 @@ export type Toast = {
 export type MenuAction =
 	| "ci"
 	| "handoff"
+	| "init"
 	| "markdown"
 	| "quit"
 	| "report"

@@ -1,3 +1,5 @@
+import { anyAgentHasSkill } from "../cli/skill-targets.js";
+
 /** Any value other than the shell's own "off" spellings counts as set. */
 export const isSet = (value: string | undefined): boolean =>
 	value !== undefined && value !== "" && value !== "0" && value !== "false";
@@ -156,6 +158,7 @@ const TRIGGERS = [
 	"action",
 	"ci",
 	"hook",
+	"skill",
 	"agent",
 	"script",
 	"npx",
@@ -163,7 +166,10 @@ const TRIGGERS = [
 ] as const;
 export type Trigger = (typeof TRIGGERS)[number];
 
-/** How the process was started. Env only; no command line, no script name, no cwd. */
+/**
+ * How the process was started. Reads the env and, under an agent, whether the
+ * skill is installed in the home the env names. No command line, no cwd.
+ */
 export function detectTrigger(env: NodeJS.ProcessEnv = process.env): Trigger {
 	const override = oneOf(TRIGGERS, env.NESTJS_DOCTOR_TRIGGER?.trim());
 	if (override) {
@@ -179,7 +185,8 @@ export function detectTrigger(env: NodeJS.ProcessEnv = process.env): Trigger {
 		return "hook";
 	}
 	if (AGENT_ENV_VARS.some((name) => isSet(env[name]))) {
-		return "agent";
+		const home = env.HOME ?? env.USERPROFILE;
+		return home && anyAgentHasSkill(home) ? "skill" : "agent";
 	}
 	// npx itself sets npm_lifecycle_event to "npx".
 	if (isSet(env.npm_lifecycle_event) && env.npm_lifecycle_event !== "npx") {

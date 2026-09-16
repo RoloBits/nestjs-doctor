@@ -40,6 +40,13 @@ vi.mock("node:fs", () => ({
 		mockState.existingPaths.has(p) ||
 		mockState.existingFileContents.has(p) ||
 		(mockState.skillsHaveReferences && p.endsWith("references")),
+	readFileSync: (p: string) => {
+		const content = mockState.existingFileContents.get(p);
+		if (content === undefined) {
+			throw new Error(`ENOENT: ${p}`);
+		}
+		return content;
+	},
 }));
 
 const WHICH_RE = /^(which|where)\s+/;
@@ -427,5 +434,124 @@ describe("initSkill", () => {
 		expect(mockLogger.dim).toHaveBeenCalledWith(
 			expect.stringContaining("3 targets")
 		);
+	});
+});
+
+describe("initSkill return value", () => {
+	it("counts the .agents/ fallback when no agent is detected", async () => {
+		const initSkill = await loadInitSkill();
+
+		await expect(initSkill("/project", FAKE_VERSION)).resolves.toBe(1);
+		expect(
+			writes.files.has(join("/project", ".agents", "nestjs-doctor", "SKILL.md"))
+		).toBe(true);
+	});
+
+	it("returns zero when the skill sources are missing", async () => {
+		missingSkills.add("nestjs-doctor");
+		const initSkill = await loadInitSkill();
+
+		await expect(initSkill("/project", FAKE_VERSION)).resolves.toBe(0);
+	});
+});
+
+describe("initSkill output", () => {
+	it("writes its lines through the given reporter instead of the logger", async () => {
+		mockState.existingPaths.add(join(FAKE_HOME, ".claude"));
+		const lines: string[] = [];
+		const collect = (...args: unknown[]) => {
+			lines.push(args.join(" "));
+		};
+
+		const initSkill = await loadInitSkill();
+		await initSkill("/project", FAKE_VERSION, {
+			dim: () => undefined,
+			error: collect,
+			success: collect,
+			warn: collect,
+		});
+
+		expect(lines).toContain("Installed 3 skills for Claude Code");
+		expect(lines).toContain("Installed 3 skills to .agents/");
+		expect(mockLogger.success).not.toHaveBeenCalled();
+		expect(mockLogger.dim).not.toHaveBeenCalled();
+	});
+});
+
+describe("skillInstalledForDetectedAgent", () => {
+	const load = async () => {
+		const mod = await import("../../src/cli/skill-targets.js");
+		return mod.skillInstalledForDetectedAgent;
+	};
+	const stamped = (version: string) =>
+		`# Skill\n\n> v${version}\n\nSome content.`;
+	const agentsFile = (...dir: string[]) =>
+		join(FAKE_HOME, ...dir, "nestjs-doctor", "AGENTS.md");
+
+	it("is false when no agent is detected", async () => {
+		expect((await load())(FAKE_VERSION)).toBe(false);
+	});
+
+	it("is false when a detected agent has no skill yet", async () => {
+		mockState.existingPaths.add(join(FAKE_HOME, ".claude"));
+		expect((await load())(FAKE_VERSION)).toBe(false);
+	});
+
+	it("is false when a detected agent carries an older version", async () => {
+		mockState.existingPaths.add(join(FAKE_HOME, ".claude"));
+		mockState.existingFileContents.set(
+			agentsFile(".claude", "skills"),
+			stamped("0.9.0")
+		);
+		expect((await load())(FAKE_VERSION)).toBe(false);
+	});
+
+	it("is true when every detected agent carries the current version", async () => {
+		mockState.existingPaths.add(join(FAKE_HOME, ".claude"));
+		mockState.existingPaths.add(join(FAKE_HOME, ".cursor"));
+		mockState.existingFileContents.set(
+			agentsFile(".claude", "skills"),
+			stamped(FAKE_VERSION)
+		);
+		mockState.existingFileContents.set(
+			agentsFile(".cursor", "skills"),
+			stamped(FAKE_VERSION)
+		);
+		expect((await load())(FAKE_VERSION)).toBe(true);
+	});
+
+	it("is false when one detected agent is current and another has nothing", async () => {
+		mockState.existingPaths.add(join(FAKE_HOME, ".claude"));
+		mockState.existingPaths.add(join(FAKE_HOME, ".cursor"));
+		mockState.existingFileContents.set(
+			agentsFile(".claude", "skills"),
+			stamped(FAKE_VERSION)
+		);
+		expect((await load())(FAKE_VERSION)).toBe(false);
+	});
+
+	it("reads Windsurf's managed block for the version", async () => {
+		mockState.existingPaths.add(join(FAKE_HOME, ".codeium"));
+		const rulesPath = join(
+			FAKE_HOME,
+			".codeium",
+			"windsurf",
+			"memories",
+			"global_rules.md"
+		);
+		mockState.existingFileContents.set(rulesPath, "# Mine\n");
+		expect((await load())(FAKE_VERSION)).toBe(false);
+
+		mockState.existingFileContents.set(
+			rulesPath,
+			`# Mine\n<!-- nestjs-doctor:start -->\n${stamped("0.9.0")}\n<!-- nestjs-doctor:end -->\n`
+		);
+		expect((await load())(FAKE_VERSION)).toBe(false);
+
+		mockState.existingFileContents.set(
+			rulesPath,
+			`# Mine\n<!-- nestjs-doctor:start -->\n${stamped(FAKE_VERSION)}\n<!-- nestjs-doctor:end -->\n`
+		);
+		expect((await load())(FAKE_VERSION)).toBe(true);
 	});
 });
