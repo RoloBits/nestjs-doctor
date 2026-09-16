@@ -15,7 +15,7 @@ const ENTRY = resolve(import.meta.dirname, "../../src/cli/index.ts");
 const PRELOAD = pathToFileURL(
 	resolve(import.meta.dirname, "helpers/source-cli-preload.mjs")
 ).href;
-const ANSI = /\[[0-9;]*m/g;
+const ANSI = /\u001B\[[0-9;]*m/g;
 const SCORE_LINE = /\b\d{1,3} \/ 100\b/;
 
 const roots: string[] = [];
