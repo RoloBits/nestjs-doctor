@@ -480,7 +480,7 @@ describe("initSkill output", () => {
 
 describe("skillInstalledForDetectedAgent", () => {
 	const load = async () => {
-		const mod = await import("../../src/cli/init.js");
+		const mod = await import("../../src/cli/skill-targets.js");
 		return mod.skillInstalledForDetectedAgent;
 	};
 	const stamped = (version: string) =>

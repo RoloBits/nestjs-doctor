@@ -12,7 +12,8 @@ import {
 	ciWorkflowExists,
 	installCiWorkflow,
 } from "../../ci-install.js";
-import { initSkill, skillInstalledForDetectedAgent } from "../../init.js";
+import { initSkill } from "../../init.js";
+import { skillInstalledForDetectedAgent } from "../../skill-targets.js";
 import {
 	buildHandoffPrompt,
 	detectLaunchableAgents,
