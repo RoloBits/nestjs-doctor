@@ -16,27 +16,19 @@
   <a href="https://github.com/RoloBits/nestjs-doctor/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/nestjs-doctor?style=flat&colorA=18181b&colorB=18181b" alt="license"></a>
   <a href="https://www.nestjs.doctor/docs"><img src="https://img.shields.io/badge/docs-website-18181b?style=flat&colorA=18181b&colorB=18181b" alt="docs"></a>
   <a href="https://marketplace.visualstudio.com/items?itemName=rolobits.nestjs-doctor-vscode"><img src="https://img.shields.io/visual-studio-marketplace/v/rolobits.nestjs-doctor-vscode?style=flat&colorA=18181b&colorB=18181b&label=vscode" alt="vscode"></a>
-  <a href="https://x.com/FranLoPy"><img src="https://img.shields.io/badge/x-%40FranLoPy-18181b?style=flat&colorA=18181b&colorB=18181b" alt="x"></a>
 </p>
 
 nestjs-doctor is a free, open-source static analysis tool for NestJS that
-catches AI mistakes deterministically. It reads the whole application from
-source, every `@Module()`, provider, endpoint and ORM entity, and reports
-findings across security, correctness, architecture, performance and schema
-with a 0-100 score. It picks up where
-[the NestJS ESLint plugins](https://www.nestjs.doctor/docs/nestjs-eslint-plugins)
-end and answers statically what
-[Nest Devtools](https://www.nestjs.doctor/docs/nest-devtools-alternative) reads at
-runtime: nothing boots, and nothing about your code leaves your machine
-([telemetry](#telemetry)). MIT.
+catches AI mistakes deterministically. It reads every `@Module()`, provider,
+endpoint and ORM entity from source and reports findings across security,
+correctness, architecture, performance and schema with a 0-100 score. No LLM
+at scan time, so code from Copilot, Cursor or Claude Code scores the same on
+your laptop and in CI.
 
-No LLM at scan time, so the same commit scores the same on your laptop and in
-CI, which makes it the check to run on Nest code that Copilot, Cursor or Claude
-Code wrote. Run it with `npx`, as a pre-commit hook, as a GitHub Action that
-fails the build and comments on the pull request with only what it introduced,
-in VS Code, or from a coding-agent skill. The HTML report draws the module
-graph, the endpoint traces, the ER diagram from Prisma, TypeORM, Drizzle or
-MikroORM, and boot timings from one real start. Monorepos work.
+Run it with `npx`, as a pre-commit hook, as a GitHub Action, in VS Code, or
+from a coding-agent skill. The HTML report draws the module graph, endpoint
+traces, an ER diagram for Prisma, TypeORM, Drizzle or MikroORM, and boot
+timings from one real start. Monorepos work.
 
 [Website →](https://www.nestjs.doctor/docs)
 
