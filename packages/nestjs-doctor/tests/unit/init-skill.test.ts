@@ -465,32 +465,54 @@ describe("skillInstalledForDetectedAgent", () => {
 		const mod = await import("../../src/cli/init.js");
 		return mod.skillInstalledForDetectedAgent;
 	};
+	const stamped = (version: string) =>
+		`# Skill\n\n> v${version}\n\nSome content.`;
+	const agentsFile = (...dir: string[]) =>
+		join(FAKE_HOME, ...dir, "nestjs-doctor", "AGENTS.md");
 
-	it("is false when no agent is detected", async () => {
-		expect((await load())()).toBe(false);
+	it("is true when no agent is detected", async () => {
+		expect((await load())(FAKE_VERSION)).toBe(true);
 	});
 
 	it("is false when a detected agent has no skill yet", async () => {
 		mockState.existingPaths.add(join(FAKE_HOME, ".claude"));
-		expect((await load())()).toBe(false);
+		expect((await load())(FAKE_VERSION)).toBe(false);
 	});
 
-	it("is true once a detected agent carries the skill file", async () => {
+	it("is false when a detected agent carries an older version", async () => {
+		mockState.existingPaths.add(join(FAKE_HOME, ".claude"));
+		mockState.existingFileContents.set(
+			agentsFile(".claude", "skills"),
+			stamped("0.9.0")
+		);
+		expect((await load())(FAKE_VERSION)).toBe(false);
+	});
+
+	it("is true when every detected agent carries the current version", async () => {
+		mockState.existingPaths.add(join(FAKE_HOME, ".claude"));
 		mockState.existingPaths.add(join(FAKE_HOME, ".cursor"));
-		mockState.existingPaths.add(
-			join(FAKE_HOME, ".cursor", "skills", "nestjs-doctor", "AGENTS.md")
+		mockState.existingFileContents.set(
+			agentsFile(".claude", "skills"),
+			stamped(FAKE_VERSION)
 		);
-		expect((await load())()).toBe(true);
+		mockState.existingFileContents.set(
+			agentsFile(".cursor", "skills"),
+			stamped(FAKE_VERSION)
+		);
+		expect((await load())(FAKE_VERSION)).toBe(true);
 	});
 
-	it("ignores a skill file left behind by an agent that is no longer detected", async () => {
-		mockState.existingPaths.add(
-			join(FAKE_HOME, ".claude", "skills", "nestjs-doctor", "SKILL.md")
+	it("is false when one detected agent is current and another has nothing", async () => {
+		mockState.existingPaths.add(join(FAKE_HOME, ".claude"));
+		mockState.existingPaths.add(join(FAKE_HOME, ".cursor"));
+		mockState.existingFileContents.set(
+			agentsFile(".claude", "skills"),
+			stamped(FAKE_VERSION)
 		);
-		expect((await load())()).toBe(false);
+		expect((await load())(FAKE_VERSION)).toBe(false);
 	});
 
-	it("reads Windsurf's rules file for the managed block", async () => {
+	it("reads Windsurf's managed block for the version", async () => {
 		mockState.existingPaths.add(join(FAKE_HOME, ".codeium"));
 		const rulesPath = join(
 			FAKE_HOME,
@@ -500,12 +522,18 @@ describe("skillInstalledForDetectedAgent", () => {
 			"global_rules.md"
 		);
 		mockState.existingFileContents.set(rulesPath, "# Mine\n");
-		expect((await load())()).toBe(false);
+		expect((await load())(FAKE_VERSION)).toBe(false);
 
 		mockState.existingFileContents.set(
 			rulesPath,
-			"# Mine\n<!-- nestjs-doctor:start -->\nx\n<!-- nestjs-doctor:end -->\n"
+			`# Mine\n<!-- nestjs-doctor:start -->\n${stamped("0.9.0")}\n<!-- nestjs-doctor:end -->\n`
 		);
-		expect((await load())()).toBe(true);
+		expect((await load())(FAKE_VERSION)).toBe(false);
+
+		mockState.existingFileContents.set(
+			rulesPath,
+			`# Mine\n<!-- nestjs-doctor:start -->\n${stamped(FAKE_VERSION)}\n<!-- nestjs-doctor:end -->\n`
+		);
+		expect((await load())(FAKE_VERSION)).toBe(true);
 	});
 });

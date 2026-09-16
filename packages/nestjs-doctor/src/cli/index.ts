@@ -73,7 +73,7 @@ async function scan(args: CliArgs): Promise<void> {
 	options.interactive = canPrompt(options);
 
 	const runMenu = async (artifacts: InteractiveArtifacts) => {
-		// Nothing scanned leaves nothing to review, report, or hand off.
+		// The menu runs only over a scan that collected files.
 		if (!options.interactive || artifacts.result.project.fileCount === 0) {
 			return;
 		}
@@ -83,6 +83,7 @@ async function scan(args: CliArgs): Promise<void> {
 			configPath: options.configPath,
 			moduleGraph: artifacts.moduleGraph,
 			result: artifacts.result,
+			subProjectOptOut: artifacts.subProjectOptOut,
 			subProjects: artifacts.subProjects?.map(({ name, result }) => ({
 				diagnostics: result.diagnostics,
 				errors: result.summary.errors,

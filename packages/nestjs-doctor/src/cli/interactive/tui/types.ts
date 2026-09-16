@@ -35,6 +35,8 @@ export interface InteractiveContext {
 	/** The serialized module graph, for sharing the modules section. */
 	moduleGraph: () => ReportArtifact["graph"];
 	result: DiagnoseResult;
+	/** Set when a scanned sub-project declared `telemetry: false`. */
+	subProjectOptOut: boolean;
 	subProjects?: SubProjectView[];
 	targetPath: string;
 	/** The `--telemetry` flag; the config's own opt-out is read on use. */

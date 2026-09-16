@@ -162,38 +162,40 @@ const display = (workflowPath: string): string => {
 	return fromCwd && !fromCwd.startsWith("..") ? fromCwd : workflowPath;
 };
 
+/** Installs the workflow and prints the outcome. Returns the exit code with it. */
 export const runCiInstall = async (
 	targetPath: string,
 	force: boolean
-): Promise<number> => {
+): Promise<{ code: number; status: InstallStatus }> => {
 	const result = await installCiWorkflow(targetPath, force);
 	const shown = display(result.workflowPath);
+	const { status } = result;
 
-	if (result.status === "no-repo") {
+	if (status === "no-repo") {
 		logger.error(
 			"Not a git repository, so there is no repository root to write to."
 		);
 		logger.dim("Run this from your project, or `git init` first.");
-		return 2;
+		return { code: 2, status };
 	}
 
-	if (result.status === "symlink") {
+	if (status === "symlink") {
 		logger.error(`Refusing to write through a symlink: ${shown}`);
 		logger.dim(
 			"Replace it with a real directory or file, then run this again."
 		);
-		return 2;
+		return { code: 2, status };
 	}
 
-	if (result.status === "failed") {
+	if (status === "failed") {
 		logger.error(`Could not write ${shown} (${result.reason})`);
-		return 1;
+		return { code: 1, status };
 	}
 
-	if (result.status === "exists") {
+	if (status === "exists") {
 		logger.warn(`${shown} already exists — left untouched.`);
 		logger.dim("Run with --force to replace it.");
-		return 0;
+		return { code: 0, status };
 	}
 
 	logger.success(`Created ${shown}`);
@@ -202,5 +204,5 @@ export const runCiInstall = async (
 	for (const step of ciNextSteps()) {
 		logger.dim(step);
 	}
-	return 0;
+	return { code: 0, status };
 };

@@ -6,32 +6,35 @@ export interface CommandTelemetryInput {
 	command: "ci_install" | "init";
 	/** A `--config` path, when one was passed. */
 	configPath?: string;
-	/** Injectable for tests; defaults to the real environment. */
+	/** Defaults to `process.env`. */
 	env?: NodeJS.ProcessEnv;
 	from: "flag" | "menu";
-	/** Injectable for tests; defaults to the compiled-in gating. */
+	/** Defaults to the compiled-in gate. */
 	isEnabled?: typeof scanTelemetryEnabled;
 	/** The `--telemetry` flag as parsed. */
 	optionsTelemetry: boolean;
-	/** Injectable for tests; defaults to the real install-id resolver. */
+	/** Defaults to the on-disk install id. */
 	resolveIdentityFn?: typeof resolveIdentity;
-	/** Injectable for tests; defaults to the detached-child sender. */
+	/** Defaults to the detached-child sender. */
 	send?: typeof sendTelemetryEvent;
+	/** Set when a scanned sub-project declared `telemetry: false`. */
+	subProjectOptOut?: boolean;
 	targetPath: string;
 }
 
 /**
- * Reports a finished command under the install id. Reads the project config
- * for its opt-out and sends nothing else about the project.
+ * Reports a finished command under the install id. A config that will not
+ * load counts as an opt-out.
  */
 export const reportCommandTelemetry = async (
 	input: CommandTelemetryInput
 ): Promise<void> => {
+	if (input.subProjectOptOut) {
+		return;
+	}
 	const env = input.env ?? process.env;
 	try {
-		const config = await loadConfig(input.targetPath, input.configPath).catch(
-			() => undefined
-		);
+		const config = await loadConfig(input.targetPath, input.configPath);
 		if (
 			!(input.isEnabled ?? scanTelemetryEnabled)(
 				input.optionsTelemetry,
@@ -52,6 +55,6 @@ export const reportCommandTelemetry = async (
 			env
 		);
 	} catch {
-		// Reporting never breaks a command.
+		// Nothing is sent.
 	}
 };

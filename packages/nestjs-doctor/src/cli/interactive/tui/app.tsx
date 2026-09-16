@@ -80,8 +80,8 @@ export const App = ({
 		() => groupFindings(shown.diagnostics).length,
 		[shown.diagnostics]
 	);
-	const [skillInstalled, setSkillInstalled] = useState(
-		skillInstalledForDetectedAgent
+	const [skillInstalled, setSkillInstalled] = useState(() =>
+		skillInstalledForDetectedAgent(context.version)
 	);
 	const items = useMemo(
 		() =>
@@ -119,9 +119,15 @@ export const App = ({
 				configPath: context.configPath,
 				from: "menu",
 				optionsTelemetry: context.telemetry,
+				subProjectOptOut: context.subProjectOptOut,
 				targetPath: context.targetPath,
 			}),
-		[context.configPath, context.targetPath, context.telemetry]
+		[
+			context.configPath,
+			context.subProjectOptOut,
+			context.targetPath,
+			context.telemetry,
+		]
 	);
 
 	const runAction = useCallback(
@@ -201,21 +207,25 @@ export const App = ({
 					const collect = (...args: unknown[]) => {
 						lines.push(args.join(" "));
 					};
-					await initSkill(context.targetPath, context.version, {
-						dim: () => undefined,
-						error: (...args) => {
-							failed = true;
-							collect(...args);
-						},
-						success: collect,
-						warn: collect,
-					});
-					setSkillInstalled(skillInstalledForDetectedAgent());
+					const installed = await initSkill(
+						context.targetPath,
+						context.version,
+						{
+							dim: () => undefined,
+							error: (...args) => {
+								failed = true;
+								collect(...args);
+							},
+							success: collect,
+							warn: collect,
+						}
+					);
+					setSkillInstalled(skillInstalledForDetectedAgent(context.version));
 					setToast({
 						kind: failed ? "error" : "success",
 						text: lines.join("\n"),
 					});
-					if (!failed) {
+					if (installed > 0) {
 						await reportCommand("init");
 					}
 				} else if (action === "markdown") {

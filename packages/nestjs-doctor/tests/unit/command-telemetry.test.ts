@@ -86,6 +86,28 @@ describe("command telemetry", () => {
 		expect(input.send).not.toHaveBeenCalled();
 	});
 
+	it("sends nothing when the config exists but will not parse", async () => {
+		const dir = project();
+		writeFileSync(
+			join(dir, "nestjs-doctor.config.json"),
+			'{ "telemetry": false, }'
+		);
+		const input = buildInput({ targetPath: dir });
+
+		await reportCommandTelemetry(input);
+
+		expect(input.send).not.toHaveBeenCalled();
+	});
+
+	it("sends nothing when a scanned sub-project opted out", async () => {
+		const input = buildInput({ from: "menu", subProjectOptOut: true });
+
+		await reportCommandTelemetry(input);
+
+		expect(input.send).not.toHaveBeenCalled();
+		expect(input.resolveIdentityFn).not.toHaveBeenCalled();
+	});
+
 	it("sends nothing under DO_NOT_TRACK", async () => {
 		const input = buildInput({ env: { DO_NOT_TRACK: "1" } });
 

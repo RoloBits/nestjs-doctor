@@ -224,11 +224,16 @@ export class CliSetup {
 				);
 			}
 			const { runCiInstall } = await import("./ci-install.js");
-			const code = await runCiInstall(process.cwd(), this.args.force ?? false);
+			const { code, status } = await runCiInstall(
+				process.cwd(),
+				this.args.force ?? false
+			);
 			if (code !== 0) {
 				process.exit(code);
 			}
-			await this.reportCommand("ci_install", process.cwd());
+			if (status === "created") {
+				await this.reportCommand("ci_install", process.cwd());
+			}
 			return false;
 		});
 		return this;
@@ -238,8 +243,10 @@ export class CliSetup {
 		this.steps.push(async () => {
 			if (this.args.init) {
 				const { initSkill } = await import("./init.js");
-				await initSkill(this.targetPath, this.version);
-				await this.reportCommand("init", this.targetPath);
+				const installed = await initSkill(this.targetPath, this.version);
+				if (installed > 0) {
+					await this.reportCommand("init", this.targetPath);
+				}
 				return false;
 			}
 			return true;

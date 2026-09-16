@@ -22,7 +22,7 @@ const FAILURE_EXIT_CODE = 1;
 const NO_FILES_EXIT_CODE = 2;
 
 /** True when nothing was scanned. Prints why in place of any payload and marks the run. */
-const rejectEmptyScan = (
+export const rejectEmptyScan = (
 	result: DiagnoseResult,
 	targetPath: string
 ): boolean => {

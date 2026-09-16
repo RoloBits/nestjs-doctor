@@ -77,8 +77,8 @@ interface SkillContents {
 interface SkillTarget {
 	detect: () => boolean;
 	install: (skills: SkillContents) => Promise<void>;
-	/** Whether the main skill is already in place for this target. */
-	installed: () => boolean;
+	/** Whether the target's main skill carries this version's stamp. */
+	installed: (version: string) => boolean;
 	name: string;
 }
 
@@ -94,23 +94,35 @@ const WINDSURF_RULES = join(
 const WINDSURF_START = "<!-- nestjs-doctor:start -->";
 const WINDSURF_END = "<!-- nestjs-doctor:end -->";
 
-/** Every directory target writes AGENTS.md, so its presence means installed. */
-const hasSkill = (...dir: string[]): boolean =>
-	existsSync(join(home, ...dir, "nestjs-doctor", "AGENTS.md"));
-
-const hasWindsurfBlock = (): boolean => {
+const readOrEmpty = (file: string): string => {
 	try {
-		return readFileSync(WINDSURF_RULES, "utf-8").includes(WINDSURF_START);
+		return readFileSync(file, "utf-8");
 	} catch {
-		return false;
+		return "";
 	}
+};
+
+/** Whether the AGENTS.md under `<dir>/nestjs-doctor` carries this version's stamp. */
+const hasSkill = (version: string, ...dir: string[]): boolean =>
+	readOrEmpty(join(home, ...dir, "nestjs-doctor", "AGENTS.md")).includes(
+		`> v${version}`
+	);
+
+/** Whether the managed block in Windsurf's rules file carries this version's stamp. */
+const hasWindsurfBlock = (version: string): boolean => {
+	const rules = readOrEmpty(WINDSURF_RULES);
+	const from = rules.indexOf(WINDSURF_START);
+	const to = rules.indexOf(WINDSURF_END);
+	return (
+		from !== -1 && to > from && rules.slice(from, to).includes(`> v${version}`)
+	);
 };
 
 const SKILL_TARGETS: SkillTarget[] = [
 	{
 		name: "Claude Code",
 		detect: () => existsSync(join(home, ".claude")),
-		installed: () => hasSkill(".claude", "skills"),
+		installed: (version) => hasSkill(version, ".claude", "skills"),
 		install: async (skills) => {
 			const dir = join(home, ".claude", "skills", "nestjs-doctor");
 			await writeSkillPair(dir, skills.main);
@@ -128,7 +140,7 @@ const SKILL_TARGETS: SkillTarget[] = [
 	{
 		name: "Amp Code",
 		detect: () => existsSync(join(home, ".amp")),
-		installed: () => hasSkill(".config", "amp", "skills"),
+		installed: (version) => hasSkill(version, ".config", "amp", "skills"),
 		install: async (skills) => {
 			const dir = join(home, ".config", "amp", "skills", "nestjs-doctor");
 			await writeAgentsOnly(dir, skills.main);
@@ -153,7 +165,7 @@ const SKILL_TARGETS: SkillTarget[] = [
 	{
 		name: "Cursor",
 		detect: () => existsSync(join(home, ".cursor")),
-		installed: () => hasSkill(".cursor", "skills"),
+		installed: (version) => hasSkill(version, ".cursor", "skills"),
 		install: async (skills) => {
 			const dir = join(home, ".cursor", "skills", "nestjs-doctor");
 			await writeAgentsOnly(dir, skills.main);
@@ -173,7 +185,7 @@ const SKILL_TARGETS: SkillTarget[] = [
 		detect: () =>
 			isCommandAvailable("opencode") ||
 			existsSync(join(home, ".config", "opencode")),
-		installed: () => hasSkill(".config", "opencode", "skills"),
+		installed: (version) => hasSkill(version, ".config", "opencode", "skills"),
 		install: async (skills) => {
 			const dir = join(home, ".config", "opencode", "skills", "nestjs-doctor");
 			await writeAgentsOnly(dir, skills.main);
@@ -237,7 +249,8 @@ const SKILL_TARGETS: SkillTarget[] = [
 		detect: () =>
 			isCommandAvailable("agy") ||
 			existsSync(join(home, ".gemini", "antigravity")),
-		installed: () => hasSkill(".gemini", "antigravity", "skills"),
+		installed: (version) =>
+			hasSkill(version, ".gemini", "antigravity", "skills"),
 		install: async (skills) => {
 			const dir = join(
 				home,
@@ -269,7 +282,7 @@ const SKILL_TARGETS: SkillTarget[] = [
 		name: "Gemini CLI",
 		detect: () =>
 			isCommandAvailable("gemini") || existsSync(join(home, ".gemini")),
-		installed: () => hasSkill(".gemini", "skills"),
+		installed: (version) => hasSkill(version, ".gemini", "skills"),
 		install: async (skills) => {
 			const dir = join(home, ".gemini", "skills", "nestjs-doctor");
 			await writeAgentsOnly(dir, skills.main);
@@ -288,7 +301,7 @@ const SKILL_TARGETS: SkillTarget[] = [
 		name: "Codex",
 		detect: () =>
 			isCommandAvailable("codex") || existsSync(join(home, ".codex")),
-		installed: () => hasSkill(".codex", "skills"),
+		installed: (version) => hasSkill(version, ".codex", "skills"),
 		install: async (skills) => {
 			const dir = join(home, ".codex", "skills", "nestjs-doctor");
 			await writeAgentsOnly(dir, skills.main);
@@ -313,21 +326,24 @@ const SKILL_TARGETS: SkillTarget[] = [
 	},
 ];
 
-/** True when a detected agent already has the skill, so `--init` would only rewrite it. */
-export const skillInstalledForDetectedAgent = (): boolean =>
-	SKILL_TARGETS.some((target) => target.detect() && target.installed());
+/** True when every detected agent carries this version's skill. */
+export const skillInstalledForDetectedAgent = (version: string): boolean =>
+	SKILL_TARGETS.every(
+		(target) => !target.detect() || target.installed(version)
+	);
 
-/** Where the install narrates itself; the menu collects these into a toast. */
+/** Sink for the install's progress lines. */
 export type InitReporter = Pick<
 	typeof logger,
 	"dim" | "error" | "success" | "warn"
 >;
 
+/** Installs the skills everywhere they fit and returns how many targets took them. */
 export const initSkill = async (
 	targetPath: string,
 	version: string,
 	out: InitReporter = logger
-): Promise<void> => {
+): Promise<number> => {
 	const read = async (name: string): Promise<Skill> => {
 		const file = skillFile(name);
 		const body = await readFile(file, "utf-8");
@@ -348,7 +364,7 @@ export const initSkill = async (
 		out.error(
 			`Could not read the skill sources at ${SKILL_ROOTS[0]}. Reinstall nestjs-doctor.`
 		);
-		return;
+		return 0;
 	}
 
 	let installed = 0;
@@ -395,4 +411,5 @@ export const initSkill = async (
 			`Installed nestjs-doctor v${version} skills for ${installed} target${installed === 1 ? "" : "s"}.`
 		);
 	}
+	return installed;
 };

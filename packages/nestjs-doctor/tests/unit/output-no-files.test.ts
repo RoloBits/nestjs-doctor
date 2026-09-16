@@ -11,7 +11,7 @@ import type {
 } from "../../src/engine/scanner.js";
 import { emptyResult } from "./report-artifact-fixture.js";
 
-const ANSI = /\[[0-9;]*m/g;
+const ANSI = /\u001B\[[0-9;]*m/g;
 const TARGET = "/repo/not-a-nest-app";
 
 const noFiles = (): DiagnoseResult => {
