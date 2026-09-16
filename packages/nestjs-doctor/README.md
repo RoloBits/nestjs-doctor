@@ -88,8 +88,8 @@ The action reviews every pull request and reports only what the change
 introduced, not the existing backlog. It posts a sticky summary comment, inline
 review comments on the changed lines, and a commit status with the score.
 
-It never fails a check until you ask it to. Set `blocking` or `min-score` when
-ready. [CI docs →](https://www.nestjs.doctor/docs/ci)
+It never fails a check until you ask it to, unless the scanned directory holds
+no TypeScript files, which exits 2. Set `blocking` or `min-score` when ready. [CI docs →](https://www.nestjs.doctor/docs/ci)
 
 ### 4. Install for agents
 

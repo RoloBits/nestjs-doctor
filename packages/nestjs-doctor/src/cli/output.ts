@@ -11,12 +11,28 @@ import { shouldBlock } from "./blocking.js";
 import {
 	printConsoleReport,
 	printMonorepoReport,
+	printNoFilesReport,
 } from "./formatters/console-reporter.js";
 import { renderResult, stringifyJson } from "./formatters/render.js";
 import { checkMinScore } from "./min-score.js";
 import type { PipelineOptions } from "./setup.js";
 
 const FAILURE_EXIT_CODE = 1;
+/** Nothing to scan under a valid path. */
+const NO_FILES_EXIT_CODE = 2;
+
+/** True when nothing was scanned. Prints why in place of any payload and marks the run. */
+export const rejectEmptyScan = (
+	result: DiagnoseResult,
+	targetPath: string
+): boolean => {
+	if (result.project.fileCount > 0) {
+		return false;
+	}
+	printNoFilesReport(targetPath);
+	process.exitCode = NO_FILES_EXIT_CODE;
+	return true;
+};
 
 /** Version of the running CLI, set once so reporters can stamp their output. */
 let cliVersion = "0.0.0";
@@ -88,12 +104,6 @@ async function emit(
 	if (result.project.orm && result.schema?.entities.length === 0) {
 		logger.warn(
 			`Detected ${result.project.orm} but found no schema to analyse. The schema rules reported nothing because they read nothing.`
-		);
-	}
-
-	if (result.project.fileCount === 0) {
-		logger.warn(
-			`No TypeScript files matched under ${targetPath}. The score describes nothing.`
 		);
 	}
 
@@ -199,6 +209,9 @@ export const outputMonorepoResults = async (
 	artifact?: () => ReportArtifact
 ): Promise<void> => {
 	const { result } = monorepoScanResult;
+	if (rejectEmptyScan(result.combined, targetPath)) {
+		return;
+	}
 	await emit(
 		result.combined,
 		targetPath,
@@ -219,6 +232,9 @@ export const outputSingleProjectResults = async (
 	artifact?: () => ReportArtifact
 ): Promise<void> => {
 	const { result } = singleProjectScanResult;
+	if (rejectEmptyScan(result, targetPath)) {
+		return;
+	}
 	await emit(result, targetPath, options, scopeWarnings, undefined, artifact);
 	enforceGates(result, resolvedMinimumScore, options);
 };

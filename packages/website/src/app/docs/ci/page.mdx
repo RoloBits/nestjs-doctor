@@ -57,7 +57,7 @@ jobs:
 pull request types, a concurrency guard that cancels superseded runs, and the
 common inputs commented out.
 
-The check never fails until you uncomment `blocking` or `min-score`.
+The check never fails until you uncomment `blocking` or `min-score`, with one exception: a `directory` that holds no TypeScript files exits 2, because a scan of nothing would otherwise pass with 100.
 
 ## What a pull request gets
 

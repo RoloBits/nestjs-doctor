@@ -1,3 +1,4 @@
+import { rejectEmptyScan } from "../cli/output.js";
 import type { SourceInclusion } from "../common/artifact.js";
 import { detectMonorepo } from "../engine/project-detector.js";
 import { highlighter } from "../ui/highlighter.js";
@@ -59,6 +60,9 @@ export const runReport = async (
 			.buildResult()
 			.generateHtml()
 			.run();
+		if (rejectEmptyScan(pipeline.monoResult.result.combined, targetPath)) {
+			return;
+		}
 		logMonorepoSummary(pipeline.monoResult, pipeline.mergedGraph);
 		await writeAndOpen(pipeline.generatedHtml);
 		return;
@@ -79,6 +83,9 @@ export const runReport = async (
 		.buildResult()
 		.generateHtml()
 		.run();
+	if (rejectEmptyScan(pipeline.scanResult.result, targetPath)) {
+		return;
+	}
 	logSingleProjectSummary(pipeline.scanResult);
 	await writeAndOpen(pipeline.generatedHtml);
 };
