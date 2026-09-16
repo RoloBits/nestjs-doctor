@@ -32,7 +32,7 @@ export const DOCS_NAV: NavSection[] = [
 		title: "Comparisons",
 		items: [
 			{
-				title: "NestJS Doctor vs Nest Devtools",
+				title: "Nest Devtools alternative",
 				href: "/docs/nest-devtools-alternative",
 			},
 			{

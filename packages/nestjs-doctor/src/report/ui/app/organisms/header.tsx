@@ -130,7 +130,7 @@ export function HeaderRow({
 				<img
 					alt="nestjs-doctor logo"
 					height={22}
-					src="https://nestjs.doctor/logo.png"
+					src="https://www.nestjs.doctor/logo.png"
 					style={{ borderRadius: 4 }}
 					width={22}
 				/>
@@ -169,7 +169,7 @@ export function HeaderRow({
 				)}
 				<a
 					className="nav-btn"
-					href="https://nestjs.doctor/docs"
+					href="https://www.nestjs.doctor/docs"
 					rel="noopener"
 					target="_blank"
 				>

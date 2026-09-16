@@ -12,7 +12,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 
 const HOME_TITLE = "NestJS Doctor - Deterministic static analysis for NestJS";
 const HOME_DESCRIPTION =
-	"The deterministic NestJS devtool that catches AI mistakes. Static analysis for NestJS with a health score, diagnostics and a CI gate.";
+	"nestjs-doctor is free, open-source static analysis for NestJS that catches AI mistakes deterministically: a 0-100 score, the module graph without booting the app, and a gate on every pull request. No LLM at scan time. MIT.";
 
 export const metadata: Metadata = {
 	metadataBase: new URL(SITE_URL),

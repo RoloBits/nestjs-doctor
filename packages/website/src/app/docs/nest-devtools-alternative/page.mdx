@@ -4,15 +4,18 @@ export const metadata = docsMetadata["/docs/nest-devtools-alternative"];
 
 <BreadcrumbJsonLd path="/docs/nest-devtools-alternative" />
 
-# NestJS Doctor vs Nest Devtools
+# Nest Devtools alternative: nestjs-doctor, free and open source
 
-Both tools draw a NestJS module graph. They get there from opposite ends.
+nestjs-doctor is a free, open-source static analysis tool for NestJS. It is an
+MIT-licensed alternative to Nest Devtools for the module graph, the boot
+timings and the CI report. It reads the `@Module()` decorators from source, so
+nothing boots and nothing about your code leaves your machine, and adds rules
+across five categories and a 0-100 score. The one thing it cannot do is show the graph Nest
+built at runtime.
 
-Nest Devtools boots your application and introspects the graph Nest built.
-nestjs-doctor reads the `@Module()` decorators in your source and never runs
-anything. It is [free under MIT](#everything-is-free).
-
-Neither approach contains the other, so this page covers what each one can see.
+Both tools draw a NestJS module graph and get there from opposite ends: Nest
+Devtools boots your application and introspects the graph Nest built. Neither
+approach contains the other, so this page covers what each one can see.
 
 nestjs-doctor takes one command:
 
@@ -56,7 +59,7 @@ analyze your graph, and its findings carry `error`, `warning` and `info`
 severities. There are 11 checks, all architecture heuristics, with thresholds
 fixed in the product.
 
-nestjs-doctor runs 52 rules across security, correctness, architecture,
+nestjs-doctor runs rules across security, correctness, architecture,
 performance and schema. Every one can be disabled, ignored per line, or
 replaced, and you can add your own against your own conventions.
 
@@ -91,17 +94,37 @@ nestjs-doctor is built to fail a build. `--blocking` gates on severity,
 `--min-score` gates on the score, and the GitHub Action comments only on what a
 pull request introduced. [Failing the build](/docs/ci/gates) covers the flags.
 
-## Everything is free
+## Is Nest Devtools free?
 
-There is no paid tier and no seat count. Everything ships under MIT:
+No. Nest Devtools is a paid product with a free trial, and its CI integration
+sits on the Enterprise plan. nestjs-doctor has no paid tier and no seat count.
+Everything ships under MIT, and that includes the parts Devtools charges for:
+the module graph, the boot timings and the CI report.
 
-- The CLI and all 52 rules, plus the rules you write yourself.
+Under MIT:
+
+- The CLI and every built-in rule, plus the rules you write yourself.
 - The HTML report: module graph, endpoint traces, ER diagram and boot trace.
 - The GitHub Action that reviews pull requests.
 - The VS Code extension and the language server.
 - The skills for coding agents.
 
-Nest Devtools is a paid product with a short trial.
+## What is a free alternative to Nest Devtools?
+
+nestjs-doctor is a free, open-source alternative to Nest Devtools for the
+module graph and CI. It is MIT licensed and reads your source instead of
+booting the app. It adds rules across five categories, a 0 to 100 score and an ER diagram;
+Devtools has 11 checks, no score and no database view. It cannot show the graph Nest
+built at runtime.
+
+## Related tools
+
+Other free tools in the Devtools space watch a running app: request, query and
+exception monitors, and MCP bridges that hand a running app's routes and logs
+to an AI assistant. They read what the app does at runtime, so they run
+alongside nestjs-doctor, not instead of it. The
+[NestJS ESLint plugins](/docs/nestjs-eslint-plugins) are static like
+nestjs-doctor, and that page lists where they overlap rule for rule.
 
 ## Running both
 

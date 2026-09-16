@@ -19,11 +19,23 @@ const SOFTWARE_APPLICATION = {
 	"@type": "SoftwareApplication",
 	name: "nestjs-doctor",
 	description:
-		"The deterministic NestJS devtool that catches AI mistakes. Static analysis for NestJS with a health score, diagnostics and a CI gate.",
+		"nestjs-doctor is free, open-source static analysis for NestJS that catches AI mistakes deterministically: a 0-100 score, the module graph without booting the app, and a gate on every pull request. No LLM at scan time. MIT.",
 	url: SITE_URL,
 	applicationCategory: "DeveloperApplication",
 	operatingSystem: "Cross-platform",
 	offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+	isAccessibleForFree: true,
+	license: "https://opensource.org/licenses/MIT",
+	featureList: [
+		"Rules across security, correctness, architecture, performance and schema",
+		"0-100 health score",
+		"Module graph from source, without booting the app",
+		"ER diagram from Prisma, TypeORM, Drizzle and MikroORM",
+		"Boot trace with per-class construction times",
+		"GitHub Action that fails the build and comments on pull requests",
+		"VS Code extension",
+		"Skills for coding agents",
+	],
 };
 
 export const SoftwareApplicationJsonLd = () => (

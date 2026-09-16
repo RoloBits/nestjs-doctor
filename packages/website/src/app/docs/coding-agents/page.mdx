@@ -4,7 +4,7 @@ export const metadata = docsMetadata["/docs/coding-agents"];
 
 <BreadcrumbJsonLd path="/docs/coding-agents" />
 
-# Coding agents
+# nestjs-doctor for coding agents: AGENTS.md, Claude Code, Cursor skills
 
 Install the agent skill:
 
@@ -38,6 +38,9 @@ Antigravity, and Gemini CLI. Detection looks for each one's config directory or
 binary. Windsurf is the exception: it has no skills directory, so the content goes into
 `~/.codeium/windsurf/memories/global_rules.md`, inside a delimited block that a
 later `--init` replaces rather than duplicating.
+
+Each skill lands as `AGENTS.md`, the `SKILL.md` body without its frontmatter.
+Claude Code and the project's `.agents/` directory get both files.
 
 It also always writes `.agents/nestjs-doctor/`, `.agents/nestjs-boot-trace/`,
 and `.agents/nestjs-doctor-create-rule/` in the project itself, whatever it

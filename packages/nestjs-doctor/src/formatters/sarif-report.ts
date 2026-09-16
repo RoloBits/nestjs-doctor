@@ -7,7 +7,7 @@ import { getRules } from "../engine/rules/index.js";
 
 const SARIF_VERSION = "2.1.0";
 const SARIF_SCHEMA = "https://json.schemastore.org/sarif-2.1.0.json";
-const DOCS_BASE_URL = "https://nestjs.doctor/docs/rules";
+const DOCS_BASE_URL = "https://www.nestjs.doctor/docs/rules";
 const SRCROOT = "%SRCROOT%";
 
 type SarifLevel = "error" | "warning" | "note";
@@ -185,7 +185,7 @@ export function buildSarifLog(
 				tool: {
 					driver: {
 						name: "nestjs-doctor",
-						informationUri: "https://nestjs.doctor",
+						informationUri: "https://www.nestjs.doctor",
 						version,
 						semanticVersion: version,
 						rules,

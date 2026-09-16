@@ -7,7 +7,7 @@ import { withSurface } from "../engine/result-builder.js";
 
 /** Square logo, sized to sit on the heading's baseline. */
 const LOGO =
-	'<img src="https://nestjs.doctor/logo.png" width="20" height="20" align="top" alt="">';
+	'<img src="https://www.nestjs.doctor/logo.png" width="20" height="20" align="top" alt="">';
 
 /** Lets a CI job find and rewrite its own comment instead of stacking new ones. */
 export const MARKDOWN_COMMENT_MARKER = "<!-- nestjs-doctor:summary -->";

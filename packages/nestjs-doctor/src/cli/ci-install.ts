@@ -60,7 +60,7 @@ export const buildWorkflow = (
 	defaultBranch: string
 ): string => `# nestjs-doctor — health score, diagnostics, and pull request review for NestJS.
 #
-# Docs:   https://nestjs.doctor/docs/ci
+# Docs:   https://www.nestjs.doctor/docs/ci
 # Source: https://github.com/RoloBits/nestjs-doctor
 
 name: nestjs-doctor
@@ -97,7 +97,7 @@ jobs:
       - uses: RoloBits/nestjs-doctor@v1
         # Advisory by default: the action comments and publishes a commit status,
         # and never fails the check. Uncomment a key below to change that.
-        # Every input: https://nestjs.doctor/docs/ci
+        # Every input: https://www.nestjs.doctor/docs/ci
         # with:
         #   blocking: error           # Fail on: none (default), warning, error
         #   min-score: "80"           # Fail when the whole-project score drops below this

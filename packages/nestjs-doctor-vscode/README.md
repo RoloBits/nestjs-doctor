@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://nestjs.doctor/logo.png" width="120" alt="nestjs-doctor logo" />
+  <img src="https://www.nestjs.doctor/logo.png" width="120" alt="nestjs-doctor logo" />
 </p>
 
 <p align="center">
@@ -26,7 +26,7 @@
 - **Scan on save** — automatically re-scans when you save a file (configurable debounce)
 - **Scan on open** — scans the workspace when VS Code opens
 - **Manual scan** — trigger a full project scan from the command palette
-- **52 built-in rules** — same rules as the CLI, covering security, performance, correctness, architecture, and schema
+- **Built-in rules** — same rules as the CLI, covering security, performance, correctness, architecture, and schema
 
 ---
 
@@ -82,7 +82,7 @@ This is the same configuration the CLI uses — rule overrides, category toggles
 }
 ```
 
-See the [configuration reference](https://nestjs.doctor/docs/configuration) for all available options.
+See the [configuration reference](https://www.nestjs.doctor/docs/configuration) for all available options.
 
 ---
 
@@ -111,6 +111,6 @@ Try running `NestJS Doctor: Scan Project` from the command palette. You can also
 
 ## Links
 
-- [Documentation](https://nestjs.doctor/docs)
+- [Documentation](https://www.nestjs.doctor/docs)
 - [GitHub](https://github.com/RoloBits/nestjs-doctor)
 - [CLI on npm](https://www.npmjs.com/package/nestjs-doctor)

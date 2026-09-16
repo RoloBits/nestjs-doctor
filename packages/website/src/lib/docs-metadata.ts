@@ -5,12 +5,12 @@ export const DOCS_PAGES: Record<string, PageCopy> = {
 	"/docs": {
 		title: "What is nestjs-doctor?",
 		description:
-			"The deterministic NestJS devtool that catches AI mistakes. Static analysis that scans a NestJS codebase and produces a health score across security, correctness, architecture, performance, and schema.",
+			"nestjs-doctor is free, open-source static analysis for NestJS that catches AI mistakes deterministically: a 0-100 score, the module graph without booting the app, and a gate on every pull request. No LLM at scan time. MIT.",
 	},
 	"/docs/nest-devtools-alternative": {
-		title: "NestJS Doctor vs Nest Devtools",
+		title: "Nest Devtools alternative: nestjs-doctor, free and open source",
 		description:
-			"Both draw a NestJS module graph. Nest Devtools boots your app; nestjs-doctor reads your source, adds 52 rules, an ER diagram and a CI gate, and is MIT licensed.",
+			"nestjs-doctor is a free, open source Nest Devtools alternative for the module graph and CI. Devtools boots the app and is paid; nestjs-doctor reads source, runs locally, and is MIT.",
 	},
 	"/docs/nestjs-eslint-plugins": {
 		title: "NestJS Doctor vs ESLint plugins",
@@ -18,9 +18,9 @@ export const DOCS_PAGES: Record<string, PageCopy> = {
 			"What the NestJS ESLint plugins and oxlint check, what a project-scoped scan sees that a file-scoped lint rule cannot, and where the two overlap rule for rule.",
 	},
 	"/docs/setup": {
-		title: "Quickstart",
+		title: "Scan a NestJS project with npx nestjs-doctor",
 		description:
-			"Scan a NestJS project in one command, then read the score, the diagnostics, and the exit code.",
+			"One command, no config: npx nestjs-doctor@latest . reads a NestJS codebase without booting it and prints a 0-100 score. What the output means, how to install it, and the exit codes for CI.",
 	},
 	"/docs/report": {
 		title: "The report",
@@ -43,9 +43,10 @@ export const DOCS_PAGES: Record<string, PageCopy> = {
 			"Write part of a scan as JSON: pick the score, a findings category, the endpoints, the schema or the module graph, from the CLI, the post-scan menu, or the HTML report.",
 	},
 	"/docs/coding-agents": {
-		title: "Coding agents",
+		title:
+			"nestjs-doctor for coding agents: AGENTS.md, Claude Code, Cursor skills",
 		description:
-			"Install the nestjs-doctor skill for Claude Code, Cursor, Codex, OpenCode, Windsurf, Gemini CLI, and other agents so they scan and fix as they work.",
+			"npx nestjs-doctor --init writes an AGENTS.md skill for Claude Code, Cursor, Codex, OpenCode, Gemini CLI and other agents, plus .agents/ in the project, so the agent scans after each change and fixes what it introduced.",
 	},
 	"/docs/ci/gates": {
 		title: "Failing the build",
@@ -73,9 +74,9 @@ export const DOCS_PAGES: Record<string, PageCopy> = {
 			"Configure nestjs-doctor with nestjs-doctor.config.json. Customize file patterns, enable or disable rules, ignore specific diagnostics, and suppress rules inline with comments.",
 	},
 	"/docs/custom-rules": {
-		title: "Custom rule configuration",
+		title: "Custom static-analysis rules: customRulesDir",
 		description:
-			"Wire custom rules into a nestjs-doctor scan: customRulesDir, how rule files load, custom/ id prefixing, and the surfaces a rule's findings appear on.",
+			"Point customRulesDir at a folder of rule files and nestjs-doctor loads them at scan time, no build step. Ids get a custom/ prefix; findings show in the CLI, the pull request comment and the report.",
 	},
 	"/docs/telemetry": {
 		title: "Telemetry",
@@ -88,9 +89,9 @@ export const DOCS_PAGES: Record<string, PageCopy> = {
 			"Run nestjs-doctor in CI. Official GitHub Action with sticky pull request comments, inline review comments, and commit statuses; diff-scoped scanning that reports only what a change introduced; SARIF and GitLab Code Quality output.",
 	},
 	"/docs/vscode-extension": {
-		title: "VS Code extension",
+		title: "NestJS Doctor for VS Code: lint NestJS in the editor",
 		description:
-			"Run the same 52 rules as the CLI inline in your editor, with diagnostics in the Problems panel.",
+			"Circular modules, missing guards, unused providers and every other nestjs-doctor finding, inline and in the Problems panel, on open and on save. Install the extension and add nestjs-doctor as a dev dependency.",
 	},
 	"/docs/language-server": {
 		title: "Language server",
@@ -155,7 +156,7 @@ export const DOCS_PAGES: Record<string, PageCopy> = {
 	"/docs/rules": {
 		title: "Rules",
 		description:
-			"52 built-in rules across five categories: security, correctness, architecture, performance, and schema.",
+			"Built-in rules across five categories: security, correctness, architecture, performance, and schema.",
 	},
 	"/docs/rules/security": {
 		title: "Security rules",
@@ -168,9 +169,9 @@ export const DOCS_PAGES: Record<string, PageCopy> = {
 			"20 rules that detect bugs, missing decorators, and runtime errors in NestJS applications.",
 	},
 	"/docs/rules/architecture": {
-		title: "Architecture rules",
+		title: "NestJS architecture rules: circular modules, layering, DI",
 		description:
-			"10 rules that enforce clean layering, dependency injection patterns, and module boundaries.",
+			"The architecture rules: circular @Module() imports, business logic and repositories in controllers, new on a provider, ModuleRef.get(), property injection, deep imports into another module. One npx command runs them all.",
 	},
 	"/docs/rules/performance": {
 		title: "Performance rules",
