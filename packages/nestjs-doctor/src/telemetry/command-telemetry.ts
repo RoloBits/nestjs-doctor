@@ -9,8 +9,6 @@ export interface CommandTelemetryInput {
 	/** Defaults to `process.env`. */
 	env?: NodeJS.ProcessEnv;
 	from: "flag" | "menu";
-	/** Defaults to the compiled-in gate. */
-	isEnabled?: typeof scanTelemetryEnabled;
 	/** The `--telemetry` flag as parsed. */
 	optionsTelemetry: boolean;
 	/** Defaults to the on-disk install id. */
@@ -35,13 +33,7 @@ export const reportCommandTelemetry = async (
 	const env = input.env ?? process.env;
 	try {
 		const config = await loadConfig(input.targetPath, input.configPath);
-		if (
-			!(input.isEnabled ?? scanTelemetryEnabled)(
-				input.optionsTelemetry,
-				config,
-				env
-			)
-		) {
+		if (!scanTelemetryEnabled(input.optionsTelemetry, config, env)) {
 			return;
 		}
 		const identity = (input.resolveIdentityFn ?? resolveIdentity)(

@@ -214,33 +214,30 @@ const SKILL_TARGETS: SkillTarget[] = [
 			existsSync(join(home, "Library", "Application Support", "Windsurf")),
 		installed: hasWindsurfBlock,
 		install: async (skills) => {
-			const rulesPath = WINDSURF_RULES;
-			const start = WINDSURF_START;
-			const end = WINDSURF_END;
 			const block = [
-				start,
+				WINDSURF_START,
 				toAgentsContent(skills.main.body),
 				toAgentsContent(skills.createRule.body),
 				toAgentsContent(skills.bootTrace.body),
-				end,
+				WINDSURF_END,
 			].join("\n");
 
-			if (existsSync(rulesPath)) {
-				const existing = await readFile(rulesPath, "utf-8");
-				const from = existing.indexOf(start);
-				const to = existing.indexOf(end);
+			if (existsSync(WINDSURF_RULES)) {
+				const existing = await readFile(WINDSURF_RULES, "utf-8");
+				const from = existing.indexOf(WINDSURF_START);
+				const to = existing.indexOf(WINDSURF_END);
 				if (from !== -1 && to > from) {
 					const replaced =
-						existing.slice(0, from) + block + existing.slice(to + end.length);
-					await writeFile(rulesPath, replaced, "utf-8");
+						existing.slice(0, from) +
+						block +
+						existing.slice(to + WINDSURF_END.length);
+					await writeFile(WINDSURF_RULES, replaced, "utf-8");
 					return;
 				}
-				await appendFile(rulesPath, `\n${block}`, "utf-8");
+				await appendFile(WINDSURF_RULES, `\n${block}`, "utf-8");
 			} else {
-				await mkdir(join(home, ".codeium", "windsurf", "memories"), {
-					recursive: true,
-				});
-				await writeFile(rulesPath, block, "utf-8");
+				await mkdir(dirname(WINDSURF_RULES), { recursive: true });
+				await writeFile(WINDSURF_RULES, block, "utf-8");
 			}
 		},
 	},

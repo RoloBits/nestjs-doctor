@@ -51,6 +51,19 @@ const buildHandoffItems = (): HandoffItem[] => [
 	{ kind: "back" as const, label: "Back" },
 ];
 
+const reportCommand = (
+	context: InteractiveContext,
+	command: "ci_install" | "init"
+): Promise<void> =>
+	reportCommandTelemetry({
+		command,
+		configPath: context.configPath,
+		from: "menu",
+		optionsTelemetry: context.telemetry,
+		subProjectOptOut: context.subProjectOptOut,
+		targetPath: context.targetPath,
+	});
+
 interface AppProps {
 	context: InteractiveContext;
 	deferPrint: (text: string) => void;
@@ -112,24 +125,6 @@ export const App = ({
 		setScreen("score");
 	}, [context.targetPath, deferPrint, shown.diagnostics]);
 
-	const reportCommand = useCallback(
-		(command: "ci_install" | "init") =>
-			reportCommandTelemetry({
-				command,
-				configPath: context.configPath,
-				from: "menu",
-				optionsTelemetry: context.telemetry,
-				subProjectOptOut: context.subProjectOptOut,
-				targetPath: context.targetPath,
-			}),
-		[
-			context.configPath,
-			context.subProjectOptOut,
-			context.targetPath,
-			context.telemetry,
-		]
-	);
-
 	const runAction = useCallback(
 		async (action: MenuAction): Promise<void> => {
 			if (action === "quit") {
@@ -175,7 +170,7 @@ export const App = ({
 									.map((step) => `• ${step}`)
 									.join("\n")}`,
 							});
-							await reportCommand("ci_install");
+							await reportCommand(context, "ci_install");
 							break;
 						case "exists":
 							setToast({
@@ -226,7 +221,7 @@ export const App = ({
 						text: lines.join("\n"),
 					});
 					if (installed > 0) {
-						await reportCommand("init");
+						await reportCommand(context, "init");
 					}
 				} else if (action === "markdown") {
 					const markdown = buildMarkdownReport(context.result, {
@@ -255,7 +250,7 @@ export const App = ({
 				setBusy(false);
 			}
 		},
-		[context, deferPrint, exit, reportCommand]
+		[context, deferPrint, exit]
 	);
 
 	useInput(
