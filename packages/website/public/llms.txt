@@ -1,6 +1,6 @@
 # NestJS Doctor
 
-> nestjs-doctor is a free, open-source static analysis tool for NestJS (MIT). It reads the whole application from source, so nothing boots and nothing about your code leaves the machine, and runs 52 rules across security, correctness, architecture, performance and schema for a 0-100 score. No LLM at scan time; the same commit scores the same everywhere. The HTML report draws the module graph with circular imports highlighted, traced HTTP endpoints, an ER diagram of the ORM schema, and boot timings. Ships a GitHub Action that fails the build and reports only what a pull request introduced, a VS Code extension, and skills for coding agents. Zero config; monorepos supported.
+> nestjs-doctor is free, open-source static analysis for NestJS that catches AI mistakes deterministically: a 0-100 score, the module graph without booting the app, and a gate on every pull request. It reads the whole application from source, so nothing boots and nothing about your code leaves the machine, and runs rules across security, correctness, architecture, performance and schema. No LLM at scan time; the same commit scores the same everywhere. MIT. The HTML report draws the module graph with circular imports highlighted, traced HTTP endpoints, an ER diagram of the ORM schema, and boot timings. Ships a GitHub Action that fails the build and reports only what a pull request introduced, a VS Code extension, and skills for coding agents. Zero config; monorepos supported.
 
 ## Quick Start
 
@@ -18,8 +18,8 @@ npm install -D nestjs-doctor
 
 ## Compared with
 
-- [Nest Devtools](https://nestjs.doctor/docs/nest-devtools-alternative) boots the app and shows the graph Nest built; it is paid, and its CI diff sits on the Enterprise plan. Under MIT, nestjs-doctor reads the same modules from source and adds 52 rules and a CI gate.
-- [The NestJS ESLint plugins](https://nestjs.doctor/docs/nestjs-eslint-plugins) read one file at a time and run on save. One nestjs-doctor scan reads the whole application at once: every `@Module()`, the provider map, the endpoint graph and the ORM schema. Keep both.
+- [Nest Devtools](https://www.nestjs.doctor/docs/nest-devtools-alternative) boots the app and shows the graph Nest built; it is paid, and its CI diff sits on the Enterprise plan. Under MIT, nestjs-doctor reads the same modules from source and adds rules and a CI gate.
+- [The NestJS ESLint plugins](https://www.nestjs.doctor/docs/nestjs-eslint-plugins) read one file at a time and run on save. One nestjs-doctor scan reads the whole application at once: every `@Module()`, the provider map, the endpoint graph and the ORM schema. Keep both.
 
 ## CLI Options
 
@@ -112,7 +112,7 @@ directives cannot silence either rule; use `ignore.rules`.
 
 The graph is decorator text, not a running app. Two `@Module()` classes with the same name in different directories collapse into one node outside a monorepo. A factory's returned `DynamicModule` yields one edge, to the module its `module` key names, and the `imports` inside that literal yield none. `--report` ignores `--scope`, `--base`, `--staged`, `--min-score`, and `--blocking`, and always exits 0.
 
-Docs: https://nestjs.doctor/docs/report/module-graph
+Docs: https://www.nestjs.doctor/docs/report/module-graph
 
 ## Sharing a slice
 
@@ -137,7 +137,7 @@ dialog also drops any finding whose surfaces omit `score`, which today means
 `correctness/no-async-without-await`, `correctness/prefer-readonly-injection` and
 `security/no-advisory-nestjs-packages`.
 
-Docs: https://nestjs.doctor/docs/report/share
+Docs: https://www.nestjs.doctor/docs/report/share
 
 ## Boot trace
 
@@ -162,7 +162,7 @@ npx nestjs-doctor . --report --timings nestjs-doctor-timings.json
 
 Each class's time includes waiting on its own dependencies, so a shared slow dependency counts again in every class that awaits it. Module nodes show the build of the slowest class, never a sum across classes, plus the hook time across the module's classes. Timings are display-only and never affect the score, the diagnostics, or the exit code. An unusable dump degrades to a stderr warning.
 
-Docs: https://nestjs.doctor/docs/report/boot-trace
+Docs: https://www.nestjs.doctor/docs/report/boot-trace
 
 ## GitHub Action
 
@@ -278,9 +278,9 @@ npx nestjs-doctor-lsp --stdio
 
 The client has to send a workspace root (`rootUri`, or `rootPath`), and `nestjs-doctor` has to be a dependency of the project it points at. The server loads the engine from there.
 
-Docs: https://nestjs.doctor/docs/language-server
+Docs: https://www.nestjs.doctor/docs/language-server
 
-## Rules (52)
+## Rules
 
 ### Security (12)
 
@@ -353,10 +353,10 @@ Schema rules run against entities extracted from Prisma, TypeORM, Drizzle, or Mi
 
 ## Telemetry
 
-A finished scan reports one `scan_completed` event: CLI version, Node major version, platform, how the run started, file count, framework, ORM, Nest version, dependencies matched against a fixed list, built-in rule ids with counts, and the score. Never code, paths, the project name, globs, or custom rule names. Opt out with `--no-telemetry`, `"telemetry": false` in the config, or `DO_NOT_TRACK=1`. `NESTJS_DOCTOR_TELEMETRY_DEBUG=1` prints the payload instead of sending it. Details: https://nestjs.doctor/docs/telemetry
+A finished scan reports one `scan_completed` event: CLI version, Node major version, platform, how the run started, file count, framework, ORM, Nest version, dependencies matched against a fixed list, built-in rule ids with counts, and the score. Never code, paths, the project name, globs, or custom rule names. Opt out with `--no-telemetry`, `"telemetry": false` in the config, or `DO_NOT_TRACK=1`. `NESTJS_DOCTOR_TELEMETRY_DEBUG=1` prints the payload instead of sending it. Details: https://www.nestjs.doctor/docs/telemetry
 
 ## Links
 
-- Docs: https://nestjs.doctor/docs
+- Docs: https://www.nestjs.doctor/docs
 - npm: https://npmjs.com/package/nestjs-doctor
 - GitHub: https://github.com/RoloBits/nestjs-doctor

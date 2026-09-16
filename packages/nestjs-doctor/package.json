@@ -1,7 +1,7 @@
 {
   "name": "nestjs-doctor",
   "version": "0.9.9",
-  "description": "nestjs-doctor is a free, open-source static analysis tool for NestJS (MIT): 52 rules, a 0-100 health score, the module graph without booting the app, and a CI gate that comments on pull requests. No LLM at scan time.",
+  "description": "nestjs-doctor is free, open-source static analysis for NestJS that catches AI mistakes deterministically: a 0-100 score, the module graph without booting the app, and a gate on every pull request. No LLM at scan time. MIT.",
   "keywords": [
     "nestjs",
     "nest",

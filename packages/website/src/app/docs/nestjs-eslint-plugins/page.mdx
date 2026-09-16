@@ -40,7 +40,7 @@ than trusting the number in the table.
 ## What only a project-scoped scan sees
 
 nestjs-doctor builds one module graph from every `@Module()` decorator in the
-project before any rule runs. Eight of its 52 rules run once over the whole
+project before any rule runs. Eight of its rules run once over the whole
 project instead of once per file. Those eight answer questions no single file
 contains.
 
@@ -94,7 +94,7 @@ Nothing here requires a choice. The plugins stay in the editor, running per file
 on save. nestjs-doctor runs in CI over the whole project on every pull request.
 
 Both are free. nestjs-doctor ships under MIT with no paid tier and no seat count.
-That covers the 52 rules, the HTML report, the GitHub Action and the VS Code
+That covers every rule, the HTML report, the GitHub Action and the VS Code
 extension.
 
 Scan a project once and compare the output against what your linter already
@@ -105,4 +105,4 @@ npx nestjs-doctor@latest .
 ```
 
 [Quickstart](/docs/setup) covers reading the score, and [Rules](/docs/rules)
-lists all 52.
+lists every one.

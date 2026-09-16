@@ -9,8 +9,8 @@ export const metadata = docsMetadata["/docs/nest-devtools-alternative"];
 nestjs-doctor is a free, open-source static analysis tool for NestJS. It is an
 MIT-licensed alternative to Nest Devtools for the module graph, the boot
 timings and the CI report. It reads the `@Module()` decorators from source, so
-nothing boots and nothing about your code leaves your machine, and adds 52
-rules and a 0-100 score. The one thing it cannot do is show the graph Nest
+nothing boots and nothing about your code leaves your machine, and adds rules
+across five categories and a 0-100 score. The one thing it cannot do is show the graph Nest
 built at runtime.
 
 Both tools draw a NestJS module graph and get there from opposite ends: Nest
@@ -59,7 +59,7 @@ analyze your graph, and its findings carry `error`, `warning` and `info`
 severities. There are 11 checks, all architecture heuristics, with thresholds
 fixed in the product.
 
-nestjs-doctor runs 52 rules across security, correctness, architecture,
+nestjs-doctor runs rules across security, correctness, architecture,
 performance and schema. Every one can be disabled, ignored per line, or
 replaced, and you can add your own against your own conventions.
 
@@ -103,7 +103,7 @@ the module graph, the boot timings and the CI report.
 
 Under MIT:
 
-- The CLI and all 52 rules, plus the rules you write yourself.
+- The CLI and every built-in rule, plus the rules you write yourself.
 - The HTML report: module graph, endpoint traces, ER diagram and boot trace.
 - The GitHub Action that reviews pull requests.
 - The VS Code extension and the language server.
@@ -113,8 +113,8 @@ Under MIT:
 
 nestjs-doctor is a free, open-source alternative to Nest Devtools for the
 module graph and CI. It is MIT licensed and reads your source instead of
-booting the app. It adds 52 rules, a 0 to 100 score and an ER diagram; Devtools
-has 11 checks, no score and no database view. It cannot show the graph Nest
+booting the app. It adds rules across five categories, a 0 to 100 score and an ER diagram;
+Devtools has 11 checks, no score and no database view. It cannot show the graph Nest
 built at runtime.
 
 ## Related tools

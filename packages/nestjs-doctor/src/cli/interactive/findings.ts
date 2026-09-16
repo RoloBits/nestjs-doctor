@@ -58,7 +58,7 @@ export const docsUrl = (rule: string): string | undefined => {
 	if (rule.startsWith("custom/")) {
 		return;
 	}
-	return `https://nestjs.doctor/docs/rules/${category}`;
+	return `https://www.nestjs.doctor/docs/rules/${category}`;
 };
 
 /** One agent-ready prompt for a single rule's findings. */

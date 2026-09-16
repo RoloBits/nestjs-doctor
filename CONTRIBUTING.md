@@ -46,7 +46,7 @@ packages/
         advisories/         # Watched packages, the shipped advisory table, version matching
         config/             # Config resolution and custom rule loading
         graph/              # AST parsing, module graph, providers, endpoints
-        rules/definitions/  # All 52 built-in rules, grouped by category
+        rules/definitions/  # All built-in rules, grouped by category
         schema/             # ORM schema extractors (Prisma, TypeORM, ...)
         scorer/             # Scoring algorithm
       formatters/           # Markdown, SARIF, and GitLab report builders
@@ -61,7 +61,7 @@ action.yml                  # The official GitHub Action (composite)
 scripts/action/             # Helper scripts the action invokes
 ```
 
-Full pipeline docs: [nestjs.doctor/docs](https://nestjs.doctor/docs)
+Full pipeline docs: [nestjs.doctor/docs](https://www.nestjs.doctor/docs)
 
 ## Making changes
 
@@ -234,4 +234,4 @@ not move.
 
 For detailed documentation on the scanning pipeline, rule reference, configuration, and scoring:
 
-[nestjs.doctor/docs](https://nestjs.doctor/docs)
+[nestjs.doctor/docs](https://www.nestjs.doctor/docs)

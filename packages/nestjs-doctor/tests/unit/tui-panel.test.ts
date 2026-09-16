@@ -65,7 +65,7 @@ describe("buildPanelLines", () => {
 
 	it("captions the recommendation in uppercase with the docs link", () => {
 		const row = panel.find((line) => line.startsWith("RECOMMENDATION"));
-		expect(row).toContain("https://nestjs.doctor/docs/rules/security");
+		expect(row).toContain("https://www.nestjs.doctor/docs/rules/security");
 	});
 
 	it("wraps a message wider than the panel onto several lines", () => {

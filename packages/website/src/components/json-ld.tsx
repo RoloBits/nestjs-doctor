@@ -19,7 +19,7 @@ const SOFTWARE_APPLICATION = {
 	"@type": "SoftwareApplication",
 	name: "nestjs-doctor",
 	description:
-		"nestjs-doctor is a free, open-source static analysis tool for NestJS (MIT): 52 rules, a 0-100 health score, the module graph without booting the app, and a CI gate that comments on pull requests. No LLM at scan time.",
+		"nestjs-doctor is free, open-source static analysis for NestJS that catches AI mistakes deterministically: a 0-100 score, the module graph without booting the app, and a gate on every pull request. No LLM at scan time. MIT.",
 	url: SITE_URL,
 	applicationCategory: "DeveloperApplication",
 	operatingSystem: "Cross-platform",
@@ -27,7 +27,7 @@ const SOFTWARE_APPLICATION = {
 	isAccessibleForFree: true,
 	license: "https://opensource.org/licenses/MIT",
 	featureList: [
-		"52 built-in rules across security, correctness, architecture, performance and schema",
+		"Rules across security, correctness, architecture, performance and schema",
 		"0-100 health score",
 		"Module graph from source, without booting the app",
 		"ER diagram from Prisma, TypeORM, Drizzle and MikroORM",
