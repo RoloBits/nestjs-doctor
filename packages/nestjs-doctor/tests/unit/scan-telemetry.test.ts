@@ -1,6 +1,14 @@
 import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { OUTPUT_FORMATS } from "../../src/cli/formatters/render.js";
 import type { CodeDiagnostic } from "../../src/common/diagnostic.js";
 import type { Score } from "../../src/common/result.js";
@@ -318,6 +326,50 @@ describe("scan telemetry payload", () => {
 				npm_command: "exec",
 			})
 		).toBe("npx");
+	});
+
+	describe("a skill run", () => {
+		const homes: string[] = [];
+		const fakeHome = (withSkill: boolean): string => {
+			const home = mkdtempSync(join(tmpdir(), "nd-trigger-home-"));
+			homes.push(home);
+			if (withSkill) {
+				const dir = join(home, ".claude", "skills", "nestjs-doctor");
+				mkdirSync(dir, { recursive: true });
+				writeFileSync(join(dir, "AGENTS.md"), "# Skill\n\n> v0.9.0\n");
+			}
+			return home;
+		};
+
+		afterAll(() => {
+			for (const home of homes) {
+				rmSync(home, { recursive: true, force: true });
+			}
+		});
+
+		it("is an agent env var beside an installed skill", () => {
+			expect(detectTrigger({ CLAUDECODE: "1", HOME: fakeHome(true) })).toBe(
+				"skill"
+			);
+		});
+
+		it("stays an agent run when no skill is installed", () => {
+			expect(detectTrigger({ CLAUDECODE: "1", HOME: fakeHome(false) })).toBe(
+				"agent"
+			);
+		});
+
+		it("needs the agent env var, not just the skill file", () => {
+			expect(detectTrigger({ HOME: fakeHome(true) })).toBe("global");
+		});
+
+		it("yields to the explicit override", () => {
+			const HOME = fakeHome(true);
+			expect(
+				detectTrigger({ NESTJS_DOCTOR_TRIGGER: "agent", CLAUDECODE: "1", HOME })
+			).toBe("agent");
+			expect(detectTrigger({ NESTJS_DOCTOR_TRIGGER: "skill" })).toBe("skill");
+		});
 	});
 
 	it("drops an unknown NESTJS_DOCTOR_TRIGGER", () => {

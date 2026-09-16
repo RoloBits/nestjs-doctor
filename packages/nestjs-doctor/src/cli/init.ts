@@ -4,7 +4,13 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { logger } from "../ui/logger.js";
-import { isCommandAvailable } from "./ui/commands.js";
+import {
+	SKILL_TARGETS,
+	type SkillTargetName,
+	WINDSURF_END,
+	WINDSURF_START,
+	windsurfRulesPath,
+} from "./skill-targets.js";
 
 // The build copies skills/ to dist/skills. Which directory the bundled entry
 // reports depends on how it was chunked, so both places are tried.
@@ -74,223 +80,174 @@ interface SkillContents {
 	main: Skill;
 }
 
-interface SkillTarget {
-	detect: () => boolean;
-	install: (skills: SkillContents) => Promise<void>;
-	name: string;
-}
+type Installer = (skills: SkillContents) => Promise<void>;
 
 const home = homedir();
+const WINDSURF_RULES = windsurfRulesPath(home);
 
-const SKILL_TARGETS: SkillTarget[] = [
-	{
-		name: "Claude Code",
-		detect: () => existsSync(join(home, ".claude")),
-		install: async (skills) => {
-			const dir = join(home, ".claude", "skills", "nestjs-doctor");
-			await writeSkillPair(dir, skills.main);
-			const createRuleDir = join(
-				home,
-				".claude",
-				"skills",
-				"nestjs-doctor-create-rule"
-			);
-			await writeSkillPair(createRuleDir, skills.createRule);
-			const bootTraceDir = join(home, ".claude", "skills", "nestjs-boot-trace");
-			await writeSkillPair(bootTraceDir, skills.bootTrace);
-		},
+/** One installer per shared target, keyed by the name the probe table uses. */
+const INSTALLERS: Record<SkillTargetName, Installer> = {
+	"Claude Code": async (skills) => {
+		const dir = join(home, ".claude", "skills", "nestjs-doctor");
+		await writeSkillPair(dir, skills.main);
+		const createRuleDir = join(
+			home,
+			".claude",
+			"skills",
+			"nestjs-doctor-create-rule"
+		);
+		await writeSkillPair(createRuleDir, skills.createRule);
+		const bootTraceDir = join(home, ".claude", "skills", "nestjs-boot-trace");
+		await writeSkillPair(bootTraceDir, skills.bootTrace);
 	},
-	{
-		name: "Amp Code",
-		detect: () => existsSync(join(home, ".amp")),
-		install: async (skills) => {
-			const dir = join(home, ".config", "amp", "skills", "nestjs-doctor");
-			await writeAgentsOnly(dir, skills.main);
-			const createRuleDir = join(
-				home,
-				".config",
-				"amp",
-				"skills",
-				"nestjs-doctor-create-rule"
-			);
-			await writeAgentsOnly(createRuleDir, skills.createRule);
-			const bootTraceDir = join(
-				home,
-				".config",
-				"amp",
-				"skills",
-				"nestjs-boot-trace"
-			);
-			await writeAgentsOnly(bootTraceDir, skills.bootTrace);
-		},
+	"Amp Code": async (skills) => {
+		const dir = join(home, ".config", "amp", "skills", "nestjs-doctor");
+		await writeAgentsOnly(dir, skills.main);
+		const createRuleDir = join(
+			home,
+			".config",
+			"amp",
+			"skills",
+			"nestjs-doctor-create-rule"
+		);
+		await writeAgentsOnly(createRuleDir, skills.createRule);
+		const bootTraceDir = join(
+			home,
+			".config",
+			"amp",
+			"skills",
+			"nestjs-boot-trace"
+		);
+		await writeAgentsOnly(bootTraceDir, skills.bootTrace);
 	},
-	{
-		name: "Cursor",
-		detect: () => existsSync(join(home, ".cursor")),
-		install: async (skills) => {
-			const dir = join(home, ".cursor", "skills", "nestjs-doctor");
-			await writeAgentsOnly(dir, skills.main);
-			const createRuleDir = join(
-				home,
-				".cursor",
-				"skills",
-				"nestjs-doctor-create-rule"
-			);
-			await writeAgentsOnly(createRuleDir, skills.createRule);
-			const bootTraceDir = join(home, ".cursor", "skills", "nestjs-boot-trace");
-			await writeAgentsOnly(bootTraceDir, skills.bootTrace);
-		},
+	Cursor: async (skills) => {
+		const dir = join(home, ".cursor", "skills", "nestjs-doctor");
+		await writeAgentsOnly(dir, skills.main);
+		const createRuleDir = join(
+			home,
+			".cursor",
+			"skills",
+			"nestjs-doctor-create-rule"
+		);
+		await writeAgentsOnly(createRuleDir, skills.createRule);
+		const bootTraceDir = join(home, ".cursor", "skills", "nestjs-boot-trace");
+		await writeAgentsOnly(bootTraceDir, skills.bootTrace);
 	},
-	{
-		name: "OpenCode",
-		detect: () =>
-			isCommandAvailable("opencode") ||
-			existsSync(join(home, ".config", "opencode")),
-		install: async (skills) => {
-			const dir = join(home, ".config", "opencode", "skills", "nestjs-doctor");
-			await writeAgentsOnly(dir, skills.main);
-			const createRuleDir = join(
-				home,
-				".config",
-				"opencode",
-				"skills",
-				"nestjs-doctor-create-rule"
-			);
-			await writeAgentsOnly(createRuleDir, skills.createRule);
-			const bootTraceDir = join(
-				home,
-				".config",
-				"opencode",
-				"skills",
-				"nestjs-boot-trace"
-			);
-			await writeAgentsOnly(bootTraceDir, skills.bootTrace);
-		},
+	OpenCode: async (skills) => {
+		const dir = join(home, ".config", "opencode", "skills", "nestjs-doctor");
+		await writeAgentsOnly(dir, skills.main);
+		const createRuleDir = join(
+			home,
+			".config",
+			"opencode",
+			"skills",
+			"nestjs-doctor-create-rule"
+		);
+		await writeAgentsOnly(createRuleDir, skills.createRule);
+		const bootTraceDir = join(
+			home,
+			".config",
+			"opencode",
+			"skills",
+			"nestjs-boot-trace"
+		);
+		await writeAgentsOnly(bootTraceDir, skills.bootTrace);
 	},
-	{
-		name: "Windsurf",
-		detect: () =>
-			existsSync(join(home, ".codeium")) ||
-			existsSync(join(home, "Library", "Application Support", "Windsurf")),
-		install: async (skills) => {
-			const rulesPath = join(
-				home,
-				".codeium",
-				"windsurf",
-				"memories",
-				"global_rules.md"
-			);
-			const start = "<!-- nestjs-doctor:start -->";
-			const end = "<!-- nestjs-doctor:end -->";
-			const block = [
-				start,
-				toAgentsContent(skills.main.body),
-				toAgentsContent(skills.createRule.body),
-				toAgentsContent(skills.bootTrace.body),
-				end,
-			].join("\n");
+	Windsurf: async (skills) => {
+		const block = [
+			WINDSURF_START,
+			toAgentsContent(skills.main.body),
+			toAgentsContent(skills.createRule.body),
+			toAgentsContent(skills.bootTrace.body),
+			WINDSURF_END,
+		].join("\n");
 
-			if (existsSync(rulesPath)) {
-				const existing = await readFile(rulesPath, "utf-8");
-				const from = existing.indexOf(start);
-				const to = existing.indexOf(end);
-				if (from !== -1 && to > from) {
-					const replaced =
-						existing.slice(0, from) + block + existing.slice(to + end.length);
-					await writeFile(rulesPath, replaced, "utf-8");
-					return;
-				}
-				await appendFile(rulesPath, `\n${block}`, "utf-8");
-			} else {
-				await mkdir(join(home, ".codeium", "windsurf", "memories"), {
-					recursive: true,
-				});
-				await writeFile(rulesPath, block, "utf-8");
+		if (existsSync(WINDSURF_RULES)) {
+			const existing = await readFile(WINDSURF_RULES, "utf-8");
+			const from = existing.indexOf(WINDSURF_START);
+			const to = existing.indexOf(WINDSURF_END);
+			if (from !== -1 && to > from) {
+				const replaced =
+					existing.slice(0, from) +
+					block +
+					existing.slice(to + WINDSURF_END.length);
+				await writeFile(WINDSURF_RULES, replaced, "utf-8");
+				return;
 			}
-		},
+			await appendFile(WINDSURF_RULES, `\n${block}`, "utf-8");
+		} else {
+			await mkdir(dirname(WINDSURF_RULES), { recursive: true });
+			await writeFile(WINDSURF_RULES, block, "utf-8");
+		}
 	},
-	{
-		name: "Antigravity",
-		detect: () =>
-			isCommandAvailable("agy") ||
-			existsSync(join(home, ".gemini", "antigravity")),
-		install: async (skills) => {
-			const dir = join(
-				home,
-				".gemini",
-				"antigravity",
-				"skills",
-				"nestjs-doctor"
-			);
-			await writeAgentsOnly(dir, skills.main);
-			const createRuleDir = join(
-				home,
-				".gemini",
-				"antigravity",
-				"skills",
-				"nestjs-doctor-create-rule"
-			);
-			await writeAgentsOnly(createRuleDir, skills.createRule);
-			const bootTraceDir = join(
-				home,
-				".gemini",
-				"antigravity",
-				"skills",
-				"nestjs-boot-trace"
-			);
-			await writeAgentsOnly(bootTraceDir, skills.bootTrace);
-		},
+	Antigravity: async (skills) => {
+		const dir = join(home, ".gemini", "antigravity", "skills", "nestjs-doctor");
+		await writeAgentsOnly(dir, skills.main);
+		const createRuleDir = join(
+			home,
+			".gemini",
+			"antigravity",
+			"skills",
+			"nestjs-doctor-create-rule"
+		);
+		await writeAgentsOnly(createRuleDir, skills.createRule);
+		const bootTraceDir = join(
+			home,
+			".gemini",
+			"antigravity",
+			"skills",
+			"nestjs-boot-trace"
+		);
+		await writeAgentsOnly(bootTraceDir, skills.bootTrace);
 	},
-	{
-		name: "Gemini CLI",
-		detect: () =>
-			isCommandAvailable("gemini") || existsSync(join(home, ".gemini")),
-		install: async (skills) => {
-			const dir = join(home, ".gemini", "skills", "nestjs-doctor");
-			await writeAgentsOnly(dir, skills.main);
-			const createRuleDir = join(
-				home,
-				".gemini",
-				"skills",
-				"nestjs-doctor-create-rule"
-			);
-			await writeAgentsOnly(createRuleDir, skills.createRule);
-			const bootTraceDir = join(home, ".gemini", "skills", "nestjs-boot-trace");
-			await writeAgentsOnly(bootTraceDir, skills.bootTrace);
-		},
+	"Gemini CLI": async (skills) => {
+		const dir = join(home, ".gemini", "skills", "nestjs-doctor");
+		await writeAgentsOnly(dir, skills.main);
+		const createRuleDir = join(
+			home,
+			".gemini",
+			"skills",
+			"nestjs-doctor-create-rule"
+		);
+		await writeAgentsOnly(createRuleDir, skills.createRule);
+		const bootTraceDir = join(home, ".gemini", "skills", "nestjs-boot-trace");
+		await writeAgentsOnly(bootTraceDir, skills.bootTrace);
 	},
-	{
-		name: "Codex",
-		detect: () =>
-			isCommandAvailable("codex") || existsSync(join(home, ".codex")),
-		install: async (skills) => {
-			const dir = join(home, ".codex", "skills", "nestjs-doctor");
-			await writeAgentsOnly(dir, skills.main);
-			const createRuleDir = join(
-				home,
-				".codex",
-				"skills",
-				"nestjs-doctor-create-rule"
-			);
-			await writeAgentsOnly(createRuleDir, skills.createRule);
-			const bootTraceDir = join(home, ".codex", "skills", "nestjs-boot-trace");
-			await writeAgentsOnly(bootTraceDir, skills.bootTrace);
+	Codex: async (skills) => {
+		const dir = join(home, ".codex", "skills", "nestjs-doctor");
+		await writeAgentsOnly(dir, skills.main);
+		const createRuleDir = join(
+			home,
+			".codex",
+			"skills",
+			"nestjs-doctor-create-rule"
+		);
+		await writeAgentsOnly(createRuleDir, skills.createRule);
+		const bootTraceDir = join(home, ".codex", "skills", "nestjs-boot-trace");
+		await writeAgentsOnly(bootTraceDir, skills.bootTrace);
 
-			const agentsDir = join(home, ".codex", "agents");
-			await mkdir(agentsDir, { recursive: true });
-			await writeFile(
-				join(agentsDir, "openai.yaml"),
-				CODEX_AGENT_CONFIG,
-				"utf-8"
-			);
-		},
+		const agentsDir = join(home, ".codex", "agents");
+		await mkdir(agentsDir, { recursive: true });
+		await writeFile(
+			join(agentsDir, "openai.yaml"),
+			CODEX_AGENT_CONFIG,
+			"utf-8"
+		);
 	},
-];
+};
 
+/** Sink for the install's progress lines. */
+export type InitReporter = Pick<
+	typeof logger,
+	"dim" | "error" | "success" | "warn"
+>;
+
+/** Installs the skills everywhere they fit and returns how many targets took them. */
 export const initSkill = async (
 	targetPath: string,
-	version: string
-): Promise<void> => {
+	version: string,
+	out: InitReporter = logger
+): Promise<number> => {
 	const read = async (name: string): Promise<Skill> => {
 		const file = skillFile(name);
 		const body = await readFile(file, "utf-8");
@@ -308,25 +265,25 @@ export const initSkill = async (
 			main: await read("nestjs-doctor"),
 		};
 	} catch {
-		logger.error(
+		out.error(
 			`Could not read the skill sources at ${SKILL_ROOTS[0]}. Reinstall nestjs-doctor.`
 		);
-		return;
+		return 0;
 	}
 
 	let installed = 0;
 
 	for (const target of SKILL_TARGETS) {
-		if (!target.detect()) {
+		if (!target.detect(home)) {
 			continue;
 		}
 
 		try {
-			await target.install(skills);
-			logger.success(`Installed 3 skills for ${target.name}`);
+			await INSTALLERS[target.name](skills);
+			out.success(`Installed 3 skills for ${target.name}`);
 			installed++;
 		} catch {
-			logger.error(`Failed to install skills for ${target.name}`);
+			out.error(`Failed to install skills for ${target.name}`);
 		}
 	}
 
@@ -342,20 +299,21 @@ export const initSkill = async (
 		await writeSkillPair(projectDir, skills.main);
 		await writeSkillPair(createRuleProjectDir, skills.createRule);
 		await writeSkillPair(bootTraceProjectDir, skills.bootTrace);
-		logger.success("Installed 3 skills to .agents/");
+		out.success("Installed 3 skills to .agents/");
 		installed++;
 	} catch {
-		logger.error("Failed to install skills to .agents/");
+		out.error("Failed to install skills to .agents/");
 	}
 
 	if (installed === 0) {
-		logger.warn(
+		out.warn(
 			"No AI coding agents detected. Skill files were written to .agents/ only."
 		);
 	} else {
-		logger.break();
-		logger.dim(
+		out.dim("");
+		out.dim(
 			`Installed nestjs-doctor v${version} skills for ${installed} target${installed === 1 ? "" : "s"}.`
 		);
 	}
+	return installed;
 };

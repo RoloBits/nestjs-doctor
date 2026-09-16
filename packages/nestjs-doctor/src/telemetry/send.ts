@@ -52,9 +52,10 @@ req.on("timeout", () => req.destroy());
 req.end(body);
 `;
 
-/** Hands the payload to a detached child and returns whether one was started. */
-export function sendScanTelemetry(
-	payload: ScanPayload,
+/** Hands one event to a detached child and returns whether one was started. */
+export function sendTelemetryEvent(
+	event: string,
+	properties: object,
 	distinctId: string,
 	env: NodeJS.ProcessEnv = process.env
 ): boolean {
@@ -62,11 +63,7 @@ export function sendScanTelemetry(
 		return false;
 	}
 
-	const body = {
-		event: "scan_completed",
-		distinct_id: distinctId,
-		properties: payload,
-	};
+	const body = { event, distinct_id: distinctId, properties };
 	if (isSet(env.NESTJS_DOCTOR_TELEMETRY_DEBUG)) {
 		process.stderr.write(`${JSON.stringify(body, null, 2)}\n`);
 		return false;
@@ -88,3 +85,10 @@ export function sendScanTelemetry(
 		return false;
 	}
 }
+
+/** The scan report. */
+export const sendScanTelemetry = (
+	payload: ScanPayload,
+	distinctId: string,
+	env: NodeJS.ProcessEnv = process.env
+): boolean => sendTelemetryEvent("scan_completed", payload, distinctId, env);

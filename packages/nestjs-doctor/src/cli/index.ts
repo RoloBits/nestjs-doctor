@@ -73,14 +73,17 @@ async function scan(args: CliArgs): Promise<void> {
 	options.interactive = canPrompt(options);
 
 	const runMenu = async (artifacts: InteractiveArtifacts) => {
-		if (!options.interactive) {
+		// The menu runs only over a scan that collected files.
+		if (!options.interactive || artifacts.result.project.fileCount === 0) {
 			return;
 		}
 		const { runInteractiveApp } = await import("./interactive/tui/run.js");
 		await runInteractiveApp({
 			buildReportHtml: artifacts.buildReportHtml,
+			configPath: options.configPath,
 			moduleGraph: artifacts.moduleGraph,
 			result: artifacts.result,
+			subProjectOptOut: artifacts.subProjectOptOut,
 			subProjects: artifacts.subProjects?.map(({ name, result }) => ({
 				diagnostics: result.diagnostics,
 				errors: result.summary.errors,
@@ -91,6 +94,7 @@ async function scan(args: CliArgs): Promise<void> {
 				warnings: result.summary.warnings,
 			})),
 			targetPath,
+			telemetry: options.telemetry,
 			version,
 		});
 		// The TUI drew in the alternate screen; leave the score box behind.

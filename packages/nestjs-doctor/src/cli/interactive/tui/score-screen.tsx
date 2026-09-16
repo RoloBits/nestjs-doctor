@@ -41,7 +41,8 @@ interface MenuItem {
 export const buildMenuItems = (
 	findingCount: number,
 	ruleCount: number,
-	offerCi: boolean
+	offerCi: boolean,
+	offerInit: boolean
 ): MenuItem[] => [
 	...(findingCount > 0
 		? [
@@ -73,6 +74,15 @@ export const buildMenuItems = (
 					badge: "Recommended",
 					hint: "Scaffold .github/workflows/nestjs-doctor.yml",
 					label: "Add to GitHub Actions",
+				},
+			]
+		: []),
+	...(offerInit
+		? [
+				{
+					action: "init" as const,
+					hint: "Your coding agent scans and fixes after each edit",
+					label: "Run after every change (install the agent skill)",
 				},
 			]
 		: []),

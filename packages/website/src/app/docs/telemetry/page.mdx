@@ -10,6 +10,8 @@ A finished scan reports one `scan_completed` event. It is posted to `https://us.
 
 A `--report` run reports that same event, which earlier versions did not send. It carries `output_format` set to `report`.
 
+A finished `--init` or `ci install` reports one `command_completed` event with two fields: `command`, either `init` or `ci_install`, and `from`, either `flag` or `menu`. It carries the same `distinct_id` as a scan, which under a recognized CI provider is the per-repository hash described under [Identity](#identity), and nothing else about the project. The `--init` flag runs no scan, so only the root config's `telemetry: false` is read; from the menu a sub-project opt-out stops it too.
+
 Sending is best effort. A failed request, a blocked host, or an environment that cannot spawn all leave the scan and its exit code untouched.
 
 ## What is sent
@@ -23,7 +25,7 @@ The payload is built from rule metadata, counts, and a fixed set of environment 
 | `version` | The nestjs-doctor version that ran |
 | `scan_id` | A random UUID for this run, generated fresh on every scan |
 | `generated_in` | `cli` or `ci` |
-| `trigger` | How the run started: `action`, `ci`, `hook`, `agent`, `script`, `npx` or `global` |
+| `trigger` | How the run started: `action`, `ci`, `hook`, `skill` (an agent started the run and has the nestjs-doctor skill installed), `agent`, `script`, `npx` or `global` |
 | `platform` | The Node platform string, such as `darwin` |
 | `node_major` | The Node major version, such as `24` |
 | `duration_ms` | The rule loop on a single project, the whole scan on a monorepo, rounded |
@@ -38,7 +40,7 @@ The payload is built from rule metadata, counts, and a fixed set of environment 
 | `suppressed_inline` | Built-in rule id, then how many findings an inline `nestjs-doctor-ignore` comment silenced |
 | `rule_errors` | Built-in rule ids that threw during the scan |
 
-`NESTJS_DOCTOR_TRIGGER` overrides the detected `trigger` when set to one of the seven values above. Any other value is ignored.
+`NESTJS_DOCTOR_TRIGGER` overrides the detected `trigger` when set to one of the eight values above. Any other value is ignored. `skill` is `agent` plus an installed skill: the CLI looks for the skill file under the detected agent's config directory in the home the environment names, and reads nothing else.
 
 ### The project
 
@@ -133,7 +135,7 @@ The CI id is pseudonymous rather than anonymous. Repository ids are sequential i
 
 | Control | Effect |
 |---|---|
-| `--no-telemetry` | Scans and writes the report, sends nothing |
+| `--no-telemetry` | Scans and writes the report, sends nothing; `--init` and `ci install` send nothing either |
 | `"telemetry": false` in the config file | The same, for everyone on the project |
 | `DO_NOT_TRACK` set to anything but empty, `0` or `false` | The same, honored across tools |
 

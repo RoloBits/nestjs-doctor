@@ -1,0 +1,7 @@
+{
+  "name": "worker",
+  "version": "1.0.0",
+  "dependencies": {
+    "@nestjs/core": "^11.1.18"
+  }
+}

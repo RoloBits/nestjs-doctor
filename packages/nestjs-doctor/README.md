@@ -88,8 +88,8 @@ The action reviews every pull request and reports only what the change
 introduced, not the existing backlog. It posts a sticky summary comment, inline
 review comments on the changed lines, and a commit status with the score.
 
-It never fails a check until you ask it to. Set `blocking` or `min-score` when
-ready. [CI docs →](https://www.nestjs.doctor/docs/ci)
+It never fails a check until you ask it to, unless the scanned directory holds
+no TypeScript files, which exits 2. Set `blocking` or `min-score` when ready. [CI docs →](https://www.nestjs.doctor/docs/ci)
 
 ### 4. Install for agents
 
@@ -164,10 +164,11 @@ The CLI reports rule errors and anonymous run data to help us catch bugs and pri
 
 We collect:
 
-- Environment: CLI version, platform, Node version, and how it ran (npx, script, coding agent, or CI)
+- Environment: CLI version, platform, Node version, and how it ran (npx, script, the installed skill, a coding agent, or CI)
 - Project shape: file count, framework, ORM, Nest version (NO file contents)
 - Rules fired: rule ids and counts only (e.g. `security/no-eval`) (NO code or specific findings)
 - Rules that threw during the scan
+- Commands run: one `command_completed` event when `--init` or `ci install` finishes, with `command` (`init` or `ci_install`) and `from` (`flag` or `menu`)
 
 To opt out, run: `npx nestjs-doctor@latest --no-telemetry`. [Details →](https://www.nestjs.doctor/docs/telemetry)
 

@@ -224,9 +224,15 @@ export class CliSetup {
 				);
 			}
 			const { runCiInstall } = await import("./ci-install.js");
-			const code = await runCiInstall(process.cwd(), this.args.force ?? false);
+			const { code, status } = await runCiInstall(
+				process.cwd(),
+				this.args.force ?? false
+			);
 			if (code !== 0) {
 				process.exit(code);
+			}
+			if (status === "created") {
+				await this.reportCommand("ci_install", process.cwd());
 			}
 			return false;
 		});
@@ -237,12 +243,31 @@ export class CliSetup {
 		this.steps.push(async () => {
 			if (this.args.init) {
 				const { initSkill } = await import("./init.js");
-				await initSkill(this.targetPath, this.version);
+				const installed = await initSkill(this.targetPath, this.version);
+				if (installed > 0) {
+					await this.reportCommand("init", this.targetPath);
+				}
 				return false;
 			}
 			return true;
 		});
 		return this;
+	}
+
+	private async reportCommand(
+		command: "ci_install" | "init",
+		targetPath: string
+	): Promise<void> {
+		const { reportCommandTelemetry } = await import(
+			"../telemetry/command-telemetry.js"
+		);
+		await reportCommandTelemetry({
+			command,
+			configPath: this.args.config,
+			from: "flag",
+			optionsTelemetry: this.args.telemetry ?? true,
+			targetPath,
+		});
 	}
 
 	handleReport(): this {

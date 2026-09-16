@@ -45,7 +45,7 @@ Options:
   --report              Generate an interactive HTML report (--graph also works)
   --timings <path>      SerializedGraph dump to overlay bootstrap init times on the report
   --sources <mode>      How much source text the report carries: all (default), touched (only files with findings), none
-  --no-telemetry        Scan without reporting the scan_completed event
+  --no-telemetry        Scan without reporting the scan_completed event; --init and ci install skip command_completed
   --share-sections <csv> Write nestjs-doctor-shared.json beside the project with only these sections: score, endpoints, schema, modules, findings:<category>
   --share-code          With --share-sections, include a few lines of code around each shared finding
   --config <p>          Path to config file
@@ -60,7 +60,8 @@ The `--blocking` default depends on the output mode: `error` for the console
 report and `--format github`, `none` for `--score` and for the json,
 report-json, sarif, gitlab, and markdown formats.
 
-Exit codes: 0 = pass, 1 = a gate failed (min-score or blocking), 2 = bad input,
+Exit codes: 0 = pass, 1 = a gate failed (min-score or blocking), 2 = bad input
+(a missing path, an invalid flag, or a path with no TypeScript files),
 130 = cancelled with Ctrl+C.
 `--report` writes HTML, so combining it with `--format`, `--json`, `--score` or
 `--share-sections` exits 2 rather than writing anything. `--share-sections` also
@@ -353,7 +354,7 @@ Schema rules run against entities extracted from Prisma, TypeORM, Drizzle, or Mi
 
 ## Telemetry
 
-A finished scan reports one `scan_completed` event: CLI version, Node major version, platform, how the run started, file count, framework, ORM, Nest version, dependencies matched against a fixed list, built-in rule ids with counts, and the score. Never code, paths, the project name, globs, or custom rule names. Opt out with `--no-telemetry`, `"telemetry": false` in the config, or `DO_NOT_TRACK=1`. `NESTJS_DOCTOR_TELEMETRY_DEBUG=1` prints the payload instead of sending it. Details: https://www.nestjs.doctor/docs/telemetry
+A finished scan reports one `scan_completed` event: CLI version, Node major version, platform, how the run started, file count, framework, ORM, Nest version, dependencies matched against a fixed list, built-in rule ids with counts, and the score. A finished `--init` or `ci install` reports one `command_completed` event with `command` (`init` or `ci_install`) and `from` (`flag` or `menu`), under the same id and the same opt-outs. Never code, paths, the project name, globs, or custom rule names. Opt out with `--no-telemetry`, `"telemetry": false` in the config, or `DO_NOT_TRACK=1`. `NESTJS_DOCTOR_TELEMETRY_DEBUG=1` prints the payload instead of sending it. Details: https://www.nestjs.doctor/docs/telemetry
 
 ## Links
 
