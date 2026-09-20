@@ -4,9 +4,16 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { outputSingleProjectResults } from "../../src/cli/output.js";
 import type { PipelineOptions } from "../../src/cli/setup.js";
+import { encodeCodeGraph } from "../../src/common/code-graph-codec.js";
 import type { EngineResult } from "../../src/engine/scanner.js";
 import { logger } from "../../src/ui/logger.js";
-import { EMPTY_ARTIFACT, emptyResult } from "./report-artifact-fixture.js";
+import {
+	DESCENT_GRAPH,
+	EMPTY_ARTIFACT,
+	emptyResult,
+} from "./report-artifact-fixture.js";
+
+const EXPLAIN_HEAD = /^POST \/a → AController\.handle/;
 
 const engineResult = () =>
 	({
@@ -56,6 +63,52 @@ describe("report-json output", () => {
 		);
 
 		expect(build).not.toHaveBeenCalled();
+	});
+
+	it("attaches each route's walk text to --format json when the graph exists", () => {
+		const dir = mkdtempSync(join(tmpdir(), "nd-json-"));
+		const withRoutes = engineResult();
+		withRoutes.result.endpoints = {
+			endpoints: [
+				{
+					controllerClass: "AController",
+					dependencies: [],
+					endLine: 3,
+					filePath: "src/a.controller.ts",
+					handlerMethod: "handle",
+					httpMethod: "POST",
+					line: 1,
+					returnType: null,
+					routePath: "/a",
+					swagger: null,
+				},
+			],
+		};
+		outputSingleProjectResults(
+			withRoutes,
+			undefined,
+			dir,
+			{ ...options("json"), outputPath: join(dir, "out.json") },
+			[],
+			() => ({ ...EMPTY_ARTIFACT, codeGraph: encodeCodeGraph(DESCENT_GRAPH) })
+		);
+
+		const out = JSON.parse(readFileSync(join(dir, "out.json"), "utf-8"));
+		expect(out.endpoints.endpoints[0].explain).toMatch(EXPLAIN_HEAD);
+	});
+
+	it("leaves --format json alone when no artifact builder is given", () => {
+		const dir = mkdtempSync(join(tmpdir(), "nd-json-"));
+		outputSingleProjectResults(
+			engineResult(),
+			undefined,
+			dir,
+			{ ...options("json"), outputPath: join(dir, "out.json") },
+			[]
+		);
+		expect(
+			JSON.parse(readFileSync(join(dir, "out.json"), "utf-8"))
+		).not.toHaveProperty("endpoints");
 	});
 
 	it("writes the artifact beside the target for report-json", () => {

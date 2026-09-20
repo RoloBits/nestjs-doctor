@@ -1,10 +1,12 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import type { ReportArtifact } from "../common/artifact.js";
+import { decodeCodeGraph } from "../common/code-graph-codec.js";
 import { MAX_DEPENDENCY_NODES } from "../common/endpoint.js";
 import type { DiagnoseResult, MonorepoResult } from "../common/result.js";
 import type { EngineResult, MonorepoEngineResult } from "../engine/scanner.js";
 import { buildSharedReport, writeSharedReportFile } from "../report/share.js";
+import { explainEndpoints } from "../report/ui/app/lib/explain.js";
 import { highlighter } from "../ui/highlighter.js";
 import { logger } from "../ui/logger.js";
 import { shouldBlock } from "./blocking.js";
@@ -36,6 +38,33 @@ export const rejectEmptyScan = (
 
 /** Version of the running CLI, set once so reporters can stamp their output. */
 let cliVersion = "0.0.0";
+
+/** The result with each endpoint's walk text attached, when the artifact carries the graph. */
+function withExplanations(
+	result: DiagnoseResult,
+	artifact: (() => ReportArtifact) | undefined
+): DiagnoseResult {
+	const built = result.endpoints ? artifact?.() : undefined;
+	if (!built?.codeGraph) {
+		return result;
+	}
+	const texts = explainEndpoints(decodeCodeGraph(built.codeGraph), {
+		root: built.root,
+		sources: built.sources,
+		version: built.generator.version,
+	});
+	return {
+		...result,
+		endpoints: {
+			endpoints: (result.endpoints?.endpoints ?? []).map((endpoint) => {
+				const explain = texts.get(
+					`${endpoint.controllerClass}.${endpoint.handlerMethod}:${endpoint.routePath}`
+				);
+				return explain ? { ...endpoint, explain } : endpoint;
+			}),
+		},
+	};
+}
 
 export const setCliVersion = (version: string): void => {
 	cliVersion = version;
@@ -145,15 +174,19 @@ async function emit(
 		return;
 	}
 
-	const payload = renderResult(options.format, result, {
-		commitSha: process.env.GITHUB_SHA,
-		jsonCompact: options.jsonCompact,
-		monorepo,
-		runUrl: resolveRunUrl(),
-		targetPath,
-		version: cliVersion,
-		warnings: scopeWarnings,
-	});
+	const payload = renderResult(
+		options.format,
+		options.format === "json" ? withExplanations(result, artifact) : result,
+		{
+			commitSha: process.env.GITHUB_SHA,
+			jsonCompact: options.jsonCompact,
+			monorepo,
+			runUrl: resolveRunUrl(),
+			targetPath,
+			version: cliVersion,
+			warnings: scopeWarnings,
+		}
+	);
 
 	if (payload !== null) {
 		writeRendered(payload, options.outputPath);

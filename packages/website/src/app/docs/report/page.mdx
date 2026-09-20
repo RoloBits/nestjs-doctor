@@ -104,6 +104,15 @@ The walk is source order of call sites, depth first from the handler. It is
 not a runtime trace. The walk emits a callee already on the current path as a
 step and stops there, so recursion shows once instead of looping.
 
+### Copy for AI agent
+
+The button in the route's header row copies the walk as plain text: the route
+and its handler, the verdict with what it means, the steps the default filter
+keeps with their flags and call sites, every condition or guard above them, and
+the source lines of the first read and the first write. Paste it into whichever
+agent you use. The same text sits on each endpoint as `explain` in
+`--format json`, byte for byte.
+
 ### The database verdict
 
 The verdict names the first database read and the first database write on the
