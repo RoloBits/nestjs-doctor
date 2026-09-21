@@ -32,6 +32,24 @@ timings from one real start. Monorepos work.
 
 [Website →](https://www.nestjs.doctor/docs)
 
+## 中文简介
+
+nestjs-doctor 是一个免费开源（MIT）的 NestJS 静态分析工具，用来确定性地捕获 AI 写出的错误。它直接读取源码：每个 `@Module()`、provider、HTTP 端点和 ORM 实体，然后从安全、正确性、架构、性能和数据库 schema 五个维度给出 0–100 分和逐条问题。
+
+- **不启动应用**，代码不离开本机，扫描时不调用任何 LLM，同一个 commit 在本地和 CI 得分一致。
+- 一行命令，零配置，无需注册：
+
+  ```bash
+  npx nestjs-doctor@latest .
+  ```
+
+  国内可用 npmmirror：`npx --registry=https://registry.npmmirror.com nestjs-doctor@latest .`
+
+- `--report` 生成一个 HTML 报告：模块依赖图（循环依赖高亮）、端点追踪、Prisma / TypeORM / Drizzle / MikroORM 的 ER 图，以及一次真实启动的耗时。
+- 也可以作为 pre-commit 钩子、GitHub Action（只评论 PR 引入的问题）、VS Code 扩展，或 coding agent 的 skill 来运行。支持 monorepo。
+
+文档（英文）：<https://www.nestjs.doctor/docs?from=readme-zh>
+
 ## Install
 
 ### 1. Quick start
