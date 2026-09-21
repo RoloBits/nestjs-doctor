@@ -30,25 +30,7 @@ from a coding-agent skill. The HTML report draws the module graph, endpoint
 traces, an ER diagram for Prisma, TypeORM, Drizzle or MikroORM, and boot
 timings from one real start. Monorepos work.
 
-[Website →](https://www.nestjs.doctor/docs)
-
-## 中文简介
-
-nestjs-doctor 是一个免费开源（MIT）的 NestJS 静态分析工具，用来确定性地捕获 AI 写出的错误。它直接读取源码：每个 `@Module()`、provider、HTTP 端点和 ORM 实体，然后从安全、正确性、架构、性能和数据库 schema 五个维度给出 0–100 分和逐条问题。
-
-- **不启动应用**，代码不离开本机，扫描时不调用任何 LLM，同一个 commit 在本地和 CI 得分一致。
-- 一行命令，零配置，无需注册：
-
-  ```bash
-  npx nestjs-doctor@latest .
-  ```
-
-  国内可用 npmmirror：`npx --registry=https://registry.npmmirror.com nestjs-doctor@latest .`
-
-- `--report` 生成一个 HTML 报告：模块依赖图（循环依赖高亮）、端点追踪、Prisma / TypeORM / Drizzle / MikroORM 的 ER 图，以及一次真实启动的耗时。
-- 也可以作为 pre-commit 钩子、GitHub Action（只评论 PR 引入的问题）、VS Code 扩展，或 coding agent 的 skill 来运行。支持 monorepo。
-
-文档（英文）：<https://www.nestjs.doctor/docs?from=readme-zh>
+[Website →](https://www.nestjs.doctor/docs) · [简体中文 →](#简体中文)
 
 ## Install
 
@@ -175,6 +157,24 @@ constructor(private readonly prisma: PrismaService) {}
 - **Other CI:** GitLab Code Quality, SARIF for any code-scanning backend, or a markdown body to post yourself. [Docs →](https://www.nestjs.doctor/docs/ci)
 - **Node API:** `diagnose()` plus an incremental API for editors and long-running processes. [Docs →](https://www.nestjs.doctor/docs/reference/node-api)
 - **Monorepos:** detected from `nest-cli.json`, pnpm workspaces, `package.json` workspaces, Nx, or Lerna. [Docs →](https://www.nestjs.doctor/docs/pipeline/project-detection)
+
+## 简体中文
+
+nestjs-doctor 是一个开源（MIT）的 NestJS 静态分析工具，专门用来发现 AI 生成代码中的问题，结果可复现。它直接分析源码中的每个 `@Module()`、provider、HTTP 接口和 ORM 实体，从安全、正确性、架构、性能、数据库 schema 五个维度打分（0–100），并逐条列出问题。
+
+- 扫描时不启动应用，也不调用任何 LLM，同一个 commit 在本地和 CI 的得分一致。代码不会上传，只上报运行数据（见 [Telemetry](#telemetry)）。
+- 无需配置和注册：
+
+  ```bash
+  npx nestjs-doctor@latest .
+  ```
+
+  国内网络可走 npmmirror 镜像：`npx --registry=https://registry.npmmirror.com nestjs-doctor@latest .`
+
+- 加 `--report` 生成 HTML 报告：模块依赖图（高亮循环依赖）、每个接口的调用链，以及 Prisma、TypeORM、Drizzle、MikroORM 的 ER 图。在 `main.ts` 里加几行并真实启动一次，再加 `--timings`，报告会多出一个启动耗时页（[文档](https://www.nestjs.doctor/docs/report/boot-trace)）。
+- 还可以接入 pre-commit 钩子、GitHub Action（只评论 PR 新引入的问题）、VS Code 扩展，或作为 AI 编程助手的 skill 使用。支持 monorepo。
+
+文档（英文）：<https://www.nestjs.doctor/docs?from=readme-zh>
 
 ## Telemetry
 
