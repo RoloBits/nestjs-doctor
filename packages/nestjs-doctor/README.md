@@ -71,7 +71,7 @@ module graph.
 
 ![Module Graph](https://www.nestjs.doctor/module-graph.png)
 
-Add a few lines to `main.ts`, boot once, and `--timings` gives the report a
+Add a few lines to `main.ts`, boot once, and `--timings <file>` gives the report a
 Boot trace tab. Every class sits on one absolute timeline, with a hover card
 per bar and graph nodes that say what each module cost.
 [Boot trace docs →](https://www.nestjs.doctor/docs/report/boot-trace)
@@ -162,7 +162,7 @@ constructor(private readonly prisma: PrismaService) {}
 
 nestjs-doctor 是一个开源（MIT）的 NestJS 静态分析工具，专门用来发现 AI 生成代码中的问题，结果可复现。它直接分析源码中的每个 `@Module()`、provider、HTTP 接口和 ORM 实体，从安全、正确性、架构、性能、数据库 schema 五个维度打分（0–100），并逐条列出问题。
 
-- 扫描时不启动应用，也不调用任何 LLM，同一个 commit 在本地和 CI 的得分一致。代码不会上传，只上报运行数据（见 [Telemetry](#telemetry)）。
+- 扫描时不启动应用，也不调用任何 LLM，同一个 commit 在本地和 CI 的得分一致。代码不会上传，只上报匿名的使用数据（见 [Telemetry](#telemetry)）。
 - 无需配置和注册：
 
   ```bash
@@ -171,7 +171,7 @@ nestjs-doctor 是一个开源（MIT）的 NestJS 静态分析工具，专门用�
 
   国内网络可走 npmmirror 镜像：`npx --registry=https://registry.npmmirror.com nestjs-doctor@latest .`
 
-- 加 `--report` 生成 HTML 报告：模块依赖图（高亮循环依赖）、每个接口的调用链，以及 Prisma、TypeORM、Drizzle、MikroORM 的 ER 图。在 `main.ts` 里加几行并真实启动一次，再加 `--timings`，报告会多出一个启动耗时页（[文档](https://www.nestjs.doctor/docs/report/boot-trace)）。
+- 加 `--report` 生成 HTML 报告：模块依赖图（高亮循环依赖）、每个接口的调用链，以及 Prisma、TypeORM、Drizzle、MikroORM 的 ER 图。在 `main.ts` 里加几行代码、实际启动一次应用，再加 `--timings <文件>`，报告会多出一个启动耗时页（[文档](https://www.nestjs.doctor/docs/report/boot-trace)）。
 - 还可以接入 pre-commit 钩子、GitHub Action（只评论 PR 新引入的问题）、VS Code 扩展，或作为 AI 编程助手的 skill 使用。支持 monorepo。
 
 文档（英文）：<https://www.nestjs.doctor/docs?from=readme-zh>
