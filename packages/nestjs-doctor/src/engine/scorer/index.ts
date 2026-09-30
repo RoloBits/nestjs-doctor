@@ -17,13 +17,13 @@ import { CATEGORY_MULTIPLIERS, SEVERITY_WEIGHTS } from "./weights.js";
  *
  * PENALTY_SCALE (10) was calibrated so that an average of ~1 error per file
  * (normalized penalty ≈ 10) brings the score to 0. In practice:
- * - 1 error per 10 files → penalty/file ≈ 0.45 → score ≈ 95 (Excellent)
+ * - 1 error per 10 files → penalty/file ≈ 0.45 → score = 89 (Good, capped)
  * - 1 error per 3 files  → penalty/file ≈ 1.5  → score ≈ 85 (Good)
  * - 1 error per file     → penalty/file ≈ 4.5  → score ≈ 55 (Fair)
  * - 2 errors per file    → penalty/file ≈ 9.0  → score ≈ 10 (Critical)
  *
- * Any error-severity diagnostic caps the score at ERROR_CEILING, so a large
- * project cannot dilute an error into an "Excellent" label.
+ * Any error-severity diagnostic on the score surface caps the score at
+ * ERROR_CEILING.
  */
 const PENALTY_SCALE = 10;
 const ERROR_CEILING = 89;
