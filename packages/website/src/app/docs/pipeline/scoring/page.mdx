@@ -47,7 +47,9 @@ total penalty = sum of all diagnostic penalties
 score = 100 − (totalPenalty / fileCount) × PENALTY_SCALE
 ```
 
-The score is clamped to the 0-100 range.
+The score is clamped to the 0-100 range. Any error-severity diagnostic on the
+score surface caps it at 89, so a large project cannot dilute an error into
+"Excellent". Warnings and infos are only ever normalized by file count.
 
 ### Severity weights
 
@@ -73,7 +75,8 @@ The score is clamped to the 0-100 range.
 
 | Scenario | Score |
 |----------|-------|
-| 1 security error per 10 files | ~95 (Excellent) |
+| 1 security error per 10 files | 89 (Good), capped by the error |
+| 1 warning per 10 files | ~98 (Excellent) |
 | 1 error per 3 files | ~85 (Good) |
 | 1 error per file | ~55 (Fair) |
 | 2 errors per file | ~10 (Critical) |

@@ -21,8 +21,12 @@ import { CATEGORY_MULTIPLIERS, SEVERITY_WEIGHTS } from "./weights.js";
  * - 1 error per 3 files  → penalty/file ≈ 1.5  → score ≈ 85 (Good)
  * - 1 error per file     → penalty/file ≈ 4.5  → score ≈ 55 (Fair)
  * - 2 errors per file    → penalty/file ≈ 9.0  → score ≈ 10 (Critical)
+ *
+ * Any error-severity diagnostic caps the score at ERROR_CEILING, so a large
+ * project cannot dilute an error into an "Excellent" label.
  */
 const PENALTY_SCALE = 10;
+const ERROR_CEILING = 89;
 
 export function calculateScore(
 	diagnostics: Diagnostic[],
@@ -33,20 +37,23 @@ export function calculateScore(
 	}
 
 	let totalPenalty = 0;
+	let hasError = false;
 
 	for (const d of diagnostics) {
 		if (!onSurface(d, "score")) {
 			continue;
 		}
+		hasError ||= d.severity === "error";
 		const severityWeight = SEVERITY_WEIGHTS[d.severity];
 		const categoryMultiplier = CATEGORY_MULTIPLIERS[d.category];
 		totalPenalty += severityWeight * categoryMultiplier;
 	}
 
 	const normalizedPenalty = totalPenalty / fileCount;
+	const ceiling = hasError ? ERROR_CEILING : 100;
 	const value = Math.max(
 		0,
-		Math.min(100, Math.round(100 - normalizedPenalty * PENALTY_SCALE))
+		Math.min(ceiling, Math.round(100 - normalizedPenalty * PENALTY_SCALE))
 	);
 
 	return { value, label: getScoreLabel(value) };
