@@ -103,15 +103,16 @@ export function readHints(
 	}
 }
 
-/** Records a one-time notice. Returns whether the write landed: false on a read-only home. */
+/** Records a one-time notice, the day by default. Returns whether the write landed: false on a read-only home. */
 export function markHint(
-	name: "extension" | "lsp",
-	env: NodeJS.ProcessEnv = process.env
+	name: string,
+	env: NodeJS.ProcessEnv = process.env,
+	value: string = new Date().toISOString().slice(0, 10)
 ): boolean {
 	const file = join(configDir(env), "hints.json");
 	const hints = {
 		...readHints(env),
-		[name]: new Date().toISOString().slice(0, 10),
+		[name]: value,
 	};
 	try {
 		mkdirSync(dirname(file), { recursive: true });

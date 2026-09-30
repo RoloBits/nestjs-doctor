@@ -5,7 +5,7 @@ import { allRules } from "../engine/rules/index.js";
 import type { ScanConfig } from "../engine/scanner.js";
 import { getEcosystem } from "../telemetry/ecosystem.js";
 import { actionContext, generatedIn } from "../telemetry/environment.js";
-import { resolveIdentity } from "../telemetry/install-id.js";
+import { readHints, resolveIdentity } from "../telemetry/install-id.js";
 import {
 	buildScanPayload,
 	type PayloadOutputFormat,
@@ -14,6 +14,7 @@ import {
 import { scanTelemetryEnabled, sendScanTelemetry } from "../telemetry/send.js";
 import type { BlockingLevel } from "./blocking.js";
 import { getCliVersion } from "./output.js";
+import { triggerHintKey } from "./trigger-hint.js";
 
 export interface ScanTelemetryInput {
 	blocking: BlockingLevel;
@@ -83,6 +84,7 @@ export const reportScanTelemetry = (input: ScanTelemetryInput): void => {
 				elapsedMs: input.result.elapsedMs,
 				fileCount: input.fileCount,
 				framework: input.result.project.framework,
+				hintOffered: readHints(env)[triggerHintKey(input.targetPath)] ?? null,
 				monorepo: input.monorepo,
 				nestVersion: input.result.project.nestVersion,
 				orm: input.result.project.orm,

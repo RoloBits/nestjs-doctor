@@ -20,7 +20,9 @@ A clean scan prints the score and nothing else. That is the expected result on
 a project the rules already agree with, and [the report](/docs/report) still
 draws the module graph, the traced endpoints and the schema diagram. Run
 `npx nestjs-doctor@latest --init` so your coding agent rescans after each
-change.
+change. Once per project, a terminal run also adds one line naming a way to
+rescan on its own: the [agent skill](/docs/coding-agents), a pre-commit hook,
+or the [GitHub Action](/docs/ci).
 
 ![CLI output](/cli-output.png)
 

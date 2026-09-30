@@ -56,6 +56,12 @@ import {
 	outputMonorepoResults,
 	outputSingleProjectResults,
 } from "./output.js";
+import {
+	chooseTriggerOffer,
+	triggerHintKey,
+	triggerHintLine,
+	triggerHintSite,
+} from "./trigger-hint.js";
 import type { ScanOutcome, ScanWorkerRequest } from "./worker-delegate.js";
 import {
 	canDelegateToWorker,
@@ -272,13 +278,29 @@ abstract class ScanPipeline {
 		);
 	}
 
-	/** One line, once per install, pointing at the editor extension. */
+	/** One line per run at most: the recurring-trigger offer once per project, else the editor extension once per install. */
 	protected printExtensionHint(site: "menu" | "run"): void {
-		const target = extensionHintSite({
-			hints: readHints(),
+		const hints = readHints();
+		const tty = process.stderr.isTTY === true;
+		const triggerTarget = triggerHintSite({
+			hints,
 			interactive: this.options.interactive,
 			isMachineReadable: this.options.isMachineReadable,
-			tty: process.stderr.isTTY === true,
+			targetPath: this.targetPath,
+			tty,
+		});
+		if (triggerTarget === site) {
+			const offer = chooseTriggerOffer(this.targetPath);
+			if (markHint(triggerHintKey(this.targetPath), process.env, offer)) {
+				console.error(highlighter.dim(triggerHintLine(offer)));
+				return;
+			}
+		}
+		const target = extensionHintSite({
+			hints,
+			interactive: this.options.interactive,
+			isMachineReadable: this.options.isMachineReadable,
+			tty,
 		});
 		if (target === site && markHint("extension")) {
 			console.error(highlighter.dim(EXTENSION_HINT));

@@ -40,6 +40,8 @@ export interface ScanFacts {
 	elapsedMs: number;
 	fileCount: number;
 	framework: string | null;
+	/** The recurring trigger this project was offered on an earlier run, if any. */
+	hintOffered: string | null;
 	monorepo: boolean;
 	nestVersion: string | null;
 	orm: string | null;
@@ -83,6 +85,7 @@ export interface ScanPayload {
 	framework: string | null;
 	frontend: string[];
 	generated_in: "ci" | "cli";
+	hint_offered: string | null;
 	ignored_file_count: number;
 	ignored_rules: string[];
 	messaging: string[];
@@ -205,6 +208,7 @@ export function buildScanPayload(
 		framework: facts.framework,
 		frontend: facts.ecosystem.frontend,
 		generated_in: facts.source,
+		hint_offered: facts.hintOffered,
 		ignored_file_count: facts.config.ignoredFileCount,
 		ignored_rules: facts.config.ignoredRules,
 		messaging: facts.ecosystem.messaging,

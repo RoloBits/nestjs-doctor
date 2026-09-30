@@ -25,6 +25,7 @@ The payload is built from rule metadata, counts, and a fixed set of environment 
 | `version` | The nestjs-doctor version that ran |
 | `scan_id` | A random UUID for this run, generated fresh on every scan |
 | `generated_in` | `cli` or `ci` |
+| `hint_offered` | The recurring trigger an earlier terminal run on this project was pointed at: `action`, `hook`, `skill`, or nothing |
 | `trigger` | How the run started: `action`, `ci`, `hook`, `skill` (an agent started the run and has the nestjs-doctor skill installed), `agent`, `script`, `npx` or `global` |
 | `platform` | The Node platform string, such as `darwin` |
 | `node_major` | The Node major version, such as `24` |
