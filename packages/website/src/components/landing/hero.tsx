@@ -7,7 +7,7 @@ const COMMAND = "npx -y nestjs-doctor@latest .";
 
 const POINTS = [
 	"An opinionated rule set for an opinionated framework.",
-	"A reviewer for your PRs.",
+	"A reviewer for your PRs, and for every agent edit after --init.",
 	"Maps your modules, database, and boot in a visual report.",
 	"Extends with rules you write yourself.",
 ];
