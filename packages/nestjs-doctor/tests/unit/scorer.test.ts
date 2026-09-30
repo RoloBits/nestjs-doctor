@@ -96,3 +96,35 @@ describe("scorer", () => {
 		expect(calculateScore([], 10).label).toBe("Excellent");
 	});
 });
+
+describe("error ceiling", () => {
+	it("caps a project with one error at 89 however many files it has", () => {
+		const oneError = makeDiagnostic({ severity: "error" });
+
+		expect(calculateScore([oneError], 5000).value).toBe(89);
+		expect(calculateScore([oneError], 5000).label).toBe("Good");
+	});
+
+	it("leaves warnings alone: many files still dilute them to 100", () => {
+		const warning = makeDiagnostic({ severity: "warning" });
+
+		expect(calculateScore([warning], 5000).value).toBe(100);
+	});
+
+	it("does not lift a score the penalty already put below the ceiling", () => {
+		const errors = Array.from({ length: 10 }, () =>
+			makeDiagnostic({ severity: "error" })
+		);
+
+		expect(calculateScore(errors, 10).value).toBeLessThan(89);
+	});
+
+	it("ignores an error that is not on the score surface", () => {
+		const reportOnly = makeDiagnostic({
+			severity: "error",
+			surfaces: ["cli"],
+		});
+
+		expect(calculateScore([reportOnly], 10).value).toBe(100);
+	});
+});
