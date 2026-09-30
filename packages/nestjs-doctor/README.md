@@ -50,6 +50,12 @@ graph, the traced endpoints and the schema diagram.
 
 Add `--verbose` for file paths and line numbers.
 
+To rescan after every change your coding agent makes, install the skill:
+
+```bash
+npx nestjs-doctor@latest --init
+```
+
 ### 2. Open the report
 
 Build `nestjs-doctor-report.html`:
