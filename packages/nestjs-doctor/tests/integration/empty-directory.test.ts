@@ -62,7 +62,10 @@ const cli = (
 	};
 };
 
-describe("scanning a directory with no TypeScript files", () => {
+// The first spawn compiles the CLI from source before it runs.
+describe("scanning a directory with no TypeScript files", {
+	timeout: 120_000,
+}, () => {
 	it("prints where it looked on stderr, nothing on stdout, and exits 2", () => {
 		const run = cli([EMPTY_APP]);
 
