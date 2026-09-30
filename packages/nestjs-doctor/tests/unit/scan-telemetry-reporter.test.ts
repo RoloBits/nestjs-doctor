@@ -1,9 +1,13 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { getCliVersion } from "../../src/cli/output.js";
 import {
 	reportScanTelemetry,
 	type ScanTelemetryInput,
 } from "../../src/cli/scan-telemetry-reporter.js";
+import { triggerHintKey } from "../../src/cli/trigger-hint.js";
 import type { Rule } from "../../src/engine/rules/types.js";
 import type { ScanConfig } from "../../src/engine/scanner.js";
 import { emptyResult } from "./report-artifact-fixture.js";
@@ -102,6 +106,21 @@ describe("scan telemetry reporter", () => {
 			}),
 			"anon-123"
 		);
+	});
+
+	it("sends the stored trigger offer, and null for anything else in the store", () => {
+		const home = mkdtempSync(join(tmpdir(), "nd-reporter-hints-"));
+		const key = triggerHintKey("/repo/app");
+		const env = { NESTJS_DOCTOR_CONFIG_DIR: home };
+		const offered = (value: string): unknown => {
+			writeFileSync(join(home, "hints.json"), JSON.stringify({ [key]: value }));
+			const input = buildInput({ env });
+			reportScanTelemetry(input);
+			return input.send.mock.calls[0]?.[0].hint_offered;
+		};
+
+		expect(offered("hook")).toBe("hook");
+		expect(offered("not-an-offer")).toBeNull();
 	});
 
 	it("keeps custom rule names out of the disabled list", () => {

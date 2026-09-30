@@ -4,7 +4,11 @@ import type { ScopeMode } from "../common/scope.js";
 import { allRules } from "../engine/rules/index.js";
 import type { ScanConfig } from "../engine/scanner.js";
 import { getEcosystem } from "../telemetry/ecosystem.js";
-import { actionContext, generatedIn } from "../telemetry/environment.js";
+import {
+	actionContext,
+	generatedIn,
+	isTriggerOffer,
+} from "../telemetry/environment.js";
 import { readHints, resolveIdentity } from "../telemetry/install-id.js";
 import {
 	buildScanPayload,
@@ -61,6 +65,7 @@ export const reportScanTelemetry = (input: ScanTelemetryInput): void => {
 			env
 		);
 		const scanConfig = input.scanConfig as ScanConfig;
+		const storedOffer = readHints(env)[triggerHintKey(input.targetPath)];
 		const enabled = new Set(
 			[
 				...scanConfig.fileRules,
@@ -84,7 +89,7 @@ export const reportScanTelemetry = (input: ScanTelemetryInput): void => {
 				elapsedMs: input.result.elapsedMs,
 				fileCount: input.fileCount,
 				framework: input.result.project.framework,
-				hintOffered: readHints(env)[triggerHintKey(input.targetPath)] ?? null,
+				hintOffered: isTriggerOffer(storedOffer) ? storedOffer : null,
 				monorepo: input.monorepo,
 				nestVersion: input.result.project.nestVersion,
 				orm: input.result.project.orm,

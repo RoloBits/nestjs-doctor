@@ -19,7 +19,10 @@ const dirs: string[] = [];
 /** A fresh repository; the offer detection asks git for the root. */
 const gitRepo = (prefix: string): string => {
 	const root = tmp(prefix);
-	execFileSync("git", ["init", "-q"], { cwd: root });
+	const env = Object.fromEntries(
+		Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_"))
+	);
+	execFileSync("git", ["init", "-q"], { cwd: root, env });
 	return root;
 };
 

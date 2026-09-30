@@ -53,6 +53,7 @@ import { summarizeWarnings } from "./formatters/warning-summary.js";
 import { resolveMinScore } from "./min-score.js";
 import {
 	getCliVersion,
+	NO_FILES_EXIT_CODE,
 	outputMonorepoResults,
 	outputSingleProjectResults,
 } from "./output.js";
@@ -145,6 +146,8 @@ abstract class ScanPipeline {
 	protected reportTelemetry = false;
 	/** Warnings raised while narrowing the scope; surfaced alongside the report. */
 	protected scopeWarnings: string[] = [];
+	/** Set when a step threw; the run ends without a trigger offer. */
+	protected failed = false;
 	/** Constructed in the worker for an interactive run, so this times the engine middle there. */
 	protected readonly startedAt = performance.now();
 	protected readonly steps: PipelineStep[] = [];
@@ -289,7 +292,8 @@ abstract class ScanPipeline {
 			targetPath: this.targetPath,
 			tty,
 		});
-		if (triggerTarget === site) {
+		const scanned = !this.failed && process.exitCode !== NO_FILES_EXIT_CODE;
+		if (scanned && triggerTarget === site) {
 			const offer = chooseTriggerOffer(this.targetPath);
 			if (markHint(triggerHintKey(this.targetPath), process.env, offer)) {
 				console.error(highlighter.dim(triggerHintLine(offer)));
@@ -410,6 +414,7 @@ abstract class ScanPipeline {
 				await step();
 			}
 		} catch (error) {
+			this.failed = true;
 			this.progress?.fail("Scan failed");
 			this.progress = null;
 			throw error;

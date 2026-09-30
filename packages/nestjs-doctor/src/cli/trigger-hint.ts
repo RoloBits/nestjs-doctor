@@ -2,12 +2,9 @@ import { createHash } from "node:crypto";
 import { existsSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { findGitRepo } from "../engine/git.js";
-import { detectTrigger } from "../telemetry/environment.js";
+import { detectTrigger, type TriggerOffer } from "../telemetry/environment.js";
 import { ciWorkflowExists } from "./ci-install.js";
 import { isNonInteractiveEnvironment } from "./ui/environment.js";
-
-/** The recurring trigger a one-shot terminal run is offered. */
-export type TriggerOffer = "action" | "hook" | "skill";
 
 const TRIGGER_HINT_LINES: Record<TriggerOffer, string> = {
 	action:

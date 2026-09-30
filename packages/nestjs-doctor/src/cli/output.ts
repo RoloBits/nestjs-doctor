@@ -19,7 +19,7 @@ import type { PipelineOptions } from "./setup.js";
 
 const FAILURE_EXIT_CODE = 1;
 /** Nothing to scan under a valid path. */
-const NO_FILES_EXIT_CODE = 2;
+export const NO_FILES_EXIT_CODE = 2;
 
 /** True when nothing was scanned. Prints why in place of any payload and marks the run. */
 export const rejectEmptyScan = (
