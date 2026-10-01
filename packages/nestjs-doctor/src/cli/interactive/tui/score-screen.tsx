@@ -611,11 +611,6 @@ export const ScoreScreen = ({
 										{padEnd(item.label, labelWidth)}
 									</Text>
 								)}
-								{item.badge ? (
-									<Text bold color={palette.nestRed}>
-										{` ${item.badge.toUpperCase()} `}
-									</Text>
-								) : null}
 								{item.hint ? (
 									<Text color={isSelected ? palette.muted : palette.dim}>
 										{truncate(
@@ -625,6 +620,11 @@ export const ScoreScreen = ({
 												columns - labelWidth - 8 - (item.badge?.length ?? 0) - 3
 											)
 										)}
+									</Text>
+								) : null}
+								{item.badge ? (
+									<Text bold color={palette.nestRed}>
+										{` ${item.badge.toUpperCase()} `}
 									</Text>
 								) : null}
 							</Box>
