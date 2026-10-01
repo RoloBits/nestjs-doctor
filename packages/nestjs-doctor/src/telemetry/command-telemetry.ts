@@ -3,7 +3,7 @@ import { resolveIdentity } from "./install-id.js";
 import { scanTelemetryEnabled, sendTelemetryEvent } from "./send.js";
 
 export interface CommandTelemetryInput {
-	command: "ci_install" | "init";
+	command: "ci_install" | "hook_install" | "init";
 	/** A `--config` path, when one was passed. */
 	configPath?: string;
 	/** Defaults to `process.env`. */

@@ -12,8 +12,10 @@ import {
 	ciWorkflowExists,
 	installCiWorkflow,
 } from "../../ci-install.js";
+import { hookInstalled, installHook } from "../../hook-install.js";
 import { initSkill } from "../../init.js";
 import { skillInstalledForDetectedAgent } from "../../skill-targets.js";
+import { chooseTriggerOffer } from "../../trigger-hint.js";
 import {
 	buildHandoffPrompt,
 	detectLaunchableAgents,
@@ -54,7 +56,7 @@ const buildHandoffItems = (): HandoffItem[] => [
 
 const reportCommand = (
 	context: InteractiveContext,
-	command: "ci_install" | "init"
+	command: "ci_install" | "hook_install" | "init"
 ): Promise<void> =>
 	reportCommandTelemetry({
 		command,
@@ -97,16 +99,26 @@ export const App = ({
 	const [skillInstalled, setSkillInstalled] = useState(() =>
 		skillInstalledForDetectedAgent(context.version)
 	);
-	const items = useMemo(
-		() =>
-			buildMenuItems(
-				shown.diagnostics.length,
-				ruleCount,
-				!ciWorkflowExists(context.targetPath),
-				!skillInstalled
-			),
-		[context.targetPath, ruleCount, shown.diagnostics, skillInstalled]
+	const [hookAdded, setHookAdded] = useState(() =>
+		hookInstalled(context.targetPath)
 	);
+	const items = useMemo(() => {
+		const offer = chooseTriggerOffer(context.targetPath);
+		return buildMenuItems(
+			shown.diagnostics.length,
+			ruleCount,
+			!ciWorkflowExists(context.targetPath),
+			!skillInstalled,
+			offer === "hook" && !hookAdded,
+			offer
+		);
+	}, [
+		context.targetPath,
+		hookAdded,
+		ruleCount,
+		shown.diagnostics,
+		skillInstalled,
+	]);
 	const handoffItems = useMemo(() => buildHandoffItems(), []);
 
 	const copyHandoffPrompt = useCallback(async (): Promise<void> => {
@@ -196,6 +208,34 @@ export const App = ({
 								kind: "error",
 								text: `Could not write the workflow (${outcome.status}).`,
 							});
+					}
+				} else if (action === "hook") {
+					const outcome = await installHook(context.targetPath);
+					if (outcome.status === "added") {
+						setHookAdded(true);
+						setToast({
+							kind: "success",
+							text: `Added to ${outcome.path}. Every commit now scans the staged files.`,
+						});
+						await reportCommand(context, "hook_install");
+					} else if (outcome.status === "paste" && outcome.snippet) {
+						const copied = await copyToClipboard(outcome.snippet);
+						setToast({
+							kind: "info",
+							text: copied
+								? `Snippet copied. Paste it into your ${outcome.tool} config:\n${outcome.snippet}`
+								: `Add this to your ${outcome.tool} config:\n${outcome.snippet}`,
+						});
+					} else if (outcome.status === "exists") {
+						setToast({
+							kind: "info",
+							text: `${outcome.path} already runs nestjs-doctor.`,
+						});
+					} else {
+						setToast({
+							kind: "error",
+							text: `Could not update the pre-commit hook (${outcome.status}).`,
+						});
 					}
 				} else if (action === "init") {
 					const lines: string[] = [];

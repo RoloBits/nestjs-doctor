@@ -1,6 +1,7 @@
 import { Box, Text, useStdout } from "ink";
 import { useEffect, useState } from "react";
 import type { DiagnoseResult } from "../../../common/result.js";
+import type { TriggerOffer } from "../../../telemetry/environment.js";
 import { usableColumns, usableRows } from "../../../ui/terminal.js";
 import { formatElapsedTime } from "../../formatters/console-reporter.js";
 import { groupFindings } from "../findings.js";
@@ -38,11 +39,59 @@ interface MenuItem {
 	label: string;
 }
 
+/** The three ways to make the scan recur, the recommended one first. */
+const triggerItems = (
+	offerCi: boolean,
+	offerHook: boolean,
+	offerInit: boolean,
+	recommended: TriggerOffer | null
+): MenuItem[] => {
+	const items: MenuItem[] = [
+		...(offerCi
+			? [
+					{
+						action: "ci" as const,
+						hint: "A GitHub Action comments on what each PR introduces",
+						label: "Review every pull request",
+					},
+				]
+			: []),
+		...(offerHook
+			? [
+					{
+						action: "hook" as const,
+						hint: "Scans the staged files on every git commit",
+						label: "Check every commit",
+					},
+				]
+			: []),
+		...(offerInit
+			? [
+					{
+						action: "init" as const,
+						hint: "Installs the skill for Claude Code, Cursor and Codex",
+						label: "Rescan after every agent edit",
+					},
+				]
+			: []),
+	];
+	const pick = items.findIndex((item) => item.action === recommended);
+	if (pick > 0) {
+		items.unshift(...items.splice(pick, 1));
+	}
+	if (pick >= 0) {
+		items[0] = { ...items[0], badge: "Recommended" } as MenuItem;
+	}
+	return items;
+};
+
 export const buildMenuItems = (
 	findingCount: number,
 	ruleCount: number,
 	offerCi: boolean,
-	offerInit: boolean
+	offerInit: boolean,
+	offerHook = false,
+	recommended: TriggerOffer | null = null
 ): MenuItem[] => [
 	...(findingCount > 0
 		? [
@@ -67,25 +116,7 @@ export const buildMenuItems = (
 				},
 			]
 		: []),
-	...(offerCi
-		? [
-				{
-					action: "ci" as const,
-					badge: "Recommended",
-					hint: "Scaffold .github/workflows/nestjs-doctor.yml",
-					label: "Add to GitHub Actions",
-				},
-			]
-		: []),
-	...(offerInit
-		? [
-				{
-					action: "init" as const,
-					hint: "Your coding agent scans and fixes after each edit",
-					label: "Run after every change (install the agent skill)",
-				},
-			]
-		: []),
+	...triggerItems(offerCi, offerHook, offerInit, recommended),
 	{
 		action: "markdown" as const,
 		hint: "The pull request summary, for pasting anywhere",
@@ -195,6 +226,69 @@ const useCountUp = (target: number, durationMs = ANIMATION_MS): number => {
 	return value;
 };
 
+const SHIMMER_MS = 90;
+const HUE_STEP_PER_CHAR = 18;
+const HUE_STEP_PER_FRAME = 10;
+
+/** Counts frames while `active`, so a label can cycle its colors. */
+const useFrame = (active: boolean): number => {
+	const [frame, setFrame] = useState(0);
+
+	useEffect(() => {
+		if (!active) {
+			return;
+		}
+		const timer = setInterval(() => {
+			setFrame((current) => current + 1);
+		}, SHIMMER_MS);
+		return () => {
+			clearInterval(timer);
+		};
+	}, [active]);
+
+	return frame;
+};
+
+const hslToHex = (
+	hue: number,
+	saturation: number,
+	lightness: number
+): string => {
+	const k = (n: number) => (n + hue / 30) % 12;
+	const a = saturation * Math.min(lightness, 1 - lightness);
+	const channel = (n: number) =>
+		Math.round(
+			255 * (lightness - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)))
+		)
+			.toString(16)
+			.padStart(2, "0");
+	return `#${channel(0)}${channel(8)}${channel(4)}`;
+};
+
+/** Each character takes the next hue on the wheel; the wheel turns one step per frame. */
+const Rainbow = ({
+	frame,
+	text,
+}: {
+	frame: number;
+	text: string;
+}): React.JSX.Element => (
+	<Text bold>
+		{[...text].map((char, index) => (
+			<Text
+				color={hslToHex(
+					(index * HUE_STEP_PER_CHAR + frame * HUE_STEP_PER_FRAME) % 360,
+					0.9,
+					0.68
+				)}
+				key={`${index}-${char}`}
+			>
+				{char}
+			</Text>
+		))}
+	</Text>
+);
+
 export const ScoreScreen = ({
 	busy,
 	context,
@@ -224,6 +318,7 @@ export const ScoreScreen = ({
 		paneRows - 1 - (subProjectsOverflow ? 1 : 0)
 	);
 	const [subOffset, setSubOffset] = useState(0);
+	const frame = useFrame(items.some((item) => item.badge !== undefined));
 	const selectedSubRow = Math.min(selectedSub, subProjects.length - 1);
 	const safeSubOffset = scrollWindow(
 		clampOffset(subOffset, subProjects.length, visibleSubRows),
@@ -482,6 +577,7 @@ export const ScoreScreen = ({
 			>
 				{items.map((item, index) => {
 					const isSelected = index === selected;
+					const shimmer = Boolean(item.badge);
 					return (
 						<Box flexDirection="row" key={item.action}>
 							<Box
@@ -495,12 +591,19 @@ export const ScoreScreen = ({
 								gap={2}
 								paddingLeft={1}
 							>
-								<Text
-									bold={isSelected}
-									color={isSelected ? palette.bright : palette.text}
-								>
-									{padEnd(item.label, labelWidth)}
-								</Text>
+								{shimmer ? (
+									<Rainbow
+										frame={frame}
+										text={padEnd(item.label, labelWidth)}
+									/>
+								) : (
+									<Text
+										bold={isSelected}
+										color={isSelected ? palette.bright : palette.text}
+									>
+										{padEnd(item.label, labelWidth)}
+									</Text>
+								)}
 								{item.badge ? (
 									<Text bold color={palette.nestRed}>
 										{` ${item.badge.toUpperCase()} `}

@@ -4,19 +4,27 @@ import { buildMenuItems } from "../../src/cli/interactive/tui/score-screen.js";
 const actions = (
 	findingCount: number,
 	offerCi: boolean,
-	offerInit: boolean
+	offerInit: boolean,
+	offerHook = false,
+	recommended: "action" | "hook" | "skill" | null = null
 ): string[] =>
-	buildMenuItems(findingCount, 1, offerCi, offerInit).map(
-		(item) => item.action
-	);
+	buildMenuItems(
+		findingCount,
+		1,
+		offerCi,
+		offerInit,
+		offerHook,
+		recommended
+	).map((item) => item.action);
 
 describe("buildMenuItems", () => {
-	it("offers the agent skill right after the CI item", () => {
-		expect(actions(3, true, true)).toEqual([
+	it("offers the three recurring triggers after the handoff item", () => {
+		expect(actions(3, true, true, true)).toEqual([
 			"review",
 			"report",
 			"handoff",
 			"ci",
+			"hook",
 			"init",
 			"markdown",
 			"share",
@@ -38,12 +46,33 @@ describe("buildMenuItems", () => {
 		expect(actions(3, true, false)).not.toContain("init");
 	});
 
-	it("labels the skill item as the run-after-every-change step", () => {
-		const item = buildMenuItems(0, 0, false, true).find(
-			(candidate) => candidate.action === "init"
+	it("moves the recommended trigger first and badges only that one", () => {
+		const items = buildMenuItems(0, 0, true, true, true, "hook");
+		const triggers = items.filter((item) =>
+			["ci", "hook", "init"].includes(item.action)
 		);
-		expect(item?.label).toBe(
-			"Run after every change (install the agent skill)"
+
+		expect(triggers.map((item) => item.action)).toEqual(["hook", "ci", "init"]);
+		expect(triggers.map((item) => item.badge)).toEqual([
+			"Recommended",
+			undefined,
+			undefined,
+		]);
+	});
+
+	it("badges nothing when the recommended trigger is not offered", () => {
+		const items = buildMenuItems(0, 0, true, true, false, "hook");
+
+		expect(items.every((item) => item.badge === undefined)).toBe(true);
+	});
+
+	it("says what each trigger does for the user", () => {
+		const labels = buildMenuItems(0, 0, true, true, true, null).map(
+			(item) => item.label
 		);
+
+		expect(labels).toContain("Review every pull request");
+		expect(labels).toContain("Check every commit");
+		expect(labels).toContain("Rescan after every agent edit");
 	});
 });

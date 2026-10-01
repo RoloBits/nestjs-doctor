@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { findGitRepo } from "../engine/git.js";
 import { detectTrigger, type TriggerOffer } from "../telemetry/environment.js";
 import { ciWorkflowExists } from "./ci-install.js";
+import { detectHookTool } from "./hook-install.js";
 import { isNonInteractiveEnvironment } from "./ui/environment.js";
 
 const TRIGGER_HINT_LINES: Record<TriggerOffer, string> = {
@@ -41,10 +42,7 @@ export const chooseTriggerOffer = (targetPath: string): TriggerOffer => {
 		) {
 			return "action";
 		}
-		if (
-			existsSync(join(repo.root, ".husky")) ||
-			existsSync(join(repo.root, "lefthook.yml"))
-		) {
+		if (detectHookTool(repo.root) !== "none") {
 			return "hook";
 		}
 	}
