@@ -1,5 +1,18 @@
 # nestjs-doctor
 
+## 0.9.10
+
+### Patch Changes
+
+- cc937f1: Describe the package as free, open-source static analysis for NestJS that catches AI mistakes deterministically, in the README, the npm metadata and the agent skill, and add the `nestjs-devtools` and `nest-devtools` keywords. Every docs URL the CLI prints, embeds in SARIF, markdown and HTML output, or writes into `ci install` now uses `https://www.nestjs.doctor`, the canonical host. The hand-written rule count is gone from every description, so the strings stop drifting from the registry.
+- f97ef60: Add a Simplified Chinese overview section to the README, with the npmmirror install line.
+- 872b7f7: A scan that collects no TypeScript files no longer prints a score of 100: every format says where it looked and how to point the scan at the project, writes no payload and exits 2, and the GitHub Action's check fails on a `directory` with no TypeScript files where it used to pass. A scan started by a coding agent with the skill installed reports `trigger: skill`, and `--init` and `ci install` report one `command_completed` event under the same opt-outs as the scan report.
+- 1c02594: The post-scan menu opens with the three ways to keep nestjs-doctor running: `Review every pull request` (the GitHub Action), `Check every commit` (appends a `--staged --blocking error` scan pinned to the running version to `.husky/pre-commit`, or shows a snippet for lefthook and simple-git-hooks) and `Rescan after every agent edit` (the agent skill). The one the repository is closest to sits first with a `Recommended` badge; markdown and share move behind `More`. A hook install reports `command_completed` with `command: hook_install`.
+- 6d71faf: A call on an installed ORM client such as a TypeORM `Repository<Order>`, an `EntityManager`, a `DataSource`, a Mongoose `Model` or a `PrismaClient` is now a database node in the code graph, named by the entity it targets, instead of an unresolved external call. The Endpoints tab's read-or-write verdict now covers TypeORM and Mongoose routes, and `save`, `insert`, `remove`, `softDelete` and `restore` count as writes.
+- 3761836: Shorten the README intro: drop the ESLint and Nest Devtools comparison sentence and the X badge, and trim the two opening paragraphs.
+- 9eb497e: Any error-severity finding now caps the score at 89, so a large project can no longer dilute an error into an "Excellent" label. Warnings and infos are still normalised by file count alone. Scores drop on any project that had an error and scored above 89.
+- f67896e: The first plain terminal run on a project ends with one dim stderr line naming the recurring trigger the repository is closest to (`ci install`, a `--staged` pre-commit hook, or `--init`); once per project, never in CI, agents, pipes or machine-readable output. Telemetry gains `hint_offered`, the trigger that line pointed at.
+
 ## 0.9.9
 
 ### Patch Changes
