@@ -296,7 +296,7 @@ abstract class ScanPipeline {
 		if (scanned && triggerTarget === site) {
 			const offer = chooseTriggerOffer(this.targetPath);
 			if (markHint(triggerHintKey(this.targetPath), process.env, offer)) {
-				console.error(highlighter.dim(triggerHintLine(offer)));
+				console.error(highlighter.dim(triggerHintLine(offer, this.targetPath)));
 				return;
 			}
 		}

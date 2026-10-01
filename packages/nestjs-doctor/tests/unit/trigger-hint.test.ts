@@ -116,8 +116,8 @@ describe("which trigger is offered", () => {
 	});
 
 	it("names the command in every line", () => {
-		expect(triggerHintLine("skill")).toContain("--init");
-		expect(triggerHintLine("action")).toContain("ci install");
-		expect(triggerHintLine("hook")).toContain("--staged");
+		expect(triggerHintLine("skill", "/repo")).toContain("--init");
+		expect(triggerHintLine("action", "/repo")).toContain("ci install");
+		expect(triggerHintLine("hook", "/repo")).toContain("--staged");
 	});
 });

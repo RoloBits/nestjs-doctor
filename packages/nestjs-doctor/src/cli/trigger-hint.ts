@@ -4,19 +4,24 @@ import { join } from "node:path";
 import { findGitRepo } from "../engine/git.js";
 import { detectTrigger, type TriggerOffer } from "../telemetry/environment.js";
 import { ciWorkflowExists } from "./ci-install.js";
-import { detectHookTool } from "./hook-install.js";
+import { detectHookTool, hookLine } from "./hook-install.js";
+import { getCliVersion } from "./output.js";
 import { isNonInteractiveEnvironment } from "./ui/environment.js";
 
-const TRIGGER_HINT_LINES: Record<TriggerOffer, string> = {
-	action:
-		"Review every pull request with it: npx nestjs-doctor@latest ci install",
-	hook: "Rescan on every commit: add `npx nestjs-doctor@latest --staged` to your pre-commit hook",
-	skill:
-		"Rescan after every agent edit: npx nestjs-doctor@latest --init installs the skill",
+/** The line a one-shot run ends with; the hook variant names the exact command the menu would write. */
+export const triggerHintLine = (
+	offer: TriggerOffer,
+	targetPath: string
+): string => {
+	if (offer === "action") {
+		return "Comment on every pull request: npx nestjs-doctor@latest ci install (writes .github/workflows/nestjs-doctor.yml)";
+	}
+	if (offer === "hook") {
+		const prefix = findGitRepo(targetPath)?.prefix ?? "";
+		return `Check every commit: add this to your pre-commit hook: ${hookLine(prefix, getCliVersion())}`;
+	}
+	return "Rescan after every agent edit: npx nestjs-doctor@latest --init (installs the skill into your agent's skills directory)";
 };
-
-export const triggerHintLine = (offer: TriggerOffer): string =>
-	TRIGGER_HINT_LINES[offer];
 
 const BACKSLASH = /\\/g;
 

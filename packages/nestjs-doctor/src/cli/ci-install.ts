@@ -52,15 +52,17 @@ export const findSymlink = (
 				return candidate;
 			}
 		} catch {
-			// Missing segments are created below.
+			// Missing segment.
 		}
 	}
 	return null;
 };
 
+const PLAIN_BRANCH = /^[\w.-]+$/;
+
 export const buildWorkflow = (
 	defaultBranch: string
-): string => `# nestjs-doctor — health score, diagnostics, and pull request review for NestJS.
+): string => `# Runs nestjs-doctor on pull requests and on pushes to the default branch.
 #
 # Docs:   https://www.nestjs.doctor/docs/ci
 # Source: https://github.com/RoloBits/nestjs-doctor
@@ -73,7 +75,7 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
   # Scans the default branch on every push, so the score keeps a trend line.
   push:
-    branches: [${JSON.stringify(defaultBranch)}]
+    branches: [${PLAIN_BRANCH.test(defaultBranch) ? defaultBranch : JSON.stringify(defaultBranch)}]
 
 permissions:
   contents: read
@@ -109,7 +111,7 @@ jobs:
         #   review-comments: "false"  # Turn off inline comments on the changed lines
         #   commit-status: "false"    # Turn off the commit status
         #   sarif: "true"             # Also write SARIF for GitHub code scanning
-        #   version: "1.2.3"          # Pin the nestjs-doctor version (default: latest)
+        #   version: "0.9.9"          # Pin the nestjs-doctor version (default: latest)
 `;
 
 /** True when the repository already carries the scaffolded workflow file. */

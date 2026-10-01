@@ -4,6 +4,7 @@ import type { DiagnoseResult } from "../../../common/result.js";
 import type { TriggerOffer } from "../../../telemetry/environment.js";
 import { usableColumns, usableRows } from "../../../ui/terminal.js";
 import { formatElapsedTime } from "../../formatters/console-reporter.js";
+import type { HookTool } from "../../hook-install.js";
 import { groupFindings } from "../findings.js";
 import { clampOffset, listCapacity, scrollWindow } from "./navigate.js";
 import { NOT_SCORED_TAG, padEnd, ruleNameBudget, truncate } from "./text.js";
@@ -20,6 +21,8 @@ import type { InteractiveContext, MenuAction, Toast } from "./types.js";
 const SCORE_BAR_WIDTH = 30;
 /** Nest box, score block, menu borders, footer, and the gaps between them. */
 const CHROME_ROWS = 14;
+/** Border, selection bar, padding and the two gaps on a menu row. */
+const ROW_CHROME = 11;
 const MIN_SUB_ROWS = 3;
 
 const TOAST_STYLE: Record<
@@ -33,7 +36,7 @@ const TOAST_STYLE: Record<
 
 interface MenuItem {
 	action: MenuAction;
-	/** Uppercase tag shown in nest red after the hint. */
+	/** Uppercase tag shown in nest red after the hint; its label gets the colour sweep. */
 	badge?: string;
 	hint?: string;
 	label: string;
@@ -41,116 +44,111 @@ interface MenuItem {
 	section?: string;
 }
 
-const OFFER_ACTION: Record<TriggerOffer, MenuItem["action"]> = {
+const OFFER_ACTION: Record<TriggerOffer, MenuAction> = {
 	action: "ci",
 	hook: "hook",
 	skill: "init",
 };
 
-/** The three ways to make the scan recur, the recommended one first. */
-const triggerItems = (
-	offerCi: boolean,
-	offerHook: boolean,
-	offerInit: boolean,
-	recommended: TriggerOffer | null
-): MenuItem[] => {
-	const items: MenuItem[] = [
-		...(offerCi
-			? [
-					{
-						action: "ci" as const,
-						hint: "Comments on every PR",
-						label: "Review every pull request",
-					},
-				]
-			: []),
-		...(offerHook
-			? [
-					{
-						action: "hook" as const,
-						hint: "Scans staged files per commit",
-						label: "Check every commit",
-					},
-				]
-			: []),
-		...(offerInit
-			? [
-					{
-						action: "init" as const,
-						hint: "Your agent rescans its edits",
-						label: "Rescan after every agent edit",
-					},
-				]
-			: []),
-	];
-	const wanted = recommended ? OFFER_ACTION[recommended] : null;
-	const pick = items.findIndex((item) => item.action === wanted);
-	if (pick > 0) {
-		items.unshift(...items.splice(pick, 1));
+export interface MenuOptions {
+	findingCount: number;
+	hookTool: HookTool;
+	offerCi: boolean;
+	offerHook: boolean;
+	offerInit: boolean;
+	recommended: TriggerOffer | null;
+	ruleCount: number;
+	showMore: boolean;
+}
+
+/** The ways to make the scan recur, the recommended one first and badged. */
+const recurringItems = (options: MenuOptions): MenuItem[] => {
+	const items: MenuItem[] = [];
+	if (options.offerCi) {
+		items.push({
+			action: "ci",
+			hint: "Adds a PR-commenting workflow",
+			label: "Review every pull request",
+		});
 	}
-	if (pick >= 0) {
-		items[0] = { ...items[0], badge: "Recommended" } as MenuItem;
+	if (options.offerHook) {
+		items.push({
+			action: "hook",
+			hint:
+				options.hookTool === "husky"
+					? "Edits .husky/pre-commit"
+					: "Shows a snippet to paste",
+			label: "Check every commit",
+		});
 	}
-	return items;
+	if (options.offerInit) {
+		items.push({
+			action: "init",
+			hint: "Your agent rescans its edits",
+			label: "Rescan after every agent edit",
+		});
+	}
+	const wanted = options.recommended && OFFER_ACTION[options.recommended];
+	return items
+		.map((item) =>
+			item.action === wanted ? { ...item, badge: "Recommended" } : item
+		)
+		.sort(
+			(a, b) => Number(b.badge !== undefined) - Number(a.badge !== undefined)
+		);
 };
 
-export const buildMenuItems = (
-	findingCount: number,
-	ruleCount: number,
-	offerCi: boolean,
-	offerInit: boolean,
-	offerHook = false,
-	recommended: TriggerOffer | null = null,
-	showMore = false
-): MenuItem[] => {
-	const recurring = triggerItems(offerCi, offerHook, offerInit, recommended);
-	if (recurring[0]) {
-		recurring[0] = { ...recurring[0], section: "Keep it running" };
+/** Puts a heading on the first item, when there is one. */
+const withSection = (items: MenuItem[], section: string): MenuItem[] =>
+	items.map((item, index) => (index === 0 ? { ...item, section } : item));
+
+export const buildMenuItems = (options: MenuOptions): MenuItem[] => {
+	const { findingCount, ruleCount, showMore } = options;
+	const scan: MenuItem[] = [];
+	if (findingCount > 0) {
+		scan.push(
+			{
+				action: "handoff",
+				hint: "Starts it with the findings, or copies the prompt",
+				label: "Fix issues with your agent",
+			},
+			{
+				action: "review",
+				hint: `${findingCount} findings in ${ruleCount} rules`,
+				label: "Review issues",
+			}
+		);
 	}
-	const scan: MenuItem[] = [
-		...(findingCount > 0
-			? [
-					{
-						action: "handoff" as const,
-						hint: "Start your coding agent with the findings, or copy the prompt",
-						label: "Fix issues with AI",
-					},
-					{
-						action: "review" as const,
-						hint: `${findingCount} findings in ${ruleCount} rules`,
-						label: "Review issues",
-					},
-				]
-			: []),
-		{
-			action: "report" as const,
-			hint: `${findingCount} finding${findingCount === 1 ? "" : "s"} in an interactive page`,
-			label: "Open the HTML report",
-		},
-		...(showMore
-			? [
-					{
-						action: "markdown" as const,
-						hint: "The pull request summary, for pasting anywhere",
-						label: "Copy findings as markdown",
-					},
-					{
-						action: "share" as const,
-						hint: "Pick the sections and save a .json others can open",
-						label: "Share the report",
-					},
-				]
-			: [
-					{
-						action: "more" as const,
-						hint: "Copy as markdown, share the report",
-						label: "More",
-					},
-				]),
-		{ action: "quit" as const, label: "Quit" },
+	scan.push({
+		action: "report",
+		hint: `${findingCount} finding${findingCount === 1 ? "" : "s"} in an interactive page`,
+		label: "Open the HTML report",
+	});
+	if (showMore) {
+		scan.push(
+			{
+				action: "markdown",
+				hint: "The pull request summary, for pasting anywhere",
+				label: "Copy findings as markdown",
+			},
+			{
+				action: "share",
+				hint: "Pick the sections and save a .json others can open",
+				label: "Share the report",
+			}
+		);
+	} else {
+		scan.push({
+			action: "more",
+			hint: "Copy as markdown, share the report",
+			label: "More",
+		});
+	}
+	scan.push({ action: "quit", label: "Quit" });
+	return [
+		...withSection(recurringItems(options), "Keep it running"),
+		...withSection(scan, "This scan"),
 	];
-	scan[0] = { ...scan[0], section: "This scan" } as MenuItem;
-	return [...recurring, ...scan];
 };
 
 const NestBox = ({ score }: { score: number }): React.JSX.Element => {
@@ -253,64 +251,43 @@ const SHIMMER_MS = 90;
 const HUE_STEP_PER_CHAR = 18;
 const HUE_STEP_PER_FRAME = 10;
 
-/** Counts frames while `active`, so a label can cycle its colors. */
-const useFrame = (active: boolean): number => {
+/** A fully saturated, light colour at `hue` degrees, as Ink's `rgb()` string. */
+const hueColor = (hue: number): string => {
+	const channel = (offset: number): number => {
+		const x = Math.abs(((hue / 60 + offset) % 6) - 3) - 1;
+		return Math.round(255 * (0.45 + 0.55 * Math.min(1, Math.max(0, x))));
+	};
+	return `rgb(${channel(0)}, ${channel(4)}, ${channel(2)})`;
+};
+
+/** The badged label: one hue per character, the wheel turning one step per frame. */
+const ShimmerLabel = ({ text }: { text: string }): React.JSX.Element => {
 	const [frame, setFrame] = useState(0);
 
 	useEffect(() => {
-		if (!active) {
-			return;
-		}
 		const timer = setInterval(() => {
 			setFrame((current) => current + 1);
 		}, SHIMMER_MS);
 		return () => {
 			clearInterval(timer);
 		};
-	}, [active]);
+	}, []);
 
-	return frame;
+	return (
+		<Text bold>
+			{[...text].map((char, index) => (
+				<Text
+					color={hueColor(
+						(index * HUE_STEP_PER_CHAR + frame * HUE_STEP_PER_FRAME) % 360
+					)}
+					key={`${index}-${char}`}
+				>
+					{char}
+				</Text>
+			))}
+		</Text>
+	);
 };
-
-const hslToHex = (
-	hue: number,
-	saturation: number,
-	lightness: number
-): string => {
-	const k = (n: number) => (n + hue / 30) % 12;
-	const a = saturation * Math.min(lightness, 1 - lightness);
-	const channel = (n: number) =>
-		Math.round(
-			255 * (lightness - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1)))
-		)
-			.toString(16)
-			.padStart(2, "0");
-	return `#${channel(0)}${channel(8)}${channel(4)}`;
-};
-
-/** Each character takes the next hue on the wheel; the wheel turns one step per frame. */
-const Rainbow = ({
-	frame,
-	text,
-}: {
-	frame: number;
-	text: string;
-}): React.JSX.Element => (
-	<Text bold>
-		{[...text].map((char, index) => (
-			<Text
-				color={hslToHex(
-					(index * HUE_STEP_PER_CHAR + frame * HUE_STEP_PER_FRAME) % 360,
-					0.9,
-					0.68
-				)}
-				key={`${index}-${char}`}
-			>
-				{char}
-			</Text>
-		))}
-	</Text>
-);
 
 export const ScoreScreen = ({
 	busy,
@@ -332,7 +309,9 @@ export const ScoreScreen = ({
 	const subProjects = [...(context.subProjects ?? [])].sort(byWorstScore);
 	const paneRows = listCapacity(
 		usableRows(stdout.rows),
-		CHROME_ROWS + items.length + items.filter((item) => item.section).length,
+		CHROME_ROWS +
+			items.length +
+			2 * items.filter((item) => item.section).length,
 		MIN_SUB_ROWS
 	);
 	const subProjectsOverflow = subProjects.length > paneRows - 1;
@@ -341,7 +320,6 @@ export const ScoreScreen = ({
 		paneRows - 1 - (subProjectsOverflow ? 1 : 0)
 	);
 	const [subOffset, setSubOffset] = useState(0);
-	const frame = useFrame(items.some((item) => item.badge !== undefined));
 	const selectedSubRow = Math.min(selectedSub, subProjects.length - 1);
 	const safeSubOffset = scrollWindow(
 		clampOffset(subOffset, subProjects.length, visibleSubRows),
@@ -600,13 +578,18 @@ export const ScoreScreen = ({
 			>
 				{items.map((item, index) => {
 					const isSelected = index === selected;
-					const shimmer = Boolean(item.badge);
+					const hintWidth = Math.max(
+						0,
+						columns - labelWidth - ROW_CHROME - (item.badge?.length ?? 0)
+					);
 					return (
 						<Box flexDirection="column" key={item.action}>
 							{item.section ? (
-								<Text color={palette.muted}>
-									{`${index > 0 ? "\n" : ""}  ${item.section.toUpperCase()}`}
-								</Text>
+								<Box marginTop={index > 0 ? 1 : 0}>
+									<Text color={palette.muted}>
+										{`  ${item.section.toUpperCase()}`}
+									</Text>
+								</Box>
 							) : null}
 							<Box flexDirection="row">
 								<Box
@@ -620,11 +603,8 @@ export const ScoreScreen = ({
 									gap={2}
 									paddingLeft={1}
 								>
-									{shimmer ? (
-										<Rainbow
-											frame={frame}
-											text={padEnd(item.label, labelWidth)}
-										/>
+									{item.badge ? (
+										<ShimmerLabel text={padEnd(item.label, labelWidth)} />
 									) : (
 										<Text
 											bold={isSelected}
@@ -635,17 +615,7 @@ export const ScoreScreen = ({
 									)}
 									{item.hint ? (
 										<Text color={isSelected ? palette.muted : palette.dim}>
-											{truncate(
-												item.hint,
-												Math.max(
-													0,
-													columns -
-														labelWidth -
-														8 -
-														(item.badge?.length ?? 0) -
-														3
-												)
-											)}
+											{truncate(item.hint, hintWidth)}
 										</Text>
 									) : null}
 									{item.badge ? (

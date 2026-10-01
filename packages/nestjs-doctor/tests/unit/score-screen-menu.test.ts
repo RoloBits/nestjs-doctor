@@ -1,25 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { buildMenuItems } from "../../src/cli/interactive/tui/score-screen.js";
+import {
+	buildMenuItems,
+	type MenuOptions,
+} from "../../src/cli/interactive/tui/score-screen.js";
 
-const actions = (
-	findingCount: number,
-	offerCi: boolean,
-	offerInit: boolean,
-	offerHook = false,
-	recommended: "action" | "hook" | "skill" | null = null
-): string[] =>
-	buildMenuItems(
-		findingCount,
-		1,
-		offerCi,
-		offerInit,
-		offerHook,
-		recommended
-	).map((item) => item.action);
+const menu = (overrides: Partial<MenuOptions> = {}) =>
+	buildMenuItems({
+		findingCount: 3,
+		hookTool: "husky",
+		offerCi: true,
+		offerHook: true,
+		offerInit: true,
+		recommended: null,
+		ruleCount: 1,
+		showMore: false,
+		...overrides,
+	});
+
+const actions = (overrides: Partial<MenuOptions> = {}): string[] =>
+	menu(overrides).map((item) => item.action);
 
 describe("buildMenuItems", () => {
 	it("opens with the recurring triggers, then this scan's actions behind More", () => {
-		expect(actions(3, true, true, true)).toEqual([
+		expect(actions()).toEqual([
 			"ci",
 			"hook",
 			"init",
@@ -32,44 +35,24 @@ describe("buildMenuItems", () => {
 	});
 
 	it("unfolds markdown and share in place of More", () => {
-		const items = buildMenuItems(3, 1, false, false, false, null, true);
-
-		expect(items.map((item) => item.action)).toEqual([
-			"handoff",
-			"review",
-			"report",
-			"markdown",
-			"share",
-			"quit",
-		]);
+		expect(
+			actions({
+				offerCi: false,
+				offerHook: false,
+				offerInit: false,
+				showMore: true,
+			})
+		).toEqual(["handoff", "review", "report", "markdown", "share", "quit"]);
 	});
 
-	it("keeps the skill item when the workflow already exists", () => {
-		expect(actions(0, false, true)).toEqual(["init", "report", "more", "quit"]);
-	});
-
-	it("heads each group once", () => {
-		const items = buildMenuItems(3, 1, true, true, true, "action");
-
-		expect(items.map((item) => item.section)).toEqual([
-			"Keep it running",
-			undefined,
-			undefined,
-			"This scan",
-			undefined,
-			undefined,
-			undefined,
-			undefined,
-		]);
-	});
-
-	it("hides the skill item once it is installed for a detected agent", () => {
-		expect(actions(3, true, false)).not.toContain("init");
+	it("drops the finding rows on a clean scan", () => {
+		expect(
+			actions({ findingCount: 0, offerCi: false, offerHook: false })
+		).toEqual(["init", "report", "more", "quit"]);
 	});
 
 	it("moves the recommended trigger first and badges only that one", () => {
-		const items = buildMenuItems(0, 0, true, true, true, "hook");
-		const triggers = items.filter((item) =>
+		const triggers = menu({ recommended: "hook" }).filter((item) =>
 			["ci", "hook", "init"].includes(item.action)
 		);
 
@@ -82,10 +65,9 @@ describe("buildMenuItems", () => {
 	});
 
 	it("maps every offer onto its menu item", () => {
-		const first = (offer: "action" | "hook" | "skill"): string | undefined =>
-			buildMenuItems(0, 0, true, true, true, offer).find(
-				(item) => item.badge === "Recommended"
-			)?.action;
+		const first = (recommended: MenuOptions["recommended"]) =>
+			menu({ recommended }).find((item) => item.badge === "Recommended")
+				?.action;
 
 		expect(first("action")).toBe("ci");
 		expect(first("hook")).toBe("hook");
@@ -93,19 +75,41 @@ describe("buildMenuItems", () => {
 	});
 
 	it("badges nothing when the recommended trigger is not offered", () => {
-		const items = buildMenuItems(0, 0, true, true, false, "hook");
-
-		expect(items.every((item) => item.badge === undefined)).toBe(true);
+		expect(
+			menu({ offerHook: false, recommended: "hook" }).every(
+				(item) => item.badge === undefined
+			)
+		).toBe(true);
 	});
 
-	it("says what each trigger does for the user", () => {
-		const labels = buildMenuItems(3, 1, true, true, true, null).map(
-			(item) => item.label
+	it("heads each group once", () => {
+		expect(menu({ recommended: "action" }).map((item) => item.section)).toEqual(
+			[
+				"Keep it running",
+				undefined,
+				undefined,
+				"This scan",
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+			]
+		);
+	});
+
+	it("says what each row does to the repo", () => {
+		const hints = Object.fromEntries(
+			menu().map((item) => [item.action, item.hint])
 		);
 
-		expect(labels).toContain("Review every pull request");
-		expect(labels).toContain("Check every commit");
-		expect(labels).toContain("Rescan after every agent edit");
-		expect(labels).toContain("Fix issues with AI");
+		expect(hints.ci).toBe("Adds a PR-commenting workflow");
+		expect(hints.hook).toBe("Edits .husky/pre-commit");
+		expect(
+			menu({ hookTool: "lefthook" }).find((item) => item.action === "hook")
+				?.hint
+		).toBe("Shows a snippet to paste");
+		expect(menu().find((item) => item.action === "handoff")?.label).toBe(
+			"Fix issues with your agent"
+		);
 	});
 });

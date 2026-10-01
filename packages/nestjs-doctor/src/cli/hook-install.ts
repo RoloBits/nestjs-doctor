@@ -4,40 +4,48 @@ import { join } from "node:path";
 import { findGitRepo } from "../engine/git.js";
 import { findSymlink } from "./ci-install.js";
 
-/** The pre-commit line: `prefix` is the scanned directory inside the repo, as git reports it. */
-export const hookLine = (prefix: string, version: string): string =>
-	`npx nestjs-doctor@${version} ${prefix || "."} --staged --blocking error`;
-
 export type HookTool = "husky" | "lefthook" | "none" | "simple-git-hooks";
 
-type HookInstallStatus =
-	| "added"
-	| "exists"
-	| "failed"
-	| "no-repo"
-	| "no-tool"
-	| "paste"
-	| "symlink";
+type PasteTool = Exclude<HookTool, "husky" | "none">;
 
-export interface HookInstallResult {
-	path?: string;
-	/** The line to add by hand when the tool's config is not edited for the user. */
-	snippet?: string;
-	status: HookInstallStatus;
-	tool: HookTool;
-}
+export type HookInstallResult =
+	| { status: "created"; path: string }
+	| { status: "exists" }
+	| { status: "failed"; path: string }
+	| { status: "no-repo" }
+	| { status: "no-tool" }
+	| { status: "paste"; snippet: string; tool: PasteTool }
+	| { status: "symlink"; path: string };
 
 const LEFTHOOK_FILES = ["lefthook.yml", "lefthook.yaml", ".lefthook.yml"];
+const HUSKY_HOOK = join(".husky", "pre-commit");
+const HOOK_COMMENT =
+	"# nestjs-doctor: block the commit on error-level findings in staged files";
 
-const hasSimpleGitHooks = (root: string): boolean => {
+/** The pre-commit line: `prefix` is the scanned directory inside the repo, as git reports it. */
+export const hookLine = (prefix: string, version: string): string =>
+	`npx --yes nestjs-doctor@${version} ${prefix || "."} --staged --blocking error`;
+
+const read = (file: string): string => {
 	try {
-		return (
-			"simple-git-hooks" in
-			JSON.parse(readFileSync(join(root, "package.json"), "utf-8"))
-		);
+		return readFileSync(file, "utf-8");
 	} catch {
-		return false;
+		return "";
 	}
+};
+
+/** The files a tool reads its pre-commit command from. */
+const toolFiles = (root: string, tool: HookTool): string[] => {
+	if (tool === "husky") {
+		return [join(root, HUSKY_HOOK)];
+	}
+	if (tool === "lefthook") {
+		return LEFTHOOK_FILES.map((file) => join(root, file));
+	}
+	if (tool === "simple-git-hooks") {
+		return [join(root, "package.json")];
+	}
+	return [];
 };
 
 /** The pre-commit tool a repository root is set up with. */
@@ -45,42 +53,23 @@ export const detectHookTool = (root: string): HookTool => {
 	if (existsSync(join(root, ".husky"))) {
 		return "husky";
 	}
-	if (LEFTHOOK_FILES.some((file) => existsSync(join(root, file)))) {
+	if (LEFTHOOK_FILES.some((file) => read(join(root, file)) !== "")) {
 		return "lefthook";
 	}
-	if (hasSimpleGitHooks(root)) {
+	if (read(join(root, "package.json")).includes('"simple-git-hooks"')) {
 		return "simple-git-hooks";
 	}
 	return "none";
 };
 
-const pasteSnippet = (
-	tool: Exclude<HookTool, "husky" | "none">,
-	line: string
-): string =>
+/** True when the tool's own config already runs nestjs-doctor. */
+export const hookPresent = (root: string, tool: HookTool): boolean =>
+	toolFiles(root, tool).some((file) => read(file).includes("nestjs-doctor"));
+
+const pasteSnippet = (tool: PasteTool, line: string): string =>
 	tool === "lefthook"
 		? `pre-commit:\n  commands:\n    nestjs-doctor:\n      run: ${line}`
-		: `"simple-git-hooks": { "pre-commit": "${line}" }`;
-
-/** The pre-commit tool of the repository that contains `targetPath`. */
-export const hookToolFor = (targetPath: string): HookTool => {
-	const repo = findGitRepo(targetPath);
-	return repo ? detectHookTool(repo.root) : "none";
-};
-
-/** True when the repository's pre-commit hook already runs nestjs-doctor. */
-export const hookInstalled = (targetPath: string): boolean => {
-	const repo = findGitRepo(targetPath);
-	if (!repo) {
-		return false;
-	}
-	const file = join(repo.root, ".husky", "pre-commit");
-	try {
-		return readFileSync(file, "utf-8").includes("nestjs-doctor");
-	} catch {
-		return false;
-	}
-};
+		: `"pre-commit": "${line}"`;
 
 /** Appends the staged scan to husky's pre-commit hook; other tools get a snippet to paste. */
 export const installHook = async (
@@ -89,38 +78,31 @@ export const installHook = async (
 ): Promise<HookInstallResult> => {
 	const repo = findGitRepo(targetPath);
 	if (!repo) {
-		return { status: "no-repo", tool: "none" };
+		return { status: "no-repo" };
 	}
 	const tool = detectHookTool(repo.root);
 	if (tool === "none") {
-		return { status: "no-tool", tool };
+		return { status: "no-tool" };
+	}
+	if (hookPresent(repo.root, tool)) {
+		return { status: "exists" };
 	}
 	const line = hookLine(repo.prefix, version);
 	if (tool !== "husky") {
 		return { snippet: pasteSnippet(tool, line), status: "paste", tool };
 	}
-	const symlink = findSymlink(repo.root, [
-		".husky",
-		join(".husky", "pre-commit"),
-	]);
+	const symlink = findSymlink(repo.root, [".husky", HUSKY_HOOK]);
 	if (symlink) {
-		return { path: symlink, status: "symlink", tool };
+		return { path: symlink, status: "symlink" };
 	}
-	const path = join(repo.root, ".husky", "pre-commit");
-	try {
-		if (readFileSync(path, "utf-8").includes("nestjs-doctor")) {
-			return { path, status: "exists", tool };
-		}
-	} catch {
-		// A missing hook file is created below.
-	}
+	const path = join(repo.root, HUSKY_HOOK);
 	try {
 		await mkdir(join(repo.root, ".husky"), { recursive: true });
-		const existing = existsSync(path) ? readFileSync(path, "utf-8") : "";
+		const existing = read(path);
 		const separator = existing === "" || existing.endsWith("\n") ? "" : "\n";
-		await appendFile(path, `${separator}${line}\n`, "utf-8");
-		return { path, status: "added", tool };
+		await appendFile(path, `${separator}${HOOK_COMMENT}\n${line}\n`, "utf-8");
+		return { path, status: "created" };
 	} catch {
-		return { path, status: "failed", tool };
+		return { path, status: "failed" };
 	}
 };
