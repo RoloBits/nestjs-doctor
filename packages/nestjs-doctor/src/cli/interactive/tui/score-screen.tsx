@@ -39,6 +39,12 @@ interface MenuItem {
 	label: string;
 }
 
+const OFFER_ACTION: Record<TriggerOffer, MenuItem["action"]> = {
+	action: "ci",
+	hook: "hook",
+	skill: "init",
+};
+
 /** The three ways to make the scan recur, the recommended one first. */
 const triggerItems = (
 	offerCi: boolean,
@@ -75,7 +81,8 @@ const triggerItems = (
 				]
 			: []),
 	];
-	const pick = items.findIndex((item) => item.action === recommended);
+	const wanted = recommended ? OFFER_ACTION[recommended] : null;
+	const pick = items.findIndex((item) => item.action === wanted);
 	if (pick > 0) {
 		items.unshift(...items.splice(pick, 1));
 	}

@@ -60,6 +60,17 @@ describe("buildMenuItems", () => {
 		]);
 	});
 
+	it("maps every offer onto its menu item", () => {
+		const first = (offer: "action" | "hook" | "skill"): string | undefined =>
+			buildMenuItems(0, 0, true, true, true, offer).find(
+				(item) => item.badge === "Recommended"
+			)?.action;
+
+		expect(first("action")).toBe("ci");
+		expect(first("hook")).toBe("hook");
+		expect(first("skill")).toBe("init");
+	});
+
 	it("badges nothing when the recommended trigger is not offered", () => {
 		const items = buildMenuItems(0, 0, true, true, false, "hook");
 

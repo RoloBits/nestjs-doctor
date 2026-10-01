@@ -1,9 +1,23 @@
-import { existsSync, lstatSync, readFileSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
 import { appendFile, mkdir } from "node:fs/promises";
-import { join } from "node:path";
+import { join, relative, sep } from "node:path";
 import { findGitRepo } from "../engine/git.js";
 
-export const HOOK_LINE = "npx nestjs-doctor@latest . --staged";
+/** The pre-commit line: the scanned directory, relative to the repo root husky runs from. */
+export const hookLine = (
+	root: string,
+	targetPath: string,
+	version: string
+): string => {
+	let resolved = targetPath;
+	try {
+		resolved = realpathSync(targetPath);
+	} catch {
+		// A missing target keeps the path as given.
+	}
+	const target = relative(root, resolved).split(sep).join("/") || ".";
+	return `npx nestjs-doctor@${version} ${target} --staged --blocking error`;
+};
 
 export type HookTool = "husky" | "lefthook" | "none" | "simple-git-hooks";
 
@@ -51,9 +65,33 @@ export const detectHookTool = (root: string): HookTool => {
 	return "none";
 };
 
-const PASTE_SNIPPETS: Record<Exclude<HookTool, "husky" | "none">, string> = {
-	lefthook: `pre-commit:\n  commands:\n    nestjs-doctor:\n      run: ${HOOK_LINE}`,
-	"simple-git-hooks": `"simple-git-hooks": { "pre-commit": "${HOOK_LINE}" }`,
+const pasteSnippet = (
+	tool: Exclude<HookTool, "husky" | "none">,
+	line: string
+): string =>
+	tool === "lefthook"
+		? `pre-commit:\n  commands:\n    nestjs-doctor:\n      run: ${line}`
+		: `"simple-git-hooks": { "pre-commit": "${line}" }`;
+
+/** The pre-commit tool of the repository that contains `targetPath`. */
+export const hookToolFor = (targetPath: string): HookTool => {
+	const repo = findGitRepo(targetPath);
+	return repo ? detectHookTool(repo.root) : "none";
+};
+
+/** The first symlink among `.husky` and its pre-commit file, or null. */
+const findSymlink = (root: string): string | null => {
+	for (const segment of [".husky", join(".husky", "pre-commit")]) {
+		const candidate = join(root, segment);
+		try {
+			if (lstatSync(candidate).isSymbolicLink()) {
+				return candidate;
+			}
+		} catch {
+			// Missing segments are created below.
+		}
+	}
+	return null;
 };
 
 /** True when the repository's pre-commit hook already runs nestjs-doctor. */
@@ -72,7 +110,8 @@ export const hookInstalled = (targetPath: string): boolean => {
 
 /** Appends the staged scan to husky's pre-commit hook; other tools get a snippet to paste. */
 export const installHook = async (
-	targetPath: string
+	targetPath: string,
+	version: string
 ): Promise<HookInstallResult> => {
 	const repo = findGitRepo(targetPath);
 	if (!repo) {
@@ -82,14 +121,16 @@ export const installHook = async (
 	if (tool === "none") {
 		return { status: "no-tool", tool };
 	}
+	const line = hookLine(repo.root, targetPath, version);
 	if (tool !== "husky") {
-		return { snippet: PASTE_SNIPPETS[tool], status: "paste", tool };
+		return { snippet: pasteSnippet(tool, line), status: "paste", tool };
+	}
+	const symlink = findSymlink(repo.root);
+	if (symlink) {
+		return { path: symlink, status: "symlink", tool };
 	}
 	const path = join(repo.root, ".husky", "pre-commit");
 	try {
-		if (lstatSync(path).isSymbolicLink()) {
-			return { path, status: "symlink", tool };
-		}
 		if (readFileSync(path, "utf-8").includes("nestjs-doctor")) {
 			return { path, status: "exists", tool };
 		}
@@ -100,7 +141,7 @@ export const installHook = async (
 		await mkdir(join(repo.root, ".husky"), { recursive: true });
 		const existing = existsSync(path) ? readFileSync(path, "utf-8") : "";
 		const separator = existing === "" || existing.endsWith("\n") ? "" : "\n";
-		await appendFile(path, `${separator}${HOOK_LINE}\n`, "utf-8");
+		await appendFile(path, `${separator}${line}\n`, "utf-8");
 		return { path, status: "added", tool };
 	} catch {
 		return { path, status: "failed", tool };

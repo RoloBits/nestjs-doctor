@@ -100,10 +100,11 @@ scan that just ran, so nothing is scanned twice.
 
 Three menu items make the scan recur, and the one the repository is closest to
 carries a `Recommended` badge: `Review every pull request` scaffolds the
-GitHub Actions workflow when it is missing; `Check every commit` appends
-`npx nestjs-doctor@latest . --staged` to `.husky/pre-commit`, or copies a
-snippet for lefthook and simple-git-hooks, and shows only when one of those
-tools is set up; `Rescan after every agent edit` installs the agent skill.
+GitHub Actions workflow when it is missing; `Check every commit` appends a
+`--staged --blocking error` scan of the directory you scanned, pinned to the
+running version, to `.husky/pre-commit`, or copies or shows a snippet for
+lefthook and simple-git-hooks, and shows only when one of those tools is set
+up; `Rescan after every agent edit` installs the agent skill.
 
 The first plain terminal run on a project ends with one dim line on stderr
 naming the recurring trigger the repository is closest to: `ci install` when a

@@ -12,10 +12,12 @@ import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import {
 	detectHookTool,
-	HOOK_LINE,
 	hookInstalled,
+	hookLine,
 	installHook,
 } from "../../src/cli/hook-install.js";
+
+const LINE = "npx nestjs-doctor@1.2.3 . --staged --blocking error";
 
 const dirs: string[] = [];
 
@@ -61,22 +63,22 @@ describe("installHook", () => {
 		const hook = join(root, ".husky", "pre-commit");
 		writeFileSync(hook, "npm test");
 
-		const outcome = await installHook(root);
+		const outcome = await installHook(root, "1.2.3");
 
 		expect(outcome.status).toBe("added");
 		expect(outcome.path?.endsWith("/.husky/pre-commit")).toBe(true);
-		expect(readFileSync(hook, "utf-8")).toBe(`npm test\n${HOOK_LINE}\n`);
+		expect(readFileSync(hook, "utf-8")).toBe(`npm test\n${LINE}\n`);
 		expect(hookInstalled(root)).toBe(true);
-		expect((await installHook(root)).status).toBe("exists");
+		expect((await installHook(root, "1.2.3")).status).toBe("exists");
 	});
 
 	it("creates the hook file when husky has none yet", async () => {
 		const root = repo();
 		mkdirSync(join(root, ".husky"));
 
-		expect((await installHook(root)).status).toBe("added");
+		expect((await installHook(root, "1.2.3")).status).toBe("added");
 		expect(readFileSync(join(root, ".husky", "pre-commit"), "utf-8")).toBe(
-			`${HOOK_LINE}\n`
+			`${LINE}\n`
 		);
 	});
 
@@ -84,10 +86,10 @@ describe("installHook", () => {
 		const root = repo();
 		writeFileSync(join(root, "lefthook.yml"), "pre-commit:\n");
 
-		const outcome = await installHook(root);
+		const outcome = await installHook(root, "1.2.3");
 
 		expect(outcome.status).toBe("paste");
-		expect(outcome.snippet).toContain(HOOK_LINE);
+		expect(outcome.snippet).toContain(LINE);
 		expect(readFileSync(join(root, "lefthook.yml"), "utf-8")).toBe(
 			"pre-commit:\n"
 		);
@@ -99,13 +101,37 @@ describe("installHook", () => {
 		writeFileSync(join(root, "elsewhere"), "");
 		symlinkSync(join(root, "elsewhere"), join(root, ".husky", "pre-commit"));
 
-		expect((await installHook(root)).status).toBe("symlink");
+		expect((await installHook(root, "1.2.3")).status).toBe("symlink");
+	});
+
+	it("refuses to write through a symlinked .husky directory", async () => {
+		const root = repo();
+		const elsewhere = mkdtempSync(join(tmpdir(), "nd-hook-shared-"));
+		dirs.push(elsewhere);
+		symlinkSync(elsewhere, join(root, ".husky"));
+
+		expect((await installHook(root, "1.2.3")).status).toBe("symlink");
+	});
+
+	it("scans the directory that was scanned, relative to the repo root", async () => {
+		const root = repo();
+		mkdirSync(join(root, ".husky"));
+		mkdirSync(join(root, "apps", "api"), { recursive: true });
+
+		await installHook(join(root, "apps", "api"), "1.2.3");
+
+		expect(readFileSync(join(root, ".husky", "pre-commit"), "utf-8")).toBe(
+			"npx nestjs-doctor@1.2.3 apps/api --staged --blocking error\n"
+		);
+		expect(hookLine("/r", "/r", "0.1.0")).toBe(
+			"npx nestjs-doctor@0.1.0 . --staged --blocking error"
+		);
 	});
 
 	it("reports no tool and no repo", async () => {
-		expect((await installHook(repo())).status).toBe("no-tool");
+		expect((await installHook(repo(), "1.2.3")).status).toBe("no-tool");
 		const plain = mkdtempSync(join(tmpdir(), "nd-hook-plain-"));
 		dirs.push(plain);
-		expect((await installHook(plain)).status).toBe("no-repo");
+		expect((await installHook(plain, "1.2.3")).status).toBe("no-repo");
 	});
 });

@@ -12,7 +12,7 @@ import {
 	ciWorkflowExists,
 	installCiWorkflow,
 } from "../../ci-install.js";
-import { hookInstalled, installHook } from "../../hook-install.js";
+import { hookInstalled, hookToolFor, installHook } from "../../hook-install.js";
 import { initSkill } from "../../init.js";
 import { skillInstalledForDetectedAgent } from "../../skill-targets.js";
 import { chooseTriggerOffer } from "../../trigger-hint.js";
@@ -109,7 +109,7 @@ export const App = ({
 			ruleCount,
 			!ciWorkflowExists(context.targetPath),
 			!skillInstalled,
-			offer === "hook" && !hookAdded,
+			hookToolFor(context.targetPath) !== "none" && !hookAdded,
 			offer
 		);
 	}, [
@@ -210,7 +210,10 @@ export const App = ({
 							});
 					}
 				} else if (action === "hook") {
-					const outcome = await installHook(context.targetPath);
+					const outcome = await installHook(
+						context.targetPath,
+						context.version
+					);
 					if (outcome.status === "added") {
 						setHookAdded(true);
 						setToast({
