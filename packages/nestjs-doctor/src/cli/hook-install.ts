@@ -1,23 +1,12 @@
-import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { appendFile, mkdir } from "node:fs/promises";
-import { join, relative, sep } from "node:path";
+import { join } from "node:path";
 import { findGitRepo } from "../engine/git.js";
+import { findSymlink } from "./ci-install.js";
 
-/** The pre-commit line: the scanned directory, relative to the repo root husky runs from. */
-export const hookLine = (
-	root: string,
-	targetPath: string,
-	version: string
-): string => {
-	let resolved = targetPath;
-	try {
-		resolved = realpathSync(targetPath);
-	} catch {
-		// A missing target keeps the path as given.
-	}
-	const target = relative(root, resolved).split(sep).join("/") || ".";
-	return `npx nestjs-doctor@${version} ${target} --staged --blocking error`;
-};
+/** The pre-commit line: `prefix` is the scanned directory inside the repo, as git reports it. */
+export const hookLine = (prefix: string, version: string): string =>
+	`npx nestjs-doctor@${version} ${prefix || "."} --staged --blocking error`;
 
 export type HookTool = "husky" | "lefthook" | "none" | "simple-git-hooks";
 
@@ -79,21 +68,6 @@ export const hookToolFor = (targetPath: string): HookTool => {
 	return repo ? detectHookTool(repo.root) : "none";
 };
 
-/** The first symlink among `.husky` and its pre-commit file, or null. */
-const findSymlink = (root: string): string | null => {
-	for (const segment of [".husky", join(".husky", "pre-commit")]) {
-		const candidate = join(root, segment);
-		try {
-			if (lstatSync(candidate).isSymbolicLink()) {
-				return candidate;
-			}
-		} catch {
-			// Missing segments are created below.
-		}
-	}
-	return null;
-};
-
 /** True when the repository's pre-commit hook already runs nestjs-doctor. */
 export const hookInstalled = (targetPath: string): boolean => {
 	const repo = findGitRepo(targetPath);
@@ -121,11 +95,14 @@ export const installHook = async (
 	if (tool === "none") {
 		return { status: "no-tool", tool };
 	}
-	const line = hookLine(repo.root, targetPath, version);
+	const line = hookLine(repo.prefix, version);
 	if (tool !== "husky") {
 		return { snippet: pasteSnippet(tool, line), status: "paste", tool };
 	}
-	const symlink = findSymlink(repo.root);
+	const symlink = findSymlink(repo.root, [
+		".husky",
+		join(".husky", "pre-commit"),
+	]);
 	if (symlink) {
 		return { path: symlink, status: "symlink", tool };
 	}

@@ -40,9 +40,11 @@ export const resolveDefaultBranch = (root: string): string => {
 	return shortRef(root, "HEAD") ?? "main";
 };
 
-/** Path of the first symlink on the way to the workflow, or null when there is none. */
-const findSymlink = (root: string): string | null => {
-	const segments = [".github", join(".github", "workflows"), WORKFLOW_FILE];
+/** Path of the first symlink among `segments` under `root`, or null when there is none. */
+export const findSymlink = (
+	root: string,
+	segments: string[]
+): string | null => {
 	for (const segment of segments) {
 		const candidate = join(root, segment);
 		try {
@@ -133,7 +135,11 @@ export const installCiWorkflow = async (
 		return { status: "no-repo", workflowPath: join(targetPath, WORKFLOW_FILE) };
 	}
 
-	const symlink = findSymlink(repo.root);
+	const symlink = findSymlink(repo.root, [
+		".github",
+		join(".github", "workflows"),
+		WORKFLOW_FILE,
+	]);
 	if (symlink) {
 		return { status: "symlink", workflowPath: symlink };
 	}

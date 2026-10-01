@@ -66,7 +66,7 @@ describe("installHook", () => {
 		const outcome = await installHook(root, "1.2.3");
 
 		expect(outcome.status).toBe("added");
-		expect(outcome.path?.endsWith("/.husky/pre-commit")).toBe(true);
+		expect(outcome.path?.endsWith(join(".husky", "pre-commit"))).toBe(true);
 		expect(readFileSync(hook, "utf-8")).toBe(`npm test\n${LINE}\n`);
 		expect(hookInstalled(root)).toBe(true);
 		expect((await installHook(root, "1.2.3")).status).toBe("exists");
@@ -123,7 +123,7 @@ describe("installHook", () => {
 		expect(readFileSync(join(root, ".husky", "pre-commit"), "utf-8")).toBe(
 			"npx nestjs-doctor@1.2.3 apps/api --staged --blocking error\n"
 		);
-		expect(hookLine("/r", "/r", "0.1.0")).toBe(
+		expect(hookLine("", "0.1.0")).toBe(
 			"npx nestjs-doctor@0.1.0 . --staged --blocking error"
 		);
 	});
