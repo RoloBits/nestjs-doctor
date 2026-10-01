@@ -18,14 +18,26 @@ const actions = (
 	).map((item) => item.action);
 
 describe("buildMenuItems", () => {
-	it("offers the three recurring triggers after the handoff item", () => {
+	it("opens with the recurring triggers, then this scan's actions behind More", () => {
 		expect(actions(3, true, true, true)).toEqual([
-			"review",
-			"report",
-			"handoff",
 			"ci",
 			"hook",
 			"init",
+			"handoff",
+			"review",
+			"report",
+			"more",
+			"quit",
+		]);
+	});
+
+	it("unfolds markdown and share in place of More", () => {
+		const items = buildMenuItems(3, 1, false, false, false, null, true);
+
+		expect(items.map((item) => item.action)).toEqual([
+			"handoff",
+			"review",
+			"report",
 			"markdown",
 			"share",
 			"quit",
@@ -33,12 +45,21 @@ describe("buildMenuItems", () => {
 	});
 
 	it("keeps the skill item when the workflow already exists", () => {
-		expect(actions(0, false, true)).toEqual([
-			"report",
-			"init",
-			"markdown",
-			"share",
-			"quit",
+		expect(actions(0, false, true)).toEqual(["init", "report", "more", "quit"]);
+	});
+
+	it("heads each group once", () => {
+		const items = buildMenuItems(3, 1, true, true, true, "action");
+
+		expect(items.map((item) => item.section)).toEqual([
+			"Keep it running",
+			undefined,
+			undefined,
+			"This scan",
+			undefined,
+			undefined,
+			undefined,
+			undefined,
 		]);
 	});
 
@@ -78,12 +99,13 @@ describe("buildMenuItems", () => {
 	});
 
 	it("says what each trigger does for the user", () => {
-		const labels = buildMenuItems(0, 0, true, true, true, null).map(
+		const labels = buildMenuItems(3, 1, true, true, true, null).map(
 			(item) => item.label
 		);
 
 		expect(labels).toContain("Review every pull request");
 		expect(labels).toContain("Check every commit");
 		expect(labels).toContain("Rescan after every agent edit");
+		expect(labels).toContain("Fix issues with AI");
 	});
 });

@@ -23,6 +23,7 @@ export type MenuAction =
 	| "hook"
 	| "init"
 	| "markdown"
+	| "more"
 	| "quit"
 	| "report"
 	| "review"

@@ -102,6 +102,7 @@ export const App = ({
 	const [hookAdded, setHookAdded] = useState(() =>
 		hookInstalled(context.targetPath)
 	);
+	const [showMore, setShowMore] = useState(false);
 	const items = useMemo(() => {
 		const offer = chooseTriggerOffer(context.targetPath);
 		return buildMenuItems(
@@ -110,12 +111,14 @@ export const App = ({
 			!ciWorkflowExists(context.targetPath),
 			!skillInstalled,
 			hookToolFor(context.targetPath) !== "none" && !hookAdded,
-			offer
+			offer,
+			showMore
 		);
 	}, [
 		context.targetPath,
 		hookAdded,
 		ruleCount,
+		showMore,
 		shown.diagnostics,
 		skillInstalled,
 	]);
@@ -142,6 +145,10 @@ export const App = ({
 		async (action: MenuAction): Promise<void> => {
 			if (action === "quit") {
 				exit();
+				return;
+			}
+			if (action === "more") {
+				setShowMore(true);
 				return;
 			}
 			if (action === "review") {

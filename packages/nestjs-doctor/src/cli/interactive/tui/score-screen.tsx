@@ -33,10 +33,12 @@ const TOAST_STYLE: Record<
 
 interface MenuItem {
 	action: MenuAction;
-	/** Uppercase tag shown in nest red between the label and the hint. */
+	/** Uppercase tag shown in nest red after the hint. */
 	badge?: string;
 	hint?: string;
 	label: string;
+	/** A heading printed above this item, opening a group. */
+	section?: string;
 }
 
 const OFFER_ACTION: Record<TriggerOffer, MenuItem["action"]> = {
@@ -98,44 +100,58 @@ export const buildMenuItems = (
 	offerCi: boolean,
 	offerInit: boolean,
 	offerHook = false,
-	recommended: TriggerOffer | null = null
-): MenuItem[] => [
-	...(findingCount > 0
-		? [
-				{
-					action: "review" as const,
-					hint: `${findingCount} findings in ${ruleCount} rules`,
-					label: "Review issues",
-				},
-			]
-		: []),
-	{
-		action: "report" as const,
-		hint: `${findingCount} finding${findingCount === 1 ? "" : "s"} in an interactive page`,
-		label: "Open the HTML report",
-	},
-	...(findingCount > 0
-		? [
-				{
-					action: "handoff" as const,
-					hint: "Start an agent with the findings, or copy the prompt",
-					label: "Hand off to an agent",
-				},
-			]
-		: []),
-	...triggerItems(offerCi, offerHook, offerInit, recommended),
-	{
-		action: "markdown" as const,
-		hint: "The pull request summary, for pasting anywhere",
-		label: "Copy findings as markdown",
-	},
-	{
-		action: "share" as const,
-		hint: "Pick the sections and save a .json others can open",
-		label: "Share the report",
-	},
-	{ action: "quit", label: "Quit" },
-];
+	recommended: TriggerOffer | null = null,
+	showMore = false
+): MenuItem[] => {
+	const recurring = triggerItems(offerCi, offerHook, offerInit, recommended);
+	if (recurring[0]) {
+		recurring[0] = { ...recurring[0], section: "Keep it running" };
+	}
+	const scan: MenuItem[] = [
+		...(findingCount > 0
+			? [
+					{
+						action: "handoff" as const,
+						hint: "Start your coding agent with the findings, or copy the prompt",
+						label: "Fix issues with AI",
+					},
+					{
+						action: "review" as const,
+						hint: `${findingCount} findings in ${ruleCount} rules`,
+						label: "Review issues",
+					},
+				]
+			: []),
+		{
+			action: "report" as const,
+			hint: `${findingCount} finding${findingCount === 1 ? "" : "s"} in an interactive page`,
+			label: "Open the HTML report",
+		},
+		...(showMore
+			? [
+					{
+						action: "markdown" as const,
+						hint: "The pull request summary, for pasting anywhere",
+						label: "Copy findings as markdown",
+					},
+					{
+						action: "share" as const,
+						hint: "Pick the sections and save a .json others can open",
+						label: "Share the report",
+					},
+				]
+			: [
+					{
+						action: "more" as const,
+						hint: "Copy as markdown, share the report",
+						label: "More",
+					},
+				]),
+		{ action: "quit" as const, label: "Quit" },
+	];
+	scan[0] = { ...scan[0], section: "This scan" } as MenuItem;
+	return [...recurring, ...scan];
+};
 
 const NestBox = ({ score }: { score: number }): React.JSX.Element => {
 	const birds = getNestBirds(score);
@@ -316,7 +332,7 @@ export const ScoreScreen = ({
 	const subProjects = [...(context.subProjects ?? [])].sort(byWorstScore);
 	const paneRows = listCapacity(
 		usableRows(stdout.rows),
-		CHROME_ROWS + items.length,
+		CHROME_ROWS + items.length + items.filter((item) => item.section).length,
 		MIN_SUB_ROWS
 	);
 	const subProjectsOverflow = subProjects.length > paneRows - 1;
@@ -586,47 +602,58 @@ export const ScoreScreen = ({
 					const isSelected = index === selected;
 					const shimmer = Boolean(item.badge);
 					return (
-						<Box flexDirection="row" key={item.action}>
-							<Box
-								backgroundColor={isSelected ? palette.nestRed : undefined}
-								width={1}
-							>
-								<Text> </Text>
-							</Box>
-							<Box
-								backgroundColor={isSelected ? palette.washRed : undefined}
-								gap={2}
-								paddingLeft={1}
-							>
-								{shimmer ? (
-									<Rainbow
-										frame={frame}
-										text={padEnd(item.label, labelWidth)}
-									/>
-								) : (
-									<Text
-										bold={isSelected}
-										color={isSelected ? palette.bright : palette.text}
-									>
-										{padEnd(item.label, labelWidth)}
-									</Text>
-								)}
-								{item.hint ? (
-									<Text color={isSelected ? palette.muted : palette.dim}>
-										{truncate(
-											item.hint,
-											Math.max(
-												0,
-												columns - labelWidth - 8 - (item.badge?.length ?? 0) - 3
-											)
-										)}
-									</Text>
-								) : null}
-								{item.badge ? (
-									<Text bold color={palette.nestRed}>
-										{` ${item.badge.toUpperCase()} `}
-									</Text>
-								) : null}
+						<Box flexDirection="column" key={item.action}>
+							{item.section ? (
+								<Text color={palette.muted}>
+									{`${index > 0 ? "\n" : ""}  ${item.section.toUpperCase()}`}
+								</Text>
+							) : null}
+							<Box flexDirection="row">
+								<Box
+									backgroundColor={isSelected ? palette.nestRed : undefined}
+									width={1}
+								>
+									<Text> </Text>
+								</Box>
+								<Box
+									backgroundColor={isSelected ? palette.washRed : undefined}
+									gap={2}
+									paddingLeft={1}
+								>
+									{shimmer ? (
+										<Rainbow
+											frame={frame}
+											text={padEnd(item.label, labelWidth)}
+										/>
+									) : (
+										<Text
+											bold={isSelected}
+											color={isSelected ? palette.bright : palette.text}
+										>
+											{padEnd(item.label, labelWidth)}
+										</Text>
+									)}
+									{item.hint ? (
+										<Text color={isSelected ? palette.muted : palette.dim}>
+											{truncate(
+												item.hint,
+												Math.max(
+													0,
+													columns -
+														labelWidth -
+														8 -
+														(item.badge?.length ?? 0) -
+														3
+												)
+											)}
+										</Text>
+									) : null}
+									{item.badge ? (
+										<Text bold color={palette.nestRed}>
+											{` ${item.badge.toUpperCase()} `}
+										</Text>
+									) : null}
+								</Box>
 							</Box>
 						</Box>
 					);
