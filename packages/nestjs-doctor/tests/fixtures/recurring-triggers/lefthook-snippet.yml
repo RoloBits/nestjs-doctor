@@ -1,0 +1,4 @@
+pre-commit:
+  commands:
+    nestjs-doctor:
+      run: npx --yes nestjs-doctor@1.2.3 apps/api --staged --blocking error

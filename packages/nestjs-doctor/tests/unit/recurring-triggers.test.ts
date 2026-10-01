@@ -26,6 +26,7 @@ import {
 } from "../../src/cli/trigger-hint.js";
 
 const FIXTURES = resolve(import.meta.dirname, "../fixtures");
+const EXPECTED = join(FIXTURES, "recurring-triggers");
 const WORKFLOW = join(".github", "workflows", "nestjs-doctor.yml");
 const HOOK = join(".husky", "pre-commit");
 const VERSION = "1.2.3";
@@ -40,9 +41,12 @@ const checkout = (fixture: string): string => {
 	const env = Object.fromEntries(
 		Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_"))
 	);
-	execFileSync("git", ["init", "-q"], { cwd: root, env });
+	execFileSync("git", ["init", "-q", "-b", "main"], { cwd: root, env });
 	return root;
 };
+
+const expected = (name: string): string =>
+	readFileSync(join(EXPECTED, name), "utf-8");
 
 afterAll(() => {
 	for (const dir of dirs) {
@@ -65,7 +69,9 @@ describe("a single project (basic-app)", () => {
 		mkdirSync(join(root, ".github", "workflows"), { recursive: true });
 
 		expect((await installCiWorkflow(root, false)).status).toBe("created");
-		expect(existsSync(join(root, WORKFLOW))).toBe(true);
+		expect(readFileSync(join(root, WORKFLOW), "utf-8")).toBe(
+			expected("nestjs-doctor.yml")
+		);
 		expect(ciWorkflowExists(root)).toBe(true);
 		expect((await installCiWorkflow(root, false)).status).toBe("exists");
 		expect(chooseTriggerOffer(root)).toBe("skill");
@@ -80,8 +86,8 @@ describe("a single project (basic-app)", () => {
 		expect(chooseTriggerOffer(root)).toBe("hook");
 
 		expect((await installHook(root, VERSION)).status).toBe("created");
-		expect(readFileSync(join(root, HOOK), "utf-8")).toContain(
-			`npx --yes nestjs-doctor@${VERSION} . --staged --blocking error`
+		expect(readFileSync(join(root, HOOK), "utf-8")).toBe(
+			expected("husky-pre-commit")
 		);
 		expect(hookPresent(root, "husky")).toBe(true);
 		expect((await installHook(root, VERSION)).status).toBe("exists");
@@ -103,7 +109,9 @@ describe("a monorepo scanned from one app (monorepo-app/apps/api)", () => {
 
 		expect(chooseTriggerOffer(api)).toBe("action");
 		expect((await installCiWorkflow(api, false)).status).toBe("created");
-		expect(existsSync(join(root, WORKFLOW))).toBe(true);
+		expect(readFileSync(join(root, WORKFLOW), "utf-8")).toBe(
+			expected("nestjs-doctor.yml")
+		);
 		expect(existsSync(join(api, WORKFLOW))).toBe(false);
 		expect(ciWorkflowExists(api)).toBe(true);
 	});
@@ -119,7 +127,7 @@ describe("a monorepo scanned from one app (monorepo-app/apps/api)", () => {
 
 		expect((await installHook(api, VERSION)).status).toBe("created");
 		expect(readFileSync(join(root, HOOK), "utf-8")).toBe(
-			`npm test\n# nestjs-doctor: block the commit on error-level findings in staged files\nnpx --yes nestjs-doctor@${VERSION} apps/api --staged --blocking error\n`
+			expected("husky-pre-commit-monorepo")
 		);
 		expect(hookPresent(root, "husky")).toBe(true);
 		expect((await installHook(api, VERSION)).status).toBe("exists");
@@ -134,8 +142,8 @@ describe("a monorepo scanned from one app (monorepo-app/apps/api)", () => {
 		const outcome = await installHook(api, VERSION);
 
 		expect(outcome.status).toBe("paste");
-		expect(outcome.status === "paste" && outcome.snippet).toContain(
-			`nestjs-doctor@${VERSION} apps/api --staged`
+		expect(outcome.status === "paste" && outcome.snippet).toBe(
+			expected("lefthook-snippet.yml")
 		);
 		expect(readFileSync(join(root, "lefthook.yml"), "utf-8")).toBe(
 			"pre-commit:\n"

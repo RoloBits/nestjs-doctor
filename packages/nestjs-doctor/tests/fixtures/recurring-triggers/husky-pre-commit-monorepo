@@ -1,0 +1,3 @@
+npm test
+# nestjs-doctor: block the commit on error-level findings in staged files
+npx --yes nestjs-doctor@1.2.3 apps/api --staged --blocking error
