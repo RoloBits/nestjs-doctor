@@ -51,7 +51,7 @@ const triggerItems = (
 			? [
 					{
 						action: "ci" as const,
-						hint: "A GitHub Action comments on what each PR introduces",
+						hint: "Comments on every PR",
 						label: "Review every pull request",
 					},
 				]
@@ -60,7 +60,7 @@ const triggerItems = (
 			? [
 					{
 						action: "hook" as const,
-						hint: "Scans the staged files on every git commit",
+						hint: "Scans staged files per commit",
 						label: "Check every commit",
 					},
 				]
@@ -69,7 +69,7 @@ const triggerItems = (
 			? [
 					{
 						action: "init" as const,
-						hint: "Installs the skill for Claude Code, Cursor and Codex",
+						hint: "Your agent rescans its edits",
 						label: "Rescan after every agent edit",
 					},
 				]
