@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { findGitRepo } from "../engine/git.js";
 import { detectTrigger, type TriggerOffer } from "../telemetry/environment.js";
 import { ciWorkflowExists } from "./ci-install.js";
-import { detectHookTool, hookLine } from "./hook-install.js";
+import { detectHookTool, hookLine, hookPresent } from "./hook-install.js";
 import { getCliVersion } from "./output.js";
 import { isNonInteractiveEnvironment } from "./ui/environment.js";
 
@@ -47,7 +47,8 @@ export const chooseTriggerOffer = (targetPath: string): TriggerOffer => {
 		) {
 			return "action";
 		}
-		if (detectHookTool(repo.root) !== "none") {
+		const tool = detectHookTool(repo.root);
+		if (tool !== "none" && !hookPresent(repo.root, tool)) {
 			return "hook";
 		}
 	}
