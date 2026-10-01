@@ -6,7 +6,12 @@ import type { RuleErrorInfo, Score } from "../common/result.js";
 import type { ScopeMode } from "../common/scope.js";
 import { allRules } from "../engine/rules/index.js";
 import type { EcosystemFacts } from "./ecosystem.js";
-import type { ActionFacts, Trigger, VersionPin } from "./environment.js";
+import type {
+	ActionFacts,
+	Trigger,
+	TriggerOffer,
+	VersionPin,
+} from "./environment.js";
 
 /** The payload's output vocabulary. `report` is what no `--format` spells. */
 export type PayloadOutputFormat = OutputFormat | "report";
@@ -40,6 +45,8 @@ export interface ScanFacts {
 	elapsedMs: number;
 	fileCount: number;
 	framework: string | null;
+	/** The recurring trigger this project was offered on an earlier run, if any. */
+	hintOffered: TriggerOffer | null;
 	monorepo: boolean;
 	nestVersion: string | null;
 	orm: string | null;
@@ -83,6 +90,7 @@ export interface ScanPayload {
 	framework: string | null;
 	frontend: string[];
 	generated_in: "ci" | "cli";
+	hint_offered: TriggerOffer | null;
 	ignored_file_count: number;
 	ignored_rules: string[];
 	messaging: string[];
@@ -205,6 +213,7 @@ export function buildScanPayload(
 		framework: facts.framework,
 		frontend: facts.ecosystem.frontend,
 		generated_in: facts.source,
+		hint_offered: facts.hintOffered,
 		ignored_file_count: facts.config.ignoredFileCount,
 		ignored_rules: facts.config.ignoredRules,
 		messaging: facts.ecosystem.messaging,

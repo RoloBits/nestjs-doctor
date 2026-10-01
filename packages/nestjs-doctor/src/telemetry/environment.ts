@@ -166,6 +166,14 @@ const TRIGGERS = [
 ] as const;
 export type Trigger = (typeof TRIGGERS)[number];
 
+const TRIGGER_OFFERS = ["action", "hook", "skill"] as const;
+/** The recurring trigger a one-shot terminal run is offered. */
+export type TriggerOffer = (typeof TRIGGER_OFFERS)[number];
+
+export const isTriggerOffer = (value: unknown): value is TriggerOffer =>
+	typeof value === "string" &&
+	(TRIGGER_OFFERS as readonly string[]).includes(value);
+
 /**
  * How the process was started. Reads the env and, under an agent, whether the
  * skill is installed in the home the env names. No command line, no cwd.

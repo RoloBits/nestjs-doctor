@@ -25,6 +25,7 @@ The payload is built from rule metadata, counts, and a fixed set of environment 
 | `version` | The nestjs-doctor version that ran |
 | `scan_id` | A random UUID for this run, generated fresh on every scan |
 | `generated_in` | `cli` or `ci` |
+| `hint_offered` | The recurring trigger an earlier terminal run on this project was pointed at: `action`, `hook`, `skill`, or nothing |
 | `trigger` | How the run started: `action`, `ci`, `hook`, `skill` (an agent started the run and has the nestjs-doctor skill installed), `agent`, `script`, `npx` or `global` |
 | `platform` | The Node platform string, such as `darwin` |
 | `node_major` | The Node major version, such as `24` |
@@ -117,7 +118,7 @@ Outside CI the event carries two ids. `telemetry.json` holds an install id and a
 - **`distinct_id`:** a random UUID, stable for this install.
 - **`project_id`:** a SHA-256 over a second random UUID and the resolved project path.
 
-The salt never leaves the machine, so neither hash can be rebuilt from anything shipped in the package. If the config directory cannot be written, the scan reports a fresh id and stores nothing. A local `hints.json` next to it records whether the one-time editor line has printed; it is never sent.
+The salt never leaves the machine, so neither hash can be rebuilt from anything shipped in the package. If the config directory cannot be written, the scan reports a fresh id and stores nothing. A local `hints.json` next to it remembers which one-time tips have been shown.
 
 The store lives where the platform expects a CLI to keep its own config:
 

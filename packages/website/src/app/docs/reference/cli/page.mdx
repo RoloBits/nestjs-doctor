@@ -99,6 +99,13 @@ workflow when it is missing, copy the findings as markdown, or share a slice of
 the report. Everything comes from the scan that just ran, so nothing is scanned
 twice.
 
+The first plain terminal run on a project ends with one dim line on stderr
+naming the recurring trigger the repository is closest to: `ci install` when a
+`.github/workflows` directory exists without the nestjs-doctor workflow,
+`--staged` in a pre-commit hook when husky or lefthook is set up, and `--init`
+otherwise. It prints once per project and never in CI, inside a coding agent,
+in a pipe, or with machine-readable output.
+
 **Share the report** opens a checkbox picker over the sections the scan
 produced. See [Sharing a report](/docs/report/share).
 

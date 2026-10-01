@@ -53,9 +53,16 @@ import { summarizeWarnings } from "./formatters/warning-summary.js";
 import { resolveMinScore } from "./min-score.js";
 import {
 	getCliVersion,
+	NO_FILES_EXIT_CODE,
 	outputMonorepoResults,
 	outputSingleProjectResults,
 } from "./output.js";
+import {
+	chooseTriggerOffer,
+	triggerHintKey,
+	triggerHintLine,
+	triggerHintSite,
+} from "./trigger-hint.js";
 import type { ScanOutcome, ScanWorkerRequest } from "./worker-delegate.js";
 import {
 	canDelegateToWorker,
@@ -139,6 +146,8 @@ abstract class ScanPipeline {
 	protected reportTelemetry = false;
 	/** Warnings raised while narrowing the scope; surfaced alongside the report. */
 	protected scopeWarnings: string[] = [];
+	/** Set when a step threw; the run ends without a trigger offer. */
+	protected failed = false;
 	/** Constructed in the worker for an interactive run, so this times the engine middle there. */
 	protected readonly startedAt = performance.now();
 	protected readonly steps: PipelineStep[] = [];
@@ -272,13 +281,30 @@ abstract class ScanPipeline {
 		);
 	}
 
-	/** One line, once per install, pointing at the editor extension. */
+	/** One line per run at most: the recurring-trigger offer once per project, else the editor extension once per install. */
 	protected printExtensionHint(site: "menu" | "run"): void {
-		const target = extensionHintSite({
-			hints: readHints(),
+		const hints = readHints();
+		const tty = process.stderr.isTTY === true;
+		const triggerTarget = triggerHintSite({
+			hints,
 			interactive: this.options.interactive,
 			isMachineReadable: this.options.isMachineReadable,
-			tty: process.stderr.isTTY === true,
+			targetPath: this.targetPath,
+			tty,
+		});
+		const scanned = !this.failed && process.exitCode !== NO_FILES_EXIT_CODE;
+		if (scanned && triggerTarget === site) {
+			const offer = chooseTriggerOffer(this.targetPath);
+			if (markHint(triggerHintKey(this.targetPath), process.env, offer)) {
+				console.error(highlighter.dim(triggerHintLine(offer)));
+				return;
+			}
+		}
+		const target = extensionHintSite({
+			hints,
+			interactive: this.options.interactive,
+			isMachineReadable: this.options.isMachineReadable,
+			tty,
 		});
 		if (target === site && markHint("extension")) {
 			console.error(highlighter.dim(EXTENSION_HINT));
@@ -388,6 +414,7 @@ abstract class ScanPipeline {
 				await step();
 			}
 		} catch (error) {
+			this.failed = true;
 			this.progress?.fail("Scan failed");
 			this.progress = null;
 			throw error;

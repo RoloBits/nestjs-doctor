@@ -83,6 +83,7 @@ const facts = (overrides: Partial<ScanFacts> = {}): ScanFacts => ({
 	elapsedMs: 12.7,
 	fileCount: 4,
 	framework: "express",
+	hintOffered: null,
 	monorepo: false,
 	nestVersion: "11.0.0",
 	orm: "prisma",
