@@ -94,7 +94,7 @@ describe("buildWorkflow", () => {
 		const workflow = buildWorkflow("trunk");
 
 		expect(workflow).toContain("pull_request:");
-		expect(workflow).toContain('branches: ["trunk"]');
+		expect(workflow).toContain("branches: [trunk]");
 	});
 
 	it("writes the input reference, every key commented out", () => {

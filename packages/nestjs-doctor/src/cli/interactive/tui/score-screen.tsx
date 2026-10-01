@@ -1,8 +1,10 @@
 import { Box, Text, useStdout } from "ink";
 import { useEffect, useState } from "react";
 import type { DiagnoseResult } from "../../../common/result.js";
+import type { TriggerOffer } from "../../../telemetry/environment.js";
 import { usableColumns, usableRows } from "../../../ui/terminal.js";
 import { formatElapsedTime } from "../../formatters/console-reporter.js";
+import type { HookTool } from "../../hook-install.js";
 import { groupFindings } from "../findings.js";
 import { clampOffset, listCapacity, scrollWindow } from "./navigate.js";
 import { NOT_SCORED_TAG, padEnd, ruleNameBudget, truncate } from "./text.js";
@@ -19,6 +21,8 @@ import type { InteractiveContext, MenuAction, Toast } from "./types.js";
 const SCORE_BAR_WIDTH = 30;
 /** Nest box, score block, menu borders, footer, and the gaps between them. */
 const CHROME_ROWS = 14;
+/** Border, selection bar, padding and the two gaps on a menu row. */
+const ROW_CHROME = 11;
 const MIN_SUB_ROWS = 3;
 
 const TOAST_STYLE: Record<
@@ -32,72 +36,120 @@ const TOAST_STYLE: Record<
 
 interface MenuItem {
 	action: MenuAction;
-	/** Uppercase tag shown in nest red between the label and the hint. */
+	/** Uppercase tag shown in nest red after the hint; its label gets the colour sweep. */
 	badge?: string;
 	hint?: string;
 	label: string;
+	/** A heading printed above this item, opening a group. */
+	section?: string;
 }
 
-export const buildMenuItems = (
-	findingCount: number,
-	ruleCount: number,
-	offerCi: boolean,
-	offerInit: boolean
-): MenuItem[] => [
-	...(findingCount > 0
-		? [
-				{
-					action: "review" as const,
-					hint: `${findingCount} findings in ${ruleCount} rules`,
-					label: "Review issues",
-				},
-			]
-		: []),
-	{
-		action: "report" as const,
+const OFFER_ACTION: Record<TriggerOffer, MenuAction> = {
+	action: "ci",
+	hook: "hook",
+	skill: "init",
+};
+
+export interface MenuOptions {
+	findingCount: number;
+	hookTool: HookTool;
+	offerCi: boolean;
+	offerHook: boolean;
+	offerInit: boolean;
+	recommended: TriggerOffer | null;
+	ruleCount: number;
+	showMore: boolean;
+}
+
+/** The ways to make the scan recur, the recommended one first and badged. */
+const recurringItems = (options: MenuOptions): MenuItem[] => {
+	const items: MenuItem[] = [];
+	if (options.offerCi) {
+		items.push({
+			action: "ci",
+			hint: "Adds a PR-commenting workflow",
+			label: "Review every pull request",
+		});
+	}
+	if (options.offerHook) {
+		items.push({
+			action: "hook",
+			hint:
+				options.hookTool === "husky"
+					? "Edits .husky/pre-commit"
+					: "Shows a snippet to paste",
+			label: "Check every commit",
+		});
+	}
+	if (options.offerInit) {
+		items.push({
+			action: "init",
+			hint: "Your agent rescans its edits",
+			label: "Rescan after every agent edit",
+		});
+	}
+	const wanted = options.recommended && OFFER_ACTION[options.recommended];
+	return items
+		.map((item) =>
+			item.action === wanted ? { ...item, badge: "Recommended" } : item
+		)
+		.sort(
+			(a, b) => Number(b.badge !== undefined) - Number(a.badge !== undefined)
+		);
+};
+
+/** Puts a heading on the first item, when there is one. */
+const withSection = (items: MenuItem[], section: string): MenuItem[] =>
+	items.map((item, index) => (index === 0 ? { ...item, section } : item));
+
+export const buildMenuItems = (options: MenuOptions): MenuItem[] => {
+	const { findingCount, ruleCount, showMore } = options;
+	const scan: MenuItem[] = [];
+	if (findingCount > 0) {
+		scan.push(
+			{
+				action: "handoff",
+				hint: "Starts it with the findings, or copies the prompt",
+				label: "Fix issues with your agent",
+			},
+			{
+				action: "review",
+				hint: `${findingCount} findings in ${ruleCount} rules`,
+				label: "Review issues",
+			}
+		);
+	}
+	scan.push({
+		action: "report",
 		hint: `${findingCount} finding${findingCount === 1 ? "" : "s"} in an interactive page`,
 		label: "Open the HTML report",
-	},
-	...(findingCount > 0
-		? [
-				{
-					action: "handoff" as const,
-					hint: "Start an agent with the findings, or copy the prompt",
-					label: "Hand off to an agent",
-				},
-			]
-		: []),
-	...(offerCi
-		? [
-				{
-					action: "ci" as const,
-					badge: "Recommended",
-					hint: "Scaffold .github/workflows/nestjs-doctor.yml",
-					label: "Add to GitHub Actions",
-				},
-			]
-		: []),
-	...(offerInit
-		? [
-				{
-					action: "init" as const,
-					hint: "Your coding agent scans and fixes after each edit",
-					label: "Run after every change (install the agent skill)",
-				},
-			]
-		: []),
-	{
-		action: "markdown" as const,
-		hint: "The pull request summary, for pasting anywhere",
-		label: "Copy findings as markdown",
-	},
-	{
-		action: "share" as const,
-		hint: "Pick the sections and save a .json others can open",
-		label: "Share the report",
-	},
-	{ action: "quit", label: "Quit" },
-];
+	});
+	if (showMore) {
+		scan.push(
+			{
+				action: "markdown",
+				hint: "The pull request summary, for pasting anywhere",
+				label: "Copy findings as markdown",
+			},
+			{
+				action: "share",
+				hint: "Pick the sections and save a .json others can open",
+				label: "Share the report",
+			}
+		);
+	} else {
+		scan.push({
+			action: "more",
+			hint: "Copy as markdown, share the report",
+			label: "More",
+		});
+	}
+	scan.push({ action: "quit", label: "Quit" });
+	return [
+		...withSection(recurringItems(options), "Keep it running"),
+		...withSection(scan, "This scan"),
+	];
+};
 
 const NestBox = ({ score }: { score: number }): React.JSX.Element => {
 	const birds = getNestBirds(score);
@@ -195,6 +247,48 @@ const useCountUp = (target: number, durationMs = ANIMATION_MS): number => {
 	return value;
 };
 
+const SHIMMER_MS = 90;
+const HUE_STEP_PER_CHAR = 18;
+const HUE_STEP_PER_FRAME = 10;
+
+/** A fully saturated, light colour at `hue` degrees, as Ink's `rgb()` string. */
+const hueColor = (hue: number): string => {
+	const channel = (offset: number): number => {
+		const x = Math.abs(((hue / 60 + offset) % 6) - 3) - 1;
+		return Math.round(255 * (0.45 + 0.55 * Math.min(1, Math.max(0, x))));
+	};
+	return `rgb(${channel(0)}, ${channel(4)}, ${channel(2)})`;
+};
+
+/** The badged label: one hue per character, the wheel turning one step per frame. */
+const ShimmerLabel = ({ text }: { text: string }): React.JSX.Element => {
+	const [frame, setFrame] = useState(0);
+
+	useEffect(() => {
+		const timer = setInterval(() => {
+			setFrame((current) => current + 1);
+		}, SHIMMER_MS);
+		return () => {
+			clearInterval(timer);
+		};
+	}, []);
+
+	return (
+		<Text bold>
+			{[...text].map((char, index) => (
+				<Text
+					color={hueColor(
+						(index * HUE_STEP_PER_CHAR + frame * HUE_STEP_PER_FRAME) % 360
+					)}
+					key={`${index}-${char}`}
+				>
+					{char}
+				</Text>
+			))}
+		</Text>
+	);
+};
+
 export const ScoreScreen = ({
 	busy,
 	context,
@@ -215,7 +309,9 @@ export const ScoreScreen = ({
 	const subProjects = [...(context.subProjects ?? [])].sort(byWorstScore);
 	const paneRows = listCapacity(
 		usableRows(stdout.rows),
-		CHROME_ROWS + items.length,
+		CHROME_ROWS +
+			items.length +
+			2 * items.filter((item) => item.section).length,
 		MIN_SUB_ROWS
 	);
 	const subProjectsOverflow = subProjects.length > paneRows - 1;
@@ -482,41 +578,52 @@ export const ScoreScreen = ({
 			>
 				{items.map((item, index) => {
 					const isSelected = index === selected;
+					const hintWidth = Math.max(
+						0,
+						columns - labelWidth - ROW_CHROME - (item.badge?.length ?? 0)
+					);
 					return (
-						<Box flexDirection="row" key={item.action}>
-							<Box
-								backgroundColor={isSelected ? palette.nestRed : undefined}
-								width={1}
-							>
-								<Text> </Text>
-							</Box>
-							<Box
-								backgroundColor={isSelected ? palette.washRed : undefined}
-								gap={2}
-								paddingLeft={1}
-							>
-								<Text
-									bold={isSelected}
-									color={isSelected ? palette.bright : palette.text}
+						<Box flexDirection="column" key={item.action}>
+							{item.section ? (
+								<Box marginTop={index > 0 ? 1 : 0}>
+									<Text color={palette.muted}>
+										{`  ${item.section.toUpperCase()}`}
+									</Text>
+								</Box>
+							) : null}
+							<Box flexDirection="row">
+								<Box
+									backgroundColor={isSelected ? palette.nestRed : undefined}
+									width={1}
 								>
-									{padEnd(item.label, labelWidth)}
-								</Text>
-								{item.badge ? (
-									<Text bold color={palette.nestRed}>
-										{` ${item.badge.toUpperCase()} `}
-									</Text>
-								) : null}
-								{item.hint ? (
-									<Text color={isSelected ? palette.muted : palette.dim}>
-										{truncate(
-											item.hint,
-											Math.max(
-												0,
-												columns - labelWidth - 8 - (item.badge?.length ?? 0) - 3
-											)
-										)}
-									</Text>
-								) : null}
+									<Text> </Text>
+								</Box>
+								<Box
+									backgroundColor={isSelected ? palette.washRed : undefined}
+									gap={2}
+									paddingLeft={1}
+								>
+									{item.badge ? (
+										<ShimmerLabel text={padEnd(item.label, labelWidth)} />
+									) : (
+										<Text
+											bold={isSelected}
+											color={isSelected ? palette.bright : palette.text}
+										>
+											{padEnd(item.label, labelWidth)}
+										</Text>
+									)}
+									{item.hint ? (
+										<Text color={isSelected ? palette.muted : palette.dim}>
+											{truncate(item.hint, hintWidth)}
+										</Text>
+									) : null}
+									{item.badge ? (
+										<Text bold color={palette.nestRed}>
+											{` ${item.badge.toUpperCase()} `}
+										</Text>
+									) : null}
+								</Box>
 							</Box>
 						</Box>
 					);

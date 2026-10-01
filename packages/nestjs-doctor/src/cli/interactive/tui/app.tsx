@@ -1,5 +1,6 @@
 import { Box, Text, useApp, useInput } from "ink";
 import { useCallback, useMemo, useState } from "react";
+import { findGitRepo } from "../../../engine/git.js";
 import { withSurface } from "../../../engine/result-builder.js";
 import { buildMarkdownReport } from "../../../formatters/markdown-report.js";
 import {
@@ -12,8 +13,14 @@ import {
 	ciWorkflowExists,
 	installCiWorkflow,
 } from "../../ci-install.js";
+import {
+	detectHookTool,
+	hookPresent,
+	installHook,
+} from "../../hook-install.js";
 import { initSkill } from "../../init.js";
 import { skillInstalledForDetectedAgent } from "../../skill-targets.js";
+import { chooseTriggerOffer } from "../../trigger-hint.js";
 import {
 	buildHandoffPrompt,
 	detectLaunchableAgents,
@@ -54,7 +61,7 @@ const buildHandoffItems = (): HandoffItem[] => [
 
 const reportCommand = (
 	context: InteractiveContext,
-	command: "ci_install" | "init"
+	command: "ci_install" | "hook_install" | "init"
 ): Promise<void> =>
 	reportCommandTelemetry({
 		command,
@@ -97,15 +104,36 @@ export const App = ({
 	const [skillInstalled, setSkillInstalled] = useState(() =>
 		skillInstalledForDetectedAgent(context.version)
 	);
+	const hookTool = useMemo(() => {
+		const root = findGitRepo(context.targetPath)?.root;
+		return root ? detectHookTool(root) : "none";
+	}, [context.targetPath]);
+	const [hookAdded, setHookAdded] = useState(() => {
+		const root = findGitRepo(context.targetPath)?.root;
+		return root !== undefined && hookPresent(root, hookTool);
+	});
+	const [showMore, setShowMore] = useState(false);
 	const items = useMemo(
 		() =>
-			buildMenuItems(
-				shown.diagnostics.length,
+			buildMenuItems({
+				findingCount: shown.diagnostics.length,
+				hookTool,
+				offerCi: !ciWorkflowExists(context.targetPath),
+				offerHook: hookTool !== "none" && !hookAdded,
+				offerInit: !skillInstalled,
+				recommended: chooseTriggerOffer(context.targetPath),
 				ruleCount,
-				!ciWorkflowExists(context.targetPath),
-				!skillInstalled
-			),
-		[context.targetPath, ruleCount, shown.diagnostics, skillInstalled]
+				showMore,
+			}),
+		[
+			context.targetPath,
+			hookAdded,
+			hookTool,
+			ruleCount,
+			showMore,
+			shown.diagnostics,
+			skillInstalled,
+		]
 	);
 	const handoffItems = useMemo(() => buildHandoffItems(), []);
 
@@ -130,6 +158,10 @@ export const App = ({
 		async (action: MenuAction): Promise<void> => {
 			if (action === "quit") {
 				exit();
+				return;
+			}
+			if (action === "more") {
+				setShowMore(true);
 				return;
 			}
 			if (action === "review") {
@@ -195,6 +227,63 @@ export const App = ({
 							setToast({
 								kind: "error",
 								text: `Could not write the workflow (${outcome.status}).`,
+							});
+					}
+				} else if (action === "hook") {
+					const outcome = await installHook(
+						context.targetPath,
+						context.version
+					);
+					switch (outcome.status) {
+						case "created":
+							setHookAdded(true);
+							setToast({
+								kind: "success",
+								text: `Added to ${outcome.path}. Every commit now scans the staged files.`,
+							});
+							await reportCommand(context, "hook_install");
+							break;
+						case "paste": {
+							const copied = await copyToClipboard(outcome.snippet);
+							const where =
+								outcome.tool === "lefthook"
+									? "Merge this under your lefthook pre-commit commands:"
+									: "Add this to simple-git-hooks in package.json, then run npx simple-git-hooks:";
+							setToast({
+								kind: "info",
+								text: `${copied ? "Copied. " : ""}${where}\n${outcome.snippet}`,
+							});
+							break;
+						}
+						case "exists":
+							setHookAdded(true);
+							setToast({
+								kind: "info",
+								text: "Your pre-commit hook already runs nestjs-doctor.",
+							});
+							break;
+						case "symlink":
+							setToast({
+								kind: "error",
+								text: `${outcome.path} is a symlink; add the line by hand.`,
+							});
+							break;
+						case "no-tool":
+							setToast({
+								kind: "error",
+								text: "No husky, lefthook or simple-git-hooks found; nothing was written.",
+							});
+							break;
+						case "no-repo":
+							setToast({
+								kind: "error",
+								text: "Not a git repository; nothing was written.",
+							});
+							break;
+						default:
+							setToast({
+								kind: "error",
+								text: `Could not write ${outcome.path}.`,
 							});
 					}
 				} else if (action === "init") {

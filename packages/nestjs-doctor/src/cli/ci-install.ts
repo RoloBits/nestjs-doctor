@@ -40,9 +40,11 @@ export const resolveDefaultBranch = (root: string): string => {
 	return shortRef(root, "HEAD") ?? "main";
 };
 
-/** Path of the first symlink on the way to the workflow, or null when there is none. */
-const findSymlink = (root: string): string | null => {
-	const segments = [".github", join(".github", "workflows"), WORKFLOW_FILE];
+/** Path of the first symlink among `segments` under `root`, or null when there is none. */
+export const findSymlink = (
+	root: string,
+	segments: string[]
+): string | null => {
 	for (const segment of segments) {
 		const candidate = join(root, segment);
 		try {
@@ -50,15 +52,17 @@ const findSymlink = (root: string): string | null => {
 				return candidate;
 			}
 		} catch {
-			// Missing segments are created below.
+			// Missing segment.
 		}
 	}
 	return null;
 };
 
+const PLAIN_BRANCH = /^[\w.-]+$/;
+
 export const buildWorkflow = (
 	defaultBranch: string
-): string => `# nestjs-doctor — health score, diagnostics, and pull request review for NestJS.
+): string => `# Runs nestjs-doctor on pull requests and on pushes to the default branch.
 #
 # Docs:   https://www.nestjs.doctor/docs/ci
 # Source: https://github.com/RoloBits/nestjs-doctor
@@ -71,7 +75,7 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
   # Scans the default branch on every push, so the score keeps a trend line.
   push:
-    branches: [${JSON.stringify(defaultBranch)}]
+    branches: [${PLAIN_BRANCH.test(defaultBranch) ? defaultBranch : JSON.stringify(defaultBranch)}]
 
 permissions:
   contents: read
@@ -107,7 +111,7 @@ jobs:
         #   review-comments: "false"  # Turn off inline comments on the changed lines
         #   commit-status: "false"    # Turn off the commit status
         #   sarif: "true"             # Also write SARIF for GitHub code scanning
-        #   version: "1.2.3"          # Pin the nestjs-doctor version (default: latest)
+        #   version: "0.9.9"          # Pin the nestjs-doctor version (default: latest)
 `;
 
 /** True when the repository already carries the scaffolded workflow file. */
@@ -133,7 +137,11 @@ export const installCiWorkflow = async (
 		return { status: "no-repo", workflowPath: join(targetPath, WORKFLOW_FILE) };
 	}
 
-	const symlink = findSymlink(repo.root);
+	const symlink = findSymlink(repo.root, [
+		".github",
+		join(".github", "workflows"),
+		WORKFLOW_FILE,
+	]);
 	if (symlink) {
 		return { status: "symlink", workflowPath: symlink };
 	}
