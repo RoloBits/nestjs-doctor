@@ -1,7 +1,7 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { getCliVersion } from "../../src/cli/output.js";
 import {
 	reportScanTelemetry,
@@ -111,6 +111,7 @@ describe("scan telemetry reporter", () => {
 	it("sends the stored trigger offer, and null for anything else in the store", () => {
 		const home = mkdtempSync(join(tmpdir(), "nd-reporter-hints-"));
 		const key = triggerHintKey("/repo/app");
+		onTestFinished(() => rmSync(home, { force: true, recursive: true }));
 		const env = { NESTJS_DOCTOR_CONFIG_DIR: home };
 		const offered = (value: string): unknown => {
 			writeFileSync(join(home, "hints.json"), JSON.stringify({ [key]: value }));
