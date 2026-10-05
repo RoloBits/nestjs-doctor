@@ -41,8 +41,8 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "rehype-pretty-code": "^0.14.5",
-    "shiki": "^4.4.3",
+    "shiki": "^4.5.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^7"
   }
 }
