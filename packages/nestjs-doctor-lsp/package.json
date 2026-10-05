@@ -35,8 +35,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "vscode-languageserver": "^10.1.1",
-    "vscode-languageserver-textdocument": "^1.0.14"
+    "vscode-languageserver": "^10.1.2",
+    "vscode-languageserver-textdocument": "^1.0.15"
   },
   "devDependencies": {
     "tsdown": "^0.20.3",
