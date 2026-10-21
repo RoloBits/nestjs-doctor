@@ -5,10 +5,11 @@ import type { EncodedCodeGraph } from "../common/code-graph-codec.js";
 import type { DiagnoseResult } from "../common/result.js";
 import type { MonorepoInfo } from "../engine/project-detector.js";
 import type { EngineResult, MonorepoEngineResult } from "../engine/scanner.js";
-import type { ScanOptions } from "./setup.js";
+import type { EndOfRun, ScanOptions } from "./setup.js";
 
 /** Main → scan worker. Everything the engine middle needs. */
 export interface ScanWorkerRequest {
+	endOfRun: EndOfRun;
 	kind: "monorepo" | "single";
 	monorepo?: MonorepoInfo;
 	options: ScanOptions;

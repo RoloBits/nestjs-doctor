@@ -78,7 +78,7 @@ export type {
 
 import { watchCancellation } from "./cancellation-watcher.js";
 import { reportScanTelemetry } from "./scan-telemetry-reporter.js";
-import { type PipelineOptions, toScanOptions } from "./setup.js";
+import { type EndOfRun, type PipelineOptions, toScanOptions } from "./setup.js";
 import { createAnimatedProgress } from "./ui/animated-progress.js";
 
 type PipelineStep = () => void | Promise<void>;
@@ -153,9 +153,23 @@ abstract class ScanPipeline {
 	protected readonly steps: PipelineStep[] = [];
 	protected readonly targetPath: string;
 
+	/** Read by the telemetry report and the end-of-run hint alike. */
+	protected readonly endOfRun: EndOfRun;
+
 	constructor(targetPath: string, options: PipelineOptions) {
 		this.targetPath = targetPath;
 		this.options = options;
+		const tty = process.stderr.isTTY === true;
+		this.endOfRun = options.endOfRun ?? {
+			triggerSite: triggerHintSite({
+				hints: readHints(),
+				interactive: options.interactive,
+				isMachineReadable: options.isMachineReadable,
+				targetPath,
+				tty,
+			}),
+			tty,
+		};
 	}
 
 	/**
@@ -174,6 +188,7 @@ abstract class ScanPipeline {
 			blocking: this.options.blocking,
 			diagnostics,
 			fileCount,
+			hintShown: this.endOfRun.triggerSite !== "none" && fileCount > 0,
 			monorepo,
 			optionsTelemetry: this.options.telemetry,
 			outputFormat: this.options.format,
@@ -185,6 +200,7 @@ abstract class ScanPipeline {
 			suppressed,
 			targetPath: this.targetPath,
 			totalMs,
+			tty: this.endOfRun.tty,
 		});
 		this.reportTelemetry =
 			reportTelemetryEnabled(this.options.telemetry, this.scanConfig.config) &&
@@ -284,14 +300,7 @@ abstract class ScanPipeline {
 	/** One line per run at most: the recurring-trigger offer once per project, else the editor extension once per install. */
 	protected printExtensionHint(site: "menu" | "run"): void {
 		const hints = readHints();
-		const tty = process.stderr.isTTY === true;
-		const triggerTarget = triggerHintSite({
-			hints,
-			interactive: this.options.interactive,
-			isMachineReadable: this.options.isMachineReadable,
-			targetPath: this.targetPath,
-			tty,
-		});
+		const { triggerSite: triggerTarget, tty } = this.endOfRun;
 		const scanned = !this.failed && process.exitCode !== NO_FILES_EXIT_CODE;
 		if (scanned && triggerTarget === site) {
 			const offer = chooseTriggerOffer(this.targetPath);
@@ -605,6 +614,7 @@ export class MonorepoPipeline extends ScanPipeline {
 	protected delegate(): Promise<void> {
 		return this.runViaWorker(
 			{
+				endOfRun: this.endOfRun,
 				kind: "monorepo",
 				targetPath: this.targetPath,
 				options: toScanOptions(this.options),
@@ -766,6 +776,7 @@ export class SingleProjectPipeline extends ScanPipeline {
 	protected delegate(): Promise<void> {
 		return this.runViaWorker(
 			{
+				endOfRun: this.endOfRun,
 				kind: "single",
 				targetPath: this.targetPath,
 				options: toScanOptions(this.options),

@@ -33,7 +33,15 @@ export interface ScanOptions {
 	telemetry: boolean;
 }
 
+/** How a run ends on this terminal, decided on main where stderr and the hints store are visible. */
+export interface EndOfRun {
+	triggerSite: "menu" | "none" | "run";
+	tty: boolean;
+}
+
 export interface PipelineOptions extends ScanOptions {
+	/** Worker-internal: main's end-of-run decision, carried into the worker. */
+	endOfRun?: EndOfRun;
 	/** True when the run ends in the menu; set after setup from `canPrompt`. */
 	interactive: boolean;
 	isMachineReadable: boolean;

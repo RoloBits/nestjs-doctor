@@ -188,7 +188,8 @@ The CLI reports rule errors and anonymous run data to help us catch bugs and pri
 
 We collect:
 
-- Environment: CLI version, platform, Node version, and how it ran (npx, script, the installed skill, a coding agent, or CI)
+- Environment: CLI version, platform, Node version, how it ran (npx, script, the installed skill, a coding agent, or CI), and whether stderr is a terminal
+- Install: whether the anonymous install id was already stored, and whether this run showed the one-time setup tip
 - Project shape: file count, framework, ORM, Nest version (NO file contents)
 - Rules fired: rule ids and counts only (e.g. `security/no-eval`) (NO code or specific findings)
 - Rules that threw during the scan

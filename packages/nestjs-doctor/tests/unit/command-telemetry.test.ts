@@ -37,6 +37,7 @@ const buildInput = (
 	resolveIdentityFn: vi.fn(() => ({
 		anonymousId: "anon-123",
 		projectId: "proj-hash",
+		fromStore: true,
 		stored: true,
 	})),
 	send: vi.fn(() => true),

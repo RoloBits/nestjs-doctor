@@ -26,6 +26,8 @@ export interface ScanTelemetryInput {
 	/** Injectable for tests; defaults to the real environment. */
 	env?: NodeJS.ProcessEnv;
 	fileCount: number;
+	/** Whether this run prints the recurring-trigger hint; decided before the report is sent. */
+	hintShown: boolean;
 	/** Injectable for tests; defaults to the compiled-in gating. */
 	isEnabled?: typeof scanTelemetryEnabled;
 	monorepo: boolean;
@@ -44,6 +46,8 @@ export interface ScanTelemetryInput {
 	suppressed: Record<string, number>;
 	targetPath: string;
 	totalMs: number;
+	/** Whether stderr is a terminal on this run. */
+	tty: boolean;
 }
 
 /**
@@ -90,6 +94,8 @@ export const reportScanTelemetry = (input: ScanTelemetryInput): void => {
 				fileCount: input.fileCount,
 				framework: input.result.project.framework,
 				hintOffered: isTriggerOffer(storedOffer) ? storedOffer : null,
+				hintShown: input.hintShown,
+				idStored: identity.fromStore,
 				monorepo: input.monorepo,
 				nestVersion: input.result.project.nestVersion,
 				orm: input.result.project.orm,
@@ -102,6 +108,7 @@ export const reportScanTelemetry = (input: ScanTelemetryInput): void => {
 				source: generatedIn(env),
 				suppressed: input.suppressed,
 				totalMs: input.totalMs,
+				tty: input.tty,
 				version: getCliVersion(),
 			}),
 			identity.anonymousId

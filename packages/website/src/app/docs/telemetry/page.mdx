@@ -26,6 +26,9 @@ The payload is built from rule metadata, counts, and a fixed set of environment 
 | `scan_id` | A random UUID for this run, generated fresh on every scan |
 | `generated_in` | `cli` or `ci` |
 | `hint_offered` | The recurring trigger an earlier terminal run on this project was pointed at: `action`, `hook`, `skill`, or nothing |
+| `hint_shown` | Whether this run prints the one-time line pointing at a recurring trigger. It is decided before the event is sent, so the run that prints the line sends `true` |
+| `id_stored` | Whether `distinct_id` was read from `telemetry.json`. `false` on the run that creates the file, under a recognized CI provider, and when the config directory cannot be written |
+| `tty` | Whether stderr is a terminal |
 | `trigger` | How the run started: `action`, `ci`, `hook`, `skill` (an agent started the run and has the nestjs-doctor skill installed), `agent`, `script`, `npx` or `global` |
 | `platform` | The Node platform string, such as `darwin` |
 | `node_major` | The Node major version, such as `24` |

@@ -157,6 +157,7 @@ describe("inline suppression (integration)", () => {
 				resolveIdentityFn: () => ({
 					anonymousId: "anon",
 					projectId: "proj",
+					fromStore: true,
 					stored: true,
 				}),
 				result: scanResult.result,
