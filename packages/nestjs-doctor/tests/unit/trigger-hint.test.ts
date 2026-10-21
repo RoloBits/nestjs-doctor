@@ -1,9 +1,10 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import {
+	agentHintDue,
 	chooseTriggerOffer,
 	triggerHintKey,
 	triggerHintLine,
@@ -119,5 +120,54 @@ describe("which trigger is offered", () => {
 		expect(triggerHintLine("skill", "/repo")).toContain("--init");
 		expect(triggerHintLine("action", "/repo")).toContain("ci install");
 		expect(triggerHintLine("hook", "/repo")).toContain("--staged");
+	});
+});
+
+describe("when the piped agent line prints", () => {
+	/** A piped agent run, no skill under `home`, nothing recorded yet. */
+	const due = (
+		overrides: Partial<Parameters<typeof agentHintDue>[0]> = {}
+	): boolean =>
+		agentHintDue({
+			env: { CLAUDECODE: "1" },
+			hints: {},
+			home: tmp("nd-agent-home-"),
+			isMachineReadable: false,
+			targetPath: "/repo/one",
+			tty: false,
+			...overrides,
+		});
+
+	it("prints for a piped agent run and a piped npx run", () => {
+		expect(due()).toBe(true);
+		expect(due({ env: { npm_command: "exec" } })).toBe(true);
+	});
+
+	it("prints nowhere on a TTY, in CI, in a hook, or for machine-readable output", () => {
+		expect(due({ tty: true })).toBe(false);
+		expect(due({ env: { CI: "1", CLAUDECODE: "1" } })).toBe(false);
+		expect(due({ env: { GITLAB_CI: "1" } })).toBe(false);
+		expect(due({ env: { GIT_DIR: ".git" } })).toBe(false);
+		expect(due({ isMachineReadable: true })).toBe(false);
+	});
+
+	it("prints nowhere once a detected agent has the skill", () => {
+		const home = tmp("nd-agent-home-");
+		mkdirSync(join(home, ".claude", "skills", "nestjs-doctor"), {
+			recursive: true,
+		});
+		writeFileSync(
+			join(home, ".claude", "skills", "nestjs-doctor", "AGENTS.md"),
+			"> v1.0.0\n"
+		);
+
+		expect(due({ home })).toBe(false);
+	});
+
+	it("prints nowhere once this project was shown a trigger line", () => {
+		const hints = { [triggerHintKey("/repo/one")]: "skill" };
+
+		expect(due({ hints })).toBe(false);
+		expect(due({ hints, targetPath: "/repo/two" })).toBe(true);
 	});
 });

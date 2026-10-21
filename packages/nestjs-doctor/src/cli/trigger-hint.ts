@@ -6,7 +6,11 @@ import { detectTrigger, type TriggerOffer } from "../telemetry/environment.js";
 import { ciWorkflowExists } from "./ci-install.js";
 import { detectHookTool, hookLine, hookPresent } from "./hook-install.js";
 import { getCliVersion } from "./output.js";
-import { isNonInteractiveEnvironment } from "./ui/environment.js";
+import { anyAgentHasSkill } from "./skill-targets.js";
+import {
+	isCiEnvironment,
+	isNonInteractiveEnvironment,
+} from "./ui/environment.js";
 
 /** The line a one-shot run ends with; the hook variant names the exact command the menu would write. */
 export const triggerHintLine = (
@@ -77,4 +81,30 @@ export const triggerHintSite = (input: {
 		return "none";
 	}
 	return input.interactive ? "menu" : "run";
+};
+
+export const AGENT_HINT =
+	"Coding agent? Run npx nestjs-doctor@latest --init to install the nestjs-doctor skill, then rescan after every edit.";
+
+const PIPED_TRIGGERS = new Set(["agent", "global", "npx", "script"]);
+
+/** Whether the once-per-project agent line prints: a piped run outside CI and
+ * hooks, with no agent skill installed and no trigger line shown for this project. */
+export const agentHintDue = (input: {
+	env?: NodeJS.ProcessEnv;
+	hints: Record<string, string>;
+	home: string;
+	isMachineReadable: boolean;
+	targetPath: string;
+	tty: boolean;
+}): boolean => {
+	const env = input.env ?? process.env;
+	return !(
+		input.isMachineReadable ||
+		input.tty ||
+		isCiEnvironment(env) ||
+		!PIPED_TRIGGERS.has(detectTrigger(env)) ||
+		input.hints[triggerHintKey(input.targetPath)] ||
+		anyAgentHasSkill(input.home)
+	);
 };

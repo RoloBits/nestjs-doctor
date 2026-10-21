@@ -15,10 +15,15 @@ const CI_ENV_VARS = [
 	"DRONE",
 ];
 
+/** True when a CI system's environment variable is set. */
+export const isCiEnvironment = (
+	env: NodeJS.ProcessEnv = process.env
+): boolean => CI_ENV_VARS.some((name) => env[name]);
+
 /** True in CI or inside a coding agent, where a prompt would hang the run. */
 export const isNonInteractiveEnvironment = (
 	env: NodeJS.ProcessEnv = process.env
-): boolean => [...CI_ENV_VARS, ...AGENT_ENV_VARS].some((name) => env[name]);
+): boolean => isCiEnvironment(env) || AGENT_ENV_VARS.some((name) => env[name]);
 
 interface PromptGate {
 	format: string;
