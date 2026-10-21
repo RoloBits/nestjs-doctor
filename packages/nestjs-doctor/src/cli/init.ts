@@ -35,6 +35,9 @@ const FRONTMATTER_RE = /^---\n[\s\S]*?\n---\n+/;
 const toAgentsContent = (skill: string): string =>
 	skill.replace(FRONTMATTER_RE, "");
 
+const AGENTS_MD_LINE =
+	"After changing NestJS code, run `npx nestjs-doctor --blocking error --verbose` and fix what it reports before you say the task is done.";
+
 const CODEX_AGENT_CONFIG = `interface:
   display_name: "nestjs-doctor"
   short_description: "Diagnose and fix NestJS codebase health issues"
@@ -314,6 +317,11 @@ export const initSkill = async (
 		out.dim(
 			`Installed nestjs-doctor v${version} skills for ${installed} target${installed === 1 ? "" : "s"}.`
 		);
+		out.dim("");
+		out.dim(
+			"To make your agent scan before it finishes, paste into AGENTS.md or CLAUDE.md:"
+		);
+		out.dim(AGENTS_MD_LINE);
 	}
 	return installed;
 };

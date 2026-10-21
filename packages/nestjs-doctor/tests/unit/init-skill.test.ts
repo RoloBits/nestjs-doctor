@@ -478,6 +478,52 @@ describe("initSkill output", () => {
 	});
 });
 
+describe("initSkill AGENTS.md line", () => {
+	const LINE =
+		"After changing NestJS code, run `npx nestjs-doctor --blocking error --verbose` and fix what it reports before you say the task is done.";
+
+	it("prints the line once after a successful install", async () => {
+		const initSkill = await loadInitSkill();
+		await initSkill("/project", FAKE_VERSION);
+
+		const printed = mockLogger.dim.mock.calls.filter(([text]) => text === LINE);
+		expect(printed).toHaveLength(1);
+	});
+
+	it("does not print the line when the skill sources are missing", async () => {
+		missingSkills.add("nestjs-doctor");
+		const initSkill = await loadInitSkill();
+		await initSkill("/project", FAKE_VERSION);
+
+		expect(mockLogger.dim).not.toHaveBeenCalledWith(LINE);
+	});
+
+	it("does not print the line when nothing was installed", async () => {
+		mockState.failingWritePaths.add(join("/project", ".agents"));
+		const initSkill = await loadInitSkill();
+		await expect(initSkill("/project", FAKE_VERSION)).resolves.toBe(0);
+
+		expect(mockLogger.dim).not.toHaveBeenCalledWith(LINE);
+	});
+
+	it("leaves the line out of a reporter that drops dim lines", async () => {
+		const lines: string[] = [];
+		const collect = (...args: unknown[]) => {
+			lines.push(args.join(" "));
+		};
+		const initSkill = await loadInitSkill();
+		await initSkill("/project", FAKE_VERSION, {
+			dim: () => undefined,
+			error: collect,
+			success: collect,
+			warn: collect,
+		});
+
+		expect(lines).not.toContain(LINE);
+		expect(mockLogger.dim).not.toHaveBeenCalled();
+	});
+});
+
 describe("skillInstalledForDetectedAgent", () => {
 	const load = async () => {
 		const mod = await import("../../src/cli/skill-targets.js");
