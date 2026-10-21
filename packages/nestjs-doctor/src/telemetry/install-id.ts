@@ -7,6 +7,8 @@ import { detectKnownCiProvider, isSet } from "./environment.js";
 interface TelemetryIdentity {
 	/** Stable per-install id, or a shared one per provider in CI. */
 	anonymousId: string;
+	/** Whether the id was read from the store rather than minted on this run. */
+	fromStore: boolean;
 	/** Per-project, salted with a value that never leaves the machine. Absent under a known CI provider. */
 	projectId?: string;
 	/** Whether the id is the one on disk. False in CI and when the home is unwritable. */
@@ -145,7 +147,7 @@ export function resolveIdentity(
 	if (ci) {
 		// No project id in CI: any salt shipped in the package makes a
 		// runner's checkout path guessable.
-		return { anonymousId: ci, stored: false };
+		return { anonymousId: ci, fromStore: false, stored: false };
 	}
 
 	const file = join(configDir(env), "telemetry.json");
@@ -154,6 +156,7 @@ export function resolveIdentity(
 	if (existing) {
 		return {
 			anonymousId: existing.anonymousId,
+			fromStore: true,
 			projectId: salted(existing.salt),
 			stored: true,
 		};
@@ -178,6 +181,7 @@ export function resolveIdentity(
 
 	return {
 		anonymousId: created.anonymousId,
+		fromStore: false,
 		projectId: salted(created.salt),
 		stored,
 	};

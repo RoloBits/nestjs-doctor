@@ -18,6 +18,7 @@ const post = (message: ScanWorkerMessage): void => {
 
 const options: PipelineOptions = {
 	...request.options,
+	endOfRun: request.endOfRun,
 	interactive: false,
 	isMachineReadable: true,
 	jsonCompact: false,

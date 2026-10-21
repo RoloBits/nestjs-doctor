@@ -38,6 +38,7 @@ const injected = (
 	resolveIdentityFn: () => ({
 		anonymousId: "anon-123",
 		projectId: "proj-hash",
+		fromStore: true,
 		stored: true,
 	}),
 	send,

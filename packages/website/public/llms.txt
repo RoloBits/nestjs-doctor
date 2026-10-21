@@ -354,7 +354,7 @@ Schema rules run against entities extracted from Prisma, TypeORM, Drizzle, or Mi
 
 ## Telemetry
 
-A finished scan reports one `scan_completed` event: CLI version, Node major version, platform, how the run started, file count, framework, ORM, Nest version, dependencies matched against a fixed list, built-in rule ids with counts, and the score. A finished `--init` or `ci install` reports one `command_completed` event with `command` (`init` or `ci_install`) and `from` (`flag` or `menu`), under the same id and the same opt-outs. Never code, paths, the project name, globs, or custom rule names. Opt out with `--no-telemetry`, `"telemetry": false` in the config, or `DO_NOT_TRACK=1`. `NESTJS_DOCTOR_TELEMETRY_DEBUG=1` prints the payload instead of sending it. Details: https://www.nestjs.doctor/docs/telemetry
+A finished scan reports one `scan_completed` event: CLI version, Node major version, platform, how the run started, file count, framework, ORM, Nest version, dependencies matched against a fixed list, built-in rule ids with counts, the score, whether stderr is a terminal, whether the install id was already stored, and whether the run showed the one-time setup tip. A finished `--init` or `ci install` reports one `command_completed` event with `command` (`init` or `ci_install`) and `from` (`flag` or `menu`), under the same id and the same opt-outs. Never code, paths, the project name, globs, or custom rule names. Opt out with `--no-telemetry`, `"telemetry": false` in the config, or `DO_NOT_TRACK=1`. `NESTJS_DOCTOR_TELEMETRY_DEBUG=1` prints the payload instead of sending it. Details: https://www.nestjs.doctor/docs/telemetry
 
 ## Links
 

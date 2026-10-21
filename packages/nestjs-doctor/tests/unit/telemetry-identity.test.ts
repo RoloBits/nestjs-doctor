@@ -224,6 +224,13 @@ describe("install identity", () => {
 		expect(resolveIdentity("/repo/a", env).stored).toBe(true);
 	});
 
+	it("says the id came from the store only after the run that minted it", () => {
+		const env = isolated();
+
+		expect(resolveIdentity("/repo/a", env).fromStore).toBe(false);
+		expect(resolveIdentity("/repo/a", env).fromStore).toBe(true);
+	});
+
 	it("says a per-run id was never stored", () => {
 		const blocker = join(mkdtempSync(join(tmpdir(), "nd-blocked-")), "file");
 		homes.push(dirname(blocker));

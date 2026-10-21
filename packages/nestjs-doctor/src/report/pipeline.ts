@@ -103,6 +103,7 @@ abstract class ReportPipeline {
 			blocking: "error",
 			diagnostics,
 			fileCount,
+			hintShown: false,
 			monorepo,
 			optionsTelemetry: this.telemetry,
 			outputFormat: "report",
@@ -114,6 +115,7 @@ abstract class ReportPipeline {
 			suppressed,
 			targetPath: this.targetPath,
 			totalMs,
+			tty: process.stderr.isTTY === true,
 			...this.telemetryOverrides,
 		});
 	}

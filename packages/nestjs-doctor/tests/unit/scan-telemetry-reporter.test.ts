@@ -34,6 +34,7 @@ const buildInput = (
 	diagnostics: [],
 	env: {},
 	fileCount: 4,
+	hintShown: false,
 	isEnabled: () => true,
 	monorepo: false,
 	optionsTelemetry: true,
@@ -41,6 +42,7 @@ const buildInput = (
 	resolveIdentityFn: vi.fn(() => ({
 		anonymousId: "anon-123",
 		projectId: "proj-hash",
+		fromStore: true,
 		stored: true,
 	})),
 	result: { ...emptyResult(), elapsedMs: 12.7 },
@@ -52,6 +54,7 @@ const buildInput = (
 	suppressed: {},
 	targetPath: "/repo/app",
 	totalMs: 18.4,
+	tty: false,
 	...overrides,
 });
 
@@ -124,6 +127,41 @@ describe("scan telemetry reporter", () => {
 		expect(offered("not-an-offer")).toBeNull();
 	});
 
+	it("sends whether the install id came from the store or was minted now", () => {
+		const idStored = (fromStore: boolean): unknown => {
+			const input = buildInput({
+				resolveIdentityFn: vi.fn(() => ({
+					anonymousId: "anon-123",
+					fromStore,
+					stored: true,
+				})),
+			});
+			reportScanTelemetry(input);
+			return input.send.mock.calls[0]?.[0].id_stored;
+		};
+
+		expect(idStored(true)).toBe(true);
+		expect(idStored(false)).toBe(false);
+	});
+
+	it("sends whether stderr is a terminal, and whether this run shows the hint", () => {
+		const sent = (overrides: Partial<ScanTelemetryInput>) => {
+			const input = buildInput(overrides);
+			reportScanTelemetry(input);
+			const payload = input.send.mock.calls[0]?.[0];
+			return { hint: payload?.hint_shown, tty: payload?.tty };
+		};
+
+		expect(sent({ hintShown: true, tty: true })).toEqual({
+			hint: true,
+			tty: true,
+		});
+		expect(sent({ hintShown: false, tty: false })).toEqual({
+			hint: false,
+			tty: false,
+		});
+	});
+
 	it("keeps custom rule names out of the disabled list", () => {
 		const input = buildInput();
 
@@ -182,7 +220,7 @@ describe("scan telemetry reporter", () => {
 
 	it("sends one payload carrying every field, on a run that stores its first id", () => {
 		// Pins the payload against the removal of the first-run notice: the same
-		// 50 fields go out, in one send, on the run that used to print it.
+		// 53 fields go out, in one send, on the run that used to print it.
 		const input = buildInput();
 
 		reportScanTelemetry(input);
@@ -216,6 +254,8 @@ describe("scan telemetry reporter", () => {
 			"frontend",
 			"generated_in",
 			"hint_offered",
+			"hint_shown",
+			"id_stored",
 			"ignored_file_count",
 			"ignored_rules",
 			"messaging",
@@ -239,6 +279,7 @@ describe("scan telemetry reporter", () => {
 			"suppressed_inline",
 			"total_ms",
 			"trigger",
+			"tty",
 			"version",
 			"via_action",
 		]);

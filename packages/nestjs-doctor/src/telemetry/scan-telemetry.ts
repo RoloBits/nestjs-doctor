@@ -47,6 +47,10 @@ export interface ScanFacts {
 	framework: string | null;
 	/** The recurring trigger this project was offered on an earlier run, if any. */
 	hintOffered: TriggerOffer | null;
+	/** Whether this run prints the recurring-trigger hint. */
+	hintShown: boolean;
+	/** Whether the install id was read from the store rather than minted on this run. */
+	idStored: boolean;
 	monorepo: boolean;
 	nestVersion: string | null;
 	orm: string | null;
@@ -61,6 +65,8 @@ export interface ScanFacts {
 	/** Inline-directive suppression counts, keyed by rule id. */
 	suppressed: Record<string, number>;
 	totalMs: number;
+	/** Whether stderr is a terminal. */
+	tty: boolean;
 	version: string;
 }
 
@@ -91,6 +97,8 @@ export interface ScanPayload {
 	frontend: string[];
 	generated_in: "ci" | "cli";
 	hint_offered: TriggerOffer | null;
+	hint_shown: boolean;
+	id_stored: boolean;
 	ignored_file_count: number;
 	ignored_rules: string[];
 	messaging: string[];
@@ -114,6 +122,7 @@ export interface ScanPayload {
 	suppressed_inline: Record<string, number>;
 	total_ms: number;
 	trigger: Trigger;
+	tty: boolean;
 	version: string;
 	via_action: boolean;
 }
@@ -214,6 +223,8 @@ export function buildScanPayload(
 		frontend: facts.ecosystem.frontend,
 		generated_in: facts.source,
 		hint_offered: facts.hintOffered,
+		hint_shown: facts.hintShown,
+		id_stored: facts.idStored,
 		ignored_file_count: facts.config.ignoredFileCount,
 		ignored_rules: facts.config.ignoredRules,
 		messaging: facts.ecosystem.messaging,
@@ -245,6 +256,7 @@ export function buildScanPayload(
 		),
 		total_ms: Math.round(facts.totalMs),
 		trigger: facts.action.trigger,
+		tty: facts.tty,
 		version: facts.version,
 		via_action: facts.action.viaAction,
 	};
