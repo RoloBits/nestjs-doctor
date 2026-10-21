@@ -55,6 +55,21 @@ in beside its `SKILL.md`. `nestjs-doctor-create-rule` uses it for the rule API,
 worked examples, and ts-morph patterns, so the skill itself stays short and the
 detail loads only when a rule is actually being written.
 
+## Make the scan part of done
+
+The agent uses the skill when it decides to. To make the scan a rule for every
+task, paste this line into the project's `AGENTS.md` or `CLAUDE.md`:
+
+```markdown
+After changing NestJS code, run `npx nestjs-doctor --blocking error --verbose` and fix what it reports before you say the task is done.
+```
+
+The command exits `1` on a finding with error severity, so the agent sees a
+failed command. `--blocking error` keeps that exit code if the agent adds
+`--json`. `--verbose` prints the file and line of each finding.
+
+`--init` prints the same line when it finishes. It does not edit either file.
+
 ## What the skill knows that a prompt does not
 
 The rules are deterministic and the score is a function of the findings, so the
