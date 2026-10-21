@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 import { performance } from "node:perf_hooks";
 import type { ReportArtifact, ReportProvider } from "../common/artifact.js";
 import type { CodeGraph } from "../common/code-graph.js";
@@ -58,6 +59,8 @@ import {
 	outputSingleProjectResults,
 } from "./output.js";
 import {
+	AGENT_HINT,
+	agentHintDue,
 	chooseTriggerOffer,
 	triggerHintKey,
 	triggerHintLine,
@@ -281,7 +284,7 @@ abstract class ScanPipeline {
 		);
 	}
 
-	/** One line per run at most: the recurring-trigger offer once per project, else the editor extension once per install. */
+	/** One line per run at most: the recurring-trigger offer (or, piped, the agent line) once per project, else the editor extension once per install. */
 	protected printExtensionHint(site: "menu" | "run"): void {
 		const hints = readHints();
 		const tty = process.stderr.isTTY === true;
@@ -299,6 +302,21 @@ abstract class ScanPipeline {
 				console.error(highlighter.dim(triggerHintLine(offer, this.targetPath)));
 				return;
 			}
+		}
+		if (
+			scanned &&
+			site === "run" &&
+			agentHintDue({
+				hints,
+				home: homedir(),
+				isMachineReadable: this.options.isMachineReadable,
+				targetPath: this.targetPath,
+				tty,
+			}) &&
+			markHint(triggerHintKey(this.targetPath), process.env, "skill")
+		) {
+			console.error(AGENT_HINT);
+			return;
 		}
 		const target = extensionHintSite({
 			hints,

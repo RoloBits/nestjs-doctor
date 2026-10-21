@@ -112,7 +112,9 @@ naming the recurring trigger the repository is closest to: `ci install` when a
 `.github/workflows` directory exists without the nestjs-doctor workflow,
 `--staged` in a pre-commit hook when husky or lefthook is set up, and `--init`
 otherwise. It prints once per project and never in CI, inside a coding agent,
-in a pipe, or with machine-readable output.
+in a pipe, or with machine-readable output. When stderr is a pipe outside CI and
+no agent has the skill, the run instead ends with one plain line telling a
+coding agent to run `--init`, also once per project.
 
 **Share the report** opens a checkbox picker over the sections the scan
 produced. See [Sharing a report](/docs/report/share).
