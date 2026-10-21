@@ -267,6 +267,12 @@ npx nestjs-doctor --init
 
 Supported agents: Claude Code, Amp Code, Cursor, OpenCode, Windsurf, Antigravity, Gemini CLI, Codex. A project-level fallback is always written to `.agents/nestjs-doctor/`, `.agents/nestjs-boot-trace/`, and `.agents/nestjs-doctor-create-rule/`. Re-running `--init` overwrites what it wrote before. A skill that carries a `references/` directory, as `nestjs-doctor-create-rule` does, has it copied alongside its `SKILL.md`.
 
+To make the scan a rule for every task, paste this line into the project's `AGENTS.md` or `CLAUDE.md`. `--init` prints it and edits neither file:
+
+```markdown
+After changing NestJS code, run `npx nestjs-doctor --blocking error --verbose` and fix what it reports before you say the task is done.
+```
+
 ## Editors
 
 VS Code: install the NestJS Doctor extension from the Marketplace, and add `nestjs-doctor` as a devDependency of the project.
