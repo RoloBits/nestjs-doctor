@@ -33,6 +33,7 @@ import {
 	resolveProvidersAsync,
 	updateProvidersForFile,
 } from "./graph/type-resolver.js";
+import { workspaceGuardedControllers } from "./graph/workspace-guards.js";
 import { startPhaseTimer } from "./phase-timer.js";
 import { detectProject, type MonorepoInfo } from "./project-detector.js";
 import { filterRules, separateRules } from "./rules/rule-pipeline.js";
@@ -60,6 +61,7 @@ export interface AnalysisContext {
 	schemaGraph?: SchemaGraph;
 	schemaRules: SchemaRule[];
 	targetPath: string;
+	workspaceGuardedControllers?: ReadonlySet<string>;
 }
 
 /** Built on first use, since only a report reads it, and dropped on any edit. */
@@ -188,6 +190,9 @@ export async function prepareAnalysis(
 
 export function updateFile(context: AnalysisContext, filePath: string): void {
 	codeGraphs.delete(context);
+	// A file edit can change ownership or guard registration; only a new workspace
+	// scan can re-establish facts about all consuming applications.
+	context.workspaceGuardedControllers = undefined;
 	const existing = context.astProject.getSourceFile(filePath);
 	if (existing) {
 		context.astProject.removeSourceFile(existing);
@@ -356,6 +361,11 @@ export async function reduceSubProjects<T>(
 		return graph;
 	};
 
+	const workspaceGuards = await workspaceGuardedControllers(
+		targetPath,
+		monorepo.projects,
+		filesByProject
+	);
 	const results = new Map<string, T>();
 	const total = [...filesByProject.values()].filter(
 		(files) => files.length > 0
@@ -376,6 +386,7 @@ export async function reduceSubProjects<T>(
 			rootSchemaFor,
 			(phase, parsed, total) => onAnalysis?.(name, phase, parsed, total)
 		);
+		context.workspaceGuardedControllers = workspaceGuards.get(name);
 		results.set(name, await consume(name, context));
 	}
 	return results;

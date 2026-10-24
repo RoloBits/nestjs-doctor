@@ -232,6 +232,7 @@ function fileRuleFacts(context: AnalysisContext): FileRuleFacts {
 	return {
 		diProviders,
 		guards: {
+			workspaceGuardedControllers: context.workspaceGuardedControllers,
 			composedDecorators,
 			globallyRegistered:
 				callsUseGlobalGuards ||

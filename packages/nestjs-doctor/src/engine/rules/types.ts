@@ -48,6 +48,8 @@ export interface GuardFacts {
 	guardedBaseClasses: ReadonlySet<string>;
 	/** Classes carrying a guard decorator, so subclasses inherit it. */
 	guardedClasses: ReadonlySet<string>;
+	/** Local controllers protected in every known consuming workspace application. */
+	workspaceGuardedControllers?: ReadonlySet<string>;
 }
 
 export interface CodeRuleContext {

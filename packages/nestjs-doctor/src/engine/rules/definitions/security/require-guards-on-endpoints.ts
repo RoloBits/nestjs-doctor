@@ -54,6 +54,9 @@ export const requireGuardsOnEndpoints: Rule = {
 			// A base class carries handlers but no @Controller(); the subclass that
 			// registers it may be where the guard lives.
 			const name = cls.getName();
+			if (name && context.guards?.workspaceGuardedControllers?.has(name)) {
+				continue;
+			}
 			if (
 				!isController(cls) &&
 				name &&

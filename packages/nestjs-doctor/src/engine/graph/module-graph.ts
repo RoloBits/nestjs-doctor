@@ -10,6 +10,7 @@ import { baseClassName } from "../nest-class-inspector.js";
 import { YIELD_INTERVAL, yieldToEventLoop } from "../yield.js";
 import { isTestFile, isWrapper, unwrapped } from "./custom-providers.js";
 import { invalidateEntryModules } from "./entry-points.js";
+import { readProviderTokens, readRequiredImports } from "./provider-tokens.js";
 import type { PathAliasMap } from "./tsconfig-paths.js";
 import { resolvePathAlias } from "./tsconfig-paths.js";
 import type { ProviderInfo } from "./type-resolver.js";
@@ -112,6 +113,10 @@ export interface ModuleNode {
 	providers: string[];
 	/** `provide` tokens of object-literal providers, which `providers` keeps as raw text. */
 	providerTokens: string[];
+	/** Imports present without executing a conditional or a dynamic factory. */
+	requiredImports?: string[];
+	/** A direct, unconditional APP_GUARD registration on this module declaration. */
+	staticGlobalGuard?: boolean;
 }
 
 export interface ModuleGraph {
@@ -192,9 +197,21 @@ function extractModulesFromFile(
 						?.asKind(SyntaxKind.ObjectLiteralExpression)
 				: undefined);
 		if (obj) {
+			node.requiredImports = readRequiredImports(
+				propertyInitializer(obj, "imports")
+			);
+			node.staticGlobalGuard = extractProviderTokens(obj).includes("APP_GUARD");
 			const importTags = extractArrayPropertyNames(obj, "imports", pathAliases);
 			node.imports = importTags.map((t) => t.name);
 			for (const t of importTags) {
+				const spec = collectPackageImportNames(
+					t.referenceFile ?? sourceFile,
+					pathAliases
+				).get(t.name);
+				if (spec) {
+					node.packageImports ??= {};
+					node.packageImports[t.name] = spec;
+				}
 				if (t.viaForwardRef) {
 					node.forwardRefImports.add(t.name);
 				}
@@ -217,7 +234,7 @@ function extractModulesFromFile(
 
 		const pkgImports = node.imports.filter((imp) => packageNames.has(imp));
 		if (pkgImports.length > 0) {
-			node.packageImports = {};
+			node.packageImports ??= {};
 			for (const imp of pkgImports) {
 				node.packageImports[imp] = packageNames.get(imp) as string;
 			}
@@ -726,11 +743,12 @@ interface ExtractedName {
 	/** The dynamic module method the name was extracted from, e.g. `forRoot`. */
 	dynamicMethod?: string;
 	name: string;
+	referenceFile?: SourceFile;
 	viaForwardRef: boolean;
 }
 
-function plain(name: string): ExtractedName {
-	return { name, viaForwardRef: false };
+function plain(name: string, referenceFile?: SourceFile): ExtractedName {
+	return { name, referenceFile, viaForwardRef: false };
 }
 
 /** The initializer of `obj.propertyName`, or the name of a shorthand `{ providers }`. */
@@ -759,25 +777,7 @@ function localVariable(scope: Node, name: string) {
 
 /** `provide` tokens of the object-literal entries in a module's `providers`. */
 function extractProviderTokens(obj: ObjectLiteralExpression): string[] {
-	const value = propertyInitializer(obj, "providers");
-	const initializer = (
-		Node.isIdentifier(value)
-			? localVariable(value, value.getText())?.getInitializer()
-			: value
-	)?.asKind(SyntaxKind.ArrayLiteralExpression);
-	if (!initializer) {
-		return [];
-	}
-
-	const tokens: string[] = [];
-	for (const element of initializer.getElements()) {
-		const literal = element.asKind(SyntaxKind.ObjectLiteralExpression);
-		const token = literal && propertyInitializer(literal, "provide")?.getText();
-		if (token) {
-			tokens.push(token.split(".").pop() as string);
-		}
-	}
-	return tokens;
+	return readProviderTokens(propertyInitializer(obj, "providers"));
 }
 
 function extractArrayPropertyNames(
@@ -960,7 +960,7 @@ function extractNamesFromElement(
 			pathAliases,
 			el
 		);
-		return resolved.length > 0 ? resolved : [plain(el.getText())];
+		return resolved.length > 0 ? resolved : [plain(el.getText(), sourceFile)];
 	}
 
 	if (Node.isObjectLiteralExpression(el) && el.getProperty("module")) {
@@ -1508,6 +1508,9 @@ export function mergeModuleGraphs(
 				name: prefixed,
 				project: projectName,
 				imports: node.imports.map((imp) =>
+					resolve(graph, projectName, imp, node)
+				),
+				requiredImports: node.requiredImports?.map((imp) =>
 					resolve(graph, projectName, imp, node)
 				),
 				forwardRefImports: prefixedForwardRef,
