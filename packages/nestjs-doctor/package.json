@@ -82,10 +82,10 @@
   "devDependencies": {
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "jsdom": "^26.1.0",
+    "jsdom": "^31.0.0",
     "react-dom": "19.2.8",
-    "tsdown": "^0.20.3",
-    "vitest": "^4.1.11"
+    "tsdown": "^0.23.7",
+    "vitest": "^5.1.0"
   },
   "engines": {
     "node": ">=20.19.0"
