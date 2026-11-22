@@ -16,6 +16,7 @@ import { noDuplicateModuleMetadata } from "./definitions/correctness/no-duplicat
 import { noDuplicateRoutes } from "./definitions/correctness/no-duplicate-routes.js";
 import { noEmptyHandlers } from "./definitions/correctness/no-empty-handlers.js";
 import { noFireAndForgetAsync } from "./definitions/correctness/no-fire-and-forget-async.js";
+import { noLegacyNestjsImports } from "./definitions/correctness/no-legacy-nestjs-imports.js";
 import { noMissingFilterCatch } from "./definitions/correctness/no-missing-filter-catch.js";
 import { noMissingGuardMethod } from "./definitions/correctness/no-missing-guard-method.js";
 import { noMissingInjectable } from "./definitions/correctness/no-missing-injectable.js";
@@ -83,6 +84,7 @@ export const allRules: AnyRule[] = [
 	noMissingModuleDecorator,
 	requireInjectDecorator,
 	noFireAndForgetAsync,
+	noLegacyNestjsImports,
 	paramDecoratorMatchesRoute,
 	factoryInjectMatchesParams,
 	validatedNonPrimitiveNeedsType,
