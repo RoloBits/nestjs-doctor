@@ -7,7 +7,7 @@ export const metadata = docsMetadata["/docs/rules/correctness"];
 
 # Correctness rules
 
-20 rules that detect bugs, missing decorators, and runtime errors.
+21 rules that detect bugs, missing decorators, and runtime errors.
 
 | Rule | Severity | What it catches |
 |------|----------|-----------------|
@@ -29,6 +29,7 @@ export const metadata = docsMetadata["/docs/rules/correctness"];
 | `no-duplicate-decorators` | warning | Same decorator appears twice on a single target |
 | `validated-non-primitive-needs-type` | warning | Non-primitive DTO property with class-validator decorators missing `@Type()` |
 | `validate-nested-array-each` | warning | `@ValidateNested()` on array property missing `{ each: true }` |
+| `no-legacy-nestjs-imports` | warning | Import or decorator that moved package or was renamed across NestJS versions |
 | `no-empty-handlers` | info | HTTP handler with empty body |
 | `injectable-must-be-provided` | info | `@Injectable()` class not registered in any module's providers |
 
@@ -607,5 +608,35 @@ export class UsersService {
   providers: [UsersService],
 })
 export class UsersModule {}
+```
+</CodeGroup>
+
+---
+
+## no-legacy-nestjs-imports
+
+**Scope:** File
+
+Detects imports and decorators that moved package or changed name across NestJS versions.
+
+**Why:** Both sides of these changes compile, so a diff that touches them looks harmless and the failure only shows up during an upgrade, mixed with the errors that do need real code changes. A file that still imports `HttpService` from `@nestjs/common` breaks the build when the project moves to Nest 5, and a controller still decorated with `@ApiUseTags` stops updating the tag it used to set in the generated OpenAPI document.
+
+<CodeGroup labels={["Bad", "Good"]}>
+```typescript
+import { HttpModule, HttpService } from '@nestjs/common';  // moved to @nestjs/axios in Nest 5
+import { ApiUseTags } from '@nestjs/swagger';               // renamed to @ApiTags in v4
+
+@ApiUseTags('media')
+@Controller('media')
+export class MediaController {}
+```
+```typescript
+import { Module } from '@nestjs/common';
+import { HttpModule, HttpService } from '@nestjs/axios';
+import { ApiTags } from '@nestjs/swagger';
+
+@ApiTags('media')
+@Controller('media')
+export class MediaController {}
 ```
 </CodeGroup>

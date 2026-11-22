@@ -1,0 +1,9 @@
+{
+  "name": "legacy-imports-app",
+  "version": "1.0.0",
+  "dependencies": {
+    "@nestjs/common": "^6.7.2",
+    "@nestjs/core": "^6.7.2",
+    "@nestjs/swagger": "^3.0.1"
+  }
+}
