@@ -137,6 +137,8 @@ export interface EndpointNode {
 	dependencies: MethodDependencyNode[];
 	/** Last line of the handler method (for full-function highlighting) */
 	endLine: number;
+	/** The route's walk as plain text for an agent. Present on `--format json` when the code graph was built. */
+	explain?: string;
 	filePath: string;
 	handlerMethod: string;
 	httpMethod: string;

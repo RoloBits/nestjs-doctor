@@ -59,6 +59,20 @@ rules report against the model instead of a file position.
 Never suppress a finding to move the number. The score is only worth something
 while it reflects the code.
 
+## Explaining a route
+
+Every endpoint in `--json` carries `explain`: the route's walk as text, with
+the database verdict first, then the steps in source order with their call
+sites, the conditions above them, and the lines of the first read and write.
+Read it before touching a handler or a service it reaches:
+
+```bash
+npx nestjs-doctor@latest . --json | jq -r '.endpoints.endpoints[] | select(.routePath == "/orders/:id") | .explain'
+```
+
+It is source order of call sites, not a runtime trace. A condition on a step
+means the call sits inside that branch, not that it ran.
+
 ## When a rule is wrong for this project
 
 Reach for the narrowest control that works, in this order:

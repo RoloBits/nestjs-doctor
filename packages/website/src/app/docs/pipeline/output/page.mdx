@@ -72,6 +72,16 @@ Useful for piping into other tools:
 npx nestjs-doctor . --json | jq '.diagnostics[] | select(.severity == "error")'
 ```
 
+Each endpoint also carries `explain`, the route's walk as plain text: the
+database verdict, the steps with their call sites, the conditions above them,
+and the source lines of the first read and write. It is the text the report's
+**Copy for AI agent** button copies, and it needs the code graph, so a `--json`
+run builds one:
+
+```bash
+npx nestjs-doctor . --json | jq -r '.endpoints.endpoints[] | select(.routePath == "/orders/:id") | .explain'
+```
+
 ### Score only (`--score`)
 
 The numeric score and nothing else:
